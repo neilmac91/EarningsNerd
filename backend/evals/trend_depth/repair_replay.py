@@ -16,7 +16,14 @@ For each case and repeat it reports the repair's kind, calls, latency, tokens an
 a repair sent seconds after its first pass bills: that first pass's whole prompt read from cache, the frozen
 prompt's first attempt on the same pack giving its length), the gate's verdict on the repaired analysis, and how
 many of the sentences that did not fail stayed byte for byte. A replay's own cache state differs from that: DeepSeek
-may or may not still hold the recorded prompt, and a second repeat reads the first's.
+may or may not still hold the recorded prompt, and a case's repeats may run at once (``--concurrency``), so neither
+reads the other's, while a later case of the same company may read an earlier one's system prompt and pack. Each
+row's cached tokens show which.
+
+The dry run lists the cases and the most one run can send and bill (``ceiling``): two calls a repeat (the patch and
+the full repair), each prompt read cold at one token per byte and each reply at the arm's ``max_tokens``, off-peak
+and at DeepSeek's peak price (``PEAK``). A repeat interrupted between the two (a kill, a provider error) is resumed
+with the full repair alone (``generate._repair_v2``), so a re-run adds no patch call.
 
 Each repeat is written to ``runs/<label>/repair-replay/repeats/<source>__<TICKER>__<n>.json`` as soon as it
 returns, and the paid patch call before any full repair is sent; the folder is a level deeper than any stage reads
@@ -31,15 +38,15 @@ import copy
 import difflib
 import hashlib
 import json
-import math
 import statistics
 from typing import Any, Optional
 
 from evals.trend_depth import generate
-from evals.trend_depth.providers import ARMS, list_cost
-from evals.trend_depth.records import unsettled, write_json
+from evals.trend_depth.providers import ARMS, list_cost, max_tokens_for
+from evals.trend_depth.records import quantile, unsettled, write_json
 
 ARM = "deepseek-flash"
+PEAK = 2.0  # DeepSeek's peak hours double every price (providers' price note for deepseek-flash)
 SOURCES = ("eval-v1", "dev-v4", "dev-v3")
 FOLDER = "repair-replay"
 USAGE = ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens")
@@ -132,12 +139,28 @@ async def repair(case: dict[str, Any], n: int, label: str, semaphore: asyncio.Se
     return record
 
 
+def ceiling(found: list[dict[str, Any]], repeats: int) -> tuple[int, float]:
+    """The most one run can send and bill, as (calls, USD off-peak): per repeat of each case, the patch request and the
+    full repair, each prompt (the frozen system prompt and the repair message ``repair`` sends) read cold at one token
+    per UTF-8 byte, the most a byte-level tokenizer makes, and each reply at the arm's ``max_tokens``. A re-run that
+    retries a provider error sends more; a reply cut off at ``max_tokens`` is one."""
+    arm = ARMS[ARM]
+    system, cap = generate.system_prompt(ARM), max_tokens_for(arm)
+    cost = 0.0
+    for case in found:
+        record, pack = case["record"], case["pack"]
+        user = generate.user_message(pack)
+        for patch in (True, False):
+            message = generate.repair_message_v2(user, record["output"], record["gate"]["failures"], pack, patch=patch)
+            cost += list_cost(arm, len(system.encode()) + len(message.encode()), 0, cap)
+    return 2 * len(found) * repeats, round(cost * repeats, 6)
+
+
 def _percentile(values: list[float], share: float) -> Optional[float]:
-    """The nearest-rank percentile."""
-    if not values:
-        return None
-    ordered = sorted(values)
-    return round(ordered[max(0, math.ceil(share * len(ordered)) - 1)], 3)
+    """The report's latency quantile (``records.quantile``: linear between the two nearest ranks), so a repair's p50 and
+    p90 are on the basis of §3's latency rows and baselines; a nearest rank read 1.0 s as the median of 1.0 and 2.0."""
+    value = quantile(values, share)
+    return None if value is None else round(value, 3)
 
 
 def summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -188,7 +211,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     for case in found:
         failures = case["record"]["gate"]["failures"]
         print(f"  case {case['name']}: {len(failures)} failure(s): " + "; ".join(f["failure"] for f in failures)[:300])
-    print(f"{len(found)} cases, {len(found) * args.repeats} repairs")
+    calls, most = ceiling(found, args.repeats)
+    print(f"{len(found)} cases, {len(found) * args.repeats} repairs, at most {calls} calls and USD {most:.2f} off-peak "
+          f"(USD {most * PEAK:.2f} at peak): every prompt read cold, every patch falling back, every reply at max_tokens")
     if args.dry_run:
         return
     rows = asyncio.run(replay(args.label, found, args.repeats, args.concurrency))

@@ -18,7 +18,10 @@ value of a calculation, whether the claim is a bound the value satisfies ("below
 identical to a matched value or to one of its inputs (VRTX's "buybacks plus dividends" is its buybacks, as it pays
 no dividend). A twin is another name for that one value: an input's twin is shown only when every input is of the
 value's own period, and an ID the pack withholds is never a twin (``_describe``, ``_withheld``), so that no twin
-licenses a wrong number. The record format is unchanged: the view is in each item's ``match`` text. An audit made
+licenses a wrong number. A figure the gate matched in a filing passage is shown with the passage sentence(s) that
+print it, as the gate read them, with the 10-K's fiscal year and section (``_passage_view``): view 1 said only "a
+figure in a FY2025 10-K passage", which left the auditor nothing to judge, and eval-v1's auditors marked nearly every
+such claim consistent. The record format is unchanged: the view is in each item's ``match`` text. An audit made
 under an earlier view is redone, its cost carried forward, unless the same auditor's other folder already holds one
 of this output under the current view, which is copied.
 """
@@ -27,6 +30,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -39,8 +43,8 @@ from evals.trend_depth.records import output_sha256, own_spend, read_same_output
 VIEW = 2
 SYSTEM = """You check that each number in a financial analysis is said about the right thing. For each numbered
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
-metric label, period and signed value of a cited value, or a calculation from cited values and its result). Mark
-the item:
+metric label, period and signed value of a cited value, a calculation from cited values and its result, or the
+sentences of a filing passage that print it). Mark the item:
 - "consistent": the sentence says the number is that metric for that period (or that calculation), with its sign,
   allowing ordinary paraphrase ("sales" for revenue, "fell 10.3%" for a growth of -10.3%);
 - "mismatch": the sentence attributes the number to a different metric, period, segment, sign or basis than the
@@ -64,9 +68,22 @@ How to read a match:
     cash flow" is consistent with "buybacks plus dividends % of free cash flow" whose input "buybacks plus
     dividends" has the same value as share repurchases. The number stated as anything else about that name (its
     level, its growth, a ratio or share the match does not compute) is a mismatch.
+- A figure in a filing passage is shown with the passage's sentences that print it, quoted: it is consistent when
+  the sentence says what the passage says that figure is (metric, period, segment, sign), a mismatch otherwise.
 Return one JSON object only: {"items": [{"n": 1, "label": "consistent", "reason": "<= 20 words"}]}"""
 _NO_TWINS = ("pctile",)  # percentile ranks share values by coincidence, not by construction
 _MAX_TWINS = 3
+# A passage figure's view quotes the passage sentences that print it, each cut to QUOTE_CAP characters around the
+# figure, at most QUOTE_SENTENCES of them: in eval-v1's DeepSeek and Sonnet outputs a sentence printing a matched
+# figure averaged 222 characters (17 of 255 over 400), and no figure was printed in more than three.
+QUOTE_CAP = 400
+QUOTE_SENTENCES = 3
+# A sentence ends at a full stop, question or exclamation mark before a capital, a digit or a quote, unless the stop
+# ends an abbreviation filings use ("U.S. GAAP", "Inc.", a lone initial).
+_SENTENCE_END = re.compile(r"(?<=[.!?])[\"”’)]*\s+(?=[A-Z0-9“\"($])")
+_ABBREVIATION = re.compile(r"(?:\b[A-Z]|\bU\.S|\bInc|\bCorp|\bCo|\bNo|\bvs|\be\.g|\bi\.e|\bapprox|\bLtd|\bJr|\bMr|\bMs|\bDr|\bSt)"
+                           r"\.[\"”’)]*$")
+_UNSCALED = {"(x1000)": "thousands", "(x1e+06)": "millions"}  # factcheck._passage_numbers' table-scale readings
 
 
 def _signed(value: float, unit: str) -> str:
@@ -92,7 +109,8 @@ def _withheld(pack: dict[str, Any]) -> set[str]:
     ``liquidity_break`` or ``peer_break``; a list in an earlier build), whatever the reason. None is ever a twin: the
     generator was never shown it, and it is not the quantity its label names. COP's FY2025 "Total debt" (D336) is its
     current portion of debt alone, so as a twin it would present "total debt was $1.0 billion [X203]" to the auditor
-    as a correct label, while the measure of broken net cash, reading cited IDs, would not see it either."""
+    as a correct label, a sentence the measure of broken net cash counts on either pack (``probes.broken_debt``: a
+    debt line of a debt-break year under a total's name, plain "debt" included)."""
     return set(pack.get("withheld") or ())
 
 
@@ -123,6 +141,58 @@ def _twin_text(twins: list[str], pack: dict[str, Any]) -> str:
     return "same value as " + ", ".join(f"{t} = {pack['values'][t]['label']}" for t in twins)
 
 
+def _sentence_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of each sentence of a passage (``_SENTENCE_END``, not after an ``_ABBREVIATION``)."""
+    spans, start = [], 0
+    for end in _SENTENCE_END.finditer(text):
+        if not _ABBREVIATION.search(text[start:end.start()]):
+            spans.append((start, end.start()))
+            start = end.end()
+    return [(a, b) for a, b in [*spans, (start, len(text))] if text[a:b].strip()]
+
+
+def _prints(passage_id: str, text: str, match: str, figure: factcheck.Claim) -> bool:
+    """Whether the gate reads, in ``text``, a passage figure that matches ``figure`` the way it matched (``match``,
+    "passage P7" or, read at a table's scale, "passage P7 (x1e+06)"): the gate's own passage candidates and test."""
+    return any(c.how == match and factcheck.matches(figure, c)
+               for c in factcheck._passage_numbers({"id": passage_id, "text": text}))
+
+
+def _around(text: str, span: tuple[int, int], passage_id: str, match: str, figure: factcheck.Claim) -> str:
+    """One sentence that prints the figure, whole, or cut to ``QUOTE_CAP`` characters centred on the first figure whose
+    text, read up to it, prints the matched one (its left context, a sign or a unit word, is what the gate read)."""
+    start, end = span
+    if end - start <= QUOTE_CAP:
+        return text[start:end].strip()
+    found = next((f for f in factcheck.parse_claims(text[start:end])
+                  if _prints(passage_id, text[start:start + f.start + len(f.text)], match, figure)), None)
+    centre = start + (found.start + len(found.text) // 2 if found else 0)
+    left = max(start, min(centre - QUOTE_CAP // 2, end - QUOTE_CAP))
+    right = left + QUOTE_CAP
+    return ("…" if left > start else "") + text[left:right].strip() + ("…" if right < end else "")
+
+
+def _passage_view(passage: dict[str, Any], match: str, figure: Optional[factcheck.Claim]) -> str:
+    """A passage figure's view: the 10-K's fiscal year and section, and the sentences that print the figure as the
+    gate matched it (``_prints``), quoted, at most ``QUOTE_SENTENCES``, each cut to ``QUOTE_CAP`` characters around the
+    figure (the view says so). Without the figure (a caller that has none) or a sentence that prints it, it names
+    the passage alone."""
+    where = (f"{passage['id']} = a figure in the {passage['fiscal_year']} {passage.get('form', '10-K')}, "
+             f"{passage.get('section') or 'a passage'}")
+    text = passage["text"]
+    spans = ([span for span in _sentence_spans(text) if _prints(passage["id"], text[span[0]:span[1]], match, figure)]
+             if figure else [])
+    if not spans:
+        return where
+    quotes = [_around(text, span, passage["id"], match, figure) for span in spans[:QUOTE_SENTENCES]]
+    scale = next((f"; printed without its scale and read in {word}" for key, word in _UNSCALED.items() if match.endswith(key)), "")
+    cut = any(q.startswith("…") or q.endswith("…") for q in quotes)
+    more = len(spans) - QUOTE_SENTENCES
+    return (f"{where}{scale}: " + " / ".join(f'"{q}"' for q in quotes)
+            + (f" (cut to {QUOTE_CAP} characters around the figure)" if cut else "")
+            + (f" (and {more} more sentence{'s' * (more != 1)} printing it)" if more > 0 else ""))
+
+
 def _computed(match: str, ids: list[str], pack: dict[str, Any]) -> Optional[str]:
     """The signed result of the calculation a claim matched, or None for a cited value or a passage's figure."""
     if match.startswith("reversed ") and ids and ids[0] in pack["values"]:  # "revenue growth minus cost growth" read the other way
@@ -134,12 +204,13 @@ def _computed(match: str, ids: list[str], pack: dict[str, Any]) -> Optional[str]
     return _signed(found.value, found.unit) if found else None
 
 
-def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
+def _describe(match: str, ids: list[str], pack: dict[str, Any], figure: Optional[factcheck.Claim] = None) -> str:
     """The auditor's view of a match (view 2): each matched value's label, period and signed value and the IDs it is
     identical to; for a cited value, those of its inputs too ("buybacks plus dividends % of free cash flow" built on
-    a "buybacks plus dividends" that is the buybacks line); a calculation's result; a passage's year; a red flag's
-    whole text (cut at 120 characters, it hid the figure the claim matched from the auditor in 2 of the 18 such
-    claims of eval-v1's DeepSeek and Sonnet analyses: CAT's 0.06% and JPM's 0.10%).
+    a "buybacks plus dividends" that is the buybacks line); a calculation's result; for a passage, the sentences that
+    print ``figure`` (the claim as the gate parsed it, ``audit`` hands it over), with the 10-K's year and section
+    (``_passage_view``); a red flag's whole text (cut at 120 characters, it hid the figure the claim matched from the
+    auditor in 2 of the 18 such claims of eval-v1's DeepSeek and Sonnet analyses: CAT's 0.06% and JPM's 0.10%).
 
     A twin stands in for an input, or for one value of a calculation, only when all of them are of the result's
     period (``_one_period``): a growth, a CAGR or a cross-year difference shows none, as a twin of one of its years
@@ -163,7 +234,7 @@ def _describe(match: str, ids: list[str], pack: dict[str, Any]) -> str:
         else:
             passage = next((p for p in pack["passages"] if p["id"] == vid), None)
             if passage:
-                parts.append(f"{vid} = a figure in a {passage['fiscal_year']} 10-K passage")
+                parts.append(_passage_view(passage, match, figure))
             else:
                 flag = next((f for f in pack.get("red_flags", []) if f["id"] == vid), None)
                 parts.append(f"{vid} = red-flag text: {flag['detail']}" if flag else vid)
@@ -237,10 +308,11 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
     result = factcheck.check(sentences_of(record["output"]), pack)
     items = []
     for detail in result["detail"]:
-        for claim in detail["claims"]:
+        # The gate records one claim per figure parse_claims reads, in its order: each claim's own parsed figure.
+        for claim, figure in zip(detail["claims"], factcheck.parse_claims(detail["text"]), strict=True):
             if claim["status"] == "verified" and claim.get("ids"):
                 items.append({"sentence": factcheck.CITATION_RE.sub("", detail["text"]).strip(), "claim": claim["claim"],
-                              "match": _describe(claim.get("matched", ""), claim["ids"], pack) + _bound(claim)})
+                              "match": _describe(claim.get("matched", ""), claim["ids"], pack, figure) + _bound(claim)})
     auditor = auditor or _auditor(system)
     record_out: dict[str, Any] = {"system": system, "ticker": ticker, "split": pack["split"], "auditor": auditor, "items": [],
                                   "output_sha256": sha, "view": VIEW}

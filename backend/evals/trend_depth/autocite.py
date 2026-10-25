@@ -14,8 +14,21 @@ that both
   and no difference, sum or ratio with another value (``_exact``), and the gate, with the ID appended, verifies the
   claim as that value (``_verifies_as``);
 - *fits* (``_fits``):
-  - the claim is of one year and the ID's period holds it: the years bound to the claim, else those the sentence
-    names when it binds none of them to another figure, else those of the single-year values it cites;
+  - the claim is of one year and the ID's period holds it: the years the gate binds to the claim
+    (``factcheck.bind_periods``), else those the sentence names when it binds none of them to another figure, else
+    those of the single-year values it cites. A year after "from", "since", "than", "versus" or "vs" is a comparison
+    base, the start of a span ("has fallen to 6.7% from FY2021", "Since FY2021, ..."), never a figure's period: it
+    dates no figure here, though the gate binds it to the figure after it or, opening the sentence, to every
+    figure; and a sentence naming one dates no figure that no other year binds, since that figure is the span's end
+    or its change, whose year the sentence does not give;
+  - the figure is no level the metric moved from ("fell 2.5pp from 9.2%", "from 6.7% to 4.2%"): that level is
+    the year before the move's, which neither a year the sentence binds to it (an opening "In FY2025," binds it to
+    the move's own year) nor the cited change's year gives;
+  - the figure carries the value's sign (``_signed_as``): a minus sign for a negative value, none for a positive
+    one, unless the gate reads the sign from the sentence (with the value's sign flipped, it would fail the claim:
+    a change said with a direction word). The gate compares magnitudes, so a negative level printed unsigned (net
+    debt as net cash, a loss as net income, a negative margin or cash flow) passes it whoever cites the ID; auto-
+    citation never supplies that ID;
   - every word of the ID's label (``metric_words``: a "% of" label's denominator and a window or peer reference
     included) stands in the run of words right before the figure, in the figure itself ("83rd percentile") or in
     the run right after it. The run before is figure talk ("was", "fell", "the") and the label's own words, and
@@ -58,8 +71,14 @@ figure of a red flag whose evidence holds the
 value (``threshold``); and the gap between it and another value of its unit and year that the sentence cites
 (``gap``). Each substitute is tried in two arms: ``kept``, with the claim's own ID still cited, and ``omitted``,
 with that ID removed while the sentence still cites another (the omission fix 1 is for). The ``omitted`` arm also
-counts how often the right value gets its own ID back (``control``). A substitute the gate reads as matching
-nothing is one auto-citation gets to judge; it *leaks* when auto-citation appends an ID for it.
+counts how often the right value gets its own ID back (``control``), and runs three shapes (``SHAPES``) no recorded
+sentence needs to hold: ``sign``, every slot of a negative level (no change) with its figure printed unsigned;
+``from``, for every one-year change of a level series in each pack read, "<metric> fell <change> from <level>
+[<change>]" (bare, after "In FY<year>" and after "In FY<year>,") with the level the move ended at printed as the
+one it started from; and ``base``, "<metric> has fallen to <level> since FY<year before>" (or "from FY<year
+before>", or opening "Since FY<year before>,") with the base year's level printed as the current one. A substitute
+the gate reads as matching nothing is one auto-citation gets to judge; it *leaks* when auto-citation appends an ID
+for it, and in a shape any appended ID is a leak.
 
 Pure: imports neither the bootstrap nor ``generate``; the command reads records and packs from disk.
 """
@@ -91,6 +110,11 @@ _REFERENCE = (("percentile", ("percentile",)), ("peer median", ("peer", "median"
 _REFERENCE_WORDS = frozenset({"median", "high", "low", "average", "typical", "peak", "trough", "percentile"})
 _POSSESSIVE = frozenset({"its", "their"})  # "its revenue" names another entity's metric: it ends a run, as a modifier
 _MOVE_GAP = re.compile(r"\s*,?\s*(?:to|from)\s*", re.I)  # "fell 3.9pp to 71.1%": the run reaches back over 3.9pp
+_MOVED_FROM = re.compile(r"\bfrom\s+(?:(?:a|an|the)\s+)?$", re.I)  # "fell 2.5pp from 9.2%": the level a move started at
+# The words after which a year is a comparison base: the gate's own list (factcheck.BASE_WORDS, its bind_periods's
+# base_year test), the longer spelling first ("vs." before "vs").
+_BASE_WORD = re.compile(r"\b(?:" + "|".join(re.escape(w) for w in sorted(factcheck.BASE_WORDS, key=len, reverse=True))
+                        + r")\s*$", re.I)
 _CHANGE_LABEL = re.compile(r"\b(?:growth|change|cagr|contribution|effect)\b|\bminus\b", re.I)
 _MOVED = re.compile(
     r"\b(?:rose|risen|rises|rising|grew|grown|grows|growing|fell|fallen|falls|falling|declined|declines|declining|"
@@ -237,6 +261,19 @@ def _verifies_as(sentence: dict[str, Any], index: int, vid: str, pack: dict[str,
     return resolved.status == "verified" and best is not None and best.how == "cited" and best.ids == (vid,)
 
 
+def _signed_as(sentence: dict[str, Any], index: int, claim: Claim, vid: str, pack: dict[str, Any]) -> bool:
+    """The figure carries ``vid``'s sign: printed with a minus sign when the value is negative and without one when
+    it is positive, or else the gate reads the sign from the sentence: with ``[vid]`` appended and its value's sign
+    flipped, the gate no longer verifies the claim ("fell 12.0%" for a -12.0% change). The gate compares magnitudes,
+    so "Net income was $5.5 billion" for a $5.5 billion loss, or net debt printed as net cash, would pass it."""
+    value = pack["values"][vid]["value"]
+    if value == 0 or (value < 0) == (claim.value < 0):
+        return True
+    flipped = {**pack, "values": {**pack["values"], vid: {**pack["values"][vid], "value": -value}}}
+    text = with_citation(sentence["text"], vid)
+    return factcheck.analyse_sentence({**sentence, "text": text}, flipped)[1][index].status != "verified"
+
+
 # What may stand between a label's words and the figure before them ("2.1% of revenue"), and what ends a phrase: a run
 # stops at one of these words unless it stands between two of the label's own ("cash and investments").
 _LINKS = frozenset({"of", "the", "a", "an"})
@@ -261,8 +298,8 @@ class _Place:
     offsets; the words between the claim and the figure or clause head before it (``before``: over a figure it moved
     from or to, "fell 3.9pp to 71.1%"), each with whether a comma, bracket or citation follows it; the words between it
     and the next figure or the clause's end (``after``), each with whether one precedes it; the words of the figure
-    itself (``own``: "83rd percentile"); the one year it may be of; and whether a movement word stands right before it
-    ("grew 45.0%")."""
+    itself (``own``: "83rd percentile"); the one year it may be of; whether a movement word stands right before it
+    ("grew 45.0%"); and whether "from" does ("fell 2.5pp from 9.2%": ``moved_from``)."""
     positions: list[tuple[int, str]]
     start: int
     before: list[tuple[str, bool]]
@@ -270,6 +307,7 @@ class _Place:
     own: set[str]
     year: Optional[str]
     moved: bool
+    moved_from: bool
 
     def runs(self, words: frozenset[str]) -> tuple[list[str], list[str], Optional[str], Optional[str]]:
         """The run right before the claim (in text order: ``words`` and figure talk), the run right after it
@@ -366,17 +404,19 @@ def _place(text: str, clean: str, claims: list[Claim], claim: Claim, spans: list
               for i, (s, e, w) in enumerate(ahead)]
     after = [(w, bool(_PUNCTUATION.search(text[behind[i - 1][1] if i else end:s]))) for i, (s, e, w) in enumerate(behind)]
     return _Place([(s, w) for s, _, w in inside], claim.start, before, after, _words(claim.text), year,
-                  bool(_MOVED.search(clean[max(a, claim.start - 40):claim.start])))
+                  bool(_MOVED.search(clean[max(a, claim.start - 40):claim.start])),
+                  bool(_MOVED_FROM.search(clean[max(a, claim.start - 40):claim.start])))
 
 
 def _fits(vid: str, place: _Place, cited: list[str], pack: dict[str, Any]) -> bool:
-    """A reconciling ID fits when the claim is of one year that the ID's period holds; its label's words are attached
-    to the figure (``_Place.attached``), unmodified, and as no reference it is not; a movement word before or after the
-    figure finds a change; a sentence citing a segment line takes no company-wide value ("NEER's results, to $6.83
-    billion of net income"); and no value the sentence cites sits as near the claim (another year of a cited series
-    sits exactly as near: a wrong year is as likely as an omitted ID)."""
+    """A reconciling ID fits when the claim is of one year that the ID's period holds and is no level a move started
+    from ("fell 2.5pp from 9.2%": of the year before the move's, which nothing in the sentence dates); its label's
+    words are attached to the figure (``_Place.attached``), unmodified, and as no reference it is not; a movement word
+    before or after the figure finds a change; a sentence citing a segment line takes no company-wide value ("NEER's
+    results, to $6.83 billion of net income"); and no value the sentence cites sits as near the claim (another year
+    of a cited series sits exactly as near: a wrong year is as likely as an omitted ID)."""
     words = metric_words(vid, pack)
-    if not words or place.year is None or place.year not in factcheck._periods_of(pack["values"][vid]):
+    if not words or place.moved_from or place.year is None or place.year not in factcheck._periods_of(pack["values"][vid]):
         return False
     if not place.attached(words) or place.modified(words) or place.references(words):
         return False
@@ -420,20 +460,40 @@ def search(sentence: dict[str, Any], pack: dict[str, Any], elsewhere: Iterable[s
     clean = _blank_citations(sentence["text"])
     claims = [r.claim for r in resolved]
     latest = _latest_year(pack)
-    bound = factcheck.bind_periods(clean, claims, latest)
+    dated_text, bases = _without_bases(clean)
+    bound = factcheck.bind_periods(dated_text, claims, latest)
     named = {y for y in factcheck.sentence_periods(sentence["text"]) if latest is None or int(y) <= latest}
     dated = {p[0] for p in (factcheck._periods_of(values[c]) for c in cited) if len(p) == 1}
     spans = _spans(sentence["text"], claims)
     out = []
     for index in misses:
         claim = claims[index]
-        # A year the sentence names for another figure says nothing of this one's: then only the cited values' years do.
-        others = {year for j, years in bound.items() if j != index for year in years}
-        anchors = bound.get(index) or (set() if others else named) or dated
+        if index in bound:
+            anchors = bound[index]
+        elif bases:  # a span from a base year: the figure is its end or its change, of no year the sentence gives
+            anchors = set()
+        else:
+            # A year the sentence names for another figure says nothing of this one's: then only the cited values' years do.
+            others = {year for j, years in bound.items() if j != index for year in years}
+            anchors = (set() if others else named) or dated
         place = _place(sentence["text"], clean, claims, claim, spans, next(iter(anchors)) if len(anchors) == 1 else None)
         reconciling = [v for v in pool if _exact(claim, values[v]) and _verifies_as(sentence, index, v, pack)]
-        out.append(Search(index, claim.text, reconciling, [v for v in reconciling if _fits(v, place, cited, pack)]))
+        out.append(Search(index, claim.text, reconciling, [v for v in reconciling if _fits(v, place, cited, pack)
+                                                           and _signed_as(sentence, index, claim, v, pack)]))
     return out
+
+
+def _without_bases(clean: str) -> tuple[str, list[str]]:
+    """``clean`` with each comparison base blanked (a single year after "from", "since", "than", "versus" or "vs":
+    "has fallen to 6.7% from FY2021", "Since FY2021, ..."), and the bases. The gate binds a base to the figure after
+    it, or, opening the sentence, to every figure; auto-citation dates no figure by one. A range after "from" ("from
+    FY2021 to FY2025") is the span the figure covers and stays."""
+    bases = []
+    for a, b, years in factcheck.year_mentions(clean):
+        if len(years) == 1 and _BASE_WORD.search(clean[:a]):
+            clean = clean[:a] + " " * (b - a) + clean[b:]
+            bases.append(next(iter(years)))
+    return clean, bases
 
 
 def _only_targets_changed(before: dict[str, Any], after: dict[str, Any], targets: list[int], pack: dict[str, Any]) -> bool:
@@ -547,6 +607,7 @@ def retype(output: dict[str, Any], pack: dict[str, Any]) -> tuple[dict[str, Any]
 
 _NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
 KINDS = ("year", "metric", "threshold", "gap")
+SHAPES = ("sign", "from", "base")  # run with the claim's own ID omitted only: any ID appended is a leak
 ARMS = ("kept", "omitted")
 
 
@@ -632,6 +693,66 @@ def substitutes(sentence: dict[str, Any], pack: dict[str, Any], elsewhere: list[
                 yield kind, index, vid, text[:claim.start] + printed + text[claim.start + len(claim.text):], printed
 
 
+def _unsigned(text: str, claim: Claim) -> tuple[str, str]:
+    """``text`` with ``claim`` printed without its minus sign, and the claim as printed."""
+    printed = re.sub(r"[-−–]", "", claim.text, count=1)
+    return text[:claim.start] + printed + text[claim.start + len(claim.text):], printed
+
+
+def _say(value: float, unit: str) -> Optional[str]:
+    """``value`` as an analysis prints it: a share, margin or change to one decimal, dollars to one decimal in billions
+    or millions, a multiple to two; None for any other unit or a figure that prints as zero."""
+    magnitude, sign = abs(value), "-" if value < 0 else ""
+    if unit == "usd":
+        number, scale = (magnitude / 1e9, "billion") if magnitude >= 1e9 else (magnitude / 1e6, "million")
+        printed = f"${number:,.1f} {scale}"
+    elif unit == "x":
+        printed = f"{magnitude:.2f}x"
+    elif unit in ("pct", "pp"):
+        printed = f"{magnitude:.1f}{'%' if unit == 'pct' else 'pp'}"
+    else:
+        return None
+    return None if float(re.sub(r"[^\d.]", "", printed)) == 0 else sign + printed
+
+
+def moves(pack: dict[str, Any]) -> Iterator[tuple[str, str, str]]:
+    """(change ID, the level it moved to, the level it moved from) for every one-year change in the pack whose two
+    inputs are one series' levels of the change's year and the year before ("Net margin change" FY2025 of F30 and
+    F29)."""
+    values, series = pack["values"], _series(pack)
+    for did, change in values.items():
+        period = factcheck._periods_of(change)
+        inputs = [i for i in change.get("inputs", []) if i in values and i in series]
+        if not _is_change(did, pack) or len(period) != 1 or len(inputs) != 2 or len(change.get("inputs", [])) != 2:
+            continue
+        to, start = sorted(inputs, key=lambda i: series[i][1], reverse=True)
+        if (series[to][0], series[to][2]) == (series[start][0], series[start][2]) and \
+                (series[to][1], series[start][1]) == (f"FY{period[0]}", f"FY{int(period[0]) - 1}"):
+            yield did, to, start
+
+
+def shape_sentences(pack: dict[str, Any]) -> Iterator[tuple[str, str, str, list[str]]]:
+    """(shape, sentence text, the figure auto-citation must leave failing, the ID cited elsewhere) for the ``from``
+    and ``base`` shapes (module docstring) of every one-year change in ``pack`` (``moves``). The ID cited elsewhere is
+    the level the figure prints, so it is in auto-citation's pool."""
+    values = pack["values"]
+    for did, to, start in moves(pack):
+        year = int(factcheck._periods_of(values[did])[0])
+        change, ended, began = (_say(abs(values[did]["value"]), values[did]["unit"]), _say(values[to]["value"], values[to]["unit"]),
+                                _say(values[start]["value"], values[start]["unit"]))
+        if None in (change, ended, began) or ended == began:
+            continue
+        name = " ".join(_PARENS.sub(" ", values[to]["label"]).split(":")[0].split())
+        low = name[:1].lower() + name[1:]
+        verb, perfect = ("fell", "fallen") if values[did]["value"] < 0 else ("rose", "risen")
+        for opening in (name, f"In FY{year} {low}", f"In FY{year}, {low}"):
+            yield "from", f"{opening} {verb} {change} from {ended} [{did}].", ended, [to]
+        for text in (f"{name} has {perfect} to {began} since FY{year - 1} [{did}].",
+                     f"{name} has {perfect} to {began} from FY{year - 1} [{did}].",
+                     f"Since FY{year - 1}, {low} has {perfect} to {began} [{did}]."):
+            yield "base", text, began, [start]
+
+
 def _licensed(sentence: dict[str, Any], pack: dict[str, Any], elsewhere: list[str], printed: str) -> tuple[str, Optional[str]]:
     """How auto-citation treats the substituted claim ``printed``: ``gate_reads_otherwise`` (the gate does not read it
     as matching nothing), ``refused`` (an ID reconciled, none was appended), ``licensed`` (an ID was appended for it,
@@ -650,10 +771,26 @@ def _licensed(sentence: dict[str, Any], pack: dict[str, Any], elsewhere: list[st
 def substitution_test(outputs: Iterable[tuple[str, dict[str, Any], dict[str, Any]]], sample: int = 4) -> dict[str, Any]:
     """Run ``substitutes`` over every sentence of every output ((name, output, pack)) in both arms (module docstring)
     and count, per arm and kind, the substitutes the gate reads as matching nothing and those auto-citation then
-    licenses, with each leak; and, in the omitted arm, how often the right value gets its own ID back."""
-    counts: dict[str, dict[str, Counter]] = {arm: {kind: Counter() for kind in KINDS} for arm in ARMS}
+    licenses, with each leak; and, in the omitted arm, how often the right value gets its own ID back, and the
+    shapes (``SHAPES``): every negative level slot printed unsigned, and the ``from`` and ``base`` sentences of each
+    pack the outputs read."""
+    counts: dict[str, dict[str, Counter]] = {arm: {kind: Counter() for kind in KINDS + (SHAPES if arm == "omitted" else ())}
+                                             for arm in ARMS}
     control: Counter = Counter()
     leaks: dict[str, list[str]] = {arm: [] for arm in ARMS}
+
+    def judge(arm: str, kind: str, name: str, sentence: dict[str, Any], pack: dict[str, Any], elsewhere: list[str],
+              printed: str, own: str) -> None:
+        tally = counts[arm][kind]
+        tally["substitutes"] += 1
+        state, got = _licensed(sentence, pack, elsewhere, printed)
+        tally[state] += 1
+        if state != "gate_reads_otherwise":
+            tally["matches_nothing"] += 1
+        if state == "licensed":
+            leaks[arm].append(f"  {name} [{kind}] '{printed}' +[{got}] (own {own}): {sentence['text']}")
+
+    shaped: list[dict[str, Any]] = []  # the packs whose shapes ran, by identity
     for name, output, pack in outputs:
         located = list(_located(output))
         cited = [citations(s["text"]) for _, s in located]
@@ -671,19 +808,20 @@ def substitution_test(outputs: Iterable[tuple[str, dict[str, Any], dict[str, Any
                          "another ID", "refused": "refused", "nothing": "not recovered"}[state]] += 1
                 if state == "licensed" and got != vid:
                     leaks["omitted"].append(f"  {name} [control] '{claim.text}' +[{got}] (own {vid}): {omitted['text']}")
+                if pack["values"][vid]["value"] < 0 and not _is_change(vid, pack):
+                    text, printed = _unsigned(base["text"], claim)
+                    judge("omitted", "sign", name, {**base, "text": without(text, vid)}, pack, elsewhere, printed, vid)
             for kind, index, vid, text, printed in substitutes(base, pack, elsewhere, sample):
                 for arm in ARMS:
                     arm_text = text if arm == "kept" else without(text, vid)
                     if arm == "omitted" and not set(citations(arm_text)):
                         continue
-                    tally = counts[arm][kind]
-                    tally["substitutes"] += 1
-                    state, got = _licensed({**base, "text": arm_text}, pack, elsewhere, printed)
-                    tally[state] += 1
-                    if state != "gate_reads_otherwise":
-                        tally["matches_nothing"] += 1
-                    if state == "licensed":
-                        leaks[arm].append(f"  {name} [{kind}] '{printed}' +[{got}] (own {vid}): {arm_text}")
+                    judge(arm, kind, name, {**base, "text": arm_text}, pack, elsewhere, printed, vid)
+        if not any(pack is done for done in shaped):
+            shaped.append(pack)
+            for kind, text, printed, elsewhere in shape_sentences(pack):
+                judge("omitted", kind, f"{name}'s pack", {"section": "drivers", "text": text, "type": "comparison"}, pack,
+                      elsewhere, printed, "-")
     return {"counts": {arm: {kind: dict(c) for kind, c in kinds.items()} for arm, kinds in counts.items()},
             "control": dict(control), "leaks": leaks}
 
@@ -764,6 +902,9 @@ def main() -> None:
             print(f"    {kind:9} substitutes {counts.get('substitutes', 0):6}  read otherwise by the gate "
                   f"{counts.get('gate_reads_otherwise', 0):6}  matching nothing {judged:6}  refused {counts.get('refused', 0):5}  "
                   f"licensed {counts.get('licensed', 0):4}  leak rate {rate:.2%}")
+    print("  shapes, every ID appended a leak: sign, a negative level's slot printed unsigned; from, the level a move "
+          "ended at printed as its start; base, a base year's level printed as the current one (from and base are built "
+          "for each pack read)")
     control = result["control"]
     print(f"\n  omitted, the right value (recall): {control.get('slots', 0)} own IDs removed; "
           + "; ".join(f"{key} {control.get(key, 0)}" for key in ("recovered", "another ID", "refused", "not recovered",

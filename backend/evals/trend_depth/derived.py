@@ -538,8 +538,11 @@ def _window_figures(reg: Registry, periods: list[str]) -> None:
 
 
 def red_flags(reg: Registry, periods: list[str], profile: str, segments: list[dict[str, Any]],
-              data_checks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Candidate red flags with a severity (high / medium / low) and persistence (periods affected)."""
+              data_checks: list[dict[str, Any]],
+              unmapped: tuple[tuple[str, str, float], ...] | list[tuple[str, str, float]] = ()) -> list[dict[str, Any]]:
+    """Candidate red flags with a severity (high / medium / low) and persistence (periods affected). ``unmapped``
+    (``unmapped_lines``) names the years whose net cash leaves out a line the filer reports: a net-debt flag over such
+    a year quotes no level."""
     flags: list[dict[str, Any]] = []
 
     def add(kind: str, severity: str, persistence: int, detail: str, evidence: list[Optional[str]]) -> None:
@@ -621,7 +624,15 @@ def red_flags(reg: Registry, periods: list[str], profile: str, segments: list[di
             falls = falls + 1 if b.value < a.value else 0
         if falls >= 2 and net_cash[-1][1].value < 0:
             run = net_cash[-1 - falls:]
-            if all(v.value < 0 for _, v in run):
+            years = {p for p, _ in run}
+            omitted = [f"{UNMAPPED[line][1]} omit {UNMAPPED[line][0]}" for line in UNMAPPED
+                       if any(key == line and year in years for key, year, _ in unmapped)]
+            if all(v.value < 0 for _, v in run) and omitted:
+                # A level on a total that leaves a reported line out is wrong by that line: CAT's $26.2bn of FY2025
+                # net debt [D456] leaves out $7.1bn of long-term debt due within one year. So no level is quoted, and
+                # the omission stands beside the flag that would have quoted it.
+                detail = f"Net debt rose {falls} years in a row through {run[-1][0]}; its level is left out, as {' and '.join(omitted)}."
+            elif all(v.value < 0 for _, v in run):
                 # In net debt throughout: "net cash fell into net debt" reads as a crossing from net cash, and the
                 # model then wrote "net debt" with net cash's minus signs (CAT, DUK, NEE; DEEPSEEK-ERRORS.md §1.2).
                 detail = f"Net debt rose {falls} years in a row to {_usd_words(-run[-1][1].value)} in {run[-1][0]}."
@@ -660,10 +671,10 @@ def red_flags(reg: Registry, periods: list[str], profile: str, segments: list[di
     return flags
 
 
-# Pack version 2 (tasks/analysis-depth-2026-10/DEEPSEEK-ERRORS.md §2, fixes 3, 8 and 9). Everything here runs
-# after the last version-1 value is registered (peers included) and numbers its red flags after the last
-# version-1 flag, so no version-1 ID moves or changes value and a version-1 output still checks against a
-# version-2 pack.
+# Pack version 2 (tasks/analysis-depth-2026-10/DEEPSEEK-ERRORS.md §2, fixes 3, 8 and 9). Everything here that
+# registers a value runs after the last version-1 value is registered (peers included), and its red flags number
+# after the last version-1 flag, so no version-1 ID moves or changes value and a version-1 output still checks
+# against a version-2 pack. ``unmapped_lines`` registers nothing and runs before the red flags, which read it.
 
 def version_two_values(reg: Registry, periods: list[str], profile: str) -> None:
     """The values version 2 adds, each under a new ID."""
@@ -801,6 +812,90 @@ def double_counted(reg: Registry, periods: list[str], combined: dict[str, float]
     return years
 
 
+UNMAPPED_LINE_SHARE = 0.10  # an unmapped line counts at this share or more of the total it is missing from
+# A line the filer reports that this pack maps nowhere (``unmapped_lines``): what it is, and the totals that omit it.
+# The one wording of the omission, for its data check and for the net-debt red flag that quotes no level beside it.
+UNMAPPED = {"debt_current": ("long-term debt due within one year", "total debt and net cash"),
+            "short_term_investments": ("a short-term investment line", "cash and investments and net cash")}
+
+
+def unmapped_lines(reg: Registry, periods: list[str], due: dict[str, float],
+                   combined: dict[str, float]) -> list[tuple[str, str, float]]:
+    """(line, year, amount) for a line the filer reports and this pack sums nowhere, at ``UNMAPPED_LINE_SHARE`` or more
+    of the total it is missing from, in a year no break check names already (fix 8). Each test reads a figure the
+    filer reports itself, against the lines the pack sums; a break test cannot see such a line, as the pack's own
+    basis stays the same in every year:
+
+    - ``debt_current``: long-term debt maturing within one year (``due``: us-gaap
+      LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths by period) while total debt sums no current-debt
+      line and its long-term line is a noncurrent tag, which leaves the current portion out by definition. CAT's
+      balance sheet shows "Long-term debt due within one year" of $7,120m at FY2025 under no tag the pack maps, and its
+      maturities within twelve months are the same $7,120m; its total debt [D455] is $30,696m of noncurrent long-term
+      debt plus $5,514m of short-term borrowings. A long-term line tagged LongTermDebt is not tested: that tag holds the
+      current portion for DUK (FY2016 $47.9bn: $45.6bn noncurrent plus $2.3bn current) and not for TGT (FY2025
+      $14.4bn, with the $2,130m current portion its 10-K shows beside it in no line of the pack).
+    - ``short_term_investments``: the filer's own cash, cash equivalents and short-term investments total (``combined``)
+      above the pack's cash plus short-term investments. The amount is a floor on what is left out: KO's FY2016 total
+      of $18,150m exceeds $8,555m of cash and $4,051m of marketable securities by $5,544m, while its $9,595m of
+      short-term investments are left out, the marketable securities sitting outside its total. A filer that tags no
+      such total (PG) is not tested: an investment tag alone cannot tell liquidity from restricted holdings (DUK's
+      available-for-sale securities sit mostly in its nuclear decommissioning trusts) nor from cash equivalents (NVDA's
+      FY2018 $6.9bn of available-for-sale securities are its $3.1bn of marketable securities and $3.8bn of cash
+      equivalents).
+
+    Nothing is withheld: the pack keeps every figure, and its data check names the omission (``unmapped_checks``). A
+    bank or insurer has neither total debt nor cash and investments, so neither test reads it."""
+    debt_named = set(debt_breaks(reg, periods)) | {p for _, years in debt_onsets(reg, periods) for p in years}
+    cash_named = {p for _, p in liquidity_gaps(reg, periods)} | set(double_counted(reg, periods, combined))
+    found: list[tuple[str, str, float]] = []
+    for period in periods:
+        line, total, amount = _long_term_debt(reg, period), reg.val("total_debt", period), due.get(period)
+        if (period not in debt_named and reg.get("debt_current", period) is None and line is not None and line.value > 0
+                and line.formula.endswith("Noncurrent") and total and amount and amount >= UNMAPPED_LINE_SHARE * total):
+            found.append(("debt_current", period, amount))
+    for period in periods:
+        liquidity, own = reg.val("liquidity", period), combined.get(period)
+        if period in cash_named or not liquidity or own is None:
+            continue
+        short = own - (reg.val("cash_and_equivalents", period) or 0.0) - (reg.val("short_term_investments", period) or 0.0)
+        if short >= UNMAPPED_LINE_SHARE * liquidity:
+            found.append(("short_term_investments", period, short))
+    return found
+
+
+def _amounts(points: list[tuple[str, float]]) -> str:
+    """"$5.5 billion in FY2016 and $3.9 billion in FY2017", or for a longer span "from $1.0 billion to $3.6 billion a
+    year, $3.6 billion in FY2025"."""
+    if len(points) <= 2:
+        return " and ".join(f"{_usd_words(amount)} in {year}" for year, amount in points)
+    low, high = min(a for _, a in points), max(a for _, a in points)
+    return f"from {_usd_words(low)} to {_usd_words(high)} a year, {_usd_words(points[-1][1])} in {points[-1][0]}"
+
+
+def unmapped_checks(reg: Registry, periods: list[str], found: tuple[tuple[str, str, float], ...] | list[tuple[str, str, float]]
+                    ) -> list[dict[str, Any]]:
+    """Data checks of kind ``unmapped_line``, one for each span of years ``unmapped_lines`` found a line in, with the
+    amounts the filer reports. The evidence is the span's last year's lines and total, none of them withheld."""
+    checks: list[dict[str, Any]] = []
+    for line, (what, totals) in UNMAPPED.items():
+        amounts = {year: amount for key, year, amount in found if key == line}
+        for span in _spans(periods, list(amounts)):
+            where, then = _where(periods, span)
+            figures = _amounts([(year, amounts[year]) for year in span])
+            if line == "debt_current":
+                detail = (f"Long-term debt due within one year is in no line of this pack {where}: the filer reports "
+                          f"{figures}, beside the noncurrent long-term debt this pack sums, so {totals} {then} omit it.")
+                keys = ("debt_noncurrent", "total_debt")
+            else:
+                detail = (f"Cash and short-term investments in this pack fall short of the filer's own cash, cash "
+                          f"equivalents and short-term investments total {where} ({figures}): {what} this pack does not "
+                          f"map, so {totals} {then} omit it.")
+                keys = ("cash_and_equivalents", "short_term_investments", "liquidity")
+            checks.append({"kind": "unmapped_line", "severity": "high", "period": ",".join(span), "detail": detail,
+                           "evidence": [vid for key in keys if (vid := reg.ref(key, span[-1]))]})
+    return checks
+
+
 UNMAPPED_SHARE = 0.10  # debt the interest implies, against the peer's cash and investments (fix 8 for peers)
 
 
@@ -898,7 +993,8 @@ def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[st
             detail += "."
         first, last = periods.index(span[0]), periods.index(span[-1])
         sides = [periods[j] for j in (first - 1, last + 1) if 0 <= j < len(periods)]
-        evidence = [v.id for p in sides if (v := _long_term_debt(reg, p))] + [v.id for v in lines if v]
+        # The years the line was reported on either side; a zero line inside the span is withheld, not evidence.
+        evidence = [v.id for p in sides if (v := _long_term_debt(reg, p))]
         checks.append({"kind": "debt_break", "severity": "high", "period": ",".join(span), "detail": detail,
                        "evidence": evidence})
     if summed:
@@ -987,11 +1083,16 @@ def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]], shor
     Withheld rather than labelled: a label leaves a broken figure for the model to state, and in eval-v1 DeepSeek
     stated COP's, CVX's and KO's net cash as fact and read DE's dropped line as deleveraging (Sonnet, given the same
     packs, caught 4 of 6 breaks). The IDs stay in the pack, so a version-1 output citing one still checks. Seeds are
-    total debt and net cash of each broken debt year (net cash too, as it is cash alone when no debt line is left), and
-    cash and investments and net cash of each broken liquidity year; the rest follows every value's inputs (net cash %
-    of revenue, growth across the break, runway, the net-cash peer rank) and every red flag's evidence. A peer median
-    goes with its withheld peer rank: alone, it invites a comparison with a level the pack no longer shows."""
-    debt = _built_on(reg, {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))})
+    total debt and net cash of each broken debt year (net cash too, as it is cash alone when no debt line is left), a
+    long-term line reported as zero there (ORCL's FY2022 long-term debt of $0.0m [F185, X213], which reads as debt
+    repaid), and cash and investments and net cash of each broken liquidity year; the rest follows every value's inputs
+    (net cash % of revenue, growth across the break, runway, the net-cash peer rank) and every red flag's evidence. A
+    peer median goes with its withheld peer rank: alone, it invites a comparison with a level the pack no longer shows.
+    A positive long-term line of a broken year stays (DE's FY2016-FY2019 onset span: the line is right, the total
+    lacks another)."""
+    zero = {v.id for period in broken for key in ("debt_noncurrent", "long_term_debt")
+            if (v := reg.get(key, period)) is not None and v.value <= 0}
+    debt = _built_on(reg, zero | {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))})
     cash = _built_on(reg, {vid for period in short for key in ("liquidity", "net_cash") if (vid := reg.ref(key, period))}) - debt
     reasons = {**{vid: "debt_break" for vid in debt}, **{vid: "liquidity_break" for vid in cash}}
     for vid, reason in (replaced or {}).items():

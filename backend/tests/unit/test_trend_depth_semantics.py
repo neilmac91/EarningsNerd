@@ -5,14 +5,18 @@ Pins: an ID a version-2 pack withholds is never a twin, of a cited value or of a
 either form of the pack's list (COP's current portion of debt and KO's short-term borrowings are not "total debt");
 an input's twins, and those of a calculation's values, are shown only when all of them are of one period (AMD's total
 debt growth is not long-term debt's; VRTX's buybacks plus dividends % of free cash flow keeps its buybacks twin); a red
-flag's whole text; and instructions that read a twin as a name for that one value and a sign as part of the match.
-Each view is built as ``semantics.audit`` builds it, from the gate's own match of the sentence.
+flag's whole text; a passage figure's own sentences, as the gate read them, with the 10-K's year and section (review
+7): each figure its own sentence, a table-scale reading named, a long sentence cut around its figure and the cap
+stated, no sentence ended at an abbreviation, every sentence printing it up to the limit, and ``audit`` handing each
+claim its own parsed figure; and instructions that read a twin as a name for that one value and a sign as part of the
+match. Each view is built as ``semantics.audit`` builds it, from the gate's own match of the sentence.
 
 The module is imported over a stub bootstrap, as in ``test_trend_depth_stages.py``, so the real bootstrap (which
 rewrites the process's database and AI settings) never loads and no model is called.
 """
 from __future__ import annotations
 
+import asyncio
 import gzip
 import importlib
 import json
@@ -24,6 +28,7 @@ from typing import Any
 import pytest
 
 from evals.trend_depth import factcheck
+from evals.trend_depth.providers import CallResult
 
 STAGES = ("generate", "judge", "causes", "semantics", "report")
 RECORDS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
@@ -48,10 +53,12 @@ def _load(folder: str, ticker: str) -> dict[str, Any]:
 
 
 def _views(semantics: Any, text: str, pack: dict[str, Any]) -> dict[str, str]:
-    """Each verified claim of ``text`` and the auditor's view of its match, as ``semantics.audit`` builds them."""
+    """Each verified claim of ``text`` and the auditor's view of its match, as ``semantics.audit`` builds them: each
+    claim with its own parsed figure."""
     detail = factcheck.check([{"section": "balance_sheet", "text": text, "type": "fact"}], pack)["detail"][0]
-    return {c["claim"]: semantics._describe(c.get("matched", ""), c["ids"], pack) + semantics._bound(c)
-            for c in detail["claims"] if c["status"] == "verified" and c.get("ids")}
+    return {c["claim"]: semantics._describe(c.get("matched", ""), c["ids"], pack, figure) + semantics._bound(c)
+            for c, figure in zip(detail["claims"], factcheck.parse_claims(detail["text"]), strict=True)
+            if c["status"] == "verified" and c.get("ids")}
 
 
 # --- Withheld IDs (lens pack-v2 [1]) ----------------------------------------------------------------------------------
@@ -176,6 +183,93 @@ def test_a_red_flag_is_shown_whole_so_its_figure_is_in_view(semantics: Any) -> N
             "the 10-K figures should be used where precision matters [R3][X16][X20].")
     view = _views(semantics, text, _load("packs", "CAT"))["0.06%"]
     assert view.startswith("passage R3: R3 = red-flag text: Net income for FY2021") and "differ by up to 0.06%" in view
+
+
+# --- Passage figures (review 7, decision b) ---------------------------------------------------------------------------
+
+CAT_P9 = ("Operating profit fell $1.921 billion on unfavorable manufacturing costs of $2.148 billion and unfavorable price "
+          "realization of $817 million, with manufacturing costs largely reflecting higher tariffs [P9].")
+CAT_WHERE = "passage P9: P9 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: "
+
+
+def _quote(view: str) -> str:
+    return view.split(': "', 1)[1].rsplit('"', 1)[0]
+
+
+def test_a_passage_figure_is_shown_with_the_passage_sentence_that_prints_it(semantics: Any) -> None:
+    # eval-v1 DeepSeek's CAT sentence: P9 prints each figure in a sentence of its own, so each claim shows its own.
+    # View 1 showed all three as "P9 = a figure in a FY2025 10-K passage", which left the auditor nothing to judge.
+    views = _views(semantics, CAT_P9, _load("packs", "CAT"))
+    assert views["$1.921 billion"] == CAT_WHERE + ('"Operating profit was $11.151 billion in 2025, a decrease of $1.921 '
+                                                   'billion, or 15 percent, compared with $13.072 billion in 2024."')
+    assert views["$2.148 billion"] == views["$817 million"] == CAT_WHERE + (
+        '"The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion and unfavorable price '
+        'realization of $817 million, partially offset by the profit impact of higher sales volume of $1.218 billion."')
+
+
+def test_a_figure_read_at_the_table_s_scale_says_so(semantics: Any) -> None:
+    # eval-v1 DeepSeek's COST sentence: the gate read P14's "$27,335" in millions, as the filing's tables print it.
+    text = ("FY2026 net sales rose $27.3 billion, of which comparable sales added $22.5 billion on a 5% higher average "
+            "ticket and 3% more shopping frequency [P14].")
+    assert _views(semantics, text, _load("packs", "COST"))["$27.3 billion"] == (
+        "passage P14 (x1e+06): P14 = a figure in the FY2026 10-K, Item 7. Management's Discussion and Analysis; printed "
+        'without its scale and read in millions: "Net sales increased $27,335 or 10% during 2026."')
+
+
+def test_a_long_sentence_is_cut_around_its_figure_and_says_so(semantics: Any) -> None:
+    # eval-v1 DeepSeek's ORCL sentence: P9's sentence runs past the cap and prints the $1.5 billion near its end.
+    text = ("Net margin rose 3.5pp to 25.2% as the effective tax rate fell to 28.4% from 39.2%, helped by $1.5 billion more "
+            "stock-based compensation tax benefit [D434][F54][D407][D360][P9].")
+    view = _views(semantics, text, _load("packs", "ORCL"))["$1.5 billion"]
+    assert view.endswith(f"(cut to {semantics.QUOTE_CAP} characters around the figure)")
+    quote = _quote(view)
+    assert quote.startswith("…") and len(quote) <= semantics.QUOTE_CAP + 1
+    assert "an increase in tax benefits related to stock-based compensation of $1.5 billion" in quote
+
+
+def test_a_sentence_ends_at_its_stop_not_at_an_abbreviation(semantics: Any) -> None:
+    # eval-v1 DeepSeek's RIVN sentence: P10's "Also, Inc. (refer to Note 16" does not end the sentence of the $186 million.
+    text = ("Net margin of -67.7% tracked operating margin, with other expense of $54 million including a $186 million "
+            "litigation settlement [F43][X84][P10].")
+    quote = _quote(_views(semantics, text, _load("packs", "RIVN"))["$186 million"])
+    assert quote.startswith("Other expense, net increased for the year ended December 31, 2025 primarily due to $186 million")
+    assert "equity method investment in Also, Inc. (refer to Note 16" in quote
+
+
+def test_every_sentence_printing_the_figure_is_shown_up_to_the_limit(semantics: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    # eval-v1 DeepSeek's TGT sentence: P11 prints 20.6% twice, once for 2025's rate and once for 2024's adjusted one;
+    # the gate accepts either, so the auditor sees both.
+    text = ("The SG&A rate held at 20.6% only because a 0.6pp interchange settlement benefit offset deleveraging from lower "
+            "sales [P11].")
+    first = '"Our SG&A expense rate was 20.6\xa0percent in 2025, consistent with 2024."'  # the filing's no-break space
+    view = _views(semantics, text, _load("packs", "TGT"))["20.6%"]
+    assert first in view and '" / "Excluding these items, our Adjusted SG&A expense rate was 20.9 percent' in view
+    monkeypatch.setattr(semantics, "QUOTE_SENTENCES", 1)
+    assert _views(semantics, text, _load("packs", "TGT"))["20.6%"].endswith(f"{first} (and 1 more sentence printing it)")
+
+
+def test_an_audit_hands_each_claim_its_own_figure(semantics: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``semantics.audit`` builds the view from the gate's claim and its parsed figure, so the auditor reads the
+    sentence of P9 each number is printed in."""
+    sent: list[str] = []
+
+    async def auditor(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        sent.append(user)
+        return CallResult('{"items": [{"n": 1, "label": "consistent", "reason": "r"}]}', 1000, 0, 100, 0, 1.0, 0.25,
+                          "claude_cli", "m", {"stop_reason": "end_turn"})
+
+    monkeypatch.setattr(sys.modules["evals.trend_depth.causes"], "call", auditor)
+    (tmp_path / "packs").mkdir()
+    (tmp_path / "packs" / "CAT.json.gz").write_bytes((RECORDS / "packs" / "CAT.json.gz").read_bytes())
+    record = {"ticker": "CAT", "arm": "deepseek-flash", "generation_ok": True,
+              "output": {"sections": [{"key": "margins", "title": "Margins", "sentences": [{"type": "fact", "text": CAT_P9}]}]}}
+    path = tmp_path / "runs" / "test" / "deepseek-flash" / "CAT.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(record))
+    asyncio.run(semantics.run("test", ["deepseek-flash"], ["CAT"], 1))
+    assert len(sent) == 1 and sent[0].count(CAT_WHERE) == 3
+    assert sent[0].count('"Operating profit was $11.151 billion in 2025') == 1  # the $1.921 billion's alone
+    assert sent[0].count('"The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion') == 2
 
 
 def test_the_instructions_read_a_twin_as_a_name_for_one_value_and_a_sign_as_part_of_the_match(semantics: Any) -> None:

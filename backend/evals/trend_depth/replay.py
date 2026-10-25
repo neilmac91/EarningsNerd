@@ -19,7 +19,8 @@ today with the gate now alone, and eval-v1 decided with the base gate. Printed:
    (``--plant-source``), and whether each gate fails it. The relabels were planted for the semantic audit; a
    gate that never caught them is expected to pass them.
 5. Probe hits per run, system and kind (``probes.py``), in final outputs and in first passes; ``broken_debt`` reads
-   the pack's own debt breaks, as the gate does, so it is silent on version-1 packs.
+   the breaks the pack itself records (debt, liquidity and a peer's broken year), as the gate does, so it is silent
+   on version-1 packs; the report's broken-net-cash measure reads version 2's for every arm.
 """
 from __future__ import annotations
 

@@ -9,7 +9,8 @@ the proposed generator sees, and the reference the fact-check gate reconciles ev
 This builds pack version 2 (``PACK_VERSION``): version 1 plus the additions of DEEPSEEK-ERRORS.md §2 fixes 3, 4,
 8, 9 and 11, every one under a new ID, so each version-1 ID keeps its value; a peer rank or median built on a peer's
 broken year is withheld, and a checked one, without that peer, takes its place (``checked_peer_ranks``, fix 8 for
-the peers). ``packs/`` holds version 1, the input of the frozen runs (eval-v1, dev-v4), and the builder refuses to
+the peers). A line the filer reports that the pack sums nowhere gets a data check (``unmapped_line``) and withholds
+nothing; a peer's stays in its median and rank. ``packs/`` holds version 1, the input of the frozen runs (eval-v1, dev-v4), and the builder refuses to
 overwrite a pack of another version there.
 The EDGAR full-text queries are cached under their end date; ``--fulltext-end`` replays a build made on another
 day from the cache (the version-1 packs were built on 2026-10-24).
@@ -203,12 +204,23 @@ def _inflection_years(reg: derived.Registry, keys: list[str]) -> set[str]:
     return years
 
 
-def _combined_cash(payload: dict[str, Any], end_to_key: dict[str, str]) -> dict[str, float]:
-    """The filer's own cash, cash equivalents and short-term investments total by period (us-gaap
-    CashCashEquivalentsAndShortTermInvestments, as first reported), for ``derived.double_counted``."""
-    series = xfacts._tag_series(payload, "CashCashEquivalentsAndShortTermInvestments", "instant", "USD")
+def _filed(payload: dict[str, Any], tag: str, end_to_key: dict[str, str]) -> dict[str, float]:
+    """One us-gaap balance the pack registers no value for, by period, as first reported."""
+    series = xfacts._tag_series(payload, tag, "instant", "USD")
     fuzzy = _fuzzy_end_map(sorted(series), end_to_key)
     return {fuzzy[end]: series[end]["first_value"] for end in sorted(series) if end in fuzzy}
+
+
+def _combined_cash(payload: dict[str, Any], end_to_key: dict[str, str]) -> dict[str, float]:
+    """The filer's own cash, cash equivalents and short-term investments total by period (us-gaap
+    CashCashEquivalentsAndShortTermInvestments), for ``derived.double_counted`` and ``derived.unmapped_lines``."""
+    return _filed(payload, "CashCashEquivalentsAndShortTermInvestments", end_to_key)
+
+
+def _due_within_year(payload: dict[str, Any], end_to_key: dict[str, str]) -> dict[str, float]:
+    """Long-term debt the filer reports maturing within one year, by period (us-gaap
+    LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths), for ``derived.unmapped_lines``."""
+    return _filed(payload, "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths", end_to_key)
 
 
 async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, Any]]:
@@ -371,7 +383,11 @@ async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Opti
 
     derived.build_derived(reg, keys, company.profile, segments)
     data_checks = _data_checks(reg, keys, coverage, recasts, dataset, _proxy_sourced(company_id))
-    flags = derived.red_flags(reg, keys, company.profile, segments, data_checks)
+    # Version 2: lines the filer reports and the pack sums nowhere (no ID is registered), found before the red flags so
+    # the net-debt flag quotes no level they leave incomplete; their data checks are appended after version 2's others.
+    combined = _combined_cash(payload, end_to_key)
+    unmapped = derived.unmapped_lines(reg, keys, _due_within_year(payload, end_to_key), combined)
+    flags = derived.red_flags(reg, keys, company.profile, segments, data_checks, unmapped)
     inflections = sorted(_inflection_years(reg, keys))
 
     # Passages: every 10-K in the window, ranked toward drivers and inflection years.
@@ -398,14 +414,15 @@ async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Opti
     broken = derived.debt_breaks(reg, keys)
     onsets = derived.debt_onsets(reg, keys)
     gaps = derived.liquidity_gaps(reg, keys)
-    double = derived.double_counted(reg, keys, _combined_cash(payload, end_to_key))
+    double = derived.double_counted(reg, keys, combined)
     debt_years = [p for p in keys if p in broken or any(p in years for _, years in onsets)]
     cash_years = [p for p in keys if p in double or any(p == year for _, year in gaps)]
     replaced, checked = checked_peer_ranks(reg, peer_results, company.peer_group, keys[-1],
                                            set(derived.withheld(reg, debt_years, [], cash_years)))
     if replaced:
         peers["checked"], peers["replaced"] = checked, replaced
-    added_checks = derived.debt_checks(reg, keys, company.profile, broken, onsets, gaps, double)
+    added_checks = (derived.debt_checks(reg, keys, company.profile, broken, onsets, gaps, double)
+                    + derived.unmapped_checks(reg, keys, unmapped))
     data_checks = data_checks + added_checks
     derived.append_flags(flags, added_checks)
     withheld = derived.withheld(reg, debt_years, flags, cash_years, replaced)

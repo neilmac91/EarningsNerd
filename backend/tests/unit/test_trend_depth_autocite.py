@@ -1,14 +1,18 @@
 """The version-2 repair loop's code fixes (evals/trend_depth/autocite.py; DEEPSEEK-ERRORS.md fixes 1 and 5).
 
 Fix 1 appends a figure's missing ID only when the figure is that ID's own value at its printed precision, the ID is
-cited elsewhere in the analysis or is an input of a cited derived value, the claim's one year is the ID's, and the
-ID's whole label (a "% of" denominator and a window or peer reference included) is attached to the figure; and then
-only when appending it changes no other claim's verdict. Each refusal below is a shape of wrong number that must
-stay a gate failure. The review's leaks (a difference read as a level, a red flag's threshold read as a level, a
-label's denominator or window word dropped, an appended ID verifying another claim) and the substitution test's
-recorded leaks run on their real sentences and committed packs, as do DEEPSEEK-ERRORS.md §1.1's seven own-ID
-omissions, three of which the safe core still fixes. Fix 5 retypes a figures-only cause that cites no passage, and
-only that. ``autocite`` is pure, so it is imported directly.
+cited elsewhere in the analysis or is an input of a cited derived value, the claim's one year is the ID's (a
+comparison base year dates no figure, and a level a move started from takes no ID), the figure carries the value's
+sign unless the gate reads it from the sentence, and the ID's whole label (a "% of" denominator and a window or peer
+reference included) is attached to the figure; and then only when appending it changes no other claim's verdict.
+Each refusal below is a shape of wrong number that must stay a gate failure. The review's leaks (a difference read
+as a level, a red flag's threshold read as a level, a label's denominator or window word dropped, an appended ID
+verifying another claim, a move's end level as its start, a base year's level as the current one, a negative level
+printed unsigned) and the substitution test's recorded leaks run on their real sentences and committed packs, as do
+DEEPSEEK-ERRORS.md §1.1's seven own-ID omissions, three of which the safe core still fixes. The substitution test's
+shapes (a negative level printed unsigned, a move's from-level and a base-year sentence) run in its omitted arm.
+Fix 5 retypes a figures-only cause that cites no passage, and only that. ``autocite`` is pure, so it is imported
+directly.
 """
 from __future__ import annotations
 
@@ -284,6 +288,65 @@ def test_the_recorded_own_id_omissions(folder: str, ticker: str, elsewhere: str,
     assert [a["id"] for a in cited["added"] if a["sentence"] == sentence] == ([vid] if vid else [])
 
 
+# Review 7's repair-loop findings 0 and 1 on CVX's committed pack: D369 is the FY2025 net margin change (-2.5pp) of
+# F30 (FY2025, 6.7%) and F29 (FY2024, 9.2%); F26 is FY2021's 10.0%; D108 is FY2019 net cash, -$20.1 billion (net
+# debt); F25 is FY2020 net margin, -5.9%; F15 is FY2020 net income, a $5.5 billion loss. Each sentence states a
+# wrong number that the gate would verify with the ID appended: auto-citation must leave it failing.
+WRONG_DATES_AND_SIGNS = [
+    # A level a move started from, printed as the level it ended at: the start is FY2024's 9.2%, not 6.7%.
+    ("", "Net margin fell 2.5pp from 6.7% [D369]."),
+    ("", "In FY2025 net margin fell 2.5pp from 6.7% [D369]."),  # FY2025 binds the change, not the level
+    ("", "In FY2025, net margin fell 2.5pp from 6.7% [D369]."),  # the opening year binds every figure, the level too
+    ("", "Net margin fell from 6.7% to 4.2% [D369]."),
+    # A base year's level printed as the current one: the margin fell to 6.7% after FY2021, not to 10.0%.
+    ("In FY2021 net margin was 10.0% [F26].", "Net margin has fallen to 10.0% from FY2021 [D285]."),
+    ("In FY2021 net margin was 10.0% [F26].", "Net margin has slipped to 10.0% since FY2021 [D369]."),
+    ("In FY2021 net margin was 10.0% [F26].", "Since FY2021, net margin has slipped to 10.0% [D369]."),
+    # A span from a base year: FY2021's one-year growth (64.7%, D192) is no growth since FY2018, though F6 is FY2021's.
+    ("Revenue grew 64.7% in FY2021 [D192].", "Revenue growth was 64.7% since FY2018 [F6]."),
+    # A negative level printed unsigned: net debt as net cash, a negative margin and a loss as positive.
+    ("Net cash stood at -$20.1 billion in FY2019 [D108].", "Net cash was $20.1 billion in FY2019 [D109]."),
+    ("The FY2020 net margin of -5.9% [F25] followed a loss.", "Net margin was 5.9% in FY2020 [D153]."),
+    ("CVX lost $5.5 billion in FY2020 [F15].", "Net income was $5.5 billion in FY2020 [F5]."),
+]
+
+
+@pytest.mark.parametrize("elsewhere, sentence", WRONG_DATES_AND_SIGNS)
+def test_a_wrong_year_or_sign_the_gate_cannot_see_keeps_failing(elsewhere: str, sentence: str) -> None:
+    pack = _pack("packs", "CVX")
+    texts, cited = _cite(*([("fact", elsewhere)] if elsewhere else []), ("comparison", sentence), pack=pack)
+    assert texts[-1] == sentence and not [a for a in cited["added"] if a["sentence"] == sentence] and cited["rejected"] >= 1
+    assert not factcheck.check([{"section": "cash", "text": sentence, "type": "comparison"}], pack, backstops=True)["passed"]
+
+
+@pytest.mark.parametrize("elsewhere, sentence, vid", [
+    ("", "Net margin fell 2.5pp to 6.7% [D369].", "F30"),  # the level a move ended at, of the change's own year
+    # A negative level printed with its sign: the sign is the value's.
+    ("Net cash stood at -$20.1 billion in FY2019 [D108].", "Net cash was -$20.1 billion in FY2019 [D109].", "D108"),
+    ("The FY2020 net margin of -5.9% [F25] followed a loss.", "Net margin was -5.9% in FY2020 [D153].", "F25"),
+    # A negative change said with a direction word: the gate reads the sign, so its ID may be appended.
+    ("Revenue growth was -32.5% in FY2020 [D153].", "Revenue growth fell 32.5% in FY2020, while net margin was -5.9% [F25].",
+     "D153"),
+])
+def test_a_right_year_and_sign_still_gets_its_id(elsewhere: str, sentence: str, vid: str) -> None:
+    pack = _pack("packs", "CVX")
+    texts, cited = _cite(*([("fact", elsewhere)] if elsewhere else []), ("comparison", sentence), pack=pack)
+    assert texts[-1] == autocite.with_citation(sentence, vid) and [a["id"] for a in cited["added"] if a["sentence"] == sentence] == [vid]
+    assert factcheck.check([{"section": "cash", "text": texts[-1], "type": "comparison"}], pack, backstops=True)["passed"]
+
+
+@pytest.mark.parametrize("word, base", [("than", True), ("from", True), ("since", True), ("versus", True), ("vs", True),
+                                        ("vs.", True), ("in", False), ("for", False), ("at", False), ("during", False)])
+def test_auto_citations_base_words_are_the_gates(word: str, base: bool) -> None:
+    # autocite._BASE_WORD reads bind_periods's base-year list (factcheck.BASE_WORDS): a year after one of these words
+    # binds no figure before it. Both must read the same words, or a year the gate dates a figure by would date none
+    # here, or back; this pins the gate's reading and the regex built from the list.
+    text = f"Net margin was 9.2% {word} FY2024 [F29]."
+    claims = factcheck.parse_claims(text)
+    assert (0 not in factcheck.bind_periods(autocite._blank_citations(text), claims, 2025)) is base
+    assert bool(autocite._BASE_WORD.search(f"Net margin was 9.2% {word} ")) is base
+
+
 def test_a_label_whose_words_a_conjunction_joins_is_attached() -> None:
     texts, cited = _cite(("fact", "Buybacks plus dividends were $48.7 billion in FY2026 [D467]."),
                          ("comparison", "Buybacks plus dividends of $48.7 billion absorbed 72.7% of free cash flow [D468]."),
@@ -360,14 +423,46 @@ ANALYSIS = _output(
 def test_the_substitution_test_runs_both_arms_and_every_kind() -> None:
     result = autocite.substitution_test([("T", ANALYSIS, PACK)])
     counts = result["counts"]
-    assert set(counts) == set(autocite.ARMS) and all(set(counts[arm]) == set(autocite.KINDS) for arm in autocite.ARMS)
+    assert set(counts) == set(autocite.ARMS) and set(counts["kept"]) == set(autocite.KINDS)
+    assert set(counts["omitted"]) == set(autocite.KINDS + autocite.SHAPES)  # the shapes omit the claim's own ID
     for arm in autocite.ARMS:
-        for kind in autocite.KINDS:  # a planted threshold ("80%" from R1) and gap ("1.2%", 21.2% less 20.0%) included
+        # A planted threshold ("80%" from R1) and gap ("1.2%", 21.2% less 20.0%) included; the sign shape's slot is
+        # D5's -1.39x, the from and base shapes D1's move from 75.0% to 71.1% and D7's from $100.0 to $110.0 billion.
+        for kind in counts[arm]:
             assert counts[arm][kind].get("substitutes", 0) >= 1, (arm, kind)
             assert "licensed" not in counts[arm][kind], (arm, kind)
     assert counts["omitted"]["gap"]["matches_nothing"] >= 1  # with F5 out, 1.2% reads as nothing: the old route's shape
     assert not result["leaks"]["kept"] and not result["leaks"]["omitted"]
     assert result["control"]["recovered"] >= 1  # "Gross margin fell 3.9pp to 71.1% in FY2025 [D1]" gets F4 back
+
+
+def test_the_sign_shape_prints_a_negative_level_unsigned(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Finding 1's net cash, signed and cited (D108, -$20.1 billion; D109, its share of revenue, of which it is an
+    # input): with D108 omitted and the figure unsigned, the gate reads '$20.1 billion' as matching nothing and D108
+    # reconciles it by magnitude. CVX's from and base shapes (251 moves) are left out to keep this fast; the
+    # synthetic pack's run above and the D369 test below cover them.
+    monkeypatch.setattr(autocite, "shape_sentences", lambda pack: iter(()))
+    output = _output(("fact", "Net cash was -$20.1 billion in FY2019 [D108][D109]."))
+    result = autocite.substitution_test([("CVX", output, _pack("packs", "CVX"))])
+    assert result["counts"]["omitted"]["sign"] == {"substitutes": 1, "matches_nothing": 1, "refused": 1}
+    assert not result["leaks"]["omitted"]
+
+
+def test_the_from_and_base_shapes_of_a_real_move() -> None:
+    # CVX's FY2025 net margin change, D369 (-2.5pp), from F29 (FY2024, 9.2%) to F30 (FY2025, 6.7%): finding 0's shapes,
+    # each with the printed level's own ID cited elsewhere, so it is in auto-citation's pool.
+    pack = _pack("packs", "CVX")
+    shaped = [shape for shape in autocite.shape_sentences(pack) if shape[1].endswith("[D369].")]
+    assert [(kind, text, printed, elsewhere) for kind, text, printed, elsewhere in shaped] == [
+        ("from", "Net margin fell 2.5pp from 6.7% [D369].", "6.7%", ["F30"]),
+        ("from", "In FY2025 net margin fell 2.5pp from 6.7% [D369].", "6.7%", ["F30"]),
+        ("from", "In FY2025, net margin fell 2.5pp from 6.7% [D369].", "6.7%", ["F30"]),
+        ("base", "Net margin has fallen to 9.2% since FY2024 [D369].", "9.2%", ["F29"]),
+        ("base", "Net margin has fallen to 9.2% from FY2024 [D369].", "9.2%", ["F29"]),
+        ("base", "Since FY2024, net margin has fallen to 9.2% [D369].", "9.2%", ["F29"])]
+    for _, text, printed, elsewhere in shaped:
+        sentence = {"section": "margins", "text": text, "type": "comparison"}
+        assert autocite._licensed(sentence, pack, elsewhere, printed) == ("refused", None), text
 
 
 def test_a_checked_peer_rank_and_a_segment_value_are_substitution_slots() -> None:
@@ -409,9 +504,10 @@ def test_a_licence_shows_as_a_leak_in_both_arms(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(autocite, "_only_targets_changed", lambda *args: True)
     leaked = autocite.substitution_test([("T", ANALYSIS, PACK)])
     for arm in autocite.ARMS:
-        for kind in autocite.KINDS:
+        for kind in leaked["counts"][arm]:  # the omitted arm's shapes included
             assert leaked["counts"][arm][kind]["licensed"] == leaked["counts"][arm][kind]["substitutes"] >= 1, (arm, kind)
         assert leaked["leaks"][arm]
+    assert set(leaked["counts"]["omitted"]) == set(autocite.KINDS + autocite.SHAPES)
 
 
 def test_auto_citation_never_loads_the_bootstrap() -> None:

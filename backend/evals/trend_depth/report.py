@@ -17,24 +17,32 @@ as ``cost_recorded_mean``. Extrapolation multiplies the mean cost of a fresh gen
 call, by the monthly run count.
 
 A record still waiting on a provider error (``records.unsettled``) is counted apart, as is an audit or verdict
-that failed, was refused, or read an output that has since changed: none of them is reported as a result.
+that failed, was refused, or read an output that has since changed: none of them is reported as a result, but a
+record awaiting its repair counts as an analysis that did not pass without one (``arm_measures``).
 
 Every arm is also scored on the measures of DEEPSEEK-ERRORS.md §3 (``arm_measures``, in ``summary.json`` under each
 split's ``measures``), beside §3's target for the candidate, and every item they count is listed for hand reading.
 A record made with ``generate --pipeline v2`` (``pipeline: "v2"``) adds the repair area's fields: the gate on the
 model's own first output (``raw_first_pass_gate``), the IDs the code added (``autocite``), the sentences it retyped
 (``retyped``) and the repair's kind (``repair_kind``). A record without them is version 1 (eval-v1 and earlier).
-Every measure is on one basis for every record and arm:
+Every measure is on one basis for every record and arm, and reads the pack the arm read but where stated:
 
+- passes without a model repair count what each arm's own pipeline did: a failed generation, and a record whose
+  repair generate still owes (``records.awaiting_repair``: its first pass failed the gate), count as not passing, and
+  a warning at the top names every record generate still owes (``pending_warnings``). A repair sent for the gate's
+  broken_debt backstop alone has a row of its own: only an arm reading ``packs-v2/`` can have one;
 - first-try errors score the model's own first output (``first_output``) under the gate as it is now, in two rows:
   the gate's failing claims, and the claims its backstops fail beyond them (``first_try``);
 - mislabels are distinct sentences, from the probes of a number said about another ratio, basis or year
-  (``MISLABEL_KINDS``) and Opus's substantive flags (``OPUS``), each per 1,000 verified claims; the probes' other
-  gate kinds have rows of their own (``OWN_ROW_KINDS``);
+  (``MISLABEL_KINDS``) and Opus's substantive flags (``OPUS``), each per 1,000 verified claims, in two rows: the
+  probes alone over every output, and with Opus over the outputs Opus read (§3's target; P and Q have no Opus
+  audit). The probes' other gate kinds have rows of their own (``OWN_ROW_KINDS``);
 - broken net cash reads the breaks the company's ``packs-v2/`` pack records whatever pack the arm read
   (``broken_net_cash``), so a withheld figure cited by its ID (an arm reading ``packs/``) and the same figure
   rebuilt from the lines ``packs-v2/`` still shows count alike;
-- a failed generation counts as not passing.
+- latency quantiles are linear between the two nearest ranks, the basis of §3's baselines (``records.quantile``);
+- the judge's verdicts are shown per criterion, as §3's judge target reads them, and across runs per criterion and
+  summed (``judge_runs``).
 
 Each arm's builds (pipeline, prompt and packs, ``build``) are listed, with a warning at the top when one label, or the
 runs pooled, hold more than one. Several runs of the same arms:
@@ -49,7 +57,6 @@ from __future__ import annotations
 import argparse
 import gzip
 import json
-import re
 import statistics
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -62,22 +69,25 @@ from evals.trend_depth.generate import RUNS, SECTION_KEYS, load_pack, sentences_
 from evals.trend_depth.judge import CRITERIA, _family
 from evals.trend_depth.providers import ARMS, packs_dir, parse_json_object
 from evals.trend_depth.records import (
-    api_cost, first_reads, first_request_cache, output_sha256, pack_sha256, prefix_key, read_same_output, shared_prefixes,
-    text_sha256, unsettled, warm_first_attempts,
+    api_cost, awaiting_repair, first_reads, first_request_cache, output_sha256, pack_sha256, prefix_key, quantile,
+    read_same_output, shared_prefixes, text_sha256, unsettled, warm_first_attempts,
 )
 from evals.trend_depth.semantics import classify_flag
 
 OPUS = "claude-opus-5-5"  # the auditor §3 counts mislabels and cause support with
 OLD_GATE = "b3ed8ef"  # the gate before wave 1 narrowed it (DEEPSEEK-ERRORS.md was measured on it): continuity, as in replay.py
 REFERENCE_PACKS = "packs-v2"  # the breaks it records (data checks, withheld IDs) say which figures rest on a broken line
+QUANTILE = "linear between the two nearest ranks, as §3's baselines"  # the latency rows' note (``records.quantile``)
+# DEEPSEEK-ERRORS.md §3's judge target: "C wins or ties grounding and calibration on at least 12 of 20 per split; loses
+# depth on no more than 5". Each criterion is shown, and the two read jointly (``judge_matrix``), as the target can be.
+BOTH_CRITERIA = ("grounding", "calibration")
+JUDGE_TARGET = ("C wins or ties grounding and calibration on at least 12 of 20 per split (two runs of 10); loses depth on "
+                "no more than 5")
 # The probes' gate kinds, each counted once: a number said about another ratio, basis or year is a mislabel (§1.2's
 # root causes); an unsigned fall, a unitless dollar figure and a margin gap's direction each have a row of their own
 # (§1.4's logic slips, fix 11, fix 9); broken_debt is the broken-net-cash measure.
 MISLABEL_KINDS = ("R1", "R2a", "R2c", "R3")
 OWN_ROW_KINDS = ("U1", "unitless_dollars", "gap_direction")
-# A sentence about debt or cash (not a cash flow), whose disclosure wording (probes.DISCLOSURE) is about a break.
-_BREAK_TOPIC = re.compile(r"\b(?:debt|net cash|borrowings?|liquidity|cash|investments?|marketable securities)\b"
-                          r"(?!\s+(?:flows?|provided|used|generated)\b)", re.I)
 
 FAILURE_CLASSES = (
     ("unknown citation", "unknown_citation"), ("no citation", "uncited_number"), ("other way", "direction"),
@@ -92,13 +102,6 @@ def _class(failure: str) -> str:
 
 def _pct(n: float, d: float) -> str:
     return f"{n / d * 100:.0f}%" if d else "—"
-
-
-def _quantile(values: list[float], q: float) -> Optional[float]:
-    if not values:
-        return None
-    ordered = sorted(values)
-    return ordered[min(len(ordered) - 1, int(round(q * (len(ordered) - 1))))]
 
 
 def load(label: str, system: str, tickers: list[str]) -> list[dict[str, Any]]:
@@ -133,7 +136,7 @@ def arm_stats(records: list[dict[str, Any]], prefixes: Optional[dict[str, int]] 
     """One arm's table row. ``prefixes`` is each prompt's shared cached prefix (``recorded_prefixes``, read when
     None); a record without a prompt hash shares one with the records passed that lack it too."""
     n = len(records)
-    pending = [r for r in records if "repair_error" in r]  # a first pass whose repair generate still owes
+    pending = [r for r in records if awaiting_repair(r)]  # a first pass whose repair generate still owes
     errored = [r for r in records if "error" in r]  # a provider failure generate retries, not the model's own
     ok = [r for r in records if r.get("generation_ok") and not unsettled(r)]
     stats: dict[str, Any] = {"n": n, "generated": len(ok), "pending_repairs": len(pending), "provider_errors": len(errored)}
@@ -143,8 +146,8 @@ def arm_stats(records: list[dict[str, Any]], prefixes: Optional[dict[str, int]] 
         stats.update({
             "words_mean": statistics.mean(r["words"] for r in ok),
             "cost_mean": statistics.mean(r.get("cost_usd") or 0 for r in ok),
-            "latency_p50": _quantile([r["latency_s"] for r in ok], 0.5),
-            "latency_p90": _quantile([r["latency_s"] for r in ok], 0.9),
+            "latency_p50": quantile([r["latency_s"] for r in ok], 0.5),
+            "latency_p90": quantile([r["latency_s"] for r in ok], 0.9),
         })
         return stats
     gates = [r["gate"] for r in ok]
@@ -206,8 +209,8 @@ def arm_stats(records: list[dict[str, Any]], prefixes: Optional[dict[str, int]] 
         "backends": sorted({a.get("backend", "?") for r in paid for a in r.get("attempts", [])}),
         "input_tokens_mean": statistics.mean(r["usage"]["input_tokens"] for r in ok),
         "output_tokens_mean": statistics.mean(r["usage"]["output_tokens"] for r in ok),
-        "latency_p50": _quantile([r["latency_s"] for r in ok], 0.5),
-        "latency_p90": _quantile([r["latency_s"] for r in ok], 0.9),
+        "latency_p50": quantile([r["latency_s"] for r in ok], 0.5),
+        "latency_p90": quantile([r["latency_s"] for r in ok], 0.9),
     })
     return stats
 
@@ -303,6 +306,22 @@ def repaired(record: dict[str, Any]) -> bool:
     return any(a.get("attempt") == "repair" for a in record.get("attempts", []))
 
 
+_BROKEN_DEBT_FAILURE = "backstop broken_debt:"  # factcheck.check's failure string for that backstop's hit
+
+
+def broken_debt_repair(record: dict[str, Any]) -> list[dict[str, Any]]:
+    """The failures a repair was sent or is owed (``awaiting_repair``) for, when the gate's broken_debt backstop is all of
+    them: every failure of the verdict that sent it (``first_pass_gate`` once the repair ran, else ``gate``); else none.
+    That backstop reads the breaks of the arm's own pack, and packs/ records none, so only an arm reading packs-v2 (P,
+    C) can have one: version 2's fix 8 lets the gate catch a figure it withholds, which K0 and Q state uncaught (broken
+    net cash counts both alike). The pass row counts what each arm's pipeline did, so this row says how much of P's
+    and C's shortfall against K0 is that catch."""
+    if not (repaired(record) or awaiting_repair(record)):
+        return []
+    failures = (record.get("first_pass_gate") or record.get("gate") or {}).get("failures", [])
+    return failures if failures and all(f["failure"].startswith(_BROKEN_DEBT_FAILURE) for f in failures) else []
+
+
 def first_output(record: dict[str, Any]) -> Optional[dict[str, Any]]:
     """The model's first output, before any code fix or repair. A version-1 record's is its first pass (its output
     when no repair ran). A version-2 record's first pass carries the code's fixes, so its first valid reply is read
@@ -327,9 +346,11 @@ def broken_net_cash(sentences: list[dict[str, Any]], pack: dict[str, Any], refer
     that does not disclose the break. None when the reference records no break at all.
 
     - ``state``, for a company whose reference names a debt or liquidity break (None otherwise): ``disclosed`` if a
-      sentence about debt or cash discloses a break (``probes.DISCLOSURE``; its generic words, "missing", "caveat",
-      need the topic), else ``stated as fact`` if a sentence states a broken figure, else ``silent``. Words alone
-      decide, never a cited withheld ID, which only an arm reading version 1 could cite;
+      sentence discloses a break by the rule the gate's backstop and ``stated`` read (``probes.discloses``: a
+      disclosure word in a clause about debt or cash, so "Net cash was $8.8 billion, though one-off tax payments
+      understate free cash flow" discloses nothing and states the broken figure), else ``stated as fact`` if a
+      sentence states a broken figure, else ``silent``. Words alone decide, never a cited withheld ID, which only an
+      arm reading version 1 could cite;
     - ``stated``: each sentence stating a figure of a ``debt_break`` or ``liquidity_break`` without disclosing it in
       that sentence, its breaks and claims, whatever the analysis says elsewhere;
     - ``peer``: each sentence citing a version-1 net-cash peer rank or median built on a peer's broken year
@@ -346,7 +367,7 @@ def broken_net_cash(sentences: list[dict[str, Any]], pack: dict[str, Any], refer
         entry["claims"].append(f"'{hit['claim']}' {hit['detail']}")
     checks = [kind for kind, years in (("debt_break", breaks.debt_years), ("liquidity_break", breaks.cash_years)) if years]
     disclosed = [{"section": s.get("section", ""), "sentence": s["text"]} for s in sentences
-                 if probes.DISCLOSURE.search(_plain(s["text"])) and _BREAK_TOPIC.search(_plain(s["text"]))] if checks else []
+                 if probes.discloses(_plain(s["text"]))] if checks else []
     stated = list(grouped["stated"].values())
     state = None if not checks else "disclosed" if disclosed else "stated as fact" if stated else "silent"
     return {"state": state, "checks": checks, "stated": stated, "disclosed": disclosed, "peer": list(grouped["peer"].values())}
@@ -428,25 +449,42 @@ def _audit_by(label: str, kind: str, system: str, ticker: str, auditor: str) -> 
 
 def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: dict[str, Any],
                  old_gate: Optional[tuple[str, ModuleType]] = None) -> dict[str, Any]:
-    """DEEPSEEK-ERRORS.md §3's measures for one arm's settled analyses, with every counted item for hand reading.
-    ``stats`` is the arm's ``arm_stats`` (cost and latency); ``old_gate``, (commit, the gate as committed there:
-    ``replay.base_gate``), scores the first and final outputs for continuity with eval-v1. A failed generation (the
-    model's own outcome: invalid replies, or a refusal) is an analysis that did not pass; every other measure reads
-    the outputs generated (``analyses``)."""
-    if system == "current":
+    """DEEPSEEK-ERRORS.md §3's measures for one arm's analyses, with every counted item for hand reading. ``stats`` is
+    the arm's ``arm_stats`` (cost and latency); ``old_gate``, (commit, the gate as committed there:
+    ``replay.base_gate``), scores the first and final outputs for continuity with eval-v1.
+
+    - A failed generation (the model's own outcome: invalid replies, or a refusal) is an analysis that did not pass.
+    - A record awaiting its repair (``records.awaiting_repair``) did not pass either: generate repairs only a first
+      pass that failed the gate. Its first output is final, so the first-output measures (first-try errors, own-ID
+      omissions, retypes, the old gate's first try) score it; its final output is not, so the final-output measures
+      (mislabels, calibration, broken net cash, form, audits) wait for it. Left out, a provider outage during the
+      repairs removed exactly the failing analyses: eval-v1's DeepSeek read 13 of 13 instead of 13 of 20.
+    - A provider error (``error``) has no output yet: it is left out until generate makes it, and counted.
+    - Every measure reads the pack the arm read (``own_pack``), but broken net cash, which reads packs-v2's breaks
+      for every arm (``broken_net_cash``).
+    """
+    if system == "current" or not records:
         return {}
     settled = [r for r in records if not unsettled(r)]
     ok = [r for r in settled if r.get("generation_ok")]
     failed = [r for r in settled if not r.get("generation_ok")]
-    if not ok and not failed:
-        return {}
-    v2 = [r for r in ok if r.get("pipeline") == "v2"]
+    owed = [r for r in records if awaiting_repair(r)]
+    errored = [r for r in records if "error" in r]
+    firsts = ok + owed  # every analysis whose model's first output is final
+    v2 = [r for r in firsts if r.get("pipeline") == "v2"]
     packs: dict[str, dict[str, Any]] = {}
+
+    def own_pack(ticker: str) -> dict[str, Any]:
+        """The pack this arm read, loaded once: the builds and every measure read it, so none reads another arm's."""
+        if ticker not in packs:
+            packs[ticker] = load_pack(ticker, system)
+        return packs[ticker]
+
     builds: Counter[str] = Counter()
     pack_hashes: dict[str, str] = {}
     for r in records:  # every record of the label, a failed or pending one too: each was made by some build
         if r.get("attempts") or r.get("prior_attempts"):
-            builds[build(r, packs.setdefault(r["ticker"], load_pack(r["ticker"], system)))] += 1
+            builds[build(r, own_pack(r["ticker"]))] += 1
             pack_hashes[r["ticker"]] = str(r.get("pack_sha256") or "")[:12]
     first_gate: list[dict[str, Any]] = []
     first_backstops: list[dict[str, Any]] = []
@@ -456,8 +494,10 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
     opus_flags: list[dict[str, Any]] = []
     opus_other: list[dict[str, Any]] = []
     opus_views: Counter[str] = Counter()
+    opus_read: set[str] = set()
     causes: Counter[str] = Counter()
-    causes_read = verified = 0
+    causes_read = 0
+    verified: Counter[str] = Counter()
     judgement: Counter[str] = Counter()
     evaluative: list[dict[str, Any]] = []
     evaluative_scope = 0
@@ -466,29 +506,35 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
     forms: list[dict[str, Any]] = []
     debt: list[dict[str, Any]] = []
     old: Counter[str] = Counter()
-    for r in ok:
+    for r in firsts:
         ticker = r["ticker"]
-        pack = packs.setdefault(ticker, load_pack(ticker, system))
-        keys = probes.series_by_id(pack)
-        final = sentences_of(r["output"])
+        pack = own_pack(ticker)
         first = first_output(r)
         if first is not None:  # the model's own first output, every record and pipeline alike, under the gate now
-            gate_items, backstop_items = first_try(sentences_of(first), pack, keys)
+            gate_items, backstop_items = first_try(sentences_of(first), pack, probes.series_by_id(pack))
             first_scored += 1
             first_gate += [{"ticker": ticker, **item} for item in gate_items]
             first_backstops += [{"ticker": ticker, **item} for item in backstop_items]
+            if old_gate is not None:
+                old["first"] += bool(old_gate[1].check(sentences_of(first), pack)["passed"])
         recorded = r.get("raw_first_pass_gate") if r.get("pipeline") == "v2" else r.get("first_pass_gate", r["gate"])
         if isinstance(recorded, dict):  # as run: the cross-check, under the gate of its day
             as_run.append({"ticker": ticker, "basis": "raw_first_pass_gate" if r.get("pipeline") == "v2" else "first_pass_gate",
                            "failures": len(recorded.get("failures", []))})
+    for r in ok:
+        ticker = r["ticker"]
+        pack = own_pack(ticker)
+        keys = probes.series_by_id(pack)
+        final = sentences_of(r["output"])
         for sentence in final:
             result, resolved = factcheck.analyse_sentence(sentence, pack)
-            verified += sum(1 for c in result.claims if c["status"] == "verified")
+            verified[ticker] += sum(1 for c in result.claims if c["status"] == "verified")
             probe_hits += [{"ticker": ticker, **hit} for hit in probes.probe_sentence(sentence, pack, resolved, keys)]
         audit = _audit_by(label, "semantics", system, ticker, OPUS)
         if audit is not None:
             view = audit.get("view", 1)
             opus_views[str(view)] += 1
+            opus_read.add(ticker)
             for item in audit.get("items", []):
                 if item["label"] != "mismatch":
                     continue
@@ -516,7 +562,6 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
         if state is not None:
             debt.append({"ticker": ticker, **state})
         if old_gate is not None:
-            old["first"] += bool(first and old_gate[1].check(sentences_of(first), pack)["passed"])
             old["final"] += bool(old_gate[1].check(final, pack)["passed"])
     # Mislabels are sentences: a probe and the auditor on one error, or two figures of one error ("from -$34.3 billion
     # to -$92.2 billion"), count once. A sentence the broken-net-cash measure counts as stated is counted there alone.
@@ -536,15 +581,22 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
     sentences = {key[:2] for key in mislabels} - stated
     by_source = {name: {key[:2] for key, item in mislabels.items() if name in item["source"]} & sentences
                  for name in ("probe", OPUS)}
+    # Two bases, each the same for every arm: the probes alone over every output (P and Q have no Opus audit), and
+    # the probes with Opus's flags over the outputs Opus read (§3's target), never one beside the other in one row.
+    audited = {key for key in sentences if key[0] in opus_read}
     autocite = [r.get("autocite") or {} for r in v2]
     in_scope = [d for d in debt if d["state"] is not None]
     n = len(ok)
     return {
         "analyses": n, "failed_generations": len(failed), "pipeline_v2": len(v2),
+        "awaiting_repair": len(owed), "provider_errors": len(errored),
         "builds": dict(builds), "pack_sha256": dict(sorted(pack_hashes.items())),
         "passes_without_repair": sum(1 for r in ok if not repaired(r) and r["gate"].get("passed")),
         "repairs": dict(Counter(r.get("repair_kind") or ("version 1" if r.get("pipeline") != "v2" else "unknown")
                                 for r in ok if repaired(r))),
+        "repairs_sent_or_owed": sum(1 for r in firsts if repaired(r) or awaiting_repair(r)),
+        "repairs_for_broken_debt_alone": [{"ticker": r["ticker"], "failures": failures} for r in firsts
+                                          if (failures := broken_debt_repair(r))],
         "code_fixed_passes": sum(1 for r in v2 if not repaired(r) and r["gate"].get("passed")
                                  and not (r.get("raw_first_pass_gate") or {}).get("passed", True)),
         "first_try_scored": first_scored, "first_try_errors": len(first_gate), "first_try_failures": first_gate,
@@ -553,8 +605,10 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
         "autocite_rejected": sum(int(a.get("rejected") or 0) for a in autocite),
         "autocite_added": [{"ticker": r["ticker"], **added} for r in v2 for added in (r.get("autocite") or {}).get("added", [])],
         "retyped": [{"ticker": r["ticker"], **change} for r in v2 for change in r.get("retyped") or []],
-        "verified_claims": verified, "mislabels": len(sentences), "mislabel_claims": len(mislabels),
+        "verified_claims": sum(verified.values()), "mislabels": len(sentences), "mislabel_claims": len(mislabels),
         "probe_mislabels": len(by_source["probe"]), "opus_mislabels": len(by_source[OPUS]),
+        "audited_verified_claims": sum(verified[ticker] for ticker in opus_read), "audited_mislabels": len(audited),
+        "audited_probe_mislabels": len(by_source["probe"] & audited), "audited_opus_mislabels": len(by_source[OPUS] & audited),
         "opus_substantive": len(opus_flags), "opus_audited": sum(opus_views.values()), "opus_views": dict(opus_views),
         "opus_other": opus_other, "mislabel_list": list(mislabels.values()),
         **{kind: [h for h in probe_hits if h["kind"] == kind] for kind in OWN_ROW_KINDS},
@@ -583,7 +637,8 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
         "cost_mean": stats.get("cost_mean"), "cost_n": stats.get("cost_n"),
         "latency_p50": stats.get("latency_p50"), "latency_p90": stats.get("latency_p90"),
         "shared_prefix_tokens": stats.get("shared_prefix_tokens", {}), "warm_first_attempts": stats.get("warm_first_attempts"),
-        "old_gate": {"commit": old_gate[0], "first_try": old["first"], "final": old["final"]} if old_gate is not None else None,
+        "old_gate": ({"commit": old_gate[0], "first_try": old["first"], "first_try_of": first_scored, "final": old["final"]}
+                     if old_gate is not None else None),
     }
 
 
@@ -622,6 +677,7 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
     wins: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     consensus: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     criteria: dict[tuple[str, str], dict[str, Counter[str]]] = defaultdict(lambda: defaultdict(Counter))
+    both: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
     by_judge: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: defaultdict(Counter))
     agreement: dict[str, list[bool]] = defaultdict(list)
     between_judges: list[bool] = []
@@ -655,8 +711,12 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
         judged_by[key][" + ".join(sorted(r["judge"] for r in neutral)) if neutral
                        else "consensus of " + " + ".join(sorted(r["judge"] for r in own_family))] += 1
         wins[key][_panel_verdict(panel, "overall")] += 1
-        for criterion in CRITERIA:
-            criteria[key][criterion][_panel_verdict(panel, criterion)] += 1
+        verdicts = {criterion: _panel_verdict(panel, criterion) for criterion in CRITERIA}
+        for criterion, verdict in verdicts.items():
+            criteria[key][criterion][verdict] += 1
+        both[key]["of"] += 1
+        for side in (x, y):  # §3's judge target read jointly: one pair's grounding and calibration, each won or tied
+            both[key][side] += all(verdicts[c] in (side, "tie") for c in BOTH_CRITERIA)
     return {
         "judged_pairs": judged,
         "incomplete_panels": incomplete,
@@ -667,10 +727,24 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
         "consensus": {f"{x}|{y}": dict(c) for (x, y), c in consensus.items()},
         "judged_by": {f"{x}|{y}": dict(c) for (x, y), c in judged_by.items()},
         "criteria": {f"{x}|{y}": {k: dict(v) for k, v in c.items()} for (x, y), c in criteria.items()},
+        "grounding_and_calibration": {f"{x}|{y}": dict(c) for (x, y), c in both.items()},
         "by_judge": {pair: {judge: dict(c) for judge, c in judges.items()} for pair, judges in by_judge.items()},
         "swap_agreement": {judge: (sum(v) / len(v) if v else None, len(v)) for judge, v in agreement.items()},
         "between_judges": (sum(between_judges) / len(between_judges) if between_judges else None, len(between_judges)),
     }
+
+
+JOINT = "grounding and calibration, each won or tied"
+
+
+def judge_criteria(matrix: dict[str, Any], pair: str) -> list[tuple[str, tuple[int, int, int]]]:
+    """A pair's (``x|y``) panel verdicts per criterion, as (x's wins, y's wins, ties or splits), then ``JOINT``: (the
+    pairs whose grounding and calibration x each won or tied, the same for y, the pairs judged on criteria)."""
+    x, y = pair.split("|")
+    by = matrix["criteria"].get(pair, {})
+    both = matrix.get("grounding_and_calibration", {}).get(pair, {})
+    return ([(c, (by.get(c, {}).get(x, 0), by.get(c, {}).get(y, 0), by.get(c, {}).get("tie", 0))) for c in CRITERIA]
+            + [(JOINT, (both.get(x, 0), both.get(y, 0), both.get("of", 0)))])
 
 
 def build_warnings(runs: dict[str, dict[str, Any]], systems: list[str]) -> list[str]:
@@ -701,9 +775,26 @@ def build_warnings(runs: dict[str, dict[str, Any]], systems: list[str]) -> list[
     return [f"> **Warning:** {line}" for line in out] + ([""] if out else [])
 
 
+def pending_warnings(runs: dict[str, dict[str, Any]], systems: list[str]) -> list[str]:
+    """A warning per arm and run (``runs``: label -> summary) whose records generate still owes a call: a repair (each
+    counted as not passing, its final output in no row) or a whole generation after a provider error (in no row).
+    The run is not finished, and its pass rate is not the one the stop rules read, so the warning goes at the top."""
+    out = []
+    for label, summary in runs.items():
+        for system in systems:
+            m = (summary["splits"]["all"].get("measures") or {}).get(system) or {}
+            owed, errors = m.get("awaiting_repair", 0), m.get("provider_errors", 0)
+            parts = ([f"{owed} repair{'s' * (owed != 1)} awaiting generate, counted as not passing"] * bool(owed)
+                     + [f"{errors} generation{'s' * (errors != 1)} awaiting generate after a provider error, in no row"] * bool(errors))
+            if parts:
+                out.append(f"`{system}` in `{label}`: {'; '.join(parts)}. Re-run generate with the same label, then the "
+                           "audits and this report, before reading its measures.")
+    return [f"> **Warning:** {line}" for line in out] + ([""] if out else [])
+
+
 def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
     lines = [f"# Bake-off report: `{label}`", "", "Generated by `python -m evals.trend_depth.report`.", "",
-             *build_warnings({label: summary}, systems)]
+             *build_warnings({label: summary}, systems), *pending_warnings({label: summary}, systems)]
     for split in ("dev", "holdout", "all"):
         block = summary["splits"][split]
         lines += [f"## {split}: {block['companies']} companies", "",
@@ -811,6 +902,14 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                 x, y = pair.split("|")
                 for judge, counts in sorted(judges.items()):
                     lines.append(f"| {x} vs {y} | {judge} | {counts.get(x, 0)} | {counts.get(y, 0)} | {counts.get('tie', 0)} |")
+            lines += ["", f"The panel's verdicts per criterion, both orders agreeing (DEEPSEEK-ERRORS.md §3's judge target: "
+                      f"{JUDGE_TARGET}). The last row of a pair counts the pairs whose grounding and calibration a side "
+                      "each won or tied:", "",
+                      "| Pair (x vs y) | Criterion | x | y | tie or split |", "|---|---|---|---|---|"]
+            for pair in sorted(matrix["criteria"]):
+                x, y = pair.split("|")
+                lines += [f"| {x} vs {y} | {name} | {a} | {b} | {f'of {c}' if name == JOINT else c} |"
+                          for name, (a, b, c) in judge_criteria(matrix, pair)]
             lines += ["", "Position-swap agreement on the overall verdict:", ""]
             for judge, (rate, n) in matrix["swap_agreement"].items():
                 lines.append(f"- {judge}: {rate * 100:.0f}% of {n} pairs" if rate is not None else f"- {judge}: no pairs")
@@ -879,9 +978,9 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
     rows: list[Row] = []
 
     def ratio(name: str, target: str, num: float, den: float, scale: float, shown: Callable[[float], str],
-              fmt: Callable[[float], str]) -> None:
+              fmt: Callable[[float], str], empty: str = "—") -> None:
         value = num / den * scale if den else None
-        rows.append((name, target, shown(value) if value is not None else "—", value, (num, den, scale) if den else None, fmt))
+        rows.append((name, target, shown(value) if value is not None else empty, value, (num, den, scale) if den else None, fmt))
 
     def count(name: str, target: str, num: float, shown: str) -> None:
         rows.append((name, target, shown, float(num), (num, None, 1.0), _count))
@@ -890,15 +989,24 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
         rows.append((name, target, (shown or fmt(value)) if value is not None else "—", value, None, fmt))
 
     n, n2, failed = m["analyses"], m["pipeline_v2"], m.get("failed_generations", 0)
-    tried = n + failed
+    owed, errors = m.get("awaiting_repair", 0), m.get("provider_errors", 0)
+    tried = n + failed + owed
     k = m["passes_without_repair"]
+    among = [f"{failed} failed generation{'s' * (failed != 1)}"] * bool(failed) + [f"{owed} awaiting a repair"] * bool(owed)
     ratio("Passes without a model repair", "at least 85% pooled; no run below 80%", k, tried, 100,
-          lambda v: f"{k} of {tried} ({v:.0f}%" + (f"; {failed} failed generation{'s' * (failed != 1)} among them" if failed else "") + ")",
-          _percent)
+          lambda v: f"{k} of {tried} ({v:.0f}%" + (f"; {' and '.join(among)} among them" if among else "") + ")", _percent)
     count("Failed generations (the model's own: invalid replies or a refusal; each counts as not passing)", "0", failed,
           f"{failed} of {tried}")
+    count("Repairs awaiting generate (a provider error or an interruption; each counts as not passing, as its first pass "
+          "failed the gate; re-run generate)", "0", owed, f"{owed} of {tried}")
+    count("Generations awaiting generate (a provider error: no output yet, so in no row until generate makes it)", "0",
+          errors, str(errors))
     ratio("of which passed after the code's fixes (version 2 records)", "—", m["code_fixed_passes"], n2, 100,
           lambda v: f"{m['code_fixed_passes']} of {n2}", _percent)
+    alone, sent = len(m.get("repairs_for_broken_debt_alone", [])), m.get("repairs_sent_or_owed", 0)
+    count("Repairs sent for broken net cash alone (the gate's broken_debt backstop reads the arm's own pack's breaks, and "
+          "packs/ records none: only an arm reading packs-v2 can have one; K0's and Q's same figures count under broken "
+          "net cash below)", "—", alone, f"{alone} of {sent} repairs")
     e, b, scored = m["first_try_errors"], m["first_try_backstops"], m["first_try_scored"]
     ratio("First-try gate failures per analysis: failing claims of the model's own first output, gate now "
           "(subtract gate artefacts by hand)", "0.15 or less", e, scored, 1, lambda v: f"{v:.2f} ({e} in {scored} first outputs)", _two)
@@ -907,13 +1015,19 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
     a = m["own_id_omissions"]
     ratio("Own-ID omissions per analysis (IDs the code added)", "— (counted before auto-citation)", a, n2, 1,
           lambda v: f"{v:.2f} ({a} in {n2}; {m['autocite_rejected']} rejected)", _two)
-    hits, claims = m["mislabels"], m["verified_claims"]
+    probe, claims = m["probe_mislabels"], m["verified_claims"]
+    ratio("Mislabelled sentences per 1,000 verified claims, probes R1, R2a, R2c and R3 alone, every output (a sentence "
+          "stating broken net cash is counted there instead)", "— (the basis every arm shares: P and Q have no Opus audit)",
+          probe, claims, 1000, lambda v: f"{v:.1f} ({probe} sentence{'s' * (probe != 1)} in {claims:,} verified claims of {n} outputs)",
+          _one)
+    hits, read, audited = m["audited_mislabels"], m["audited_verified_claims"], m["opus_audited"]
     views = ", ".join(f"{view} ({c})" for view, c in sorted(m["opus_views"].items()))
-    ratio("Mislabelled sentences per 1,000 verified claims: probes R1, R2a, R2c, R3 and Opus substantive flags "
-          "(a sentence stating broken net cash is counted there instead)", "3.5 or less in each run, after hand reading",
-          hits, claims, 1000, lambda v: f"{v:.1f} ({hits} sentence{'s' * (hits != 1)} in {claims:,} verified claims of {n} outputs: probes "
-                                        f"{m['probe_mislabels']}, Opus {m['opus_mislabels']}; Opus read {m['opus_audited']} of {n}"
-                                        + (f", view {views}" if views else "") + ")", _one)
+    ratio("Mislabelled sentences per 1,000 verified claims: probes R1, R2a, R2c, R3 and Opus substantive flags, over the "
+          "outputs Opus read (a sentence stating broken net cash is counted there instead)",
+          "3.5 or less in each run, after hand reading", hits, read, 1000,
+          lambda v: f"{v:.1f} ({hits} sentence{'s' * (hits != 1)} in {read:,} verified claims of the {audited} of {n} outputs "
+                    f"Opus read: probes {m['audited_probe_mislabels']}, Opus {m['audited_opus_mislabels']}; view {views})", _one,
+          empty=f"— (Opus read none of {n})")  # never a probes-only rate under the probes-and-Opus target
     j, d = m["judgement_outside_watch"]
     ratio("Judgement share outside the watch list", "3–12%", j, d, 100, lambda v: f"{v:.1f}% ({j} of {d})", _percent1)
     w, d = m["evaluative"]
@@ -957,10 +1071,12 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
           + (f" (first requests read a {prefix}-token shared prefix; {warm} of {firsts} read more, priced at it)" if prefix else "")
           if m["cost_mean"] is not None else None)
     for name, target, value in (("Latency p50 (s)", "at most 10.5", m["latency_p50"]), ("Latency p90 (s)", "at most 13", m["latency_p90"])):
-        level(name, target, value, _one, f"{value:.1f} (of {n} outputs)" if value is not None else None)
+        level(f"{name}, {QUANTILE}", target, value, _one, f"{value:.1f} (of {n} outputs)" if value is not None else None)
     old = m.get("old_gate")
+    first_of = old["first_try_of"] if old else 0
     ratio(f"Gate at {old['commit'] if old else OLD_GATE}: passes first try (continuity with eval-v1)", "—",
-          old["first_try"] if old else 0, n if old else 0, 100, lambda v: f"{old['first_try']} of {n} (final {old['final']})", _percent)
+          old["first_try"] if old else 0, first_of, 100,
+          lambda v: f"{old['first_try']} of {first_of} (final {old['final']} of {n})", _percent)
     count("Logic slips (probe measures, read by hand)", "—", len(m["logic_slips"]), str(len(m["logic_slips"])))
     return rows
 
@@ -978,7 +1094,8 @@ def render_runs(labels: list[str], systems: list[str], summaries: dict[str, dict
              "Generated by `python -m evals.trend_depth.report --labels`. Every run is shown, with the range across them and "
              "the runs pooled (a share over all their analyses, a count summed); none is picked. Counts are before hand "
              "reading: each run's items are listed in its own `runs/<label>/REPORT.md` (`report --label`).", "",
-             *build_warnings({label: summaries[label] for label in labels}, systems)]
+             *build_warnings({label: summaries[label] for label in labels}, systems),
+             *pending_warnings({label: summaries[label] for label in labels}, systems)]
     for split in ("dev", "holdout", "all"):
         companies = summaries[labels[0]]["splits"][split]["companies"]
         lines += [f"## {split}: {companies} companies", ""]
@@ -998,7 +1115,34 @@ def render_runs(labels: list[str], systems: list[str], summaries: dict[str, dict
                 pooled = _pooled([p for p in parts if p], fmt) if len(present) > 1 and all(parts) else "—"
                 lines.append(f"| {name} | {target} | " + " | ".join(cells) + f" | {spread} | {pooled} |")
             lines.append("")
+        lines += judge_runs([summaries[label]["splits"][split]["judge"] for label in labels], labels)
     return "\n".join(lines)
+
+
+def judge_runs(matrices: list[dict[str, Any]], labels: list[str]) -> list[str]:
+    """One split's judge verdicts per criterion across runs (``matrices``, one per label): each run's and their sum,
+    the 20 pairs per split §3's judge target counts."""
+    pairs = sorted({pair for matrix in matrices for pair in matrix["criteria"]})
+    if not pairs:
+        return []
+    lines = ["### Judge, per criterion", "",
+             f"The panel's verdicts, both orders agreeing, as x wins · y wins · ties or splits; for \"{JOINT}\", the pairs "
+             f"in which x, then y, won or tied both, of the pairs judged. DEEPSEEK-ERRORS.md §3's target: {JUDGE_TARGET}.", "",
+             "| Pair (x vs y) | Criterion | " + " | ".join(labels) + " | Pooled |", "|---|---|" + "---|" * (len(labels) + 1)]
+    for pair in pairs:
+        x, y = pair.split("|")
+        per_run = [dict(judge_criteria(matrix, pair)) if pair in matrix["criteria"] else None for matrix in matrices]
+        for name in (*CRITERIA, JOINT):
+            cells = [run[name] for run in per_run if run]
+            summed = (sum(c[0] for c in cells), sum(c[1] for c in cells), sum(c[2] for c in cells))
+            lines.append(f"| {x} vs {y} | {name} | " + " | ".join(_judge_cell(name, run[name]) if run else "—" for run in per_run)
+                         + f" | {_judge_cell(name, summed)} |")
+    return lines + [""]
+
+
+def _judge_cell(name: str, counts: tuple[int, int, int]) -> str:
+    a, b, c = counts
+    return f"{a} · {b} of {c}" if name == JOINT else f"{a} · {b} · {c}"
 
 
 def _quote(text: str) -> str:
@@ -1018,6 +1162,9 @@ def hand_reading(system: str, m: dict[str, Any]) -> list[str]:
     groups: list[tuple[str, list[str]]] = [
         ("First-try gate failures (the model's own first output, gate now)",
          [f"{f['ticker']} [{f.get('section', '')}] {f['failure']}: {_quote(f.get('sentence', ''))}" for f in m["first_try_failures"]]),
+        ("Repairs sent for broken net cash alone (the gate's broken_debt backstop; an arm reading packs-v2 only)",
+         [f"{d['ticker']} [{f.get('section', '')}] {f['failure']}: {_quote(f.get('sentence', ''))}"
+          for d in m.get("repairs_for_broken_debt_alone", []) for f in d["failures"]]),
         ("First-try backstop hits (beyond the gate's failures; broken net cash apart)",
          [f"{h['ticker']} [{h.get('section', '')}] {' + '.join(h['kinds'])} '{h['claim']}': {_quote(h['sentence'])} "
           f"({'; '.join(h['detail'])})" for h in m["first_try_backstop_hits"]]),
