@@ -13,7 +13,7 @@ import { clearPendingFeedback, feedbackFileError, readPendingFeedback, storePend
 
 export interface FeedbackFile { id: string; file: File; preview: string }
 interface Snapshot { input: FeedbackInput; files: readonly File[] }
-interface Pending { key: string; snapshot?: Snapshot }
+interface Pending { key: string; snapshot?: Snapshot; uncertain: boolean }
 type Phase = 'editing' | 'sending' | 'checking' | 'resend'
 
 /** A submitted draft stays immutable until the server's receipt or a fenced failure settles it. */
@@ -25,7 +25,7 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
   const filesRef = useRef(files)
   const [pending, setPending] = useState<Pending | null>(() => {
     const marker = readPendingFeedback(readerId)
-    return marker ? { key: marker.key } : null
+    return marker ? { key: marker.key, uncertain: true } : null
   })
   const [phase, setPhase] = useState<Phase>(pending ? 'checking' : 'editing')
   const [generation, setGeneration] = useState(getSessionGeneration)
@@ -103,11 +103,26 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
   // A server receipt is an external state transition: reconcile it once into this private draft.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (phase !== 'checking' || status.isFetching || !status.data || !owns(generation)) return
+    if (phase !== 'checking') return
+    // A failed account transition may retain this reader with a newer generation. Never
+    // interpret the old request, but give receipt recovery a fresh, owned query to run.
+    const currentGeneration = getSessionGeneration()
+    if (generation !== currentGeneration && owns(currentGeneration)) {
+      setGeneration(currentGeneration)
+      return
+    }
+    if (status.isFetching || !status.data || !owns(generation)) return
     if (status.data.state === 'submitted' && pending) {
       acceptReceipt(pending.key)
     } else if (status.data.state === 'retryable') {
-      if (pending?.snapshot) {
+      if (preserveDraft.current) {
+        // A reconstructed draft conflicted with the older fingerprint. Its failed receipt
+        // now fences that attempt, so this different draft can safely receive a new key.
+        preserveDraft.current = false
+        resetPending()
+        setNotice('Your earlier feedback was not saved. Your current draft is ready to send.')
+      } else if (pending?.snapshot) {
+        setPending({ ...pending, uncertain: false })
         setPhase('resend')
         setEditableFailure(true)
         setNotice('Your feedback was not saved. Send the same draft again, or edit it first.')
@@ -153,6 +168,7 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
     if (!owns(atGeneration)) return
     const submission: Pending & { snapshot: Snapshot } = {
       key: pending?.key ?? crypto.randomUUID(),
+      uncertain: pending?.uncertain ?? false,
       snapshot: pending?.snapshot ?? {
         input: { type, message: message.trim(), pageUrl: window.location.pathname },
         files: filesRef.current.map(({ file }) => file),
@@ -174,17 +190,21 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
         onUploadProgress: (percent) => { if (requestSequence.current === sequence && owns(atGeneration)) setProgress(percent) },
       })
       if (!owns(atGeneration)) return
-      if ('state' in result) setPhase('checking')
+      if ('state' in result) {
+        setPending({ ...submission, uncertain: true })
+        setPhase('checking')
+      }
       else acceptReceipt(submission.key)
     } catch (error) {
       if (!owns(atGeneration)) return
       const code = getErrorStatus(error)
       // Validation and admission failures cannot have published this request. An uncertain
       // transport/server outcome always checks the original key before offering another Send.
-      if (code && code >= 400 && code < 500 && code !== 409 && code !== 408) {
+      if (code && code >= 400 && code < 500 && code !== 409 && code !== 408 && !submission.uncertain) {
         resetPending()
         setNotice(getErrorMessage(error))
       } else {
+        setPending({ ...submission, uncertain: true })
         preserveDraft.current = code === 409
         setPhase('checking')
         setNotice('Checking whether your feedback was saved…')
@@ -195,6 +215,7 @@ export function useFeedbackDraft(readerId: number, onSaved: () => void) {
       // A failed logout can retain this reader after advancing the generation. Keep the snapshot
       // and receipt identity; a fresh activation checks under the current session.
       if (mounted.current && !isSessionGenerationCurrent(atGeneration)) {
+        setPending({ ...submission, uncertain: true })
         setPhase('resend')
         setNotice('Your session changed while sending. Send this same draft again to check its receipt.')
       }

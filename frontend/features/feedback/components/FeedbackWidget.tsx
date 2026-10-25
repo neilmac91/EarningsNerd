@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, type SegmentedOption } from '@/components/ui'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, primaryUnavailableClass, type SegmentedOption } from '@/components/ui'
 import { getFeedbackCapabilities, type FeedbackType } from '@/features/feedback/api/feedback-api'
 import { useFeedbackDraft } from '@/features/feedback/hooks/useFeedbackDraft'
 import FeedbackFilePicker from '@/features/feedback/components/FeedbackFilePicker'
@@ -13,7 +13,6 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { queryKeys } from '@/lib/queryKeys'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
-import { primaryUnavailableClass } from '@/components/ui/Button'
 
 // The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
 // stretched across the form below 40rem (1280px under 200% text), wrapping whole segments onto another row where the
