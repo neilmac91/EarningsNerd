@@ -2,6 +2,7 @@
 
     cd backend && python -m evals.trend_depth.generate --label dev-v1 --arms deepseek-flash,claude-sonnet-5-5 --split dev
     cd backend && python -m evals.trend_depth.generate --label eval-v1 --arms current --split all
+    cd backend && python -m evals.trend_depth.generate --label dev-v5-r1 --arms deepseek-flash,deepseek-flash-c --pipeline v2
 
 Arms are a model from ``providers.ARMS`` on the prompt and evidence packs the arm pins (the frozen prompt
 on ``packs/`` unless it names others), or ``current``: the production pipeline
@@ -12,11 +13,24 @@ Each output lands in ``tasks/analysis-depth-2026-10/runs/<label>/<arm>/<TICKER>.
 the parsed sections, the fact-check result, token usage, latency and cost. A reply that is not the
 required JSON gets one retry that names the problem (the production pipeline's retry discipline); a
 second failure is recorded as a failed generation, never repaired by hand.
+
+``--pipeline`` picks what happens between the first pass and the gate's verdict. ``v1`` (the default, what eval-v1
+and every earlier run did): the gate, then one full repair if it failed. ``v2`` (DEEPSEEK-ERRORS.md fixes 1, 2,
+5 and 13): the gate on the model's own output is kept as ``raw_first_pass_gate``; code retypes figures-only
+``cause`` sentences that cite no passage (``retyped``) and appends a figure's missing ID where exactly one fits
+(``autocite``, both in ``autocite.py``); the gate with its backstops then decides. A repair, only if failures
+remain, asks for patches to the failed sentences alone, says what each cited ID holds, and never asks for "the
+cited value"; code applies the patches, keyed on each sentence's text, so every other sentence stays byte for
+byte. A patch list that is invalid or does not apply falls back to the full repair (``repair_kind``). A repair
+that only retypes a passage-less ``cause`` sentence to fact or comparison, keeping an explanatory clause
+("because", "so", "as", "due to"), still fails. A record made under ``v2`` carries ``pipeline: "v2"``; one
+without ``pipeline`` is version 1.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import gzip
 import hashlib
 import json
@@ -26,7 +40,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from evals.trend_depth import bootstrap
-from evals.trend_depth import factcheck, render
+from evals.trend_depth import autocite, factcheck, render
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.providers import ARMS, call, max_tokens_for, packs_dir, parse_json_object, prompt_path
 from evals.trend_depth.records import pack_sha256, same_inputs, unsettled, write_json, write_text
@@ -37,6 +51,8 @@ PROMPT_DRAFT = os.environ.get("TREND_DEPTH_PROMPT", "")
 RUNS = bootstrap.RECORDS / "runs"
 SECTION_KEYS = ("arc", "drivers", "margins", "cash", "balance_sheet", "red_flags", "watch")
 SENTENCE_TYPES = ("fact", "comparison", "cause", "judgement")
+PIPELINES = ("v1", "v2")
+NO_PASSAGE = "cause sentence cites no filing passage"  # the gate's failure for a cause without its passage
 
 
 def load_pack(ticker: str, system: str = "") -> dict[str, Any]:
@@ -123,11 +139,13 @@ class GenerationError(RuntimeError):
 
 
 async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag: str = "",
-                            checkpoint: Optional[Callable[[dict[str, Any]], None]] = None) -> dict[str, Any]:
-    """One analysis: up to two attempts at valid JSON, then the gate, then one repair if it failed. ``checkpoint``
-    is handed what is already paid for before each further call is sent, so a run stopped mid-call (Ctrl-C, a
-    kill) loses nothing paid: the first attempt, as an interrupted generation, before the JSON retry; the first
-    pass, marked as owed its repair, before the repair, so the next run retries only the repair."""
+                            checkpoint: Optional[Callable[[dict[str, Any]], None]] = None,
+                            pipeline: str = "v1") -> dict[str, Any]:
+    """One analysis: up to two attempts at valid JSON, then the gate (under ``v2``, after the code fixes), then one
+    repair if it failed. ``checkpoint`` is handed what is already paid for before each further call is sent, so a
+    run stopped mid-call (Ctrl-C, a kill) loses nothing paid: the first attempt, as an interrupted generation,
+    before the JSON retry; the first pass, marked as owed its repair, before the repair (and again before a
+    patch's fallback), so the next run retries only the repair."""
     arm = ARMS[arm_name]
     pack = load_pack(ticker, arm_name)
     system, user = system_prompt(arm_name), user_message(pack)
@@ -171,25 +189,46 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
         "cost_usd": round(sum(a["cost_usd"] for a in attempts), 6),
         "generation_ok": not problems,
     }
+    if pipeline == "v2":
+        record["pipeline"] = "v2"
     if problems:
         record["gate"] = {"passed": False, "failures": [{"failure": "generation failed: " + "; ".join(problems)}]}
         return record
     sentences = sentences_of(parsed)
     record["output"] = parsed
     record["words"] = word_count(parsed)
-    record["gate"] = factcheck.check(sentences, pack)
+    if pipeline == "v2":
+        fix_first_pass(record, pack)
+    else:
+        record["gate"] = factcheck.check(sentences, pack)
     if repair and not record["gate"]["passed"]:
         if checkpoint:
             checkpoint({**record, "repair_error": "interrupted: the repair had not returned"})
-        await repair_or_mark(arm, system, user, record, pack, tag)
+        await repair_or_mark(arm, system, user, record, pack, tag, checkpoint=checkpoint)
     return record
 
 
-async def repair_or_mark(arm: Any, system: str, user: str, record: dict[str, Any], pack: dict[str, Any], tag: str) -> None:
-    """Run the one repair. If the call fails, the paid first pass stands and the record carries ``repair_error``,
-    so the next run retries only the repair (``run``), never the first pass."""
+def fix_first_pass(record: dict[str, Any], pack: dict[str, Any]) -> None:
+    """Version 2 before any repair: the gate on the model's own output (``raw_first_pass_gate``), fix 5's retyping
+    and fix 1's auto-citation by code, then the gate with its backstops on what they leave."""
+    parsed = record["output"]
+    record["raw_first_pass_gate"] = factcheck.check(sentences_of(parsed), pack, backstops=True)
+    fixed, record["retyped"] = autocite.retype(parsed, pack)
+    fixed, record["autocite"] = autocite.autocite(fixed, pack)
+    record["output"] = fixed
+    record["words"] = word_count(fixed)
+    record["gate"] = factcheck.check(sentences_of(fixed), pack, backstops=True)
+
+
+async def repair_or_mark(arm: Any, system: str, user: str, record: dict[str, Any], pack: dict[str, Any], tag: str,
+                         checkpoint: Optional[Callable[[dict[str, Any]], None]] = None) -> None:
+    """Run the one repair, of the record's own pipeline. If the call fails, the paid first pass stands and the record
+    carries ``repair_error``, so the next run retries only the repair (``run``), never the first pass."""
     try:
-        await _repair(arm, system, user, record["output"], record, pack, tag)
+        if record.get("pipeline") == "v2":
+            await _repair_v2(arm, system, user, record["output"], record, pack, tag, checkpoint)
+        else:
+            await _repair(arm, system, user, record["output"], record, pack, tag)
         record.pop("repair_error", None)
     except Exception as exc:  # noqa: BLE001 - recorded on the record, which keeps its first pass
         if getattr(exc, "result", None) is not None:  # a truncated repair was paid for: record it
@@ -225,6 +264,152 @@ async def _repair(arm: Any, system: str, user: str, parsed: dict[str, Any], reco
     record["output"] = repaired
     record["words"] = word_count(repaired)
     record["gate"] = factcheck.check(sentences_of(repaired), pack)
+
+
+def _cited(vid: str, pack: dict[str, Any]) -> str:
+    """What a cited ID holds, as the repair message lists it: a value's label, period and value."""
+    if vid in pack["values"]:
+        value = pack["values"][vid]
+        return f"[{vid}] {value['label']}, {value['period']} = {render.fmt(value['value'], value['unit'])}"
+    flag = next((f for f in pack.get("red_flags", []) if f["id"] == vid), None)
+    if flag is not None:
+        return f"[{vid}] red flag: {flag['detail']}"
+    return f"[{vid}] a filing passage" if any(p["id"] == vid for p in pack.get("passages", [])) else f"[{vid}] not in the pack"
+
+
+def failure_listing(failures: list[dict[str, Any]], pack: dict[str, Any]) -> str:
+    """Fix 2: each failed sentence once, with its failures; for a number matching nothing, what each cited ID holds
+    and the rule against swapping in another metric's or year's value; for a cause without its passage, the
+    three ways out."""
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for failure in failures:
+        grouped.setdefault((failure["section"], failure["sentence"]), []).append(failure["failure"])
+    blocks = []
+    for (section, sentence), found in grouped.items():
+        lines = [f"- [{section}] {sentence}", *(f"  Failed: {f}" for f in found)]
+        if any("matches nothing" in f for f in found):
+            ids = dict.fromkeys(autocite.citations(sentence))
+            lines.append("  The IDs it cites: " + ("; ".join(_cited(i, pack) for i in ids) if ids else "none"))
+            lines.append("  If the number you meant is not in the pack, delete it; never replace it with a cited value "
+                         "of a different metric or year.")
+        if NO_PASSAGE in found:
+            lines.append("  Fix it one of three ways: cite, in this sentence, the filing passage that states the cause; "
+                         "retype it as judgement if it states no figure it does not cite; or delete the causal clause.")
+        blocks.append("\n".join(lines))
+    return "\n".join(blocks)
+
+
+def repair_message_v2(user: str, parsed: dict[str, Any], failures: list[dict[str, Any]], pack: dict[str, Any],
+                      patch: bool = True) -> str:
+    """Fixes 2 and 13: the failed sentences with fix 2's notes, the analysis, and a request for patches to the failed
+    sentences alone (``patch``), or, as the fallback, for the whole analysis again."""
+    head = (user + "\n\nYour analysis was checked against the evidence pack and these sentences failed:\n"
+            + failure_listing(failures, pack) + "\n\nHere is your analysis:\n" + json.dumps(parsed))
+    if not patch:
+        return head + ("\n\nReturn the whole analysis again as the same JSON object, changing only what is needed to "
+                       "fix the failed sentences: cite the ID of every figure in its own sentence, or remove a figure "
+                       "you cannot cite. Keep everything else as it was.")
+    return head + (
+        '\n\nReturn only a JSON object {"patches": [...]} with one patch per failed sentence: {"section": its section '
+        'key, "original": the failed sentence\'s text exactly as above, "type": one of fact, comparison, cause, '
+        'judgement, "text": the corrected sentence}, or {"section": ..., "original": ..., "delete": true} to remove '
+        "it. Cite the ID of every figure in its own sentence, or remove a figure you cannot cite. Leave out every "
+        "sentence that did not fail: it stays as it is.")
+
+
+def apply_patches(parsed: dict[str, Any], reply: Any, failures: list[dict[str, Any]]) -> tuple[Optional[dict[str, Any]], list[str]]:
+    """Fix 13: ``parsed`` with each patch applied to the failed sentence whose text it quotes, and the problems that
+    make the reply unusable (none when it applied). Every other sentence is the one in ``parsed``, byte for byte.
+    A reply is unusable when it is no non-empty ``patches`` list, or a patch quotes no failed sentence (or one that
+    appears twice), patches a sentence twice, or carries neither ``delete: true`` nor a text (``validate`` then
+    checks the patched analysis, the new types included)."""
+    patches = reply.get("patches") if isinstance(reply, dict) else None
+    if not isinstance(patches, list) or not patches:
+        return None, ["reply is not a JSON object with a non-empty 'patches' list"]
+    patched = copy.deepcopy(parsed)
+    places: dict[tuple[Any, str], list[tuple[list[Any], int]]] = {}
+    for section in patched["sections"]:
+        for index, sentence in enumerate(section["sentences"]):
+            places.setdefault((section.get("key"), sentence["text"].strip()), []).append((section["sentences"], index))
+    failed = {(f["section"], f["sentence"].strip()) for f in failures}
+    problems: list[str] = []
+    edits: dict[tuple[Any, str], dict[str, Any]] = {}
+    for n, item in enumerate(patches, 1):
+        quoted = isinstance(item, dict) and isinstance(item.get("original"), str)
+        key = (item.get("section"), item["original"].strip()) if quoted else None
+        if key is None or key not in failed or len(places.get(key, [])) != 1:
+            problems.append(f"patch {n} does not quote one failed sentence of its section")
+        elif key in edits:
+            problems.append(f"patch {n} patches a sentence already patched")
+        elif item.get("delete") is not True and not (isinstance(item.get("text"), str) and item["text"].strip()):
+            problems.append(f"patch {n} has neither 'delete': true nor a 'text'")
+        else:
+            edits[key] = item
+    if problems:
+        return None, problems
+    deleted: list[tuple[list[Any], int]] = []
+    for key, item in edits.items():
+        sentences, index = places[key][0]
+        if item.get("delete") is True:
+            deleted.append((sentences, index))
+        else:
+            sentences[index] = {**sentences[index], "type": item.get("type"), "text": item["text"]}
+    for sentences, index in sorted(deleted, key=lambda place: -place[1]):
+        del sentences[index]
+    return patched, []
+
+
+def retype_escapes(failures: list[dict[str, Any]], repaired: dict[str, Any]) -> list[dict[str, Any]]:
+    """Fix 5's repair rule: a passage-less cause sentence the repair only retyped, to fact or comparison, while
+    keeping an explanatory clause ("so conversion is diluted") still fails. A retype to judgement is fix 2's own
+    way out and stands."""
+    kept = {(s["section"], s["text"]): s["type"] for s in sentences_of(repaired)}
+    out = []
+    for failure in failures:
+        key = (failure["section"], failure["sentence"])
+        word = autocite.explanatory(failure["sentence"])
+        if failure["failure"] == NO_PASSAGE and kept.get(key) in ("fact", "comparison") and word:
+            out.append({"section": key[0], "sentence": key[1], "type": kept[key],
+                        "failure": f"retyped from cause without a passage but keeps its explanatory '{word}' clause"})
+    return out
+
+
+async def _repair_v2(arm: Any, system: str, user: str, parsed: dict[str, Any], record: dict[str, Any], pack: dict[str, Any],
+                     tag: str = "", checkpoint: Optional[Callable[[dict[str, Any]], None]] = None) -> None:
+    """Version 2's one repair: patches to the failed sentences, applied by code; the full repair only when the
+    patches are unusable (the record keeps both calls and its ``repair_kind``). A refusal stands, as in version 1."""
+    first_gate = record["gate"]
+    failures = first_gate["failures"]
+    result = await call(arm, system, repair_message_v2(user, parsed, failures, pack), max_tokens=max_tokens_for(arm), tag=tag)
+    refused = result.meta.get("stop_reason") == "refusal"
+    repaired, problems = (None, ["the model refused (stop_reason refusal)"]) if refused else apply_patches(
+        parsed, parse_json_object(result.text), failures)
+    problems = problems or validate(repaired)
+    _add_attempt(record, result, problems)
+    record["first_pass_gate"] = {k: first_gate[k] for k in ("passed", "claims", "verified", "failed_claims", "failures",
+                                                            "backstop_failures") if k in first_gate}
+    record["first_pass_output"] = parsed
+    record["repair_kind"] = "patch"
+    if problems and not refused:
+        if checkpoint:  # the paid patch call is on disk before the full repair is sent
+            checkpoint({**record, "repair_error": "interrupted: the full repair had not returned"})
+        result = await call(arm, system, repair_message_v2(user, parsed, failures, pack, patch=False),
+                            max_tokens=max_tokens_for(arm), tag=tag)
+        refused = result.meta.get("stop_reason") == "refusal"
+        repaired = None if refused else parse_json_object(result.text)
+        problems = ["the model refused (stop_reason refusal)"] if refused else validate(repaired)
+        _add_attempt(record, result, problems)
+        record["repair_kind"] = "full"
+    if problems:
+        record["repair_failed"] = problems
+        return
+    record["output"] = repaired
+    record["words"] = word_count(repaired)
+    gate = factcheck.check(sentences_of(repaired), pack, backstops=True)
+    escapes = retype_escapes(failures, repaired)
+    if escapes:
+        gate = {**gate, "passed": False, "failures": [*gate["failures"], *escapes]}
+    record["gate"] = gate
 
 
 async def generate_current(ticker: str) -> dict[str, Any]:
@@ -266,18 +451,22 @@ async def generate_current(ticker: str) -> dict[str, Any]:
     return record
 
 
-async def run(label: str, arm_names: list[str], tickers: list[str], concurrency: int) -> None:
+async def run(label: str, arm_names: list[str], tickers: list[str], concurrency: int, pipeline: str = "v1") -> None:
     out_root = RUNS / label
     semaphores = {name: asyncio.Semaphore(concurrency if name != "current" else 1) for name in arm_names}
+    options = {"pipeline": pipeline} if pipeline != "v1" else {}  # v1 is generate_proposed's default
 
     async def one(arm_name: str, ticker: str) -> None:
         path = out_root / arm_name / f"{ticker}.json"
         existing = json.loads(path.read_text()) if path.exists() else None
+        made_with = (existing or {}).get("pipeline", "v1")
         if existing and not unsettled(existing):
+            if arm_name != "current" and made_with != pipeline:
+                print(f"keep {label}/{arm_name}/{ticker}: made with pipeline {made_with}, not {pipeline}; use a new label", flush=True)
             return  # a model's own outcome is kept, a failure included; a provider error (quota, outage) is retried
         if existing and "repair_error" in existing:
             pack, system = load_pack(ticker, arm_name), system_prompt(arm_name)
-            if same_inputs(existing, hashlib.sha256(system.encode()).hexdigest(), pack):
+            if same_inputs(existing, hashlib.sha256(system.encode()).hexdigest(), pack) and made_with == pipeline:
                 async with semaphores[arm_name]:  # the first pass was paid for and stands: retry only its repair
                     await repair_or_mark(ARMS[arm_name], system, user_message(pack), existing, pack,
                                          f"{label}/repair/{arm_name}/{ticker}")
@@ -286,7 +475,7 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
                 print(f"{label} {arm_name:24} {ticker:5} repair retried: gate={gate.get('passed')} "
                       f"{existing.get('repair_error', '')}", flush=True)
                 return
-            # The prompt or the evidence pack changed since the first pass, so it is regenerated, below.
+            # The prompt, the evidence pack or the pipeline changed since the first pass, so it is regenerated, below.
         prior = [*(existing or {}).get("prior_attempts", []), *(existing or {}).get("attempts", [])]
 
         def save(record: dict[str, Any]) -> None:
@@ -298,7 +487,7 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
             try:
                 record = await (generate_current(ticker) if arm_name == "current"
                                 else generate_proposed(arm_name, ticker, tag=f"{label}/generate/{arm_name}/{ticker}",
-                                                       checkpoint=save))
+                                                       checkpoint=save, **options))
             except Exception as exc:  # noqa: BLE001 - a provider failure is recorded, with what it already cost, and retried
                 attempts = getattr(exc, "attempts", [])
                 record = {"ticker": ticker, "arm": arm_name, "generation_ok": False, "error": f"{type(exc).__name__}: {exc}"[:500],
@@ -316,15 +505,15 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
 AUDIT_FOLDERS = ("causes", "semantics")
 
 
-def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]) -> int:
+def copy_systems(source: str, label: str, systems: list[str], tickers: list[str], pipeline: str = "v1") -> int:
     """Put ``source``'s outputs for ``systems`` under ``label`` without regenerating them: the records, their
     audits (default and same-auditor folders) and the verdicts between two copied systems.
 
     Every unit is checked before anything is written: a record holding a provider error is skipped (the next
     ``generate`` makes it), and a proposed record must come from the prompt and the evidence pack its arm runs
-    on now (``current`` must cover the pack's window). A record already under ``label`` is kept; its audits and
-    verdicts are copied only when it is the same record byte for byte, so an audit never lands beside an output
-    it did not read.
+    on now, under ``pipeline`` (``current`` must cover the pack's window). A record already under ``label`` is
+    kept; its audits and verdicts are copied only when it is the same record byte for byte, so an audit never lands
+    beside an output it did not read.
     """
     src, dst = RUNS / source, RUNS / label
     units: list[tuple[str, str]] = []
@@ -344,6 +533,9 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
                     raise SystemExit(f"{record_path}: window {record.get('window')} is not the pack's {pack['window']}")
             elif not same_inputs(record, prompt_sha, pack):
                 raise SystemExit(f"{record_path} was generated from another prompt or evidence pack; generate it instead")
+            elif record.get("pipeline", "v1") != pipeline:
+                raise SystemExit(f"{record_path} was made with pipeline {record.get('pipeline', 'v1')}, not {pipeline}; "
+                                 "generate it instead")
             units.append((system, ticker))
     same: set[tuple[str, str]] = set()
     copied = 0
@@ -381,14 +573,17 @@ def main() -> None:
     parser.add_argument("--concurrency", type=int, default=3)
     parser.add_argument("--copy-from", default="", help="copy these arms' outputs, audits and mutual verdicts from "
                                                        "another label instead of generating them")
+    parser.add_argument("--pipeline", default="v1", choices=PIPELINES,
+                        help="v1: the gate, then one full repair (eval-v1); v2: code fixes, the gate with backstops, a patch repair")
     args = parser.parse_args()
     tickers = args.tickers.split(",") if args.tickers else [
         c.ticker for c in eval_companies(None if args.split == "all" else args.split)
     ]
     if args.copy_from:
-        print(f"copied {copy_systems(args.copy_from, args.label, args.arms.split(','), tickers)} files from {args.copy_from}")
+        copied = copy_systems(args.copy_from, args.label, args.arms.split(","), tickers, args.pipeline)
+        print(f"copied {copied} files from {args.copy_from}")
         return
-    asyncio.run(run(args.label, args.arms.split(","), tickers, args.concurrency))
+    asyncio.run(run(args.label, args.arms.split(","), tickers, args.concurrency, args.pipeline))
 
 
 if __name__ == "__main__":
