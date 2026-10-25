@@ -3122,7 +3122,7 @@ def test_a_task_event_says_what_failed_and_where_never_on_what(monkeypatch, capl
     assert word not in sent and not _fragments(token, sent, width=8) and not _of(envelopes, "check_in")
 
 
-@pytest.mark.parametrize("value", ["f50-x@example.com", "a" * 33, "companyfacts\n", "Companyfacts", 7])
+@pytest.mark.parametrize("value", ["f50-x@example.com", "jane.doe@example.com", "a" * 33, "companyfacts\n", "Companyfacts", 7])
 def test_a_task_kind_outside_its_pattern_is_dropped(value):
     # task.kind is the one tag a task event keeps, and only as a whole match of [a-z_]{1,32}: a character outside the
     # class, a longer value, a trailing newline (a search would pass it) or a value that is not text drops it.
