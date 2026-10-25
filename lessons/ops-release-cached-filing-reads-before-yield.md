@@ -285,9 +285,10 @@ and writes the audit row, in a session of its own in the thread pool (`_in_own_s
 which outside a `request_work` scope runs on anyio's tokens, as `run_in_threadpool` does), so no connection is out
 while a generation runs. That session's close, like the release, logs a failure rather than raising it. On
 PostgreSQL, with the connection dropped after a unit's last statement, an unguarded close answered 500 after the
-paid generations wherever the drop came; the guarded one answers 200 with the audit row, where the base answered
-500 at its next commit or in the dependency's close, or 200 without its audit row after the last re-read (the
-review's probes). The job-side drain
+paid generations wherever the drop came; the guarded one answers 200 with the audit row. The base answered 500 at
+its next commit, 200 without its audit row after the last re-read, or, after the audit row, 200 with the
+dependency's close failing after the response, which FastAPI runs once the answer has gone (the review's
+probes). The job-side drain
 (`summary_refresh.drain_stale`) re-reads in a session of its own too, on its job's loop, where no request
 waits. `lessons/ops-one-connection-per-request-unit.md` keeps a session of its own for background work, since one
 opened while the request's session holds a connection needs a second; the refresh's open only after the release,
@@ -298,8 +299,8 @@ call. A non-admin's 403 answers before the unit, so it still leaves the
 lookup's transaction for the finalizer, as the other admin routes' do. Its burst cases hold every checkout,
 statement and release off the loop, each answer, each generation and each audit row; its hold case, no
 connection out as each generation starts or ends; a case of its own, a run whose own sessions fail to close,
-answered with its outcomes and audit row; and the route's tests, a generation that raises or ends in an error
-event counted failed (2026-10-25, E171).
+still returning its outcomes and writing its audit row; and the route's tests, a generation that raises or ends
+in an error event counted failed (2026-10-25, E171).
 A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
 process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
 one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on
