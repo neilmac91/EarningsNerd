@@ -35,15 +35,17 @@ name: Ops
 #     sessions act through the founder's account, so .claude/hooks/ops_approval_guard.py refuses a
 #     Claude Code session the approval and environment calls, while Codex and Astra load no hooks
 #     (AGENTS.md §5).
-#   - The ops job's `concurrency: ops` serializes operations; the approval job sits outside the
-#     group, so an apply waiting for approval holds up no other dispatch. Once approved, an apply
-#     queues like any dispatch, and GitHub holds ONE pending run per group, so a later pending
-#     dispatch replaces it and wastes the approval. The two reads a Claude Code session may dispatch
-#     by an exact allow rule (describe-service and logs-probe; F51, docs/OPERATIONS.md) take a group
-#     of their own run instead, so a read never queues behind, or replaces, a pending operation. Deploys keep their own group on purpose: sharing
-#     `deploy-backend`'s group would let an ops dispatch silently cancel a queued release. Instead
-#     the pre-flight step below refuses to run while a CI run for a push to `main` is in flight
-#     (read-only inspection and rollback are exempt); for an apply it runs after the approval.
+#   - The ops job's `ops` concurrency group serializes every operation but the two reads below; the
+#     approval job sits outside the group, so an apply waiting for approval holds up no other
+#     dispatch. Once approved, an apply queues like any dispatch, and GitHub holds ONE pending run per
+#     group, so a later pending dispatch replaces it and wastes the approval. The two reads a Claude
+#     Code session may dispatch by an exact allow rule (describe-service and logs-probe; F51,
+#     docs/OPERATIONS.md) take a group of their own run instead, so a read never queues behind, or
+#     replaces, a pending operation; it can overlap one that is running. Deploys keep their own
+#     group on purpose: sharing `deploy-backend`'s group would let an ops dispatch silently cancel a
+#     queued release. Instead the pre-flight step below refuses to run while a CI run for a push to
+#     `main` is in flight (read-only inspection and rollback are exempt); for an apply it runs after
+#     the approval.
 #     Known limit: the check is point-in-time and one-directional — a main push that lands AFTER
 #     it passes can still overlap this run, and a deploy never waits for ops. Do not dispatch
 #     write operations when a backend merge is imminent.

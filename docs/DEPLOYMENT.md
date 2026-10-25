@@ -151,7 +151,9 @@ Ops operation at a time and wait for it to finish: GitHub keeps one pending run 
 group, so a second pending dispatch in the `ops` group replaces the first. An `-apply` waits for the
 founder's approval outside that group, but once approved it queues like any dispatch, so a later
 dispatch can still replace it and waste the approval. `describe-service` and `logs-probe` alone run in a
-group of their own run (F51), so neither replaces, nor waits behind, a pending operation. Dispatch after the
+group of their own run (F51), so neither replaces, nor waits behind, a pending operation; they can overlap
+one in progress, and a describe that overlaps `rollback-traffic` or a `feedback-media` enable or disable
+apply can stop on a revision that is not ready, as during a deploy. Dispatch after the
 merge's `deploy-backend` job has concluded: a describe during a deploy can fail transiently
 (`latest created revision … is not ready`) or show the worker and the API on different images. Both
 describe operations carry a ten-minute step timeout and run committed stdlib-only modules,

@@ -368,8 +368,13 @@ def test_every_apply_operation_waits_for_the_founders_approval():
         "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
         f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
         "&& github.run_attempt == '1')) }}")
-    assert "concurrency" not in OPS and ops["concurrency"]["cancel-in-progress"] == "false"
-    assert ops["concurrency"]["group"].endswith(" || 'ops' }}")  # every operation but the two reads shares `ops`
+    assert "concurrency" not in OPS and set(ops["concurrency"]) == {"group", "cancel-in-progress"}
+    assert ops["concurrency"]["cancel-in-progress"] == "false"
+    group = ops["concurrency"]["group"]
+    own = re.findall(r"inputs\.operation == '([^']+)'", group)  # every operation but these shares `ops`
+    assert set(own) == {"describe-service", "logs-probe"} and not set(own) & applies
+    assert group == ("${{ (" + " || ".join(f"inputs.operation == '{op}'" for op in own)
+                     + ") && format('ops-read-{0}', github.run_id) || 'ops' }}")
     # approve-apply passes at once while the environment requires no reviewer, so an apply also stops
     # unless the run records an approval. The check reads the resolved operation, so it comes after the
     # step that writes it (before, the operation reads '', which contains() finds in any list), and

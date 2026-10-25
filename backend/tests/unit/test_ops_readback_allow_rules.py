@@ -36,7 +36,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.ops_workflow import OPS, OPTIONS, STEPS, selected
+from tests.support.ops_workflow import OPS, OPTIONS, STEPS, TEMPLATE_FREE, selected
 from tests.unit.test_ops_approval_guard import _decision
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -65,8 +65,18 @@ READ_STEPS = {
 PREFLIGHT = "Refuse to run while a main push (deploy) is in flight"
 JOBS = {"approve-apply", "ops", "refuse-rerun"}
 # Each read dispatch runs in a group of its own run, so it never replaces, nor waits behind, a pending run.
-READ_GROUP = ("${{ (inputs.operation == 'describe-service' || inputs.operation == 'logs-probe') "
-              "&& format('ops-read-{0}', github.run_id) || 'ops' }}")
+READ_GROUP = ("${{ (" + " || ".join(f"inputs.operation == '{operation}'" for operation in READ_OPERATIONS)
+              + ") && format('ops-read-{0}', github.run_id) || 'ops' }}")
+# FR-3: what each shared read step is, whole, so a write cannot ride inside one under its name.
+SHARED_SHAPES = {
+    "actions/checkout@v7": {"uses": "actions/checkout@v7", "with": {"persist-credentials": "false"}},
+    "Authenticate to Google Cloud": {
+        "name": "Authenticate to Google Cloud", "uses": "google-github-actions/auth@v3",
+        "with": {"workload_identity_provider": "${{ vars.GCP_WIF_PROVIDER }}", "service_account": "${{ vars.GCP_DEPLOYER_SA }}"}},
+    "Set up gcloud": {"name": "Set up gcloud", "uses": "google-github-actions/setup-gcloud@v3"},
+}
+# The resolve step validates the inputs before any credential exists; it reaches no cloud and mints no token.
+RESOLVE_REACH = re.compile(r"\bgcloud\b|\bcurl\b|\bwget\b|\bgh\s|ACTIONS_ID_TOKEN|GITHUB_TOKEN|github\.token")
 # A condition on an earlier step's result that is false when that step was skipped.
 UNRUN_OUTCOME = re.compile(r"steps\.([\w-]+)\.(?:outcome|conclusion) (?:!= 'skipped'|== '(?:success|failure|cancelled)')")
 
@@ -136,6 +146,8 @@ def test_no_deny_or_ask_rule_shadows_a_pinned_command():
 
 def _conjuncts(condition: str) -> list[str] | None:
     """The top-level `&&` terms of an `if:`, or None when a top-level `||` makes no single term decisive."""
+    if "${{" in condition and not TEMPLATE_FREE.fullmatch(condition):
+        return None  # text around ${{ }}: GitHub reads the whole value as a string template, always true
     body = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip(), flags=re.DOTALL)
     terms, depth, quoted, start = [], 0, False, 0
     for at, char in enumerate(body):
@@ -198,6 +210,13 @@ def read_dispatch_problems(workflow: dict) -> list[str]:
                 unrun.add(step["id"])
         if runs != READ_STEPS[operation]:
             problems.append(f"{operation} runs {runs}, not the pinned read-only steps {READ_STEPS[operation]}")
+    for step in ops.get("steps", []):
+        label = step.get("name") or step.get("uses")
+        if label in SHARED_SHAPES and step != SHARED_SHAPES[label]:
+            problems.append(f"{label!r} is no longer the pinned read-only step: {step}")
+        if label == "Resolve requested operation" and (set(step) != {"name", "id", "env", "run"}
+                                                        or RESOLVE_REACH.search(step.get("run", ""))):
+            problems.append("the resolve step reaches beyond validating the inputs")
     return problems
 
 
@@ -232,6 +251,21 @@ EVASIONS = {  # each change would put a production write, or a replacement, into
     "a step whose || reopens it": _step_before_the_read("steps.request.outputs.operation == 'sync-companyfacts' || always()"),
     "a step that lists a read": _step_before_the_read("contains('describe-service rollback-traffic', steps.request.outputs.operation)"),
     "a step after a skipped step's skip": _step_before_the_read("always() && steps.quarterly.outcome == 'skipped'"),
+    "a step on a step that ran": _step_before_the_read("always() && steps.request.outcome == 'success'"),
+    "a step on a later step's outcome": _step_before_the_read("always() && steps.quarterly.outcome != 'skipped'"),
+    "text before the expression": _step_before_the_read("${{ always() }} && steps.request.outputs.operation == 'rollback-traffic'"),
+    "a block scalar's newline": _step_before_the_read("${{ steps.request.outputs.operation == 'rollback-traffic' }}\n"),
+    "a leading space": _step_before_the_read(" ${{ steps.request.outputs.operation == 'rollback-traffic' }}"),
+    "a write in the gcloud set-up step": lambda workflow: workflow["jobs"]["ops"]["steps"].__setitem__(
+        next(index for index, step in enumerate(workflow["jobs"]["ops"]["steps"]) if step.get("name") == "Set up gcloud"),
+        {"name": "Set up gcloud", "run": WRITE}),
+    "the resolve step reaching the cloud": lambda workflow: next(
+        step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == "Resolve requested operation"
+    ).update(run="gcloud auth print-access-token >/dev/null 2>&1\n" + next(
+        step for step in workflow["jobs"]["ops"]["steps"] if step.get("name") == "Resolve requested operation")["run"]),
+    "an apply added to the reads' group": lambda workflow: workflow["jobs"]["ops"]["concurrency"].update(
+        {"group": READ_GROUP.replace("inputs.operation == 'logs-probe')",
+                                     "inputs.operation == 'logs-probe' || inputs.operation == 'relabel-fy-apply')")}),
     "a new job after ops": lambda workflow: workflow["jobs"].update({"post-read": {
         "needs": "ops", "if": "github.ref == 'refs/heads/main'", "runs-on": "ubuntu-latest", "steps": [{"run": WRITE}]}}),
     "the approval job opened to every operation": lambda workflow: workflow["jobs"]["approve-apply"].update(

@@ -691,34 +691,44 @@ gh run list -R neilmac91/EarningsNerd --workflow ops.yml --branch main --event w
 ```
 
 **When the rules apply.** Only in a session that applies this checkout's project settings: a
-single-repository session (a cloud thread in a project, or a cloud session with several repositories,
-reads no project permission rules), in a workspace whose trust is recorded (a `-p` or SDK run uses
-project allow rules only when `~/.claude.json` records `hasTrustDialogAccepted` for the checkout's root),
-and with no managed `allowManagedPermissionRulesOnly`. There, in Auto mode, a matching command runs
-without a prompt and without the auto-mode classifier. Anywhere else it goes to the prompt, the
-classifier or the session's own tool allowance, as before; in Accept edits, or under a harness that
-allows every Bash command, a command that runs proves nothing about these rules. So prove the route
-first with the `gh run list` form, which reads GitHub's run metadata and changes nothing
-(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`): in Auto mode, a silent run means
-the rules apply; a prompt or a classifier denial means they do not, so record it verbatim and stop,
-never reshape a command.
+single-repository session (a cloud thread in a project reads no project permission rules, nor does a
+cloud session with several repositories in an Anthropic-hosted environment), in a workspace whose trust
+is recorded (a `-p` or SDK run uses project allow rules only when `~/.claude.json` records
+`hasTrustDialogAccepted` for the repository's main checkout root, where a worktree's trust is keyed),
+with no managed `allowManagedPermissionRulesOnly` and no `autoMode.classifyAllShell` (which suspends
+every Bash allow rule in Auto mode). There, in Auto mode, a matching command runs without a prompt and
+without the auto-mode classifier. Anywhere else it goes to the prompt, the classifier or the session's
+own tool allowance, as before.
+
+**No command proves the route on its own.** In Auto mode a silent run shows only that the command was
+allowed, by these rules or by the classifier, which may approve a read of run metadata, or even a read
+dispatch, by itself; in Accept edits, or under a harness that allows every Bash command, any command
+that runs proves nothing about these rules
+(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). The conclusive result is the
+other one: a prompt or a classifier denial of one of the three exact commands means the rules did not
+apply, so record it verbatim and stop, never reshape a command. Whether a session applies them is read
+from the session's own permission settings (`/permissions` shows the rules in effect and where each
+comes from), which the operator checks.
 
 **What a rule admits.** A rule without `*` matches only its own text, so another operation, input, ref
 or repository, a variable, or a wrapper or assignment the matcher does not strip falls outside it.
 Two of the allowed commands chained together (`&&`, `;`, a newline) are each allowed; issue each alone
 anyway. A read cannot replace a queued run: `ops.yml` runs `describe-service` and `logs-probe` each in
 a concurrency group of its own run, so neither queues behind, nor replaces, a pending operation, an
-approved apply's included. The list covers the newest five Ops dispatches; dispatch one read, wait
-until the list shows it `completed`, then the next.
+approved apply's included. A read can overlap an Ops run that is in progress, though: a
+`describe-service` that overlaps `rollback-traffic` or a `feedback-media` enable or disable apply can stop
+on a revision that is not ready yet, as a describe during a deploy does. So dispatch a read when the list
+shows no Ops run in progress, one read at a time, and wait until the list shows it `completed` before
+the next. The list covers the newest five Ops dispatches.
 
 **What the runs print** is the projection their steps already make ([Read-only release configuration
 audit](DEPLOYMENT.md#read-only-release-configuration-audit)):
 - `describe-service`: the traffic and revision names, `SENTRY_RELEASE`, the allow-listed values (the two
   AI base URLs among them) and SEC pins, each container's image reference, the sizing lines and the
   worker's invoker verdict; never the service, traffic or worker URLs, another environment value or
-  gcloud's error text. A required read that fails stops the step with `Unresolved production
-  configuration: cannot describe <kind> <name> (<class>).` and no verdict line; the optional
-  invoker-policy read prints `UNVERIFIED (<class>)`.
+  gcloud's error text. A required read that fails stops the step, with no verdict line, on an
+  `Unresolved production configuration: …` line that ends `cannot describe <kind> <name> (<class>).`
+  after any defect found before it; the optional invoker-policy read prints `UNVERIFIED (<class>)`.
 - `logs-probe`: whether `logging.read` is permitted, or `DENIED` with its failure class; the
   `company_upsert_conflict` count, which is absent when its read fails; and which revisions printed each
   Sentry start line, with counts, or `UNVERIFIED (<class>; gcloud's error text withheld)` for a kind it
