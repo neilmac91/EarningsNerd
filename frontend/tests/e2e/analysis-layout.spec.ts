@@ -693,6 +693,14 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
       return row.top < rail.bottom
     })
     expect(covered, 'the planted row starts under the rail').toBe(true)
+    // The rail takes the pointer: a click on a heading the reader sees lands on the rail, not on the figure under it.
+    const hit = await page.evaluate(() => {
+      const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
+      if (!bar) return { onRail: false, onFigure: false }
+      const target = document.elementFromPoint(bar.left + bar.width * 0.75, bar.top + bar.height / 2)
+      return { onRail: !!target?.closest('[data-table-header-rail]'), onFigure: !!target?.closest('tbody button') }
+    })
+    expect(hit, 'a click on the rail stays on the rail').toEqual({ onRail: true, onFigure: false })
     // Tab into the row below, then back up: focus lands on row 8's last figure, which the page must scroll clear.
     await rows.nth(9).locator('button[aria-label$="View source and calculation"]').first().focus()
     await page.keyboard.press('Shift+Tab')
@@ -705,14 +713,6 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
       return { top, clear: Math.max(header, rail) }
     })
     expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
-    // The rail takes the pointer: a click on a heading the reader sees lands on the rail, not on the figure under it.
-    const hit = await page.evaluate(() => {
-      const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
-      if (!bar) return { onRail: false, onFigure: false }
-      const target = document.elementFromPoint(bar.left + bar.width * 0.75, bar.top + bar.height / 2)
-      return { onRail: !!target?.closest('[data-table-header-rail]'), onFigure: !!target?.closest('tbody button') }
-    })
-    expect(hit, 'a click on the rail stays on the rail').toEqual({ onRail: true, onFigure: false })
   })
 
   test('a figure the rail appears over after its focus scroll is brought out from under it', async ({ page, baseURL }) => {
