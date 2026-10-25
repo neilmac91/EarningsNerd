@@ -159,8 +159,9 @@ API service's own describe included, prints only its closed class (`permission_d
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
 The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker, the
-fiscal-year relabel (`relabel-fy-*`) and the quarterly fact repair (`repair-quarterly-*`) operations
-captures the `DATABASE_URL` secret read's stderr, including success-path warnings.
+fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
+lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
+including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
@@ -851,7 +852,7 @@ scheduled run is unaffected. Do not use `gcloud run jobs update --args=…` for 
 backend deploy owns the persistent `earningsnerd-backfill-facts` contract and restores
 `python scripts/backfill_facts.py --only-new` while updating its image. The DB is reachable only
 from Cloud Run and through the Ops workflow's Cloud SQL proxy, so apart from the Ops workflow's
-committed script operations (`repair-ticker-*`, `relabel-fy-*`, `repair-quarterly-*`), execution-scoped arguments are the
+committed script operations (`repair-ticker-*`, `relabel-fy-*`, `repair-quarterly-*`, `repair-lineage-*`), execution-scoped arguments are the
 way to run a `backend/scripts/*` maintenance script against prod. Every Ops `-apply` operation waits
 for the founder's approval on the `ops-apply` environment before any step runs, writes only in the
 run's first attempt (a retry is a fresh dispatch), and a Claude Code session is refused the approval
