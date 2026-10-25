@@ -996,7 +996,8 @@ tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a c
 step their light half takes, is still `#9CA3AF`, −48.6.)
 (D-063, 2026-10-25: the founder's call on the `value` row. Dark printed values take the figure ink `#EAECEF`, Lc
 −91.8 on the card and −88.5 under the column wash, so every figure the chart prints, in the plot and in the legend,
-takes one dark ink, as D-060 chose for the table (chief design on #1620). Light keeps its step: printed values in
+takes one dark ink, as D-060 chose for the table. Chief design first recommended it on #1620, then withdrew it for
+the `chart.value` step #1620 shipped; the founder chose the figure ink. Light keeps its step: printed values in
 `text.secondary` under the legend values' `text.primary`. Dark could not follow it, since `text.secondary.dark`
 measures −74.0 under the wash, below the printed-value floor of 75. The row above says so; §1 row 10 keeps the audit's
 measurement.)
