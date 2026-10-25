@@ -15,8 +15,9 @@ One rule, two halves in this one module:
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
-  saved-summary routes, the upcoming calendar, and the account routes (the profile edit, the alert
-  preferences, the bell, the data export and the account deletion) must answer an eight-request burst
+  saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
+  preferences, the bell, the data export and the account deletion) and the Copilot ask stream (a Pro
+  and a Free question, a missing filing and the admission's three refusals) must answer an eight-request burst
   with no checkout on the loop and nothing left for the finalizer; and the join, the contact form and
   the feedback submit must send their mails, the analysis exports render, Stripe checkout and the
   portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
@@ -2563,6 +2564,156 @@ async def test_account_deletion_holds_no_connection_while_stripe_and_posthog_ans
         engine.dispose()
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", [
+    "pro", "free", "missing", "taste_refused", "cap_refused", "cap_lease_refused",
+])
+async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
+    """The Copilot ask stream's filing read, its snapshot and the admission (the cap read and the lease, or the
+    free taste's lease) run in one thread-pool unit that releases the request session before the stream
+    starts, its refusals included (the taste's at its lease, the cap's at its read and at its lease), so eight
+    askers on four slots make no checkout, statement or release on the loop and leave nothing for the
+    finalizer. On the loop, the admission's wait for the account's ``users`` row lock froze every request on
+    the instance, and a missing filing or a cap reached at its read left its transaction for the finalizer.
+    Each admitted question is metered once, its lease converted; a refusal writes nothing."""
+    from datetime import timedelta
+    from uuid import uuid4
+
+    from app.config import settings
+    from app.models import User, UserUsage
+    from app.models.usage_reservation import UsageReservation
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+    from app.services.copilot_service import PROVIDER_STARTED_STAGE
+    from app.services.subscription_service import (
+        LIFETIME_SCOPE, QA_RESERVATION_KIND, QA_TASTE_RESERVATION_KIND, get_current_month,
+    )
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'copilot-ask.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    pro = case in ("pro", "missing", "cap_refused", "cap_lease_refused")
+    with sessions() as db:
+        company = Company(cik="0000000005", ticker="ASK", name="Ask fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000005-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/ask/",
+                        document_url="https://example.test/ask.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        for i in range(8):
+            asker = User(email=f"asker-{i}@example.com", is_active=True, is_pro=pro,
+                         copilot_free_taste_used=2 if case == "taste_refused" else 0)
+            db.add(asker)
+            db.flush()
+            if case == "taste_refused":
+                # Two used and one held reach the taste of three: the dependency's plain read passes, and
+                # the admission refuses.
+                db.add(UsageReservation(user_id=asker.id, month=LIFETIME_SCOPE, kind=QA_TASTE_RESERVATION_KIND,
+                                        token=uuid4().hex, expires_at=utcnow() + timedelta(minutes=5),
+                                        created_at=utcnow()))
+            if case == "cap_lease_refused":
+                # None used and one held reach a cap of one: the cap read passes, and the lease refuses.
+                db.add(UsageReservation(user_id=asker.id, month=get_current_month(), kind=QA_RESERVATION_KIND,
+                                        token=uuid4().hex, expires_at=utcnow() + timedelta(minutes=5),
+                                        created_at=utcnow()))
+        db.commit()
+        filing_id = 999 if case == "missing" else filing.id
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # The admission's statements ran on the loop on the connection the auth lookup had checked out in the thread
+    # pool, and its commit gave that connection back there: neither is a checkout.
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    async def answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": PROVIDER_STARTED_STAGE}
+        await asyncio.sleep(0.05)  # the other askers' admissions run while this one streams
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    # The metering's own short sessions, in worker threads; not request sessions.
+    monkeypatch.setattr(summaries_router, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "ASK_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "answer_filing_question", answer)
+    monkeypatch.setattr(summaries_router, "_emit_copilot_cost_best_effort", lambda *_a, **_k: None)
+    if case in ("cap_refused", "cap_lease_refused"):
+        monkeypatch.setattr(settings, "COPILOT_MONTHLY_QUESTION_CAP", 0 if case == "cap_refused" else 1)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def ask(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"asker-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.post(f"/api/summaries/filing/{filing_id}/ask-stream", json={"question": "Q?"})
+
+    try:
+        responses = await asyncio.gather(*[ask(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, and every statement and release, the metering's included,
+        # ran in the thread pool: none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        expected = {"pro": 200, "free": 200, "missing": 404, "taste_refused": 403, "cap_refused": 429,
+                    "cap_lease_refused": 429}[case]
+        assert [response.status_code for response in responses] == [expected] * 8
+        if expected == 200:
+            assert all('"type": "complete"' in response.text for response in responses)
+        else:
+            detail = {
+                "missing": "Filing not found",
+                "taste_refused": "You've used your 3 free Copilot questions.",
+                "cap_refused": "You've reached this month's fair-use limit of 0 Copilot questions.",
+                "cap_lease_refused": "You've reached this month's fair-use limit of 1 Copilot questions.",
+            }[case]
+            assert all(response.json()["detail"].startswith(detail) for response in responses)
+        with sessions() as db:
+            questions = [count for (count,) in db.query(UserUsage.qa_count).filter(
+                UserUsage.month == get_current_month()).order_by(UserUsage.user_id)]
+            tastes = [used for (used,) in db.query(User.copilot_free_taste_used).order_by(User.id)]
+            leases = db.query(UsageReservation).count()
+        # Each admitted question was metered once and its lease converted; a refusal metered nothing, and the
+        # leases already held stay for their own questions.
+        assert questions == ([1] * 8 if case == "pro" else [])
+        assert tastes == [1 if case == "free" else 2 if case == "taste_refused" else 0] * 8
+        assert leases == (8 if case in ("taste_refused", "cap_lease_refused") else 0)
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2697,9 +2848,8 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry but the generate stream's and the two exports' is a route E121 (``auth.py``) or E171
-# names in ``tasks/todo.md``. The blank line between entries keeps in-place number edits on different
-# entries mergeable in any order.
+# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
+# entries keeps in-place number edits on different entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/admin.py", "audit_stale_xbrl"): 1,
 
@@ -2752,8 +2902,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/summaries.py", "ask_filing_stream"): 4,
 
     ("app/routers/summaries.py", "export_summary_csv"): 2,
 
