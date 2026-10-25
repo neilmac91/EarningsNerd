@@ -671,15 +671,21 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect(tooltip(), 'a press outside the chart').toBeNull()
   })
 
-  it('a new window starts again at its newest period', () => {
+  it('a new window starts again at its newest period, even when it holds the period the keyboard was on', () => {
     const { stop, rerender, ds } = setup()
-    fireEvent.keyDown(stop, { key: 'Home' })
-    expect(stop).toHaveAttribute('aria-valuenow', '0')
+    const last = ds.periods.length - 1
+    // The second-newest period, which the narrower window below still holds.
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    expect(stop).toHaveAttribute('aria-valuenow', String(last - 1))
     const narrow = structuredClone(ds)
     narrow.periods = narrow.periods.slice(-4)
     rerender(<TrendChartsV2 dataset={narrow} />)
-    expect(stop).toHaveAttribute('aria-valuenow', '3')
     expect(stop).toHaveAttribute('aria-valuemax', '3')
+    expect(stop).toHaveAttribute('aria-valuenow', '3')
+    // And one that no longer holds it.
+    fireEvent.keyDown(stop, { key: 'Home' })
+    rerender(<TrendChartsV2 dataset={dataset('REGN_annual')} />)
+    expect(stop).toHaveAttribute('aria-valuenow', String(last))
   })
 
   it('a plot that scrolls opens at its newest period, behind a sticky gutter that repeats its y axis', () => {
