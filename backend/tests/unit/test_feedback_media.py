@@ -257,15 +257,33 @@ def test_multipart_metadata_is_bounded_before_publication(media, excess):
 
 
 @pytest.mark.asyncio
-async def test_actual_body_budget_applies_without_content_length(media):
+async def test_actual_body_budget_applies_without_content_length(media, monkeypatch):
     request_headers = headers()
     request_headers["Content-Type"] = "multipart/form-data; boundary=body"
+    decoded = []
+    normalize = router.normalize_feedback_image
+
+    async def observe_normalization(data):
+        decoded.append(True)
+        return await normalize(data)
+
+    monkeypatch.setattr(router, "normalize_feedback_image", observe_normalization)
+
     async def body():
-        # A single over-budget chunk must be rejected before it is handed to the parser.
-        yield b"x" * (router.MAX_BODY_BYTES + 1)
+        # This is a valid complete form: without the aggregate byte limit, the parser
+        # ignores the trailing chunks and would publish it. Each chunk alone is within
+        # budget, so the witness also requires accumulation across received chunks.
+        yield (b'--body\r\nContent-Disposition: form-data; name="message"\r\n\r\nA useful description\r\n'
+               b'--body\r\nContent-Disposition: form-data; name="files"; filename="private.png"\r\n'
+               b'Content-Type: image/png\r\n\r\nx\r\n--body--\r\n')
+        yield b"x" * (router.MAX_BODY_BYTES // 2)
+        yield b"x" * (router.MAX_BODY_BYTES // 2)
+
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/feedback/with-attachments", headers=request_headers, content=body())
-    assert response.status_code == 413 and media.uploads == []
+    assert response.status_code == 413 and media.uploads == [] and decoded == []
+    with media.sessions() as db:
+        assert db.query(FeedbackSubmission).count() == 0
 
 
 def test_sql_failure_does_not_echo_private_values_to_response_logs_or_sentry(media, monkeypatch, caplog):
@@ -298,6 +316,12 @@ def test_expired_lease_is_read_only_retryable_and_stale_attempt_cannot_publish(m
         before = row.updated_at
         assert service.read_receipt(db, 1, key).state == "retryable"
         assert db.get(FeedbackSubmission, first.submission_id).updated_at == before
+        db.close()
+        # Expiry fences the still-current worker even before another request replaces its token.
+        with pytest.raises(service.FeedbackSubmissionError, match="stale_attempt"):
+            service.publish_submission(db, 1, first, payload, "hashed", {}, 180)
+        db.rollback()
+        assert db.query(Feedback).count() == 0
         db.close()
         second = service.claim_submission(db, 1, key, fingerprint)
         assert second.attempt_token != first.attempt_token
