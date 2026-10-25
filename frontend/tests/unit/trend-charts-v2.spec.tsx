@@ -833,18 +833,18 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
       const { card, model } = setup('SNAP_annual', 'margins')
       const layout = layoutChart(model, viewportWidth, 'card')
       const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
-      // The first scroll at which the cover's edge cuts an off-scale value.
-      let at = 1
-      while (!gutterCuts(layout, at, gutterCover(layout, at)).length) at++
-      expect(at).toBeLessThan(layout.width - viewportWidth)
-      viewport.scrollLeft = at
+      // The first scroll at which the cover's edge cuts an off-scale value; the plot scrolls that far.
+      const range = Array.from({ length: Math.floor(layout.width - viewportWidth) }, (_, i) => i + 1)
+      const at = range.find((scroll) => gutterCuts(layout, scroll, gutterCover(layout, scroll)).length > 0)
+      expect(at, 'a scroll that cuts an off-scale value').toBeDefined()
+      viewport.scrollLeft = at!
       fireEvent.scroll(viewport)
-      const cuts = gutterCuts(layout, at, gutterCover(layout, at))
+      const cuts = gutterCuts(layout, at!, gutterCover(layout, at!))
       const drawn = [...card.querySelectorAll('[data-chart-gutter] rect[data-cut]')]
       expect(drawn.map((rect) => ['x', 'y', 'width', 'height'].map((name) => Number(rect.getAttribute(name)))))
         .toEqual(cuts.map((cut) => [cut.x, cut.y, cut.width, cut.height]))
       const svg = card.querySelector('[data-chart-gutter] svg')!
-      expect(Number(svg.getAttribute('width'))).toBe(gutterOverlayWidth(layout, gutterCover(layout, at), cuts))
+      expect(Number(svg.getAttribute('width'))).toBe(gutterOverlayWidth(layout, gutterCover(layout, at!), cuts))
     } finally {
       scroll.mockRestore()
       width.mockRestore()
