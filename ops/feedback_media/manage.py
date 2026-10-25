@@ -207,9 +207,13 @@ def policy_specs() -> list[dict]:
 
 def check_channel(cloud: Cloud) -> None:
     channel = cloud.call("monitoring", "v3/" + CHANNEL)
+    # Monitoring omits the protobuf default for channels that need no verification or
+    # have a legacy exemption. That is distinct from an explicit UNVERIFIED status.
+    # https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels
+    verification = channel.get("verificationStatus", "VERIFICATION_STATUS_UNSPECIFIED")
     if (channel.get("name") != CHANNEL or channel.get("type") != "email" or channel.get("enabled") is not True
-            or channel.get("verificationStatus") != "VERIFIED"):
-        raise OperationError("Existing monitoring channel must be enabled, verified and of the expected email type")
+            or verification not in ("VERIFIED", "VERIFICATION_STATUS_UNSPECIFIED")):
+        raise OperationError("Existing monitoring channel must be the enabled email channel with no verification pending")
     # Channel labels contain its recipient. Neither labels nor any provider payload is printed.
 
 
@@ -283,7 +287,7 @@ def inspect_monitoring(cloud: Cloud) -> bool:
     heartbeat_seen = any(isinstance(value, str) and 1 <= len(value) <= 20 and value.isascii()
                          and value.isdecimal() and int(value) > 0 for value in values)
     print("Normal-cleanup monitoring heartbeat: " + ("observed" if heartbeat_seen else "not yet observed"))
-    print("Feature alert channel: enabled and verified; end-to-end delivery unverified")
+    print("Feature alert channel: enabled email with no verification pending; end-to-end delivery unverified")
     return heartbeat_seen
 
 

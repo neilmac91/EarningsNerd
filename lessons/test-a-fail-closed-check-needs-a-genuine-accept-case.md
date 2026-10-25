@@ -22,3 +22,12 @@ https://docs.svix.com/receiving/verifying-payloads/how-manual and ties the test'
 the module-level clock import the test patches, the pre-E20 implementation fails that test and
 eleven more on assertions; dropped in unchanged, every test errors at setup on the missing import. Partly gated: that file pins this
 webhook. The next verifier's accept case is review-checked.
+
+The feedback-media provisioner repeated this error on 2026-10-25: its synthetic email channel
+always had `verificationStatus: VERIFIED`, but the actual enabled email channel omitted that
+default enum. Google's [channel API](https://docs.cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.notificationChannels)
+allows the unspecified default for channels that need no verification or have a legacy exemption.
+`backend/tests/unit/test_feedback_media_infrastructure.py` now carries that observed metadata shape
+through provisioning, cleanup/probe inspection and upload enablement, alongside the explicit default
+and verified forms. Explicit unverified, null and unknown statuses still fail before writes; the
+readback never claims email delivery was tested. The original strict check fails the acceptance gate.

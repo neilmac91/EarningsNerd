@@ -67,7 +67,8 @@ class CloudFixture:
                              "uri": f"https://run.googleapis.com/v2/{ops.JOB}:run", "httpMethod": "POST", "body": "e30=",
                              "oauthToken": {"serviceAccountEmail": "runtime@example.invalid"}}}
         self.executions = [self.execution(ops.PROBE_ARGS), self.execution(ops.CLEANUP_ARGS)]
-        self.channel = {"name": ops.CHANNEL, "type": "email", "enabled": True, "verificationStatus": "VERIFIED",
+        # Real email-channel readback omits the default verificationStatus enum.
+        self.channel = {"name": ops.CHANNEL, "type": "email", "enabled": True,
                         "labels": {"email_address": "PRIVATE_RECIPIENT_SENTINEL@example.invalid"}}
         self.metric = ops.heartbeat_spec()
         self.policies = ops.policy_specs()
@@ -219,8 +220,12 @@ def test_cleanup_spec_copies_only_required_secret_references_and_caps_resources(
         ops.job_spec(original)
 
 
-def test_provision_runs_cleanup_and_storage_probe_without_changing_the_scheduled_command():
+@pytest.mark.parametrize("status_fields", [
+    {}, {"verificationStatus": "VERIFICATION_STATUS_UNSPECIFIED"}, {"verificationStatus": "VERIFIED"},
+], ids=["observed-omitted-default", "explicit-default", "verified"])
+def test_provision_runs_cleanup_and_storage_probe_without_changing_the_scheduled_command(status_fields, capsys):
     cloud = CloudFixture()
+    cloud.channel.update(status_fields)
     ops.provision(cloud, cloud.service)
     runs = [call for call in cloud.writes if call[1].endswith(":run")]
     assert [call[3] for call in runs] == [
@@ -228,6 +233,10 @@ def test_provision_runs_cleanup_and_storage_probe_without_changing_the_scheduled
     ]
     assert cloud.job["template"]["template"]["containers"][0]["args"] == ops.CLEANUP_ARGS
     assert all(call[1] != "v2/" + ops.SERVICE for call in cloud.writes)
+    output = capsys.readouterr().out
+    assert "end-to-end delivery unverified" in output
+    assert "enabled and verified" not in output
+    assert "PRIVATE_RECIPIENT_SENTINEL" not in output
 
 
 def test_binding_preserves_conditional_grants_and_policy_etag():
@@ -262,7 +271,9 @@ def test_enable_changes_only_media_configuration_and_disable_does_not_need_stora
     assert cloud.writes[0][3]["template"]["containers"][0]["env"][-1]["value"] == "false"
 
 
-@pytest.mark.parametrize("defect", ["disabled-channel", "unverified-channel", "wrong-channel-type", "missing-policy",
+@pytest.mark.parametrize("defect", ["disabled-channel", "unverified-channel", "unknown-channel-status",
+                                  "null-channel-status", "wrong-channel-type", "wrong-channel-name",
+                                  "missing-channel-enabled", "missing-policy",
                                   "wrong-policy-channel", "disabled-policy", "wrong-policy-filter", "foreign-policy",
                                   "metric-filter-drift", "missing-heartbeat"])
 def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(defect, capsys):
@@ -271,8 +282,16 @@ def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(def
         cloud.channel["enabled"] = False
     elif defect == "unverified-channel":
         cloud.channel["verificationStatus"] = "UNVERIFIED"
+    elif defect == "unknown-channel-status":
+        cloud.channel["verificationStatus"] = "UNKNOWN_FUTURE_STATUS"
+    elif defect == "null-channel-status":
+        cloud.channel["verificationStatus"] = None
     elif defect == "wrong-channel-type":
         cloud.channel["type"] = "webhook_tokenauth"
+    elif defect == "wrong-channel-name":
+        cloud.channel["name"] = "projects/example/notificationChannels/unrelated"
+    elif defect == "missing-channel-enabled":
+        del cloud.channel["enabled"]
     elif defect == "missing-policy":
         cloud.policies.pop()
     elif defect == "wrong-policy-channel":
@@ -287,13 +306,17 @@ def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(def
         cloud.metric["filter"] = 'resource.type = "cloud_run_job"'
     else:
         cloud.heartbeat_seen = False
+    if "channel" in defect and defect != "wrong-policy-channel":
+        with pytest.raises(ops.OperationError):
+            ops.provision(cloud, cloud.service)
+        assert cloud.writes == []
     with pytest.raises(ops.OperationError):
         ops.set_enabled(cloud, cloud.service, True)
     assert cloud.writes == []
     assert "PRIVATE_RECIPIENT_SENTINEL" not in capsys.readouterr().out
 
 
-def test_monitoring_creation_is_feature_scoped_and_reuses_the_verified_channel():
+def test_monitoring_creation_is_feature_scoped_and_reuses_the_eligible_email_channel():
     cloud = CloudFixture()
     cloud.metric, cloud.policies = None, []
     ops.ensure_monitoring(cloud)
