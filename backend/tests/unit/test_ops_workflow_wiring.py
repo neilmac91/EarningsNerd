@@ -17,18 +17,19 @@ that no Cloud SQL step uses. Every Cloud SQL step's lock and statement bounds ar
 `test_migration_lock_safety.py::test_ops_workflow_is_dispatch_only_and_sets_lock_timeout`, through
 the same readers (`tests/support/ops_workflow.py`).
 
-The fiscal-year relabel step and the quarterly fact repair step each run for exactly their two
-operations, with no `continue-on-error`, and any other operation would get a read-only dry run or
-preview. The quarterly step's `if:` is pinned as written, since `selected()` reads past a leading
-`always()`, which would run the step after a failed approval check. Each step compares the settings
-its session reports with its own guards before its script runs. Whenever the quarterly repair step
+The fiscal-year relabel step, the quarterly fact repair step and the lineage backfill step each run
+for exactly their two operations, with no `continue-on-error`, and any other operation would get a
+read-only dry run or preview. The quarterly and lineage steps' `if:` is pinned as written, since
+`selected()` reads past a leading `always()`, which would run the step after a failed approval check.
+Each step compares the settings its session reports with its own guards before its script runs. Whenever the quarterly repair step
 ran, the step after it keeps the report file the script wrote as an artifact. A batch the script
 refuses as a whole, or a run stopped before its report, writes no file; its log then holds the
 error, or the script's start line, which names the run. Those guards and the read-only transactions
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
-connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in either
-script or in the modules that run the quarterly repair's SQL would replace them, so none may exist.
+connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any of those
+scripts or in the modules that run the quarterly repair's or the lineage backfill's SQL would replace
+them, so none may exist.
 The one connection-level event allowed is database.py's `connect` listener that runs each session
 at UTC (E151), held by running it on a recording connection: it sets the time zone and touches
 nothing else, no other statement, attribute or method.
@@ -54,8 +55,8 @@ from pathlib import Path
 import pytest
 
 from tests.support.ops_workflow import (
-    BY_NAME, DEPS, INPUTS, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE, ROOT, STEPS,
-    cloud_sql_reach, selected, setting_ms, shown,
+    BY_NAME, DEPS, INPUTS, LINEAGE, NO_DATABASE, OPS, OPS_TEXT, OPTIONS, PROXY, QUARTERLY, RELABEL, RESOLVE, ROOT,
+    STEPS, cloud_sql_reach, selected, setting_ms, shown,
 )
 
 DB_COMMAND = re.compile(r"\bpsql\b|(?:\bpython3?|\bbash|\bsh)\s+(?:-\S+\s+)*\S*\bscripts/")
@@ -135,7 +136,20 @@ def test_the_quarterly_repair_step_runs_for_exactly_its_operations_and_keeps_its
     assert retain["with"]["path"] == "${{ runner.temp }}/quarterly-repair/", "the directory the step writes its report to"
 
 
-@pytest.mark.parametrize("name", [RELABEL, QUARTERLY])
+def test_the_lineage_step_runs_for_exactly_its_operations_and_reads_their_outputs():
+    """The lineage backfill step runs for its two operations alone, fails with the script and reads the
+    resolved operation and tickers. Its `if:` is pinned as written, with no status function, so GitHub's
+    success() stops it after a refused approval check."""
+    step = BY_NAME[LINEAGE][1]
+    assert selected(step) == {"repair-lineage-dry-run", "repair-lineage-apply"}
+    assert step["if"] == "contains('repair-lineage-dry-run repair-lineage-apply', steps.request.outputs.operation)", (
+        "no status function: the step keeps GitHub's success(), so a refused approval check stops it")
+    assert "continue-on-error" not in step, "a failed company must fail the run"
+    assert step["env"]["OP"] == "${{ steps.request.outputs.operation }}"
+    assert step["env"]["TICKERS"] == "${{ steps.request.outputs.tickers }}"
+
+
+@pytest.mark.parametrize("name", [RELABEL, QUARTERLY, LINEAGE])
 def test_the_script_readback_expects_the_steps_own_guards(name):
     """The step stops when its session reports other settings; the line it expects must be the one
     Postgres shows for the step's own PGOPTIONS (10s stays 10s, 120s shows as 2min)."""
@@ -280,7 +294,7 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     """libpq applies PGOPTIONS unless the connection names its own options, and a connection-level
     event could set the guards again after it. So the engine's connect_args carry no `options`, the
     URL the proxy step exports carries no query, the app uses that URL as it parses it, and nothing
-    in the app or the relabel script listens for a connection event but database.py's UTC pin on
+    in the app or the Ops repair scripts listens for a connection event but database.py's UTC pin on
     `connect` (E151), which, run, sets the session's time zone and nothing else."""
     from sqlalchemy.engine import make_url
 
@@ -308,7 +322,8 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     monkeypatch.setattr(settings, "DATABASE_URL", proxy_url)
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
-    scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py"]
+    scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py",
+               ROOT / "backend/scripts/repair_filing_lineage.py"]
     listeners = [
         listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
         for listener in _connection_listeners(path)
@@ -320,10 +335,11 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     assert _what_it_does(database._set_session_time_zone_utc) == ["SET TIME ZONE 'UTC'"], (
         "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
     )
-    # The quarterly repair script runs its SQL through the repair service and the fact writers' lock,
-    # so those modules are read too. database.py's additive-column DDL and subscription_service.py
-    # bound their own lock waits on purpose, and stay out.
-    sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py"]
+    # The quarterly repair and lineage backfill scripts run their SQL through their services and the fact
+    # writers' lock, so those modules are read too. database.py's additive-column DDL and
+    # subscription_service.py bound their own lock waits on purpose, and stay out.
+    sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
+                   ROOT / "backend/app/services/filing_lineage_repair.py"]
     for path in [*scripts, *sql_modules]:
         assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (

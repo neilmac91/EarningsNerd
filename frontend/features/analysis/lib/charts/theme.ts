@@ -51,12 +51,12 @@ const DARK: ChartTokens = {
   grid: '#525C6B', // Lc −15.0
   zero: '#9CA3AF', // Lc −48.6
   tick: '#B8BEC7', // Lc −63.6 (the DS's #9CA3AF is −48.6, under 60 for 11 px text)
-  value: '#D7DADC', // Lc −80.3
+  value: '#EAECEF', // Lc −91.8 (−88.5 under the wash): the figure ink, as the legend values' (D-063)
   review: '#FBBF24', // Lc −70.2 (the DS's #F59E0B is −56.9)
   series: ['#62B2A6', '#D3A55C', '#8CA6E3', '#E8927C', '#97A6C2', '#AFA2DE'], // Lc −49.7, −54.2, −50.9, −51.9, −50.1, −52.8
   cursor: 'rgba(62,142,132,.16)',
   note: '#B8BEC7', // Lc −63.6
-  name: '#B8BEC7', // Lc −63.6
+  name: '#D1D5DB', // Lc −77.3: the DS text.secondary.dark since #1606, as light's names take text.secondary (E194)
   figure: '#EAECEF', // Lc −91.8: the DS text.primary.dark since #1606 (was #D7DADC, −80.3)
 }
 

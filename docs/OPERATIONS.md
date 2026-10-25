@@ -199,27 +199,56 @@ said it served), `system_fingerprint` (the provider's backend build id when pres
 `total_tokens`, `cache_hit_tokens`, `cache_miss_tokens`, `reasoning_tokens`; `null` = the provider
 did not report it, never zero), `estimated_cost_usd` (per-model price table in
 `app/services/llm_pricing.py`, times `AI_PEAK_PRICE_MULTIPLIER` when `peak` is true) and `peak`.
+The estimate prices every prompt token once: a cache half the provider left out is the rest of
+the prompt, at its own tariff, and with no split all input is priced at the miss rate. It is
+`null`, never zero or a partial sum, when the input or the output count is unknown.
 One `ai_summary` aggregate follows each summary generation. Admin `GET /metrics` exposes the
-process-local counters, including `estimated_cost_usd` per (operation, provider, model, outcome).
+process-local counters per (operation, provider, model, outcome): `estimated_cost_usd` and its
+explicit twin `estimated_cost_known_usd` sum the known estimates only, `estimated_cost_unknown_calls`
+counts the calls left out of that sum, and `estimated_cost_complete` is true only when there are none.
+The log-based cost metrics below likewise sum known estimates only, since a `null` estimate does not
+match their extractor; their companion counter counts the calls left out, from the service and the
+jobs, so a chart or alert on the sums can show when they are incomplete.
 
 What to watch after a provider change (ADR-0008): `actual_model` or `system_fingerprint` moving
 without a deploy is a silent routing change; `reasoning_tokens` above zero means thinking mode was
 enabled upstream (every path sends it disabled); a step in `completion_tokens` or `latency_ms`
 per `operation` is a behaviour change worth an eval run.
 
-Log-based cost metric (one-time setup, not applied by CI):
+Log-based cost metrics (one-time setup, not applied by CI). The API service and its task worker log JSON
+in production (`main.py` and `task_worker_main.py` turn on `StructuredLogFormatter`), so their `ai_call` text
+is `jsonPayload.message`; Cloud Run jobs log plain text, `textPayload`. An extractor reads one field, so each
+gets its own known-subtotal distribution, which `gcloud` takes only from a config file (its flags carry no
+extractor, label or histogram-bucket options); one counter covers both. A cost under USD 0.0001 is written
+in exponent form (`6.3e-05`), which the extractor keeps. Once a small-cost call and a null-estimate call have
+been logged, check in Metrics Explorer that the small value lands at its size and the null line leaves the
+subtotal alone, since Cloud Logging's handling of either is not exercised here:
 
 ```bash
-gcloud logging metrics create ai_call_estimated_cost_usd \
-  --project=earnings-nerd \
-  --description="Sum of estimated_cost_usd over ai_call lines" \
-  --log-filter='resource.type="cloud_run_revision" AND textPayload:"ai_call {"' \
-  --value-extractor='REGEXP_EXTRACT(textPayload, "\"estimated_cost_usd\":([0-9.]+)")' \
-  --metric-kind=DELTA --value-type=DISTRIBUTION
+cd "$(mktemp -d)"  # the two config files stay out of the checkout
+for spec in "service cloud_run_revision jsonPayload.message" "jobs cloud_run_job textPayload"; do
+  read -r scope resource field <<<"$spec"
+  cat > "ai-call-cost-$scope.yaml" <<EOF
+description: 'Known subtotal: sum of non-null estimated_cost_usd over the $scope ai_call lines'
+filter: 'resource.type="$resource" AND $field:"ai_call {"'
+valueExtractor: 'REGEXP_EXTRACT($field, "\"estimated_cost_usd\":([0-9.eE+-]+)")'
+labelExtractors:
+  trigger: 'REGEXP_EXTRACT($field, "\"trigger\":\"([a-z]+)\"")'
+  operation: 'REGEXP_EXTRACT($field, "\"operation\":\"([a-z_]+)\"")'
+metricDescriptor: {metricKind: DELTA, valueType: DISTRIBUTION, labels: [{key: trigger}, {key: operation}]}
+bucketOptions: {exponentialBuckets: {numFiniteBuckets: 32, growthFactor: 2, scale: 0.000001}}
+EOF
+  gcloud logging metrics create "ai_call_estimated_cost_usd_$scope" --project=earnings-nerd \
+    --config-from-file="ai-call-cost-$scope.yaml"
+done
+gcloud logging metrics create ai_call_cost_unknown --project=earnings-nerd \
+  --description="ai_call lines whose estimated_cost_usd is null, outside the known subtotals" \
+  --log-filter='(resource.type="cloud_run_revision" AND jsonPayload.message:"ai_call {" AND jsonPayload.message:"\"estimated_cost_usd\":null") OR (resource.type="cloud_run_job" AND textPayload:"ai_call {" AND textPayload:"\"estimated_cost_usd\":null")'
 ```
 
-Then an alerting policy on the daily sum (a $5/day threshold is roughly 2× current product
-spend) and a dashboard split by the `trigger` and `operation` labels, extracted the same way.
+Then an alert on each subtotal's daily total, or one query-language condition adding the two (a $5/day
+threshold is roughly 2× current product spend; neither form is exercised here), with `ai_call_cost_unknown`
+beside it, and a dashboard split by the `trigger` and `operation` labels the configs extract.
 Spend from CI eval runs bills to the same DeepSeek key until a CI-only key exists (plan item W6).
 
 **Status codes:**
@@ -438,9 +467,11 @@ Forgot-password and resend-verification queue their mail, the `account_mail` tas
 - **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
   `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
   connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
-  Tasks delivers it again, up to the queue's five attempts. The worker reports to no Sentry (F50
-  (1)), so these lines reach Cloud Logging only: filter `earningsnerd-task-worker` for `email NOT
-  sent` and `(nothing sent)`. Registration's own verification mail is still sent from the API, whose
+  Tasks delivers it again, up to the queue's five attempts. These lines reach Cloud Logging only:
+  filter `earningsnerd-task-worker` for `email NOT sent` and `(nothing sent)`. With `SENTRY_DSN` bound on
+  the worker, a failed delivery also reaches Sentry by its exception's type and stack alone (the worker's
+  `Durable task failed` and the child's `AccountMailNotSent`, F50); a send that failed after sending is no
+  failed delivery, so it reaches Sentry not at all. Registration's own verification mail is still sent from the API, whose
   ERROR lines reach Sentry.
 - **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
   instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
@@ -494,7 +525,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 | `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
-| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`): a row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
+| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`) when the run finishes inside the request-timeout middleware's 30 s default, which this path takes (`main.py`). A longer run, one generation can be, answers 504: its remaining generations and audit row run after the response, under the API's request-based CPU (the deploy's `--cpu-throttling` while durable tasks are on), where they can be slowed or cut short, and the audit row keeps only counts. A row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
 
 ### Test accounts
 

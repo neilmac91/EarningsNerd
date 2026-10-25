@@ -33,7 +33,7 @@ back an already-loaded object unchanged), not an attribute loaded before it
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
 handlers (2026-10: the summary read and its polled progress had been missed and answered 4x500 in
 the same burst; each is now one unit in the thread pool). The gate is
-`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in two halves. Its parameterized
+`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in three parts. Its parameterized
 full-app eight-request, four-slot burst also checks that the dependency's finalizer never finds a
 transaction still open and that no listed route makes a checkout on the loop; it covers only the
 routes it lists. The peers ranking and the waitlist status and stats reads
@@ -248,15 +248,79 @@ checks `is_revoked` as well as `used_at`, and one that waits behind the lock re-
 write commits; the same gate races it, its control redeeming the revoked invite without the check.
 `create_free_account`, a refusal, no longer takes a session of its own; its auth lookup's transaction is
 still left for the finalizer, as a 403's is (2026-10-25, E171).
+The summaries router's two exports (`export_summary_pdf`, `export_summary_csv`) ran their plan check (the
+reader's subscription read) and their summary and filing reads on the loop, on the connection the auth lookup
+had checked out, and each build read its company there too; every export, refusal and 404 left its transaction
+for the finalizer, and an export kept its connection through its build and render. Under eight readers on four
+slots, through the real auth dependency, eight exports ran 32 of their 40 statements on the loop, eight Free
+readers' refusals (403) 8 of 16, and eight 404s for a missing summary or a missing filing 16 of 24 and 24 of
+32. With the real WeasyPrint, one PDF export of a full summary held its connection 649 to 1,035 ms (ten
+exports), the length of its render, so four at once held each of an instance's four pooled connections that
+long. The plan check, both reads and the release are now one thread-pool unit the two routes share
+(`_summary_and_filing_for_export`); its rows come back detached with the filing's content cache and company
+loaded, and its 403 and 404s leave it after the release. The same PDF export holds its connection 2.5 to 6.4
+ms. The builds ran on the loop as well: projecting the filing's text takes about 1 ms for a one-sentence
+excerpt, 12 to 17 ms for a real 10-K's text (588,000 characters) and 1.2 to 1.8 s for a cache holding only
+that filing's raw HTML (4.3 million characters), so the CSV and the PDF's HTML now build in worker threads, as
+the render does (`asyncio.to_thread`; `test_default_executor_allowlist.py` names both). An anonymous request's
+401 answers before the unit; one whose token names an inactive or deleted account answers there too, after the
+lookup, so it still leaves the lookup's transaction for the finalizer. Its burst case holds every checkout,
+statement and release off the loop and each answer, each reader's plan given by its Subscription row against
+its `is_pro` mirror (a plan check on the detached user falls back to the mirror and answers wrong), and its
+render case holds no connection while either export builds or renders, and neither on the loop (2026-10-25,
+E171).
+The admin router's stale-summary refresh (`refresh_stale_summaries`) read its candidates on the loop, on the
+connection the auth lookup had checked out, and a real run kept a connection out through every generation: the
+candidates' read left its transaction open through the first, each stamp re-read after it, on the same session
+after a commit, checked out another on the loop that stayed out through the next, and the audit row was written
+there too. Under eight admins on four slots, through the real auth dependency, with the generation stubbed,
+eight dry runs ran 16 of their 24 statements on the loop, eight real runs of five candidates each 72 of 80 with
+48 of their 56 checkouts there, and every run left its transaction for the finalizer. Each generation of a real
+run began with the request's connection out, so four real runs at once held all four of an instance's pooled
+connections, and a fifth admin's request answered 500 at the pool's timeout (each the same in two runs; one
+second in the probe, `DB_POOL_TIMEOUT`'s 10 s in production, where a generation takes up to about 120 s and a
+run makes up to ten). The candidates' read and the release are now one thread-pool unit, the admin's id and
+email read before it, and `admin_summary_service.regenerate_in_place` takes no session: it re-reads each stamp,
+and writes the audit row, in a session of its own in the thread pool (`_in_own_session` through `run_owned_sync`,
+which outside a `request_work` scope runs on anyio's tokens, as `run_in_threadpool` does), so no connection is out
+while a generation runs. That session's close, like the release, logs a failure rather than raising it. On
+PostgreSQL, with the connection dropped after a unit's last statement, an unguarded close answered 500 after the
+paid generations wherever the drop came; the guarded one answers 200 with the audit row. The base answered 500 at
+its next commit, 200 without its audit row after the last re-read, or, after the audit row's read-back, 200 with
+its audit row, its request-scoped `get_db` then failing to close once the answer had gone (the review's probes).
+The job-side drain
+(`summary_refresh.drain_stale`) re-reads in a session of its own too, on its job's loop, where no request
+waits. `lessons/ops-one-connection-per-request-unit.md` keeps a session of its own for background work, since one
+opened while the request's session holds a connection needs a second; the refresh's open only after the release,
+one at a time, so none waits for a connection while it holds one. The audit row is a call of its own with its
+action written out (`_record_refresh`): the legal pages' audit walk (`frontend/tests/unit/legalTruth.spec.tsx`)
+reads a writer where it is called or handed first to `run_in_threadpool`, not one handed on through another
+call. A non-admin's 403 answers before the unit, so it still leaves the
+lookup's transaction for the finalizer, as the other admin routes' do. Its burst cases hold every checkout,
+statement and release off the loop, each answer, each generation and each audit row; its hold case, no
+connection out as each generation starts or ends; a case of its own, a run whose own sessions fail to close,
+still returning its outcomes and writing its audit row; and the route's tests, a generation that raises or ends
+in an error event counted failed (2026-10-25, E171).
+A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
+process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
+one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on
+`request_work`'s executor of their own (`run_owned_sync`). So an instance with more requests in flight than
+its tokens and pool slots together can have every token held by lookups waiting for connections whose holders
+need a token to give them back, and nothing moves until the pool times out, which the optional lookup reads as
+anonymous. In the exports' review, on 40 tokens and four slots, 43 PDF exports all answered and 44 as few as 4
+(the rest 401); sixty answered 20 or 36 of 60, where the base answered all 60, and sixty change reports, one
+unit since #1286, 32 to 42 in three runs (the rest 500); forty exports, and forty change reports, all
+answered. Cloud Run's `--concurrency=40` keeps an instance at the token count, a margin of the pool's slots,
+and the pool-lifetime file holds every concurrency the deploy sets there; raising it needs the units on a
+limiter of their own (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
-their counts (the rest of the auth router, E121; the admin router's `refresh_stale_summaries` and the
-summaries router's generate stream and two exports, E171; four of those hand-offs, the header's strict
-ones, use no connection on the loop), so none can add one in a
+their counts (the rest of the auth router, E121; the summaries router's generate stream, E171; four of those
+hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop
