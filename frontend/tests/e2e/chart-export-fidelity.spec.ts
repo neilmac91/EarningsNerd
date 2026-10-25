@@ -25,6 +25,12 @@ declare global {
   }
 }
 
+// The screen may draw text with LCD subpixel antialiasing (CI's headless shell does), which text rasterized
+// into an image never has: an SVG image and a canvas antialias in grayscale. The PNG cannot carry it, so the
+// gate compares the fonts with LCD text off: in grayscale both, the same glyphs match and a fallback face does
+// not. With it on, every glyph edge differed (1.6–1.7% of a plot's pixels) though both drew Geist Mono.
+test.use({ launchOptions: { args: ['--disable-lcd-text'] } })
+
 test.describe.configure({ mode: 'parallel' })
 
 for (const theme of THEMES) {
