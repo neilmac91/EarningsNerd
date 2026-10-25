@@ -382,7 +382,8 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
     assert checkout['with']['fetch-depth'] == '2'
     scope = next(s for s in steps if s.get('id') == 'scope')
     assert scope['env'] == {'EVENT_NAME': '${{ github.event_name }}',
-                            'PR_HEAD_SHA': '${{ github.event.pull_request.head.sha }}'}
+                            'PR_HEAD_SHA': '${{ github.event.pull_request.head.sha }}',
+                            'PR_DRAFT': '${{ github.event.pull_request.draft }}'}
     key = next(s for s in steps if s.get('id') == 'key')
     assert key['if'] == "steps.scope.outputs.run == 'true'"
     repo = tmp_path / 'repo'
@@ -419,12 +420,15 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
     # This is exactly the false positive: old event base includes newer main's AI change.
     assert 'backend/app/service.py' in git('diff', '--name-only', old_base, docs_merge).splitlines()
 
-    def run_scope(cwd, head, pr_head, *, event='pull_request', extra_env=None):
+    def run_scope(cwd, head, pr_head, *, event='pull_request', draft='false', extra_env=None):
         output = tmp_path / 'scope-output'
         output.unlink(missing_ok=True)
         env = {**os.environ, 'EVENT_NAME': event, 'GITHUB_SHA': head, 'PR_HEAD_SHA': pr_head,
                'EVENT_BASE_SHA': old_base, 'GITHUB_OUTPUT': str(output), 'RUNNER_TEMP': str(tmp_path),
                **(extra_env or {})}
+        env.pop('PR_DRAFT', None)
+        if draft is not None:
+            env['PR_DRAFT'] = draft
         result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', scope['run']],
                                 cwd=cwd, env=env, capture_output=True, text=True, check=False)
         return result, output.read_text() if output.exists() else ''
@@ -450,8 +454,21 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
     result, output = run_scope(repo, ai_merge, ai_head)
     assert result.returncode == 0, result.stderr
     assert output == 'run=true\n'
-    result, output = run_scope(tmp_path, '', '', event='workflow_dispatch')
+    # F55: a draft draws nothing, and its notice says the ready mark would; a dispatch has no draft state.
+    result, output = run_scope(repo, ai_merge, ai_head, draft='true')
+    assert result.returncode == 0, result.stderr
+    assert output == 'run=false\n'
+    assert '::notice::Draft pull request' in result.stdout and 'ready for review' in result.stdout
+    result, output = run_scope(repo, docs_merge, docs_head, draft='true')
+    assert result.returncode == 0 and output == 'run=false\n'
+    assert '::notice::' not in result.stdout
+    result, output = run_scope(tmp_path, '', '', event='workflow_dispatch', draft='')
     assert result.returncode == 0 and output == 'run=true\n'
+    # Only an exact "false" lets a pull request's run spend.
+    for draft in (None, '', 'null', 'True', 'FALSE', ' false', 'false\n', '0'):
+        result, output = run_scope(repo, ai_merge, ai_head, draft=draft)
+        assert result.returncode != 0, repr(draft)
+        assert output == '', repr(draft)
 
     depth_one = tmp_path / 'depth-one'
     git('clone', '--depth=1', '--branch=docs-merge', repo.as_uri(), str(depth_one))
@@ -471,6 +488,7 @@ def test_eval_scope_uses_checked_merge_delta_and_rejects_unknown_history(tmp_pat
         (broken, ai_merge, ai_head, {}),
         (repo, ai_merge, ai_head, {'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'REAL_GIT': git_bin}),
     ]:
-        result, output = run_scope(cwd, head, pr_head, extra_env=extra)
-        assert result.returncode != 0, result.stdout
-        assert output == '', 'Unknown scope must neither authorize spending nor claim no AI changes'
+        for draft in ('false', 'true'):
+            result, output = run_scope(cwd, head, pr_head, draft=draft, extra_env=extra)
+            assert result.returncode != 0, result.stdout
+            assert output == '', 'Unknown scope must neither authorize spending nor claim no AI changes'

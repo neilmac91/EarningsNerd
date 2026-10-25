@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # The three default types keep every required check reporting on each head, drafts included;
+  # ready_for_review starts eval-baseline's paid draw, which drafts never make (F55).
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       limit:
@@ -470,6 +473,9 @@ jobs:
   # filtered so it only runs when AI-relevant code changes, and evals.runner parallelizes across
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
+  # A pull request draws only while it is ready (the ready mark and each push after it, as
+  # copilot-eval does) or on a dispatch; a draft's run says whether its head would draw and
+  # spends nothing (F55).
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -487,10 +493,12 @@ jobs:
           fetch-depth: 2
       - name: Detect AI-relevant changes
         id: scope
-        # Classify this checked PR merge, not upstream changes since a stale event base.
+        # Classify this checked PR merge, not upstream changes since a stale event base. A draft
+        # never draws: only an exact "false" draft state lets a pull request's run spend.
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -500,6 +508,10 @@ jobs:
             echo "::error::Cannot determine evaluation scope for this event."
             exit 1
           fi
+          case "$PR_DRAFT" in
+            true|false) ;;
+            *) echo "::error::Cannot determine whether this pull request is a draft."; exit 1 ;;
+          esac
           CHECKED_SHA=$(git rev-parse --verify 'HEAD^{commit}')
           if [ "$CHECKED_SHA" != "$GITHUB_SHA" ]; then
             echo "::error::Checked source does not match the workflow commit."
@@ -522,10 +534,13 @@ jobs:
               backend/app/*|backend/evals/*|backend/prompts/*) RUN=true ;;
             esac
           done < "$CHANGED_PATHS"
-          echo "run=$RUN" >> "$GITHUB_OUTPUT"
           if [ "$RUN" = "false" ]; then
             echo "No AI-relevant backend changes — skipping eval-baseline."
+          elif [ "$PR_DRAFT" = "true" ]; then
+            RUN=false
+            echo "::notice::Draft pull request: eval-baseline draws nothing. This head changes AI-relevant paths, so marking it ready for review starts the paid run; reserve first (lessons/ops-reserve-eval-baseline-before-each-push.md)."
           fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
       - name: Check for eval API key
         id: key
         if: steps.scope.outputs.run == 'true'

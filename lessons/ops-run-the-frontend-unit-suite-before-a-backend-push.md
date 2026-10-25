@@ -12,9 +12,9 @@ and then failed CI's `frontend-tests`. Both times the failing spec was
 - **#1535 (F60)** moved resend-verification's read into `account_mail_service._issue_link`, and
   `e981dd50a` failed (CI run 40025627889). `ab3cda166` named the new site.
 
-Each red push cost a CI cycle, and its fix push one more paid `eval-baseline` draw: every push to a pull
-request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/` draws one
-(`ops-reserve-eval-baseline-before-each-push.md`). Before #1535's push, the session that pushed it ran
+Each red push cost a CI cycle, and its fix push one more paid `eval-baseline` draw: until F55, every push to
+a pull request whose diff touches `backend/app/`, `backend/evals/` or `backend/prompts/` drew one, drafts
+included (`ops-reserve-eval-baseline-before-each-push.md`). Before #1535's push, the session that pushed it ran
 only the backend gate, because no frontend file had changed.
 
 **Rule.** Before a push whose diff changes any file under `backend/`, its tests included, also run the

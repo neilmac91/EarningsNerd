@@ -1,12 +1,12 @@
-# Reserve for `eval-baseline` before opening a pull request and before each push to it: it draws on every push, drafts included
+# Reserve for `eval-baseline` before marking a pull request ready and before each push while it is ready; a draft draws nothing
 
-Date: 2026-10-21   Area: ops / evals / spend
+Date: 2026-10-21 (gate: 2026-10-25, F55)   Area: ops / evals / spend
 
-**Context**: CI's `eval-baseline` job runs the full verified set against DeepSeek. It runs on every
-`pull_request` event whose diff against its base touches `backend/app/*`, `backend/evals/*` or
+**Context**: CI's `eval-baseline` job runs the full verified set against DeepSeek. Until F55 it ran on
+every `pull_request` event whose diff against its base touched `backend/app/*`, `backend/evals/*` or
 `backend/prompts/*`, draft or not, and on any dispatch of CI. Record 18 measured four runs at USD
 0.35–0.36 each, all at peak pricing, and reserves USD 0.73 a push: the dearest run × 2, rounded up.
-`AGENTS.md` §3 prices a run at "about USD 0.30". No file a session reads at start says when it runs.
+`AGENTS.md` §3 prices a run at "about USD 0.30". No file a session reads at start said when it ran.
 
 On 2026-10-20 the principal session read the balance before #1325's push and before its own second
 push to #1437, and reserved for both `eval-baseline` runs at §3's figure. Its first push to #1437, at
@@ -20,32 +20,39 @@ only the ready mark's `copilot-eval`, and pushed the draft three times (2026-10-
 balance went from USD 12.54 before them to 11.71 after the third and the ready mark's `copilot-eval`
 draw, about USD 0.27 a run. The readings cannot separate production traffic.
 
+F55 (2026-10-25) took the drafts out, as founder row F55's option (b) recommended: a pull request's
+`eval-baseline` draws only while it is ready, as `copilot-eval` does, and CI's `ready_for_review` event
+starts the mark's run. A draft's run still classifies its head and spends nothing; its notice says
+when the ready mark would draw.
+
 **Rule**:
-- **Opening the pull request.** If its diff touches those paths, read the balance first
-  (`deepseek-balance.yml`, which makes no inference call). Then state the reservation in the body as
-  you open it: USD 0.73 for each push you expect, and USD 0.06 for each `copilot-eval` draw (the ready
-  mark, and each push while ready) when the diff matches that workflow's `paths:`. A branch with no
-  pull request runs no `pull_request` CI, so the opening is the first paid event. A dispatch of CI on
-  the branch comes before it, though, and runs `eval-baseline` whatever the diff.
-- **Each push.** Every push re-runs it on the whole diff, draft or ready, including:
+- **The ready mark.** If the diff touches those paths, read the balance first (`deepseek-balance.yml`,
+  which makes no inference call). Then state the reservation in the body before you mark it ready:
+  USD 0.73 for the mark's run and for each push you expect while it is ready, and USD 0.06 for each
+  `copilot-eval` draw (the ready mark, and each push while ready) when the diff matches that
+  workflow's `paths:`. Opening a pull request as ready counts as its mark. Opening a draft and pushing
+  to it draw nothing. A dispatch of CI on the branch runs `eval-baseline` whatever the diff, draft or
+  not.
+- **Each push while ready.** Every push re-runs it on the whole diff, including:
   - a commit that changes only tests or records;
   - a merge of `main`.
 
-  So does a close and reopen, or a re-run of CI: `eval-baseline` has no once-per-head gate, as
-  `copilot-eval` has. Reserve again before any run beyond the count you reserved. Put a review
-  round's fixes in one push.
-- **A superseding push.** It cancels a run still in progress (`cancel-in-progress`). A run cancelled
-  after its `Run baseline eval` step started has drawn for the minutes that step ran: count it. One
+  So does a close and reopen while ready, a re-run of CI, or a second ready mark on an unchanged
+  head after a return to draft: `eval-baseline` has no once-per-head gate, as `copilot-eval` has.
+  Reserve again before any run beyond the count you reserved. Put a review round's fixes in one push.
+- **A superseding push.** It cancels a run still in progress (`cancel-in-progress`), a push made
+  after a return to draft included; converting to draft alone cancels nothing. A run cancelled after
+  its `Run baseline eval` step started has drawn for the minutes that step ran: count it. One
   cancelled before that step drew nothing. When its log does not show which, count it in full.
 - **The after-draw reading.** Name the `eval-baseline` runs beside the `copilot-eval` draw, with their
   links, so the reading is not taken for one draw's cost.
 
 **Evidence**:
-- `.github/workflows/ci.yml:3-7`: CI's triggers, `pull_request` with the default types and the
-  dispatch.
-- `.github/workflows/ci.yml`, job `eval-baseline`: its `if:`, with no draft condition, and its
-  `concurrency:` group.
-- The same job's `Detect AI-relevant changes` step: the paths that start it on a pull request.
+- `.github/workflows/ci.yml`, `on:`: `pull_request`'s types, the default three and
+  `ready_for_review`, and the dispatch.
+- `.github/workflows/ci.yml`, job `eval-baseline`: its `if:` and its `concurrency:` group; its
+  `Detect AI-relevant changes` step, with the paths that start it on a pull request and the draft
+  check (only an exact `false` draft state draws).
 - `.github/workflows/copilot-eval.yml:5,54`: `copilot-eval`'s events, and its skip of drafts.
 - `tasks/code-red-20261004/runtime/control/DECISIONS-18.md:119-127`: the measured cost and the USD
   0.73 rule.
@@ -57,11 +64,9 @@ draw, about USD 0.27 a run. The readings cannot separate production traffic.
   [6308352547](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308352547): the
   three runs and the readings.
 
-**Gate**: none yet; review-checked until founder row F55 picks the gate's form.
-- A hook on the GitHub write that opens a pull request could look for a reservation in its body. It
-  would miss each later push, a dispatch of CI, and a session that loads no repository hooks.
-- Gating it at the workflow changes every writer's spend process, so F55 holds two forms:
-  - the job skips its paid step unless the pull request's body states a reservation, while the
-    CODE RED chief reserves in its ledger today;
-  - it runs only while a pull request is ready, as `copilot-eval` does, which gives up the drafts'
-    signal.
+**Gate**: partly gated since F55. `backend/tests/unit/test_eval_parity.py` runs the scope step and
+fails if a draft, or a draft state other than an exact `true` or `false`, would draw;
+`backend/tests/unit/test_ci_cost_controls.py` fails if the ready mark stops starting a run or stops
+sharing the pull request's cancellation groups. The reservation itself is review-checked: a hook on
+the GitHub write that marks a pull request ready could look for one in its body, but it would miss
+each later push, a dispatch of CI, and a session that loads no repository hooks.
