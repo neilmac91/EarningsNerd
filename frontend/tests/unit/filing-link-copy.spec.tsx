@@ -74,7 +74,7 @@ describe('canonical filing link action', () => {
     expect(screen.getByText('The selected filing narrative.')).toBeInTheDocument()
     expect(screen.getByText('A source-owned excerpt.')).toBeInTheDocument()
     expect(!!screen.queryByText('Full summary')).toBe(tier === 'full')
-    expect(!!screen.queryByText('Partial')).toBe(tier === 'partial')
+    expect(!!screen.queryByText('Partial coverage')).toBe(tier === 'partial')
     expect(!!screen.queryByRole('button', { name: 'Save summary' })).toBe(authenticated)
     expect(!!screen.queryByRole('button', { name: 'Export PDF' })).toBe(pro)
     if (authenticated) { fireEvent.click(screen.getByRole('button', { name: 'Save summary' })); expect(actions.save).toHaveBeenCalledWith(91) }

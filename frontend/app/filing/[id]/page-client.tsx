@@ -195,8 +195,8 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   const isSaved = savedStatus?.is_saved ?? false
   const debugSummary = urlFlags.debug
   // Demo mode (curated first impression): the example/onboarding deep-links carry `?demo=1`.
-  // It suppresses the quality badge + Regenerate button and silences the copilot attention nudge,
-  // so a first-time visitor never meets a "Partial" badge on the curated example (plan item 1.3).
+  // It suppresses Regenerate and silences the copilot attention nudge. Recorded coverage
+  // remains visible so the example carries the same limitations as an ordinary summary.
   const demoMode = urlFlags.demo
 
   useEffect(() => {
