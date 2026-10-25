@@ -950,9 +950,9 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  icon, in its status ink. The close button
                  rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
                  own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
-                 the primary ink in light; in dark the primary ink over the panel it keeps, since the
-                 button overhangs the card's corner and a translucent tint (brand-weak-dark) would show
-                 the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
+                 the primary ink in light; in dark white over the panel it keeps, since dark primary
+                 all but meets the dark secondary rest (1.05:1, §2) and the button overhangs the card's
+                 corner, where a translucent tint (brand-weak-dark) would show the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
                  card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
 Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBadge): icon + label, a
