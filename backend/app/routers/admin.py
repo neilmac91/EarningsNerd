@@ -384,7 +384,7 @@ async def resend_invite(
     return ResendInviteResponse(**issued, emailed=emailed, revoked_invite_id=invite_id)
 
 
-def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
+def _feedback_item(row: Feedback, user_email: Optional[str], attachments: list | None = None) -> dict:
     """Shape a Feedback row (+ joined user email) into the admin API item."""
     return {
         "id": row.id,
@@ -395,6 +395,8 @@ def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
         "page_url": row.page_url,
         "status": row.status,
         "created_at": row.created_at,
+        "attachment_count": len(attachments or []),
+        "attachments": attachments or [],
     }
 
 
@@ -416,7 +418,8 @@ async def list_feedback(
     def feedback_list() -> dict:
         try:
             rows = admin_feedback_service.list_feedback(db, feedback_status=status, feedback_type=type)
-            return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+            attachments = admin_feedback_service.attachment_metadata(db, [row.id for row, _ in rows])
+            return {"feedback": [_feedback_item(row, email, attachments[row.id]) for row, email in rows]}
         finally:
             filing_list_service.release_request_session(db)
 
@@ -461,7 +464,8 @@ async def update_feedback_status(
                 logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
 
             user_email = admin_feedback_service.submitter_email(db, feedback)
-            return _feedback_item(feedback, user_email)
+            attachments = admin_feedback_service.attachment_metadata(db, [feedback.id])
+            return _feedback_item(feedback, user_email, attachments[feedback.id])
         finally:
             filing_list_service.release_request_session(db)
 

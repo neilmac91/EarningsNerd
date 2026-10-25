@@ -303,7 +303,8 @@ async def export_user_data(
     """
     Export the account records provided by the data-export feature in JSON format.
 
-    Provider logs, audit records, correspondence and backups are not included in this export.
+    Includes retained feedback and private screenshot download metadata, not image bytes.
+    Provider logs, audit records, other correspondence and backups are not included.
     """
     user_id = current_user.id
 

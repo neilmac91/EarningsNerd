@@ -131,8 +131,10 @@ preview into batches.
 The configured sustained sums are: 4 req/s sustained with no job running (two service instances), 6
 in the hourly filing-scan window, and at most 8 req/s in any scheduled overlap — Monday 06:00 and
 07:00 UTC (pregenerate, whose first attempt can run until 07:00, with a scan), Monday 07:30–08:30 UTC
-(backfill-facts with a scan) and a daily EFTS job over a running scan — and 20 req/s if every job ran
-at once (22 with the worker, 24 in a handover second), which configuration does not prevent. A full bucket at rate R admits up to 2R−1 requests in
+(backfill-facts with a scan) and a daily EFTS job over a running scan — and 22 req/s if every job ran
+at once (24 with the worker, 26 in a handover second), which configuration does not prevent. The
+feedback-media cleanup job adds two to this conservative configured sum but performs no SEC calls.
+A full bucket at rate R admits up to 2R−1 requests in
 its first second (19 at the default 10), but at the pinned rate of 1 the bucket never holds more than
 one token, so admissions are at least 1 s apart, and edgartools' window never exceeds its rate per
 rolling second: under the pin a process's ceiling is 2 req/s in every second, the first included, so

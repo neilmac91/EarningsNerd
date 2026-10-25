@@ -17,6 +17,7 @@ from sqlalchemy.engine import make_url
 load_dotenv()
 
 from app.config import settings, APP_VERSION
+from app.utils.feedback_privacy import is_private_feedback_path, private_feedback_request, withhold_feedback_event
 
 # Settings that hold a secret, by name: keys, secrets, tokens, salts, passwords and the DSN, and the two connection
 # URLs, whose names do not say they carry a password. The gate keeps its own copy of this rule, the oracle its tests
@@ -221,7 +222,7 @@ def _withhold(
     return node
 
 
-_Hook = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
+_Hook = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any] | None]
 
 
 def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
@@ -241,8 +242,14 @@ def _value_scrubber(secret_values: tuple[str, ...]) -> dict[str, _Hook]:
     _placeholder(secret_values)  # every placeholder overlapped fails here, at startup, not on the first item
 
     def hook(paths: Callable[[dict[str, Any]], frozenset[tuple[str, ...]]], types: frozenset[str]) -> _Hook:
-        def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any]:
+        def withhold_secret_values(item: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
             hint.pop("attachments", None)  # the SDK sends what is left there after the hook, unscrubbed
+            if withhold_feedback_event(item):
+                # Private text, pasted URLs, SQL parameters and parser details can appear in
+                # multiple SDK fields. Withhold these requests entirely instead of guessing
+                # which event field contains user evidence. Content-free outcome analytics
+                # remain in the feedback router, independent of error reporting.
+                return None
             try:
                 scrubbed = _withhold(item, secret_values, paths(item))
             except BaseException as error:  # the SDK sends a log or a metric on after any failure but an Exception
@@ -565,6 +572,8 @@ _cors_config = {
         "Accept",
         "Origin",
         "X-Requested-With",
+        "Idempotency-Key",
+        "X-Feedback-User-Id",
         "X-Correlation-ID",
         # Cloudflare Turnstile token headers the auth/contact/waitlist forms attach
         # (see app/services/turnstile.py:_TOKEN_HEADERS). Without these the browser
@@ -573,7 +582,7 @@ _cors_config = {
         "cf-turnstile-response",
         "x-turnstile-token",
     ],
-    "expose_headers": ["X-Correlation-ID"],
+    "expose_headers": ["X-Correlation-ID", "Retry-After"],
 }
 
 # Only allow localhost regex in development (for various dev server ports)
@@ -640,10 +649,20 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def feedback_privacy_middleware(request: Request, call_next):
+    token = private_feedback_request.set(is_private_feedback_path(request.url.path))
+    try:
+        return await call_next(request)
+    finally:
+        private_feedback_request.reset(token)
+
+
 # Request timeout middleware
 # Configurable timeouts per endpoint pattern
 REQUEST_TIMEOUT_SECONDS = {
     "default": 30.0,
+    "/api/feedback/with-attachments": 60.0,
     "/api/summaries/": 120.0,  # Summary generation needs more time
     "/api/filings/": 60.0,     # Filing fetches from SEC EDGAR
     "/health": 5.0,            # Health checks should be fast
@@ -782,20 +801,24 @@ async def global_exception_handler(request: Request, exc: Exception):
     """
     from fastapi.responses import JSONResponse
 
-    # Log the error with full context
-    logger.exception(
-        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
-    )
+    private_feedback = is_private_feedback_path(request.url.path)
+    if private_feedback:
+        # Driver exceptions can embed SQL bind values, including feedback text. This also
+        # covers exceptions raised outside the request middleware's context lifetime.
+        logger.warning("Private feedback request failed (%s)", type(exc).__name__)
+    else:
+        logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
 
     # Report to Sentry if available
     try:
         import sentry_sdk
-        sentry_sdk.capture_exception(exc)
+        if not private_feedback:
+            sentry_sdk.capture_exception(exc)
     except ImportError:
         pass
 
     # Return a generic error response (don't leak internal details in production)
-    error_detail = str(exc) if settings.ENVIRONMENT != "production" else "An unexpected error occurred"
+    error_detail = str(exc) if settings.ENVIRONMENT != "production" and not private_feedback else "An unexpected error occurred"
 
     # Starlette answers this handler from ServerErrorMiddleware, outside add_security_headers, so the
     # 500 sets those headers itself (_security_headers).

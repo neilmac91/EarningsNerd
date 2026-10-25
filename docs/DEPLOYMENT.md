@@ -37,9 +37,9 @@ skips files whose filename + sha256 are recorded; the psql session is pinned to 
 `postgres:15` service in the `migrations-postgres` CI job, which gates the deploy. To force one file
 to re-run in prod: `DELETE FROM migration_ledger WHERE filename = '<file>.sql';` then re-run the
 deploy. It then runs `gcloud run deploy` and routes
-traffic to the new revision, updates the required pregenerate job image, and updates seven other
+traffic to the new revision, updates the required pregenerate job image, and updates eight other
 configured job targets only when found (filing-scan, filing-digest, backfill-facts,
-earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge). Missing jobs are skipped,
+earnings-calendar-refresh, earnings-day-alerts, notable-filings, retention-purge, feedback-media-cleanup). Missing jobs are skipped,
 not provisioned by CI. It then health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
 30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
 default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
@@ -604,6 +604,64 @@ gcloud scheduler jobs create http retention-purge-weekly --location=us-west1 \
 
 CI updates this job's image with the others once it exists; until then the deploy logs
 "not found — create it once per DEPLOYMENT.md. Skipping."
+
+### Private feedback screenshots
+
+Text feedback works independently of image storage. Screenshots require `FEEDBACK_MEDIA_ENABLED=true`
+and `FEEDBACK_MEDIA_BUCKET`; the default is disabled. Disabling new uploads retains private reads and
+cleanup of previously accepted images. CI preserves these operator-owned values and updates the cleanup
+job image on subsequent backend releases when the job exists.
+
+The protected `Ops` workflow has four fixed operations:
+
+| Operation | Effect |
+| --- | --- |
+| `feedback-media-inspect` | Read bucket security, runtime grants, job image/entrypoint, latest execution and hourly schedule. |
+| `feedback-media-provision-apply` | Create the dedicated production and preview buckets, narrow object role/grants, cleanup job and schedule; run cleanup and a manifest-backed storage probe. |
+| `feedback-media-enable-apply` | Require matching private resources and successful cleanup and storage-probe executions within two hours, then enable API uploads. |
+| `feedback-media-disable-apply` | Disable new uploads while retaining the configured bucket, reads and cleanup. |
+
+Each `-apply` requires the repository owner's approval of that exact run in `ops-apply`; agents never
+approve the deployment or modify the environment. All operations use only the reviewed `main` revision,
+the existing WIF identity and fixed resources in `earnings-nerd/us-west1`. Provisioning refuses an
+existing bucket or job whose ownership/security settings differ; it does not weaken a pre-existing
+resource to make a retry pass. A partial apply is inspected before a newly approved retry.
+
+The new buckets are `earnings-nerd-feedback-media-prod` and `earnings-nerd-feedback-media-preview`.
+Both enforce uniform bucket access and public-access prevention, with versioning and soft delete off.
+The SQL-backup bucket is untouched. Objects are not public and no bearer download URLs are issued.
+The custom `earningsnerdFeedbackObjects` role contains only object create/get/delete, bound on these
+buckets to the runtime identity. The provisioning identity needs permissions to create those buckets,
+create/read the custom role, set bucket IAM, create/update and run the cleanup job (including execution overrides) and its IAM, and create/update
+its Cloud Scheduler trigger; absent grants fail the apply rather than being worked around.
+
+`earningsnerd-feedback-media-cleanup` runs `python scripts/feedback_media_cleanup.py`, with one task,
+one CPU, 512 MiB, a 600-second attempt timeout, one retry and one database connection without overflow.
+`feedback-media-cleanup-hourly` invokes it at `17 * * * *` in `Etc/UTC` using OAuth and a job-scoped
+invoker grant. The extra job raises the configured all-jobs connection budget by one (19 without the
+private worker, 22 with it); it makes no SEC or model calls. Runtime secret references are copied only
+for `DATABASE_URL` and `SECRET_KEY`, never printed or materialized as values.
+
+Screenshots expire after 180 days; account deletion revokes access immediately and schedules removal.
+Cleanup retains object manifests until a conditional delete or confirmed absence succeeds. Inspect the
+`feedback-media-cleanup` job ledger for failed/stale runs and overdue/error counters; a failed or stale
+job is an operational incident, not evidence of erasure. Target active-object removal within 24 hours.
+No external notification channel is provisioned by this operation.
+
+The storage probe runs the cleanup job with execution-scoped `--verify-storage` arguments. It first
+commits an ownerless synthetic manifest, writes a tiny PNG, reads its exact bytes and conditionally
+deletes its generation. Failure leaves durable cleanup evidence. It creates no user or feedback
+report and uses the production bucket; the separate preview bucket is not thereby tested. The probe
+uses its own `feedback-media-storage-probe` ledger name and cannot refresh the scheduled cleanup
+heartbeat. Inspection requires the latest attempt of each mode to have succeeded on the serving
+image; an older success cannot conceal a recent failure.
+
+Before enabling, verify synthetic upload/read/retry/export/deletion against private storage, browser
+behavior in both themes and the decoder's memory budget. Provisioning alone is not that verification.
+The enable operation checks infrastructure prerequisites; the operator must also retain the test and
+preview receipts in the PR. After enable/disable, verify `/health/detailed`, authenticated capabilities,
+and the serving revision. A frontend rollback must keep the backend read/cleanup paths for accepted
+images; never delete the bucket, manifests or migrations as a rollback.
 
 ### Monthly Cloud SQL logical export
 
