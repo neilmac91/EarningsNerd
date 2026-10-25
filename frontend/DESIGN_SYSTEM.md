@@ -96,15 +96,22 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   pointer.** Dark primary `#D7DADC` and dark secondary `#D1D5DB` are 1.05:1 apart (light's pair is
   1.69:1), so a control that rests in secondary and only turns primary (or heading) under the
   pointer shows no hover in dark. It steps to white in dark (`dark:hover:text-white`, 1.47:1) or
-  carries another hover cue: a fill, a border, a ring, a shadow or an underline. Twelve controls
-  had only the ink step when secondary brightened (2026-10-25) and now step to white: the header's
-  nav links and its mobile menu button, the footer links, the admin tabs, the secondary pane tabs,
-  SegmentedControl's resting options, the back links (SecondaryHeader, AuthShell, dashboard
-  settings), the dashboard's log out, the Copilot coachmark's dismiss and the toast close, which
-  also takes `dark:hover:!bg-brand-weak-dark`, the dark twin of its light hover tint. A state
-  marked by the same step does the same: the pricing page's selected billing label takes white in
-  dark. Gate: `tests/unit/themePairs.spec.ts` ('gives every dark hover a visible step: secondary
-  never turns only primary under the pointer', with its planted self-check).
+  carries another hover cue that dark shows: a fill, a border, a ring, a shadow or an underline.
+  A `dark:` class compiles to `:is(.dark *)`, as specific as `:hover` and later in the stylesheet,
+  so a `hover:` cue without `dark:` loses in dark to any `dark:` rest or hover of its property, and
+  a `dark:hover:` fill equal to the dark rest is no cue. Thirteen controls had only the ink step
+  when secondary brightened (2026-10-25) and now step to white: the header's nav links and its
+  mobile menu button, the footer links, the admin tabs, the secondary pane tabs, SegmentedControl's
+  resting options, the back links (SecondaryHeader, AuthShell, dashboard settings), the
+  dashboard's log out, the Copilot coachmark's dismiss, the filing page's "On this page" links and
+  the toast close, which keeps its opaque panel fill (its light tint lost to that forced dark rest,
+  and a translucent tint would show the page through the corner it overhangs; Toast). A sortable
+  heading on the figure sheet, which rests in secondary, steps to white the same way. A state
+  marked by the same step does the same: the
+  pricing page's selected billing label takes white in dark. Gate: `tests/unit/themePairs.spec.ts`
+  ('gives every dark hover a visible step: secondary never turns only primary under the pointer',
+  with its planted self-check). It reads the resting ink through a same-file string constant in a
+  template slot (`${MUTED}`) too; a resting ink set on an ancestor (a table row) it cannot see.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
   `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
   a full light/dark pair — don't add `bg-*` overrides to them. The legacy `.text-gradient-mint`
@@ -514,7 +521,7 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
-                 surface="well"; Analysis table, §9).
+                 surface="well"; Analysis table, §4).
 
 Company mark     <CompanyLogo ticker name decorative size>  (components/) — the one way a company's mark is
                  drawn beside its ticker, at 20–36px (gate: tests/unit/companyMarkSingleSource.spec.ts holds
@@ -572,11 +579,15 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
 
 Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a calculated origin, then a
                  letter for its grouped data note, one mark type. Each is 11px text-data-xs in the
-                 figure face (§3), zero line-height (a mark never sizes its row), inline-block (the
-                 source button's dotted underline stops at the figure) and raised to about the figure's
-                 cap height: -top-[0.35em] beside a 12px figure or line, in the table (compact) and on
-                 the KPI change line (small: the table's raise, with the first mark's 2px gap), and
-                 -top-[0.85em] beside the 24px KPI value and dialog figure. Each takes its own ink: the
+                 figure face (§3), zero line-height (a mark never sizes its row), inline-block (the KPI
+                 value's dotted underline stops at the figure) and raised as a staircase: the dagger
+                 low, near the figure's x-height, and the letter above it, near its cap height. Beside
+                 12-14px text (the table, the KPI change line, the narrative) the dagger rises
+                 -top-[0.2em] and the letter -top-[0.5em]; beside a 24px figure (the KPI value, the
+                 evidence dialog's figure: DataNoteMark large, which only those two ask for)
+                 -top-[0.55em] and -top-[0.85em]. Raised level with each other, “†a” read as one mark
+                 at 1x in dark: in the metrics-table readout five of six readers dropped the letter,
+                 and stepped, six of six read both. Each takes its own ink: the
                  note ink (text-note-light dark:text-note-dark) for † and a neutral letter,
                  text-warning-light dark:text-warning-data-dark (#FCD34D) for a review letter. Warning
                  ink belongs only to unresolved review concerns; unavailable values and missing
@@ -587,15 +598,15 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  mark keeps the gutter as an empty, aria-hidden spacer that grows from nothing up to one
                  mark into free space only (grow basis-0 max-w-[var(--mark-gutter)]; a declared width
                  counts toward the line's minimum and pushed a nine-glyph figure past its cell), so a
-                 marked and an unmarked figure share one edge. There the figure's line is a flex row,
-                 which blockifies its children, and the button's underline reaches every flex item, so
-                 the marks share one wrapper (data-marks) that is the flex item and they stay
-                 inline-blocks: as items of their own the underline ran again under them, raised with
-                 them (gate: “analysis phone marks” in tests/e2e/analysis-layout.spec.ts reads each
-                 mark's computed display under an underlined control). Elsewhere the first mark takes 2px
+                 marked and an unmarked figure share one edge. Elsewhere the first mark takes 2px
                  (ml-0.5). A letter after † keeps 2px (ml-0.5) on every surface: set flush, “†a” read as
                  one cluster at 1x in dark, and two readers dropped the letter (the metrics-table
-                 study's readout).
+                 study's readout). Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the
+                 spacer, and large only at the two 24px figures); “analysis phone marks” in
+                 tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, a
+                 letter above its dagger and 2px after it, and a mark under an underlined control an
+                 inline-block: a flex row blockifies its children, and an underline reaches every flex
+                 item).
                  The marks are aria-hidden inside the figure's source button, whose accessible name
                  states them in words: the note and any inherited comparison note once; a shared
                  figure/comparison note is named once with its scope. The separate visual change mark
@@ -704,19 +715,30 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  pageHeader keeps the headings in view down a tall page. CSS cannot stick a header to
                  the page from inside the horizontal scroll container, so an aria-hidden copy of the
                  heading row rides a zero-height sticky rail under the site header
-                 (top-[var(--site-header-h,4rem)], z-sticky, pointer-events-none, print:hidden, on the
-                 panel with the rule outline), mounted only while the real thead has passed under the
-                 header and the table is still below it, and following the table's scrollLeft. The real
-                 thead stays the one screen readers read. While it shows, the rail publishes its
+                 (top-[var(--site-header-h,4rem)], z-sticky, print:hidden, on the panel with the rule
+                 outline), mounted only while the rail is stuck at the header's line, the real thead has
+                 passed under the header and the table is still below it, and following the table's
+                 scrollLeft. Under an ancestor that clips overflow (the landing demo's mockup frame, a
+                 locked preview) that box is the rail's scroll container, so the rail never sticks to the
+                 page and never shows. The real thead stays the one screen readers read. The bar takes
+                 the pointer, so a click on a heading the reader sees cannot open the figure hidden under
+                 it; a horizontal wheel over it moves the table. While it shows, the rail publishes its
                  measured height as --table-rail-h on <html> (TABLE_RAIL_HEIGHT_PROPERTY, kept current
                  by a ResizeObserver and removed when the rail goes), and the document's
                  scroll-padding-top adds it to the header's and the section nav's (app/globals.css), so
                  a figure reached by Tab or Shift+Tab, or scrolled into view, lands below the rail,
-                 never under it (WCAG 2.2 SC 2.4.11). Gates:
+                 never under it (WCAG 2.2 SC 2.4.11); a focused figure the rail appears over after its
+                 focus scroll (a row taller than the heading row, aligned under the header alone) is
+                 scrolled out from under it as the rail mounts. Gates:
                  tests/unit/headerOffsetReadsTheVariable.spec.ts (the padding's calc; the rail's offset
                  reads --site-header-h); tests/e2e/analysis-layout.spec.ts “analysis heading rail”
-                 (1440px, both themes: it tabs back into a row under the rail and asserts the focused
-                 figure lands below it).
+                 (1440px, both themes: a figure reached by Shift+Tab lands below the rail and a click on
+                 the rail stays on it; a focused figure the rail appears over is brought out; the landing
+                 demo's table never shows the rail nor reserves its padding).
+                 The table's figure controls carry no underline (the KPI value keeps its dotted one): in
+                 the readout a rule under every value parted values from their change lines, and dark
+                 1x readers gave a period with no change the next column's (four of seven with it, none
+                 of 36 without; gate: “analysis phone marks”).
                  Every period of the run is a column, and the table scrolls sideways in its own box with
                  whole-column snapping. The 6-of-N table window (All N / Newest 6 / Earliest 6, its
                  SegmentedControl and its “Showing N of M” status line) is retired, reversing the 10
@@ -780,7 +802,8 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  “As stored”, the arithmetic line, each input's value and the comparison display, so a
                  minus draws as it does in the cell while the text stays U+002D; each keeps its size's
                  tracking. An accession number and a raw tag keep font-data, since their hyphens are not
-                 minus signs. The display figure's marks rise 0.85em after 2px (Data note mark). Gate:
+                 minus signs. The display figure's marks take the large staircase after 2px, the dagger
+                 0.55em and the letter 0.85em (DataNoteMark large; Data note mark). Gate:
                  tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx).
 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
@@ -835,10 +858,11 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
                  The label and the period take the secondary ink (Lc 90.9 / -77.3 on the panel; tertiary
                  is 74.1 in light, under the labels' 75). The change line is 12px in the figure face at
                  zero tracking with dataDirectionText (Delta text), its n/m read as “not meaningful”
-                 (GrowthText), and its mark takes the table's 0.35em raise after 2px (DataNoteMark
-                 small), where the value's marks rise 0.85em (Data note mark). Gates:
+                 (GrowthText), and its mark takes the default raise after 2px, a letter 0.5em, where the
+                 value's marks take the large staircase (SourceValue largeMarks; Data note mark). The
+                 value keeps the dotted underline the table's figures do not carry. Gates:
                  tests/unit/kpi-strip.spec.tsx (the figure face and zero tracking on the value and the
-                 change line, n/m), tests/unit/data-note-mark.spec.tsx (the small raise) and
+                 change line, n/m), tests/unit/data-note-mark.spec.tsx (the raises) and
                  tests/unit/figureSurfaceInks.spec.ts (the KPI pairs).
 
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
