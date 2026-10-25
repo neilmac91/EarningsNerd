@@ -7,8 +7,10 @@ Writes ``<out>/<TICKER>.json.gz`` (default ``tasks/analysis-depth-2026-10/packs/
 the proposed generator sees, and the reference the fact-check gate reconciles every printed number against.
 
 This builds pack version 2 (``PACK_VERSION``): version 1 plus the additions of DEEPSEEK-ERRORS.md §2 fixes 3, 4,
-8, 9 and 11, every one under a new ID, so each version-1 ID keeps its value. ``packs/`` holds version 1, the
-input of the frozen runs (eval-v1, dev-v4), and the builder refuses to overwrite a pack of another version there.
+8, 9 and 11, every one under a new ID, so each version-1 ID keeps its value; a peer rank or median built on a peer's
+broken year is withheld, and a checked one, without that peer, takes its place (``checked_peer_ranks``, fix 8 for
+the peers). ``packs/`` holds version 1, the input of the frozen runs (eval-v1, dev-v4), and the builder refuses to
+overwrite a pack of another version there.
 The EDGAR full-text queries are cached under their end date; ``--fulltext-end`` replays a build made on another
 day from the cache (the version-1 packs were built on 2026-10-24).
 
@@ -201,8 +203,18 @@ def _inflection_years(reg: derived.Registry, keys: list[str]) -> set[str]:
     return years
 
 
-async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, float]]:
-    """Latest comparable-year metrics for one peer, through the same ingest and derivation."""
+def _combined_cash(payload: dict[str, Any], end_to_key: dict[str, str]) -> dict[str, float]:
+    """The filer's own cash, cash equivalents and short-term investments total by period (us-gaap
+    CashCashEquivalentsAndShortTermInvestments, as first reported), for ``derived.double_counted``."""
+    series = xfacts._tag_series(payload, "CashCashEquivalentsAndShortTermInvestments", "instant", "USD")
+    fuzzy = _fuzzy_end_map(sorted(series), end_to_key)
+    return {fuzzy[end]: series[end]["first_value"] for end in sorted(series) if end in fuzzy}
+
+
+async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, Any]]:
+    """Latest comparable-year metrics for one peer, through the same ingest and derivation. ``left_out`` (version 2)
+    names a metric whose value there rests on a broken line, by ``derived.peer_left_out`` over the peer's own
+    window, the one its pack reads (a five-year window can start after its last long-term debt year: KMB, MDLZ)."""
     try:
         identity = await bootstrap.resolve_identity(ticker)
         company_id = await bootstrap.ingest(ticker)
@@ -229,6 +241,21 @@ async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, floa
         value = reg.val(key, period)
         if value is not None:
             out[key] = value
+    if "net_cash_to_revenue" in out:
+        try:
+            own_window = _dataset(company_id, *bootstrap.latest_annual_window(company_id))
+        except Exception:  # noqa: BLE001 - a value that cannot be checked stays out of the checked rank
+            out["left_out"] = {"net_cash_to_revenue": "not checked"}
+            return out
+        window_keys, window_ends, _ = _period_maps(own_window)
+        window = derived.Registry()
+        derived.register_dataset(window, own_window)
+        derived.register_extended(window, xfacts.extended_series(payload, [p["period_end"] for p in own_window["periods"]]),
+                                  window_ends, derived.X_LABELS)
+        derived.build_derived(window, window_keys, profile, [])
+        reason = derived.peer_left_out(window, window_keys, period, _combined_cash(payload, window_ends))
+        if reason:
+            out["left_out"] = {"net_cash_to_revenue": reason}
     return out
 
 
@@ -245,7 +272,14 @@ PEER_METRICS: dict[str, tuple[str, str]] = {
 }
 
 
-async def _register_peers(reg: derived.Registry, ticker: str, peer_group: str, latest_key: str, latest_end: str) -> dict[str, Any]:
+def _peer_median(values: list[float]) -> float:
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2
+
+
+async def _register_peers(reg: derived.Registry, ticker: str, peer_group: str, latest_key: str,
+                          latest_end: str) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    """The version-1 peer ranks and medians, and each peer's metrics (for version 2's checked ones)."""
     tickers = [t for t in PEERS.get(peer_group, ()) if t != ticker]
     results = {}
     for peer in tickers:
@@ -259,15 +293,45 @@ async def _register_peers(reg: derived.Registry, ticker: str, peer_group: str, l
         if own is None or len(values) < 3:
             continue
         rank = derived.percentile_rank(own.value, values)
-        ordered = sorted(values)
-        mid = ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2
         peer_note = "; ".join(f"{t} {results[t][key]:.1f}" for t in sorted(results) if key in results[t])
         rank_id = reg.add("D", f"peer_pctile:{key}", f"{label}: percentile vs {peer_group} peers (n={len(values)})", latest_key,
                           rank, "pctile", formula="share of peers below (ties half)", inputs=[own.id], source="peer", note=peer_note)
         median_id = reg.add("D", f"peer_median:{key}", f"{label}: {peer_group} peer median (n={len(values)})", latest_key,
-                            mid, unit, formula="median of peer values", source="peer", note=peer_note)
+                            _peer_median(values), unit, formula="median of peer values", source="peer", note=peer_note)
         summary["metrics"][key] = {"percentile_id": rank_id, "median_id": median_id, "n": len(values)}
-    return summary
+    return summary, results
+
+
+def checked_peer_ranks(reg: derived.Registry, results: dict[str, dict[str, Any]], peer_group: str, latest_key: str,
+                       broken: set[str]) -> tuple[dict[str, str], dict[str, Any]]:
+    """Version 2 (fix 8 for peers): a peer rank and median again without the peers whose value rests on a broken line
+    (their ``left_out``), under new IDs filed beside version 1's (series key ``<key>|<period>|checked``), and the
+    version-1 rank and median they replace, to withhold (``peer_break``). With fewer than three peers left the
+    version-1 pair is withheld and nothing replaces it; so too when the company's own value is withheld (in
+    ``broken``), as its pair already is."""
+    replaced: dict[str, str] = {}
+    checked: dict[str, Any] = {}
+    for key, (label, unit) in PEER_METRICS.items():
+        old = [vid for vid in (reg.ref(f"peer_pctile:{key}", latest_key), reg.ref(f"peer_median:{key}", latest_key)) if vid]
+        left_out = {t: m["left_out"][key] for t, m in sorted(results.items()) if key in m and key in m.get("left_out", {})}
+        if not old or not left_out:
+            continue
+        replaced.update({vid: "peer_break" for vid in old})
+        own = reg.get(key, latest_key)
+        kept = {t: m[key] for t, m in sorted(results.items()) if key in m and t not in left_out}
+        if own is None or own.id in broken or len(kept) < 3:
+            continue
+        values = list(kept.values())
+        note = ("; ".join(f"{t} {value:.1f}" for t, value in kept.items())
+                + "; left out: " + "; ".join(f"{t} ({reason})" for t, reason in left_out.items()))
+        rank_id = reg.add("D", f"peer_pctile:{key}", f"{label}: percentile vs {peer_group} peers (n={len(values)})", latest_key,
+                          derived.percentile_rank(own.value, values), "pctile", formula="share of peers below (ties half)",
+                          inputs=[own.id], source="peer", note=note, tag="checked")
+        median_id = reg.add("D", f"peer_median:{key}", f"{label}: {peer_group} peer median (n={len(values)})", latest_key,
+                            _peer_median(values), unit, formula="median of peer values", source="peer", note=note,
+                            tag="checked")
+        checked[key] = {"percentile_id": rank_id, "median_id": median_id, "n": len(values), "left_out": left_out}
+    return replaced, checked
 
 
 async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Optional[str] = None) -> dict[str, Any]:
@@ -325,16 +389,26 @@ async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Opti
         hits = await sec_inputs.fulltext_hits(name, identity["cik"], f"{keys[0][2:]}-01-01", fulltext_end)
         fulltext.append({"term": name, "filings": [{"accession": h["accession"], "form": h["form"], "filed": h["filed"]} for h in hits]})
 
-    peers = await _register_peers(reg, ticker, company.peer_group, keys[-1], key_to_end[keys[-1]]) if with_peers else {}
+    peers, peer_results = (await _register_peers(reg, ticker, company.peer_group, keys[-1], key_to_end[keys[-1]])
+                           if with_peers else ({}, {}))
 
-    # Version 2: new values, the debt-break and implied-rate checks with their red flags, and the IDs the render
-    # withholds. All of it after the last version-1 ID (peers included), so no version-1 ID moves.
+    # Version 2: new values, the debt and liquidity checks with their red flags, the checked peer ranks, and the IDs
+    # the render withholds. All of it after the last version-1 ID (peers included), so no version-1 ID moves.
     derived.version_two_values(reg, keys, company.profile)
     broken = derived.debt_breaks(reg, keys)
-    added_checks = derived.debt_checks(reg, keys, company.profile, broken)
+    onsets = derived.debt_onsets(reg, keys)
+    gaps = derived.liquidity_gaps(reg, keys)
+    double = derived.double_counted(reg, keys, _combined_cash(payload, end_to_key))
+    debt_years = [p for p in keys if p in broken or any(p in years for _, years in onsets)]
+    cash_years = [p for p in keys if p in double or any(p == year for _, year in gaps)]
+    replaced, checked = checked_peer_ranks(reg, peer_results, company.peer_group, keys[-1],
+                                           set(derived.withheld(reg, debt_years, [], cash_years)))
+    if replaced:
+        peers["checked"], peers["replaced"] = checked, replaced
+    added_checks = derived.debt_checks(reg, keys, company.profile, broken, onsets, gaps, double)
     data_checks = data_checks + added_checks
     derived.append_flags(flags, added_checks)
-    withheld = derived.withheld(reg, broken, flags)
+    withheld = derived.withheld(reg, debt_years, flags, cash_years, replaced)
 
     pack = {
         "version": PACK_VERSION,

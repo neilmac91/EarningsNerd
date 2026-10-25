@@ -41,7 +41,9 @@ class Registry:
 
     def add(self, prefix: str, key: str, label: str, period: str, value: Optional[float], unit: str,
             formula: str = "", inputs: Optional[list[str]] = None, source: str = "derived",
-            note: str = "", fixed_id: Optional[str] = None) -> Optional[str]:
+            note: str = "", fixed_id: Optional[str] = None, tag: str = "") -> Optional[str]:
+        """``tag`` files a second value of the same series and period beside the first, which keeps its place
+        (the series key reads ``key|period|tag``): version 2's checked peer rank beside version 1's."""
         if value is None:
             return None
         if fixed_id is None:
@@ -50,7 +52,7 @@ class Registry:
         else:
             vid = fixed_id
         self.values[vid] = Value(vid, label, period, float(value), unit, formula, list(inputs or []), source, note)
-        self.by_key[(key, period)] = vid
+        self.by_key[(key, f"{period}|{tag}" if tag else period)] = vid
         return vid
 
     def get(self, key: str, period: str) -> Optional[Value]:
@@ -700,8 +702,9 @@ def debt_breaks(reg: Registry, periods: list[str]) -> list[str]:
     DE FY2021, KO FY2023 and USB FY2022, is zero in ORCL FY2022 and missing in COP FY2016. Such a year counts only
     while debt is still evident: another debt line is positive, or (after the line was last reported) interest
     expense held at least half its level of that year. A company that repaid its long-term debt is not a break.
-    Changes in the smaller lines are not tested: a current portion or short-term borrowings line comes and goes
-    with genuine maturities and repayments (AMD), so its absence says little about the data."""
+    A smaller line's absence alone is not tested here: a current portion or short-term borrowings line comes and
+    goes with genuine maturities and repayments (AMD), so its absence says little about the data; ``debt_onsets``
+    tests the one shape that does (DE)."""
     lines = {p: _long_term_debt(reg, p) for p in periods}
     reported = [i for i, p in enumerate(periods) if (v := lines[p]) is not None and v.value > 0]
     if not reported:
@@ -724,6 +727,109 @@ def debt_breaks(reg: Registry, periods: list[str]) -> list[str]:
     return broken
 
 
+ONSET_JUMP = 0.25  # total debt rising more than this as a line first appears (the debt_build flag's threshold)
+
+
+def debt_onsets(reg: Registry, periods: list[str]) -> list[tuple[str, list[str]]]:
+    """(line, the years before it first appears) for a smaller debt line that is not reported in the window's
+    early years and is reported in every year from its first to the window's end, where total debt jumps by more
+    than ``ONSET_JUMP`` as it appears (the line carrying at least half the rise) while interest expense, that year
+    and the next, does not rise by even half as much: the debt was there before, under a tag this pack does not
+    map, so total debt and net cash before the onset leave it out. DE's current portion of debt first appears in
+    FY2020 at $8,582m (total debt +36.7%, interest expense -15%): its FY2016-FY2019 total debt is long-term only.
+    A line that first appears at zero (AMD's and NVDA's) or while total debt falls (SNAP's) is no onset."""
+    onsets = []
+    for key in _OTHER_DEBT:
+        present = [i for i, p in enumerate(periods) if reg.get(key, p) is not None]
+        if not present or present[0] == 0 or present != list(range(present[0], len(periods))):
+            continue
+        first = present[0]
+        onset, before = periods[first], periods[first - 1]
+        line, debt, prior = reg.val(key, onset), reg.val("total_debt", onset), reg.val("total_debt", before)
+        if not (line and line > 0 and debt and prior and prior > 0):
+            continue
+        jump = debt / prior - 1
+        if jump <= ONSET_JUMP or line < 0.5 * (debt - prior):
+            continue
+        base = reg.val("interest_expense", before)
+        after = [reg.val("interest_expense", p) for p in periods[first:first + 2]]
+        if not base or base <= 0 or any(v is None or v > base * (1 + jump / 2) for v in after):
+            continue
+        onsets.append((key, periods[:first]))
+    return onsets
+
+
+_LIQUIDITY = ("cash_and_equivalents", "short_term_investments", "long_term_investments")
+GAP_SHARE = 0.10  # a missing line's neighbours must carry at least this share of their year's cash and investments
+
+
+def liquidity_gaps(reg: Registry, periods: list[str]) -> list[tuple[str, str]]:
+    """(line, year) for a cash or investment line reported in most years of the window but missing in one, where
+    the year on each side reports it at ``GAP_SHARE`` or more of that year's cash and investments: cash and
+    investments that year sum the other lines only. MSFT's short-term investments are missing in FY2017 ($121.8bn
+    in FY2018), NVDA's in FY2026, ORCL's in FY2017, COP's in FY2021. A line missing beside a year that reports it
+    at zero or near it (AMD's FY2016 short-term investments, $0.0m in FY2017) is no gap, nor is a run of missing
+    years: a line that starts or stops may be genuine (VRTX's long-term investments begin in FY2022)."""
+    gaps = []
+    for key in _LIQUIDITY:
+        if sum(reg.get(key, p) is not None for p in periods) * 2 <= len(periods):
+            continue
+        for i, period in enumerate(periods):
+            if reg.get(key, period) is not None or reg.get("liquidity", period) is None:
+                continue
+            sides = [periods[j] for j in (i - 1, i + 1) if 0 <= j < len(periods)]
+            if all(reg.get(key, p) is not None and (total := reg.val("liquidity", p))
+                   and (reg.val(key, p) or 0) >= GAP_SHARE * total for p in sides):
+                gaps.append((key, period))
+    return gaps
+
+
+def double_counted(reg: Registry, periods: list[str], combined: dict[str, float]) -> list[str]:
+    """Years whose short-term investments are already inside cash and cash equivalents, so cash and investments
+    count them twice: the filer's own cash, cash equivalents and short-term investments total (``combined``,
+    us-gaap CashCashEquivalentsAndShortTermInvestments by period) equals cash alone within 0.5%, while short-term
+    investments are more than 1% of cash. TGT tags that total at its cash figure in every year ($5,488m in FY2025,
+    beside $4,611m of short-term investments); the filers that tag it at cash plus short-term investments (MSFT,
+    GOOGL, ADBE) are not double counts."""
+    years = []
+    for period in periods:
+        cash, investments, total = (reg.val("cash_and_equivalents", period), reg.val("short_term_investments", period),
+                                    combined.get(period))
+        if (cash and cash > 0 and investments and investments > 0.01 * cash and total is not None
+                and reg.get("liquidity", period) is not None and abs(total - cash) <= 0.005 * cash):
+            years.append(period)
+    return years
+
+
+UNMAPPED_SHARE = 0.10  # debt the interest implies, against the peer's cash and investments (fix 8 for peers)
+
+
+def peer_left_out(reg: Registry, periods: list[str], period: str, combined: Optional[dict[str, float]] = None) -> Optional[str]:
+    """Why a peer's net cash for ``period`` (its comparable year) stays out of a version-2 peer median and rank, else
+    None. ``reg`` holds the peer's own window, as its pack would, and every test of its pack runs on it: a debt break
+    or onset ("debt line broken"), a liquidity gap or double count ("cash line broken"). A peer has no data check to
+    disclose a doubt, so one more test leaves it out: no long-term debt line that year while the window shows
+    borrowing, as another debt line in any year or interest expense implying, at ``IMPLIED_RATE_CEILING``, debt of
+    ``UNMAPPED_SHARE`` or more of its cash and investments ("no long-term debt line"). Each was a broken value in a
+    version-1 peer median: KO, KMB and MDLZ (staples), DE (industrials), CVX and COP, MPC and PSX (energy), SO
+    (utilities), DG and TGT (retail), F and GM (autos; GM's interest implies $37bn of debt it maps no line for), NVDA's
+    FY2026 (semis). A peer that never borrowed (PINS, RDDT, TTD, VRTX: interest implying at most 5% of its cash) stays
+    in."""
+    if period in debt_breaks(reg, periods) or any(period in years for _, years in debt_onsets(reg, periods)):
+        return "debt line broken"
+    if period in {p for _, p in liquidity_gaps(reg, periods)} or period in double_counted(reg, periods, combined or {}):
+        return "cash line broken"
+    line = _long_term_debt(reg, period)
+    if line is not None and line.value > 0:
+        return None
+    lines = any((reg.val(key, p) or 0) > 0 for p in periods for key in ("debt_noncurrent", "long_term_debt", *_OTHER_DEBT))
+    interest = max((reg.val("interest_expense", p) or 0.0) for p in periods)
+    liquidity = reg.val("liquidity", period) or 0.0
+    if lines or (interest > 0 and interest / (IMPLIED_RATE_CEILING / 100.0) >= UNMAPPED_SHARE * liquidity):
+        return "no long-term debt line"
+    return None
+
+
 def _spans(periods: list[str], years: list[str]) -> list[list[str]]:
     spans: list[list[str]] = []
     for period in periods:
@@ -739,43 +845,99 @@ def _spans(periods: list[str], years: list[str]) -> list[list[str]]:
 IMPLIED_RATE_CEILING = 12.0  # % a year: interest above this is more than the debt the pack sums could carry
 
 
-def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[str]) -> list[dict[str, Any]]:
-    """Data checks for fix 8: one naming each span of broken years, and the implied-interest-rate test.
+def _left_out(reg: Registry, periods: list[str], span: list[str], growth: str) -> str:
+    """What a check's span takes with it, as the render withholds it. The runway is named only where the span has
+    one, and the net-cash peer rank, which compares the latest year only, only where the span holds that year and
+    the pack has the rank (ORCL's FY2022 break leaves its FY2026 rank in place)."""
+    built = ["net cash % of revenue", growth]
+    if growth.startswith("cash") and any(reg.ref("runway_years", p) for p in span):
+        built.append("years of burn covered")
+    if periods[-1] in span and reg.ref("peer_pctile:net_cash_to_revenue", periods[-1]):
+        built.append("the net-cash peer rank")
+    return f"so this pack leaves them out, with the values built on them ({', '.join(built)})."
+
+
+def _where(periods: list[str], span: list[str]) -> tuple[str, str]:
+    """("after FY2021", "after that") for a span that runs to the window's end, ("before FY2017", "before that") for
+    one that starts it, else ("in FY2022", "in that year") or ("in FY2016-FY2025", "in those years")."""
+    first, last = periods.index(span[0]), periods.index(span[-1])
+    before = periods[first - 1] if first else None
+    after = periods[last + 1] if last + 1 < len(periods) else None
+    if before and not after:
+        return f"after {before}", "after that"
+    if after and not before:
+        return f"before {after}", "before that"
+    if len(span) == 1:
+        return f"in {span[0]}", "in that year"
+    return f"in {span[0]}-{span[-1]}", "in those years"
+
+
+def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[str],
+                onsets: tuple[tuple[str, list[str]], ...] | list[tuple[str, list[str]]] = (),
+                gaps: tuple[tuple[str, str], ...] | list[tuple[str, str]] = (),
+                double: tuple[str, ...] | list[str] = ()) -> list[dict[str, Any]]:
+    """Data checks for fix 8: one naming each span of years whose long-term debt line is broken (``broken``), each
+    debt line's onset (``onsets``, kind ``debt_break`` too), each liquidity gap (``gaps``) and the years whose
+    short-term investments sit inside cash (``double``), both kind ``liquidity_break``, then the
+    implied-interest-rate test.
 
     The rate test (interest expense over average total debt, the year-end balance alone where the prior year is
-    missing or broken) runs outside the broken spans, where it would only repeat them (COP, CVX, DE and KO
+    missing or broken) runs outside the debt-break spans, where it would only repeat them (COP, CVX, DE and KO
     exceed 12% there): it is the backstop for a debt line this pack does not map at all."""
     checks: list[dict[str, Any]] = []
     summed = profile not in ("bank", "insurer")  # banks and insurers carry no total debt or net cash
     for span in _spans(periods, broken):
-        first, last = periods.index(span[0]), periods.index(span[-1])
-        before = periods[first - 1] if first else None
-        after = periods[last + 1] if last + 1 < len(periods) else None
         lines = [_long_term_debt(reg, p) for p in span]
         state = "reported as zero" if all(v is not None for v in lines) else "not reported"
-        if before and not after:
-            where, then = f"after {before}", "after that"
-        elif after and not before:
-            where, then = f"before {after}", "before that"
-        else:
-            where = f"in {span[0]}" if len(span) == 1 else f"in {span[0]}-{span[-1]}"
-            then = "in that year" if len(span) == 1 else "in those years"
+        where, then = _where(periods, span)
         detail = f"Long-term debt {state} {where}"
         if summed:
-            detail += (f"; total debt and net cash {then} omit it, so this pack leaves them out, with the values built on "
-                       "them (net cash % of revenue, debt growth across the break, the net-cash peer rank).")
+            detail += (f"; total debt and net cash {then} omit it, "
+                       + _left_out(reg, periods, span, "debt growth across the break"))
         else:
             detail += "."
-        evidence = [v.id for p in (before, after) if p and (v := _long_term_debt(reg, p))] + [v.id for v in lines if v]
+        first, last = periods.index(span[0]), periods.index(span[-1])
+        sides = [periods[j] for j in (first - 1, last + 1) if 0 <= j < len(periods)]
+        evidence = [v.id for p in sides if (v := _long_term_debt(reg, p))] + [v.id for v in lines if v]
         checks.append({"kind": "debt_break", "severity": "high", "period": ",".join(span), "detail": detail,
                        "evidence": evidence})
     if summed:
+        for key, years in onsets:
+            onset = periods[periods.index(years[-1]) + 1]
+            label = X_LABELS.get(key, key.replace("_", " "))
+            detail = (f"{label} not reported before {onset}, when total debt jumps as it first appears and interest "
+                      "expense does not; total debt and net cash before that omit it, "
+                      + _left_out(reg, periods, years, "debt growth across the break"))
+            evidence = [vid for vid in (reg.ref(key, onset), reg.ref("interest_expense", years[-1]),
+                                        reg.ref("interest_expense", onset)) if vid]
+            checks.append({"kind": "debt_break", "severity": "high", "period": ",".join(years), "detail": detail,
+                           "evidence": evidence})
+        for key, year in gaps:
+            label = X_LABELS.get(key, key.replace("_", " "))
+            i = periods.index(year)
+            sides = [periods[j] for j in (i - 1, i + 1) if 0 <= j < len(periods)]
+            detail = (f"{label} not reported in {year}, though reported in {' and '.join(sides)}; cash and investments "
+                      "and net cash in that year omit them, "
+                      + _left_out(reg, periods, [year], "cash and investments growth across the gap"))
+            checks.append({"kind": "liquidity_break", "severity": "high", "period": year, "detail": detail,
+                           "evidence": [vid for p in sides if (vid := reg.ref(key, p))]})
+        for span in _spans(periods, list(double)):
+            where = f"in {span[0]}" if len(span) == 1 else f"in {span[0]}-{span[-1]}"
+            detail = (f"Short-term investments are already inside cash and cash equivalents {where} (the filing tags "
+                      "cash, cash equivalents and short-term investments together at the cash figure); cash and "
+                      "investments and net cash there count them twice, "
+                      + _left_out(reg, periods, span, "cash and investments growth"))
+            evidence = [vid for vid in (reg.ref("cash_and_equivalents", span[-1]), reg.ref("short_term_investments", span[-1]))
+                        if vid]
+            checks.append({"kind": "liquidity_break", "severity": "high", "period": ",".join(span), "detail": detail,
+                           "evidence": evidence})
         rates = []
+        skip = set(broken) | {p for _, years in onsets for p in years}
         for i, period in enumerate(periods):
             debt, interest = reg.get("total_debt", period), reg.get("interest_expense", period)
-            if period in broken or debt is None or interest is None or debt.value <= 0 or interest.value <= 0:
+            if period in skip or debt is None or interest is None or debt.value <= 0 or interest.value <= 0:
                 continue
-            prior = reg.get("total_debt", periods[i - 1]) if i and periods[i - 1] not in broken else None
+            prior = reg.get("total_debt", periods[i - 1]) if i and periods[i - 1] not in skip else None
             base = [debt] + ([prior] if prior is not None and prior.value > 0 else [])
             rate = interest.value / (sum(v.value for v in base) / len(base)) * 100.0
             if rate > IMPLIED_RATE_CEILING:
@@ -799,17 +961,9 @@ def append_flags(flags: list[dict[str, Any]], checks: list[dict[str, Any]]) -> N
                       "detail": check["detail"], "evidence": check.get("evidence", []), "id": f"R{n}"})
 
 
-def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]]) -> dict[str, str]:
-    """IDs the render leaves out because they are built on a broken debt year (fix 8), each with its reason.
-
-    Withheld rather than labelled: a label leaves a broken figure for the model to state, and in eval-v1 DeepSeek
-    stated COP's, CVX's and KO's net cash as fact and read DE's dropped line as deleveraging (Sonnet, given the same
-    packs, caught 4 of 6 breaks). The IDs stay in the pack, so a version-1 output citing one still checks. Seeds are total
-    debt and net cash of each broken year (net cash too, as it is cash alone when no debt line is left); the rest
-    follows every value's inputs (net cash % of revenue, debt growth across the break, the net-cash peer rank) and
-    every red flag's evidence. A peer median goes with its withheld peer rank: alone, it invites a comparison
-    with a level the pack no longer shows."""
-    tainted = {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))}
+def _built_on(reg: Registry, seeds: set[str]) -> set[str]:
+    """``seeds`` and every value built on them, through inputs; a peer median goes with its peer rank."""
+    tainted = set(seeds)
     grew = True
     while grew:
         grew = False
@@ -820,10 +974,33 @@ def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]]) -> d
     for (key, period), vid in reg.by_key.items():
         if key.startswith("peer_median:") and reg.ref("peer_pctile:" + key.split(":", 1)[1], period) in tainted:
             tainted.add(vid)
-    out = {vid: "debt_break" for vid in sorted(tainted, key=lambda v: (v[0], int(v[1:])))}
+    return tainted
+
+
+def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]], short: tuple[str, ...] | list[str] = (),
+             replaced: Optional[dict[str, str]] = None) -> dict[str, str]:
+    """IDs the render leaves out, each with its reason: ``debt_break`` for what is built on a broken debt year
+    (``broken``: a long-term line's break or a line's onset), ``liquidity_break`` for what is built on a year whose
+    cash and investments are broken (``short``: a gap or a double count), and ``replaced``'s own reason for a
+    version-1 value a checked one replaces (a peer rank or median built on a peer's broken year, ``peer_break``).
+
+    Withheld rather than labelled: a label leaves a broken figure for the model to state, and in eval-v1 DeepSeek
+    stated COP's, CVX's and KO's net cash as fact and read DE's dropped line as deleveraging (Sonnet, given the same
+    packs, caught 4 of 6 breaks). The IDs stay in the pack, so a version-1 output citing one still checks. Seeds are
+    total debt and net cash of each broken debt year (net cash too, as it is cash alone when no debt line is left), and
+    cash and investments and net cash of each broken liquidity year; the rest follows every value's inputs (net cash %
+    of revenue, growth across the break, runway, the net-cash peer rank) and every red flag's evidence. A peer median
+    goes with its withheld peer rank: alone, it invites a comparison with a level the pack no longer shows."""
+    debt = _built_on(reg, {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))})
+    cash = _built_on(reg, {vid for period in short for key in ("liquidity", "net_cash") if (vid := reg.ref(key, period))}) - debt
+    reasons = {**{vid: "debt_break" for vid in debt}, **{vid: "liquidity_break" for vid in cash}}
+    for vid, reason in (replaced or {}).items():
+        reasons.setdefault(vid, reason)
+    out = {vid: reasons[vid] for vid in sorted(reasons, key=lambda v: (v[0], int(v[1:])))}
     for flag in flags:
-        if tainted.intersection(flag["evidence"]):
-            out[flag["id"]] = "debt_break"
+        hit = [reasons[vid] for vid in flag["evidence"] if vid in reasons]
+        if hit:
+            out[flag["id"]] = hit[0]
     return out
 
 

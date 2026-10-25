@@ -4,10 +4,13 @@
 Pins: the added values (an operating cash flow / net income median and low, a same-year net-minus-operating margin)
 and the debt-break checks register after every version-1 ID; the net-debt red flag says "net debt rose" when the
 company was in net debt throughout; a long-term debt line that stops, or reads zero, while debt is still evident
-is a break, and everything built on a broken year is withheld from the render; passages in millions carry their
-unit; a version-2 render puts derived cells in year order and a legend on net-cash rows; a version-1 pack renders
-byte for byte as the frozen runs read it; and the committed version-2 packs keep every version-1 ID and value.
-The builder is imported over a stub bootstrap, so no database, settings or SEC call is touched.
+is a break, and so is a debt line's onset (DE) and a one-year cash gap or a double count (MSFT, NVDA, ORCL, COP,
+TGT), with no false one in the 20; everything built on a broken year is withheld from the render, a peer's broken
+year included (a checked peer rank and median replace version 1's); a check names the net-cash peer rank only when
+it withholds it; passages in millions carry their unit; a version-2 render puts derived cells in year order and a
+legend on net-cash rows; a version-1 pack renders byte for byte as the frozen runs read it; and the committed
+version-2 packs keep every version-1 ID and value. The builder is imported over a stub bootstrap, so no database,
+settings or SEC call is touched.
 """
 from __future__ import annotations
 
@@ -23,10 +26,39 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth import derived, passages, render
+from evals.trend_depth import derived, passages, probes, render
 
 RECORDS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
 YEARS = ["FY2019", "FY2020", "FY2021", "FY2022", "FY2023"]
+TEN = [f"FY{year}" for year in range(2016, 2026)]
+
+# The sha256 of each committed version-1 pack's render: the user message the frozen runs (eval-v1, dev-v4) sent.
+V1_RENDERS = {
+    "AMD": "ccdb50d2bed921a7e1f6aca9d6237084472de166b3927c7fb6377efa46e91785",
+    "CAT": "6f9e7ba145c47d644fef8c8ad842390d7a0f54a107152b0dae13dc703f03c1be",
+    "COP": "26adcb967079cf9656c3af18afb7c490603d625604f43c0c1b36110fd2805412",
+    "COST": "9bc45ffb8299a3ef9cadda4a0417735aef2955ce7dea56de2e18361af32d018e",
+    "CVX": "62dacffb3f9e19cd80776c739f95f2b5f86cf2ac8ee3427ac5063e12889c7e76",
+    "DE": "f07dcacbd067735168fee3b8690b81a8b69bc1bdc92153361e2263600df39df6",
+    "DUK": "43084ff3d86e65d03e9f7715698136b49727dcb7ae89c79e694079b7eafd44e6",
+    "JPM": "7ed979829fb0274b4ad8db2f63c5c0791b82ba98009080e261bd2f94d79f55c5",
+    "KO": "4200adb327ef99c88f804c6721936385be56c8c5b254b1f839e8f8ca002686b8",
+    "MSFT": "273d5b77978acf9e0566a01d8cd8cae68069f42ed0207c7daa1ddd2bf7500a88",
+    "NEE": "b99c5bf3c0ab027f3441c21ce87be6eb7e54cb96f80b66a91157f70f3b498d73",
+    "NVDA": "62db222f3c68fe36278eaa9127c88e9a28c2090e29f5bf7c978385e23dc09b7f",
+    "ORCL": "0e37ff2b9f2f7b09d261ab8d101d9c2361976dd1163c84722c18dcb2877b848b",
+    "PG": "cf52952b2e29b1f682a89eb8fe5ed7cc7b006e0798e89a4168e2bbc9670abb02",
+    "REGN": "1b71bc328376b0adfc5d0b2151380c9b858c687a1be2ae1bf12013f722f4758a",
+    "RIVN": "d44ed3fff099ad6b9edd67e5cb0d182828960258a49bc1c24452d477719d5f26",
+    "SNAP": "3b650936f5d0d900703cd3f225f04c2e9408144d657c54ea4cbf7e87dd2c3877",
+    "TGT": "2865ff0269538fcc71c494a0cd5861c9f3ee016c6e153df51223445a1c85b9e4",
+    "USB": "8ee65052bd839a56edd90ec0c8fe0d3e10bff77da1f31f521abcb97a64aaa292",
+    "VRTX": "dab8b43e6dbb39a77b748709c767ef02574373f2b57f4f3aeba5ee74bf81b335",
+}
+
+
+def _load(folder: str, ticker: str) -> dict[str, Any]:
+    return json.loads(gzip.decompress((RECORDS / folder / f"{ticker}.json.gz").read_bytes()))
 
 
 def _registry(series: dict[str, dict[str, float]], prefix: str = "X", unit: str = "usd") -> derived.Registry:
@@ -224,6 +256,250 @@ def test_appended_flags_number_after_version_1_and_leave_it_alone() -> None:
                         "evidence": ["X9"], "id": "R4"}
 
 
+def test_a_check_names_the_net_cash_peer_rank_only_when_it_withholds_it() -> None:
+    # ORCL: a FY2022 break leaves the FY2026 rank in place, so its check must not say the rank is left out.
+    def detail(series: dict[str, dict[str, float]], ranked: bool) -> str:
+        reg = _registry(series)
+        if ranked:
+            reg.add("D", "peer_pctile:net_cash_to_revenue", "Net cash % of revenue: percentile", "FY2023", 0.0, "pctile")
+        return derived.debt_checks(reg, YEARS, "operating", derived.debt_breaks(reg, YEARS))[0]["detail"]
+
+    hole = {"debt_noncurrent": dict(zip(YEARS, (70e9, 76e9, 0.0, 86e9, 90e9))), "debt_current": _every(3e9)}
+    trailing = {"debt_noncurrent": _every(25e9, YEARS[:3]), "debt_current": _every(3e9)}
+    assert "peer rank" not in detail(hole, ranked=True)
+    assert detail(trailing, ranked=True).endswith("(net cash % of revenue, debt growth across the break, the net-cash peer rank).")
+    assert detail(trailing, ranked=False).endswith("(net cash % of revenue, debt growth across the break).")
+
+
+# Years the committed version-2 packs name as broken, by check kind: no other company, and no other year, is broken.
+BREAKS = {
+    "COP": {("debt_break", "FY2016"), ("debt_break", "FY2021,FY2022,FY2023,FY2024,FY2025"), ("liquidity_break", "FY2021")},
+    "CVX": {("debt_break", "FY2022,FY2023,FY2024,FY2025")},
+    "DE": {("debt_break", "FY2022,FY2023,FY2024,FY2025"), ("debt_break", "FY2016,FY2017,FY2018,FY2019")},
+    "KO": {("debt_break", "FY2024,FY2025")},
+    "MSFT": {("liquidity_break", "FY2017")},
+    "NVDA": {("liquidity_break", "FY2026")},
+    "ORCL": {("debt_break", "FY2022"), ("liquidity_break", "FY2017")},
+    "TGT": {("liquidity_break", ",".join(TEN))},
+    "USB": {("debt_break", "FY2023,FY2024,FY2025")},
+}
+
+
+def _pack_registry(pack: dict[str, Any]) -> tuple[derived.Registry, list[str]]:
+    """A committed pack's values back in a registry, under their own IDs and series keys."""
+    reg = derived.Registry()
+    for series, vid in pack["series_keys"].items():
+        key, period = series.split("|", 1)
+        value = pack["values"][vid]
+        reg.values[vid] = derived.Value(vid, value["label"], value["period"], value["value"], value["unit"],
+                                        value.get("formula", ""), value.get("inputs", []), value.get("source", ""))
+        reg.by_key[(key, period)] = vid
+    return reg, [p["key"] for p in pack["periods"]]
+
+
+def test_de_short_term_borrowings_onset_is_a_break() -> None:
+    # DE's current portion of debt (its short-term borrowings) first appears in FY2020 at $8,582m: total debt +36.7%
+    # [D205] while interest expense fell 15%. FY2016-FY2019 total debt is long-term only.
+    reg, years = _pack_registry(_load("packs", "DE"))
+    onsets = derived.debt_onsets(reg, years)
+    assert onsets == [("debt_current", years[:4])]
+    check = derived.debt_checks(reg, years, "operating", derived.debt_breaks(reg, years), onsets)[1]
+    assert check["kind"] == "debt_break" and check["period"] == "FY2016,FY2017,FY2018,FY2019"
+    assert check["detail"].startswith("Current portion of debt not reported before FY2020, when total debt jumps")
+    assert "peer rank" not in check["detail"]
+    out = derived.withheld(reg, years[:4], [])
+    assert reg.ref("g:total_debt", "FY2020") == "D205" and out["D205"] == "debt_break"  # "Total debt growth 36.7%"
+    assert {reg.ref(key, year) for key in ("total_debt", "net_cash", "net_cash_to_revenue") for year in years[:4]} <= set(out)
+    for kept in ("FY2020", "FY2021"):
+        assert reg.ref("total_debt", kept) not in out and reg.ref("net_cash", kept) not in out
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_no_other_debt_line_onset_in_the_twenty(ticker: str) -> None:
+    # AMD's short-term borrowings appear at zero, NVDA's current portion too; SNAP's appear while total debt falls.
+    reg, years = _pack_registry(_load("packs", ticker))
+    assert derived.debt_onsets(reg, years) == ([("debt_current", years[:4])] if ticker == "DE" else [])
+
+
+def _onset(interest: tuple[float, ...], line: float = 9e9) -> derived.Registry:
+    reg = _registry({"debt_noncurrent": _every(30e9), "debt_current": {y: line for y in YEARS[2:]},
+                     "interest_expense": dict(zip(YEARS, interest))})
+    for year in YEARS:
+        reg.add("D", "total_debt", "Total debt", year, 30e9 + (reg.val("debt_current", year) or 0), "usd")
+    return reg
+
+
+def test_onset_needs_a_jump_that_interest_does_not_follow() -> None:
+    assert derived.debt_onsets(_onset((1.4e9, 1.5e9, 1.5e9, 1.4e9, 1.4e9)), YEARS) == [("debt_current", YEARS[:2])]
+    assert derived.debt_onsets(_onset((1.4e9, 1.5e9, 1.6e9, 2.0e9, 2.0e9)), YEARS) == []  # interest followed: borrowing
+    assert derived.debt_onsets(_onset((1.4e9, 1.5e9, 1.5e9, 1.4e9, 1.4e9), line=6e9), YEARS) == []  # +20%: no jump
+
+
+def test_one_year_cash_gaps_in_the_twenty() -> None:
+    # MSFT's short-term investments are missing in FY2017 ($121.8bn in FY2018): FY2017 net cash read -$72.5bn [D17].
+    # AMD's are missing in FY2016 beside a reported zero, and VRTX's and RIVN's start late: none is a gap.
+    found = {t: derived.liquidity_gaps(*_pack_registry(_load("packs", t))) for t in sorted(V1_RENDERS)}
+    assert {t: gaps for t, gaps in found.items() if gaps} == {
+        "COP": [("short_term_investments", "FY2021")], "MSFT": [("short_term_investments", "FY2017")],
+        "NVDA": [("short_term_investments", "FY2026")], "ORCL": [("short_term_investments", "FY2017")]}
+    reg, years = _pack_registry(_load("packs", "MSFT"))
+    out = derived.withheld(reg, [], [], ["FY2017"])
+    assert out["D17"] == "liquidity_break" and reg.values["D17"].value == pytest.approx(-72.51e9, rel=1e-3)
+    assert {reg.ref("liquidity", "FY2017"), reg.ref("net_cash_to_revenue", "FY2017"), reg.ref("g:liquidity", "FY2018")} <= set(out)
+    assert reg.ref("total_debt", "FY2017") not in out and reg.ref("net_cash", "FY2018") not in out
+
+
+def test_short_term_investments_inside_cash_are_a_double_count() -> None:
+    # TGT tags its cash, cash equivalents and short-term investments total at its cash figure ($5,488m in FY2025,
+    # beside $4,611m of short-term investments), so its FY2025 net cash of -$4.3bn [D410] counts them twice.
+    tgt = _registry({"cash_and_equivalents": {"FY2025": 5488e6}, "short_term_investments": {"FY2025": 4611e6}})
+    tgt.add("D", "liquidity", "Cash and investments", "FY2025", 10099e6, "usd")
+    assert derived.double_counted(tgt, ["FY2025"], {"FY2025": 5488e6}) == ["FY2025"]
+    # MSFT tags it at cash plus short-term investments: no double count.
+    msft = _registry({"cash_and_equivalents": {"FY2026": 20930e6}, "short_term_investments": {"FY2026": 55908e6}})
+    msft.add("D", "liquidity", "Cash and investments", "FY2026", 113190e6, "usd")
+    assert derived.double_counted(msft, ["FY2026"], {"FY2026": 76843e6}) == []
+    assert derived.double_counted(tgt, ["FY2025"], {}) == []  # no filer total, no finding
+    pack = _load("packs-v2", "TGT")
+    assert {"D410", "D411"} <= set(pack["withheld"]) and pack["values"]["D410"]["value"] == pytest.approx(-4.299e9, rel=1e-3)
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_committed_version_2_packs_withhold_what_their_checks_name(ticker: str) -> None:
+    # DE's FY2016-FY2019 onset span withholds its total debt and net cash, and "Total debt growth: FY2020 36.7%" [D205].
+    pack = _load("packs-v2", ticker)
+    reg, _ = _pack_registry(pack)
+    named = {kind: [p for c in pack["data_checks"] if c["kind"] == kind for p in c["period"].split(",")]
+             for kind in ("debt_break", "liquidity_break")}
+    assert derived.withheld(reg, named["debt_break"], pack["red_flags"], named["liquidity_break"],
+                            (pack["peers"] or {}).get("replaced")) == pack["withheld"]
+    if ticker == "DE":
+        assert pack["withheld"]["D205"] == "debt_break" and pack["values"]["D205"]["value"] == pytest.approx(36.68, abs=0.01)
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_committed_version_2_packs_name_every_break_and_no_other(ticker: str) -> None:
+    pack = _load("packs-v2", ticker)
+    found = {(c["kind"], c["period"]) for c in pack["data_checks"] if c["kind"] in ("debt_break", "liquidity_break")}
+    assert found == BREAKS.get(ticker, set())
+    for check in pack["data_checks"]:
+        if check["kind"] in ("debt_break", "liquidity_break"):  # the rank is named only where the pack withholds it
+            rank = pack["series_keys"].get(f"peer_pctile:net_cash_to_revenue|{pack['periods'][-1]['key']}")
+            assert ("the net-cash peer rank" in check["detail"]) == (
+                pack["periods"][-1]["key"] in check["period"].split(",") and rank is not None and rank in pack["withheld"])
+
+
+# --- Fix 8 for the peers: a peer's broken year stays out of the median and rank ------------------------------------
+
+def _peer(series: dict[str, dict[str, float]], liquidity: dict[str, float]) -> derived.Registry:
+    reg = _registry(series)
+    for year, value in liquidity.items():
+        reg.add("D", "liquidity", "Cash and investments", year, value, "usd")
+    return reg
+
+
+@pytest.mark.parametrize("name, series, liquidity, combined, reason", [
+    # KO: the long-term line stops after FY2023 while short-term borrowings and interest go on; FY2025 net cash +18.3%.
+    ("KO", {"debt_noncurrent": {y: 35.5e9 for y in TEN[:8]}, "short_term_borrowings": _every(1.5e9, TEN),
+            "interest_expense": _every(1.6e9, TEN)}, {"FY2025": 10.3e9}, {}, "debt line broken"),
+    # KMB: long-term debt only in FY2016; a five-year window would never see it. MDLZ, SO, MPC, PSX: no long-term line,
+    # another debt line positive.
+    ("KMB", {"debt_noncurrent": {"FY2016": 6.4e9}, "debt_current": _every(0.7e9, TEN), "interest_expense": _every(0.26e9, TEN)},
+     {"FY2025": 0.69e9}, {}, "debt line broken"),
+    ("SO", {"short_term_borrowings": _every(0.72e9, TEN)}, {"FY2025": 1.6e9}, {}, "no long-term debt line"),
+    # GM: no debt line at all, but $2.7-4.4bn of interest a year to FY2020 implies about $37bn of debt.
+    ("GM", {"interest_expense": dict(zip(TEN[:5], (2.68e9, 3.14e9, 3.88e9, 4.42e9, 4.12e9)))}, {"FY2025": 27.67e9}, {},
+     "no long-term debt line"),
+    # NVDA FY2026: short-term investments missing ($34.6bn in FY2025); TGT: inside cash.
+    ("NVDA", {"debt_noncurrent": _every(8e9, TEN), "short_term_investments": {y: 34.6e9 for y in TEN[:9]}},
+     {**{y: 43.2e9 for y in TEN[:9]}, "FY2025": 10.6e9}, {}, "cash line broken"),
+    ("TGT", {"debt_noncurrent": _every(14.4e9, TEN), "cash_and_equivalents": _every(5.488e9, TEN),
+             "short_term_investments": _every(4.611e9, TEN)}, {"FY2025": 10.1e9}, {"FY2025": 5.488e9}, "cash line broken"),
+    # Never borrowed: VRTX's $72.5m of interest implies 5% of its cash; PINS reports none.
+    ("VRTX", {"debt_noncurrent": {"FY2016": 0.0}, "interest_expense": dict(zip(TEN, (0, 69.3e6, 72.5e6, 58.5e6, 58.2e6, 0,
+              54.8e6, 44.1e6, 30.6e6, 13.3e6)))}, {"FY2025": 12.32e9}, {}, None),
+    ("PINS", {}, {"FY2025": 2.47e9}, {}, None),
+    ("PEP", {"debt_noncurrent": _every(42.3e9, TEN), "debt_current": _every(6.9e9, TEN), "interest_expense": _every(1.1e9, TEN)},
+     {"FY2025": 9.5e9}, {}, None),
+])
+def test_peer_left_out(name: str, series: dict[str, dict[str, float]], liquidity: dict[str, float],
+                       combined: dict[str, float], reason: str | None) -> None:
+    assert derived.peer_left_out(_peer(series, liquidity), TEN, "FY2025", combined) == reason
+
+
+def _peer_note(note: str) -> dict[str, str]:
+    """A peer rank's note, "CL -32.3; NKE -0.8; ...; left out: ...", as {peer: its value as printed}."""
+    kept = note.split("; left out:")[0]
+    return dict(item.rsplit(" ", 1) for item in kept.split("; ") if item)
+
+
+@pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
+def test_committed_version_2_peer_ranks_rest_on_no_broken_peer_year(ticker: str) -> None:
+    # PG's version-1 staples median (-1.0%) took in KO's FY2025 +18.3% [KO D443], which KO's own pack withholds.
+    pack = _load("packs-v2", ticker)
+    for series, vid in pack["series_keys"].items():
+        if vid in pack["withheld"] or series.split("|")[0] not in ("peer_median:net_cash_to_revenue",
+                                                                 "peer_pctile:net_cash_to_revenue"):
+            continue
+        for peer, value in _peer_note(pack["values"][vid]["note"]).items():
+            if peer not in V1_RENDERS:
+                continue
+            own = _load("packs-v2", peer)
+            same = [i for k, i in own["series_keys"].items()
+                    if k.startswith("net_cash_to_revenue|") and f"{own['values'][i]['value']:.1f}" == value]
+            assert same and not set(same) & set(own["withheld"]), (vid, peer, value)
+
+
+def _staples(left: tuple[str, ...]) -> tuple[derived.Registry, dict[str, dict[str, Any]], str, str, str]:
+    """PG FY2026 (-27.8% net cash % of revenue) and its version-1 staples rank, with ``left`` left out."""
+    reg = derived.Registry()
+    own = reg.add("D", "net_cash_to_revenue", "Net cash % of revenue", "FY2026", -27.8, "pct")
+    old_rank = reg.add("D", "peer_pctile:net_cash_to_revenue", "Net cash % of revenue: percentile vs staples peers (n=6)",
+                       "FY2026", 33.3, "pctile", inputs=[own], source="peer")
+    old_median = reg.add("D", "peer_median:net_cash_to_revenue", "Net cash % of revenue: staples peer median (n=6)",
+                         "FY2026", -1.05, "pct", source="peer")
+    values = {"CL": -32.3, "KMB": -0.0, "KO": 18.3, "MDLZ": -1.3, "NKE": -0.8, "PEP": -42.2}
+    results = {t: {"period": "FY2025", "net_cash_to_revenue": v,
+                   **({"left_out": {"net_cash_to_revenue": "debt line broken"}} if t in left else {})} for t, v in values.items()}
+    return reg, results, own, old_rank, old_median
+
+
+def test_checked_peer_ranks_replace_version_1s_without_the_broken_peers(evidence: Any) -> None:
+    # PG FY2026: version 1's staples median of -1.0% (33rd percentile) took in KO, KMB and MDLZ; without them it is
+    # -32.3% of three peers, and PG's -27.8% ranks 67th.
+    reg, results, own, old_rank, old_median = _staples(("KO", "KMB", "MDLZ"))
+    replaced, checked = evidence.checked_peer_ranks(reg, results, "staples", "FY2026", set())
+    assert replaced == {old_rank: "peer_break", old_median: "peer_break"}
+    rank, median = (reg.values[checked["net_cash_to_revenue"][k]] for k in ("percentile_id", "median_id"))
+    assert (round(rank.value, 2), median.value) == (66.67, -32.3) and rank.inputs == [own]
+    assert median.label == "Net cash % of revenue: staples peer median (n=3)" and rank.period == median.period == "FY2026"
+    assert median.note == "CL -32.3; NKE -0.8; PEP -42.2; left out: KMB (debt line broken); KO (debt line broken); MDLZ (debt line broken)"
+    # Filed beside version 1's, which keep their series keys; the backstops still read the new ones as net-cash references.
+    assert reg.ref("peer_pctile:net_cash_to_revenue", "FY2026") == old_rank
+    keys = probes.series_by_id({"series_keys": {f"{k}|{p}": vid for (k, p), vid in reg.by_key.items()}})
+    assert keys[rank.id] == "peer_pctile:net_cash_to_revenue" and keys[median.id] == "peer_median:net_cash_to_revenue"
+    assert derived.withheld(reg, [], [], [], replaced) == {old_rank: "peer_break", old_median: "peer_break"}
+    # No peer left out: version 1's pair stands.
+    reg, results, *_ = _staples(())
+    assert evidence.checked_peer_ranks(reg, results, "staples", "FY2026", set()) == ({}, {})
+
+
+@pytest.mark.parametrize("left, own_broken", [(("KO", "KMB", "MDLZ", "PEP"), False), (("KO",), True)])
+def test_checked_peer_ranks_replace_nothing_below_three_peers_or_on_a_broken_own_year(
+        evidence: Any, left: tuple[str, ...], own_broken: bool) -> None:
+    # RIVN: F and GM left out leave two autos peers; KO: its own FY2025 net cash is withheld already.
+    reg, results, own, old_rank, old_median = _staples(left)
+    replaced, checked = evidence.checked_peer_ranks(reg, results, "staples", "FY2026", {own} if own_broken else set())
+    assert replaced == {old_rank: "peer_break", old_median: "peer_break"} and checked == {}
+    assert len(reg.values) == 3
+
+
+def test_version_2_render_shows_the_checked_peer_median_not_version_1s() -> None:
+    text = render.render(_load("packs-v2", "PG"))
+    assert (f"- Net cash % of revenue: staples peer median (n=3) ({render.NET_CASH_LEGEND}): FY2026 -32.3% [D695]" in text)
+    assert "[D676]" not in text and "[D677]" not in text and "(n=6) (below zero" not in text
+
+
 # --- Fix 11: passage units --------------------------------------------------------------------------------------
 
 COSTCO_FX = ("Changes in foreign currencies relative to the U.S. dollar increased SG&A expenses by $126, attributable to "
@@ -268,6 +544,10 @@ def test_candidates_record_the_sections_declared_scale() -> None:
     assert found and found[0]["table_scale"] == "million" and found[0]["text"] == paragraph  # the text stays as filed
     found = passages.candidates(filing, {"mda": paragraph, "full": ""}, "FY2026", [])
     assert found and "table_scale" not in found[0]
+    # A section that declares no scale takes its document's (DE's Note 3; CAT's early MD&As).
+    found = passages.candidates(filing, {"mda": paragraph, "full": "(in millions, except per share)"}, "FY2026", [])
+    assert found and found[0]["table_scale"] == "million"
+    assert "else the one its document declares" in " ".join((passages.__doc__ or "").split())
 
 
 # --- Rendering ---------------------------------------------------------------------------------------------------
@@ -316,35 +596,6 @@ def test_version_1_render_is_unchanged_by_version_2() -> None:
     assert render.NET_CASH_LEGEND not in text and text.index("[R1]") < text.index("[R3]")
 
 
-# The sha256 of each committed version-1 pack's render: the user message the frozen runs (eval-v1, dev-v4) sent.
-V1_RENDERS = {
-    "AMD": "ccdb50d2bed921a7e1f6aca9d6237084472de166b3927c7fb6377efa46e91785",
-    "CAT": "6f9e7ba145c47d644fef8c8ad842390d7a0f54a107152b0dae13dc703f03c1be",
-    "COP": "26adcb967079cf9656c3af18afb7c490603d625604f43c0c1b36110fd2805412",
-    "COST": "9bc45ffb8299a3ef9cadda4a0417735aef2955ce7dea56de2e18361af32d018e",
-    "CVX": "62dacffb3f9e19cd80776c739f95f2b5f86cf2ac8ee3427ac5063e12889c7e76",
-    "DE": "f07dcacbd067735168fee3b8690b81a8b69bc1bdc92153361e2263600df39df6",
-    "DUK": "43084ff3d86e65d03e9f7715698136b49727dcb7ae89c79e694079b7eafd44e6",
-    "JPM": "7ed979829fb0274b4ad8db2f63c5c0791b82ba98009080e261bd2f94d79f55c5",
-    "KO": "4200adb327ef99c88f804c6721936385be56c8c5b254b1f839e8f8ca002686b8",
-    "MSFT": "273d5b77978acf9e0566a01d8cd8cae68069f42ed0207c7daa1ddd2bf7500a88",
-    "NEE": "b99c5bf3c0ab027f3441c21ce87be6eb7e54cb96f80b66a91157f70f3b498d73",
-    "NVDA": "62db222f3c68fe36278eaa9127c88e9a28c2090e29f5bf7c978385e23dc09b7f",
-    "ORCL": "0e37ff2b9f2f7b09d261ab8d101d9c2361976dd1163c84722c18dcb2877b848b",
-    "PG": "cf52952b2e29b1f682a89eb8fe5ed7cc7b006e0798e89a4168e2bbc9670abb02",
-    "REGN": "1b71bc328376b0adfc5d0b2151380c9b858c687a1be2ae1bf12013f722f4758a",
-    "RIVN": "d44ed3fff099ad6b9edd67e5cb0d182828960258a49bc1c24452d477719d5f26",
-    "SNAP": "3b650936f5d0d900703cd3f225f04c2e9408144d657c54ea4cbf7e87dd2c3877",
-    "TGT": "2865ff0269538fcc71c494a0cd5861c9f3ee016c6e153df51223445a1c85b9e4",
-    "USB": "8ee65052bd839a56edd90ec0c8fe0d3e10bff77da1f31f521abcb97a64aaa292",
-    "VRTX": "dab8b43e6dbb39a77b748709c767ef02574373f2b57f4f3aeba5ee74bf81b335",
-}
-
-
-def _load(folder: str, ticker: str) -> dict[str, Any]:
-    return json.loads(gzip.decompress((RECORDS / folder / f"{ticker}.json.gz").read_bytes()))
-
-
 @pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
 def test_committed_version_1_packs_render_as_the_frozen_runs_read_them(ticker: str) -> None:
     pack = _load("packs", ticker)
@@ -384,6 +635,48 @@ def test_committed_version_2_packs_render_no_withheld_id(ticker: str) -> None:
     pack = _load("packs-v2", ticker)
     shown = set(re.findall(r"\[([DR]\d+)\]", render.render(pack)))
     assert not shown & set(pack["withheld"])
+    assert set(pack["withheld"].values()) <= {"debt_break", "liquidity_break", "peer_break"}
+
+
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def _years(years: list[str]) -> str:
+    """"FY2016 and FY2022–FY2025": runs of consecutive years as ranges, listed as a sentence lists them."""
+    runs: list[list[int]] = []
+    for year in sorted(int(y[2:]) for y in years):
+        if runs and runs[-1][-1] == year - 1:
+            runs[-1].append(year)
+        else:
+            runs.append([year])
+    return _and([f"FY{run[0]}" if len(run) == 1 else f"FY{run[0]}–FY{run[-1]}" for run in runs])
+
+
+def test_readme_states_the_implied_rate_inside_each_long_term_debt_break() -> None:
+    above: dict[str, list[str]] = {}
+    under: dict[str, list[str]] = {}
+    for ticker in sorted(V1_RENDERS):
+        pack = _load("packs-v2", ticker)
+        keys = [p["key"] for p in pack["periods"]]
+
+        def val(key: str, period: str) -> float | None:
+            vid = pack["series_keys"].get(f"{key}|{period}")
+            return pack["values"][vid]["value"] if vid else None
+
+        for check in pack["data_checks"]:
+            if check["kind"] != "debt_break" or not check["detail"].startswith("Long-term debt") or pack["profile"] == "bank":
+                continue
+            for year in check["period"].split(","):
+                i = keys.index(year)
+                prior = val("total_debt", keys[i - 1]) if i else None
+                base = [val("total_debt", year)] + ([prior] if prior and prior > 0 else [])
+                rate = val("interest_expense", year) / (sum(base) / len(base)) * 100.0
+                (above if rate > derived.IMPLIED_RATE_CEILING else under).setdefault(ticker, []).append(year)
+    listing = {name: _and([f"{t} {_years(years)}" for t, years in sorted(found.items())]) for name, found in
+               (("above", above), ("under", under))}
+    readme = " ".join((RECORDS / "packs-v2" / "README.md").read_text().split())
+    assert f"is above 12% in {listing['above']}, and under it in {listing['under']}." in readme
 
 
 # --- The builder ---------------------------------------------------------------------------------------------------
