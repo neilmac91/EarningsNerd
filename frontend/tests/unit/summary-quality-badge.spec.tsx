@@ -52,7 +52,7 @@ const firsts = [
   ['12 summary figure(s) not traceable to filing data'],
 ]
 const explanations = [
-  'The filed revenue or net income was not found in the summary by the automatic check.',
+  'The automatic check did not find the filed revenue or net income in the summary.',
   'The filing’s text and figures were unavailable to check against.',
   'Only 3 of 9 summary sections contain information.',
   'The automatic check could not trace 12 summary figures to the filing’s data.',
@@ -69,22 +69,22 @@ for (const demo of [false, true]) {
         const disclosure = coverage.querySelector('details')!
         expect(disclosure.querySelector('summary')).toHaveTextContent('Coverage details')
         expect(within(disclosure).getByText(explanation)).toBeInTheDocument()
-        expect(within(disclosure).getByText('Coverage does not verify every claim. Check the cited sources and original filing.')).toBeInTheDocument()
+        expect(within(disclosure).getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Regenerate summary' }) !== null).toBe(!demo)
       },
     )
 
-    it('calls the recorded full verdict minimum coverage, with the actual section count', () => {
+    it('reports the full verdict as automatic checks, without claiming every claim was verified', () => {
       show({ quality: { tier: 'full', reasons: [], covered_count: 4, total_count: 9 } }, demo)
       expect(screen.getByText('Full summary')).toBeVisible()
-      expect(screen.getByText('4 of 9 summary sections contain information.')).toBeInTheDocument()
-      expect(screen.getByText('This summary met the minimum coverage checks when it was generated. It may still omit sections or contain errors.')).toBeInTheDocument()
+      expect(screen.getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeInTheDocument()
+      expect(screen.getByText('This summary passed the automatic coverage checks when it was generated.')).toBeInTheDocument()
     })
 
     it.each([undefined, { tier: 'unrecognized' }])('states unknown when the coverage verdict is %s', quality => {
       show({ quality }, demo)
       expect(screen.getByText('Coverage unknown')).toBeVisible()
-      expect(screen.getByText('No coverage assessment is available for this summary.')).toBeInTheDocument()
+      expect(screen.getByText('No coverage check was recorded for this summary.')).toBeInTheDocument()
       expect(screen.queryByText('Full summary')).not.toBeInTheDocument()
     })
   })

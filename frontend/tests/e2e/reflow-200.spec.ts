@@ -2774,7 +2774,7 @@ test.describe('summary coverage disclosure', () => {
           expect(await trigger.evaluate(el => el.tabIndex)).toBe(0)
           await page.keyboard.press('Enter')
           await expect(disclosure).toHaveAttribute('open', '')
-          await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and original filing.')).toBeVisible()
+          await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeVisible()
           if (tier === 'partial') await expect(disclosure.getByRole('listitem')).toHaveCount(4)
           await trigger.tap()
           await expect(disclosure).not.toHaveAttribute('open')

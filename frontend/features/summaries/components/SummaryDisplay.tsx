@@ -40,7 +40,7 @@ const FundamentalsTrendChart = dynamic(
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
 const NO_GROUNDING_REASON = 'filing grounding unavailable: no usable excerpt or numeric XBRL data'
 export function reasonWords(reason: string): string {
-  if (reason === GROUNDING_REASON) return 'The filed revenue or net income was not found in the summary by the automatic check.'
+  if (reason === GROUNDING_REASON) return 'The automatic check did not find the filed revenue or net income in the summary.'
   if (reason === NO_GROUNDING_REASON) return 'The filing’s text and figures were unavailable to check against.'
   const sections = /^only (\d+)\/(\d+) sections populated$/.exec(reason)
   if (sections) return `Only ${sections[1]} of ${sections[2]} summary sections contain information.`
@@ -189,7 +189,7 @@ export function SummaryDisplay({
               page's h1 (2026-10 critique P-05). The body is the structured page (T2) — a number has
               exactly one home there, so no leading markdown card or duplicate metrics table renders. */}
           {(showQualityBadge || showRegenerate) && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               {showQualityBadge ? (
                 <div className="min-w-0 flex-1 basis-64 space-y-2" role="group" aria-label="Summary coverage">
                   {/* A short label keeps Badge's one-line contract; full reasons wrap below it. */}
@@ -203,14 +203,11 @@ export function SummaryDisplay({
                     <div className="space-y-2 pt-2">
                       <p>
                         {coverageTier === 'full'
-                          ? 'This summary met the minimum coverage checks when it was generated. It may still omit sections or contain errors.'
+                          ? 'This summary passed the automatic coverage checks when it was generated.'
                           : coverageTier === 'partial'
                             ? 'Some information could not be included or checked in this summary.'
-                            : 'No coverage assessment is available for this summary.'}
+                            : 'No coverage check was recorded for this summary.'}
                       </p>
-                      {quality?.covered_count !== undefined && quality?.total_count !== undefined && (
-                        <p>{quality.covered_count} of {quality.total_count} summary sections contain information.</p>
-                      )}
                       {coverageReasons.length > 0 ? (
                         <ul className="list-disc space-y-2 pl-5">
                           {coverageReasons.map(reason => <li key={reason}>{reason}</li>)}
@@ -218,7 +215,7 @@ export function SummaryDisplay({
                       ) : coverageTier === 'partial' ? (
                         <p>No further coverage details were recorded.</p>
                       ) : null}
-                      <p>Coverage does not verify every claim. Check the cited sources and original filing.</p>
+                      <p>Coverage does not verify every claim. Check the cited sources and the original filing.</p>
                     </div>
                   </details>
                 </div>
