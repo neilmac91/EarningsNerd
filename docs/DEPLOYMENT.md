@@ -682,6 +682,10 @@ the exact enabled policy filters, ownership labels and channel, and an observed 
 configuration drift is refused rather than silently overwritten. The operation does not apply the
 historical general-alert readiness package or release its unrelated holds.
 
+The failure-policy readback accepts an omitted zero `thresholdValue`, the canonical protobuf JSON
+representation of that scalar default. Explicit nonzero or malformed thresholds, missing duration
+and other condition differences remain drift; the approved creation request still specifies zero.
+
 Policy readback proves configured routing, not email delivery. Retain live policy, channel and
 heartbeat receipts, then confirm delivery on an authorized test or a natural incident before claiming
 end-to-end alert delivery. Metric publication and alert delivery can lag the underlying execution.

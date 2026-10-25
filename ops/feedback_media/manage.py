@@ -236,7 +236,15 @@ def policy_matches(policy: dict, expected: dict) -> bool:
     if len(conditions) != 1:
         return False
     condition = {key: value for key, value in conditions[0].items() if key != "name"}
-    return condition == expected["conditions"][0]
+    expected_condition = expected["conditions"][0]
+    if expected_condition.get("conditionThreshold", {}).get("thresholdValue") == 0:
+        threshold = condition.get("conditionThreshold")
+        if not isinstance(threshold, dict) or type(threshold.get("thresholdValue", 0)) not in (int, float):
+            return False
+        # threshold_value is an implicit-presence double: canonical ProtoJSON omits zero.
+        # https://protobuf.dev/programming-guides/json/#presence-and-default-values
+        condition["conditionThreshold"] = {"thresholdValue": 0, **threshold}
+    return condition == expected_condition
 
 
 def monitoring_policies(cloud: Cloud) -> list[dict]:

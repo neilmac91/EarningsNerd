@@ -31,3 +31,10 @@ allows the unspecified default for channels that need no verification or have a 
 through provisioning, cleanup/probe inspection and upload enablement, alongside the explicit default
 and verified forms. Explicit unverified, null and unknown statuses still fail before writes; the
 readback never claims email delivery was tested. The original strict check fails the acceptance gate.
+
+A bounded review also reproduced an alert-policy mismatch with the official Monitoring SDK:
+ProtoJSON omits the implicit-presence `double threshold_value` when it is zero. The creation and
+inspection fixtures now model that canonical response instead of echoing the request, and accept
+both omitted and explicit zero while rejecting nonzero, null, boolean and string values and other
+condition drift. This is provider-contract evidence, not an observed live policy response. The
+comparison normalizes only the missing zero field; it does not overwrite actual configuration drift.

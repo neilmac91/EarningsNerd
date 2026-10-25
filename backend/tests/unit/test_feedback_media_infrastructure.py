@@ -49,8 +49,9 @@ def bucket(environment):
 
 
 class CloudFixture:
-    def __init__(self):
+    def __init__(self, *, omit_zero_threshold=True):
         self.calls = []
+        self.omit_zero_threshold = omit_zero_threshold
         self.service = service()
         self.job = ops.job_spec(self.service)
         self.job["etag"] = "job-version"
@@ -71,8 +72,19 @@ class CloudFixture:
         self.channel = {"name": ops.CHANNEL, "type": "email", "enabled": True,
                         "labels": {"email_address": "PRIVATE_RECIPIENT_SENTINEL@example.invalid"}}
         self.metric = ops.heartbeat_spec()
-        self.policies = ops.policy_specs()
+        self.policies = [self.policy_readback(policy) for policy in ops.policy_specs()]
         self.heartbeat_seen = True
+
+    def policy_readback(self, policy):
+        result = copy.deepcopy(policy)
+        # google-cloud-monitoring 2.32.0 / AlertPolicy ProtoJSON roundtrip omits this
+        # implicit-presence double's zero default; Duration("0s") retains presence.
+        # https://github.com/googleapis/googleapis/blob/master/google/monitoring/v3/alert.proto
+        # https://protobuf.dev/programming-guides/json/#presence-and-default-values
+        threshold = result["conditions"][0].get("conditionThreshold", {})
+        if self.omit_zero_threshold and threshold.get("thresholdValue") == 0:
+            del threshold["thresholdValue"]
+        return result
 
     def execution(self, args):
         task = copy.deepcopy(self.job["template"]["template"])
@@ -91,8 +103,9 @@ class CloudFixture:
                 self.metric = copy.deepcopy(body)
                 return copy.deepcopy(body)
             if api == "monitoring" and method == "POST":
-                self.policies.append(copy.deepcopy(body))
-                return copy.deepcopy(body)
+                readback = self.policy_readback(body)
+                self.policies.append(readback)
+                return copy.deepcopy(readback)
             if api == "run" and path == "v2/" + ops.JOB + ":run":
                 args = body.get("overrides", {}).get("containerOverrides", [{}])[0].get("args", ops.CLEANUP_ARGS)
                 execution = self.execution(args)
@@ -275,6 +288,8 @@ def test_enable_changes_only_media_configuration_and_disable_does_not_need_stora
                                   "null-channel-status", "wrong-channel-type", "wrong-channel-name",
                                   "missing-channel-enabled", "missing-policy",
                                   "wrong-policy-channel", "disabled-policy", "wrong-policy-filter", "foreign-policy",
+                                  "nonzero-threshold", "null-threshold", "boolean-threshold", "string-threshold",
+                                  "missing-threshold-duration", "extra-threshold-field",
                                   "metric-filter-drift", "missing-heartbeat"])
 def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(defect, capsys):
     cloud = CloudFixture()
@@ -302,6 +317,14 @@ def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(def
         cloud.policies[0]["conditions"][0]["conditionThreshold"]["filter"] = 'resource.type = "cloud_run_revision"'
     elif defect == "foreign-policy":
         cloud.policies[0]["userLabels"] = {"component": "unrelated"}
+    elif defect in ("nonzero-threshold", "null-threshold", "boolean-threshold", "string-threshold"):
+        cloud.policies[0]["conditions"][0]["conditionThreshold"]["thresholdValue"] = {
+            "nonzero-threshold": 1, "null-threshold": None, "boolean-threshold": False, "string-threshold": "0",
+        }[defect]
+    elif defect == "missing-threshold-duration":
+        del cloud.policies[0]["conditions"][0]["conditionThreshold"]["duration"]
+    elif defect == "extra-threshold-field":
+        cloud.policies[0]["conditions"][0]["conditionThreshold"]["evaluationMissingData"] = "EVALUATION_MISSING_DATA_ACTIVE"
     elif defect == "metric-filter-drift":
         cloud.metric["filter"] = 'resource.type = "cloud_run_job"'
     else:
@@ -316,8 +339,9 @@ def test_enable_requires_live_alert_routing_and_the_normal_cleanup_heartbeat(def
     assert "PRIVATE_RECIPIENT_SENTINEL" not in capsys.readouterr().out
 
 
-def test_monitoring_creation_is_feature_scoped_and_reuses_the_eligible_email_channel():
-    cloud = CloudFixture()
+@pytest.mark.parametrize("omit_zero_threshold", [True, False], ids=["protobuf-default", "explicit-zero"])
+def test_monitoring_creation_is_feature_scoped_and_reuses_the_eligible_email_channel(omit_zero_threshold):
+    cloud = CloudFixture(omit_zero_threshold=omit_zero_threshold)
     cloud.metric, cloud.policies = None, []
     ops.ensure_monitoring(cloud)
     assert len(cloud.writes) == 3
@@ -337,10 +361,20 @@ def test_monitoring_creation_is_feature_scoped_and_reuses_the_eligible_email_cha
         assert 'resource.labels.location = "us-west1"' in actual["filter"]
         if "conditionThreshold" in condition:
             assert 'metric.label.result = "failed"' in actual["filter"]
-            assert actual["comparison"] == "COMPARISON_GT" and actual["thresholdValue"] == 0
+            assert actual["comparison"] == "COMPARISON_GT" and actual["duration"] == "0s"
+            if omit_zero_threshold:
+                assert "thresholdValue" not in actual
+            else:
+                assert actual["thresholdValue"] == 0
         else:
             assert actual["duration"] == "7200s"
             assert "logging.googleapis.com/user/earningsnerd_feedback_cleanup_success" in actual["filter"]
+    # Creation and subsequent list/readback both accept the provider representation.
+    # The comparison must not mutate the readback or the approved request's explicit zero.
+    policies = copy.deepcopy(cloud.policies)
+    assert ops.inspect_monitoring(cloud)
+    assert cloud.policies == policies
+    assert cloud.writes[1][3]["conditions"][0]["conditionThreshold"]["thresholdValue"] == 0
 
 
 @pytest.mark.parametrize("mode", ["normal", "probe", "dry-run", "overdue", "ledger-failure"])
