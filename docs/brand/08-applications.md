@@ -444,7 +444,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 - **Exports** (`backend/app/services/export_service.py`, `pdf_branding.py`,
   `excel_export_service.py`, `analysis_export_metadata.py`): mastheads read "EarningsNerd · AI
   summaries of SEC filings". Titles take the middot and sentence case ("BIOGEN INC. · 10-K summary",
-  "{company} · Multi-Period Analysis", the feature keeping its name), as do the PDF's source line
+  "{company} · Multi-Period Analysis", the feature keeping its name). The analysis PDF and workbook print
+  the company as the page and the chart PNG do ("Regeneron Pharmaceuticals, Inc.", never EDGAR's
+  capitals) through `backend/app/utils/company_names.py`, the backend's copy of `formatCompanyName`; the
+  filing summary's PDF and CSV keep EDGAR's form until E210, since the eval's blinding reads that PDF's
+  date. The middot and sentence case hold for the PDF's source line
   ("Original on SEC.gov · {url}" since E190, the filing page's words for its link to the primary
   document, with the address that link opens) and the CSV, which now carries that source row under its
   generated date; the PDF's closing note splits its one dashed sentence in two, and a quote's attribution
@@ -461,8 +465,17 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   sage text in the exports. The PDFs carry Inter's italic beside its roman
   (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every
-  quote printed upright. The workbook's header rows rest in the ink on the neutral ground and its
-  labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
+  quote printed upright. A symbols face of the same build (`Inter-Variable-symbols.woff2`, its source and
+  cut in `SOURCES.txt` beside the licence) carries the dagger, the arrows and the white bullet the latin
+  subsets lack, which printed in DejaVu; the data face falls back to Inter before the system's monospace,
+  and a nested list takes the disc. Each PDF names itself (its title, English, EarningsNerd as author and
+  generator, the analysis its ticker, mode and range as the subject) and ships tagged, with a structure
+  tree; no PDF/UA claim, as no validator backs one. The analysis exports print an instant as words with
+  its zone named ("Generated October 24, 2026, 20:26 UTC", "Source data as of …"), never raw ISO. The
+  workbook names itself in its properties (title, subject, EarningsNerd as creator) and prints each sheet
+  one page wide with the brand footer and a page count, the Overview portrait and the rest landscape,
+  Metrics repeating its header row and label column. The workbook's header rows rest in the ink on the
+  neutral ground and its labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
   "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
   each count that is not zero, singular at one, and the passed count only when no figure needs
   review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
@@ -473,12 +486,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
-  embeds for italic text is an italic program) by `test_export_palette_parity.py`, which reads a
+  embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's
+  family, with each nested list's marker the disc, by `test_export_palette_parity.py`, which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
   EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding
-  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; and
-  the backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`.
+  of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
+  backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
+  backend's company display name to the page's by one case table,
+  `backend/tests/fixtures/company_display_names.json`, which `test_company_names.py` and
+  `formatCompanyName.spec.ts` both run, the Python test also holding the two modules' word lists equal.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
   mail ends "Verify your email address and you can start reading."
