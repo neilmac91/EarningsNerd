@@ -28,39 +28,40 @@ normal migration runner; never manually edit a recorded migration. Retain a data
 save the preview JSON with the intended environment, code revision and operator review. Run
 against staging first. A production apply is a separate operational action.
 
-A US-GAAP filer that reports in another currency (the CNY 20-F shape), or that changed its
-reporting currency, normalizes through the same per-filing pick as the sync
-(`facts/currency.py::filing_currencies`): the series takes the currency of its latest annual
-report, and filings in another currency are not read, so its repair plans identities in that
-currency only. The repair does not demote the rows an older sync stored in another currency, or
-under a filing that reports in another currency (USD convenience rows, a switcher's years before
-the switch); only the companyfacts sync does that. Sync such a company first
-(`POST /internal/jobs/sync-companyfacts` with `"force": true`), then preview its repair. Otherwise,
-after the apply, both currencies are current for the same periods. Unless a newer filing proves a
-switch (below), the sync never demotes a row in the currency it reads from a filing that SEC's
-companyfacts response does not name and that was filed strictly after the response's newest filing,
-where that filing's date is known (its Filing row's, else the row's recorded `filed_at`); a row
-with no known date, or filed the same day, is not protected, and nor is one under a filing whose
+A US-GAAP filer that reports in another currency (the CNY 20-F shape), or that changed its reporting
+currency, normalizes through the same per-filing pick as the sync
+(`facts/currency.py::filing_currencies`): the series takes the currency of its latest annual report,
+and filings in another currency are not read, so its repair plans identities in that currency only.
+The repair does not demote the rows an older sync stored in another currency, or under a filing that
+reports in another currency (USD convenience rows, a switcher's years before the switch); only the
+companyfacts sync does that. Sync such a company first (`POST /internal/jobs/sync-companyfacts` with
+`"force": true`), then preview its repair. Otherwise, after the apply, both currencies are current
+for the same periods. Unless a newer filing proves a switch (below), the sync never demotes a row in
+the currency it reads from a filing that SEC's companyfacts response does not name and that was
+filed strictly after the response's newest filing, where that filing's date is known (its Filing
+row's, else the row's recorded `filed_at`), and makes the newest such row current at its period; a
+row with no known date, or filed the same day, is not protected, and nor is one under a filing whose
 stored rows read another currency (more of them in one other currency than in any other), a
-convenience translation the sync demotes. A switch is proven where such a filing
-is an annual report that holds a current row, whose rows read another currency (more of them than any
-other, over two period-ends), and that reports a period at least as late as the report that decides
-the response's currency: the response predates a switch of the reporting currency, so the sync
-stores nothing from it and keeps only that currency current, demoting the newer filings' rows in
-the currency it reads too, and that currency's convenience rows under the filings whose own
-currency is another (as the response reads them, or, for a filing it does not name, as that
-filing's stored rows vote). Otherwise a newer filing's row in another currency (a stray, or a
-quarterly report ahead of the annual report) is demoted, and an older response still demotes the
-rows of a newer filing in another currency that it names or cannot protect. So run the sync once
-companyfacts shows the company's latest filing: a sync whose response names every stored filing
-makes its own row the one current row at every period it presents, whatever earlier syncs or the
-per-filing writer left there, but never a row this repair quarantined, for any reason (a rolled-back
-insert among them): such a period is left as the sync found it, a gap where it demoted what was
-current there. The sync leaves one thing for this repair: an annual ratio (a
-margin or the current ratio) that an older sync computed from other-currency operands under the
-same filing as the series-currency calculation. That identity is occupied, so the sync keeps its
-old operands; the repair's computed-metric correction recomputes it from the series-currency
-operands and journals the change. Apply the repair after the sync.
+convenience translation the sync demotes. A switch is proven where such a filing is an annual report
+that holds a current row, whose rows read another currency (more of them than any other, over two
+period-ends), and that reports a period at least as late as the report that decides the response's
+currency: the response predates a switch of the reporting currency, so the sync stores nothing from
+it and keeps only that currency current, demoting the newer filings' rows in the currency it reads
+too, and that currency's convenience rows under the filings whose own currency is another (as the
+response reads them, or, for a filing it does not name, as that filing's stored rows vote).
+Otherwise a newer filing's row in another currency (a stray, or a quarterly report ahead of the
+annual report) is demoted, and an older response still demotes the rows of a newer filing in another
+currency that it names or cannot protect. So run the sync once companyfacts shows the company's
+latest filing: a sync whose response names every stored filing makes its own row the one current row
+at every period it presents, whatever earlier syncs or the per-filing writer left there, except a
+period where a current row is of a filing filed after its own (the writers' filing-date rule) and a
+quarter whose unlabelled twin in that unit is current, both left as found, and never a row this
+repair quarantined, for any reason (a rolled-back insert among them): such a period is left as the
+sync found it, a gap where it demoted what was current there. The sync leaves one thing for this
+repair: an annual ratio (a margin or the current ratio) that an older sync computed from
+other-currency operands under the same filing as the series-currency calculation. That identity is
+occupied, so the sync keeps its old operands; the repair's computed-metric correction recomputes it
+from the series-currency operands and journals the change. Apply the repair after the sync.
 
 The CLI requires explicit tickers, defaults to a maximum of 10, and permits at most 50 per run.
 Each company is its own transaction, bounded to 10,000 stored facts. Network reads complete before
