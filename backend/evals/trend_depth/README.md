@@ -37,9 +37,14 @@ To run another model on the candidate, add an arm with `prompt=CANDIDATE_PROMPT`
 cd backend
 ARMS=deepseek-flash,deepseek-flash-p,deepseek-flash-q,deepseek-flash-c   # P and C need packs-v2/
 V4PRO=deepseek-v4-pro  # judge and auditor only, under the ADR-0008 addendum
+# 0. A like-for-like baseline: eval-v1's DeepSeek and Sonnet outputs re-audited under the auditor's view 2.
+python -m evals.trend_depth.generate --label eval-v1-view2 --arms current,deepseek-flash,claude-sonnet-5-5 --split all --copy-from eval-v1
+python -m evals.trend_depth.semantics --label eval-v1-view2 --systems deepseek-flash,claude-sonnet-5-5 --auditor claude-opus-5-5
 # 1. Development half only, never reading held-out outputs: two independent runs of every arm, one label each.
-python -m evals.trend_depth.generate --label dev-v5-r1 --arms $ARMS --split dev
-python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev
+#    --pipeline v2 gives every arm the same new gate and repair code (auto-citation, retyping, backstops, patch
+#    repairs), so the arms differ only in pack and prompt; K0 on v2 measures the code fixes alone.
+python -m evals.trend_depth.generate --label dev-v5-r1 --arms $ARMS --split dev --pipeline v2
+python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev --pipeline v2
 # 2. In each run: audits of K0 and C (Opus by default for a DeepSeek system, V4 Pro the second auditor), then the
 #    judge, C against K0 in both orders (Opus, the first judge from neither output's family).
 for label in dev-v5-r1 dev-v5-r2; do
@@ -50,10 +55,11 @@ for label in dev-v5-r1 dev-v5-r2; do
   python -m evals.trend_depth.judge --label $label --systems deepseek-flash,deepseek-flash-c
   python -m evals.trend_depth.report --label $label --systems $ARMS
 done
+python -m evals.trend_depth.report --labels dev-v5-r1,dev-v5-r2 --systems $ARMS   # each measure per run, and the range
 # 3. Freeze: stop editing the candidate and packs-v2/ (every record carries their hashes), then run K0 and C on
 #    the held-out half, two runs each, with step 2's audits, judge and report.
-python -m evals.trend_depth.generate --label eval-v2-r1 --arms deepseek-flash,deepseek-flash-c --split holdout
-python -m evals.trend_depth.generate --label eval-v2-r2 --arms deepseek-flash,deepseek-flash-c --split holdout
+python -m evals.trend_depth.generate --label eval-v2-r1 --arms deepseek-flash,deepseek-flash-c --split holdout --pipeline v2
+python -m evals.trend_depth.generate --label eval-v2-r2 --arms deepseek-flash,deepseek-flash-c --split holdout --pipeline v2
 ```
 
 `--copy-from eval-v1` still copies any arm on the frozen prompt and `packs/`, `current` and `deepseek-flash`
@@ -199,6 +205,8 @@ moves a gold example's citations to the new IDs, and `gold check` then re-verifi
 | `factcheck.py` | the gate (`backstops=True` adds the probes' gate checks) |
 | `probes.py` | backstop checks for the mislabels the gate misses (R1, R2a, R2c, R3, U1, unitless dollars) and logic measures |
 | `replay.py` | re-checks every recorded output under the gate as it was at `b3ed8ef` and as it is now, with and without backstops |
+| `autocite.py` | adds a figure's missing own ID by code before any repair (`generate --pipeline v2`); `python -m evals.trend_depth.autocite` runs its substitution test |
+| `calibration.py` | judgement share outside the watch list, evaluative words in data sentences, watch-item forecasts, form |
 | `providers.py` | model arms (each pinned to its prompt and pack directory), usage, latency and list-price cost, the spend ledger and its ceiling |
 | `records.py` | the rules every stage shares over run records: when an output is final, the hash an audit or verdict keeps, whether a first pass came from this prompt and pack, the cost a first analysis would bill |
 | `generate.py` | proposed and current generations, the one-repair step, the gate |

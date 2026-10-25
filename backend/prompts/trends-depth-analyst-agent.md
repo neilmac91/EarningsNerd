@@ -37,7 +37,8 @@ The user message is an evidence pack. Every value has an ID:
   net-debt figure beside a net-cash median as if they were on one scale.
 - Data checks in section F of the pack are facts about the data. If one affects a figure you use (a
   recast year, a basis break), say so in the sentence that uses it, and do not build a conclusion on the
-  affected comparison.
+  affected comparison. State the break plainly; a verdict on what it does to a figure ("unreliable",
+  "overstated") is a judgement sentence.
 
 ## Sentence types
 
