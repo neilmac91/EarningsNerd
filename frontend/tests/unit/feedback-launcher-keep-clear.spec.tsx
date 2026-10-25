@@ -10,14 +10,19 @@ import { LAUNCHER_KEEP_CLEAR_GAP, overlapsKeepClear } from '@/lib/launcherKeepCl
 /**
  * N17: on a phone the floating feedback launcher rested over the analysis headline figures after Run, so "$14.3B"
  * read "4.3B" (three blind evaluators, severity 3). The launcher now steps aside without moving: while its box,
- * LAUNCHER_KEEP_CLEAR_GAP px around, meets a region marked `data-launcher-keep-clear` (the KPI strip), it takes
- * `opacity-0 pointer-events-none`, `focus:` brings it back, and it never yields while its own dialog is open. It stays
- * one fixed site at z-30 on BOTTOM_CHROME_OFFSET (tests/unit/bottomChromeLadder.spec.ts, unchanged).
+ * LAUNCHER_KEEP_CLEAR_GAP px around, meets a region marked `data-launcher-keep-clear` (the KPI strip) outside an inert
+ * or aria-hidden subtree (a locked preview's strip has nothing to tap), it takes `opacity-0 pointer-events-none`,
+ * keyboard focus (`focus-visible:`) brings it back, and it never yields while its own dialog is open. Its fade takes
+ * the fast motion token and none runs under reduced motion. It stays one fixed site at z-30 on BOTTOM_CHROME_OFFSET
+ * (tests/unit/bottomChromeLadder.spec.ts, unchanged).
  *
  * jsdom lays nothing out, so the boxes are stubbed and requestAnimationFrame is a queue this spec flushes; what a
  * browser paints is tests/e2e/feedback-launcher-keep-clear.spec.ts's.
  *
- * Mutation (on committed state): `yielding && …` → `false && …` in FeedbackWidget.tsx fails the widget cases.
+ * Mutations (on committed state), each failing the cases named: `yielding && …` → `false && …` in FeedbackWidget.tsx
+ * (the widget cases); the inert / aria-hidden skip dropped from lib/launcherKeepClear.ts (the unreadable-subtree case);
+ * ` duration-fast motion-reduce:transition-none` removed from LAUNCHER_CLASS (the class case); and
+ * `if (frame) cancelAnimationFrame(frame)` removed from the effect's cleanup (the unmount case).
  */
 
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
@@ -63,6 +68,30 @@ describe('overlapsKeepClear', () => {
     expect(overlapsKeepClear(BOX, regions({ left: BOX.right + GAP, top: 780, width: 100, height: 44 }))).toBe(false)
     expect(overlapsKeepClear(BOX, regions({ left: 0, top: 780, width: BOX.left - GAP + 0.5, height: 44 }))).toBe(true)
     expect(overlapsKeepClear(BOX, regions({ left: 0, top: 780, width: BOX.left - GAP, height: 44 }))).toBe(false)
+  })
+
+  it('skips a region inside an inert or aria-hidden subtree: a locked preview has no figure to tap', () => {
+    const strip = { left: 16, top: 800, width: 358, height: 200 }
+    const inside = (attribute: string, value: string, onRegion = false) => {
+      const root = regions(strip)
+      const region = root.firstElementChild as HTMLElement
+      if (onRegion) {
+        region.setAttribute(attribute, value)
+        return root
+      }
+      const wrapper = document.createElement('div')
+      wrapper.setAttribute(attribute, value)
+      wrapper.appendChild(region)
+      root.appendChild(wrapper)
+      return root
+    }
+    expect(overlapsKeepClear(BOX, regions(strip))).toBe(true)
+    // PeekLocked's preview: inert (set from its node) and aria-hidden, around the Free teaser's strip.
+    expect(overlapsKeepClear(BOX, inside('inert', ''))).toBe(false)
+    expect(overlapsKeepClear(BOX, inside('aria-hidden', 'true'))).toBe(false)
+    expect(overlapsKeepClear(BOX, inside('aria-hidden', 'true', true))).toBe(false)
+    // aria-hidden="false" hides nothing: the strip counts.
+    expect(overlapsKeepClear(BOX, inside('aria-hidden', 'false'))).toBe(true)
   })
 
   it('skips a region that renders no box and an element that is not marked', () => {
@@ -143,8 +172,11 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
     fireEvent.scroll(window)
     flush()
     expect(launcher).toHaveClass(...yieldClasses)
-    // Keyboard focus brings it back (`focus:`, so a focus Modal returns after a pointer close counts too).
-    expect(launcher).toHaveClass('focus:opacity-100', 'focus:pointer-events-auto')
+    // Keyboard focus brings it back: `focus-visible:`, so a focus Modal returns after a pointer close (Send, the close
+    // button, a scrim tap) leaves it stepped aside while the reader scrolls on, and an Escape close or any key shows it.
+    expect(launcher).toHaveClass('focus-visible:opacity-100', 'focus-visible:pointer-events-auto')
+    expect(launcher).not.toHaveClass('focus:opacity-100')
+    expect(launcher).not.toHaveClass('focus:pointer-events-auto')
     // It stays in the accessibility tree with its name, and keeps its place: one fixed site at z-30.
     expect(screen.getByRole('button', { name: 'Send feedback' })).toBe(launcher)
     expect(launcher).toHaveClass('fixed', 'z-30')
@@ -152,7 +184,13 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
     region = { left: 16, top: 900, width: 358, height: 200 }
     fireEvent(window, new Event('resize'))
     flush()
-    for (const name of [...yieldClasses, 'focus:opacity-100']) expect(launcher).not.toHaveClass(name)
+    for (const name of [...yieldClasses, 'focus-visible:opacity-100']) expect(launcher).not.toHaveClass(name)
+  })
+
+  it('fades on the fast motion token, and not at all under reduced motion', async () => {
+    const launcher = await renderWidget()
+    // jsdom applies no stylesheet, so the classes are the claim; the e2e reads the computed transition under reduce.
+    expect(launcher).toHaveClass('transition-[color,background-color,opacity]', 'duration-fast', 'motion-reduce:transition-none')
   })
 
   it('checks once a frame on a scroll, a resize, the consent bar and a change of the page size, and stops on unmount', async () => {
@@ -181,7 +219,11 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
     flush()
     expect(launcher).toHaveClass(...yieldClasses)
 
+    // A check still queued when the launcher unmounts is cancelled with it.
+    fireEvent.scroll(window)
+    expect(frames.size).toBe(1)
     cleanup()
+    expect(frames.size, 'the queued frame is cancelled on unmount').toBe(0)
     expect(observed).toEqual([])
     fireEvent.scroll(window)
     fireEvent(window, new Event('resize'))
@@ -199,7 +241,7 @@ describe('FeedbackWidget steps aside from a keep-clear region', () => {
     expect(launcher).toHaveAttribute('aria-expanded', 'true')
     fireEvent.scroll(window)
     flush()
-    for (const name of [...yieldClasses, 'focus:opacity-100']) expect(launcher).not.toHaveClass(name)
+    for (const name of [...yieldClasses, 'focus-visible:opacity-100']) expect(launcher).not.toHaveClass(name)
 
     fireEvent.click(launcher)
     expect(launcher).toHaveAttribute('aria-expanded', 'false')

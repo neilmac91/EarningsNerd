@@ -82,9 +82,9 @@ function AccountFeedback({ readerId }: { readerId: number }) {
     return () => { mounted.current = false }
   }, [])
 
-  // Measured as DataTable's heading rail is: one check a frame at most, on a passive scroll, a resize, the consent bar
-  // coming or going (the launcher rises with it) and a change of the page's size (results mount after Run with no
-  // scroll). jsdom has no ResizeObserver of its own, hence the guard. This component mounts only for a reader the
+  // One check a frame at most, the requestAnimationFrame throttle DataTable's heading rail also uses, queued on a passive
+  // scroll, a resize, the consent bar coming or going (the launcher rises with it) and a change of the page's size
+  // (results mount after Run with no scroll). jsdom has no ResizeObserver of its own, hence the guard. This component mounts only for a reader the
   // current-user query confirms, so the measurement runs for as long as the launcher shows.
   useEffect(() => {
     let frame = 0
@@ -189,8 +189,10 @@ function AccountFeedback({ readerId }: { readerId: number }) {
         </ModalBody>
       </Modal>
 
-      {/* Yielding, it keeps its place, its rung and its name in the accessibility tree. `focus:`, not `focus-visible:`,
-          so a focus Modal returns after a pointer close shows it too. */}
+      {/* Yielding, it keeps its place, its rung and its name in the accessibility tree. Keyboard focus brings it back
+          (`focus-visible:`: a Tab, an Escape close, any key); a focus Modal returns after a pointer close (Send, the
+          close button, a scrim tap) does not, so it never comes back opaque and tappable over the figures as the
+          reader scrolls on. */}
       <button
         ref={launcherRef}
         type="button"
@@ -199,7 +201,7 @@ function AccountFeedback({ readerId }: { readerId: number }) {
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
         style={LAUNCHER_OFFSET}
-        className={cx(LAUNCHER_CLASS, yielding && !open && 'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100')}
+        className={cx(LAUNCHER_CLASS, yielding && !open && 'pointer-events-none opacity-0 focus-visible:pointer-events-auto focus-visible:opacity-100')}
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
         <span className="hidden sm:inline">Feedback</span>

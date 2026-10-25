@@ -5,17 +5,21 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
  * N17, in a real Chromium: the floating feedback launcher (FeedbackWidget, a 44px circle 20px from a phone's left and
  * bottom edges) rested over the analysis headline figures after Run, so "$14.3B" read "4.3B" (three blind evaluators,
  * severity 3). It now steps aside without moving: while its box, 8px around, meets a region the page marks
- * `data-launcher-keep-clear` (the KPI strip), it goes to `opacity-0 pointer-events-none`; keyboard focus brings it
- * back, and it never yields while its own dialog is open. It keeps its place and its rung (bottomChromeLadder.spec.ts).
+ * `data-launcher-keep-clear` (the KPI strip), it goes to `opacity-0 pointer-events-none`; keyboard focus
+ * (`focus-visible:`) brings it back, and it never yields while its own dialog is open. It keeps its place and its rung
+ * (bottomChromeLadder.spec.ts).
  *
- * At 390x844 (touch), in both themes, under reduced motion (the fade is then instant), for a signed-in Pro reader:
+ * At 390x844 (touch), in both themes, under reduced motion (the launcher's transition is then none, read from the
+ * computed style, and the fast token's 150ms opacity fade where motion is allowed), for a signed-in Pro reader:
  * the fixture answers /api/auth/me, and the current-user query FeedbackWidget observes mounts the launcher for the
  * reader it confirms; the session marker a login sets (`en_session_active`) is set before the page opens, as a real
  * reader's is:
  *   (a) each headline figure scrolled to the launcher's centre height: the launcher is transparent and, where its box
  *       covers the figure, the point takes the figure, not the launcher; a tap there opens the figure's evidence;
  *   (b) the strip 100px above the launcher's band: the launcher is opaque and takes its own centre;
- *   (c) while it yields, focus brings it back, its dialog keeps it shown, and blur steps it aside again;
+ *   (c) a focus its dialog returns after a pointer close (the close button tapped) leaves it stepped aside over a
+ *       figure, the figure taking the pointer; a key brings it back (Enter opens its dialog, which keeps it shown, and
+ *       the focus an Escape close returns shows it); blur steps it aside again;
  *   (d) at rest right after Run it follows the same rule: as openAnalysis leaves the page, and with the strip landing
  *       under it when the reader scrolled the form before Run, where only the page's growth (no scroll) reports it.
  * The strip is found by its structure, never by the mark, so a strip that loses its mark fails on what the reader
@@ -89,6 +93,17 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(launcher(page)).toBeVisible()
       await expect(values(page)).toHaveCount(4)
 
+      // Reduced motion: no transition at all. Where motion is allowed, the opacity fade takes the fast token.
+      const transition = () => launcher(page).evaluate((el) => {
+        const style = getComputedStyle(el)
+        return { property: style.transitionProperty, duration: style.transitionDuration }
+      })
+      expect((await transition()).property, 'reduced motion: no transition').toBe('none')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      expect(await transition(), 'motion allowed: the colour and opacity changes take duration-fast').toEqual({ property: 'color, background-color, opacity', duration: '0.15s' })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      expect((await transition()).property).toBe('none')
+
       // (d) At rest right after Run: the state the rule gives for where the strip landed.
       expect(await page.evaluate(() => window.scrollY), 'Run leaves the page where it was').toBe(0)
       if (meets(await boxOf(launcher(page)), await boxOf(strip(page)))) await expectStepsAside(page, 'at rest after Run')
@@ -124,21 +139,27 @@ for (const theme of ['light', 'dark'] as const) {
       expect(Math.round((await boxOf(strip(page))).bottom), 'the strip ends 100px above the band').toBe(Math.round(band - 100))
       await expectRests(page, 'the strip 100px above the band')
 
-      // (c) Back over the first figure: focus brings the launcher back, its dialog keeps it shown, blur steps it aside.
+      // (c) A pointer close returns focus to the launcher, which must not hold it opaque over the figures: open the
+      // dialog with a tap, close it with a tap on its close button, then scroll the first figure under it.
+      const dialog = page.getByRole('dialog', { name: 'Send feedback' })
+      await launcher(page).tap()
+      await expect(dialog).toBeVisible()
+      await dialog.getByRole('button', { name: 'Close', exact: true }).tap()
+      await expect(dialog).toHaveCount(0)
+      await expect(launcher(page), 'the dialog returns focus to the launcher').toBeFocused()
       const first = values(page).first()
       await scrollBy(page, centreOf(await boxOf(first)).y - centreOf(await boxOf(launcher(page))).y)
-      await expectStepsAside(page, 'over the first figure')
-      await launcher(page).focus()
-      await expect.poll(() => opacity(launcher(page)), 'focus brings it back').toBe('1')
-      expect(await hitsAt(launcher(page), centreOf(await boxOf(launcher(page)))), 'focused, it takes the pointer').toBe(true)
+      expect(await expectStepsAside(page, 'focused by a pointer close, over the first figure'), 'it covered the first figure').toBeGreaterThanOrEqual(1)
+      await expect(launcher(page), 'it keeps the focus while it steps aside').toBeFocused()
+      // A key brings it back: Enter opens its dialog, which keeps it shown; Escape returns a focus that shows it.
       await page.keyboard.press('Enter')
-      const dialog = page.getByRole('dialog', { name: 'Send feedback' })
       await expect(dialog).toBeVisible()
       expect(await opacity(page.getByRole('button', { name: 'Close feedback', exact: true })), 'its dialog keeps it shown').toBe('1')
       await page.keyboard.press('Escape')
       await expect(dialog).toHaveCount(0)
       await expect(launcher(page)).toBeFocused()
-      expect(await opacity(launcher(page)), 'focus returned by the dialog shows it').toBe('1')
+      await expect.poll(() => opacity(launcher(page)), 'keyboard focus brings it back').toBe('1')
+      expect(await hitsAt(launcher(page), centreOf(await boxOf(launcher(page)))), 'focused from the keyboard, it takes the pointer').toBe(true)
       await launcher(page).blur()
       await expectStepsAside(page, 'blurred over the first figure')
     })

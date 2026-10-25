@@ -1615,20 +1615,29 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  over the KPI strip, and "$14.3B" read "4.3B"). It steps aside without moving: while its box, 8px
                  around (lib/launcherKeepClear, LAUNCHER_KEEP_CLEAR_GAP), meets a region the page marks
                  `data-launcher-keep-clear` (KpiStrip's root), it takes `opacity-0 pointer-events-none`, so a tap
-                 there reaches the figure; `focus:opacity-100 focus:pointer-events-auto` bring it back on any focus
-                 (`focus:`, not `focus-visible:`, so a focus Modal returns after a pointer close shows it too); it
-                 keeps its name in the accessibility tree, and it never yields while its own dialog is open. It
-                 checks once a frame at most, on a passive scroll, a resize, CONSENT_LAYER_EVENT and a ResizeObserver
-                 on <body> (results mount after Run with no scroll), as the heading rail measures (Analysis table),
-                 and its fade takes duration-fast, none under reduced motion. It stays one fixed site at z-30 on
-                 BOTTOM_CHROME_OFFSET, so the ladder and its gate do not change. An offset cannot do this for content
-                 that scrolls: one that cleared the strip after Run put the launcher over Run, and one that followed
-                 the strip climbed the screen. Gates: tests/unit/feedback-launcher-keep-clear.spec.tsx (the 8px rule,
-                 the classes, the triggers, never while open) and tests/e2e/feedback-launcher-keep-clear.spec.ts
-                 (390x844, both themes: each headline figure at the launcher's height takes the pointer where the
-                 launcher sits and a tap opens its evidence; the launcher shows with the strip clear of it, on focus
-                 and with its dialog open; at rest after Run it follows the same rule, a strip mounted under it
-                 included).
+                 there reaches the figure. A region inside an `inert` or `aria-hidden="true"` subtree does not count:
+                 PeekLocked's preview (the Free analysis teaser's strip) is both, blurred under its overlay, with
+                 nothing a tap could reach; the landing's AnalysisDemo is neither, its figures readable, so the
+                 launcher steps aside there too. `focus-visible:opacity-100 focus-visible:pointer-events-auto` bring
+                 it back on keyboard focus (a Tab, the focus an Escape close returns, any key press); the focus Modal
+                 returns after a pointer close (Send, the close button, a scrim tap) does not match, so the launcher
+                 never comes back opaque and tappable over the figures as the reader scrolls on, where a tap on a
+                 covered figure would toggle its dialog. It keeps its name in the accessibility tree, and it never
+                 yields while its own dialog is open. It checks once a frame at most (the requestAnimationFrame
+                 throttle the heading rail also uses, Analysis table), on a passive scroll, a resize,
+                 CONSENT_LAYER_EVENT and a ResizeObserver on <body> (results mount after Run with no scroll); its
+                 fade takes duration-fast, and under reduced motion it has no transition at all. It stays one fixed
+                 site at z-30 on BOTTOM_CHROME_OFFSET, so the ladder and its gate do not change. An offset cannot do
+                 this for content that scrolls: one that cleared the strip after Run put the launcher over Run, and
+                 one that followed the strip climbed the screen. Gates:
+                 tests/unit/feedback-launcher-keep-clear.spec.tsx (the 8px rule, the inert and aria-hidden skip, the
+                 classes with the motion tokens, the triggers, the queued check cancelled on unmount, never while
+                 open) and tests/e2e/feedback-launcher-keep-clear.spec.ts (390x844, both themes: the computed
+                 transition, none under reduced motion; each headline figure at the launcher's height takes the
+                 pointer where the launcher sits and a tap opens its evidence; the launcher shows with the strip
+                 clear of it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a
+                 figure, and a key brings it back; at rest after Run it follows the same rule, a strip mounted under
+                 it included).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
