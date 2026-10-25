@@ -329,7 +329,13 @@ import {
  *    in a sentence about the refresh or session token: "a one-time recovery code" is another credential, beside the
  *    token too, ONE_TIME_OF_ANOTHER: "Refresh tokens are reusable, unlike one-time recovery codes."; a negation
  *    near "one-time", "good for one use" or "after one use" passes, NOT_NEAR: "Refresh tokens are not one-time
- *    credentials."), a reused one
+ *    credentials."; since E162's stage 3, read by clause through tests/unit/clauseReader.ts, with main's reading as its
+ *    floor: a form is another credential's, main's works-once phrases too, where it stands before that credential's
+ *    noun ("Use a single-use recovery code.") or where its clause has that credential as its own subject and the token
+ *    is set apart from the clause, after "unlike" or as the subject of a clause of its own that a contrast opens or
+ *    sets apart and that says nothing again, anotherCredentials: "A recovery code is single-use." and "Refresh tokens
+ *    are reusable, while recovery codes cannot be reused." pass, "Recovery codes cannot be reused, and neither can
+ *    refresh tokens." fails), a reused one
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
  *    ends on its own beside "again" is no sweep; read beyond main's words only in a sentence about the token, as the
  *    one-use forms are: "A verification code cannot be used more than once and can be revoked from settings." is
@@ -1762,7 +1768,9 @@ const CREDENTIAL_NAME = String.raw`(?:recovery|verification|backup|login|log-in|
     after "like" or "as", where the token may be what is one-time ("Refresh tokens are one-time keys.", "Refresh
     tokens remain one-time access keys.", "Refresh tokens work like one-time codes."). Up to two words may stand
     between, an article, an adverb in -ly or one of a few others ("are still", "are effectively"). */
-const ONE_TIME_OF_ANOTHER = String.raw`(?<!\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|stays?|stayed|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply|now|already|\w+ly)\s+){0,2})\bone-time\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
+const BEFORE_ANOTHER_CREDENTIAL = (form: string) =>
+  String.raw`(?<!\b(?:is|are|was|were|be|been|being|remains?|remained|becomes?|became|stays?|stayed|like|as)\s+(?:(?:a|an|each|all|both|always|only|just|also|still|simply|now|already|\w+ly)\s+){0,2})\b${form}\s+(?:${CREDENTIAL_NAME}\s+){0,2}${CREDENTIAL}\b`
+const ONE_TIME_OF_ANOTHER = BEFORE_ANOTHER_CREDENTIAL('one-time')
 /** The one-use forms main's phrases miss ("one-time", "good for one use", "cannot be used twice", "cannot be reused",
     "after one use"), read only in a sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or
     one in a block that names it and names no other credential (OTHER_CREDENTIAL), as "Each one cannot be reused." in
@@ -1782,8 +1790,101 @@ const OTHER_CREDENTIAL = new RegExp(String.raw`\b${CREDENTIAL}\b`, 'i')
 /** A sentence about the refresh or session token: one that names it (TOKEN_CONTEXT), or one in a block that names it
     and that names no other credential (OTHER_CREDENTIAL). */
 const aboutTheToken = (block: string) => (sentence: string) => TOKEN_CONTEXT.test(sentence) || (TOKEN_CONTEXT.test(block) && !OTHER_CREDENTIAL.test(sentence))
-/** A one-use form about the refresh or session token, in one sentence of the block. */
-const oneUseOfTheToken = (block: string) => sentencesOf(block).some((sentence) => ONE_USE.test(sentence) && aboutTheToken(block)(sentence))
+/** Where the one-use forms start in a sentence, as main's family reads them (E162 stage 3: the floor): main's
+    works-once phrases anywhere (WORKS_ONCE), and the wider forms in a sentence about the token (ONE_USE, aboutTheToken). */
+const oneUseFormsIn = (block: string, sentence: string) => {
+  const starts = (re: RegExp) => [...sentence.matchAll(new RegExp(re.source, 'gi'))].map((m) => m.index ?? 0)
+  return [...starts(WORKS_ONCE), ...(aboutTheToken(block)(sentence) ? starts(ONE_USE) : [])]
+}
+/** "one-time" or "single-use" directly before another credential's noun (BEFORE_ANOTHER_CREDENTIAL): that credential's
+    ("Use a single-use recovery code.", "Refresh tokens are reusable, unlike single-use recovery codes."). */
+const ONCE_OF_ANOTHER = new RegExp(BEFORE_ANOTHER_CREDENTIAL(String.raw`(?:one-time|single[- ]use)`), 'gi')
+/** A credential's noun as the head of a subject (CREDENTIAL). */
+const A_CREDENTIAL = new RegExp(String.raw`^${CREDENTIAL}$`, 'i')
+/** A word that sets one clause apart from another. */
+const CONTRAST = /^(?:while|whereas|but|although|though|however|yet)$/i
+/** A word with which a clause says again what another said ("and neither can refresh tokens", "so is a refresh token",
+    "but refresh tokens are no different"). */
+const SAYS_AGAIN = /^(?:neither|nor|either|too|also|likewise|so|same|different|differ|differs|similar|similarly|alike|equally|identical|identically|like|as|share|shares|shared|follow|follows|followed|apply|applies|applied|match|matches|matched|mirror|mirrors|mirrored)$/i
+/** A negation, which may say the form again in other words ("but refresh tokens are not reusable"). */
+const DENIES = /^(?:not|never|no|none|neither|nor|cannot|n['’]t|can['’]t|won['’]t|isn['’]t|aren['’]t)$/i
+/** A word that speaks of use itself, which may say the form in words the family's lexicon does not read ("but refresh
+    tokens expire after use"). */
+const OF_USE = /^(?:use|uses|used|using|once|twice|single)$/i
+/** A word that opens a clause inside a phrase: a relative word ("unlike refresh tokens, which are single-use"). */
+const RELATIVE_WORD = /^(?:which|that|who|whom|whose)$/i
+/** A word that says no predicate of its own: an auxiliary, a modal or a negation ("but refresh tokens can"). */
+const NO_PREDICATE = /^(?:am|is|are|was|were|be|been|being|has|have|had|having|do|does|did|can|could|may|might|must|shall|should|will|would|not|never|n['’]t|cannot|can['’]t)$/i
+/** A sentence's units for the one-use family (E162 stage 3): each clause's own words, without the conditions that hold
+    clauses of their own, and each such condition (conditionClauseAt: ", while recovery codes cannot be reused"), with
+    its own subject (none where a clause carries one on), where its predicate starts and the word that opens it. */
+type Unit = { start: number; end: number; holes: Array<[number, number]>; subject: NounPhrase | null; predicate: number; by: string | null }
+function unitsOf(reading: Reading): Unit[] {
+  const { tokens, clauses } = reading
+  return clauses.flatMap((clause) => {
+    const held = clause.conditions.flatMap((c): Unit[] => {
+      const inner = conditionClauseAt(tokens, c)
+      return inner ? [{ start: c.start, end: c.end, holes: [], subject: inner.subject, predicate: inner.predicate, by: c.subordinator }] : []
+    })
+    const holes = held.map((u): [number, number] => [u.start, u.end])
+    return [{ start: clause.start, end: clause.end, holes, subject: clause.carried ? null : clause.subject, predicate: clause.predicate, by: clause.joinedBy }, ...held]
+  })
+}
+const inUnit = (unit: Unit, k: number) => k >= unit.start && k < unit.end && !unit.holes.some(([from, to]) => k >= from && k < to)
+/** Whether a one-use form that starts at a character of a sentence is another credential's (E162 stage 3: credential
+    ownership; Codex's thread 4351169065 on #1456). It is where it stands before that credential's noun
+    (ONCE_OF_ANOTHER), or where the unit that holds it has a credential's noun as its own subject, naming no token, and
+    every mention of the refresh or session token (TOKEN_CONTEXT) is set apart from it: after "unlike" in its unit
+    ("Unlike refresh tokens, recovery codes cannot be reused."), or as the own subject of another unit, with a contrast
+    opening one of the two and a predicate of its own that says nothing again ("Refresh tokens are reusable, while
+    recovery codes cannot be reused.", "Recovery codes cannot be reused, whereas refresh tokens rotate."). Otherwise
+    the form is read as main reads it ("..., and neither can refresh tokens.", "..., and so is a refresh token.", "...,
+    but refresh tokens can."). */
+function anotherCredentials(sentence: string, at: number): boolean {
+  if ([...sentence.matchAll(ONCE_OF_ANOTHER)].some((m) => m.index === at)) return true
+  const reading = readSentence(sentence)
+  const { tokens } = reading
+  const tokenAt = (offset: number) => tokens.findIndex((t) => t.end > offset)
+  const units = unitsOf(reading)
+  const k = tokenAt(at)
+  const own = units.find((u) => inUnit(u, k))
+  const subject = own?.subject
+  // The form stands in its subject or its predicate, not in a phrase fronted before them.
+  if (!own || !subject || k < subject.start || !A_CREDENTIAL.test(subject.head.text) || TOKEN_CONTEXT.test(spanText(reading, subject.start, subject.end)))
+    return false
+  return [...sentence.matchAll(new RegExp(TOKEN_CONTEXT.source, 'gi'))].every((m) => {
+    const j = tokenAt(m.index ?? 0)
+    const named = tokenAt((m.index ?? 0) + m[0].length - 1)
+    if (inUnit(own, j)) {
+      // "unlike" before the token, in a phrase fronted before the subject or ending the unit, that holds no verb or
+      // clause of its own and not the form.
+      const unlike = own.start + tokens.slice(own.start, j).map((t) => t.lower).lastIndexOf('unlike')
+      const end = unlike < subject.start ? subject.start : own.end
+      const phrase = tokens.slice(unlike + 1, end).filter((_, n) => unlike + 1 + n < j || unlike + 1 + n > named)
+      return (
+        unlike >= own.start &&
+        (k < unlike || k >= end) &&
+        !phrase.some((t) => knowsVerb(t) || NO_PREDICATE.test(t.text) || RELATIVE_WORD.test(t.text) || DENIES.test(t.text))
+      )
+    }
+    const found = units.find((u) => inUnit(u, j))
+    // Where the reader carries the subject on and the token opens the predicate, it read "refresh" as a verb ("..., but
+    // refresh tokens rotate."): the token's noun phrase there is the unit's own subject.
+    const opened = found && !found.subject && j === found.predicate ? nounPhraseAt(tokens, j) : null
+    const other = found && opened ? { ...found, subject: opened, predicate: opened.end } : found
+    if (!other?.subject || j < other.subject.start || j >= other.subject.end || !(CONTRAST.test(other.by ?? '') || CONTRAST.test(own.by ?? ''))) return false
+    const said = tokens.slice(other.start, other.end).filter((t, n) => inUnit(other, other.start + n))
+    const words = tokens.slice(other.predicate, other.end).filter((t, n) => inUnit(other, other.predicate + n) && /\w/.test(t.text))
+    return !said.some((t) => SAYS_AGAIN.test(t.text) || DENIES.test(t.text) || OF_USE.test(t.text)) && words.some((t) => !NO_PREDICATE.test(t.text))
+  })
+}
+/** A one-use form of the refresh or session token, in one sentence of the block (E162 stage 3): main's family as the
+    floor (oneUseFormsIn), where some form is not another credential's (anotherCredentials). */
+const oneUseOfARefreshToken = (block: string) =>
+  sentencesOf(block).some((sentence) => {
+    const forms = oneUseFormsIn(block, sentence)
+    return forms.length > 0 && !forms.every((at) => anotherCredentials(sentence, at))
+  })
 /** Main's reuse reading, as main reads it, in any sentence: a revocation beside main's reuse words. */
 const MAIN_REUSE = /^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i
 /** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
@@ -1842,7 +1943,7 @@ const loggingOutSentences = (block: string) =>
 const E127_PROMISES: Array<[string, (block: string) => boolean]> = [
   [
     'a refresh token that works once',
-    (block) => inASentence(WORKS_ONCE)(block) || oneUseOfTheToken(block),
+    (block) => oneUseOfARefreshToken(block),
   ],
   [
     'a reused refresh token revoking the account',
@@ -3590,6 +3691,35 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A verification code is good for one use.</li>', false],
       ['<li>Each magic link expires after one use.</li>', false],
       ['<li>Refresh tokens are stored only as hashes. A recovery code cannot be reused.</li>', false],
+      // E162 stage 3: a one-use form is the credential's whose clause has it as its own subject, where the token is set
+      // apart from that clause (Codex's thread 4351169065 on #1456), and "single-use" before another credential's noun
+      // is that credential's; main's works-once phrases are read so too.
+      ['<li>Refresh tokens are reusable, while recovery codes cannot be reused.</li>', false],
+      ['<li>Recovery codes cannot be reused, whereas refresh tokens rotate.</li>', false],
+      ['<li>Unlike refresh tokens, recovery codes cannot be reused.</li>', false],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens.</li>', false],
+      ['<li>A recovery code is single-use.</li>', false],
+      ['<li>A verification code works only once.</li>', false],
+      ['<li>A magic link can be used only once.</li>', false],
+      ['<li>Use a single-use recovery code.</li>', false],
+      ['<li>Refresh tokens are reusable, unlike single-use recovery codes.</li>', false],
+      ['<li>Although refresh tokens rotate, recovery codes are single-use.</li>', false],
+      ['<li>Refresh tokens rotate, but recovery codes are single-use.</li>', false],
+      ['<li>A recovery code is single-use, but refresh tokens rotate.</li>', false],
+      // ... where nothing sets the token apart, or its clause says the form again, the form is read as main reads it.
+      ['<li>Recovery codes cannot be reused, and neither can refresh tokens.</li>', true],
+      ['<li>A recovery code is single-use, and so is a refresh token.</li>', true],
+      ['<li>Recovery codes cannot be reused, but refresh tokens are no different.</li>', true],
+      ['<li>Recovery codes, like refresh tokens, are single-use.</li>', true],
+      ['<li>Refresh tokens and recovery codes are single-use.</li>', true],
+      ['<li>Recovery codes are single-use, but refresh tokens are not reusable.</li>', true],
+      ['<li>Recovery codes are single-use, whereas refresh tokens share that rule.</li>', true],
+      ['<li>Unlike refresh tokens, which are single-use, recovery codes expire.</li>', true],
+      ['<li>Recovery codes cannot be reused, unlike refresh tokens, which also cannot be reused.</li>', true],
+      ['<li>Recovery codes are not single-use, but refresh tokens are.</li>', true],
+      ['<li>Recovery codes cannot be reused, but refresh tokens expire after use.</li>', true],
+      // The cost: "and" or a semicolon sets nothing apart, so these fail as on main though the token is not one-use.
+      ['<li>Recovery codes cannot be reused, and refresh tokens rotate.</li>', true],
       // A negation with an adverbial phrase between it and the verb, with no commas (#1456's fifth round, Codex's
       // thread 4336218364), up to four words, and past them with commas.
       ['<li>Logging out does not by itself end your other sessions.</li>', false],

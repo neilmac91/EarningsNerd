@@ -1,11 +1,11 @@
 /**
  * A sentence read as clauses and noun phrases, for the gates that read what a sentence says rather than how near two of
  * its words stand (E162). legalTruth.spec.tsx's endpoint family reads each clause's subject, verb group and conditions
- * through it since stage 1 and its consent family since stage 2, with the readings over the clauses below, and its
- * one-use family is to move onto it, so a shape one family reads the others read too
- * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a login, an
- * endpoint or the whole API, another operation than the analytics' own) and matches it at the places this reading
- * names (matchAt), not anywhere in the sentence.
+ * through it since stage 1, its consent family since stage 2, with the readings over the clauses below, and its one-use
+ * family since stage 3, which reads whose subject a one-use form is said of, so a shape one family reads the others
+ * read too (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a
+ * login, an endpoint or the whole API, another operation than the analytics' own, another credential than the token)
+ * and matches it at the places this reading names (matchAt), not anywhere in the sentence.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
