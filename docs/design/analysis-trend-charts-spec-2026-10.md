@@ -386,8 +386,12 @@ says so; everything else follows the spec.
     ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
   - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
     footnotes) can still swap once on a cold cache, now between two monospace faces.
-  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so a panel in either prints its sign in the fallback, a glyph
-    G2 bans (E203).
+  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so the engine prints their codes ("KRW 120,000T"), as it does a
+    code-like symbol (E203). `moneyPrefix` prints a sign only where the face draws it (`DATA_FACE_SIGNS` in
+    `scale.ts`, read from the faces' cmaps). `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that
+    list, and the wait's sample test holds it to the sample, so a sign the face lacks paints in no plot (G2).
+  - Outside the charts, a `lib/format.ts` figure set in the data face (the KPI strip) still prints ₩ and ₫ in the
+    fallback. A code there is wider than the sign, so it waits on the KPI strip's narrow cards (E197; E203).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on

@@ -118,11 +118,17 @@ const group = (text: string) => {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '')
 }
 
+/** The currency signs past ASCII that Geist Mono draws, read from its faces' cmaps: £ ¥ ¢ € ¤ in the latin face and
+ *  ₪ ₱ ₴ ₹ ₽ in latin-ext. It has no ₩ or ₫ in any subset (E203). */
+export const DATA_FACE_SIGNS = '£¥¢€¤₪₱₴₹₽'
+
 /** The symbol an amount carries: the currency's own, a code-like symbol ("CHF") followed by a space, or
- *  nothing when the unit is no currency code. */
+ *  nothing when the unit is no currency code. A symbol with a sign the data face does not draw prints the code
+ *  instead ("KRW 120,000T"), so no plot paints a glyph in the fallback face (G2; E203). */
 export function moneyPrefix(currency: string | null): string {
   const symbol = currencySymbol(currency)
   if (!symbol) return ''
+  if ([...symbol].some((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))) return `${currency} `
   return /^[A-Z]{2,}$/.test(symbol) ? `${symbol} ` : symbol
 }
 
