@@ -1349,3 +1349,39 @@ class TestProxyStatementItemsSync:
         result = svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
         assert (result["inserted"], result["demoted"]) == (0, 0)
         db.close()
+
+    def test_a_proxy_row_stays_current_over_a_10k_listed_after_it(self, monkeypatch):
+        # The other order: a sync before this fix made the proxy's rows current, and only then was the
+        # FY2025 10-K listed and its facts stored. The per-filing writer treats a current companyfacts
+        # row with no local filing as newer, so it stores the 10-K's FY2025 row behind the proxy's,
+        # under the identity this branch's sync now picks as the winner. The sync skips that identity,
+        # so FY2025 keeps the proxy's row current although the 10-K is listed; the years whose winner
+        # nothing stored heal. The detection SQL's sets 1 and 2 list such a row for the repair.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        filing = Filing(company_id=company.id, accession_number=f"K25{tag}", filing_type="10-K",
+                        filing_date=datetime(2026, 2, 25, tzinfo=timezone.utc),
+                        period_end_date=datetime(2025, 12, 31, tzinfo=timezone.utc),
+                        document_url="https://example.com/d", sec_url="https://example.com/s")
+        db.add(filing)
+        db.commit()
+        svc.process_filing_facts(db, filing, standardized={"net_income": {"series": [
+            {"period": "2025-12-31", "period_start": "2025-01-01", "value": 18_254e6, "fiscal_period": "FY"},
+        ]}})
+
+        svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_income",
+                                                 fiscal_period="FY").all()
+        assert {r.period_end.year: r.accession.removesuffix(tag) for r in rows if r.is_latest} == {
+            2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "P26"}
+        filed = next(r for r in rows if r.filing_id == filing.id)
+        assert (filed.period_end.year, filed.source, filed.is_latest) == (2025, "edgar_xbrl", False)
+        db.close()
