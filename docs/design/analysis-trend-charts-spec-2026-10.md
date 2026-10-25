@@ -336,7 +336,7 @@ says so; everything else follows the spec.
 - **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
   - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
     the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
-    and `#D7DADC`, the plot's own whatever #1606 makes of the text inks), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
+    and, since D-063, `#EAECEF`, the figure ink), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
     `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of `chart-1…6` would make
     `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new `chart.label` and
     `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s mirror behind:
@@ -951,7 +951,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `grid` | Non-zero gridlines, 1 px | `#DCD9D0` | 16.8 / 1.35 | `#525C6B` | −15.0 / 2.17 | final (today Lc 0 in both themes) |
 | `zero` | The zero tick's gridline, every panel, 1 px | `#6B7280` | 70.5 / 4.63 | `#9CA3AF` | −48.6 / 5.78 | DS `chart.ref` |
 | `tick` | Tick labels, x labels, captions, band neutral glyphs, `—`, `n/m`, "Notes", strip row labels, off-scale edge rule, absent-series swatch | `#636A77` | 74.1 / 5.21 | **`#B8BEC7`** (new `chart.label.dark`) | −63.6 / 7.85 | C, final hex (today's dark `#9CA3AF` is −48.6) |
-| `value` | Bar labels, A13b labels, off-scale values, strip cells | `#374151` | 90.9 / 9.87 | `#D7DADC` | −80.3 / 10.45 | DS text secondary/primary |
+| `value` | Bar labels, A13b labels, off-scale values, strip cells | `#374151` | 90.9 / 9.87 | `#EAECEF` | −91.8 / 12.40 | DS text secondary/primary |
 | `review` | Review-kind band letters | `#92400E` | 80.9 / 6.79 | **`#FBBF24`** (new) | −70.2 / 8.79 | B, fixed (DS `#F59E0B` is −56.9, below 60) |
 | `s1` teal | Series 1 | `#3E8E84` | 63.0 / 3.72 | **`#62B2A6`** | −49.7 / 5.90 | C (today's dark −32.0) |
 | `s2` honey | Series 2 | `#B8812F` | 58.0 / 3.23 | **`#D3A55C`** | −54.2 / 6.51 | C (today's dark −37.1) |
@@ -994,6 +994,13 @@ tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a c
 −77.3 on the card, as light's take `text.secondary`, so the chart's text steps match the page's (chief design on
 #1609); the row above says so. The subtitle and footnotes keep `chart.label.dark`, since DS `text.tertiary.dark`, the
 step their light half takes, is still `#9CA3AF`, −48.6.)
+(D-063, 2026-10-25: the founder's call on the `value` row. Dark printed values take the figure ink `#EAECEF`, Lc
+−91.8 on the card and −88.5 under the column wash, so every figure the chart prints, in the plot and in the legend,
+takes one dark ink, as D-060 chose for the table. Chief design first recommended it on #1620, then withdrew it for
+the `chart.value` step #1620 shipped; the founder chose the figure ink. Light keeps its step: printed values in
+`text.secondary` under the legend values' `text.primary`. Dark could not follow it, since `text.secondary.dark`
+measures −74.0 under the wash, below the printed-value floor of 75. The row above says so; §1 row 10 keeps the audit's
+measurement.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
