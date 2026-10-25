@@ -316,10 +316,16 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
 
   test('a plot holds its bones, busy, while its font loads, and draws once it arrives', async ({ page, baseURL }) => {
     test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
-    // Hold every font file until the first card's bones have been read; the wait's 1,500 ms cap paints regardless.
+    // Hold every font file the run asks for until the first card's bones have been read: the page's preloads pass, so
+    // it loads, and the latin-ext face the plots wait for (G3, E199) does not. The wait's 1,500 ms cap paints regardless.
+    let running = false
     let release!: () => void
     const held = new Promise<void>((resolve) => { release = resolve })
-    await page.route('**/_next/static/media/*.woff2', async (route) => { await held; await route.continue() })
+    page.on('request', (request) => { if (/\/api\/analysis\/[^/]+\/dataset/.test(request.url())) running = true })
+    await page.route('**/_next/static/media/*.woff2', async (route) => {
+      if (running) await held
+      await route.continue()
+    })
     await page.addInitScript(() => {
       new MutationObserver((_, observer) => {
         const bones = document.querySelector('[data-trend-chart] [data-chart-bones]')
