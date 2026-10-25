@@ -97,7 +97,7 @@ def build(label: str, proposed: str, key_out: Path, seed: int, raters: int) -> N
     key: dict[str, Any] = {"label": label, "proposed_arm": proposed, "seed": seed, "companies": {}}
     sections = []
     for ticker in HUMAN_PACK:
-        pack = load_pack(ticker)
+        pack = load_pack(ticker, proposed)  # the pack the proposed arm read (version 2 for the -p and -c arms)
         current = json.loads((RUNS / label / "current" / f"{ticker}.json").read_text())
         candidate = json.loads((RUNS / label / proposed / f"{ticker}.json").read_text())
         texts = {"current": readable.current_markdown(current),

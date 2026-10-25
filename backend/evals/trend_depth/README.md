@@ -36,6 +36,7 @@ To run another model on the candidate, add an arm with `prompt=CANDIDATE_PROMPT`
 ```bash
 cd backend
 ARMS=deepseek-flash,deepseek-flash-p,deepseek-flash-q,deepseek-flash-c   # P and C need packs-v2/
+V4PRO=deepseek-v4-pro  # judge and auditor only, under the ADR-0008 addendum
 # 1. Development half only, never reading held-out outputs: two independent runs of every arm, one label each.
 python -m evals.trend_depth.generate --label dev-v5-r1 --arms $ARMS --split dev
 python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev
@@ -44,8 +45,8 @@ python -m evals.trend_depth.generate --label dev-v5-r2 --arms $ARMS --split dev
 for label in dev-v5-r1 dev-v5-r2; do
   python -m evals.trend_depth.causes --label $label --systems deepseek-flash,deepseek-flash-c
   python -m evals.trend_depth.semantics --label $label --systems deepseek-flash,deepseek-flash-c
-  python -m evals.trend_depth.causes --label $label --systems deepseek-flash,deepseek-flash-c --auditor deepseek-v4-pro
-  python -m evals.trend_depth.semantics --label $label --systems deepseek-flash,deepseek-flash-c --auditor deepseek-v4-pro
+  python -m evals.trend_depth.causes --label $label --systems deepseek-flash,deepseek-flash-c --auditor $V4PRO
+  python -m evals.trend_depth.semantics --label $label --systems deepseek-flash,deepseek-flash-c --auditor $V4PRO
   python -m evals.trend_depth.judge --label $label --systems deepseek-flash,deepseek-flash-c
   python -m evals.trend_depth.report --label $label --systems $ARMS
 done
@@ -172,6 +173,8 @@ Several safeguards keep the spend to these figures and the results honest (`reco
 
 ```bash
 python -m evals.trend_depth.evidence REGN SNAP JPM            # packs (SEC traffic through the app's transports)
+python -m evals.trend_depth.evidence --out ../tasks/analysis-depth-2026-10/packs-v2 --fulltext-end 2026-10-24 REGN  # version 2
+python -m evals.trend_depth.replay                            # every recorded output under the old and new gate
 python -m evals.trend_depth.drivers REGN SNAP JPM COST NVDA   # driver tree, common-size view, availability
 python -m evals.trend_depth.census run && python -m evals.trend_depth.census report   # the current pipeline
 python -m evals.trend_depth.gold check REGN SNAP JPM          # gold examples against the gate
@@ -193,7 +196,9 @@ moves a gold example's citations to the new IDs, and `gold check` then re-verifi
 | `passages.py` | MD&A and note passages that state causes or guidance, with EDGAR locations |
 | `evidence.py` | assembles a pack, including data checks and peer percentiles from the store |
 | `render.py` | the pack as the generator reads it |
-| `factcheck.py` | the gate |
+| `factcheck.py` | the gate (`backstops=True` adds the probes' gate checks) |
+| `probes.py` | backstop checks for the mislabels the gate misses (R1, R2a, R2c, R3, U1, unitless dollars) and logic measures |
+| `replay.py` | re-checks every recorded output under the gate as it was at `b3ed8ef` and as it is now, with and without backstops |
 | `providers.py` | model arms (each pinned to its prompt and pack directory), usage, latency and list-price cost, the spend ledger and its ceiling |
 | `records.py` | the rules every stage shares over run records: when an output is final, the hash an audit or verdict keeps, whether a first pass came from this prompt and pack, the cost a first analysis would bill |
 | `generate.py` | proposed and current generations, the one-repair step, the gate |
