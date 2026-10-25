@@ -1,13 +1,16 @@
 'use client'
 
+import type { CSSProperties } from 'react'
 import { Card } from '@/components/ui'
 import { useCountUp } from '@/hooks/useCountUp'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { compactCurrencyCountUp, fmtPercent } from '@/lib/format'
 import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { selectHeadlineFigures } from '@/features/analysis/lib/reportPresentation'
+import { kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
+import { isCalculated } from '@/features/analysis/lib/provenance'
 import DataNoteMark from './DataNoteMark'
 import GrowthText from './GrowthText'
 import SourceValue from './SourceValue'
@@ -67,6 +70,14 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
   )
 }
 
+/** The strip's columns follow its widest value, not a fixed breakpoint, so a long value never leaves its card (E197).
+ *  --kpi-card is that value plus the card's padding (p-3, sm:p-4) and its 1px border. Below lg: two cards when every
+ *  value fits half the strip, else one. From lg: one card per tile, four at most (--kpi-cols), when they fit; else
+ *  two, else one, never three of four. The `min()` term is a step: when --kpi-card exceeds a column of --kpi-cols, its
+ *  multiplied excess lifts the minimum to half the strip. Each share keeps 0.5px back, so rounding never drops a
+ *  column that fits. Below 17em of its own text size the strip still takes one card, whatever its values. */
+const KPI_GRID = 'grid gap-3 [--kpi-card:calc(var(--kpi-value)_+_1.5rem_+_2px)] sm:[--kpi-card:calc(var(--kpi-value)_+_2rem_+_2px)] [--kpi-half:calc((100%_-_0.75rem)_/_2_-_0.5px)] [--kpi-each:calc((100%_-_(var(--kpi-cols)_-_1)_*_0.75rem)_/_var(--kpi-cols)_-_0.5px)] [grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-card),var(--kpi-half)),1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-each),var(--kpi-card),min(var(--kpi-half),calc(var(--kpi-each)_+_(var(--kpi-card)_-_var(--kpi-each))_*_1000000))),1fr))] [@container(width<17em)]:grid-cols-1'
+
 /** Headline strip: latest top line, net income, FCF, net margin — with the window's CAGR/YoY
  *  (or, for the percent-unit net-margin card, the window's pp change — CAGR doesn't apply). */
 export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
@@ -88,7 +99,8 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
       growthNote: isAnnual ? notes.noteForWindow(series) : notes.noteForComparison(point, 'yoy'),
       value: point.value as number,
       latestAvailable: point.period !== dataset.periods.at(-1)?.key,
-      format: series.concept === 'net_margin' ? (v) => fmtPercent(v, { digits: 1 }) : (v) => fmtCurrency(v, { compact: true, currency: series.unit.split('/')[0] }),
+      // A count-up frame is never wider than the value it ends on (compactCurrencyCountUp), so the final value sizes the card.
+      format: series.concept === 'net_margin' ? (v) => fmtPercent(v, { digits: 1 }) : compactCurrencyCountUp(point.value as number, series.unit.split('/')[0]),
       tone: series.tone,
       isPercent: series.percent,
       growth,
@@ -103,10 +115,13 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     })
   }
   if (kpis.length === 0) return null
+  // The strip's widest value on one line, its figure and marks (E197): CA$968.0M with its dagger needs 8.6375rem.
+  const widest = Math.max(...kpis.map((kpi) => kpiValueWidth(kpi.format(kpi.value), isCalculated(kpi.point), kpi.note?.letter)))
+  const grid = { '--kpi-value': `${Math.ceil(widest * 10000) / 10000}rem`, '--kpi-cols': Math.min(4, kpis.length) } as CSSProperties
 
   return (
     <div className="[container-type:inline-size]">
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4 [@container(width<17em)]:grid-cols-1">
+      <dl className={KPI_GRID} style={grid}>
         {kpis.map((kpi) => (
           <KpiTile key={kpi.label} kpi={kpi} />
         ))}

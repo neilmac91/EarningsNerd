@@ -4,7 +4,7 @@ import { useId, useState, type ReactNode } from 'react'
 import { Modal, ModalBody, ModalHeader } from '@/components/ui'
 import { formatLocalDate } from '@/lib/format'
 import type { AnalysisPoint } from '@/features/analysis/api/analysis-api'
-import { FCF_DEFINITION, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
+import { FCF_DEFINITION, isCalculated, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
 import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
@@ -98,7 +98,7 @@ export default function SourceValue({ point, label, concept, children, note, com
   const [open, setOpen] = useState(false)
   const id = useId()
   const provenance = point.provenance
-  const calculated = provenance?.method === 'calculated' || (!provenance && point.derived)
+  const calculated = isCalculated(point)
   const href = sourceUrl(point.source_url) ?? sourceUrl(provenance?.source_url)
   const figure = { concept, unit: point.unit }
   const display = compactFigure(point.value, figure)

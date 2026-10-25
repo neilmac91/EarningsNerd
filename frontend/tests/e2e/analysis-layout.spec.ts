@@ -99,7 +99,21 @@ async function pageAndCardGeometry(page: Page) {
         const range = document.createRange(); range.selectNodeContents(node)
         for (const rect of range.getClientRects()) if (rect.width && rect.height) record(rect, node.textContent)
       }
-      return { index, top: box.top, valueTop: value ? bounds(value).top : null, spills }
+      // The value's line, its figure and marks: the union of its painted glyphs.
+      const glyphs: DOMRect[] = []
+      const button = value?.querySelector('button')
+      if (button) {
+        const values = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+        for (let node = values.nextNode(); node; node = values.nextNode()) {
+          if (!node.textContent?.trim() || !node.parentElement || node.parentElement.closest('.sr-only')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          glyphs.push(...[...range.getClientRects()].filter(rect => rect.width))
+        }
+      }
+      const style = getComputedStyle(card)
+      const chrome = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, key) => sum + parseFloat(style[key as 'paddingLeft']), 0)
+      const line = glyphs.length ? Math.max(...glyphs.map(rect => rect.right)) - Math.min(...glyphs.map(rect => rect.left)) : 0
+      return { index, top: box.top, valueTop: value ? bounds(value).top : null, spills, line, chrome }
     })
     const rows: Array<{ top: number; valueTops: number[] }> = []
     for (const card of cards) {
@@ -107,11 +121,15 @@ async function pageAndCardGeometry(page: Page) {
       if (!row) { row = { top: card.top, valueTops: [] }; rows.push(row) }
       if (card.valueTop !== null) row.valueTops.push(card.valueTop)
     }
+    const strip = document.querySelector('[data-analysis-kpi]')!.parentElement!
+    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize)
     return {
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      kpiWidth: document.querySelector('[data-analysis-kpi]')!.parentElement!.getBoundingClientRect().width,
-      rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      kpiWidth: strip.getBoundingClientRect().width,
+      kpiBudget: parseFloat(getComputedStyle(strip).getPropertyValue('--kpi-value')) * rootFontSize,
+      kpiGap: parseFloat(getComputedStyle(strip).columnGap),
+      rootFontSize,
       cards,
       rows: rows.map(row => ({ values: row.valueTops.length, spread: Math.max(...row.valueTops) - Math.min(...row.valueTops) })),
     }
@@ -141,20 +159,44 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     }
   }
   await assertPaintedMarks(page, '[data-analysis-kpi]')
+  expect(geometry.rootFontSize).toBeCloseTo(16 * textScale, 1)
+  await assertKpiStrip(page, width, geometry)
+}
+
+/** The strip's columns follow its widest value (KpiStrip, E197): as many as the viewport allows (two below lg, one per
+ *  tile from lg, never three of four) when every card holds that value on one line, else two, else one, and one below
+ *  17em of its own text size. Each share keeps 0.5px back, as KpiStrip's do. */
+function expectedKpiColumns(geometry: Awaited<ReturnType<typeof pageAndCardGeometry>>, width: number) {
+  if (geometry.kpiWidth < 17 * geometry.rootFontSize) return 1
+  const card = geometry.kpiBudget + Math.max(...geometry.cards.map(item => item.chrome))
+  const fits = (n: number) => card <= (geometry.kpiWidth - (n - 1) * geometry.kpiGap) / n - 0.5
+  const most = width >= 1024 ? Math.min(4, geometry.cards.length) : 2
+  return [most, 2, 1].find(n => n <= most && fits(n)) ?? 1
+}
+
+/** No KPI value leaves its card or wraps, the page does not scroll sideways, the strip's budget is its widest value as
+ *  painted, and the columns are the most that value allows. */
+async function assertKpiStrip(page: Page, width: number, measured?: Awaited<ReturnType<typeof pageAndCardGeometry>>) {
+  const geometry = measured ?? await pageAndCardGeometry(page)
   await assertSourceControls(page, '[data-analysis-kpi]', 4)
   expect(geometry.scrollWidth, 'document must fit its layout viewport (including invisible positioned boxes)').toBeLessThanOrEqual(geometry.clientWidth + EPSILON)
   expect(geometry.scrollWidth, 'document must fit the configured viewport, even when innerWidth expands').toBeLessThanOrEqual(width + EPSILON)
   expect(geometry.clientWidth).toBeLessThanOrEqual(width)
-  expect(geometry.rootFontSize).toBeCloseTo(16 * textScale, 1)
   expect(geometry.cards).toHaveLength(4)
   for (const card of geometry.cards) {
     expect(card.valueTop, `KPI ${card.index} has a measured value`).not.toBeNull()
     expect(card.spills, `KPI ${card.index} child/text containment`).toEqual([])
   }
+  // The budget is the widest value as painted: never under it, or a card would be too narrow for it, and within a pixel
+  // over it, or the strip would give up a column it has room for.
+  const widest = Math.max(...geometry.cards.map(card => card.line))
+  expect(widest, 'a KPI value was measured').toBeGreaterThan(0)
+  expect(geometry.kpiBudget - widest, `the strip's budget (${geometry.kpiBudget}px) against its widest value (${widest}px)`).toBeGreaterThanOrEqual(-0.5)
+  expect(geometry.kpiBudget - widest, `the strip's budget (${geometry.kpiBudget}px) against its widest value (${widest}px)`).toBeLessThanOrEqual(1)
   expect(geometry.rows.length).toBeGreaterThan(0)
-  const columns = geometry.kpiWidth < 17 * geometry.rootFontSize ? 1 : width >= 1024 ? 4 : 2
+  const columns = expectedKpiColumns(geometry, width)
   for (const row of geometry.rows) {
-    expect(row.values, 'KPI count follows its own width at the active text size').toBe(columns)
+    expect(row.values, 'KPI count follows its widest value and its own width at the active text size').toBe(columns)
     // Compare only cards in the same physical row; a phone's second row is independent.
     expect(row.values).toBeGreaterThan(0)
     expect(row.spread, 'numeric value tops align within each physical KPI row').toBeLessThanOrEqual(EPSILON)
@@ -860,11 +902,14 @@ test.describe('analysis table periods / 816px at 200% text', () => {
   })
 })
 
-for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
-  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-  for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
+// At 360px the KPI strip carries a code-prefixed calculated value, "CA$968.0M†", whose dagger wrapped below it two up
+// (E197); the fixtures' dollar values fit there.
+for (const theme of THEMES) for (const width of [390, 360] as const) test.describe(`analysis phone marks / ${theme}${width === 360 ? ' / 360px' : ''}`, () => {
+  test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at ${width}px, in the figure face`, async ({ page, baseURL }) => {
     test.setTimeout(60_000)
-    await openAnalysis(page, baseURL!, state, theme, 1)
+    await openAnalysis(page, baseURL!, state, theme, 1, false, width === 360 ? withCanadianFreeCashFlow : undefined)
+    if (width === 360) await expect(page.locator('[data-analysis-kpi] button').filter({ hasText: /^CA\$968\.0M†/ })).toHaveCount(1)
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
     // The stylesheet the build emits (E199): the data face falls back to a monospace one, with no metric-matched Arial.
     const mono = await page.evaluate(() => ({
@@ -980,6 +1025,35 @@ const inSwissFrancs = (dataset: AnalysisDataset) => {
     for (const point of series.points) point.unit = 'CHF'
   }
 }
+
+/** Canadian Pacific's quarterly free cash flow on the latest point the series has: "CA$968.0M†", calculated. */
+const withCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
+  const series = dataset.series.find(item => item.concept === 'free_cash_flow')!
+  series.unit = 'CAD'
+  for (const point of series.points) point.unit = 'CAD'
+  series.points.findLast(point => point.value != null)!.value = 968_000_000
+}
+
+/** E197: a code-prefixed value that two cards cannot hold puts the strip in one column instead of leaving its card
+ *  ("CHF 22.8B†" ran 18px past it at 320px) or wrapping its dagger ("CA$968.0M†" at 360px); from 375px both fit two up,
+ *  and under 200% text from lg the strip takes two cards where four cannot hold them. */
+for (const theme of THEMES) test.describe(`analysis KPI strip, long values / ${theme}`, () => {
+  for (const [name, state, edit, value] of [
+    ['annual in CHF', 'annual', inSwissFrancs, 'CHF\u00a022.8B'], ['quarterly in CA$', 'legacy', withCanadianFreeCashFlow, 'CA$968.0M'],
+  ] as const) for (const [width, textScale, columns] of [[320, 1, 1], [360, 1, 1], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 2]] as const) {
+    test.describe(`${name} at ${width}px${textScale > 1 ? ' and 200% text' : ''}`, () => {
+      test.use({ viewport: { width, height: 900 }, isMobile: width <= 390, hasTouch: width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+      test(`its widest value stays in its card on one line, ${columns === 1 ? 'one card' : 'two cards'} across`, async ({ page, baseURL }) => {
+        test.setTimeout(60_000)
+        await openAnalysis(page, baseURL!, state, theme, textScale, false, edit)
+        await expect(page.locator('[data-analysis-kpi] [data-kpi-value] button').filter({ hasText: value }).first()).toBeVisible()
+        const geometry = await pageAndCardGeometry(page)
+        await assertKpiStrip(page, width, geometry)
+        expect(geometry.rows[0].values, 'cards across').toBe(columns)
+      })
+    })
+  }
+})
 
 for (const theme of THEMES) {
   test.describe(`analysis chart axes / ${theme}`, () => {

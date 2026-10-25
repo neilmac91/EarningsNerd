@@ -883,9 +883,19 @@ Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly
                  announces an automatically moved other endpoint through role=status. Unavailable
                  annual years remain visible but disabled options.
 
-Analysis KPI     <KpiStrip> — a definition list, two cards across at phone widths and four from lg.
-                 An inline-size container query collapses it to one card below 17em of the
-                 component’s actual text size; 320px at ordinary text still has two cards.
+Analysis KPI     <KpiStrip> — a definition list whose columns follow its widest value (E197): two
+                 cards across below lg and one per tile, four at most, from lg, wherever every card
+                 holds that value on one line, else two, then one, never three of four. The strip
+                 sets the value's one-line width (--kpi-value, features/analysis/lib/kpiStripLayout.ts:
+                 0.9rem a glyph, 0.5375rem a one-letter mark) and the tile count on itself; the grid
+                 adds the card's padding and border. So 320px keeps two cards for every dollar value
+                 the fixtures carry, and a code-prefixed one that two cards cannot hold ("CHF 22.8B†"
+                 at 320px, "CA$968.0M†" at 360px, 138.2px each) takes one card, not the card's edge;
+                 under 200% text from lg the strip takes two cards where four cannot hold its values.
+                 An inline-size container query still collapses it to one card below 17em of the
+                 component’s actual text size. A currency value counts up in the unit it ends in
+                 (compactCurrencyCountUp), so no frame is wider than the final value: compact notation
+                 on every frame showed "CHF 999.9M" on the way to "CHF 22.8B".
                  Each Card groups a metric-only dt and two dd rows: the 24px/600 value/source
                  button in the figure face at zero tracking and the figure ink (font-figure
                  tabular-nums lining-nums tracking-normal, text-figure-light dark:text-figure-dark:
@@ -894,7 +904,7 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
                  labels do not move neighbouring values. The period and delta wrap as independent
                  inline items; an older populated point says "latest available" beside its actual
                  period. Missing comparisons leave the period visible. Cards use 12px padding below
-                 sm and 16px above, preserving the two-up 320px treatment.
+                 sm and 16px above.
                  The label and the period take the secondary ink (Lc 90.9 / -77.3 on the panel; tertiary
                  is 74.1 in light, under the labels' 75). The change line is 12px in the figure face at
                  zero tracking with dataDirectionText (Delta text), its n/m read as “not meaningful”
@@ -902,8 +912,12 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
                  value's marks take the large staircase (SourceValue largeMarks; Data note mark). The
                  value keeps the dotted underline the table's figures do not carry. Gates:
                  tests/unit/kpi-strip.spec.tsx (the figure face and zero tracking on the value and the
-                 change line, n/m), tests/unit/data-note-mark.spec.tsx (the raises) and
-                 tests/unit/figureSurfaceInks.spec.ts (the KPI pairs).
+                 change line, n/m), tests/unit/kpi-strip-layout.spec.tsx (the width from the tokens
+                 that draw it, the grid's rule, the count-up's frames), tests/unit/data-note-mark.spec.tsx
+                 (the raises), tests/unit/figureSurfaceInks.spec.ts (the KPI pairs), and
+                 tests/e2e/analysis-layout.spec.ts: every profile checks the columns against the
+                 widest value as painted, and "analysis KPI strip, long values" holds CHF and CA$ values
+                 at 320–390px and under 200% text at 1024 and 1480px.
 
 Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
                  ground, below the KPIs. The title uses primary ink; counts use the data face, with

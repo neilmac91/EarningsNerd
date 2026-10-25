@@ -28,6 +28,11 @@ export interface QualityValue {
   reconciled?: boolean | null
 }
 
+/** A figure the engine calculated rather than took from the filing: it carries the † (DataNoteMark). */
+export function isCalculated(value: { provenance?: FactProvenance | null; derived?: boolean | null }): boolean {
+  return value.provenance ? value.provenance.method === 'calculated' : !!value.derived
+}
+
 export function needsSourceCheck(value: QualityValue): boolean {
   return value.provenance ? value.provenance.validation === 'needs_review' : value.reconciled === false
 }
