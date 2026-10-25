@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, type SegmentedOption } from '@/components/ui'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, cx, inputClasses, type SegmentedOption } from '@/components/ui'
 import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
 import { hasActiveSession } from '@/lib/api/session'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
-import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
+import { BOTTOM_CHROME_OFFSET, CONSENT_LAYER_EVENT } from '@/lib/consentLayer'
+import { overlapsKeepClear } from '@/lib/launcherKeepClear'
 
 // The report's kind: one choice among options that all show, so the SegmentedControl (E35), at its `md` size and
 // stretched across the form below 40rem (1280px under 200% text), wrapping whole segments onto another row where the
@@ -30,6 +31,11 @@ const LAUNCHER_OFFSET: React.CSSProperties = {
   left: 'max(1.25rem, env(safe-area-inset-left))',
 }
 
+// The launcher's one fixed site (tests/unit/bottomChromeLadder.spec.ts pins it at z-30). Its colour and opacity changes
+// take the fast motion token, and none runs under reduced motion (DESIGN_SYSTEM §11).
+const LAUNCHER_CLASS =
+  'fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-[color,background-color,opacity] duration-fast motion-reduce:transition-none hover:bg-white hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark'
+
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
  * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
@@ -48,6 +54,12 @@ export default function FeedbackWidget() {
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
+  const launcherRef = useRef<HTMLButtonElement>(null)
+  // N17: the launcher never rests over a headline figure. While a region the page marks keep-clear (the analysis KPI
+  // strip) lies under its box (lib/launcherKeepClear), it steps aside without moving: it fades and lets the pointer
+  // through to the figure, keyboard focus brings it back, and it never yields while its own dialog is open.
+  const [yielding, setYielding] = useState(false)
+  const shown = ENABLE_FEEDBACK_WIDGET && authed
   const close = () => setOpen(false)
 
   useEffect(() => {
@@ -56,7 +68,34 @@ export default function FeedbackWidget() {
     setAuthed(hasActiveSession())
   }, [])
 
-  if (!ENABLE_FEEDBACK_WIDGET || !mounted || !authed) return null
+  // Measured as DataTable's heading rail is: one check a frame at most, on a passive scroll, a resize, the consent bar
+  // coming or going (the launcher rises with it) and a change of the page's size (results mount after Run with no
+  // scroll). jsdom has no ResizeObserver of its own, hence the guard.
+  useEffect(() => {
+    if (!shown) return
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const box = launcherRef.current?.getBoundingClientRect()
+      setYielding(!!box && overlapsKeepClear(box))
+    }
+    const queue = () => { if (!frame) frame = requestAnimationFrame(check) }
+    queue()
+    window.addEventListener('scroll', queue, { passive: true })
+    window.addEventListener('resize', queue)
+    window.addEventListener(CONSENT_LAYER_EVENT, queue)
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(queue)
+    observer?.observe(document.body)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('scroll', queue)
+      window.removeEventListener('resize', queue)
+      window.removeEventListener(CONSENT_LAYER_EVENT, queue)
+      if (frame) cancelAnimationFrame(frame)
+    }
+  }, [shown])
+
+  if (!shown || !mounted) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -125,14 +164,17 @@ export default function FeedbackWidget() {
         </ModalBody>
       </Modal>
 
+      {/* Yielding, it keeps its place, its rung and its name in the accessibility tree. `focus:`, not `focus-visible:`,
+          so a focus Modal returns after a pointer close shows it too. */}
       <button
+        ref={launcherRef}
         type="button"
         aria-label={open ? 'Close feedback' : 'Send feedback'}
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
         style={LAUNCHER_OFFSET}
-        className="fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-white hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
+        className={cx(LAUNCHER_CLASS, yielding && !open && 'pointer-events-none opacity-0 focus:pointer-events-auto focus:opacity-100')}
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
         <span className="hidden sm:inline">Feedback</span>
