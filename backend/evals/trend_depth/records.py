@@ -2,7 +2,8 @@
 
 A generation record is *unsettled* while it holds a provider error: ``error`` (the generation failed, and the
 next ``generate`` makes it again) or ``repair_error`` (its first pass stands, and the next ``generate`` retries
-only the repair, which can change its output). Audits and verdicts wait until the record is settled. Each
+only the repair, which can change its output: ``awaiting_repair``). Audits and verdicts wait until the record is
+settled; the report counts a record awaiting its repair as not passing, as its first pass failed the gate. Each
 audit and verdict stores the hash of the output it read, so one left beside a changed output is redone, and
 the report leaves it out until then.
 """
@@ -54,6 +55,14 @@ def unsettled(record: Optional[dict[str, Any]]) -> Optional[str]:
     if "repair_error" in record:
         return "a repair that failed on a provider error, which generate retries"
     return None
+
+
+def awaiting_repair(record: Optional[dict[str, Any]]) -> bool:
+    """Whether a generation record's first pass stands while generate still owes its repair (``repair_error``: a
+    provider error, or a run stopped before the repair returned). generate sends a repair only when the first pass
+    fails its gate, so such an analysis has not passed without a model repair, whatever the repair returns: its first
+    output is final, its final output is not."""
+    return record is not None and "repair_error" in record and "error" not in record
 
 
 def read_same_output(saved: dict[str, Any], key: str, sha: str) -> bool:
@@ -158,6 +167,22 @@ def warm_first_attempts(records: list[dict[str, Any]], prefix: Callable[[dict[st
     an earlier request's pack, which ``api_cost`` prices as the prefix alone."""
     reads = [(read, prefix(r)) for r in records for read in first_reads(r)]
     return sum(1 for read, shared in reads if read > shared), len(reads)
+
+
+def quantile(values: list[float], q: float) -> Optional[float]:
+    """The q-quantile of recorded latencies, linear between the two nearest ranks (numpy's default;
+    ``statistics.quantiles``' inclusive method). DEEPSEEK-ERRORS.md §3's latency baselines were computed so: eval-v1
+    deepseek-flash's p50 9.7 s and p90 16.1 s, and its first attempts' 9.1 s and 9.9 s, which no other common method
+    gives (the nearest rank gives a p90 of 9.8 s there). The report's nearest rank, rounded half to even, took the lower
+    middle of 10 analyses as p50 (eval-v1's held-out half: 11.1 s for a median of 12.7 s) and the upper middle of 20
+    (9.8 s for 9.7 s), so a run of five repairs in ten could read under the 10.5 s target that its median misses."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    position = q * (len(ordered) - 1)
+    low = int(position)
+    high = min(low + 1, len(ordered) - 1)
+    return ordered[low] + (ordered[high] - ordered[low]) * (position - low)
 
 
 def api_cost(record: dict[str, Any], shared_cache: int = 0) -> Optional[float]:

@@ -81,13 +81,14 @@ def _auditable(harness: Any, monkeypatch: pytest.MonkeyPatch) -> list:
     """Stub the evidence an audit reads, so an audit reaches its model call; return the calls attempted."""
     item = {"sentence": "Revenue grew because demand rose.", "passages": [{"id": "P1", "filing": "10-K", "text": "Demand rose."}]}
     check = types.SimpleNamespace(CITATION_RE=harness.causes.factcheck.CITATION_RE, check=lambda sentences, pack: {
-        "detail": [{"text": "Revenue was 5.", "claims": [{"status": "verified", "ids": ["V1"], "claim": "5"}]}]})
+        "detail": [{"text": "Revenue was 5.", "claims": [{"status": "verified", "ids": ["V1"], "claim": "5"}]}]},
+        parse_claims=lambda text: ["5"])  # one parsed figure per claim, as the gate records them
     for module in (harness.causes, harness.semantics):
         monkeypatch.setattr(module, "load_pack", lambda ticker, system="": {"split": "dev", "values": {}})
         monkeypatch.setattr(module, "sentences_of", lambda output: [])
     monkeypatch.setattr(harness.causes, "cause_items", lambda sentences, pack: [item])
     monkeypatch.setattr(harness.semantics, "factcheck", check)
-    monkeypatch.setattr(harness.semantics, "_describe", lambda matched, ids, pack: "revenue, 2025")
+    monkeypatch.setattr(harness.semantics, "_describe", lambda matched, ids, pack, figure: "revenue, 2025")
     attempted: list = []
 
     async def auditor(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
@@ -98,7 +99,7 @@ def _auditable(harness: Any, monkeypatch: pytest.MonkeyPatch) -> list:
     return attempted
 
 
-def test_a_record_awaiting_its_repair_is_neither_audited_judged_nor_counted(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_record_awaiting_its_repair_is_neither_audited_nor_judged_and_is_counted_apart(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     attempted = _auditable(harness, monkeypatch)
     pending = _generation(harness, "deepseek-flash", repair_error="APIConnectionError: reset", gate={"passed": False})
     _generation(harness, "claude-sonnet-5-5")

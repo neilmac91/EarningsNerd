@@ -1,18 +1,23 @@
 """The depth harness's §3 measures and the auditor's view (evals/trend_depth/{report,semantics}.py, DEEPSEEK-ERRORS.md §3
 "Measures" and fix 14) over stub run records, version 1 (no ``pipeline``) and version 2 (``pipeline: "v2"``).
 
-Pins every measure on one basis for every record and arm: passes without a model repair (a failed generation counted as
-not passing, and its own row), first-try errors (the model's own first output under the gate now, every record alike:
-the gate's failing claims and the backstops' beyond them, each claim once), own-ID omissions and retypes, mislabels
-(distinct sentences per 1,000 verified claims, from R1, R2a, R2c, R3 and Opus's substantive flags; the other probe
-kinds in rows of their own; a flag on a bound counted under view 2 and every uncounted flag listed; the later view of
-one auditor's two audits, and none while its re-audit failed), the calibration measures, broken net cash (the breaks
-packs-v2 records, read alike for a figure cited by its withheld ID and one rebuilt from the lines packs-v2 shows; debt
-and liquidity breaks; version-1 peer ranks apart), cause support from Opus's audit, form, cost (each prompt's shared
-prefix over every label, so a warm repeat is priced cold), each arm's builds and the warning when they differ, the old
-gate's continuity score, the several-run summary (every run, its range and the runs pooled), ``--out``, and that a
-version-1 run reports its shared fields as before. Real cases read the committed packs (``_company``). And the auditor's
-view 2: signed values, a bound, identical-valued twins, its version marker, and the redo of an audit made under view 1.
+Pins every measure on one basis for every record and arm: passes without a model repair (a failed generation and an
+analysis awaiting its repair counted as not passing, each with its own row, a provider error counted apart, and a
+warning at the top while generate owes a call), the repairs sent for broken net cash alone, first-try errors (the model's
+own first output under the gate now, every record alike, one awaiting its repair too: the gate's failing claims and the
+backstops' beyond them, each claim once), own-ID omissions and retypes, mislabels (distinct sentences per 1,000 verified
+claims: the probes R1, R2a, R2c and R3 alone over every output, and with Opus's substantive flags over the outputs Opus
+read; the other probe kinds in rows of their own; a flag on a bound counted under view 2 and every uncounted flag
+listed; the later view of one auditor's two audits, and none while its re-audit failed), the calibration measures,
+broken net cash (the breaks packs-v2 records, read alike for a figure cited by its withheld ID and one rebuilt from the
+lines packs-v2 shows; debt and liquidity breaks, each counted under its own kind; version-1 peer ranks apart), cause
+support from Opus's audit, form, cost (each prompt's shared prefix over every label, so a warm repeat is priced cold),
+latency quantiles on the basis of §3's baselines, each arm's builds and the warning when they differ, that every
+measure reads the arm's own pack, the old gate's continuity score, the judge's verdicts per criterion (one run, and
+several summed), the several-run summary (every run, its range and the runs pooled), ``--out``, and that a version-1
+run reports its shared fields as before. Real cases read the committed packs (``_company``) and eval-v1's records. And
+the auditor's view 2: signed values, a bound, identical-valued twins, its version marker, and the redo of an audit made
+under view 1.
 
 The stages are imported over a stub bootstrap whose records, pack directories included, live in ``tmp_path``, as in
 ``test_trend_depth_stages.py`` (whose fixture is copied here), so the real bootstrap never loads and no model is called.
@@ -23,6 +28,7 @@ import asyncio
 import gzip
 import importlib
 import json
+import shutil
 import sys
 import types
 from pathlib import Path
@@ -278,7 +284,7 @@ def test_the_old_gate_scores_the_model_s_own_first_output(harness: Any) -> None:
     record = _v2(harness, output=fixed, first_pass_output=fixed, raw_first_pass_gate=FAILED_FIRST,
                  attempts=[_attempt(0, "nonsense", ("not JSON",)), _attempt(1, raw)])
     m = _measures(harness, [record], "deepseek-flash-c", ("abc1234", Gate))
-    assert seen == ["RAW", "FIXED"] and m["old_gate"] == {"commit": "abc1234", "first_try": 0, "final": 1}
+    assert seen == ["RAW", "FIXED"] and m["old_gate"] == {"commit": "abc1234", "first_try": 0, "first_try_of": 1, "final": 1}
     v1 = _record(harness, output=fixed, first_pass_output=raw, first_pass_gate=FAILED_FIRST,
                  attempts=[_attempt(0, fixed), _attempt("repair", "{}")])
     seen.clear()
@@ -327,6 +333,96 @@ def test_a_failed_generation_counts_as_not_passing(harness: Any, monkeypatch: py
     assert row.endswith("| 0 of 1 | 1 of 2 | 0–1 | 1 in all |")  # each run, the range and the runs pooled
 
 
+# --- Analyses awaiting a call from generate ---------------------------------------------------------------------------
+
+EVAL_V1 = COMMITTED / "runs" / "eval-v1"
+OWED_ROW = ("Repairs awaiting generate (a provider error or an interruption; each counts as not passing, as its first pass "
+            "failed the gate; re-run generate)")
+BROKEN_DEBT_REPAIRS_ROW = (
+    "Repairs sent for broken net cash alone (the gate's broken_debt backstop reads the arm's own pack's breaks, and "
+    "packs/ records none: only an arm reading packs-v2 can have one; K0's and Q's same figures count under broken net "
+    "cash below)")
+
+
+def _eval_v1(harness: Any, system: str, *tickers: str) -> list[dict[str, Any]]:
+    """eval-v1's committed records of ``system``, with both packs of each company under its own ticker."""
+    for ticker in tickers:
+        for version in ("packs", "packs-v2"):
+            _write(harness.generate.RUNS.parent / version / f"{ticker}.json", _committed(ticker, version))
+    return [json.loads((EVAL_V1 / system / f"{ticker}.json").read_text()) for ticker in tickers]
+
+
+def _awaiting(record: dict[str, Any]) -> dict[str, Any]:
+    """A repaired version-1 record as a provider error during its repair would have left it: the first pass stands."""
+    owed = {**record, "output": record["first_pass_output"], "gate": record["first_pass_gate"], "repair_error": "APIError: 503",
+            "attempts": [a for a in record["attempts"] if a.get("attempt") != "repair"]}
+    return {key: value for key, value in owed.items() if key not in ("first_pass_output", "first_pass_gate")}
+
+
+def test_an_analysis_awaiting_its_repair_counts_as_not_passing_and_is_flagged(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 7 measures [1]: generate repairs only a first pass that failed the gate, so a record left awaiting its repair
+    has not passed. Dropped from the denominators, an outage during the repairs removed exactly the failing analyses:
+    eval-v1's DeepSeek read 13 of 13 and 0.00 first-try errors instead of 13 of 20 and 0.40. Its first output is final
+    and scored; its final output is not, and waits. Two of eval-v1's repaired DeepSeek analyses and one that passed."""
+    recorded = _eval_v1(harness, "deepseek-flash", "MSFT", "NVDA", "REGN")
+    owed = [_awaiting(r) if harness.report.repaired(r) else r for r in recorded]
+    as_recorded, outage = _measures(harness, recorded), _measures(harness, owed)
+    rows = {name: shown for name, _, shown, *_ in harness.report.measure_rows(outage)}
+    assert rows["Passes without a model repair"] == "1 of 3 (33%; 2 awaiting a repair among them)" and rows[OWED_ROW] == "2 of 3"
+    assert outage["first_try_scored"] == as_recorded["first_try_scored"] == 3
+    assert (outage["first_try_errors"], outage["first_try_backstops"]) == (as_recorded["first_try_errors"], as_recorded["first_try_backstops"])
+    assert (outage["analyses"], as_recorded["analyses"]) == (1, 3)  # a final output still to come is in no other row
+    summary = {"splits": {split: {"companies": 3, "measures": {"deepseek-flash": outage}, "judge": {"criteria": {}}}
+                          for split in ("dev", "holdout", "all")}}
+    text = harness.report.render_runs(["r1"], ["deepseek-flash"], {"r1": summary})
+    warning = "> **Warning:** `deepseek-flash` in `r1`: 2 repairs awaiting generate, counted as not passing."
+    assert text.index(warning) < text.index("## dev") and f"| {OWED_ROW} | 0 | 2 of 3 |" in text
+    # A single run's report warns too, and a provider error (no output yet) is named apart.
+    _packs(harness)
+    _record(harness, repair_error="APIError: 503", gate=FAILED_FIRST)
+    _write(harness.generate.RUNS / LABEL / "deepseek-flash" / "E.json",
+           {"ticker": "E", "arm": "deepseek-flash", "generation_ok": False, "error": "RateLimitError", "attempts": []})
+    monkeypatch.setattr(harness.report, "eval_companies", lambda split=None: [types.SimpleNamespace(ticker=t) for t in (TICKER, "E")])
+    text = harness.report.render(LABEL, ["deepseek-flash"], harness.report.summarise(LABEL, ["deepseek-flash"], None))
+    assert text.index("> **Warning:** `deepseek-flash` in `test`: 1 repair awaiting generate, counted as not passing; 1 "
+                      "generation awaiting generate after a provider error, in no row.") < text.index("## dev")
+
+
+def test_a_repair_sent_for_broken_net_cash_alone_is_counted_apart(harness: Any) -> None:
+    """Review 7 measures [0], refuted as the experiment's own treatment and shown instead: under --pipeline v2 the gate's
+    broken_debt backstop reads the arm's own pack, so P and C (packs-v2) pay a repair for the review's rebuilt KO net
+    cash, which K0 states from packs/ unrepaired (and broken net cash counts against it). The row says how many of an
+    arm's repairs were for that alone: not one with another failure beside it, and one still owed too."""
+    _company(harness, "KO")
+    rebuilt, other = "Net cash was $8.8 billion in FY2025 [D440][X186].", "Revenue was $99.0 billion in FY2025 [D440]."
+    v2_pack = harness.generate.load_pack(TICKER, "deepseek-flash-c")
+
+    def after_fixes(*texts: str) -> dict[str, Any]:
+        return harness.report.factcheck.check([{"section": "balance_sheet", "type": "fact", "text": t} for t in texts], v2_pack,
+                                              backstops=True)
+
+    alone, mixed = after_fixes(rebuilt), after_fixes(rebuilt, other)
+    assert {f["failure"].split(":")[0] for f in alone["failures"]} == {"backstop broken_debt"}
+    assert {f["failure"].split(":")[0] for f in mixed["failures"]} == {"backstop broken_debt", "'$99.0 billion' matches nothing the sentence cites"}
+    repaired = [_attempt(0, _sections(balance_sheet=[rebuilt])), _attempt("repair", "{}")]
+    c_records = [_v2(harness, first_pass_gate=alone, attempts=repaired, repair_kind="patch"),
+                 _v2(harness, first_pass_gate=mixed, attempts=repaired, repair_kind="patch"),
+                 _v2(harness, gate=alone, attempts=repaired[:1], repair_error="APIError: 503")]  # its repair still owed
+    c = _measures(harness, c_records, "deepseek-flash-c")
+    rows = {name: shown for name, _, shown, *_ in harness.report.measure_rows(c)}
+    assert [d["ticker"] for d in c["repairs_for_broken_debt_alone"]] == [TICKER, TICKER]
+    assert rows[BROKEN_DEBT_REPAIRS_ROW] == "2 of 3 repairs"
+    listed = "\n".join(harness.report.hand_reading("deepseek-flash-c", c))
+    assert listed.count(f"- {TICKER} [balance_sheet] backstop broken_debt: '$8.8 billion' 'Net cash' from difference D440-X186") == 2
+    k0_sentence = ("Net cash was $8.8 billion at FY2025, or 18.3% of revenue, against $10.3 billion of cash and investments "
+                   "[D442][D443][D440].")
+    k0_gate = harness.report.factcheck.check([{"section": "balance_sheet", "type": "fact", "text": k0_sentence}],
+                                             harness.generate.load_pack(TICKER, "deepseek-flash"), backstops=True)
+    assert k0_gate["passed"]  # packs/ records no break: no repair, so none to count
+    k0 = _measures(harness, [_record(harness, output=_sections(balance_sheet=[k0_sentence]), pipeline="v2", gate=k0_gate)])
+    assert k0["repairs_for_broken_debt_alone"] == [] and k0["broken_net_cash"]["stated_as_fact"] == 1
+
+
 
 # --- Mislabels, unsigned falls, calibration, form ---------------------------------------------------------------------
 
@@ -341,8 +437,10 @@ def _item(sentence: str, claim: str, label: str = "mismatch") -> dict[str, str]:
     return {"sentence": CITATION_RE.sub("", sentence).strip(), "claim": claim, "match": "m", "label": label, "reason": "r"}
 
 
-MISLABEL_ROW = ("Mislabelled sentences per 1,000 verified claims: probes R1, R2a, R2c, R3 and Opus substantive flags "
-                "(a sentence stating broken net cash is counted there instead)")
+MISLABEL_ROW = ("Mislabelled sentences per 1,000 verified claims: probes R1, R2a, R2c, R3 and Opus substantive flags, over the "
+                "outputs Opus read (a sentence stating broken net cash is counted there instead)")
+PROBES_ROW = ("Mislabelled sentences per 1,000 verified claims, probes R1, R2a, R2c and R3 alone, every output (a sentence "
+              "stating broken net cash is counted there instead)")
 
 
 def test_mislabels_are_sentences_from_the_mislabel_probes_and_opus_substantive_flags(harness: Any) -> None:
@@ -366,8 +464,33 @@ def test_mislabels_are_sentences_from_the_mislabel_probes_and_opus_substantive_f
                        ("5.7%", "claude-opus-5-5 (view 2)")]
     assert [h["claim"] for h in m["U1"]] == ["5.3%"] and m["unitless_dollars"] == m["gap_direction"] == m["logic_slips"] == []
     shown = {name: s for name, _, s, *_ in harness.report.measure_rows(m)}
-    assert shown[MISLABEL_ROW] == (f"{3 / m['verified_claims'] * 1000:.1f} (3 sentences in {m['verified_claims']} verified claims "
-                                   "of 1 outputs: probes 1, Opus 3; Opus read 1 of 1, view 2 (1))")
+    verified = m["verified_claims"]
+    assert shown[MISLABEL_ROW] == (f"{3 / verified * 1000:.1f} (3 sentences in {verified} verified claims of the 1 of 1 "
+                                   "outputs Opus read: probes 1, Opus 3; view 2 (1))")
+    assert shown[PROBES_ROW] == f"{1 / verified * 1000:.1f} (1 sentence in {verified} verified claims of 1 outputs)"
+
+
+def test_each_mislabel_row_is_on_one_basis_for_every_arm(harness: Any) -> None:
+    """Review 7 measures [6]: dev-v5 audits K0 and C only, so P's and Q's probes-and-Opus rate was the probes' alone, in
+    the column beside K0's and C's. The probes alone have a row every arm shares; the probes with Opus count only the
+    outputs Opus read, claims and sentences alike."""
+    _packs(harness, v2=_pack())  # no break: the net-debt sentence is a mislabel only
+    audited = _record(harness)  # DEBT's two figures are one R2a sentence
+    _semantic_audit(harness, audited, "semantics", "claude-opus-5-5", [_item(GREW, "5.7%")], view=2)
+    unread = {**_record(harness), "ticker": "U"}  # the same output for a company Opus has not read
+    _write(harness.generate.RUNS.parent / "packs" / "U.json", _pack())
+    _write(harness.generate.RUNS.parent / "packs-v2" / "U.json", _pack())
+    m = _measures(harness, [audited, unread])
+    shown = {name: s for name, _, s, *_ in harness.report.measure_rows(m)}
+    each = m["verified_claims"] // 2
+    assert (m["verified_claims"], m["audited_verified_claims"], m["audited_mislabels"]) == (2 * each, each, 2)
+    assert shown[PROBES_ROW] == f"{2 / (2 * each) * 1000:.1f} (2 sentences in {2 * each} verified claims of 2 outputs)"
+    assert shown[MISLABEL_ROW] == (f"{2 / each * 1000:.1f} (2 sentences in {each} verified claims of the 1 of 2 outputs Opus "
+                                   "read: probes 1, Opus 1; view 2 (1))")
+    p_arm = _measures(harness, [unread])  # P or Q: no Opus audit at all
+    rows = {name: (s, value) for name, _, s, value, *_ in harness.report.measure_rows(p_arm)}
+    assert rows[MISLABEL_ROW] == ("— (Opus read none of 1)", None)  # never its probes' rate under the target
+    assert rows[PROBES_ROW] == (f"{1 / each * 1000:.1f} (1 sentence in {each} verified claims of 1 outputs)", 1 / each * 1000)
 
 
 def test_a_sentence_stating_broken_net_cash_is_counted_there_not_among_mislabels(harness: Any) -> None:
@@ -542,6 +665,17 @@ def test_broken_net_cash_rows_read_packs_v2_s_breaks_for_every_arm(harness: Any)
     assert rows[BROKEN_ROW] == "1 of 1 (0 disclosed; debt break 1 of 1)"
 
 
+def test_a_figure_counts_under_its_own_break_kind_alone(harness: Any) -> None:
+    """Review 7 tests-and-gates [5]: COP names a debt and a liquidity break; eval-v1 DeepSeek's sentence states only
+    the debt break's FY2025 net cash, so it counts under the debt break and never under the liquidity break (§3's
+    "debt break 4 of 6; liquidity break 2 of 5" rests on this)."""
+    _company(harness, "COP")
+    cop = ("Net cash was $7.1 billion, or 12.1% of revenue, in FY2025, in the 100th percentile of six energy peers "
+           "[D337][D338][D850][D851].")
+    debt = _measures(harness, [_record(harness, output=_sections(balance_sheet=[cop]))])["broken_net_cash"]
+    assert debt["by_check"] == {"debt_break": [1, 1], "liquidity_break": [0, 1]}
+
+
 def test_a_version_1_peer_rank_on_a_peer_s_broken_year_has_its_own_row(harness: Any) -> None:
     """CAT's eval-v1 DeepSeek sentence cites the version-1 peer median and rank packs-v2 replaces (peer_break): only an arm
     reading packs/ can cite them, so they are informational, never broken net cash (CAT names no break of its own)."""
@@ -596,6 +730,48 @@ def test_an_arm_s_builds_are_listed_and_more_than_one_is_a_warning(harness: Any,
         "packs-v2 (1); v2 · prompt aaaaaaaa · packs-v2 (1).", ""]
 
 
+def test_every_measure_reads_the_arm_s_own_pack(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 7 tests-and-gates [1]: nothing pinned that arm_measures reads the arm's own pack. Reading packs/ for every
+    arm, C's sentence citing packs-v2's own D1168 (CAT's same-year margin gap) was an unknown citation, a first-try error
+    for P and C alone. Each measure's pack is recorded: the gate's, the probes', the audit flag's class, broken net
+    cash's (whose reference is packs-v2 for every arm) and the old gate's."""
+    _company(harness, "CAT")
+    margin = "In FY2025 net margin of 13.1% sat 3.4pp below the 16.5% operating margin [F50][F30][D1168]."
+    read: set[tuple[str, str]] = set()
+
+    def which(pack: dict[str, Any]) -> str:
+        return "packs-v2" if "D1168" in pack["values"] else "packs"  # version 2 only appends IDs
+
+    def reading(name: str, function: Any, at: int = 1) -> Any:
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            read.add((name, which(args[at])))
+            return function(*args, **kwargs)
+        return wrapped
+
+    report = harness.report
+    monkeypatch.setattr(report.factcheck, "analyse_sentence", reading("gate", report.factcheck.analyse_sentence))
+    monkeypatch.setattr(report.probes, "probe_sentence", reading("probes", report.probes.probe_sentence))
+    monkeypatch.setattr(report, "classify_flag", reading("flag class", report.classify_flag, 2))
+    broken = report.broken_net_cash
+    monkeypatch.setattr(report, "broken_net_cash", lambda s, pack, reference: read.update(
+        {("broken net cash", which(pack)), ("its reference", which(reference))}) or broken(s, pack, reference))
+
+    class Gate:
+        @staticmethod
+        def check(sentences: list, pack: dict) -> dict:
+            read.add(("old gate", which(pack)))
+            return {"passed": True}
+
+    for system, folder, errors in (("deepseek-flash-c", "packs-v2", []), ("deepseek-flash", "packs", ["unknown citation(s): D1168"])):
+        read.clear()
+        record = _record(harness, system, output=_sections(margins=[margin]))
+        _semantic_audit(harness, record, "semantics", "claude-opus-5-5", [_item(margin, "13.1%")], view=2)
+        m = report.arm_measures(LABEL, system, [record], {}, ("abc1234", Gate))
+        assert [f["failure"] for f in m["first_try_failures"]] == errors and m["opus_audited"] == 1
+        assert read == {*((name, folder) for name in ("gate", "probes", "flag class", "broken net cash", "old gate")),
+                        ("its reference", "packs-v2")}
+
+
 # --- Cost -------------------------------------------------------------------------------------------------------------
 
 def _priced(harness: Any, label: str, reads: list[int]) -> list[dict[str, Any]]:
@@ -636,6 +812,26 @@ def test_a_warm_repeat_run_is_priced_as_a_cold_one(harness: Any) -> None:
     assert rows["API list cost per analysis"].endswith("(first requests read a 1,920-token shared prefix; 1 of 1 read more, priced at it)")
 
 
+def test_latency_quantiles_are_on_the_basis_of_section_3_s_baselines(harness: Any) -> None:
+    """Review 7 measures [2]: the nearest rank, rounded half to even, gave the lower middle of 10 analyses as p50 (eval-v1
+    DeepSeek's held-out half: 11.1 s for a median of 12.7 s) and the upper middle of 20 (9.8 s against §3's 9.7 s).
+    §3's baselines are linear between the two nearest ranks: eval-v1's 9.7 s and 16.1 s, and its first attempts' 9.1 s
+    and 9.9 s, which no other common method gives."""
+    quantile = harness.report.quantile  # records.quantile, as the report reads it
+    records = [json.loads(path.read_text()) for path in sorted((EVAL_V1 / "deepseek-flash").glob("*.json"))]
+    latency = [r["latency_s"] for r in records]
+    assert (f"{quantile(latency, 0.5):.1f}", f"{quantile(latency, 0.9):.1f}") == ("9.7", "16.1")
+    firsts = [sum(a["latency_s"] for a in r["attempts"] if a["attempt"] != "repair") for r in records]
+    assert (f"{quantile(firsts, 0.5):.1f}", f"{quantile(firsts, 0.9):.1f}") == ("9.1", "9.9")
+    assert f"{quantile([r['latency_s'] for r in records if r['split'] == 'holdout'], 0.5):.1f}" == "12.7"
+    # Five first passes and five repairs: the lower middle, 9.5 s, read as a pass of the 10.5 s target.
+    assert quantile([9.0, 9.1, 9.2, 9.3, 9.5, 14.0, 14.5, 15.0, 15.5, 16.0], 0.5) == pytest.approx(11.75)
+    assert (quantile([], 0.5), quantile([4.0], 0.9)) == (None, 4.0)
+    _packs(harness)
+    names = [name for name, *_ in harness.report.measure_rows(_measures(harness, [_record(harness)]))]
+    assert {f"Latency p50 (s), {harness.report.QUANTILE}", f"Latency p90 (s), {harness.report.QUANTILE}"} <= set(names)
+
+
 # --- Several runs -----------------------------------------------------------------------------------------------------
 
 def test_several_runs_show_every_run_its_range_and_the_runs_pooled(harness: Any, monkeypatch: pytest.MonkeyPatch,
@@ -655,6 +851,31 @@ def test_several_runs_show_every_run_its_range_and_the_runs_pooled(harness: Any,
     assert set(summary["runs"]) == {"run-a", "run-b"} and not (harness.generate.RUNS / "run-a" / "REPORT.md").exists()
     # Pooled over all the runs' analyses, not the mean of the runs' shares: 1 of 1 and 1 of 2 pool to 67%, not 75%.
     assert harness.report._pooled([(1, 1, 100), (1, 2, 100)], harness.report._percent) == "67%"
+
+
+def test_the_judge_s_verdicts_are_shown_per_criterion_and_summed_across_runs(harness: Any) -> None:
+    """Review 7 rules-and-brief [1]: §3's judge target reads grounding, calibration and depth over 20 pairs per split (two
+    runs of 10), but the report printed the overall verdict alone and --labels no judge row at all. eval-v1's 20
+    DeepSeek-against-Sonnet pairs, as recorded."""
+    pair, runs = "deepseek-flash|claude-sonnet-5-5", harness.generate.RUNS / "eval-v1"
+    for system in pair.split("|"):
+        shutil.copytree(EVAL_V1 / system, runs / system)
+    for path in (EVAL_V1 / "judge").glob("*/*__deepseek-flash__claude-sonnet-5-5.json"):
+        _write(runs / "judge" / path.parent.name / path.name, json.loads(path.read_text()))
+    tickers = sorted(path.stem for path in (EVAL_V1 / "deepseek-flash").glob("*.json"))
+    matrix = harness.report.judge_matrix("eval-v1", pair.split("|"), tickers)
+    joint = harness.report.JOINT
+    assert dict(harness.report.judge_criteria(matrix, pair)) == {
+        "depth": (2, 1, 17), "grounding": (0, 3, 17), "coverage": (1, 0, 19), "clarity": (0, 0, 20), "calibration": (0, 2, 18),
+        joint: (16, 20, 20)}  # Sonnet won grounding (COST, CVX, DUK) or calibration (CVX, KO) in 4 pairs; DeepSeek neither
+    summary = {"splits": {split: {"companies": 20, "arms": {}, "judge": matrix, "measures": {}} for split in ("dev", "holdout", "all")}}
+    text = harness.report.render("eval-v1", pair.split("|"), summary)
+    assert "| deepseek-flash vs claude-sonnet-5-5 | grounding | 0 | 3 | 17 |" in text
+    assert f"| deepseek-flash vs claude-sonnet-5-5 | {joint} | 16 | 20 | of 20 |" in text
+    text = harness.report.render_runs(["r1", "r2"], pair.split("|"), {"r1": summary, "r2": summary})
+    assert "| deepseek-flash vs claude-sonnet-5-5 | grounding | 0 · 3 · 17 | 0 · 3 · 17 | 0 · 6 · 34 |" in text
+    assert f"| deepseek-flash vs claude-sonnet-5-5 | {joint} | 16 · 20 of 20 | 16 · 20 of 20 | 32 · 40 of 40 |" in text
+    assert text.count("### Judge, per criterion") == 3  # each split
 
 
 def test_out_writes_the_report_elsewhere_and_leaves_runs_untouched(harness: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
