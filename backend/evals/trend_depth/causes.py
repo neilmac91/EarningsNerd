@@ -26,7 +26,9 @@ from evals.trend_depth.generate import RUNS, load_pack, sentences_of
 from evals.trend_depth.gold import pack_with_extras
 from evals.trend_depth.judge import JUDGE_ORDER, _family
 from evals.trend_depth.providers import ARMS, call, parse_json_object
-from evals.trend_depth.records import excerpt, labelled, output_sha256, read_same_output, text_sha256, unsettled, write_json
+from evals.trend_depth.records import (
+    excerpt, labelled, output_sha256, own_spend, read_same_output, text_sha256, unsettled, write_json,
+)
 
 SYSTEM = """You audit financial analysis for faithfulness to its sources. For each numbered claim you get the
 sentence and the full text of the 10-K passages it cites. Decide whether the passages state the cause the
@@ -58,8 +60,9 @@ def labels_or_raise(result: Any, entries: Any, expected: int) -> dict[int, dict[
 def reuse_audit(label: str, kind: str, system: str, ticker: str, auditor: Optional[str], sha: str) -> None:
     """Copy an audit already made by the same auditor between the default folder (``kind``) and the same-auditor
     folder (``kind-by-<auditor>``), in whichever direction it is wanted, so the same audit is never paid for twice.
-    Only a finished audit of the output whose hash is ``sha`` is copied; a failed one held by the target is
-    replaced, its cost carried onto the copy."""
+    Only a finished audit of the output whose hash is ``sha`` is copied, marked ``copied_from``. It replaces a
+    failed audit, or one of an earlier output, that the target held, and carries what the target's folder had
+    spent there (``records.own_spend``), so each folder's records count each paid call once."""
     default_auditor = _auditor(system)
     default = RUNS / label / kind / system / f"{ticker}.json"
     same = RUNS / label / f"{kind}-by-{default_auditor}" / system / f"{ticker}.json"
@@ -72,15 +75,11 @@ def reuse_audit(label: str, kind: str, system: str, ticker: str, auditor: Option
     if ("error" in record or not read_same_output(record, "output_sha256", sha)
             or record.get("auditor") not in (default_auditor, None)):  # trust the record, not the folder it sits in
         return
-    if target.exists():
-        held = json.loads(target.read_text())
-        if "error" not in held and read_same_output(held, "output_sha256", sha):
-            return  # already a finished audit of this output
-        if "error" in held:  # a failed call of its own: its cost is carried onto the copy
-            record["prior_cost_usd"] = round(record.get("prior_cost_usd", 0) + held.get("cost_usd", 0) + held.get("prior_cost_usd", 0), 6)
-        # A finished audit of an earlier output is a copy of the one the source replaced, whose cost the source
-        # already carries, so it is replaced without adding it again.
-    write_json(target, record)
+    held = json.loads(target.read_text()) if target.exists() else None
+    if held is not None and "error" not in held and read_same_output(held, "output_sha256", sha):
+        return  # already a finished audit of this output
+    copy = {**record, "copied_from": source.parent.parent.name, "prior_cost_usd": own_spend(held) if held else 0.0}
+    write_json(target, copy)
 
 
 def earlier_audit(out_path: Any, sha: str) -> tuple[Optional[dict[str, Any]], float]:
@@ -91,7 +90,7 @@ def earlier_audit(out_path: Any, sha: str) -> tuple[Optional[dict[str, Any]], fl
     earlier = json.loads(out_path.read_text())
     if "error" not in earlier and read_same_output(earlier, "output_sha256", sha):
         return earlier, 0.0
-    return None, round(earlier.get("cost_usd", 0) + earlier.get("prior_cost_usd", 0), 6)
+    return None, own_spend(earlier)
 
 
 def write_failed(record: dict[str, Any], result: Any, exc: Exception, out_path: Any) -> None:

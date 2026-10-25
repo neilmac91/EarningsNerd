@@ -84,6 +84,13 @@ def excerpt(text: str, keep: int = 4000) -> str:
     return f"{text[:keep]}\n[... {len(text) - 2 * keep} characters left out ...]\n{text[-keep:]}"
 
 
+def own_spend(audit: dict[str, Any]) -> float:
+    """What the calls made into an audit's own folder cost: its call and the earlier ones it replaced there. A copy
+    from the other folder (``copied_from``) carries the other folder's call, so only its own earlier spend counts."""
+    own = 0.0 if audit.get("copied_from") else audit.get("cost_usd", 0) or 0
+    return round(own + (audit.get("prior_cost_usd", 0) or 0), 6)
+
+
 def all_attempts(record: dict[str, Any]) -> list[dict[str, Any]]:
     """Every call a record paid for: earlier generations that failed on a provider error, then its own."""
     return [*record.get("prior_attempts", []), *record.get("attempts", [])]

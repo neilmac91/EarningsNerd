@@ -137,7 +137,8 @@ Several safeguards keep the spend to these figures and the results honest (`reco
 - **Refusals.** A refusal is the model's own outcome and is not retried.
 - **Pair orientation.** A pair is cached in one fixed orientation, whatever order `--systems` lists it in.
 - **Shared audits.** An audit already made by the same auditor is copied between the default and same-auditor
-  folders in either direction, never paid for twice.
+  folders in either direction, never paid for twice. A copy is marked `copied_from`, and each record carries
+  only what its own folder paid (`records.own_spend`), so every paid call is counted once.
 
 ## Rebuild the evidence
 

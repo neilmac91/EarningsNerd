@@ -22,6 +22,15 @@ from evals.trend_depth.providers import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _release_the_key_lock():
+    """Each test that spends takes the ledger lock on its own temporary ledger; release it after the test."""
+    yield
+    if providers._key_lock is not None:
+        providers._key_lock[1].close()
+        providers._key_lock = None
+
+
 def _request(arm: str) -> dict:
     return anthropic_request(ARMS[arm], "system text", "user text", 16000)
 
@@ -209,7 +218,7 @@ def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkey
 
         monkeypatch.setattr(providers, "_sleep", gated)
         first = asyncio.create_task(call(sonnet, "s", "u"))
-        await backing_off.wait()
+        await asyncio.wait_for(backing_off.wait(), 5)  # a regression that stops retrying fails here, never hangs
         with pytest.raises(BudgetExceeded):  # the cut's worst case is already counted while the first waits
             await call(sonnet, "s", "u")
         assert len(sent) == 1
@@ -261,18 +270,39 @@ def test_an_interruption_whose_cost_is_unknown_keeps_its_worst_case(monkeypatch:
     assert providers.anthropic_spend() == pytest.approx(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000))
 
 
-def test_an_interruption_before_the_cost_row_is_written_keeps_the_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+@pytest.mark.parametrize("cut", [False, True])  # the attempt returned, or failed after it started
+def test_an_interruption_before_the_cost_row_is_written_keeps_the_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path, cut: bool) -> None:
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
+    if cut:
+        _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(0.3), True)])
     real_log = providers._log_spend
 
     def interrupted(arm, result, tag, estimated=""):
-        raise KeyboardInterrupt  # a second Ctrl-C after the attempt returned, before its row is on disk
+        raise KeyboardInterrupt  # a second Ctrl-C before the attempt's own row is on disk
 
     monkeypatch.setattr(providers, "_log_spend", interrupted)
     with pytest.raises(KeyboardInterrupt):
         asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u"))
     monkeypatch.setattr(providers, "_log_spend", real_log)
     assert providers.anthropic_spend() == pytest.approx(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000))
+
+
+@pytest.mark.parametrize("backend", ["openai_compat", "claude_cli"])
+def test_a_call_on_another_backend_is_logged_when_it_returns(monkeypatch: pytest.MonkeyPatch, tmp_path, backend: str) -> None:
+    _api(monkeypatch, tmp_path, 0.0, {})
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    arm = ARMS["deepseek-flash" if backend == "openai_compat" else "claude-sonnet-5-5"]
+    finish = [{"stop_reason": "end_turn"}, {"finish_reason": "length"}]
+
+    async def reply(*args, **kwargs):
+        return CallResult("{}", 1000, 0, 10, 0, 0.1, 0.02, backend, arm.model, finish.pop(0))
+
+    monkeypatch.setattr(providers, "_call_openai_compat" if backend == "openai_compat" else "_call_claude_cli", reply)
+    asyncio.run(call(arm, "s", "u", tag="t"))
+    with pytest.raises(IncompleteReply):  # cut at its cap: still paid, so logged before it is raised
+        asyncio.run(call(arm, "s", "u", tag="t"))
+    rows = _paid(tmp_path)
+    assert [(row["backend"], row["cost_usd"]) for row in rows] == [(backend, 0.02), (backend, 0.02)]
 
 
 def test_a_second_process_on_the_key_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -492,6 +522,9 @@ def test_the_real_sdk_path_logs_what_each_failure_may_cost(monkeypatch: pytest.M
     assert len(estimated) == int(cut)
     if cut:
         assert (estimated[0]["input_tokens"], estimated[0]["output_tokens"]) == (50000, 64000)
+    paid = [row for row in _paid(tmp_path) if not row.get("estimated")]
+    assert len(paid) == 1 and paid[0]["output_tokens"] == 3000  # the reply's own usage, from its message_delta
+    assert paid[0]["cost_usd"] == pytest.approx(list_cost(ARMS["claude-sonnet-5-5"], 50000, 0, 3000))
 
 
 _REAL_ATTEMPT = providers._call_anthropic  # kept before any test replaces it

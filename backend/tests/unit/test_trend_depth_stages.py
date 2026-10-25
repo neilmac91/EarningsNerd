@@ -316,21 +316,29 @@ def test_a_first_pass_is_kept_while_its_repair_is_in_flight(harness: Any, monkey
     assert kept["prompt_sha256"] == hashlib.sha256(b"the prompt").hexdigest() and kept["snapshot_id"] == "s1"
 
 
-def test_a_stale_audit_in_the_target_folder_is_replaced_by_a_copy(harness: Any) -> None:
+@pytest.mark.parametrize("held, paid", [
+    ({"copied_from": "causes", "cost_usd": 0.3}, 0.8),  # a copy of the v1 audit the source itself replaced
+    ({"cost_usd": 0.3}, 1.1),  # an audit of v1 paid for in the target folder on its own
+    ({"error": "NoLabels", "cost_usd": 0.2}, 1.0),  # a failed call of the target folder's own
+])
+def test_each_paid_audit_is_counted_once_across_the_two_folders(harness: Any, held: dict[str, Any], paid: float) -> None:
+    from evals.trend_depth.records import own_spend
+
     record = _generation(harness, "deepseek-flash")
     runs = harness.generate.RUNS / LABEL
     default = runs / "causes" / "deepseek-flash" / f"{TICKER}.json"
     same = runs / "causes-by-claude-opus-5-5" / "deepseek-flash" / f"{TICKER}.json"
-    # The audit of v1 (0.3) was copied to the same-auditor folder; v2's audit (0.5) carries v1's cost already.
-    _write(same, {"auditor": "claude-opus-5-5", "output_sha256": "the v1 output", "items": [], "cost_usd": 0.3})
+    # The default folder audited v1 (0.3) and then v2 (0.5), carrying v1's cost.
     _write(default, {"auditor": "claude-opus-5-5", "output_sha256": output_sha256(record), "items": [], "cost_usd": 0.5,
                      "prior_cost_usd": 0.3})
+    _write(same, {"auditor": "claude-opus-5-5", "output_sha256": "the v1 output", "items": [], **held})
     harness.causes.reuse_audit(LABEL, "causes", "deepseek-flash", TICKER, "claude-opus-5-5", output_sha256(record))
     copy = json.loads(same.read_text())
-    assert copy["output_sha256"] == output_sha256(record) and copy["prior_cost_usd"] == pytest.approx(0.3)  # not 0.6
-    _write(same, {"auditor": "claude-opus-5-5", "output_sha256": output_sha256(record), "error": "NoLabels", "cost_usd": 0.2})
-    harness.causes.reuse_audit(LABEL, "causes", "deepseek-flash", TICKER, "claude-opus-5-5", output_sha256(record))
-    assert json.loads(same.read_text())["prior_cost_usd"] == pytest.approx(0.5)  # a failed call of its own is added
+    assert copy["output_sha256"] == output_sha256(record) and copy["copied_from"] == "causes"
+    assert own_spend(json.loads(default.read_text())) + own_spend(copy) == pytest.approx(paid)  # every paid call, once
+    copy_again = {**copy, "output_sha256": "an output that changes later"}
+    _write(same, copy_again)
+    assert harness.causes.earlier_audit(same, output_sha256(record))[1] == pytest.approx(own_spend(copy))
 
 
 def test_the_report_counts_provider_errors_and_unjudged_pairs_apart(harness: Any) -> None:
@@ -416,6 +424,8 @@ def test_the_first_attempt_is_on_disk_before_the_json_retry_is_sent(harness: Any
 
     sent = _real_generate(harness, monkeypatch, [], [])
     replies = [_result("not JSON", 0.3)]  # fails validation, so a JSON retry follows
+    _generation(harness, "deepseek-flash", generation_ok=False, error="RateLimitError",  # a failed earlier run, paid
+                attempts=[{"attempt": 0, "cost_usd": 0.1}])
 
     async def provider(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
         sent.append(user)
@@ -425,13 +435,18 @@ def test_the_first_attempt_is_on_disk_before_the_json_retry_is_sent(harness: Any
     with pytest.raises(Killed):
         asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
     assert seen[0]["error"].startswith("interrupted") and seen[0]["cost_usd"] == 0.3 and len(seen[0]["attempts"]) == 1
+    assert seen[0]["prior_attempts"] == [{"attempt": 0, "cost_usd": 0.1}] and seen[0]["prior_cost_usd"] == 0.1
 
 
 def test_judge_order_one_is_on_disk_before_order_two_is_sent(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
+    rx, ry = _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
     monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
     monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
     path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
+    # An earlier run paid for an unusable order 1 on these drafts, and an order on a draft since replaced.
+    _write(path, {"x_sha256": output_sha256(rx), "y_sha256": output_sha256(ry), "error": "NoVerdict",
+                  "orders": [{"verdict": {}, "cost_usd": 0.3, "unusable": True, "position": 1}],
+                  "superseded": [{"verdict": {}, "cost_usd": 0.2, "position": 1}]})
     seen: list = []
 
     async def one_order(judge: str, pack: Any, text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
@@ -441,8 +456,10 @@ def test_judge_order_one_is_on_disk_before_order_two_is_sent(harness: Any, monke
 
     monkeypatch.setattr(harness.judge, "_one_order", one_order)
     asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b", asyncio.Semaphore(1)))
-    assert [o["position"] for o in seen[0]["orders"]] == [1] and seen[0]["error"].startswith("interrupted")
-    assert "error" not in json.loads(path.read_text())  # replaced once order 2 returned
+    assert [o["position"] for o in seen[0]["orders"]] == [1, 1] and seen[0]["error"].startswith("interrupted")
+    assert len(seen[0]["superseded"]) == 1 and seen[0]["cost_usd"] == pytest.approx(0.6)  # 0.1 + 0.3 + 0.2
+    final = json.loads(path.read_text())
+    assert "error" not in final and final["cost_usd"] == pytest.approx(0.7)  # replaced once order 2 returned
 
 
 def test_the_report_shows_unjudged_pairs_when_none_was_judged(harness: Any) -> None:
