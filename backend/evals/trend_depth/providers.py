@@ -15,6 +15,9 @@ a backend:
 Prices are USD per million tokens, verified 2026-10-24: DeepSeek's pricing page (off-peak; peak doubles
 them), Google's Gemini API pricing page (standard paid tier, the rates in force through November 2026),
 and the Anthropic list prices in the claude-api skill's model table.
+
+A generator arm also pins its inputs, so a record's prompt and evidence follow from its arm alone
+(``prompt_path``, ``packs_dir``): every arm runs the frozen prompt on ``packs/`` unless it names another.
 """
 from __future__ import annotations
 
@@ -24,9 +27,13 @@ import os
 import re
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Optional
+
+FROZEN_PROMPT = "tasks/analysis-depth-2026-10/prompts/frozen-d558d371.md"  # what eval-v1 and dev-v4 ran, archived
+CANDIDATE_PROMPT = "backend/prompts/trends-depth-analyst-agent.md"  # the prompt under test, edited in place
+DEFAULT_PACKS = "packs"
 
 
 @dataclass(frozen=True)
@@ -46,15 +53,28 @@ class Arm:
     price_note: str = ""
     # (prompt tokens above which, input, output, cache-read price): Haiku 5.5 bills a longer prompt at a higher tier
     long_prompt: Optional[tuple[int, float, float, float]] = None
+    # What a generator arm runs on; judges and auditors read neither. ``prompt`` is a repository-relative path
+    # (empty: FROZEN_PROMPT), ``packs`` a directory under tasks/analysis-depth-2026-10 (empty: DEFAULT_PACKS).
+    prompt: str = ""
+    packs: str = ""
 
+
+_DEEPSEEK_FLASH = Arm(
+    "deepseek-flash", "deepseek", "deepseek-flash", "openai_compat", 0.15, 0.60, 0.003,
+    base_url="https://api.deepseek.com/v1", key_env="DEEPSEEK_API_KEY",
+    extra={"extra_body": {"thinking": {"type": "disabled"}}, "temperature": 0.2},
+    price_note="off-peak; peak (01-04, 06-10 UTC weekdays) is 2x",
+)
 
 ARMS: dict[str, Arm] = {
-    "deepseek-flash": Arm(
-        "deepseek-flash", "deepseek", "deepseek-flash", "openai_compat", 0.15, 0.60, 0.003,
-        base_url="https://api.deepseek.com/v1", key_env="DEEPSEEK_API_KEY",
-        extra={"extra_body": {"thinking": {"type": "disabled"}}, "temperature": 0.2},
-        price_note="off-peak; peak (01-04, 06-10 UTC weekdays) is 2x",
-    ),
+    # The control, K0 in DEEPSEEK-ERRORS.md §3 step 2: the frozen prompt on packs/, as in eval-v1.
+    "deepseek-flash": _DEEPSEEK_FLASH,
+    # Its model and settings with one input changed (P: the fixed packs; Q: the candidate prompt) or both (C), so
+    # each arm differs from the control only in what it reads. packs-v2/ is built apart; until it exists, P and C
+    # fail to load their packs.
+    "deepseek-flash-p": replace(_DEEPSEEK_FLASH, name="deepseek-flash-p", packs="packs-v2"),
+    "deepseek-flash-q": replace(_DEEPSEEK_FLASH, name="deepseek-flash-q", prompt=CANDIDATE_PROMPT),
+    "deepseek-flash-c": replace(_DEEPSEEK_FLASH, name="deepseek-flash-c", prompt=CANDIDATE_PROMPT, packs="packs-v2"),
     "deepseek-flash-thinking": Arm(
         "deepseek-flash-thinking", "deepseek", "deepseek-flash", "openai_compat", 0.15, 0.60, 0.003,
         base_url="https://api.deepseek.com/v1", key_env="DEEPSEEK_API_KEY",
@@ -113,6 +133,22 @@ ARMS: dict[str, Arm] = {
         "claude-opus-5-5", "claude", "claude-opus-5-5", "claude", 4.00, 20.00, 0.20, effort="medium",
     ),
 }
+
+
+def prompt_path(system: str, repo: Path, draft: str = "") -> Path:
+    """The system prompt ``system`` generates with: its arm's ``prompt``, else the frozen one. A ``draft`` (the
+    ``TREND_DEPTH_PROMPT`` override) stands in for the candidate only, so an arm pinned to the frozen prompt never
+    runs anything else."""
+    arm = ARMS.get(system)
+    relative = (arm.prompt if arm else "") or FROZEN_PROMPT
+    return Path(draft) if draft and relative == CANDIDATE_PROMPT else repo / relative
+
+
+def packs_dir(system: str, records: Path) -> Path:
+    """The evidence packs ``system`` reads: its arm's ``packs`` directory, else ``packs/``, which ``current`` and the
+    gold examples (no arm) read too."""
+    arm = ARMS.get(system)
+    return records / ((arm.packs if arm else "") or DEFAULT_PACKS)
 
 
 @dataclass

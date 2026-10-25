@@ -30,6 +30,20 @@ def text_sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def pack_sha256(pack: dict[str, Any]) -> str:
+    """An evidence pack's hash. Its ``snapshot_id`` names the production dataset the pack was built from, so a pack
+    rebuilt over the same data (packs-v2 beside packs, or packs-v2 rebuilt in place) keeps it; this hash does not."""
+    return hashlib.sha256(json.dumps(pack, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def same_inputs(record: dict[str, Any], prompt_sha256: str, pack: dict[str, Any]) -> bool:
+    """Whether a generation record was made from this prompt and this evidence pack, so its first pass may be repaired
+    or copied rather than made again. A record written before packs were hashed (eval-v1, dev-v4, all on packs/)
+    is held to its snapshot_id alone."""
+    return (record.get("prompt_sha256") == prompt_sha256 and record.get("snapshot_id") == pack["snapshot_id"]
+            and read_same_output(record, "pack_sha256", pack_sha256(pack)))
+
+
 def unsettled(record: Optional[dict[str, Any]]) -> Optional[str]:
     """Why a generation record cannot be audited or judged yet, or None once its output is final."""
     if record is None:

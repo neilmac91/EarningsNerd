@@ -84,8 +84,9 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     first = [r.get("first_pass_gate", r["gate"]) for r in ok]
     # The same outputs under the gate as it is now: fixes made after the run (each a false positive, listed in
     # REPORT.md) change these counts but not the outputs, which were generated under the gate as it was then.
-    now_final = [factcheck.check(sentences_of(r["output"]), load_pack(r["ticker"]))["passed"] for r in ok]
-    now_first = [factcheck.check(sentences_of(r.get("first_pass_output", r["output"])), load_pack(r["ticker"]))["passed"] for r in ok]
+    now_final = [factcheck.check(sentences_of(r["output"]), load_pack(r["ticker"], r["arm"]))["passed"] for r in ok]
+    now_first = [factcheck.check(sentences_of(r.get("first_pass_output", r["output"])), load_pack(r["ticker"], r["arm"]))["passed"]
+                 for r in ok]
     failures = Counter(_class(f["failure"]) for g in first for f in g.get("failures", []))
     types: Counter[str] = Counter()
     passages_cited = []
@@ -208,7 +209,7 @@ def semantic_support(label: str, systems: list[str], tickers: list[str], folder:
             for item in record.get("items", []):
                 counts[item["label"]] += 1
                 if item["label"] == "mismatch":
-                    kind = classify_flag(item, sentences_of(output), load_pack(ticker))
+                    kind = classify_flag(item, sentences_of(output), load_pack(ticker, system))
                     counts[f"mismatch_{kind}"] += 1
                     flagged.append({"ticker": ticker, "kind": kind, "claim": item["claim"], "sentence": item["sentence"],
                                     "reason": item["reason"]})

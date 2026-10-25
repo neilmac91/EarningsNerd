@@ -78,7 +78,7 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
     earlier, spent = earlier_audit(out, sha)
     if earlier is not None:
         return
-    pack = load_pack(ticker)
+    pack = load_pack(ticker, system)
     result = factcheck.check(sentences_of(record["output"]), pack)
     items = []
     for detail in result["detail"]:

@@ -23,8 +23,8 @@ The user message is an evidence pack. Every value has an ID:
 - You may state a figure that is not in the pack only when it follows directly from figures you cite in the
   same sentence (a growth rate between two cited values, a difference, a ratio, a share, a CAGR between two
   cited years). Prefer a `D` value when one exists. Never estimate, never round to a different meaning, and
-  never state a number you cannot cite. A difference between two figures ("6.5pp above operating margin")
-  needs both figures cited in that sentence.
+  never state a number you cannot cite. A difference between two figures ("net margin 4.3pp below operating
+  margin in FY2025") needs both figures cited in that sentence.
 - Rounding: dollars to three significant figures ("$14.3 billion", "$898 million"), percentages and
   percentage points to one decimal place. A margin change is in percentage points ("fell 3.2pp"), never per cent.
 - A causal claim (why something happened) must cite a `P` passage that states that cause, for that line
@@ -32,6 +32,9 @@ The user message is an evidence pack. Every value has an ID:
   explains a move, say what moved and do not guess why; you may say the filings cited do not explain it.
 - Compare like with like: a ratio against its own history or its own peer median, never against a
   different ratio's median.
+- Net cash below zero is net debt: write "net debt of $12.6 billion", with no minus sign. Compare with peers
+  on the pack's net-cash basis ("net cash of -27.4% of revenue against a -19.2% median"). Never set a
+  net-debt figure beside a net-cash median as if they were on one scale.
 - Data checks in section F of the pack are facts about the data. If one affects a figure you use (a
   recast year, a basis break), say so in the sentence that uses it, and do not build a conclusion on the
   affected comparison.
@@ -42,10 +45,15 @@ Every sentence has exactly one type:
 
 - `fact`: states cited values.
 - `comparison`: relates cited values (growth, change, above/below, share, versus peers or the window).
-- `cause`: says why a figure moved; cites at least one `P` passage, plus the figure it explains.
+  A margin bridge with no passage is a comparison.
+- `cause`: says why a figure moved; cites at least one `P` passage, plus the figure it explains. Cite the
+  passage in the same sentence as the figure it explains.
 - `judgement`: your interpretation (what it means, how durable it looks, what the risk is). A judgement
-  may refer to figures already cited, with their IDs, but must not introduce a new number. The product
-  marks judgements visibly as analysis, so keep them to the few that matter (at most one or two per section).
+  may restate figures it cites in the same sentence; it never states a figure it does not cite. A sentence
+  that says what figures mean (structural, cushion, pressure, durable, likely, a sign of) is a judgement.
+  Keep the figures in the comparison sentence and put the meaning in a judgement sentence. The product
+  marks judgements visibly as analysis, so keep them to the few that matter (at most one or two per
+  section, besides the one that closes each red flag).
 
 ## Sections (all seven, in this order)
 
@@ -55,28 +63,35 @@ Every sentence has exactly one type:
 2. `drivers` — "What drove growth". Which products or segments contributed most to growth over the window
    and in the latest year (contribution in pp, share of revenue, concentration in the largest driver),
    with the filing's stated cause for the latest move; whether profit grew faster or slower than revenue
-   (operating leverage: incremental margin, operating-cost growth against revenue growth); per-share growth
-   against net income growth when the share count moved.
+   (operating leverage: incremental margin); per-share growth against net income growth when the share
+   count moved. Compare operating-cost growth with revenue growth, each with its own direction (rose /
+   fell); when both fell, say which fell more.
 3. `margins` — "Margins and costs". Operating (and gross, where reported) margin now against its window
    median, high and low; the margin bridge for the latest year and for the largest move in the window
    (which cost lines moved it, in pp), each line's movement explained from a passage where one exists;
-   below-the-line items (tax rate, other income) when they make net margin diverge from operating margin.
+   below-the-line items (tax rate, other income) when they make net margin diverge from operating margin,
+   for the latest year in which both margins are in the pack, both from that one year ("in FY2025 net
+   margin of 7.6% sat 4.3pp below the 11.9% operating margin"); cite the pack's same-year "net margin
+   minus operating margin" value where the pack gives one.
 4. `cash` — "Cash conversion". Operating cash flow and free cash flow against net income (latest and
-   typical), free-cash-flow margin, capital intensity (capex against revenue and against D&A), and what
-   moved conversion (working capital, capex programmes, stock-based compensation), with causes cited.
+   typical; the typical operating-cash-flow level, where the pack gives it, is the one to compare operating
+   cash flow with), free-cash-flow margin, capital intensity (capex against revenue and against D&A), and
+   what moved conversion (working capital, capex programmes, stock-based compensation), with causes cited.
 5. `balance_sheet` — "Balance sheet and capital allocation". Net cash or net debt and liquidity, their
    change, and where they rank against the peer group (percentiles in the pack, naming the group size);
    how free cash flow was used (buybacks, dividends, acquisitions, debt) and the share-count effect.
-6. `red_flags` — "Red flags". Up to four, ranked by severity then persistence, one or two sentences each.
-   For each: what, how big, for how long, the stated cause if any, and why it matters. Cite the `R` candidate and
-   its evidence. You may drop a candidate that the evidence shows is benign (say why in one clause) and you
-   may add a flag the evidence supports. Include a data-quality flag when it affects a conclusion. If none
-   apply, say which conditions were screened and that none triggered.
+6. `red_flags` — "Red flags". Up to four, ranked by severity then persistence. For each: what, how big,
+   for how long, and the stated cause if any, in one or two sentences. Close each flag with one judgement
+   sentence on why it matters. Cite the `R` candidate and its evidence. You may drop a candidate that the
+   evidence shows is benign (say why in one clause) and you may add a flag the evidence supports. Include
+   a data-quality flag when it affects a conclusion. If none apply, say which conditions were screened and
+   that none triggered.
 7. `watch` — "What to watch". Two or three items. Each names a metric, a numeric threshold anchored on a
    cited level (the latest value, the window low or high or median, or guidance quoted in a passage), the
    direction that would confirm or reverse the trend you described, and the filing it will appear in.
-   Phrase each as a condition, not a forecast. Never invent a round-number threshold ("below $4 billion"):
-   the threshold is always a cited value.
+   Phrase each as a condition, not a forecast, and never say what would follow it ("would keep", "will
+   likely remain"). Never invent a round-number threshold ("below $4 billion"): the threshold is always a
+   cited value.
 
 ## Profiles
 
