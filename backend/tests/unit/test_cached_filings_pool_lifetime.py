@@ -17,7 +17,9 @@ One rule, three parts in this one module:
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
-  and a Free question, a missing filing and the admission's three refusals), the summary exports (the PDF
+  and a Free question, a missing filing and the admission's three refusals), the summary generate stream (a
+  replay, a generation, an unready row, a Pro and a Free force, and a missing filing, with a throttled request
+  refused before its admission reads anything), the summary exports (the PDF
   and the CSV, a Free reader's 403, and a missing summary's and filing's 404), the admin feedback triage and
   filing and summary maintenance routes (their 404s, and the bulk routes' and the stale-summary refresh's dry and
   real runs) and the admin invite routes (the list, mint with and without mail, revoke and re-send, their 404s and
@@ -524,8 +526,10 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
     ran its statements there, the served body was built there (its Risks projected over the filing's own text),
     and a missing filing or a Free reader's force left its transaction for the finalizer. Each admitted request
     reaches the one orchestrator with the admission's inputs; a replay or a refusal reaches none. Each reader's
-    plan comes from its Subscription row while its ``is_pro`` mirror says the opposite, so a Pro check that missed
-    the row, as one on the detached user would, answers wrong."""
+    plan comes from its Subscription row while its ``is_pro`` mirror says the opposite, so a Pro check that reads
+    the mirror answers wrong, and so does one moved after the release, on the detached reader, which falls back
+    to the mirror or, once the force's commit has expired the reader, fails. That the release comes before the
+    response starts is the route cases' check in ``test_summary_provider_lifecycle.py``."""
     from app.models import User
     from app.models.subscription import Subscription
     from app.routers import auth
@@ -658,6 +662,86 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
             progress = db.query(SummaryGenerationProgress).count()
         # The force branch cleared the progress row, and nothing else wrote it.
         assert progress == (0 if case == "force_pro" else 1)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_generate_stream_refuses_a_throttled_request_before_its_admission(monkeypatch, tmp_path):
+    """The route's rate limit answers its 429 before the admission's unit runs: a throttled Pro force reads no
+    filing or summary, builds no served body (its Risks projected over the filing's text, about a second for a
+    raw-HTML cache) and leaves the progress row, as it did on the loop. Its auth lookup's transaction is left for
+    the finalizer, as a 422's is."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-throttled.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000007", ticker="THROT", name="Throttle fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000007-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/throttle/",
+                        document_url="https://example.test/throttle.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary\n\nStored analysis the filing page shows.",
+                       raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        reader = User(email="throttled-reader@example.com", is_active=True, is_pro=False)
+        db.add(reader)
+        db.flush()
+        db.add(Subscription(user_id=reader.id, plan="pro", status="active"))
+        db.commit()
+        filing_id = filing.id
+
+    statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: statements.append(statement))
+    built: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built.append(True)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    token = auth.create_access_token({"sub": "throttled-reader@example.com"})
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                                     base_url="http://test", headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post(f"/api/summaries/filing/{filing_id}/generate-stream?force=true")
+        assert response.status_code == 429
+        assert response.json()["detail"] == "Too many summary requests. Try again shortly."
+        # The auth lookup's read ran, and nothing after it: no filing, summary or progress statement.
+        assert statements
+        assert [statement for statement in statements if "filing" in statement or "summar" in statement] == []
+        assert built == [] and pipeline_calls == []
+        with sessions() as db:
+            assert db.query(SummaryGenerationProgress).count() == 1
     finally:
         engine.dispose()
 

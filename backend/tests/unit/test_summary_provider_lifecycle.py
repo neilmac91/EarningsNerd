@@ -200,8 +200,9 @@ async def test_generation_waits_release_database_connections(boundary, stop, tmp
         def close(self):
             if self is request_session:
                 # The request's session is the route's to release, not a DB unit's: the dependency opens it,
-                # and the route's admission unit releases it in the thread pool (E171). Its closes are checked
-                # below for running off the event loop, not for running where it was opened.
+                # and the route's admission unit releases it in the thread pool (E171). Its first close, that
+                # release, is checked below for running off the event loop; the dependency's own close after
+                # the response runs on the loop by design, with nothing left to give back.
                 request_closes.append(threading.get_ident())
             elif self.owner != threading.get_ident():
                 ownership_errors.append((self.owner, threading.get_ident()))

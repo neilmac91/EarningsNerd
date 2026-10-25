@@ -258,7 +258,7 @@ async def generate_summary_stream(
             """The admission's session work and the session's release, as one unit off the event loop
             (lessons/ops-release-cached-filing-reads-before-yield.md): the filing and summary reads, the
             served body (its Risks projected over the filing's own text), the readiness and Pro checks, the
-            progress clear and the generation snapshot, in the route's order. Its 404 and 403 raise here,
+            progress clear and the generation snapshot, in the route's order. Its 404 and 403 leave it
             after the release."""
             try:
                 # Eagerly load content_cache and company relationship to avoid detached session issues
@@ -318,11 +318,11 @@ async def generate_summary_stream(
 
                         # Clear progress record, so the run's row starts a fresh clock. Harmless before
                         # admission: no reader shows the progress row while the summary exists (it is kept).
-                        progress = db.query(SummaryGenerationProgress).filter(
+                        # One DELETE with no read before it: off the loop two forces of one filing clear it at
+                        # once, and a read, then a delete, left the second deleting a row already gone.
+                        db.query(SummaryGenerationProgress).filter(
                             SummaryGenerationProgress.filing_id == filing_id
-                        ).first()
-                        if progress:
-                            db.delete(progress)
+                        ).delete(synchronize_session=False)
 
                         # Committed below, once the stream's inputs are read: the commit expires the user
                         # and the filing, and a read of either after it would refresh its row.

@@ -48,14 +48,14 @@ import pytest
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 
-# Router file (relative to backend/) -> its ceiling. Counted on origin/main da636f6 (2026-10-08) by
-# this file's own walk; summaries.py's lowered to 30, its count since #1286, by E105, to 28 by E171's
-# export slice, whose two exports share one lookup, and to 26 by its generate-stream slice, whose guarded release
-# replaced the stream's two closes. Lower an entry when a PR moves work into app/services/, and set it to 0 (do
-# not delete it) when the router is done. Git conflicts on edits to adjacent lines: the blank line
-# between entries keeps in-place number edits on different entries mergeable in any order, which
-# deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows
-# once no sibling branch is editing the table.
+# Router file (relative to backend/) -> its ceiling. Counted on origin/main da636f6 (2026-10-08) by this file's
+# own walk; summaries.py's lowered to 30, its count since #1286, by E105, to 28 by E171's export slice, whose
+# two exports share one lookup, and to 25 by its generate-stream slice, whose guarded release replaced the
+# stream's two closes and whose progress clear is one DELETE. Lower an entry when a PR moves work into
+# app/services/, and set it to 0 (do not delete it) when the router is done. Git conflicts on edits to adjacent
+# lines: the blank line between entries keeps in-place number edits on different entries mergeable in any order,
+# which deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows once no
+# sibling branch is editing the table.
 ROUTER_ORM_CEILINGS: dict[str, int] = {
     "app/routers/analysis.py": 0,
 
@@ -69,7 +69,7 @@ ROUTER_ORM_CEILINGS: dict[str, int] = {
 
     "app/routers/subscriptions.py": 0,
 
-    "app/routers/summaries.py": 26,
+    "app/routers/summaries.py": 25,
 
     "app/routers/webhooks.py": 0,
 }
