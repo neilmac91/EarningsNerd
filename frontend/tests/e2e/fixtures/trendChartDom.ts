@@ -13,8 +13,9 @@ export const CHARTS_V2 = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
 /** Today's Recharts layers that the keyboard and notes case reads, on Recharts alone (E195 retires the case). */
 export const RECHARTS = { bars: '.recharts-bar-rectangle path', tooltip: '.recharts-tooltip-wrapper' } as const
 
-/** The page's four charts once each has drawn. The spec renderer adds its SVG only once Geist Mono has loaded, or
- *  1,500 ms have passed (G4), after the chart's own element; the gallery waits for it the same way. */
+/** The page's four charts once each has drawn. The spec renderer adds its SVG only once Geist Mono's latin and
+ *  latin-ext faces have loaded, or 1,500 ms have passed (G4, G3), after the chart's own element; the gallery waits for
+ *  it the same way. */
 export async function drawnCharts(page: Page) {
   const charts = page.locator('[data-analysis-chart]')
   await expect(charts).toHaveCount(4)
