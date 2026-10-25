@@ -5,16 +5,19 @@ Pins every measure on one basis for every record and arm: passes without a model
 analysis awaiting its repair counted as not passing, each with its own row, a provider error counted apart, and a
 warning at the top while generate owes a call), the repairs sent for broken net cash alone, first-try errors (the model's
 own first output under the gate now, every record alike, one awaiting its repair too: the gate's failing claims and the
-backstops' beyond them, each claim once), own-ID omissions and retypes, mislabels (distinct sentences per 1,000 verified
+backstops' beyond them, each claim once), retypes (a record's ``autocite`` from before auto-citation was removed read
+without error and counted nowhere), mislabels (distinct sentences per 1,000 verified
 claims: the probes R1, R2a, R2c and R3 alone over every output, and with Opus's substantive flags over the outputs Opus
 read; the other probe kinds in rows of their own; a flag on a bound counted under view 2 and every uncounted flag
-listed; the later view of one auditor's two audits, and none while its re-audit failed), the calibration measures,
+listed; one quantity under two names, a cited gap and the difference of its two cited margins, never shielding a flag
+as ambiguous; the later view of one auditor's two audits, and none while its re-audit failed), the calibration measures,
 broken net cash (the breaks packs-v2 records, read alike for a figure cited by its withheld ID and one rebuilt from the
 lines packs-v2 shows; debt and liquidity breaks, each counted under its own kind; an analysis disclosing a break only by
 the gate's rule, so a disclosure word about something else leaves it stated as fact; version-1 peer ranks apart), cause
 support from Opus's audit, form, cost (each prompt's shared prefix over every label, so a warm repeat is priced cold),
 latency quantiles on the basis of §3's baselines, each arm's builds and the warning when they differ, that every
-measure reads the arm's own pack, the old gate's continuity score, the judge's verdicts per criterion (one run, and
+measure reads the arm's own pack, the old gate's continuity score (its first try over every first output, one awaiting
+its repair included), the judge's verdicts per criterion (one run, and
 several summed), the several-run summary (every run, its range and the runs pooled), ``--out``, and that a version-1
 run reports its shared fields as before. Real cases read the committed packs (``_company``) and eval-v1's records. And
 the auditor's view 2: signed values, a bound, identical-valued twins, its version marker, and the redo of an audit made
@@ -180,7 +183,7 @@ def test_a_version_1_record_is_measured_from_its_first_pass_under_the_gate_now(h
     assert m["pipeline_v2"] == 0 and m["passes_without_repair"] == 0 and m["repairs"] == {"version 1": 1}
     assert m["first_try_scored"] == 1 and m["first_try_as_run"] == [{"ticker": TICKER, "basis": "first_pass_gate", "failures": 0}]
     assert [f["failure"] for f in m["first_try_failures"]] == ["'$99.0 billion' matches nothing the sentence cites"]
-    assert m["own_id_omissions"] == 0 and m["autocite_added"] == [] and m["retyped"] == []
+    assert m["retyped"] == []
     unrepaired = _record(harness)
     m = _measures(harness, [unrepaired])
     assert m["passes_without_repair"] == 1 and m["first_try_errors"] == 0  # its one output is its first try
@@ -194,7 +197,7 @@ def test_a_version_1_run_reports_its_shared_fields_as_before(harness: Any) -> No
     assert block["arms"]["deepseek-flash"] == harness.report.arm_stats([record])  # the measures are added beside, never mixed in
     assert set(block) == {"companies", "arms", "judge", "causes", "semantics", "measures"}
     rows = {name: shown for name, _, shown, *_ in harness.report.measure_rows(block["measures"]["deepseek-flash"])}
-    assert rows["Own-ID omissions per analysis (IDs the code added)"] == "—"  # a version-1 record has none to count
+    assert rows[RETYPED_ROW] == "—"  # a version-1 record has no code step to count
     assert "Passes without a model repair" in harness.report.render(LABEL, ["deepseek-flash"], summary)
 
 
@@ -205,9 +208,12 @@ def _v2(harness: Any, **fields: Any) -> dict[str, Any]:
 
 
 UNMATCHED = "Revenue was $99.0 billion in FY2025 [F10]."  # a figure the cited value does not match
+RETYPED_ROW = "of which passed after the code's retyping (version 2 records)"
 
 
-def test_version_2_records_count_passes_omissions_and_retypes(harness: Any) -> None:
+def test_version_2_records_count_passes_and_retypes(harness: Any) -> None:
+    """A version-2 record made before auto-citation was removed carries ``autocite`` (``fixed`` here): it is read
+    without error and counted nowhere, as its first pass's omissions already are first-try gate errors."""
     _packs(harness)
     raw = _output(red_flags=(DEBT, UNMATCHED))  # the model's own first reply
     raw_gate = {"passed": False, "claims": 10, "verified": 8, "failed_claims": 2,
@@ -216,19 +222,20 @@ def test_version_2_records_count_passes_omissions_and_retypes(harness: Any) -> N
     fixed = _v2(harness, raw_first_pass_gate=raw_gate, attempts=[_attempt(0, raw)],
                 autocite={"added": [{"section": "red_flags", "sentence": DEBT, "claim": "$1.7 billion", "id": "D355"}], "rejected": 2},
                 retyped=[{"section": "drivers", "sentence": GREW, "from": "cause", "to": "comparison"}])
-    clean = {**fixed, "raw_first_pass_gate": {"passed": True, "failures": []}, "attempts": [_attempt(0, _output())],
-             "autocite": {"added": [], "rejected": 0}, "retyped": []}
+    clean = {**{k: v for k, v in fixed.items() if k != "autocite"}, "raw_first_pass_gate": {"passed": True, "failures": []},
+             "attempts": [_attempt(0, _output())], "retyped": []}
     patched = {**clean, "repair_kind": "patch", "first_pass_gate": raw_gate, "raw_first_pass_gate": raw_gate,
                "attempts": [_attempt(0, raw), _attempt("repair", "{}")]}
     m = _measures(harness, [fixed, clean, patched], "deepseek-flash-c")
     assert m["pipeline_v2"] == 3 and m["passes_without_repair"] == 2 and m["code_fixed_passes"] == 1
     assert m["repairs"] == {"patch": 1}
-    assert m["own_id_omissions"] == 1 and m["autocite_rejected"] == 2
-    assert m["autocite_added"] == [{"ticker": TICKER, "section": "red_flags", "sentence": DEBT, "claim": "$1.7 billion", "id": "D355"}]
     assert [r["to"] for r in m["retyped"]] == ["comparison"]
+    assert not [key for key in m if "autocite" in key or "own_id" in key]
+    assert sorted(b.split(" · ")[0] for b in m["builds"]) == ["v2", "v2 with auto-citation"]  # two builds, pooled: warned
     rows = {name: shown for name, _, shown, *_ in harness.report.measure_rows(m)}
-    assert rows["Own-ID omissions per analysis (IDs the code added)"] == "0.33 (1 in 3; 2 rejected)"
+    assert rows[RETYPED_ROW] == "1 of 3" and not [name for name in rows if "Own-ID" in name or "IDs the code added" in name]
     assert m["first_try_errors"] == 2 and [a["failures"] for a in m["first_try_as_run"]] == [2, 0, 2]
+    assert "IDs the code added" not in "\n".join(harness.report.hand_reading("deepseek-flash-c", m))
 
 
 GATE_ROW = "First-try gate failures per analysis: failing claims of the model's own first output, gate now (subtract gate artefacts by hand)"
@@ -367,9 +374,19 @@ def test_an_analysis_awaiting_its_repair_counts_as_not_passing_and_is_flagged(ha
     and scored; its final output is not, and waits. Two of eval-v1's repaired DeepSeek analyses and one that passed."""
     recorded = _eval_v1(harness, "deepseek-flash", "MSFT", "NVDA", "REGN")
     owed = [_awaiting(r) if harness.report.repaired(r) else r for r in recorded]
-    as_recorded, outage = _measures(harness, recorded), _measures(harness, owed)
+
+    class OldGate:  # passes everything: the old gate's row then counts its denominators alone (review 8 tests [2])
+        @staticmethod
+        def check(sentences: list, pack: dict) -> dict:
+            return {"passed": True}
+
+    old_gate = ("abc1234", OldGate)
+    as_recorded, outage = _measures(harness, recorded, old_gate=old_gate), _measures(harness, owed, old_gate=old_gate)
     rows = {name: shown for name, _, shown, *_ in harness.report.measure_rows(outage)}
     assert rows["Passes without a model repair"] == "1 of 3 (33%; 2 awaiting a repair among them)" and rows[OWED_ROW] == "2 of 3"
+    # The old gate's first try scores every first output, the two awaiting their repair too; its final, the one final.
+    assert outage["old_gate"] == {"commit": "abc1234", "first_try": 3, "first_try_of": 3, "final": 1}
+    assert rows["Gate at abc1234: passes first try (continuity with eval-v1)"] == "3 of 3 (final 1 of 1)"
     assert outage["first_try_scored"] == as_recorded["first_try_scored"] == 3
     assert (outage["first_try_errors"], outage["first_try_backstops"]) == (as_recorded["first_try_errors"], as_recorded["first_try_backstops"])
     assert (outage["analyses"], as_recorded["analyses"]) == (1, 3)  # a final output still to come is in no other row
@@ -542,6 +559,22 @@ def test_a_flag_on_a_bound_is_substantive_under_view_2_and_every_other_flag_is_l
     m = _measures(harness, [record])
     assert m["mislabels"] == 0 and [(h["claim"], h["class"]) for h in m["opus_other"]] == [("15%", "bound")]
     assert "Opus flags not counted" in "\n".join(harness.report.hand_reading("deepseek-flash", m))
+
+
+def test_a_flag_on_a_cited_margin_gap_counts_for_c_as_for_k0(harness: Any) -> None:
+    """Review 8 measures [0]: packs-v2's PG gap D693 is net margin F50 less operating margin F30, which the gate also
+    builds from the two margins. C cites all three, as its prompt asks; K0, on packs/, cites the two margins. Opus's
+    flag on the gap was 'ambiguous' for C (two labels: D693's and the margins'), so not counted, and substantive for
+    K0. One quantity under two names is one label: the flag counts for both."""
+    _company(harness, "PG")
+    flagged: dict[str, Any] = {}
+    for system, ids in (("deepseek-flash-c", "[F50][F30][D693]"), ("deepseek-flash", "[F50][F30]")):
+        gap = f"In FY2026 net margin of 18.4% exceeded the 22.7% operating margin by 4.3pp {ids}."
+        record = _record(harness, system, output=_sections(margins=[gap]))
+        _semantic_audit(harness, record, "semantics", "claude-opus-5-5", [_item(gap, "4.3pp")], view=2)
+        m = _measures(harness, [record], system)
+        flagged[system] = (m["opus_substantive"], m["audited_opus_mislabels"], [h["class"] for h in m["opus_other"]])
+    assert flagged == {"deepseek-flash-c": (1, 1, []), "deepseek-flash": (1, 1, [])}
 
 
 def test_an_opus_audit_in_the_default_folder_counts_once_and_a_stale_one_not_at_all(harness: Any) -> None:

@@ -1,7 +1,8 @@
 """The depth harness's shared rules over run records (evals/trend_depth/records.py).
 
 Pins when a generation is final enough to audit or judge, and when one awaits only its repair (which the report counts
-as not passing), how an audit or a verdict is tied to the output it
+as not passing), the pipeline a record was made with (version 2 with auto-citation another build), how an audit or a
+verdict is tied to the output it
 read, when a first pass may be repaired or copied (only beside the prompt and the pack it read), and how the
 report prices a company's first analysis from the recorded calls: a first request reads its model's and prompt's shared
 prefix, what most first requests of that prompt read over every label, so neither a warm repeat nor a cold start moves it.
@@ -42,6 +43,13 @@ def test_a_record_awaiting_its_repair_is_one_whose_first_pass_stands() -> None:
     assert not records.awaiting_repair({"generation_ok": False, "error": "interrupted: the JSON retry had not returned",
                                         "repair_error": "a stale one"})
     assert not records.awaiting_repair({"generation_ok": True}) and not records.awaiting_repair(None)
+
+
+def test_a_version_2_record_made_with_auto_citation_is_another_build() -> None:
+    """Auto-citation (fix 1) was removed from version 2: a record made before carries ``autocite``, and a label, a copy
+    and the report's builds must not take it for the version 2 of now."""
+    assert records.pipeline_of({}) == "v1" and records.pipeline_of({"pipeline": "v2"}) == "v2"
+    assert records.pipeline_of({"pipeline": "v2", "autocite": {"added": [], "rejected": 0}}) == "v2 with auto-citation"
 
 
 def test_an_audit_is_tied_to_the_output_it_read() -> None:

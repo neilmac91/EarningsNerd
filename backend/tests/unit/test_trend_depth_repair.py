@@ -1,8 +1,9 @@
 """The depth harness's version-2 repair loop (evals/trend_depth/generate.py ``--pipeline v2``; DEEPSEEK-ERRORS.md
-fixes 1, 2, 5 and 13), run over scripted provider replies and a synthetic pack, with the real gate.
+fixes 2, 5 and 13, and fix 1's removal), run over scripted provider replies and a synthetic pack, with the real gate.
 
-Pins: the gate on the model's own output is kept before the code fixes, and a first pass the code fixes make whole
-is never sent to a repair; each version-2 message opens with its analysis' nonce, which the repair and a retried
+Pins: the gate on the model's own output is kept before the code's retyping, and a first pass the retyping makes whole
+is never sent to a repair, while no code adds a figure's missing ID: the omission goes to the repair as the model
+wrote it; each version-2 message opens with its analysis' nonce, which the repair and a retried
 repair repeat; the repair message lists what each cited ID holds and never asks for "the cited value"; patches change
 the failed sentences alone, byte for byte everywhere else; an unusable patch list (a section or original that is no
 string included) falls back to the full repair, and a recoverable one (no type, the listing's prefix, a whole
@@ -11,17 +12,21 @@ is on disk before the full repair is sent, on a retried repair too; a run resume
 provider error, a full repair cut off at its token cap) sends only the full repair it owes, never a second patch, so
 its record reads "full" with the patch's and the full repair's calls; a refused patch stands; the gate after a repair
 applies the backstops; a retype-only repair that keeps an explanatory clause still fails, whatever else it edits;
-a label refuses to mix an arm's pipelines, prompts or packs; and version 1 runs eval-v1's procedure under the current
+a label refuses to mix an arm's pipelines (a version-2 record made with auto-citation another), prompts or packs, and a
+copy checks the same; and version 1 runs eval-v1's procedure under the current
 gate. Also ``repair_replay`` (DEEPSEEK-ERRORS.md §3 step 1): it repairs exactly the recorded first passes version 2
 would repair, through that same repair, and reports each repeat's calls, latency, tokens, cost (billed and warm, the
 warm prefix capping what a repair's longer prompt reads from cache), gate and untouched sentences, keeping what was
-paid for; its dry run prints the most a run can send and bill (two cold calls a repeat, each reply at max_tokens).
+paid for; its dry run prints the most a run can bill (two cold calls a repeat, each reply at max_tokens, each billed
+once, as the replay's client retries nothing within a call and ``providers`` builds the client with the arm's
+``max_retries``).
 ``generate`` is imported over a stub bootstrap whose records live in ``tmp_path`` (the fixture is
 ``test_trend_depth_stages.py``'s), so the real bootstrap never loads.
 """
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import hashlib
 import importlib
 import json
@@ -33,7 +38,7 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth.providers import CallResult, IncompleteReply
+from evals.trend_depth.providers import ARMS, CallResult, IncompleteReply
 
 STAGES = ("generate", "repair_replay")
 LABEL, TICKER, ARM = "test", "T", "deepseek-flash"
@@ -146,19 +151,34 @@ def _opened(harness: Any, label: str = "") -> str:
     return harness.generate.opening("the pack", harness.generate.analysis_nonce(label, ARM, TICKER))
 
 
-def test_a_first_pass_the_code_fixes_make_whole_is_never_repaired(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    first = _analysis(*STEADY, ("cash", "comparison", UNCITED), ("drivers", "cause", "The FY2025 gross-margin fall was 3.9pp [D1]."))
+BRIDGE = "The FY2025 gross-margin fall was 3.9pp [D1]."  # a figures-only cause with no passage: retyped by code
+
+
+def test_a_first_pass_the_retyping_makes_whole_is_never_repaired(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    first = _analysis(*STEADY, ("drivers", "cause", BRIDGE))
     sent = _wire(harness, monkeypatch, [json.dumps(first)])
     record = _generate(harness)
     assert sent == [_opened(harness)] and record["pipeline"] == "v2"
-    raw = record["raw_first_pass_gate"]  # the model's own output, before the code fixes, under the gate with backstops
+    raw = record["raw_first_pass_gate"]  # the model's own output, before the retyping, under the gate with backstops
     assert not raw["passed"] and "backstop_failures" in raw
-    assert sorted(f["failure"] for f in raw["failures"]) == ["'2.1%' matches nothing the sentence cites", "cause sentence cites no filing passage"]
-    assert record["autocite"] == {"added": [{"section": "cash", "sentence": UNCITED, "claim": "2.1%", "id": "D2"}], "rejected": 0}
-    assert record["retyped"] == [{"section": "drivers", "sentence": "The FY2025 gross-margin fall was 3.9pp [D1].", "from": "cause", "to": "comparison"}]
+    assert [f["failure"] for f in raw["failures"]] == ["cause sentence cites no filing passage"]
+    assert record["retyped"] == [{"section": "drivers", "sentence": BRIDGE, "from": "cause", "to": "comparison"}]
     assert record["gate"]["passed"] and "backstop_failures" in record["gate"]
-    assert not {"first_pass_gate", "first_pass_output", "repair_kind"} & set(record)
-    assert UNCITED[:-1] + "[D2]." in json.dumps(record["output"])
+    assert not {"first_pass_gate", "first_pass_output", "repair_kind", "autocite"} & set(record)
+
+
+def test_a_figure_without_its_own_id_goes_to_the_repair_as_written(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auto-citation (fix 1) is removed: no code appends D2, though it is 2.1%'s own value and cited elsewhere. The
+    omission is the gate's failure, so the patch repair is sent the sentence the model wrote."""
+    first = _analysis(*STEADY, ("cash", "comparison", UNCITED))
+    fixed = UNCITED[:-1] + "[D2]."
+    sent = _wire(harness, monkeypatch, [json.dumps(first), _patch(UNCITED, text=fixed)])
+    record = _generate(harness)
+    omitted = {"section": "cash", "sentence": UNCITED, "failure": "'2.1%' matches nothing the sentence cites"}
+    assert [{k: f[k] for k in omitted} for f in record["first_pass_gate"]["failures"]] == [omitted]
+    assert record["first_pass_output"] == first and record["retyped"] == [] and "autocite" not in record
+    assert len(sent) == 2 and f"- [cash] {UNCITED}\n  Failed: {omitted['failure']}" in sent[1]
+    assert record["repair_kind"] == "patch" and record["gate"]["passed"] and fixed in json.dumps(record["output"])
 
 
 def test_version_2_opens_every_message_with_its_analysis_nonce(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -416,6 +436,8 @@ def test_a_retried_repair_puts_its_paid_patch_on_disk_before_the_full_repair(har
     ({"prompt_sha256": "0" * 64}, "test/deepseek-flash/U was made with prompt sha256 000000000000, not "),
     ({"pack_sha256": "f" * 64}, "test/deepseek-flash/U was made from evidence pack sha256 ffffffffffff of snapshot s1, not "),
     ({"snapshot_id": "s0"}, "of snapshot s0, not "),
+    # Made before auto-citation was removed: version 2 then appended IDs by code, so it is another build.
+    ({"autocite": {"added": [], "rejected": 0}}, "test/deepseek-flash/U was made with pipeline v2 with auto-citation, not v2"),
 ])
 def test_a_label_refuses_an_arm_made_another_way(harness: Any, monkeypatch: pytest.MonkeyPatch, held: dict[str, Any],
                                                  named: str) -> None:
@@ -437,12 +459,13 @@ def test_a_failed_generation_does_not_hold_a_label_to_its_build(harness: Any, mo
     assert len(sent) == 1 and record["pipeline"] == "v2" and record["gate"]["passed"] and record["prior_cost_usd"] == 0.2
 
 
-@pytest.mark.parametrize("made_with, copy_with", [("v1", "v2"), ("v2", "v1")])
+@pytest.mark.parametrize("made_with, copy_with", [("v1", "v2"), ("v2", "v1"), ("v2 with auto-citation", "v2")])
 def test_copying_checks_the_pipeline(harness: Any, monkeypatch: pytest.MonkeyPatch, made_with: str, copy_with: str) -> None:
     _wire(harness, monkeypatch, [])
     prompt = hashlib.sha256(b"the prompt").hexdigest()
     record = {"ticker": TICKER, "arm": ARM, "generation_ok": True, "prompt_sha256": prompt, "snapshot_id": "s1",
-              **({"pipeline": "v2"} if made_with == "v2" else {})}
+              **({"pipeline": "v2"} if made_with.startswith("v2") else {}),
+              **({"autocite": {"added": [], "rejected": 0}} if made_with.endswith("auto-citation") else {})}
     source = harness.generate.RUNS / "source" / ARM / f"{TICKER}.json"
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text(json.dumps(record))
@@ -464,11 +487,11 @@ def _recorded(harness: Any, source: str, ticker: str, first: dict[str, Any], **f
 
 
 def _sources(harness: Any) -> dict[str, Any]:
-    """eval-v1 holds a first pass that fails (A), one the code fixes make whole (B), one that passes as written (C) and
+    """eval-v1 holds a first pass that fails (A), one the retyping makes whole (B), one that passes as written (C) and
     a failed generation (D); dev-v3 a repaired record on an earlier prompt, whose first pass failed (E)."""
     failing = _analysis(*STEADY, ("cash", "comparison", WRONG), ("cash", "fact", PASSED))
     _recorded(harness, "eval-v1", "A", failing)
-    _recorded(harness, "eval-v1", "B", _analysis(*STEADY, ("cash", "comparison", UNCITED)))
+    _recorded(harness, "eval-v1", "B", _analysis(*STEADY, ("drivers", "cause", BRIDGE)))
     _recorded(harness, "eval-v1", "C", _analysis(*STEADY))
     _recorded(harness, "eval-v1", "D", None, generation_ok=False)
     _recorded(harness, "dev-v3", "E", _analysis(*STEADY), first_pass_output=failing, prompt_sha256=None)
@@ -480,13 +503,22 @@ def test_the_replay_takes_the_first_passes_version_2_would_repair(harness: Any, 
     _wire(harness, monkeypatch, [])
     found, notes = harness.repair_replay.cases(["eval-v1", "dev-v3"])
     assert [case["name"] for case in found] == ["eval-v1__A", "dev-v3__E"]  # E's own first pass, not its repaired output
-    assert notes == ["eval-v1/B: passes after the code fixes", "eval-v1/C: passes the gate as written"]
+    assert notes == ["eval-v1/B: passes after retyping", "eval-v1/C: passes the gate as written"]
     record = found[1]["record"]
     assert record["output"] == failing and record["source"] == "dev-v3/deepseek-flash/E" and record["pipeline"] == "v2"
     assert record["first_pass_prompt_sha256"] is None and record["attempts"] == [] and record["cost_usd"] == 0
     assert [f["sentence"] for f in record["gate"]["failures"]] == [WRONG]
     assert [case["warm_prefix"] for case in found] == [30000, None]  # E's ticker has no first attempt on this prompt
     assert [case["name"] for case in harness.repair_replay.cases(["eval-v1", "dev-v3"], {"E"})[0]] == ["dev-v3__E"]
+
+
+def test_the_replay_takes_a_first_pass_whose_one_failure_is_an_omitted_own_id(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With auto-citation removed, a first pass it would have made whole (2.1%'s own D2 is cited elsewhere) is a case."""
+    _recorded(harness, "eval-v1", "F", _analysis(*STEADY, ("cash", "comparison", UNCITED)))
+    _wire(harness, monkeypatch, [])
+    found, notes = harness.repair_replay.cases(["eval-v1"])
+    assert [case["name"] for case in found] == ["eval-v1__F"] and notes == []
+    assert [f["failure"] for f in found[0]["record"]["gate"]["failures"]] == ["'2.1%' matches nothing the sentence cites"]
 
 
 def test_the_replay_repairs_each_case_through_version_2s_repair(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -546,6 +578,7 @@ def test_a_dry_run_sends_nothing(harness: Any, monkeypatch: pytest.MonkeyPatch, 
     harness.repair_replay.main(["--label", "step1", "--sources", "eval-v1,dev-v3", "--dry-run"])
     out = capsys.readouterr().out
     assert sent == [] and "2 cases, 4 repairs, at most 8 calls and USD " in out and "case eval-v1__A: 1 failure(s)" in out
+    assert "each call billed once (no client retry within a call" in out
     assert not (harness.generate.RUNS / "step1").exists()
 
 
@@ -560,6 +593,52 @@ def test_the_ceiling_is_two_cold_calls_a_repeat_each_at_max_tokens(harness: Any,
     # message), and the full repair, 23,000; each reply 16,000 tokens (deepseek-flash's max_tokens), all cold at the
     # off-peak list price ($0.15 in and $0.60 out per million tokens): $0.0258 a repeat.
     assert harness.repair_replay.ceiling(found, 2) == (4, pytest.approx(2 * ((21000 + 23000) * 0.15 + 2 * 16000 * 0.60) / 1e6))
+
+
+def test_the_replay_s_client_retries_nothing_within_a_call(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review 8 repair-loop [3]: the ceiling bills each call once. The OpenAI client's own retries (max_retries=2) would
+    re-send a timed-out or dropped request DeepSeek may have billed, unseen, so the replay's calls go out with none: such
+    a call fails as a provider error, which the next run retries in the open. generate's arms keep their retries."""
+    _sources(harness)
+    _wire(harness, monkeypatch, [])
+    arms: list = []
+
+    async def provider(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        arms.append(arm)
+        return _result(_patch(WRONG, type="comparison", text=RIGHT))
+
+    monkeypatch.setattr(harness.generate, "call", provider)
+    asyncio.run(harness.repair_replay.replay("step1", harness.repair_replay.cases(["eval-v1"])[0], 1, 1))
+    assert [(arm.name, arm.max_retries) for arm in arms] == [(ARM, 0)]
+    assert ARMS[ARM].max_retries == 2
+
+
+def test_an_openai_compatible_call_retries_within_itself_only_as_its_arm_allows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``providers._call_openai_compat`` builds its client with the arm's ``max_retries``. A stand-in client answers, so
+    nothing is sent; the key is a stand-in's name, so no provider key is read."""
+    from evals.trend_depth import providers
+
+    built: list[int] = []
+
+    class Completions:
+        async def create(self, **kwargs: Any) -> Any:
+            usage = types.SimpleNamespace(prompt_tokens=10, completion_tokens=5, prompt_cache_hit_tokens=0, total_tokens=15,
+                                          completion_tokens_details=None)
+            message = types.SimpleNamespace(content="{}")
+            return types.SimpleNamespace(usage=usage, model="m",
+                                         choices=[types.SimpleNamespace(message=message, finish_reason="stop")])
+
+    class Client:
+        def __init__(self, **kwargs: Any) -> None:
+            built.append(kwargs["max_retries"])
+            self.chat = types.SimpleNamespace(completions=Completions())
+
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(AsyncOpenAI=Client))
+    monkeypatch.setenv("TREND_DEPTH_STAND_IN_KEY", "unused")
+    for retries in (0, 2):
+        arm = dataclasses.replace(ARMS[ARM], key_env="TREND_DEPTH_STAND_IN_KEY", max_retries=retries)
+        assert asyncio.run(providers._call_openai_compat(arm, "s", "u", 100, True, 5.0)).text == "{}"
+    assert built == [0, 2]
 
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:

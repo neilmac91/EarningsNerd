@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any, Optional
@@ -277,7 +278,12 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
       bound there is a reading of the sentence ("Net margin stayed above 15% [F30]" for an operating margin of 16.5%,
       a net margin of 13.1%) and stays substantive;
     - ``ambiguous``: two or more cited values with different labels match the number, so the one the gate
-      reported may not be the one the sentence means;
+      reported may not be the one the sentence means. Candidates that are one quantity count once: a cited value
+      derived from exactly the values another matching calculation reads, with that calculation's unit and signed
+      value, is that calculation under its own name, read under the calculation's label (packs-v2's same-year gap
+      [D693] is PG's net margin [F50] less its operating margin [F30], the gate's "pp F50-F30"). Otherwise a sentence
+      that cites the gap's ID, as the candidate prompt asks, shields every flag on it, while the same sentence
+      without the ID, on packs/, counts (review 8 measures [0]);
     - ``substantive``: neither, so the sentence most likely gives the number the wrong metric, period or sign.
     """
     sentence = next((s for s in sentences if factcheck.CITATION_RE.sub("", s["text"]).strip() == item["sentence"]), None)
@@ -289,8 +295,17 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
     if claim.qualifier in ("at_least", "at_most") and view < 2:
         return "bound"
     cited = [i for g in factcheck.CITATION_RE.findall(sentence["text"]) for i in factcheck.ID_RE.findall(g)]
-    labels = {" + ".join(sorted(pack["values"][i]["label"] for i in c.ids if i in pack["values"])) or c.how
-              for c in factcheck.candidates(cited, pack) if factcheck.matches(claim, c)}
+    values = pack["values"]
+    found = [c for c in factcheck.candidates(cited, pack) if factcheck.matches(claim, c)]
+
+    def quantity(c: factcheck.Candidate) -> factcheck.Candidate:
+        """The calculation a cited derived value is (same inputs, unit and signed value), else the candidate itself."""
+        inputs = set(values[c.ids[0]].get("inputs") or []) if c.how == "cited" else set()
+        return next((d for d in found if inputs and d.how != "cited" and set(d.ids) == inputs and d.unit == c.unit
+                     and math.isclose(d.value, c.value, rel_tol=1e-9, abs_tol=1e-6)), c)
+
+    labels = {" + ".join(sorted(values[i]["label"] for i in q.ids if i in values)) or q.how
+              for q in map(quantity, found)}
     return "ambiguous" if len(labels) > 1 else "substantive"
 
 

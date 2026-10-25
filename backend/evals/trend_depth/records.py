@@ -46,6 +46,14 @@ def same_inputs(record: dict[str, Any], prompt_sha256: str, pack: dict[str, Any]
             and read_same_output(record, "pack_sha256", pack_sha256(pack)))
 
 
+def pipeline_of(record: dict[str, Any]) -> str:
+    """The pipeline that made a generation record: its ``pipeline``, "v1" when it has none. A version-2 record made
+    before auto-citation was removed carries ``autocite``: it is another build ("v2 with auto-citation"), so a label
+    never pools it with, or resumes it beside, the version 2 of now (``generate.label_conflicts``, ``report.build``)."""
+    made = record.get("pipeline", "v1")
+    return f"{made} with auto-citation" if "autocite" in record else made
+
+
 def unsettled(record: Optional[dict[str, Any]]) -> Optional[str]:
     """Why a generation record cannot be audited or judged yet, or None once its output is final."""
     if record is None:
