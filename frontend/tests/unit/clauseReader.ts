@@ -79,11 +79,13 @@
  * before the token ("analytics that never run without": governingGroup). A clause that names a subject and no verb
  * group, joined to the next, names a subject of the next clause's predicate ("Analytics cookies and session recording
  * stay off ...": conjunctsOf); a clause with a verb and nothing after it, carried on to the next, shares that clause's
- * object and its negation ("We never share or collect analytics data ...": sharedVerbsOf); a condition holds a clause
- * of its own where a noun phrase and a verb group follow its subordinating word (", while server events wait for your
- * consent": conditionClauseAt); and "that" right after a verb group's verb, or after "true" or "the case", opens the
- * clause the verb takes as its object, which a negation on the group governs from outside ("It is not true that ...":
- * complementAt).
+ * object ("We never share or collect analytics data ...": sharedVerbsOf), and its negation denies the next verb only
+ * where "or" distributes it to a verb that opens its predicate in the same form, not after "and", an auxiliary of the
+ * next predicate's own or another form ("Server events are not shared and require ...": distributesNegation, Codex on
+ * #1618); a condition holds a clause of its own where a noun phrase and a verb group follow its subordinating word
+ * (", while server events wait for your consent": conditionClauseAt); and "that" right after a verb group's verb, or
+ * after "true" or "the case", opens the clause the verb takes as its object, which a negation on the group governs
+ * from outside ("It is not true that ...": complementAt).
  *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
  * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
@@ -901,8 +903,8 @@ export function conjunctsOf(reading: Reading, index: number): number[] {
 /** The clauses before a clause whose verbs share its object and what follows it, first to last (E162 stage 2): each
     carries the subject on to the next, joined by "and", "or" or a comma, with a verb (knowsVerb) and nothing after it,
     which the reader reads as clauses of their own ("We never share or collect analytics data without your consent.":
-    "never share", then "collect analytics data ..."). Their verb groups' auxiliaries and negations are the clause's
-    too. */
+    "never share", then "collect analytics data ..."). A negation on their verb groups denies the clause's verb too only
+    where the coordination distributes it (distributesNegation). */
 export function sharedVerbsOf(reading: Reading, index: number, also?: RegExp): number[] {
   const { tokens, clauses } = reading
   const found: number[] = []
@@ -912,4 +914,31 @@ export function sharedVerbsOf(reading: Reading, index: number, also?: RegExp): n
     found.unshift(k - 1)
   }
   return found
+}
+
+/** A verb's form, as a verb group coordinated with it sets it: -ing, a past form (a participle too), a third person's
+    -s, or the base. */
+function formOf(token: Token | undefined): 'ing' | 'past' | 'third' | 'base' {
+  const word = lower(token)
+  if (/ing$/.test(word)) return 'ing'
+  if (PAST_FORMS.has(word) || /ed$/.test(word)) return 'past'
+  return BASE_FORMS.has(word) || !/s$/.test(word) ? 'base' : 'third'
+}
+
+/** Whether a negation on the verb group of a clause that shares a later clause's object (sharedVerbsOf) denies the
+    later clause's verb too (E162 stage 2; Codex on #1618): only where "or" joins the later clause and each clause after
+    the negated one opens at its verb, with no auxiliary, modal, negation or adverb of its own, in the negated verb's
+    form ("We never share or collect analytics data ..."). A predicate that restarts its verb group ("Analytics are not
+    sold and are collected only with your consent."), puts its verb in another form ("Server events are not shared and
+    require your consent.") or follows "and" ("PostHog never runs and requires your consent.") is said in its own right,
+    so the denial before it does not deny it. */
+export function distributesNegation(reading: Reading, index: number, negated: number): boolean {
+  const { tokens, clauses } = reading
+  if (clauses[index].joinedBy !== 'or') return false
+  const form = formOf(tokens[verbGroupAt(tokens, clauses[negated].predicate).verb])
+  for (let k = negated + 1; k <= index; k++) {
+    const own = verbGroupAt(tokens, clauses[k].predicate)
+    if (own.verb !== clauses[k].predicate || formOf(tokens[own.verb]) !== form) return false
+  }
+  return true
 }
