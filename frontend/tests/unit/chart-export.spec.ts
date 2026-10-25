@@ -13,7 +13,9 @@ import {
   MARK_STAMP,
   parseUnicodeRange,
 } from '@/features/analysis/lib/chartExport'
+import { readFileSync } from 'node:fs'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { buildChartModel, CHART_IDS } from '@/features/analysis/lib/charts/model'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import tailwindConfig from '../../tailwind.config.js'
@@ -159,6 +161,25 @@ describe('layoutLegend', () => {
   it('places an over-wide single item on its own row rather than looping', () => {
     const rows = layoutLegend(measure, [{ label: 'a very long series label', color: '#111' }], 20)
     expect(rows).toHaveLength(1)
+  })
+
+  // M19 on the PNG (spec §6): the export draws each item with one fillText, so it can only wrap between items. Every
+  // fixture's legend, as the spec renderer's card sends it, at a phone's, a desktop card's and an expanded plot's width.
+  const FIXTURES = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')).datasets as Record<string, { dataset: AnalysisDataset }>
+  it.each(Object.keys(FIXTURES))('M19: %s’s legends wrap by whole items, in order, each row inside the strip', (name) => {
+    const ds = FIXTURES[name].dataset
+    for (const chart of CHART_IDS) {
+      const legend = buildChartModel(chart, ds).legend.flatMap((item) => (item.color == null ? [] : [{ label: item.label, color: '#111111' }]))
+      for (const width of [342, 502, 1030]) {
+        const maxWidth = width - 2 * HEADER_STAMP.padX
+        const rows = layoutLegend(measure, legend, maxWidth)
+        expect(rows.flat().map((item) => item.label), `${chart} at ${width}`).toEqual(legend.map((item) => item.label))
+        for (const row of rows) {
+          const used = row.reduce((sum, item, i) => sum + (i ? HEADER_STAMP.itemGap : 0) + HEADER_STAMP.swatch + HEADER_STAMP.swatchGap + item.width, 0)
+          if (row.length > 1) expect(used, `${chart} at ${width}: ${row.map((item) => item.label).join(', ')}`).toBeLessThanOrEqual(maxWidth)
+        }
+      }
+    }
   })
 })
 
