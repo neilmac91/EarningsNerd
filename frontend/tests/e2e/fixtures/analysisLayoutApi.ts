@@ -99,12 +99,13 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
     delete eps.points[6].provenance
     eps.points[6].reconciled = false
     // The shipped phone bug: at 390px a figure that fills its column's nine-glyph budget with its marks ("$922.0M†a")
-    // wrapped them onto a line of their own below it. This state's notes run past z, so the full budget here is six
-    // glyphs, a dagger and a two-letter note: "$92.2M" and "-$922M", each with both. Both signs are planted.
+    // wrapped them onto a line of their own below it. A figure carries no dagger now (D-061) and this state's notes run
+    // past z, so the full budget here is seven glyphs and a two-letter note: "$922.0M" and "-$92.2M", each with its
+    // note. Both signs are planted.
     const tight = (concept: string, index: number, value: number) =>
       Object.assign(dataset.series.find(series => series.concept === concept)!.points[index], { value, provenance: review(['source_check_needed']) })
-    tight('working_capital', 1, 92_200_000)
-    tight('financing_cash_flow', 9, -922_000_000)
+    tight('working_capital', 1, 922_000_000)
+    tight('financing_cash_flow', 9, -92_200_000)
   }
   if (state === 'annual') {
     dataset.mode = 'annual'
@@ -137,44 +138,34 @@ export const UNAVAILABLE_CELLS = [
   { row: 8, periods: ['2023Q3', '2023Q4'] }, // Capital expenditure
   { row: 9, periods: ['2023Q3', '2023Q4'] }, // Free cash flow
 ] as const
-export const EXPECTED_TABLE_REVIEWS = { clean: 0, legacy: 10, discrepancy: 3 } as const
+// Only a note that questions the number marks a figure (D-061): the legacy state's notes are all record-only
+// (legacy_calculation) and its gaps' and the clean state's notes mark nothing, so the discrepancy alone keeps its letters.
+export const EXPECTED_TABLE_REVIEWS = { clean: 0, legacy: 0, discrepancy: 3 } as const
 
 type TableNoteSlots = { rows: number[]; periods: string[]; letter: string; kind: 'review' }
 // Literal cell associations from the archived visual fixture, independently of noteFor
-// and noteForComparison. Unlisted cells have no mark; gaps use UNAVAILABLE_CELLS above.
-export const EXPECTED_TABLE_CELL_NOTES: Record<AnalysisState, {
-  value: TableNoteSlots[]; comparison: TableNoteSlots[]; unavailableLetter: string
-}> = {
-  clean: { value: [], comparison: [], unavailableLetter: 'a' },
-  legacy: {
-    value: [
-      { rows: [2, 4], periods: ['2025Q2', '2026Q2'], letter: 'a', kind: 'review' },
-      { rows: [16, 17], periods: ['2023Q4', '2024Q1', '2026Q2'], letter: 'a', kind: 'review' },
-    ],
-    comparison: [
-      { rows: [2, 4], periods: ['2025Q2', '2025Q3', '2026Q2'], letter: 'a', kind: 'review' },
-      { rows: [16, 17], periods: ['2023Q4', '2024Q1', '2024Q2', '2026Q2'], letter: 'a', kind: 'review' },
-    ],
-    unavailableLetter: 'b',
-  },
+// and noteForComparison. Unlisted cells have no mark; a gap (UNAVAILABLE_CELLS above) has none either.
+export const EXPECTED_TABLE_CELL_NOTES: Record<AnalysisState, { value: TableNoteSlots[]; comparison: TableNoteSlots[] }> = {
+  clean: { value: [], comparison: [] },
+  // The legacy state's note a (legacy_calculation) stays in the data notes and the dialogs, beside no figure.
+  legacy: { value: [], comparison: [] },
   discrepancy: {
     value: [{ rows: [0, 2, 4], periods: ['2026Q2'], letter: 'a', kind: 'review' }],
     comparison: [{ rows: [0, 2, 4], periods: ['2026Q2'], letter: 'a', kind: 'review' }],
-    unavailableLetter: 'b',
   },
 }
 
 // Independently counted from the archived fixture, not the production grouping code.
-// KPI order is Revenue, Net income, Free cash flow, Net margin. Only the last two
-// values are calculated; a reviewed latest value and its YoY each need their own mark.
+// KPI order is Revenue, Net income, Free cash flow, Net margin. No figure carries a dagger (D-061); a questioned
+// latest value and its YoY each need their own mark.
 export const EXPECTED_KPI_VALUES = [
-  { label: 'Revenue', daggers: 0 },
-  { label: 'Net income', daggers: 0 },
-  { label: 'Free cash flow', daggers: 1 },
-  { label: 'Net margin', daggers: 1 },
+  { label: 'Revenue' },
+  { label: 'Net income' },
+  { label: 'Free cash flow' },
+  { label: 'Net margin' },
 ] as const
-// Each nonclean fixture has one review-reason group, ordered before unavailable
-// figures, so its affected value and YoY both carry a. Keep their expectations separate.
+// The discrepancy's one review-reason group (source_conflict) is ordered before the gaps, so its affected value and
+// YoY both carry a. The legacy state's group is record-only and marks nothing. Keep the two expectations separate.
 export const EXPECTED_KPI_LETTERS = {
   clean: [
     { value: [], growth: [] }, { value: [], growth: [] },
@@ -182,17 +173,15 @@ export const EXPECTED_KPI_LETTERS = {
   ],
   legacy: [
     { value: [], growth: [] }, { value: [], growth: [] },
-    { value: [], growth: [] }, { value: ['a'], growth: ['a'] },
+    { value: [], growth: [] }, { value: [], growth: [] },
   ],
   discrepancy: [
     { value: ['a'], growth: ['a'] }, { value: [], growth: [] },
     { value: [], growth: [] }, { value: ['a'], growth: ['a'] },
   ],
 } as const
-export const EXPECTED_TABLE_VALUE_DAGGERS = 101
-// Only the displayed comparison counts here (QoQ, or YoY when QoQ is absent),
-// unlike the Data notes summary which counts both comparison populations.
-export const EXPECTED_TABLE_COMPARISON_REVIEWS = { clean: 0, legacy: 14, discrepancy: 3 } as const
+// Only the displayed comparison counts here (QoQ, or YoY when QoQ is absent), and only a questioned one marks.
+export const EXPECTED_TABLE_COMPARISON_REVIEWS = { clean: 0, legacy: 0, discrepancy: 3 } as const
 
 /**
  * The analysis page's API for a signed-in Pro reader, answered in the browser: META's company, coverage, dataset
@@ -251,18 +240,19 @@ export async function runAnalysis(page: Page, mode: AnalysisDataset['mode']) {
   await expect(page.getByRole('button', { name: 'Refresh analysis', exact: true })).toBeVisible()
 }
 
-export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, legacyEvidenceNote = false,
+export async function openAnalysis(page: Page, baseURL: string, state: AnalysisState | AnalysisGeometryState, theme: AnalysisTheme, textScale = 1, questionedEvidenceNote = false,
   editDataset?: (dataset: AnalysisDataset) => void) {
   const fixture = state === 'captured' || state === 'edge' || state === 'annual' ? geometryFixture(state) : fixtureFor(state)
   editDataset?.(fixture.dataset)
-  if (legacyEvidenceNote) {
+  if (questionedEvidenceNote) {
     expect(state).toBe('legacy')
-    // The archived long FCF/net-income group has only passed citations. Give one
-    // operand the existing legacy concern for the folded-letter browser case;
-    // retain its financial value, calculation and source fields unchanged.
+    // The archived long FCF/net-income group has only passed citations. Give one operand a concern about its number
+    // (a source conflict, which marks; the report's legacy concern would not) for the folded-letter browser case: a
+    // citation-only supplement, lettered after the report's notes. Retain its financial value, calculation and source
+    // fields unchanged.
     const operand = fixture.completion.citations.find(citation => citation.n === 23)!
     operand.reconciled = false
-    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['source_conflict'] }
   }
   await page.addInitScript(({ theme, textScale }) => {
     localStorage.setItem('theme', theme)
