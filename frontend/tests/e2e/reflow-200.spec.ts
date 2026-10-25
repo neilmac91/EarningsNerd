@@ -2760,10 +2760,11 @@ test.describe('summary coverage disclosure', () => {
             headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
             json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), quality } },
           }))
-          await page.goto(`/filing/3${demo ? '?demo=1' : ''}`)
+          await page.goto(`/filing/3${demo ? '?demo=1' : ''}`, { waitUntil: 'domcontentloaded' })
           const coverage = page.getByRole('group', { name: 'Summary coverage' })
           await expect(coverage.getByText(tier === 'partial' ? 'Partial coverage' : tier === 'full' ? 'Full summary' : 'Coverage unknown', { exact: true })).toBeVisible()
           expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
+          await doubleText(page)
           const disclosure = coverage.locator('details')
           const trigger = disclosure.locator('summary')
           await trigger.focus()
@@ -2777,7 +2778,6 @@ test.describe('summary coverage disclosure', () => {
           await expect(disclosure).not.toHaveAttribute('open')
           await trigger.tap()
           await expect(disclosure).toHaveAttribute('open', '')
-          await doubleText(page)
           // Read actual painted characters as well as scroll width: nowrap text can escape
           // a shrinking flex child's box without widening the document.
           const escaped = await coverage.evaluate(group => {
@@ -2799,7 +2799,7 @@ test.describe('summary coverage disclosure', () => {
           const widths = await measure(page)
           expect(widths.scrollWidth, why(widths)).toBeLessThanOrEqual(widths.clientWidth)
           if (tier === 'partial') {
-            await coverage.evaluate(el => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top - 180))
+            await coverage.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 180, behavior: 'instant' }))
             await page.screenshot({ path: testInfo.outputPath('coverage-200.png') })
           }
         })
