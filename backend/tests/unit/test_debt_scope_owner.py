@@ -809,6 +809,7 @@ def test_an_amount_free_debt_relationship_claim_reaches_no_visible_surface(monke
         filing = SimpleNamespace(
             filing_date=None, period_end_date=None, filing_type="10-K",
             company=SimpleNamespace(name="Test Co"), sec_url="https://www.sec.gov/x/",
+            document_url="https://www.sec.gov/x/x.htm",
         )
         for surface, text in (
             ("markdown", markdown), ("web", web),
@@ -879,6 +880,7 @@ def test_the_authored_leverage_reaches_web_markdown_pdf_html_and_csv(monkeypatch
         filing_date=None, period_end_date=None, filing_type="10-K",
         company=SimpleNamespace(name="Test Co"),
         sec_url="https://www.sec.gov/Archives/edgar/data/104169/x/",
+        document_url="https://www.sec.gov/Archives/edgar/data/104169/x/x.htm",
     )
     service = ExportService()
     pdf_html = service.generate_pdf_html(summary, filing)

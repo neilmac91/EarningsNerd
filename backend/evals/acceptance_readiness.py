@@ -46,6 +46,19 @@ _CANONICAL_PRODUCT_FIELDS = (
 _EXECUTION_KEY_TEXT = re.compile(
     r'"(?:config_sha256|source_commit|content_stamp|dependency_lock_sha256|base_url|prompt_version)"\s*:'
 )
+# The PDF's source line (ExportService.generate_pdf_html) as each version of the export writes it:
+# "Source: SEC EDGAR" and an em dash until 2026-10-16, "Source: SEC EDGAR · " until E190 and "Original on
+# SEC.gov · " since, each followed by the address in a span. An export retained from an earlier run still
+# carries its version's line, so the blinding strips the generation date before any of them. Arms generated
+# from versions with different lines would tell a reviewer the arm by it, so every export in a packet set that
+# carries a line carries the same one, read up to the address's tag (build_blinded_packets). The builder
+# compares this line only: exports that differ elsewhere (the closing note's markup changed on 2026-10-20)
+# are the custodian's to catch, by generating both arms from one export_service.py and pdf_branding.py.
+_EXPORT_SOURCE = "(?:" + "|".join(map(re.escape, ("<br>Original on SEC.gov", "<br>Source: SEC EDGAR"))) + ")"
+_EXPORT_GENERATED = re.compile(
+    r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=" + _EXPORT_SOURCE + ")"
+)
+_EXPORT_SOURCE_LINE = re.compile(_EXPORT_SOURCE + "[^<]*")
 
 
 def _positive_price(value: Any) -> bool:
@@ -608,8 +621,7 @@ def _reviewer_artifact(source: Path, key: str, row: dict[str, Any],
     if key == "export":
         # This exact header comes from ExportService.generate_pdf_html. Retain the filing
         # dates and all substantive content; the original export remains custodian-side.
-        text = re.sub(r"(Period End: [^<]+?) · Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}(?=<br>Source: SEC EDGAR)",
-                      r"\1", text, count=1)
+        text = _EXPORT_GENERATED.sub(r"\1", text, count=1)
         if re.search(r"Generated [A-Z][a-z]+ [0-9]{2}, [0-9]{4}", text):
             raise ValueError("unrecognized export generation-date metadata")
         data = text.encode("utf-8")
@@ -687,6 +699,10 @@ def build_blinded_packets(
         if _utc(config["frozen_at"]) >= earliest_output:
             raise ValueError("configuration freeze must predate every output")
         configs[arm] = config
+    lines = {found.group(0) for item in checked
+             if (found := _EXPORT_SOURCE_LINE.search(item["paths"]["export"].read_bytes().decode("utf-8")))}
+    if len(lines) > 1:
+        raise ValueError("exports carry more than one source line: generate every arm from one export version")
 
     reviewer_root, custodian_root = Path(reviewer_root), Path(custodian_root)
     if (reviewer_root.exists() or custodian_root.exists() or reviewer_root.is_symlink() or
