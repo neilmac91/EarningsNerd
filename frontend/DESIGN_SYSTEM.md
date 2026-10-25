@@ -722,10 +722,12 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  scrollLeft. Under an ancestor that clips overflow (the landing demo's mockup frame, a
                  locked preview) that box is the rail's scroll container, so the rail never sticks to the
                  page and never shows. The real thead stays the one screen readers read. The rail lets
-                 the pointer through, so a wheel or a swipe over it still moves the table under it; the
-                 table drops a pointer press or click in the rail's band (a capture listener on the
-                 scroll box), so a click on a heading the reader sees never opens or focuses the figure
-                 hidden under it, while a key's click, which has no pointer, passes. While any of the
+                 the pointer through, so a wheel or a swipe over it still moves the table under it; in
+                 the rail's band a capture listener on the scroll box keeps a pointer press from focusing
+                 or selecting (outside-press listeners, such as the header's menus, still hear it) and
+                 stops the click, so a click on a heading the reader sees never opens or focuses the
+                 figure hidden under it, while a key's click, which has no pointer, passes. Over the band
+                 the cursor and the row hover still answer to the hidden row. While any of the
                  table is under the header's line and the rail can stick, shown or not, the page
                  reserves the heading row's measured height as --table-rail-h on <html>
                  (TABLE_RAIL_HEIGHT_PROPERTY, re-measured on every reflow and removed when no part of the
@@ -737,7 +739,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  afterwards. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts (the padding's calc;
                  the rail's offset reads --site-header-h); tests/e2e/analysis-layout.spec.ts “analysis
                  heading rail” (1440px, both themes: a figure reached by Shift+Tab lands below the rail,
-                 and a click on the rail over a covered figure opens and focuses nothing; a figure
+                 a click on the rail over a covered figure opens and focuses nothing, and a press there
+                 still closes an open header menu; a figure
                  focused while the rail is hidden lands below its band; a figure focused earlier stays
                  put as the reader scrolls the rail over it; the landing demo's table never shows the
                  rail nor reserves its padding; at 1024px a horizontal wheel over the rail moves the

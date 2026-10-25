@@ -105,7 +105,8 @@
        4rem before the first measurement and on routes without it), and below lg the filing page's section
        nav stuck under it reserves its own height too (--section-nav-h, SummaryBlocks' MobileSectionNav; 0px
        from lg and where the nav is not mounted), and the metrics table's page heading rail reserves its height
-       while it shows (--table-rail-h, DataTable's pageHeader; unset otherwise): a keyboard focus, an anchor jump
+       while any of its table is under the header's line, shown or not (--table-rail-h, DataTable's pageHeader;
+       unset otherwise): a keyboard focus, an anchor jump
        or a scrollIntoView lands below every bar, never behind one (WCAG 2.2 SC 2.4.11). A section's own scroll
        margin adds only its room beyond the header, less the nav's share. Gate:
        tests/unit/headerOffsetReadsTheVariable.spec.ts, tests/e2e/header-covers-nothing.spec.ts and, for the rail,

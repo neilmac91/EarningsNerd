@@ -127,7 +127,8 @@ export interface DataTableProps<T> {
 
 const ROW_BORDER = 'border-t border-border-light dark:border-border-dark'
 
-/** The page heading rail's height on <html> while it shows (pageHeader); app/globals.css adds it to scroll-padding-top. */
+/** The page heading rail's height on <html> while it can cover the table: any of it under the header's line (pageHeader).
+ *  app/globals.css adds it to scroll-padding-top. */
 export const TABLE_RAIL_HEIGHT_PROPERTY = '--table-rail-h'
 
 // The figure sheet (surface="well"): the figures sit on the sheet; the heading row and the row-label column keep the
@@ -345,14 +346,15 @@ export function DataTable<T extends Record<string, unknown>>({
     observer?.observe(scroll)
     observer?.observe(table)
     // The rail lets the pointer through, so a wheel or a swipe over it still moves the table under it; a pointer press
-    // or click in its band would land on a figure the reader cannot see, so it stops there. A key's click has no
-    // pointer (detail 0) and passes.
+    // or click in its band would land on a figure the reader cannot see. The press loses only its default (focus,
+    // selection), so outside-press listeners such as the header's menus still hear it; the click stops here, before
+    // the figure's handler. A key's click has no pointer (detail 0) and passes.
     const guard = (event: MouseEvent) => {
       const band = railBarRef.current?.getBoundingClientRect()
       if (!band || event.detail === 0) return
       if (event.clientY >= band.top && event.clientY < band.bottom && event.clientX >= band.left && event.clientX < band.right) {
         event.preventDefault()
-        event.stopPropagation()
+        if (event.type === 'click') event.stopPropagation()
       }
     }
     scroll.addEventListener('scroll', followRail, { passive: true })

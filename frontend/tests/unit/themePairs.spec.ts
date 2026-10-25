@@ -208,9 +208,16 @@ function faintHovers(own: string, shared = ''): string[] {
   const hovered = (c: { variants: string[] }) => c.variants.includes('hover') || c.variants.includes('group-hover')
   const darkRest = (property: string) => all.filter((c) => c.variants.length === 1 && c.variants[0] === 'dark' && cueProperty(c.bare) === property).map((c) => c.bare)
   const darkHover = (property: string) => all.some((c) => hovered(c) && c.variants.includes('dark') && cueProperty(c.bare) === property)
+  // A dark rest that removes the whole family (`dark:border-0`, `dark:shadow-none`, `dark:no-underline`) leaves its colour
+  // nothing to paint.
+  const removed = (property: string) => {
+    const family = property.split(':')[0]
+    return all.some((c) => c.variants.length === 1 && c.variants[0] === 'dark'
+      && (c.bare === `${family}-0` || c.bare === `${family}-none` || (family === 'decoration' && c.bare === 'no-underline')))
+  }
   const cue = all.some((c) => {
     const property = hovered(c) ? cueProperty(c.bare) : undefined
-    if (!property) return false
+    if (!property || removed(property)) return false
     // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it.
     return c.variants.includes('dark') ? !darkRest(property).includes(c.bare) : !darkRest(property).length && !darkHover(property)
   })
@@ -556,6 +563,9 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       // A rest overrules only its own property: a dotted style leaves a hover colour standing, no-underline an underline not.
       "const styled = 'text-text-secondary-light dark:text-text-secondary-dark dark:decoration-dotted hover:decoration-brand dark:hover:text-text-primary-dark'",
       "const unlined = 'text-text-secondary-light dark:text-text-secondary-dark dark:no-underline hover:underline dark:hover:text-text-primary-dark'",
+      // A rest that removes the family leaves its hover colour nothing to paint.
+      "const borderless = 'text-text-secondary-light dark:text-text-secondary-dark dark:border-0 hover:border-brand dark:hover:text-text-primary-dark'",
+      "const bare = 'text-text-secondary-light dark:text-text-secondary-dark dark:no-underline hover:decoration-brand dark:hover:text-text-primary-dark'",
     ].join('\n')
     expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
       '1 dark:hover:text-text-primary-dark',
@@ -564,6 +574,8 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
       '8 dark:hover:text-text-primary-dark',
       '10 dark:hover:text-text-primary-dark',
       '13 dark:hover:text-text-primary-dark',
+      '14 dark:hover:text-text-primary-dark',
+      '15 dark:hover:text-text-primary-dark',
     ])
   })
 

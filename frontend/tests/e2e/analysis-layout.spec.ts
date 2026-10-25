@@ -707,6 +707,15 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
     await page.mouse.click(point.x, point.y)
     await expect(page.getByRole('dialog'), 'a click on the rail opens no hidden figure').toHaveCount(0)
     expect(await page.evaluate(() => !!document.activeElement?.closest('[data-analysis-metrics] tbody')), 'nor focuses it').toBe(false)
+    // The press still reaches outside-press listeners: an open header menu closes on a press in the band.
+    // Pressed where it is, as a reader would: the locator's own click scrolls a header control "into view" first.
+    const bell = page.getByRole('button', { name: 'Notifications', exact: true })
+    const bellBox = (await bell.boundingBox())!
+    await page.mouse.click(bellBox.x + bellBox.width / 2, bellBox.y + bellBox.height / 2)
+    await expect(bell).toHaveAttribute('aria-expanded', 'true')
+    const left = await page.evaluate(() => { const band = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect(); return { x: band.left + 24, y: band.top + band.height / 2 } })
+    await page.mouse.click(left.x, left.y)
+    await expect(bell, 'a press in the rail band closes the open menu').toHaveAttribute('aria-expanded', 'false')
     // Tab into the row below, then back up: focus lands on row 8's last figure, which the page must scroll clear.
     await rows.nth(9).locator('button[aria-label$="View source and calculation"]').first().focus()
     await page.keyboard.press('Shift+Tab')
@@ -739,6 +748,8 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
       return { rail: !!document.querySelector('[data-table-header-rail] > div'), bottom: table.getBoundingClientRect().bottom - header - head }
     })
     expect(placed.rail, 'the rail is hidden before the focus moves').toBe(false)
+    // The reserve follows the scroll a frame later; the focus move waits for it, as a reader's key press would.
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
     const figure = page.locator(`${TABLE} tbody tr:last-child button[aria-label$="View source and calculation"]`).last()
     await figure.evaluate((button: HTMLElement) => {
       button.focus({ preventScroll: true })
