@@ -285,20 +285,26 @@ says so; everything else follows the spec.
   D1–D14 on a gallery move with E194.
 - **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
   - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
-    the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.gridline`
-    (`#DCD9D0`/`#525C6B`, its `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of
-    `chart-1…6` would make `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new
-    `chart.label` and `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s
-    mirror behind: production surfaces the founder's F66 decision covers. E195 folds the pairs into item 1's names.
+    the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
+    and `#D7DADC`, the plot's own whatever #1606 makes of the text inks), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
+    `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of `chart-1…6` would make
+    `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new `chart.label` and
+    `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s mirror behind:
+    production surfaces the founder's F66 decision covers. Until then two gates keep the pairs off them:
+    `designTokenParity` admits a hex only the pairs hold in `lib/charts/theme.ts` alone, and `chart-theme.spec.ts`
+    fails any class that names a pair. E195 folds the pairs into item 1's names.
   - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
     Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
     and notes paint in the legend names' ink, `#B8BEC7` on dark, where the export's `#9CA3AF` measures Lc −48.6.
-  - `DESIGN.md` and its sidecar (item 3) record the pairs as omitted until they ship; DS §1 and §10 name them (item 4,
-    and the part of item 5 that is not the hollow-marker, crosshair and † rewrites, which belong to E195 with the
-    charts they describe). Item 6 is E199, and item 7 E195.
-  - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, and holds every token to its floor in both
-    themes, on the card and under the column wash (`cursor`, which the table leaves unmeasured). The narrowest clear
-    their floors by less than half a point, on the dark wash: the tick ink at Lc −60.3 and the zero rule at −45.4.
+  - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
+    copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
+    renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
+    `secondary`" and †) belong to E195 with the charts they describe, and the font-loader note to E199 with the
+    loader. Item 6 is E199, and item 7 E195.
+  - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, the Source column's included, and holds
+    every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
+    unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
+    Lc −60.3 and the zero rule at −45.4.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`

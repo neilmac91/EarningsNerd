@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 
@@ -76,11 +77,12 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
     }
   })
 
-  it('the inks: tick and the card’s subtitle in chart.tick, values in the text inks, review letters in chart.review', () => {
+  it('the inks: tick and the card’s subtitle in chart.tick, printed values in chart.value, review letters in chart.review', () => {
     expect(both((tokens) => tokens.tick)).toEqual(pair(colors.chart.tick))
     expect(both((tokens) => tokens.note)).toEqual(pair(colors.chart.tick))
     expect(colors.chart.tick.light, 'the light tick ink is the tertiary text ink').toBe(colors.text.tertiary.light)
-    expect(both((tokens) => tokens.value)).toEqual([colors.text.secondary.light, colors.text.primary.dark])
+    expect(both((tokens) => tokens.value)).toEqual(pair(colors.chart.value))
+    expect(colors.chart.value.light, 'the light value ink is the secondary text ink').toBe(colors.text.secondary.light)
     expect(both((tokens) => tokens.review)).toEqual(pair(colors.chart.review))
     expect(colors.chart.review.light, 'the light review ink is the warning ink').toBe(colors.warning.light)
     // The card's legend: names in the secondary ink on light and chart.tick on dark (§3.8), values in the primary ink.
@@ -91,5 +93,27 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
   it('the column wash is chart-1’s teal at 8% and 16%, as Chart.tsx’s bar cursor', () => {
     const teal = [1, 3, 5].map((at) => parseInt(colors.chart[1].slice(at, at + 2), 16)).join(',')
     expect(both((tokens) => tokens.cursor)).toEqual([`rgba(${teal},.08)`, `rgba(${teal},.16)`])
+  })
+})
+
+describe('the renderer’s pairs reach no class before F66 (E195 folds them into chart-1…6 and lifts this)', () => {
+  // A class would ship the new dark values on a production surface, past the founder's decision; themePairs would only
+  // ask for its dark twin, which these pairs already have.
+  const SCAN = ['app', 'components', 'features', 'hooks', 'lib']
+  const READ = /\.(?:[cm]?[jt]sx?|css)$/
+  const CLASS = /\b(?:bg|text|border(?:-[xytblrse])?|ring(?:-offset)?|fill|stroke|from|via|to|divide|outline|decoration|accent|caret|placeholder|shadow)-chart-(?:s[1-6]|tick|value|gridline|review)-(?:light|dark)\b/g
+  const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    return entry.isDirectory() ? (entry.name === 'node_modules' ? [] : files(full)) : READ.test(entry.name) ? [full] : []
+  })
+
+  it('no source file names one', () => {
+    const sources = SCAN.flatMap(files)
+    expect(sources.length).toBeGreaterThan(300)
+    expect(sources.flatMap((file) => (readFileSync(file, 'utf8').match(CLASS) ?? []).map((name) => `${file}: ${name}`))).toEqual([])
+  })
+
+  it('the scan reads a class that names one', () => {
+    expect('className="text-chart-tick-light dark:text-chart-tick-dark bg-chart-s1-dark"'.match(CLASS)).toEqual(['text-chart-tick-light', 'text-chart-tick-dark', 'bg-chart-s1-dark'])
   })
 })

@@ -41,18 +41,35 @@ const MIRRORS = [
   'app/layout.tsx',
 ]
 
+/** The trend-chart spec renderer's own pairs (tailwind.config.js), behind NEXT_PUBLIC_CHARTS_V2 until F66 (E194). */
+const RENDERER_PAIRS = ['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review']
+const RENDERER_MIRROR = 'features/analysis/lib/charts/theme.ts'
+
 describe('JS color mirrors stay token-true', () => {
   const tokens = collect(config.theme.extend.boxShadow, collect(config.theme.extend.colors, new Set<string>()))
   // Plain white/black are legal literals (export canvas ground, on-fill ink).
   tokens.add('#ffffff')
   tokens.add('#000000')
+  // The hexes only the renderer's pairs hold: its new dark series and inks, which wait for the founder's F66 decision.
+  const { chart, ...others } = config.theme.extend.colors
+  const elsewhere = collect(config.theme.extend.boxShadow, collect({ ...others, chart: Object.fromEntries(Object.entries(chart).filter(([key]) => !RENDERER_PAIRS.includes(key))) }, new Set<string>()))
+  const rendererOnly = [...collect(RENDERER_PAIRS.map((key) => chart[key]), new Set<string>())].filter((hex) => !elsewhere.has(hex))
 
   for (const file of MIRRORS) {
     it(`${file} uses only config token hexes`, () => {
       const hexes = [...new Set((stripComments(read(file)).match(HEX) ?? []).map((h) => h.toLowerCase()))]
       expect(hexes.filter((h) => !tokens.has(h))).toEqual([])
+      // Only the renderer's own mirror takes its pairs' new values: a production mirror that did (Chart.tsx's dark
+      // labels or series) would ship them before F66, and every hex would still be a token.
+      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, before F66 (E195 folds them in)').toEqual([])
     })
   }
+
+  it('reads the renderer’s own hexes', () => {
+    expect(RENDERER_PAIRS.every((key) => key in chart)).toBe(true)
+    expect(rendererOnly).toEqual(expect.arrayContaining(['#62b2a6', '#b8bec7', '#dcd9d0', '#525c6b', '#fbbf24']))
+    expect(MIRRORS).toContain(RENDERER_MIRROR)
+  })
 })
 
 describe('lib/motion.ts mirrors the globals.css motion tokens', () => {

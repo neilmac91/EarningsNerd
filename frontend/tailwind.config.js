@@ -160,6 +160,7 @@ module.exports = {
           s5: { light: '#6E7E9C', dark: '#97A6C2' }, // = chart-5 · dark Lc −50.1
           s6: { light: '#8B7BC0', dark: '#AFA2DE' }, // = chart-6 · dark Lc −52.8
           tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (secondary-dark is −48.6)
+          value: { light: '#374151', dark: '#D7DADC' },    // = text.secondary · dark = text.primary.dark today, the plot's own after #1606
           gridline: { light: '#DCD9D0', dark: '#525C6B' }, // Lc 16.8 / −15.0: visible, quieter than the zero rule
           review: { light: '#92400E', dark: '#FBBF24' },   // = warning · dark Lc −70.2 (warning-dark is −56.9)
         },

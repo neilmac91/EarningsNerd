@@ -2,10 +2,11 @@
  * The trend charts' tokens, chart scope (docs/design/analysis-trend-charts-spec-2026-10.md §3.8). Every value is a
  * literal hex or rgba string, so no var(--…) reaches an SVG attribute and serialising the SVG for the PNG export
  * cannot lose a colour. Only the spec renderer behind CHARTS_V2 reads these. They mirror Tailwind's `chart.s1…s6`,
- * `chart.tick`, `chart.gridline` and `chart.review` pairs and the text and surface tokens (step 6, E194); today's
- * Recharts charts keep components/ui/Chart.tsx's chartTheme, so the new dark tokens reach no production chart while
- * the flag is off. designTokenParity holds every hex here to a token, tests/unit/chart-theme.spec.ts each field to the
- * spec's table and its own token, and tests/unit/chart-apca.spec.ts each to its contrast floor. Pure and SSR-safe.
+ * `chart.tick`, `chart.value`, `chart.gridline` and `chart.review` pairs and the text and surface tokens (step 6,
+ * E194); today's Recharts charts keep components/ui/Chart.tsx's chartTheme, so the new dark tokens reach no production
+ * chart while the flag is off. designTokenParity holds every hex here to a token and keeps the pairs' own hexes out of
+ * every other mirror, tests/unit/chart-theme.spec.ts holds each field to the spec's table and its own token and keeps
+ * the pairs out of every class, and tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
  */
 export interface ChartTokens {
   /** Plot background, marker rings, break marks, export fill: the card's panel colour. */

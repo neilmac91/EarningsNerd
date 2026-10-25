@@ -49,11 +49,20 @@ describe('every Lc the spec’s §3.8 tables print is the formula’s on the car
     expect(round(apcaLc(dark, CHART_TOKENS.dark.surface))).toBe(lc(cells[6]))
   })
 
-  const html = rows('| ').filter((cells) => cells.length === 7 && /^(Subtitle|Legend)/.test(cells[1]))
+  const html = rows('| ').filter((cells) => cells.length === 7 && HEX.test(cells[2]))
   it('reads the card’s HTML text table', () => expect(html.map((cells) => cells[1])).toEqual(['Subtitle and footnotes', 'Legend names', 'Legend values']))
   it.each(html.map((cells) => [cells[1], cells]))('%s', (_, cells) => {
     expect(round(apcaLc(HEX.exec(cells[2])![0], CHART_TOKENS.light.surface))).toBe(lc(cells[3]))
     expect(round(apcaLc(HEX.exec(cells[4])![0], CHART_TOKENS.dark.surface))).toBe(lc(cells[5]))
+  })
+
+  // The Source column's figures for what each token replaces, on the dark card: a hex it names ("DS `#F59E0B` is
+  // −56.9"), or today's dark series, which is its light hex ("today's dark −32.0").
+  const sources = token.flatMap((cells) => [...cells[7].matchAll(/(?:`(#[0-9A-Fa-f]{6})` is|today's dark) (−?\d+\.\d)/g)]
+    .map((match) => [`${cells[1]}: ${match[0]}`, match[1] ?? HEX.exec(cells[3])![0], match[2]] as const))
+  it('reads the Source column’s figures', () => expect(sources).toHaveLength(8))
+  it.each(sources)('%s', (_, hex, printed) => {
+    expect(round(apcaLc(hex, CHART_TOKENS.dark.surface))).toBe(lc(printed))
   })
 })
 

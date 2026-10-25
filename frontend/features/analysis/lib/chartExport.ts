@@ -248,8 +248,8 @@ export const MARK_STAMP = {
   wordmarkGap: 9, // mark → wordmark
 } as const
 
-/** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars) — the single source for
- *  every ink the header/footer paint. Gated in chart-export.spec against tailwind.config.js's
+/** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars): the footer's ink, and the header's and
+ *  notes' unless the card passes its own (ExportInk). Gated in chart-export.spec against tailwind.config.js's
  *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {

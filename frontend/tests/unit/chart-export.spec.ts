@@ -612,10 +612,12 @@ describe('exportPanelPng header', () => {
     expect(downloadBlob).toHaveBeenCalledOnce()
   })
 
+  // A card's inks here are unlike either theme's, so a header or footer that kept the default would show.
   it.each([
     { name: 'the theme’s text inks by default', dark: true, ink: undefined, primary: EXPORT_TEXT.primary.dark, secondary: EXPORT_TEXT.secondary.dark },
-    { name: 'a card’s own inks when it passes them', dark: true, ink: { primary: '#D7DADC', secondary: '#B8BEC7' }, primary: '#D7DADC', secondary: '#B8BEC7' },
     { name: 'the light theme’s by default', dark: false, ink: undefined, primary: EXPORT_TEXT.primary.light, secondary: EXPORT_TEXT.secondary.light },
+    { name: 'a dark card’s own inks when it passes them', dark: true, ink: { primary: '#123456', secondary: '#654321' }, primary: '#123456', secondary: '#654321' },
+    { name: 'a light card’s own inks when it passes them', dark: false, ink: { primary: '#123456', secondary: '#654321' }, primary: '#123456', secondary: '#654321' },
   ])('paints the header and notes in $name', async ({ dark, ink, primary, secondary }) => {
     const fills = new Map<string, string>()
     ctx.fillText = vi.fn((text: string) => fills.set(text, ctx.fillStyle as string))
