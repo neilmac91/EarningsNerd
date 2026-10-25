@@ -35,22 +35,27 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     were gate errors, since fixed; §7.2);
   - a quarter of sentences now state a cause, and an auditor from another model family found 76–78% of
     those fully supported by the cited passage and 0–1% unsupported. The hand-written gold scored 70% and 0%.
-- **Model: Claude Sonnet 5.5,** at $0.21 per fresh analysis through the API (about $210 per 1,000) and about a
-  minute's
-  latency.
-  - DeepSeek flash costs $0.007 and takes 10 seconds. It gives verified numbers the wrong metric, period or
-    sign about three times as often (9–10 per 1,000 against 3), and it marks almost none of its interpretation
-    as analysis.
-  - The judge evidence on the head-to-head is mixed. Opus prefers Sonnet 18–1, mostly on grounding and
-    calibration. DeepSeek V4 Pro is position-biased and inconclusive. Gemma 4 31B, the neutral judge, has
-    given 5 valid verdicts of 20 so far (Sonnet 2, DeepSeek 2, 1 split) and has not yet confirmed Opus's margin.
-    The recommendation therefore rests mainly on the judge-free measures, and it should be confirmed by the
-    blind human pack before launch.
-  - DeepSeek remains the budget option once two evidence gaps are fixed.
+- **Model: DeepSeek flash (founder decision, 2026-10-25).** It costs $0.007 a fresh analysis and takes about
+  10 seconds. Claude Sonnet 5.5 was more accurate but is not adopted: $0.21 an analysis (about 30 times as
+  much) and about a minute's wait.
+  - DeepSeek's gap is narrower and more specific than the headline (`DEEPSEEK-ERRORS.md`):
+    - 17 real first-try gate failures against Sonnet's 1 on the same prompt, 7 of them a correct figure
+      cited without its own ID;
+    - about 14 numbers said about the wrong metric, period or sign against Sonnet's 1, most invited by two
+      pack gaps: no typical operating-cash-flow level, and net cash on one signed basis only;
+    - almost no interpretation marked as judgement, after the frozen prompt dropped the words "one judgement"
+      from the red-flag section;
+    - equal support for its causes (76% for both).
+  - Most of the fixes are code, pack or prompt changes that cost no model call. They are being built and
+    measured on DeepSeek: development half first, then held out, two runs each (`DEEPSEEK-ERRORS.md` §3).
+  - The judge evidence on Sonnet against DeepSeek (§7.6) stays on record. Opus preferred Sonnet 18–1, mostly
+    on grounding and calibration, which are the classes the fixes target.
 - **Still open:**
+  - the DeepSeek fixes and their measurement (`DEEPSEEK-ERRORS.md`);
   - the blind human pack (§9c) is built but not yet rated;
-  - the Gemini arm awaits its daily quota (scheduled);
-  - Claude ran through the CLI rather than the API, which affects its latency figures.
+  - the long-term-debt mapping breaks in 6 of 20 packs, which probably also affect production's metrics
+    table (a separate production decision);
+  - the Gemini arm and the Claude API run were set aside with the decision.
 
 ## 1. How the analysis is produced today
 
@@ -543,54 +548,49 @@ Gate figures here use the current gate.
    most one repair naming the failed sentences, then fall back to today's code-written narrative if the
    repair also fails. Nothing reaches the cache or the page before the gate passes. The pack's inputs come
    through the existing SEC transports and are cached per accession.
-2. **Prompt.** `backend/prompts/trends-depth-analyst-agent.md` as frozen (sha256 `d558d371…`), under a new
-   `PROMPT_VERSION`. Fix two pack gaps before launch:
-   - add the operating-cash-flow-to-net-income window median;
-   - give net debt as its own positive value, with the sign stated in the label.
+2. **Prompt and pack.** The frozen prompt (`backend/prompts/trends-depth-analyst-agent.md`, sha256
+   `d558d371…`) is the baseline. The candidate fixes in `DEEPSEEK-ERRORS.md` §2 change it and the pack:
+   - restore a judgement slot;
+   - add a typical operating-cash-flow-to-net-income level;
+   - word net debt without a minus sign;
+   - keep net-versus-operating margin within one year;
+   - suppress net cash built on a broken debt series.
 
-   Both are behind DeepSeek's commonest mislabels, and the fix helps every model.
+   The candidate ships under a new `PROMPT_VERSION` only if it meets the targets in §3 of that file.
 3. **Grounding rule.** The four tiers in `GROUNDING-RULE.md`, enforced by the gate in the request path. Add
    the causal audit and the semantic audit as a weekly sampled check, the way `backend/evals/RUNBOOK.md` runs
    the Copilot citation audit. They cost about $0.01 a sample with V4 Pro, or about $0.14 with Opus at API
    list price, and Opus is the better auditor. The Opus figure is an estimate: the CLI billed $0.18, which
    includes writing each prompt to a one-hour cache, and the eval-v1 audit records kept no token counts. **This needs your approval before any of it is built.**
-4. **Model: Claude Sonnet 5.5**, through the Anthropic SDK behind the `openai_service.py` façade, for this
-   surface only.
-   - **Why Sonnet:**
-     - every output passed the gate after at most one repair;
-     - it had the fewest mislabelled numbers;
-     - it marks its judgements and flags data problems in the evidence itself;
-     - Opus, the judge most consistent across the position swap (92%), preferred it to DeepSeek on grounding
-       and calibration.
-
-     Its cost is $0.21 per fresh analysis through the API: about $210 per 1,000 fresh analyses a month. Its
-     latency is about
-     a minute.
-   - **How firm this is:** it rests on the measures that need no judge and on Opus. The neutral judge has not
-     confirmed it yet (§7.6).
-   - **Decisions it needs:** a new ADR that supersedes ADR-0008 for this surface, and an `ANTHROPIC_API_KEY`
-     secret.
-   - **The budget alternative is DeepSeek flash** at $0.007 and 10 seconds, after the two pack fixes, and
-     after a further development round on judgement typing, its clearest weakness. Choose it if the human
-     pack shows raters do not see the difference.
-   - **Haiku 5.5** is close to Sonnet on the objective measures at a tenth of the cost, but it was slower in
-     this configuration, needed a repair on 8 of 20 companies, and was thinner on red flags in the one draft
-     read closely. Before choosing it, measure Haiku without extended thinking on the development half.
+4. **Model: DeepSeek flash (founder decision, 2026-10-25),** at $0.007 a fresh analysis and about 10 seconds.
+   Claude Sonnet 5.5 was more accurate on these measures but is not adopted: about 30 times the cost and a
+   minute's wait (§7.6, §8). The work now goes into DeepSeek's errors:
+   - **Code in the repair loop and the gate** (no model call):
+     - add a figure's missing own ID by code before any repair;
+     - a clearer repair message;
+     - retype a figure-only "cause" sentence;
+     - narrow gate fixes;
+     - backstop checks for the remaining mislabels;
+     - a patch-style repair that returns only the failed sentences.
+   - **Pack and prompt fixes,** tested against the frozen baseline, with each half tested apart as well.
+   - **Expected effect:** companies needing a repair fall from 7 of 20 to 1–4, and mislabelled numbers from
+     about 14 to 2–4, at about the same cost. p90 latency falls from 16 s to about 11–13 s, because repairs
+     become rarer and shorter.
+   - **Evidence and plan:** `DEEPSEEK-ERRORS.md`.
 5. **Fix the facts-layer defects in §3 regardless.** They affect today's page:
    - recast rows beside first-reported ones;
    - proxy-statement net income;
    - no annual window for insurers;
-   - the unmapped long-term debt tags;
+   - the unmapped long-term debt tags (6 of 20 packs lose long-term debt partway through the window);
    - the XOM CIK.
 6. **Before switching on:**
-   - run the human pack (§9c); to settle Sonnet against DeepSeek, also run the DeepSeek version of the
-     pack on the same raters;
-   - run the Claude arms through the Anthropic API as `eval-v2-api`. The plan is in
-     `backend/evals/trend_depth/README.md`: about USD 44 of the key (about USD 53 with the scheduled Gemini
-     follow-up), with a USD 75 ceiling checked before every attempt. It replaces the CLI runs and adds Haiku
-     and Sonnet with thinking off, the latency options;
-   - re-run this harness on the final prompt and pack (`backend/evals/trend_depth/README.md`, about USD 25);
-   - add the Gemini arm when its quota allows (a follow-up is scheduled; §11).
+   - run the human pack (§9c) on the final DeepSeek outputs;
+   - measure the DeepSeek candidate on the held-out half, two runs, with nothing changed after the results
+     are seen (`DEEPSEEK-ERRORS.md` §3);
+   - measure p90 latency at production hours and at DeepSeek's peak price.
+
+   The Claude API run (`eval-v2-api`) and the Gemini arm were set aside with the decision. The harness keeps
+   both paths.
 
 What approval would authorise is listed at the end of `GROUNDING-RULE.md`. Nothing in production has
 changed.
