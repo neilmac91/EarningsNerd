@@ -11,18 +11,22 @@ whose text carries inline citations (``[F12]``, ``[D40][P7]``) into an evidence 
    (growth, CAGR over the periods between them, share, difference, ratio, percentage-point change, sum,
    mean); or a figure printed in a cited filing passage. Signs compare by magnitude ("fell 12%" cites -12%),
    and a direction word next to a signed change must agree with its sign. "Improved" or "worsened" reads
-   inverted for a metric where lower is better (an efficiency or cost ratio). A value labelled "A minus B" said
-   with "faster", "more", "slower" or "less" reads as the side the clause names first against the other: "costs
-   grew 0.3pp faster than revenue" says costs minus revenue is +0.3, "costs fell 1.2pp less than revenue" says
-   it is +1.2, and "costs grew 0.3pp slower than revenue" says it is -0.3.
+   inverted for a metric where lower is better (an efficiency or cost ratio). A value labelled "A minus B" that
+   the clause compares reads as the side it names first against the other, each side found by its key nouns
+   (revenue or sales; costs, expenses or spending): a move ("costs grew 0.3pp faster than revenue" says costs
+   minus revenue is +0.3, "costs fell 1.2pp less than revenue" +1.2, "costs grew 0.3pp slower than revenue"
+   -0.3) or a standing, which gives the sign whatever the direction word ("revenue outgrew costs by 4.4pp" +4.4,
+   "revenue growth ran 4.4pp behind cost growth" -4.4). When the side named first is neither of the label's, the
+   value keeps its sign. A gap between two levels of one year ("net margin minus operating margin (pp, same
+   year)") carries no direction, like the difference of the two margins it equals.
 4. If the sentence names fiscal years, the matched value must belong to one of them.
 5. Tier rules: a number with no citation fails; a ``cause`` sentence must cite a filing passage; a
    ``judgement`` sentence may restate cited numbers but never introduce one.
 
 A run passes only with zero failures; ``check(..., backstops=True)`` also fails the backstop probes' hits
-(``probes.py``: a verified number said about another ratio, basis, year or sign, or a debt figure built on a
-debt break the pack names). Counts of periods ("three consecutive years") are recorded as ``unverified_count``
-(they are not values a pack carries) and are left to the rubric judge.
+(``probes.py``: a verified number said about another ratio, basis, year or sign, or a figure built on a break the
+pack names: debt, liquidity or a peer's year). Counts of periods ("three consecutive years") are recorded as
+``unverified_count`` (they are not values a pack carries) and are left to the rubric judge.
 
 ``backstops=False`` is this gate without the probes, not the gate eval-v1 ran: the narrow fixes to its artefacts
 (DEEPSEEK-ERRORS.md fix 7) apply either way. eval-v1's own verdicts come from the gate as committed at ``b3ed8ef``
@@ -261,6 +265,13 @@ def _passage_numbers(passage: dict[str, Any]) -> list[Candidate]:
     return out
 
 
+# A gap between two levels of one year (packs-v2's "Net margin minus operating margin (pp, same year)") is a level, not
+# a change: like the difference of the two margins it equals, which an arm reading packs/ cites, it carries no
+# direction, so "the gap narrowed to 3.4pp" is read by magnitude on either pack, and the backstop ``gap_direction``
+# reads which margin the sentence puts above, for both.
+_SAME_YEAR_GAP = re.compile(r"\bsame year\b", re.I)
+
+
 def candidates(ids: Iterable[str], pack: dict[str, Any]) -> list[Candidate]:
     """Every value the cited IDs license: the values, their pairwise derivations, passage figures."""
     values = pack["values"]
@@ -270,7 +281,7 @@ def candidates(ids: Iterable[str], pack: dict[str, Any]) -> list[Candidate]:
     for vid in cited:
         v = values[vid]
         label = v["label"].lower()
-        signed = v["unit"] == "pp" or vid.startswith("D") and bool(
+        signed = v["unit"] == "pp" and not _SAME_YEAR_GAP.search(label) or vid.startswith("D") and bool(
             re.search(r"\bgrowth\b|\bchange$|contribution", label))
         out.append(Candidate(v["value"], _value_unit(v["unit"]), "cited", (vid,), _periods_of(v), signed))
     for a_id, b_id in itertools.permutations(cited, 2):
@@ -392,6 +403,14 @@ def _direction(text: str, claim: Claim) -> tuple[Optional[int], bool]:
     if downs and not ups:
         return -1, evaluative
     return None, False
+
+
+def _said_otherwise(cand: Candidate, said: dict[tuple[str, tuple[str, ...]], int], direction: Optional[int],
+                    evaluative: bool, values: dict[str, Any]) -> bool:
+    """A signed match whose sign the sentence contradicts: the sign its clause gives a compared "A minus B" value
+    (``said``), else the direction word's."""
+    sign = said.get((cand.how, cand.ids), direction)
+    return sign is not None and _contradicts(cand, sign, evaluative and (cand.how, cand.ids) not in said, values)
 
 
 def lower_is_better(cand: Candidate, values: dict[str, Any]) -> bool:
@@ -527,11 +546,32 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
 
 _CLAUSE_BREAK = re.compile(r"[;:]|,\s+(?:and|but|while|whereas)\b|\bwhile\b|\bwhereas\b|\bbut\b", re.I)
 _MINUS_LABEL = re.compile(r"^(?P<a>.+?) minus (?P<b>.+?)(?:\s*\([^)]*\))?$", re.I)
-# How far the side named first moved against the other: more ("0.3pp faster than revenue"), or less. Words of
-# position ("3.4pp below operating margin") are not comparatives of a move and are read by the direction word alone.
+# How far the side named first moved against the other: more ("0.3pp faster than revenue"), or less; the direction
+# word says which way it moved. With no direction word the same words say where it stands ("revenue growth was 4.4pp
+# less than cost growth").
 _MORE, _LESS = r"faster|quicker|more(?!\s+slowly)", r"slower|less|more\s+slowly"
 _COMPARATIVE_AFTER = re.compile(rf"^\s*(?:({_MORE})|({_LESS}))\b", re.I)
 _COMPARATIVE_BEFORE = re.compile(rf"\b(?:({_MORE})|({_LESS}))\s+than\b", re.I)
+# Where the side named first stands against the other, whatever the direction word: a position right after the figure
+# ("ran 4.4pp ahead of operating costs", "3.4pp below operating margin"), or an outpacing before it ("revenue outgrew
+# costs by 4.4pp", "trailed operating-cost growth by 4.4pp"). The probes' ``gap_direction`` reads the same words.
+ABOVE, BELOW = r"above|higher|ahead of", r"below|under|lower|behind|short of"
+_STANDING_AFTER = re.compile(rf"^\s*(?:({ABOVE})|({BELOW}))\b", re.I)
+_OUTPACE = re.compile(r"\b(?:(beat\w*|exceed\w*|outpac\w*|outgr[eo]w\w*|top(?:s|ped|ping)|outr[au]n\w*)|"
+                      r"(trail\w*|lag\w*|(?:fell|falls|fall) short of))\b", re.I)
+_BY_END = re.compile(r"\bby\s*$", re.I)
+
+
+def outpacing(lead: str) -> Optional[tuple[int, int, int]]:
+    """(+1 for beat, exceeded, outgrew, outpaced, outran or topped, -1 for trailed, lagged or fell short of; where the
+    verb starts; where it ends) when ``lead``, the words before a figure, end "<verb> ... by": the last such verb, with
+    no figure after it ("top" alone is not one: "top-line growth trailed costs by 4.4pp" trailed)."""
+    if not _BY_END.search(lead):
+        return None
+    verbs = [m for m in _OUTPACE.finditer(lead) if not re.search(r"\d", lead[m.end():])]
+    return ((1 if verbs[-1].group(1) else -1), verbs[-1].start(), verbs[-1].end()) if verbs else None
+
+
 _OF_THE_BEFORE = re.compile(r"^\s*of\s+(?:the\s+)?$", re.I)
 _TOTAL_AFTER = re.compile(r"^\s*total\b", re.I)
 _REVENUE_GROWTH = re.compile(r"^revenue growth(?:,|$)", re.I)
@@ -550,44 +590,65 @@ def _clause_of(text: str, claim: Claim) -> str:
     return text[start:end]
 
 
+# The sides of an "A minus B" label by their key nouns, as a sentence names them in its own words: revenue as sales or
+# the top line, a cost as costs, expenses, spending or opex, each with or without "operating" or "growth" ("costs grew
+# 0.3pp slower than sales"). Any other side goes by its whole phrase ("net margin", so "operating income" is not
+# "operating margin").
+_SIDE_NOUNS = ((re.compile(r"\brevenue\b", re.I), r"(?:net\s+)?(?:revenues?|sales|top[- ]line)"),
+               (re.compile(r"\b(?:costs?|expenses?)\b", re.I), r"(?:operating[- ])?(?:costs?|expenses?|spending|opex)"))
+
+
+# A side named as its fall ("the revenue decline outran cost reduction by 1.2pp", DeepSeek CVX: revenue fell 4.6%, costs
+# 3.4%) stands ahead by falling more, so its outpacing says the other way. A move's fall is its direction word.
+_FALL_AFTER = re.compile(r"\s+(?:declines?|reductions?|drops?|contractions?|cuts?|shrinkage)\b", re.I)
+_FALL_BEFORE = re.compile(r"\b(?:declines?|reductions?|drops?|falls?|contractions?|cuts?)\s+in\s+(?:the\s+|its\s+)?$", re.I)
+
+
 def side_pattern(side: str) -> re.Pattern[str]:
-    """How a sentence names one side of an "A minus B" label: the side's whole phrase ("net margin", so "operating
-    income" is not "operating margin"), its parenthesis dropped; a growth side may go without "growth" ("costs grew
-    faster than revenue"), and a cost may be costs or expenses."""
+    """How a sentence names one side of an "A minus B" label (``_SIDE_NOUNS``), its parenthesis dropped; a growth side
+    may go without "growth". A side after "of" is a ratio's base ("costs as a share of revenue"), not that side."""
     words = side.lower().split()
     tail = r"(?:\s+growth)?" if len(words) > 1 and words[-1] == "growth" else ""
     words = words[:-1] if tail else words
-    body = r"\s+".join(re.escape(w).replace(r"\-", "[- ]").replace("cost", "(?:costs?|expenses?)") if w.endswith("cost")
-                       else re.escape(w).replace(r"\-", "[- ]") for w in words)
-    return re.compile(rf"\b{body}{tail}\b", re.I)
+    nouns = next((body for names, body in _SIDE_NOUNS if names.search(" ".join(words))), None)
+    body = nouns or r"\s+".join(re.escape(w).replace(r"\-", "[- ]") for w in words)
+    return re.compile(rf"(?<!\bof )\b{body}{tail}\b", re.I)
 
 
-def _named_sign(label: str, text: str, claim: Claim) -> int:
-    """-1 when the cited "A minus B" value is to be read reversed against the sentence's direction word, else 1.
+def _gap_reading(label: str, text: str, claim: Claim) -> Optional[tuple[int, int, bool]]:
+    """How the clause compares the sides of a cited "A minus B" value: (-1 when the side it names first is B, else 1;
+    +1 when that side moved more or stands above, -1 less or below; whether it is a standing, whose sign holds
+    whatever the direction word), or None when it compares no sides, or the side it names first, before the
+    comparative, is neither of the label's: then the value keeps its sign, as the gate read it before.
 
-    The clause says the side it names first moved more ("faster", "more") or less ("slower", "less") than the other,
-    right after the figure ("costs grew 0.3pp faster than revenue") or before it ("grew faster than revenue by
-    0.3pp"). First minus second then has the direction word's sign, times -1 for "less" or "slower": "costs fell
-    1.2pp less than revenue" says costs minus revenue is +1.2. The gate checks the direction word against the cited
-    value, so that value reverses when exactly one of "B is named first" and "less" holds: "costs grew 0.3pp faster"
-    and "revenue grew 0.3pp slower" both agree with A minus B at -0.3. With no such comparative ("3.4pp below
-    operating margin" is a position, not a move) the value keeps its sign."""
+    A move is "faster", "more", "slower" or "less" right after the figure ("costs grew 0.3pp faster than revenue") or
+    before "than" ahead of it ("grew faster than revenue by 0.3pp"); "more than 0.3pp" right before the figure is a
+    bound, not a comparison. A standing is a position after the figure ("ran 4.4pp ahead of", "3.4pp below") or an
+    outpacing before it ("outgrew operating costs by 4.4pp"), said the other way of a side named as its fall
+    (``_FALL_AFTER``)."""
     found = _MINUS_LABEL.match(label)
     if not found:
-        return 1
+        return None
     start, end = clause_span(text, claim)
-    after = _COMPARATIVE_AFTER.match(text[claim.start + len(claim.text):end])
-    lead = text[start:claim.start]
-    # "more than 0.3pp" right before the figure is a bound, not a comparison of the two sides
+    rest, lead = text[claim.start + len(claim.text):end], text[start:claim.start]
+    move, standing, verb = _COMPARATIVE_AFTER.match(rest), _STANDING_AFTER.match(rest), outpacing(lead)
     before = [m for m in _COMPARATIVE_BEFORE.finditer(lead) if lead[m.end():].strip()]
-    said = after or (before[-1] if before else None)
-    if said is None:
-        return 1
-    more = 1 if said.group(1) else -1
-    clause = text[start:end]
-    a_at, b_at = (side_pattern(found.group(side)).search(clause) for side in ("a", "b"))
-    b_first = bool(b_at and (a_at is None or b_at.start() < a_at.start()))
-    return more * (-1 if b_first else 1)
+    if move or standing:
+        said, at, still = (1 if (move or standing).group(1) else -1), claim.start, not move
+    elif verb:
+        said, at, still = verb[0], start + verb[1], True
+    elif before:
+        said, at, still = (1 if before[-1].group(1) else -1), start + before[-1].start(), False
+    else:
+        return None
+    named = sorted((m.start(), m.end(), side) for side in ("a", "b")
+                   for m in side_pattern(found.group(side)).finditer(text, start, at))
+    if not named:
+        return None
+    first, last, side = named[-1]
+    if still and (_FALL_AFTER.match(text, last) or _FALL_BEFORE.search(text, start, first)):
+        said = -said
+    return (-1 if side == "b" else 1), said, still
 
 
 def _of_the_total(clean: str, claims: list[Claim], claim: Claim) -> bool:
@@ -661,8 +722,16 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             as_pct = Claim(claim.text, claim.value, "pct", claim.decimals, claim.scale, claim.qualifier, claim.start)
             hits = [c for c in cands if c.how == "cited" and _REVENUE_GROWTH.match(values[c.ids[0]]["label"])
                     and matches(as_pct, c)]
-        hits = [replace(c, value=-c.value, how=f"reversed {c.ids[0]}")
-                if c.how == "cited" and _named_sign(values[c.ids[0]]["label"], clean_text, claim) < 0 else c for c in hits]
+        direction, evaluative = _direction(text, claim)
+        # A cited "A minus B" value the clause compares is read as first side minus second, against the sign the clause
+        # gives it: a standing's, or a move's (its direction word's, the other way for "less"; with none, a standing).
+        said: dict[tuple[str, tuple[str, ...]], int] = {}
+        for i, c in enumerate(hits):
+            reading = _gap_reading(values[c.ids[0]]["label"], clean_text, claim) if c.how == "cited" else None
+            if reading:
+                first, sign, standing = reading
+                hits[i] = c = replace(c, value=-c.value, how=f"reversed {c.ids[0]}") if first < 0 else c
+                said[(c.how, c.ids)] = sign if standing or direction is None else direction * sign
         mentioned = bindings.get(index, set())
         if mentioned:
             in_period = [c for c in hits if not c.periods or set(c.periods) & mentioned]
@@ -678,16 +747,11 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             result.failures.append(f"'{claim.text}' matches {hits[0].how} but not in the period(s) named ({', '.join(sorted(mentioned))})")
             resolved.append(Resolution(claim, "period_mismatch", hits[0]))
         else:
-            direction, evaluative = _direction(text, claim)
             ranked = sorted(in_period, key=lambda c: (c.how != "cited", len(c.ids)))
-            if direction is not None:
-                # Any match whose sign agrees with the direction word settles it; only if every signed
-                # match contradicts it is the claim a direction error.
-                agreeing = [c for c in ranked if not _contradicts(c, direction, evaluative, values)]
-                best = agreeing[0] if agreeing else ranked[0]
-            else:
-                best = ranked[0]
-            if direction is not None and _contradicts(best, direction, evaluative, values) and claim.value >= 0:
+            # Any match whose sign agrees with the sentence settles it; only if every signed match contradicts it is
+            # the claim a direction error.
+            best = next((c for c in ranked if not _said_otherwise(c, said, direction, evaluative, values)), ranked[0])
+            if _said_otherwise(best, said, direction, evaluative, values) and claim.value >= 0:
                 record["status"] = "direction_mismatch"
                 record["matched"] = best.how
                 result.failures.append(f"'{claim.text}' matches {best.how} = {best.value:.4g} but the sentence says it went the other way")
@@ -702,9 +766,10 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
 
 def check(sentences: list[dict[str, Any]], pack: dict[str, Any], *, backstops: bool = False) -> dict[str, Any]:
     """The gate over a whole analysis. ``backstops=True`` also fails every hit of the backstop probes' gate kinds
-    (``probes.GATE_KINDS``: a verified number said about another ratio, basis, year or sign, or a debt figure of a
-    year inside a debt break the pack's own data checks name, so never on a version-1 pack); their logic measures
-    never fail a run."""
+    (``probes.GATE_KINDS``: a verified number said about another ratio, basis, year or sign, or a figure the pack's
+    own record names broken, undisclosed in its sentence: a total debt, net cash or cash and investments of a year
+    inside a debt or liquidity break its data checks name, or an ID it withholds for one of those or for a peer's
+    broken year; ``probes.broken_debt``, so never on a version-1 pack); their logic measures never fail a run."""
     analysed = [analyse_sentence(s, pack) for s in sentences]
     results = [result for result, _ in analysed]
     backstop_failures = 0
