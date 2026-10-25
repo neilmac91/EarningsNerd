@@ -2,10 +2,9 @@
 /**
  * The four trend charts under the spec renderer (CHARTS_V2; E192). Every chart keeps its card, a chart that does not
  * apply saying why at full height (spec §3.4), where today's Recharts grid drops it. TrendCharts loads this module only
- * while the flag is on.
+ * while the flag is on, inside the grid's ChartErrorBoundary, which it holds outside this chunk.
  */
 import { useEffect, useState } from 'react'
-import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { CHART_IDS } from '@/features/analysis/lib/charts/model'
 import { useDataNotes } from './DataNotesContext'
@@ -43,12 +42,10 @@ export default function TrendChartsV2({ dataset, exportEnabled = false }: { data
   const notes = useDataNotes(dataset)
   const fontReady = useChartFont()
   return (
-    <ChartErrorBoundary noun="charts">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {CHART_IDS.map((chart) => (
-          <TrendChartCard key={chart} chart={chart} dataset={dataset} notes={notes} exportEnabled={exportEnabled} fontReady={fontReady} />
-        ))}
-      </div>
-    </ChartErrorBoundary>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {CHART_IDS.map((chart) => (
+        <TrendChartCard key={chart} chart={chart} dataset={dataset} notes={notes} exportEnabled={exportEnabled} fontReady={fontReady} />
+      ))}
+    </div>
   )
 }

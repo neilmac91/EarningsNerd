@@ -66,7 +66,7 @@ function Lines({ mark, box, layout, tokens, clipId }: { mark: ModelMark; box: Pa
       </g>
       {mark.points.map((point) => point.value == null || point.offscale ? null : (
         <MarkerShape key={point.period} kind={mark.marker ?? 'circle'} x={layout.x(point.period)} y={box.y(point.value)} color={color}
-          ring={tokens.surface} series={mark.seriesKey} period={point.period} />
+          ring={tokens.surface} datum={{ series: mark.seriesKey, period: point.period }} />
       ))}
     </g>
   )

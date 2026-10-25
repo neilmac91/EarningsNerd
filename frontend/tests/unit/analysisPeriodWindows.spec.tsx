@@ -245,19 +245,14 @@ describe('where a window is read and joined', () => {
    *  it the name is any one period's (RevenueBars' bars), so it is not. */
   const SCOPE_FIELDS = new Set([...WINDOW_FIELDS, 'period'])
   /** A window field read into text no reader meets (a URL, a storage key), by file and text, with its reason. */
-  const NOT_PAGE_TEXT: Array<{ file: string; text: string; reason: string }> = [
-    ...['data-period={bar.period}', 'period={point.period}', 'data-period={item.period}'].map((text) => ({
-      file: 'features/analysis/components/TrendChartSvg.tsx',
-      text,
-      reason: 'a mark\'s data-period attribute, which the spec\'s DOM checks read (D4); the plot prints no period key',
-    })),
-  ]
+  const NOT_PAGE_TEXT: Array<{ file: string; text: string; reason: string }> = []
   /** The lines where a window key the API carries is read straight into page text: JSX text, an element's or a
    *  component's prop or a template, through `??`, `||`, `+`, the right of `&&` and a conditional's arms. A field
    *  counts read off its object or by its own name (`const { cagr_window } = series`). Any call takes the key out of
-   *  this reading, the formatter's included, and so do an object literal, data handed on (SourceValue's `point`), and
-   *  React's own key and ref. A template counts wherever else it goes, since one held in an object or a variable is
-   *  printed later (KpiStrip's tooltip was one). */
+   *  this reading, the formatter's included, and so do an object literal, data handed on (SourceValue's `point`),
+   *  React's own key and ref, and a `data-*` attribute, which no reader meets either (the trend charts' `data-period`,
+   *  spec D4). A template counts wherever else it goes, since one held in an object or a variable is printed later
+   *  (KpiStrip's tooltip was one). */
   function rawWindowReads(file: string, text: string, fields = WINDOW_FIELDS): Array<{ line: number; text: string }> {
     const source = parse(file, text)
     const lines = text.split('\n')
@@ -268,7 +263,8 @@ describe('where a window is read and joined', () => {
       || (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && fields.has(node.argumentExpression.text))
       || (ts.isIdentifier(node) && WINDOW_FIELDS.has(node.text))
       || (ts.isCallExpression(node) && callee(node) === 'windowRange')
-    const reactOwn = (node: ts.Node) => ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && ['key', 'ref'].includes(node.name.text)
+    const reactOwn = (node: ts.Node) => ts.isJsxAttribute(node) && ts.isIdentifier(node.name)
+      && (['key', 'ref'].includes(node.name.text) || node.name.text.startsWith('data-'))
     /** Whether a value goes on through `node` from its `child` as it is: parentheses, `as`, `!`, `satisfies`, `??`,
      *  `||`, `+`, the right of `&&` and a conditional's arms. */
     const carries = (node: ts.Node, child: ts.Node): boolean => {
@@ -333,10 +329,13 @@ describe('where a window is read and joined', () => {
       'const i = <ChartTooltip label={dataset.period_key} />',
       'const j = `Computed over ${growth.windowRange(series)}`',
       'const k = ({ cagr_window }: Series) => <p>{cagr_window}</p>',
+      // An ARIA attribute is read aloud; only data-* is unread.
+      'const o = <rect aria-label={dataset.period_key} />',
       // A template assigned on its way to a key is kept, and may be printed later.
       'const n = <Row key={(label = `${dataset.period_key}`)} />',
     ]) expect(rawWindowReads('planted.tsx', planted).map((found) => found.line), planted).toEqual([1])
     expect(rawWindowReads('planted.tsx', 'const l = <p>{citation.period}</p>', SCOPE_FIELDS).map((found) => found.line)).toEqual([1])
+    expect(rawWindowReads('planted.tsx', 'const m = <rect data-period={bar.period} />', SCOPE_FIELDS)).toEqual([])
     for (const clear of [
       'const a = <p>{formatAnalysisPeriod(dataset.period_key)}</p>',
       'const b = comparisonId(series.concept, windowRange(series) ?? dataset.period_key)',
@@ -347,6 +346,7 @@ describe('where a window is read and joined', () => {
       'const g = series.cagr_window ? `Computed over ${formatAnalysisPeriod(series.cagr_window)}` : undefined',
       'const h = <Row key={dataset.period_key} />',
       'const l = <Row key={`${dataset.period_key}-${series.concept}`} />',
+      'const n = <rect data-period={dataset.period_key} data-key={`${dataset.period_key}`} />',
       // Outside the analysis code a `period` is any one period's: RevenueBars prints its bars' annual keys.
       'const m = <span>{bar.period}</span>',
       // The gaps: a key held in a variable of another name or in an object first, or handed to another function.

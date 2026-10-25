@@ -31,6 +31,7 @@ function htmlRow(label: string): [string, string] {
 }
 
 const both = (pick: (tokens: ChartTokens) => string) => [pick(CHART_TOKENS.light), pick(CHART_TOKENS.dark)]
+const COLOUR = /#[0-9A-Fa-f]{6}\b|rgba\([^)]*\)/g
 
 describe('the trend charts’ tokens are the spec’s (§3.8)', () => {
   it.each(['surface', 'grid', 'zero', 'tick', 'value', 'review', 'cursor'] as const)('%s', (name) => {
@@ -39,6 +40,15 @@ describe('the trend charts’ tokens are the spec’s (§3.8)', () => {
 
   it('chart-1…6 in order', () => {
     for (let i = 0; i < 6; i++) expect(both((tokens) => tokens.series[i]), `s${i + 1}`).toEqual(row(`s${i + 1}`))
+  })
+
+  it('every colour theme.ts holds is in the spec’s tables, whatever field or export holds it', () => {
+    // The lint rule exempts the file, so no other check reads a colour added outside the fields above.
+    const source = readFileSync('features/analysis/lib/charts/theme.ts', 'utf8').replace(/\/\/.*$/gm, '')
+    const tables = new Set((section.match(COLOUR) ?? []).map((value) => value.toUpperCase()))
+    const held = source.match(COLOUR) ?? []
+    expect(held.length).toBe(2 * (7 + 6 + 3))
+    expect(held.filter((value) => !tables.has(value.toUpperCase()))).toEqual([])
   })
 
   it('the card’s HTML text', () => {
@@ -59,5 +69,7 @@ describe('the values the design system already has are its tokens', () => {
     expect([CHART_TOKENS.light.tick, CHART_TOKENS.light.value, CHART_TOKENS.light.figure])
       .toEqual([colors.text.tertiary.light, colors.text.secondary.light, colors.text.primary.light])
     expect([CHART_TOKENS.light.review, CHART_TOKENS.dark.figure]).toEqual([colors.warning.light, colors.text.primary.dark])
+    // The card's HTML inks: subtitle and footnotes in tertiary, legend names in secondary.
+    expect([CHART_TOKENS.light.note, CHART_TOKENS.light.name]).toEqual([colors.text.tertiary.light, colors.text.secondary.light])
   })
 })

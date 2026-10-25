@@ -6,23 +6,22 @@ import type { LegendItem, Marker } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 
 /** A line series' point: circle Ø6, square 6×6 or triangle 8×7, with a 1.5 px surface ring painted under its fill. A
- *  plotted point names its series and period on the shape itself (§3.5, D4); a swatch names neither. */
-export function MarkerShape({ kind, x, y, color, ring, series, period }: {
+ *  plotted point names its series and period on the shape itself (§3.5, D4); a swatch has no datum. */
+export function MarkerShape({ kind, x, y, color, ring, datum }: {
   kind: Marker
   x: number
   y: number
   color: string
   ring: string
-  series?: string
-  period?: string
+  datum?: { series: string; period: string }
 }) {
   if (kind === 'square') {
-    return <rect x={x - 3} y={y - 3} width={6} height={6} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={series} data-period={period} />
+    return <rect x={x - 3} y={y - 3} width={6} height={6} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={datum?.series} data-period={datum?.period} />
   }
   if (kind === 'triangle') {
-    return <path d={`M${x},${y - 4} L${x + 4},${y + 3} L${x - 4},${y + 3} Z`} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={series} data-period={period} />
+    return <path d={`M${x},${y - 4} L${x + 4},${y + 3} L${x - 4},${y + 3} Z`} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={datum?.series} data-period={datum?.period} />
   }
-  return <circle cx={x} cy={y} r={3} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={series} data-period={period} />
+  return <circle cx={x} cy={y} r={3} fill={color} stroke={ring} strokeWidth={1.5} paintOrder="stroke" data-series={datum?.series} data-period={datum?.period} />
 }
 
 /** A growth bar broken at the plot edge (§4.1): two 1.5 px surface strokes across it, from y + 2 up to y − 1 and from

@@ -123,6 +123,33 @@ test.describe('trend charts with the flag unset', () => {
   })
 })
 
+test.describe('trend charts v2 when the renderer’s chunk fails to load', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('the grid says the charts could not be drawn, and the rest of the analysis stands', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    // A stale client after a deploy: every script that carries the renderer fails to arrive.
+    const aborted: string[] = []
+    await page.route('**/_next/static/**/*.js', async (route) => {
+      const response = await route.fetch()
+      const body = await response.text()
+      if (body.includes('data-axis-domain')) {
+        aborted.push(route.request().url())
+        await route.abort('failed')
+      } else {
+        await route.fulfill({ response, body })
+      }
+    })
+    await openAnalysis(page, baseURL!, 'captured', 'light')
+    // The chunk loader retries once before it gives up, so the fallback takes a few seconds.
+    await expect(page.getByText('These charts could not be drawn.')).toBeVisible({ timeout: 15_000 })
+    expect(aborted.length, 'the renderer’s chunk was requested and refused').toBeGreaterThan(0)
+    await expect(page.locator('[data-analysis-chart]')).toHaveCount(0)
+    await expect(page.getByRole('heading', { level: 1, name: 'Multi-Period Analysis' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Metrics by period' })).toBeVisible()
+  })
+})
+
 for (const theme of THEMES) for (const [name, width, state, edit] of CASES) {
   test.describe(`trend charts v2 / ${theme} / ${width}px / ${name}`, () => {
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })

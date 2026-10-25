@@ -8,6 +8,7 @@
    dark tokens, the expanded view, and the flag switch in TrendCharts. Text boxes, collisions and the font (D1, D2,
    D8) need a browser: tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -295,6 +296,23 @@ describe('the card around the plot', () => {
     })
   })
 
+  it('M14: the footnotes are the same strings in the card and expanded views, light and dark', () => {
+    const ds = dataset('REGNPN_annual')
+    const footnotes = (container: HTMLElement) => cards(container).map((card) => [...card.querySelectorAll('ul:not([aria-label]) > li')].map((item) => item.textContent))
+    const light = render(<TrendChartsV2 dataset={ds} />)
+    const card = footnotes(light.container)
+    expect(card.flat().length).toBeGreaterThan(0)
+    for (const section of cards(light.container)) fireEvent.click(within(section).getByRole('button', { name: 'Expand chart' }))
+    expect(footnotes(light.container)).toEqual(card)
+    light.unmount()
+    const dark = render(
+      <ThemeContext.Provider value={{ theme: 'dark', toggleTheme: () => {} }}>
+        <TrendChartsV2 dataset={ds} />
+      </ThemeContext.Provider>
+    )
+    expect(footnotes(dark.container)).toEqual(card)
+  })
+
   it('expanding takes both grid columns and the expanded plan, and collapsing returns', () => {
     const ds = dataset('REGN_annual')
     const { container } = render(<TrendChartsV2 dataset={ds} />)
@@ -415,10 +433,14 @@ describe('the PNG export', () => {
 })
 
 describe('the CHARTS_V2 switch in TrendCharts', () => {
-  it('production builds with the flag unset: vercel.json, whose env reaches every deployment, never sets it (F66)', () => {
-    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8')) as { env?: Record<string, string> }
-    expect(vercel.env).toBeDefined()
-    expect(Object.keys(vercel.env!)).not.toContain('NEXT_PUBLIC_CHARTS_V2')
+  it('production builds with the flag unset: no committed build config sets it (F66)', () => {
+    // vercel.json's env and build.env reach every deployment; next.config's env and a committed .env file are inlined
+    // into every build. A preview sets the flag in Vercel's Preview environment instead. The examples document it.
+    const tracked = execFileSync('git', ['ls-files', 'vercel.json', 'next.config.*', '.env*'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    expect(tracked).toContain('vercel.json')
+    expect(tracked.some((file) => file.startsWith('next.config.'))).toBe(true)
+    const setting = tracked.filter((file) => !file.endsWith('.example') && readFileSync(file, 'utf8').includes('NEXT_PUBLIC_CHARTS_V2'))
+    expect(setting).toEqual([])
   })
 
   it('on, the spec renderer draws every chart', async () => {

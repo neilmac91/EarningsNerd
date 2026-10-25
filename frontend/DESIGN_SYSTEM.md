@@ -2156,8 +2156,10 @@ both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-t
 table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
 Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
-and one that does not apply says why in it. Gates: `tests/unit/trend-charts-v2.spec.tsx`,
-`tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job.
+and one that does not apply says why in it. It has none of the keyboard contract above until step 5 (E193): no
+chart-values stop, no tooltip, and a plot is a keyboard stop only while it scrolls. Gates:
+`tests/unit/trend-charts-v2.spec.tsx`, `tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, which binds a
+merge once the founder makes it a required check (F66).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

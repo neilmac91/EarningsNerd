@@ -230,15 +230,16 @@ says so; everything else follows the spec.
   datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
   serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser under full font hinting,
   in both themes at 1280 and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's
-  fidelity check (E1) against the renderer. D3, D6 and D13 are not yet run: D6's inks are the table's, measured in the
-  audit.
+  fidelity check (E1) against the renderer; the job binds a merge once the founder makes it a required check (F66),
+  and step 7 moves its specs into `e2e-tests` (E195). The unit spec also runs M14. D3, D6 and D13 are not yet run:
+  D6's inks are the table's, measured in the audit. M15 and M19 move with E194.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
   (chosen from the 73 for their cases, trimmed to the plotted concepts and their quality fields, values unchanged),
   for every chart and both views, at 342, 502 and 1030 px. Golden plans for REGN, LCID, PLUG, BYND, JPM and PGR are
   in `tests/unit/fixtures/chart-golden/`. Before landing, the same checks passed on the audit's 75 datasets (600
-  tests). M14, M15, M19 and M20 need the renderer or the table, and are not yet run.
+  tests). M14 runs on the renderer (above); M15 and M19 are E194's, and M20 stays out of the product.
 - **Export.** `features/analysis/lib/chartExport.ts` embeds the page's Geist Mono faces whose `unicode-range` covers
   a character the plot paints, each with its range. That is the subsets a plot needs rather than every subset, and
   the paint is the same. When a face cannot be read, or the plot paints in a family the page loads from a stylesheet

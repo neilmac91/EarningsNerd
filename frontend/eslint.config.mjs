@@ -209,6 +209,8 @@ const DATE_HELPER_RULES = [
 //   - the sanctioned JS color mirrors (lib/motion.ts, lib/financialTone.ts, ui/Chart.tsx,
 //     features/analysis/lib/chartExport.ts) and the brand-mandated GoogleSignInButton skip the two
 //     color rules (tests/unit/designTokenParity.spec.ts checks the mirrors use only token hexes);
+//     so does features/analysis/lib/charts/theme.ts, whose new dark chart tokens are not Tailwind's
+//     yet (E194): tests/unit/chart-theme.spec.ts holds it to the trend-chart spec's table instead;
 //   - app/manifest.ts + app/layout.tsx declare the OS-facing theme colors (PWA manifest, <meta
 //     theme-color>), which have no Tailwind form, so they skip the hex rule only (the parity spec
 //     checks those hexes too) — added beyond §c's list, recorded in the PR;

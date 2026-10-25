@@ -752,11 +752,26 @@ function RechartsTrendCharts({
   )
 }
 
-/** The spec renderer (lib/featureFlags CHARTS_V2, E192), its own chunk so the flag-off route loads none of it. */
-const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'))
+/** The spec renderer (lib/featureFlags CHARTS_V2, E192), its own chunk so the flag-off route loads none of it. With
+ *  `loading` the lazy load gets its own Suspense boundary, and the error boundary sits outside the chunk, so one that
+ *  fails to load (a stale client after a deploy) says the charts could not be drawn instead of taking the route down.
+ *  `loading` rethrows the error the pages-router loader hands it, so either next/dynamic reaches the boundary. */
+const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'), {
+  loading: ({ error }) => {
+    if (error) throw error
+    return null
+  },
+})
+// While the flag is on the chunk starts loading with this module, before a run's results ask for it. A failure here
+// is reported where it counts: the grid's own load throws it to the boundary.
+if (CHARTS_V2) import('./TrendChartsV2').catch(() => {})
 
 export default function TrendCharts({ dataset, exportEnabled = false }: { dataset: AnalysisDataset; exportEnabled?: boolean }) {
   return CHARTS_V2
-    ? <TrendChartsV2 dataset={dataset} exportEnabled={exportEnabled} />
+    ? (
+      <ChartErrorBoundary noun="charts">
+        <TrendChartsV2 dataset={dataset} exportEnabled={exportEnabled} />
+      </ChartErrorBoundary>
+    )
     : <RechartsTrendCharts dataset={dataset} exportEnabled={exportEnabled} />
 }
