@@ -50,3 +50,24 @@ def test_provider_admission_limit_rejects_out_of_range(value):
 @pytest.mark.parametrize("value", [0, 1, 8, 512])
 def test_provider_admission_limit_accepts_supported_range(value):
     assert Settings(AI_CHAT_MAX_INFLIGHT=value, _env_file=None).AI_CHAT_MAX_INFLIGHT == value
+
+
+@pytest.mark.parametrize("configured", [
+    "https://www.earningsnerd.io", "https://www.earningsnerd.io/", "https://www.earningsnerd.io///",
+])
+def test_frontend_url_loads_as_one_canonical_origin(configured, monkeypatch):
+    # E111: every link appends "/path" to FRONTEND_URL, so trailing slashes are removed at load, and only those.
+    loaded = Settings(FRONTEND_URL=configured, _env_file=None).FRONTEND_URL
+    assert loaded == "https://www.earningsnerd.io"
+    assert Settings(_env_file=None).FRONTEND_URL == "https://www.earningsnerd.io"
+    assert Settings(FRONTEND_URL="http://localhost:3000/app//", _env_file=None).FRONTEND_URL == "http://localhost:3000/app"
+
+    from app.config import settings
+    from app.services import email_service, invite_service, waitlist_service
+
+    monkeypatch.setattr(settings, "FRONTEND_URL", loaded)
+    links = [invite_service.build_invite_link("tok-1"), waitlist_service.build_referral_link("ref-1"),
+             email_service._filing_url(7, None)]
+    assert links == ["https://www.earningsnerd.io/register?invite=tok-1",
+                     "https://www.earningsnerd.io/waitlist?ref=ref-1",
+                     "https://www.earningsnerd.io/filing/7"]

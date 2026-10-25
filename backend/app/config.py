@@ -315,6 +315,14 @@ class Settings(BaseSettings):
                 v = v[1:-1].strip()
         return v
 
+    @field_validator('FRONTEND_URL', mode='before')
+    @classmethod
+    def _strip_frontend_url_trailing_slashes(cls, v):
+        """One canonical origin for every link: callers append ``/path`` to FRONTEND_URL, so a trailing
+        slash, or several, in the configured value would double the separator. Only trailing slashes
+        are removed; scheme, host and any path are kept as configured (E111)."""
+        return v.rstrip("/") if isinstance(v, str) else v
+
     # App Settings
     ENVIRONMENT: str = "development"
     COOKIE_NAME: str = "earningsnerd_access_token"
