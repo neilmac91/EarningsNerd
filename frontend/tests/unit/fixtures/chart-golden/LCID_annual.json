@@ -1,0 +1,1168 @@
+{
+  "topline": {
+    "card": {
+      "title": "Revenue & growth",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 502,
+        "height": 320,
+        "gutter": 41,
+        "slot": 64.7,
+        "barWidth": 41,
+        "growthBarWidth": 25,
+        "xTickY": 293,
+        "stripTop": null,
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 73.4, "’19"],
+        ["FY2020", 138.1, "’20"],
+        ["FY2021", 202.8, "’21"],
+        ["FY2022", 267.5, "’22"],
+        ["FY2023", 332.2, "’23"],
+        ["FY2024", 396.9, "’24"],
+        ["FY2025", 461.6, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "value",
+          "caption": "Revenue",
+          "bands": [0, 15, 32, 113],
+          "ticks": [
+            ["$0", 145],
+            ["$0.5B", 107.3],
+            ["$1.0B", 69.7],
+            ["$1.5B", 32]
+          ],
+          "labelDecimals": 2,
+          "marks": [
+            {
+              "kind": "bar",
+              "series": "revenue",
+              "label": "Revenue",
+              "color": 0,
+              "marker": null,
+              "labelled": true,
+              "points": [
+                ["FY2019", "$4.59M", 144.7],
+                ["FY2020", "$3.98M", 144.7],
+                ["FY2021", "$27.1M", 143],
+                ["FY2022", "$0.61B", 99.2],
+                ["FY2023", "$0.60B", 100.2],
+                ["FY2024", "$0.81B", 84.1],
+                ["FY2025", "$1.35B", 43]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2019", "revenue", 52.9, 143, 41, 2, "stub", "$4.59M", 138],
+            ["FY2020", "revenue", 117.6, 143, 41, 2, "stub", "$3.98M", 138],
+            ["FY2021", "revenue", 182.3, 143, 41, 2, "$27.1M", 138],
+            ["FY2022", "revenue", 247, 99.2, 41, 45.8, "$0.61B", 94.2],
+            ["FY2023", "revenue", 311.7, 100.2, 41, 44.8, "$0.60B", 95.2],
+            ["FY2024", "revenue", 376.4, 84.1, 41, 60.9, "$0.81B", 79.1],
+            ["FY2025", "revenue", 441.1, 43, 41, 102, "$1.35B", 38]
+          ],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        },
+        {
+          "id": "growth",
+          "caption": "YoY growth",
+          "bands": [163, 174, 191, 75],
+          "ticks": [
+            ["−25%", 266],
+            ["0%", 247.3],
+            ["+25%", 228.5],
+            ["+50%", 209.8],
+            ["+75%", 191]
+          ],
+          "labelDecimals": 1,
+          "marks": [
+            {
+              "kind": "growth",
+              "series": "revenue:yoy",
+              "label": "YoY growth",
+              "color": 1,
+              "marker": null,
+              "labelled": true,
+              "points": [
+                ["FY2019", "—"],
+                ["FY2020", "−13.4%", 257.3],
+                ["FY2021", "+581.9%", 191, "above"],
+                ["FY2022", "+2,143%", 191, "above"],
+                ["FY2023", "−2.1%", 248.8],
+                ["FY2024", "+35.7%", 220.5],
+                ["FY2025", "+67.6%", 196.6]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2020", "revenue:yoy", 125.6, 247.3, 25, 10, "−13.4%", 269.3],
+            ["FY2021", "revenue:yoy", 190.3, 191, 25, 56.3, "clipped", "+581.9%", 186],
+            ["FY2022", "revenue:yoy", 255, 191, 25, 56.3, "clipped", "+2,143%", 186],
+            ["FY2023", "revenue:yoy", 319.7, 247.3, 25, 2, "stub", "−2.1%", 261.3],
+            ["FY2024", "revenue:yoy", 384.4, 220.5, 25, 26.8, "+35.7%", 215.5],
+            ["FY2025", "revenue:yoy", 449.1, 196.6, 25, 50.7, "+67.6%", 191.6]
+          ],
+          "gaps": [
+            ["FY2019", "—", 73.4, 244.3]
+          ],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [],
+      "notes": [],
+      "footnotes": [
+        ["", "YoY growth is calculated by EarningsNerd from reported figures."],
+        ["—", "YoY growth needs the same period a year earlier; none for FY2019."],
+        ["", "Growth bars beyond the axis are broken; their printed value is the true value."]
+      ],
+      "strip": []
+    },
+    "expanded": {
+      "title": "Revenue & growth",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 1030,
+        "height": 520,
+        "gutter": 41,
+        "slot": 140.1,
+        "barWidth": 44,
+        "growthBarWidth": 26,
+        "xTickY": 493,
+        "stripTop": null,
+        "stripRowY": [],
+        "notesY": 512,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 111.1, "’19"],
+        ["FY2020", 251.2, "’20"],
+        ["FY2021", 391.4, "’21"],
+        ["FY2022", 531.5, "’22"],
+        ["FY2023", 671.6, "’23"],
+        ["FY2024", 811.8, "’24"],
+        ["FY2025", 951.9, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "value",
+          "caption": "Revenue",
+          "bands": [0, 15, 32, 229],
+          "ticks": [
+            ["$0", 261],
+            ["$0.5B", 184.7],
+            ["$1.0B", 108.3],
+            ["$1.5B", 32]
+          ],
+          "labelDecimals": 2,
+          "marks": [
+            {
+              "kind": "bar",
+              "series": "revenue",
+              "label": "Revenue",
+              "color": 0,
+              "marker": null,
+              "labelled": true,
+              "points": [
+                ["FY2019", "$4.59M", 260.3],
+                ["FY2020", "$3.98M", 260.4],
+                ["FY2021", "$27.1M", 256.9],
+                ["FY2022", "$0.61B", 168.2],
+                ["FY2023", "$0.60B", 170.1],
+                ["FY2024", "$0.81B", 137.7],
+                ["FY2025", "$1.35B", 54.3]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2019", "revenue", 89.1, 259, 44, 2, "stub", "$4.59M", 254],
+            ["FY2020", "revenue", 229.2, 259, 44, 2, "stub", "$3.98M", 254],
+            ["FY2021", "revenue", 369.4, 256.9, 44, 4.1, "$27.1M", 251.9],
+            ["FY2022", "revenue", 509.5, 168.2, 44, 92.8, "$0.61B", 163.2],
+            ["FY2023", "revenue", 649.6, 170.1, 44, 90.9, "$0.60B", 165.1],
+            ["FY2024", "revenue", 789.8, 137.7, 44, 123.3, "$0.81B", 132.7],
+            ["FY2025", "revenue", 929.9, 54.3, 44, 206.7, "$1.35B", 49.3]
+          ],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        },
+        {
+          "id": "growth",
+          "caption": "YoY growth",
+          "bands": [285, 296, 313, 153],
+          "ticks": [
+            ["−25%", 466],
+            ["0%", 427.8],
+            ["+25%", 389.5],
+            ["+50%", 351.3],
+            ["+75%", 313]
+          ],
+          "labelDecimals": 1,
+          "marks": [
+            {
+              "kind": "growth",
+              "series": "revenue:yoy",
+              "label": "YoY growth",
+              "color": 1,
+              "marker": null,
+              "labelled": true,
+              "points": [
+                ["FY2019", "—"],
+                ["FY2020", "−13.4%", 448.2],
+                ["FY2021", "+581.9%", 313, "above"],
+                ["FY2022", "+2,143%", 313, "above"],
+                ["FY2023", "−2.1%", 431],
+                ["FY2024", "+35.7%", 373.1],
+                ["FY2025", "+67.6%", 324.3]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2020", "revenue:yoy", 238.2, 427.8, 26, 20.5, "−13.4%", 460.2],
+            ["FY2021", "revenue:yoy", 378.4, 313, 26, 114.8, "clipped", "+581.9%", 308],
+            ["FY2022", "revenue:yoy", 518.5, 313, 26, 114.8, "clipped", "+2,143%", 308],
+            ["FY2023", "revenue:yoy", 658.6, 427.8, 26, 3.2, "−2.1%", 443],
+            ["FY2024", "revenue:yoy", 798.8, 373.1, 26, 54.6, "+35.7%", 368.1],
+            ["FY2025", "revenue:yoy", 938.9, 324.3, 26, 103.4, "+67.6%", 319.3]
+          ],
+          "gaps": [
+            ["FY2019", "—", 111.1, 424.8]
+          ],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [],
+      "notes": [],
+      "footnotes": [
+        ["", "YoY growth is calculated by EarningsNerd from reported figures."],
+        ["—", "YoY growth needs the same period a year earlier; none for FY2019."],
+        ["", "Growth bars beyond the axis are broken; their printed value is the true value."]
+      ],
+      "strip": []
+    }
+  },
+  "margins": {
+    "card": {
+      "title": "Margins",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · % of revenue",
+      "unavailable": null,
+      "frame": {
+        "width": 502,
+        "height": 320,
+        "gutter": 41,
+        "slot": 64.7,
+        "barWidth": 41,
+        "growthBarWidth": 25,
+        "xTickY": 293,
+        "stripTop": null,
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 73.4, "’19"],
+        ["FY2020", 138.1, "’20"],
+        ["FY2021", 202.8, "’21"],
+        ["FY2022", 267.5, "’22"],
+        ["FY2023", 332.2, "’23"],
+        ["FY2024", 396.9, "’24"],
+        ["FY2025", 461.6, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "margins",
+          "caption": null,
+          "bands": [0, null, 16, 196],
+          "ticks": [
+            ["−600%", 212],
+            ["−500%", 184],
+            ["−400%", 156],
+            ["−300%", 128],
+            ["−200%", 100],
+            ["−100%", 72],
+            ["0%", 44],
+            ["100%", 16]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "gross_margin",
+              "label": "Gross",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "14.5%", 39.9],
+                ["FY2020", "22.8%", 37.6],
+                ["FY2021", "—"],
+                ["FY2022", "—"],
+                ["FY2023", "—"],
+                ["FY2024", "—"],
+                ["FY2025", "—"]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "operating_margin",
+              "label": "Operating",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−5,619%", 212, "below"],
+                ["FY2020", "−15,071%", 212, "below"],
+                ["FY2021", "−5,645%", 212, "below"],
+                ["FY2022", "−426.5%", 163.4],
+                ["FY2023", "−520.7%", 189.8],
+                ["FY2024", "−373.9%", 148.7],
+                ["FY2025", "−258.7%", 116.4]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "net_margin",
+              "label": "Net",
+              "color": 2,
+              "marker": "triangle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−6,043%", 212, "below"],
+                ["FY2020", "−18,093%", 212, "below"],
+                ["FY2021", "−9,516%", 212, "below"],
+                ["FY2022", "−214.5%", 104.1],
+                ["FY2023", "−475.1%", 177],
+                ["FY2024", "−336.0%", 138.1],
+                ["FY2025", "−199.3%", 99.8]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [
+            null,
+            {
+              "top": 220,
+              "depth": 4,
+              "items": [
+                ["FY2019", "operating_margin", "−5,619%", 45.8, 0],
+                ["FY2019", "net_margin", "−6,043%", 45.8, 1],
+                ["FY2020", "operating_margin", "−15,071%", 107.2, 2],
+                ["FY2020", "net_margin", "−18,093%", 107.2, 3],
+                ["FY2021", "operating_margin", "−5,645%", 175.2, 0],
+                ["FY2021", "net_margin", "−9,516%", 175.2, 1]
+              ]
+            }
+          ],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Gross", "22.8% (FY2020)", 0, "line", "circle", false],
+        ["Operating", "−258.7%", 1, "line", "square", false],
+        ["Net", "−199.3%", 2, "line", "triangle", false]
+      ],
+      "notes": [
+        ["FY2021", "a", "neutral", 202.8],
+        ["FY2022", "a", "neutral", 267.5],
+        ["FY2023", "a", "neutral", 332.2],
+        ["FY2024", "a", "neutral", 396.9],
+        ["FY2025", "a", "neutral", 461.6]
+      ],
+      "footnotes": [
+        ["a", "Gross margin FY2021–FY2025: Not available in this dataset."],
+        ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."],
+        ["↓↑", "Values beyond the axis range are printed in the band at the plot edge."]
+      ],
+      "strip": []
+    },
+    "expanded": {
+      "title": "Margins",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · % of revenue",
+      "unavailable": null,
+      "frame": {
+        "width": 1030,
+        "height": 574,
+        "gutter": 54,
+        "slot": 138.3,
+        "barWidth": 44,
+        "growthBarWidth": 26,
+        "xTickY": 493,
+        "stripTop": 504,
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "margins",
+          "caption": null,
+          "bands": [0, null, 16, 424],
+          "ticks": [
+            ["−600%", 440],
+            ["−500%", 379.4],
+            ["−400%", 318.9],
+            ["−300%", 258.3],
+            ["−200%", 197.7],
+            ["−100%", 137.1],
+            ["0%", 76.6],
+            ["100%", 16]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "gross_margin",
+              "label": "Gross",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "14.5%", 67.8],
+                ["FY2020", "22.8%", 62.8],
+                ["FY2021", "—"],
+                ["FY2022", "—"],
+                ["FY2023", "—"],
+                ["FY2024", "—"],
+                ["FY2025", "—"]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "operating_margin",
+              "label": "Operating",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−5,619%", 440, "below"],
+                ["FY2020", "−15,071%", 440, "below"],
+                ["FY2021", "−5,645%", 440, "below"],
+                ["FY2022", "−426.5%", 334.9],
+                ["FY2023", "−520.7%", 392],
+                ["FY2024", "−373.9%", 303.1],
+                ["FY2025", "−258.7%", 233.2]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "net_margin",
+              "label": "Net",
+              "color": 2,
+              "marker": "triangle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−6,043%", 440, "below"],
+                ["FY2020", "−18,093%", 440, "below"],
+                ["FY2021", "−9,516%", 440, "below"],
+                ["FY2022", "−214.5%", 206.5],
+                ["FY2023", "−475.1%", 364.4],
+                ["FY2024", "−336.0%", 280.1],
+                ["FY2025", "−199.3%", 197.3]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [
+            null,
+            {
+              "top": 448,
+              "depth": 2,
+              "items": [
+                ["FY2019", "operating_margin", "−5,619%", 95.5, 0],
+                ["FY2019", "net_margin", "−6,043%", 95.5, 1],
+                ["FY2020", "operating_margin", "−15,071%", 230.5, 0],
+                ["FY2020", "net_margin", "−18,093%", 230.5, 1],
+                ["FY2021", "operating_margin", "−5,645%", 372.1, 0],
+                ["FY2021", "net_margin", "−9,516%", 372.1, 1]
+              ]
+            }
+          ],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Gross", "22.8% (FY2020)", 0, "line", "circle", false],
+        ["Operating", "−258.7%", 1, "line", "square", false],
+        ["Net", "−199.3%", 2, "line", "triangle", false]
+      ],
+      "notes": [
+        ["FY2021", "a", "neutral", 399.7],
+        ["FY2022", "a", "neutral", 538],
+        ["FY2023", "a", "neutral", 676.3],
+        ["FY2024", "a", "neutral", 814.6],
+        ["FY2025", "a", "neutral", 952.9]
+      ],
+      "footnotes": [
+        ["a", "Gross margin FY2021–FY2025: Not available in this dataset."],
+        ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."],
+        ["↓↑", "Values beyond the axis range are printed in the band at the plot edge."]
+      ],
+      "strip": [
+        [
+          "Gross",
+          0,
+          "line",
+          "circle",
+          {
+            "FY2019": "14.5%",
+            "FY2020": "22.8%",
+            "FY2021": "—",
+            "FY2022": "—",
+            "FY2023": "—",
+            "FY2024": "—",
+            "FY2025": "—"
+          }
+        ],
+        [
+          "Operat",
+          1,
+          "line",
+          "square",
+          {
+            "FY2019": "−5,619%",
+            "FY2020": "−15,071%",
+            "FY2021": "−5,645%",
+            "FY2022": "−426.5%",
+            "FY2023": "−520.7%",
+            "FY2024": "−373.9%",
+            "FY2025": "−258.7%"
+          }
+        ],
+        [
+          "Net",
+          2,
+          "line",
+          "triangle",
+          {
+            "FY2019": "−6,043%",
+            "FY2020": "−18,093%",
+            "FY2021": "−9,516%",
+            "FY2022": "−214.5%",
+            "FY2023": "−475.1%",
+            "FY2024": "−336.0%",
+            "FY2025": "−199.3%"
+          }
+        ]
+      ]
+    }
+  },
+  "cash": {
+    "card": {
+      "title": "Cash generation",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 502,
+        "height": 320,
+        "gutter": 48,
+        "slot": 63.7,
+        "barWidth": 41,
+        "growthBarWidth": 25,
+        "xTickY": 293,
+        "stripTop": null,
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 79.9, "’19"],
+        ["FY2020", 143.6, "’20"],
+        ["FY2021", 207.3, "’21"],
+        ["FY2022", 271, "’22"],
+        ["FY2023", 334.7, "’23"],
+        ["FY2024", 398.4, "’24"],
+        ["FY2025", 462.1, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "cash",
+          "caption": null,
+          "bands": [0, null, 16, 256],
+          "ticks": [
+            ["−$4.0B", 272],
+            ["−$3.5B", 240],
+            ["−$3.0B", 208],
+            ["−$2.5B", 176],
+            ["−$2.0B", 144],
+            ["−$1.5B", 112],
+            ["−$1.0B", 80],
+            ["−$0.5B", 48],
+            ["$0", 16]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "operating_cash_flow",
+              "label": "Operating CF",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.24B", 31.1],
+                ["FY2020", "−$0.57B", 52.5],
+                ["FY2021", "−$1.06B", 83.7],
+                ["FY2022", "−$2.23B", 158.5],
+                ["FY2023", "−$2.49B", 175.3],
+                ["FY2024", "−$2.02B", 145.3],
+                ["FY2025", "−$2.93B", 203.6]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "free_cash_flow",
+              "label": "Free cash flow",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.34B", 37.7],
+                ["FY2020", "−$1.03B", 81.9],
+                ["FY2021", "−$1.48B", 110.7],
+                ["FY2022", "−$3.30B", 227.3],
+                ["FY2023", "−$3.40B", 233.6],
+                ["FY2024", "−$2.90B", 201.8],
+                ["FY2025", "−$3.80B", 259.2]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "net_income",
+              "label": "Net income",
+              "color": 2,
+              "marker": "triangle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.28B", 33.8],
+                ["FY2020", "−$0.72B", 62],
+                ["FY2021", "−$2.58B", 181.1],
+                ["FY2022", "−$1.30B", 99.5],
+                ["FY2023", "−$2.83B", 197],
+                ["FY2024", "−$2.71B", 189.7],
+                ["FY2025", "−$2.70B", 188.7]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Operating CF", "−$2.93B", 0, "line", "circle", false],
+        ["Free cash flow", "−$3.80B", 1, "line", "square", false],
+        ["Net income", "−$2.70B", 2, "line", "triangle", false]
+      ],
+      "notes": [],
+      "footnotes": [
+        ["", "Free cash flow is calculated by EarningsNerd from reported figures."]
+      ],
+      "strip": []
+    },
+    "expanded": {
+      "title": "Cash generation",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 1030,
+        "height": 574,
+        "gutter": 54,
+        "slot": 138.3,
+        "barWidth": 44,
+        "growthBarWidth": 26,
+        "xTickY": 493,
+        "stripTop": 504,
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "cash",
+          "caption": null,
+          "bands": [0, null, 16, 456],
+          "ticks": [
+            ["−$4.0B", 472],
+            ["−$3.5B", 415],
+            ["−$3.0B", 358],
+            ["−$2.5B", 301],
+            ["−$2.0B", 244],
+            ["−$1.5B", 187],
+            ["−$1.0B", 130],
+            ["−$0.5B", 73],
+            ["$0", 16]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "operating_cash_flow",
+              "label": "Operating CF",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.24B", 42.8],
+                ["FY2020", "−$0.57B", 81],
+                ["FY2021", "−$1.06B", 136.6],
+                ["FY2022", "−$2.23B", 269.8],
+                ["FY2023", "−$2.49B", 299.8],
+                ["FY2024", "−$2.02B", 246.2],
+                ["FY2025", "−$2.93B", 350.2]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "free_cash_flow",
+              "label": "Free cash flow",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.34B", 54.7],
+                ["FY2020", "−$1.03B", 133.4],
+                ["FY2021", "−$1.48B", 184.6],
+                ["FY2022", "−$3.30B", 392.3],
+                ["FY2023", "−$3.40B", 403.6],
+                ["FY2024", "−$2.90B", 347],
+                ["FY2025", "−$3.80B", 449.2]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "net_income",
+              "label": "Net income",
+              "color": 2,
+              "marker": "triangle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.28B", 47.6],
+                ["FY2020", "−$0.72B", 98],
+                ["FY2021", "−$2.58B", 310.1],
+                ["FY2022", "−$1.30B", 164.7],
+                ["FY2023", "−$2.83B", 338.4],
+                ["FY2024", "−$2.71B", 325.4],
+                ["FY2025", "−$2.70B", 323.6]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Operating CF", "−$2.93B", 0, "line", "circle", false],
+        ["Free cash flow", "−$3.80B", 1, "line", "square", false],
+        ["Net income", "−$2.70B", 2, "line", "triangle", false]
+      ],
+      "notes": [],
+      "footnotes": [
+        ["", "Free cash flow is calculated by EarningsNerd from reported figures."]
+      ],
+      "strip": [
+        [
+          "Operat",
+          0,
+          "line",
+          "circle",
+          {
+            "FY2019": "−$0.24B",
+            "FY2020": "−$0.57B",
+            "FY2021": "−$1.06B",
+            "FY2022": "−$2.23B",
+            "FY2023": "−$2.49B",
+            "FY2024": "−$2.02B",
+            "FY2025": "−$2.93B"
+          }
+        ],
+        [
+          "Free c",
+          1,
+          "line",
+          "square",
+          {
+            "FY2019": "−$0.34B",
+            "FY2020": "−$1.03B",
+            "FY2021": "−$1.48B",
+            "FY2022": "−$3.30B",
+            "FY2023": "−$3.40B",
+            "FY2024": "−$2.90B",
+            "FY2025": "−$3.80B"
+          }
+        ],
+        [
+          "Net in",
+          2,
+          "line",
+          "triangle",
+          {
+            "FY2019": "−$0.28B",
+            "FY2020": "−$0.72B",
+            "FY2021": "−$2.58B",
+            "FY2022": "−$1.30B",
+            "FY2023": "−$2.83B",
+            "FY2024": "−$2.71B",
+            "FY2025": "−$2.70B"
+          }
+        ]
+      ]
+    }
+  },
+  "balance": {
+    "card": {
+      "title": "Balance sheet",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 502,
+        "height": 320,
+        "gutter": 36,
+        "slot": 65.4,
+        "barWidth": 42,
+        "growthBarWidth": 25,
+        "xTickY": 293,
+        "stripTop": null,
+        "stripRowY": [],
+        "notesY": 312,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 68.7, "’19"],
+        ["FY2020", 134.1, "’20"],
+        ["FY2021", 199.6, "’21"],
+        ["FY2022", 265, "’22"],
+        ["FY2023", 330.4, "’23"],
+        ["FY2024", 395.9, "’24"],
+        ["FY2025", 461.3, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "debtcash",
+          "caption": "Long-term debt and Cash",
+          "bands": [0, 15, 26, 124],
+          "ticks": [
+            ["$0", 150],
+            ["$2B", 119],
+            ["$4B", 88],
+            ["$6B", 57],
+            ["$8B", 26]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "long_term_debt",
+              "label": "Long-term debt",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "—"],
+                ["FY2020", "$0", 150],
+                ["FY2021", "$1.99B", 119.2],
+                ["FY2022", "$1.99B", 119.1],
+                ["FY2023", "$2.00B", 119],
+                ["FY2024", "$2.00B", 119],
+                ["FY2025", "$2.05B", 118.3]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "cash_and_equivalents",
+              "label": "Cash",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "$0.35B", 144.5],
+                ["FY2020", "$0.61B", 140.5],
+                ["FY2021", "$6.26B", 52.9],
+                ["FY2022", "$1.74B", 123.1],
+                ["FY2023", "$1.37B", 128.8],
+                ["FY2024", "$1.61B", 125.1],
+                ["FY2025", "$1.00B", 134.5]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        },
+        {
+          "id": "equity",
+          "caption": "Shareholders’ equity",
+          "bands": [168, 179, 190, 82],
+          "ticks": [
+            ["−$2B", 272],
+            ["$0", 251.5],
+            ["$2B", 231],
+            ["$4B", 210.5],
+            ["$6B", 190]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "signedBar",
+              "series": "shareholders_equity",
+              "label": "Equity",
+              "color": 2,
+              "marker": null,
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.62B", 257.9],
+                ["FY2020", "−$1.32B", 265],
+                ["FY2021", "$3.91B", 211.4],
+                ["FY2022", "$4.35B", 206.9],
+                ["FY2023", "$4.85B", 201.8],
+                ["FY2024", "$3.87B", 211.8],
+                ["FY2025", "$0.72B", 244.1]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2019", "shareholders_equity", 47.7, 251.5, 42, 6.4],
+            ["FY2020", "shareholders_equity", 113.1, 251.5, 42, 13.5],
+            ["FY2021", "shareholders_equity", 178.6, 211.4, 42, 40.1],
+            ["FY2022", "shareholders_equity", 244, 206.9, 42, 44.6],
+            ["FY2023", "shareholders_equity", 309.4, 201.8, 42, 49.7],
+            ["FY2024", "shareholders_equity", 374.9, 211.8, 42, 39.7],
+            ["FY2025", "shareholders_equity", 440.3, 244.1, 42, 7.4]
+          ],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Long-term debt", "$2.05B", 0, "line", "circle", false],
+        ["Cash", "$1.00B", 1, "line", "square", false],
+        ["Equity", "$0.72B", 2, "bar", null, false]
+      ],
+      "notes": [
+        ["FY2019", "a", "neutral", 68.7]
+      ],
+      "footnotes": [
+        ["a", "Long-term debt FY2019: Not available in this dataset."]
+      ],
+      "strip": []
+    },
+    "expanded": {
+      "title": "Balance sheet",
+      "subtitle": "FY2019–FY2025 · fiscal years end Dec · USD",
+      "unavailable": null,
+      "frame": {
+        "width": 1030,
+        "height": 574,
+        "gutter": 54,
+        "slot": 138.3,
+        "barWidth": 44,
+        "growthBarWidth": 26,
+        "xTickY": 493,
+        "stripTop": 504,
+        "stripRowY": [516, 532, 548],
+        "notesY": 566,
+        "valuesDontFit": false
+      },
+      "periods": [
+        ["FY2019", 123.1, "’19"],
+        ["FY2020", 261.4, "’20"],
+        ["FY2021", 399.7, "’21"],
+        ["FY2022", 538, "’22"],
+        ["FY2023", 676.3, "’23"],
+        ["FY2024", 814.6, "’24"],
+        ["FY2025", 952.9, "’25"]
+      ],
+      "panels": [
+        {
+          "id": "debtcash",
+          "caption": "Long-term debt and Cash",
+          "bands": [0, 15, 26, 240],
+          "ticks": [
+            ["$0", 266],
+            ["$2B", 206],
+            ["$4B", 146],
+            ["$6B", 86],
+            ["$8B", 26]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "line",
+              "series": "long_term_debt",
+              "label": "Long-term debt",
+              "color": 0,
+              "marker": "circle",
+              "labelled": false,
+              "points": [
+                ["FY2019", "—"],
+                ["FY2020", "$0", 266],
+                ["FY2021", "$1.99B", 206.4],
+                ["FY2022", "$1.99B", 206.2],
+                ["FY2023", "$2.00B", 206.1],
+                ["FY2024", "$2.00B", 205.9],
+                ["FY2025", "$2.05B", 204.6]
+              ]
+            },
+            {
+              "kind": "line",
+              "series": "cash_and_equivalents",
+              "label": "Cash",
+              "color": 1,
+              "marker": "square",
+              "labelled": false,
+              "points": [
+                ["FY2019", "$0.35B", 255.4],
+                ["FY2020", "$0.61B", 247.6],
+                ["FY2021", "$6.26B", 78.1],
+                ["FY2022", "$1.74B", 213.9],
+                ["FY2023", "$1.37B", 224.9],
+                ["FY2024", "$1.61B", 217.8],
+                ["FY2025", "$1.00B", 236.1]
+              ]
+            }
+          ],
+          "bars": [],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        },
+        {
+          "id": "equity",
+          "caption": "Shareholders’ equity",
+          "bands": [290, 301, 312, 160],
+          "ticks": [
+            ["−$2B", 472],
+            ["$0", 432],
+            ["$2B", 392],
+            ["$4B", 352],
+            ["$6B", 312]
+          ],
+          "labelDecimals": null,
+          "marks": [
+            {
+              "kind": "signedBar",
+              "series": "shareholders_equity",
+              "label": "Equity",
+              "color": 2,
+              "marker": null,
+              "labelled": false,
+              "points": [
+                ["FY2019", "−$0.62B", 444.4],
+                ["FY2020", "−$1.32B", 458.4],
+                ["FY2021", "$3.91B", 353.8],
+                ["FY2022", "$4.35B", 345],
+                ["FY2023", "$4.85B", 335],
+                ["FY2024", "$3.87B", 354.5],
+                ["FY2025", "$0.72B", 417.7]
+              ]
+            }
+          ],
+          "bars": [
+            ["FY2019", "shareholders_equity", 101.1, 432, 44, 12.4],
+            ["FY2020", "shareholders_equity", 239.4, 432, 44, 26.4],
+            ["FY2021", "shareholders_equity", 377.7, 353.8, 44, 78.2],
+            ["FY2022", "shareholders_equity", 516, 345, 44, 87],
+            ["FY2023", "shareholders_equity", 654.3, 335, 44, 97],
+            ["FY2024", "shareholders_equity", 792.6, 354.5, 44, 77.5],
+            ["FY2025", "shareholders_equity", 930.9, 417.7, 44, 14.3]
+          ],
+          "gaps": [],
+          "offScale": [null, null],
+          "nearZero": []
+        }
+      ],
+      "legend": [
+        ["Long-term debt", "$2.05B", 0, "line", "circle", false],
+        ["Cash", "$1.00B", 1, "line", "square", false],
+        ["Equity", "$0.72B", 2, "bar", null, false]
+      ],
+      "notes": [
+        ["FY2019", "a", "neutral", 123.1]
+      ],
+      "footnotes": [
+        ["a", "Long-term debt FY2019: Not available in this dataset."]
+      ],
+      "strip": [
+        [
+          "Long-t",
+          0,
+          "line",
+          "circle",
+          {
+            "FY2019": "—",
+            "FY2020": "$0",
+            "FY2021": "$1.99B",
+            "FY2022": "$1.99B",
+            "FY2023": "$2.00B",
+            "FY2024": "$2.00B",
+            "FY2025": "$2.05B"
+          }
+        ],
+        [
+          "Cash",
+          1,
+          "line",
+          "square",
+          {
+            "FY2019": "$0.35B",
+            "FY2020": "$0.61B",
+            "FY2021": "$6.26B",
+            "FY2022": "$1.74B",
+            "FY2023": "$1.37B",
+            "FY2024": "$1.61B",
+            "FY2025": "$1.00B"
+          }
+        ],
+        [
+          "Equity",
+          2,
+          "bar",
+          null,
+          {
+            "FY2019": "−$0.62B",
+            "FY2020": "−$1.32B",
+            "FY2021": "$3.91B",
+            "FY2022": "$4.35B",
+            "FY2023": "$4.85B",
+            "FY2024": "$3.87B",
+            "FY2025": "$0.72B"
+          }
+        ]
+      ]
+    }
+  }
+}

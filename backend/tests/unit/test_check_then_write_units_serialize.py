@@ -1,9 +1,10 @@
 """Gate for lessons/ops-release-cached-filing-reads-before-yield.md's serialization clause: a
-check-then-write unit moved into the thread pool still runs one at a time within the process.
+check-then-write unit moved into the thread pool holds a lock from its check to its commit, or writes
+atomically in the database.
 
 On the event loop each of these units ran whole before the next could start. In worker threads two
-requests can both pass a check before either writes, so each unit takes a lock from its check to its
-commit:
+requests can both pass a check before either writes, so each unit below takes a lock from its check to
+its commit (two account writes, at the end, write atomically instead):
 - the waitlist join (``waitlist_service._join_lock``): two joins on one referral link both read the
   referrer's priority and one credit is lost, and two joins both count the list before either
   inserts and take one place;
@@ -25,10 +26,19 @@ saved-row case fails a checkout made by the thread that holds the lock.
 These locks reach one process. Each unit also takes a database lock that the API's instances share,
 the watch-row and saved-row writes before the process lock and the join inside it;
 ``test_check_then_write_units_lock_across_instances.py`` holds those (E128).
+
+Two account writes take no lock: each writes atomically in the database, the clause's other way, which
+reaches every instance and the alert scanner as well. A first read of an account's alert preferences
+inserts their row under a SAVEPOINT and reads the stored row when its insert clashes on the unique
+``user_id``, and the bell's mark writes its stamp only over an older one. Their cases meet the two units
+after their checks (two first reads; a first read and a first update, which inserts once the read has
+committed), or park the mark stamped first at its UPDATE until the later one has committed, and hold the
+outcome.
 """
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 import pytest
 
@@ -37,8 +47,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from app.database import Base
-from app.models import Company, Filing, SavedSummary, Summary, User, WaitlistSignup, Watchlist
-from app.services import earnings_alert_service, saved_summary_service, waitlist_service, watchlist_service
+from app.models import (
+    Company, Filing, NotificationPreferences, SavedSummary, Summary, User, WaitlistSignup, Watchlist,
+)
+from app.services import (
+    earnings_alert_service, notification_service, saved_summary_service, user_notification_feed_service,
+    waitlist_service, watchlist_service,
+)
 from app.utils.datetimes import utcnow
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
@@ -95,6 +110,11 @@ class _Meeting:
         self.holder = None
         if self._lock is not None:
             self._lock.release()
+
+    @property
+    def arrivals(self) -> int:
+        with self._state:
+            return self._arrived
 
     def meet(self) -> None:
         with self._state:
@@ -394,3 +414,118 @@ def test_a_notes_update_and_a_delete_of_one_library_row_both_finish(sessions, mo
     edited = isinstance(updated, dict) and updated["notes"] == "Edited"
     assert deleted_once is True and (updated is None or edited), (deleted_once, updated)
     assert _library(sessions) == []
+
+
+def _account(sessions, *, seen_at: datetime | None = None) -> None:
+    """An account (user 1) with no alert preferences, and the bell stamp ``seen_at``."""
+    with sessions() as db:
+        db.add(User(email="account@example.com", is_active=True, notifications_seen_at=seen_at))
+        db.commit()
+
+
+def _as_account(sessions, unit):
+    """Run ``unit(db, user)`` on a session whose first query, the user's lookup, has already checked a
+    connection out, as the route's auth dependency has."""
+
+    def run():
+        with sessions() as db:
+            user = db.query(User).filter_by(email="account@example.com").one()
+            return unit(db, user)
+    return run
+
+
+def test_two_first_reads_of_one_accounts_preferences_keep_one_row(sessions, monkeypatch):
+    """Both reads find no row before either inserts. The second insert's clash on the unique ``user_id``
+    rolls back only that insert, under its SAVEPOINT, and it answers the row the first stored: without
+    the SAVEPOINT its commit raises IntegrityError, a 500."""
+    _account(sessions)
+    meeting = _Meeting(None)
+    _meet_after(monkeypatch, meeting, notification_service, "_preferences")
+    read = _as_account(sessions, lambda db, user: notification_service.get_or_create_preferences(db, user.id).id)
+
+    assert _run_both(read, read) == [1, 1]
+    # Both checks ran through the named check and met there: a check made some other way would race freely.
+    assert meeting.arrivals >= 2
+    with sessions() as db:
+        assert db.query(NotificationPreferences.user_id).all() == [(1,)]
+
+
+def test_a_first_read_and_a_first_update_of_one_accounts_preferences_both_finish(sessions, monkeypatch):
+    """Both find no row before either inserts, and the update inserts once the read has committed. Its
+    clash rolls back only its insert, under its SAVEPOINT, and it updates the stored row: without the
+    SAVEPOINT on the update's path (``commit=False``) its failed flush leaves the session unusable, a
+    500."""
+    _account(sessions)
+    meeting = _Meeting(None)
+    read_committed = threading.Event()
+    role = threading.local()
+    real = notification_service._preferences
+
+    def check_then_order(db, user_id):
+        answer = real(db, user_id)
+        if not getattr(role, "checked", False):
+            role.checked = True
+            meeting.meet()
+            if role.name == "update":
+                assert read_committed.wait(timeout=10)
+        return answer
+
+    monkeypatch.setattr(notification_service, "_preferences", check_then_order)
+
+    def read(db, user):
+        role.name = "read"
+        try:
+            return notification_service.get_or_create_preferences(db, user.id).notify_10q
+        finally:
+            read_committed.set()
+
+    def update(db, user):
+        role.name = "update"
+        prefs = notification_service.get_or_create_preferences(db, user.id, commit=False)
+        notification_service.apply_preference_update(db, prefs, {"notify_10q": False}, user)
+        return prefs.notify_10q
+
+    # The read answers the defaults it stored, and the update its change, on that one row.
+    assert _run_both(_as_account(sessions, read), _as_account(sessions, update)) == [True, False]
+    assert meeting.arrivals >= 2
+    with sessions() as db:
+        assert db.query(NotificationPreferences.user_id, NotificationPreferences.notify_10q).all() == [(1, False)]
+
+
+def test_a_mark_stamped_first_that_commits_last_keeps_the_later_stamp(sessions, engine, monkeypatch):
+    """Two marks of one account's bell over an older stamp. The one stamped first makes its check and
+    reaches its UPDATE before the other starts, and runs that UPDATE only once the other has committed.
+    That UPDATE writes the stamp only over an older one, so the later stamp stands: a plain write, or a
+    check in Python before an unconditional write, puts the earlier one back, and an alert logged between
+    the two stamps reads unread again; a write only over an unset stamp never moves an old one."""
+    older = datetime(2026, 10, 24, 11, 0, tzinfo=timezone.utc)
+    first, later = datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc), datetime(2026, 10, 24, 12, 1, tzinfo=timezone.utc)
+    _account(sessions, seen_at=older)
+    first_parked, later_committed = threading.Event(), threading.Event()
+    clock = threading.local()
+    monkeypatch.setattr(user_notification_feed_service, "utcnow", lambda: clock.stamp)
+
+    def park_the_first_update(conn, cursor, statement, *_args):
+        if getattr(clock, "parks", False) and statement.lstrip().upper().startswith("UPDATE USERS"):
+            first_parked.set()
+            assert later_committed.wait(timeout=10)
+
+    event.listen(engine, "before_cursor_execute", park_the_first_update)
+
+    def mark(stamp: datetime, parks: bool):
+        def unit(db, user):
+            clock.stamp, clock.parks = stamp, parks
+            try:
+                if not parks:
+                    # Any check the first mark makes before its UPDATE has read the older stamp by now.
+                    assert first_parked.wait(timeout=10)
+                return user_notification_feed_service.mark_seen(db, user).notifications_seen_at
+            finally:
+                if not parks:
+                    later_committed.set()
+        return _as_account(sessions, unit)
+
+    # SQLite hands the stamps back naive.
+    assert _run_both(mark(first, True), mark(later, False)) == [later.replace(tzinfo=None)] * 2
+    with sessions() as db:
+        assert db.query(User.notifications_seen_at).scalar() == later.replace(tzinfo=None)

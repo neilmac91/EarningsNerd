@@ -180,6 +180,30 @@ export const fmtCurrency = (
   return formatter.format(num)
 }
 
+// The engine's ISO 4217 list, where it has one (ES2022), so a well-formed code no currency has ("ABC") prints no
+// symbol; without it, a code Intl knows nothing of prints as itself.
+const ISO_CURRENCIES = (() => {
+  const supported = (Intl as { supportedValuesOf?: (key: 'currency') => string[] }).supportedValuesOf
+  return typeof supported === 'function' ? new Set(supported('currency')) : null
+})()
+
+/**
+ * The en-US symbol of an ISO 4217 currency code: "$" for USD, "¥" for JPY, "CA$" for CAD, "CHF" for
+ * a currency the locale writes by its code. Anything that is not such a code (an XBRL unit such as
+ * "shares", a missing unit, "XXX" for no currency) gives null: that amount shows with no symbol, never
+ * as dollars (lessons/frontend-xbrl-amounts-carry-their-own-currency.md).
+ */
+export const currencySymbol = (code: string | null | undefined): string | null => {
+  if (!code || !/^[A-Z]{3}$/.test(code) || (ISO_CURRENCIES && !ISO_CURRENCIES.has(code))) return null
+  try {
+    const parts = getFormatter({ style: 'currency', currency: code, currencyDisplay: 'symbol' }).formatToParts(0)
+    const symbol = parts.find((part) => part.type === 'currency')?.value ?? null
+    return symbol === '¤' ? null : symbol // the generic sign: no currency to name
+  } catch {
+    return null
+  }
+}
+
 export const fmtPercent = (
   value: NumericInput,
   options?: { digits?: number; signed?: boolean }

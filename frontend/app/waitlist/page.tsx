@@ -212,7 +212,7 @@ export default function WaitlistPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {[
               {
-                title: 'Source: SEC EDGAR',
+                title: 'Filings from SEC.gov',
                 body: 'Official filings, cited and traceable back to the primary source.',
               },
               {
