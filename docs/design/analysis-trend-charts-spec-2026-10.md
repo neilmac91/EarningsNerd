@@ -345,8 +345,10 @@ says so; everything else follows the spec.
     fails any class that names a pair. E195 folds the pairs into item 1's names.
   - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
     Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
-    and notes paint in the legend names' ink, `#B8BEC7` on dark. The export's own dark secondary measured Lc −48.6
-    (`#9CA3AF`) when this was written; #1606 raised it with the DS secondary to `#D1D5DB` (−77.3).
+    and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
+    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
+    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the
+    card's notes on screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
     copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
     renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
@@ -974,7 +976,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | Text | Light | Lc | Dark | Lc |
 |---|---|---|---|---|
 | Subtitle and footnotes | `text.tertiary #636A77` | 74.1 | `chart.label.dark #B8BEC7` | −63.6 |
-| Legend names | `text.secondary #374151` | 90.9 | `chart.label.dark #B8BEC7` | −63.6 |
+| Legend names | `text.secondary #374151` | 90.9 | `text.secondary.dark #D1D5DB` | −77.3 |
 | Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #EAECEF` | −91.8 |
 
 The dark subtitle, footnotes and legend names use `chart.label.dark` because DS `text.secondary.dark #9CA3AF`
@@ -988,6 +990,10 @@ Lc −91.8 on the slate panel and −94.8 on navy. The legend values row above t
 values are that token (`charts/theme.ts`'s dark `figure`, held to it by `chart-theme.spec.ts`), as is today's chart
 tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a chart-scope token of its own, keep
 `#D7DADC` as this audit measured it, for the migration to decide.)
+(E194, 2026-10-25: the migration's call on the dark names. Legend names take `text.secondary.dark` `#D1D5DB`, Lc
+−77.3 on the card, as light's take `text.secondary`, so the chart's text steps match the page's (chief design on
+#1609); the row above says so. The subtitle and footnotes keep `chart.label.dark`, since DS `text.tertiary.dark`, the
+step their light half takes, is still `#9CA3AF`, −48.6.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

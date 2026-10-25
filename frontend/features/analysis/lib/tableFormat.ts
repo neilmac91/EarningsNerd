@@ -1,4 +1,4 @@
-import type { AnalysisSeries, GrowthValue } from '@/features/analysis/api/analysis-api'
+import type { AnalysisPoint, AnalysisSeries, GrowthValue } from '@/features/analysis/api/analysis-api'
 import { fmtCurrency, fmtPercent, fmtPercentPoints } from '@/lib/format'
 import { formatGrowth } from './growth'
 
@@ -67,4 +67,16 @@ export function formatTableGrowth(value: GrowthValue | null | undefined, isPerce
   const suffix = isPercent ? 'pp' : '%'
   const zeroDigits = isPercent ? fmtPercentPoints(value, { digits: 0 }) : fmtPercent(amount, { digits: 0, signed: true })
   return bounded([ordinary, zeroDigits, `${number(amount, 1, 'compact', true)}${suffix}`, `${number(amount, 0, 'compact', true)}${suffix}`, `${number(amount, 0, 'scientific', true)}${suffix}`], budget)
+}
+
+/** A figure cell's value as MetricsTable prints it: at the budget its calculated mark and note letter leave. The trend
+ *  charts' agreement check (M15) reads the table through this and tableComparisonText, so it never copies the rule. */
+export function tableFigureText(value: number, point: Pick<AnalysisPoint, 'provenance' | 'derived'>, series: AnalysisSeries, letter?: string): string {
+  const calculated = point.provenance ? point.provenance.method === 'calculated' : Boolean(point.derived)
+  return formatTableValue(value, series, tableTokenBudget(calculated, letter))
+}
+
+/** A figure cell's change line as MetricsTable prints it: the comparison's note letter beside it, no calculated mark. */
+export function tableComparisonText(value: GrowthValue | null | undefined, isPercent: boolean, letter?: string): string {
+  return formatTableGrowth(value, isPercent, tableTokenBudget(false, letter))
 }
