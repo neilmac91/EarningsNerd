@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest'
  *    and metric names |Lc| >= 90; change lines, headings and labels >= 75; marks and the missing-value dash >= 60;
  *    rules >= 15 and a hovered row's rules >= 30. The app-wide secondary ink is held here too: it reads in dark as
  *    in light (|Lc| >= 75 on the dark panel and page), and tertiary's dark twin stays text-safe (4.5:1).
+ * 3. Balance. In dark the gain and loss data inks match in contrast and chroma, so neither direction reads louder
+ *    (emerald-300 beside rose-200 did), and dark primary stays a step above the secondary ink it once all but met.
  */
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -76,6 +78,17 @@ const wcag = (a: string, b: string) => {
   }
   const [hi, lo] = [rel(a), rel(b)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
+}
+
+/** OKLCH chroma (Björn Ottosson's OKLab), the colourfulness two inks of one lightness are compared by. */
+function chroma(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+  const [l, m, s] = [
+    0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b,
+    0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
+    0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b,
+  ].map(Math.cbrt)
+  return Math.hypot(1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s)
 }
 
 const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: Record<string, Record<string, unknown>> } } }).theme.extend.colors
@@ -145,6 +158,22 @@ describe('the analysis figure surfaces keep their own inks', () => {
     }
   })
 
+  it('matches the dark gain and loss data inks in contrast and chroma, so neither direction reads louder', () => {
+    for (const ground of ['well.dark', 'panel.dark']) {
+      const [gain, loss] = [apca(token('gain.data-dark'), token(ground)), apca(token('loss.data-dark'), token(ground))]
+      expect(Math.abs(gain - loss), `gain Lc ${gain.toFixed(1)} against loss Lc ${loss.toFixed(1)} on ${ground}`).toBeLessThanOrEqual(1)
+    }
+    const [gain, loss] = [chroma(token('gain.data-dark')), chroma(token('loss.data-dark'))]
+    expect(Math.abs(gain - loss), `gain chroma ${gain.toFixed(3)} against loss chroma ${loss.toFixed(3)}`).toBeLessThanOrEqual(0.01)
+  })
+
+  it('keeps dark primary, the one heading ink, a step above the secondary ink', () => {
+    // At #D7DADC primary sat 1.05:1 from the gray-300 secondary, so dark body copy and its supporting text met.
+    expect(wcag(token('text.primary.dark'), token('text.secondary.dark'))).toBeGreaterThanOrEqual(1.2)
+    expect(token('text.heading.dark')).toBe(token('text.primary.dark'))
+    for (const ground of ['panel.dark', 'background.dark']) expect(Math.abs(apca(token('text.primary.dark'), token(ground))), ground).toBeGreaterThanOrEqual(90)
+  })
+
   it('computes APCA as apca-w3 does (its published values)', () => {
     // Reference values from apca-w3 0.1.9: APCAcontrast(sRGBtoY(fg), sRGBtoY(bg)).
     expect(apca('#000000', '#FFFFFF')).toBeCloseTo(106.04, 1)
@@ -152,5 +181,8 @@ describe('the analysis figure surfaces keep their own inks', () => {
     expect(apca('#1A1A17', '#FBFAF6')).toBeCloseTo(101.3, 1)
     expect(apca('#9CA3AF', '#1F2937')).toBeCloseTo(-48.6, 1)
     expect(apca('#888888', '#888888')).toBe(0)
+    // OKLCH chroma against its published values: pure red is oklch(0.628 0.2577 29.2), a neutral grey 0.
+    expect(chroma('#FF0000')).toBeCloseTo(0.258, 3)
+    expect(chroma('#888888')).toBeCloseTo(0, 4)
   })
 })

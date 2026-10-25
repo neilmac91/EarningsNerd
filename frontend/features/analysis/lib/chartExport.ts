@@ -242,7 +242,7 @@ export const MARK_STAMP = {
  *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {
-  primary: { light: '#1A1A17', dark: '#D7DADC' },
+  primary: { light: '#1A1A17', dark: '#EAECEF' },
   secondary: { light: '#374151', dark: '#D1D5DB' },
 } as const
 

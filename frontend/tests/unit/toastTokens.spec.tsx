@@ -166,8 +166,8 @@ describe('the Toaster on tokens (chrome/F4)', () => {
     const classNames = (props.toastOptions?.classNames ?? {}) as Record<string, string>
     const close = classNames.closeButton.split(/\s+/)
     // The forced rest outranks Sonner's own hover, so the slot states one: the quiet controls' tint and the
-    // primary ink in light; in dark white over the panel it keeps, since dark primary sits 1.05:1 from the
-    // dark secondary rest and would show no hover (themePairs.spec.ts, faint hovers).
+    // primary ink in light; in dark white over the panel it keeps, since dark primary sits 1.24:1 from the
+    // dark secondary rest, a hover dark barely shows (themePairs.spec.ts, faint hovers).
     expect(close).toEqual(
       expect.arrayContaining(['hover:!bg-brand-weak', 'hover:!text-text-primary-light', 'dark:hover:!bg-panel-dark', 'dark:hover:!text-white']),
     )

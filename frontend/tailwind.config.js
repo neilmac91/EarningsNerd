@@ -26,10 +26,12 @@ const gain = {
   soft: '#DCFCE7',
   softDark: 'rgba(52,211,153,0.14)',
   // Change text on the analysis figure surfaces (the metrics table's well and the KPI cards), held to APCA
-  // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1);
-  // emerald-300 is Lc -78.5 on the dark well and -75.5 on panel (emerald-400 is -65.6 / -62.6).
+  // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1). Dark matches
+  // loss.dataDark (rose-200, Lc -83.1 / -80.1) in lightness and chroma, so neither direction reads louder: Lc -83.5 on
+  // the dark well and -80.5 on panel, OKLCH chroma 0.056 against rose-200's 0.056 (emerald-300 #6EE7B7, at 0.130 and
+  // -78.5 / -75.5, outshouted the loss beside it; emerald-400 is -65.6 / -62.6).
   data: '#166534',
-  dataDark: '#6EE7B7',
+  dataDark: '#B6E4CE',
 }
 const loss = {
   light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
@@ -167,10 +169,13 @@ module.exports = {
 
         // ---- Text ----
         text: {
-          primary: { light: '#1A1A17', dark: '#D7DADC' },
+          // primary.dark #EAECEF, the figure surfaces' ink (was #D7DADC, 1.05:1 from the gray-300 secondary): APCA Lc
+          // -94.8 on navy and -91.8 on panel, and 1.24:1 above secondary, so in dark body copy stands over its
+          // supporting text by ink as well as by size and weight (light's pair is 1.69:1).
+          primary: { light: '#1A1A17', dark: '#EAECEF' },
           // v2: ONE heading ink — same espresso as body (walnut #3A2E26 retired); hierarchy comes
           // from size + weight, never a second color.
-          heading: { light: '#1A1A17', dark: '#D7DADC' },
+          heading: { light: '#1A1A17', dark: '#EAECEF' },
           // secondary.dark #D1D5DB (gray-300; was gray-400 #9CA3AF, APCA Lc -48.6 on panel for 12px copy): Lc -77.3 on
           // panel, -80.3 on navy, so secondary reads in dark as it does in light (90.9 on panel). Secondary carries
           // anything that must be read.
@@ -199,7 +204,7 @@ module.exports = {
         // hover that leaves every text pair unchanged: 35.8 / 34.5 light, -33.8 / -30.9 dark.
         rule: { light: '#D9DCE1', dark: '#545E6D', 'strong-light': '#B5BAC2', 'strong-dark': '#768090' },
         // figure: values and metric names. Espresso is Lc 102.5 on the sheet and 101.3 on panel; dark is -94.8 on the
-        // sheet and -91.8 on panel (gray-200 #E5E7EB is -88.7 on panel, text-primary-dark #D7DADC -80.3).
+        // sheet and -91.8 on panel (gray-200 #E5E7EB is -88.7 on panel), the value text.primary.dark took app-wide.
         figure: { light: '#1A1A17', dark: '#EAECEF' },
         // note: flat changes, †, neutral letters and the missing-value token on the sheet: Lc 75.4 / -80.3.
         note: { light: '#636A77', dark: '#D1D5DB' },

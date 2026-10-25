@@ -530,7 +530,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       onClick={() => onSort(c.key)}
                       className={cx(
                         'inline-flex items-center gap-1 rounded uppercase tracking-eyebrow',
-                        // On the sheet the heading rests in secondary, which dark primary all but meets (1.05:1).
+                        // On the sheet the heading rests in secondary, 1.24:1 under dark primary and 1.47:1 under white.
                         well ? 'hover:text-text-primary-light dark:hover:text-white' : 'hover:text-text-primary-light dark:hover:text-text-primary-dark',
                         'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
                         c.align === 'right' && 'flex-row-reverse',

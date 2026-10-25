@@ -178,10 +178,11 @@ function crossedRungs(own: string, shared = ''): string[] {
 }
 
 /**
- * A hover the dark theme can see (DESIGN_SYSTEM.md §2). Dark primary (#D7DADC) and dark secondary (#D1D5DB) are 1.05:1
- * apart, so a control that rests in the secondary ink and only turns primary under the pointer shows no hover in dark
- * (light keeps a 1.69:1 step). Such a control steps to white in dark or carries another hover cue: a fill, a border, a
- * ring, a shadow or an underline. Thirteen controls had only the ink step when the dark secondary rose to gray-300.
+ * A hover the dark theme can see (DESIGN_SYSTEM.md §2). Dark primary (#EAECEF) and dark secondary (#D1D5DB) are 1.24:1
+ * apart (1.05:1 before primary rose from #D7DADC), so a control that rests in the secondary ink and only turns primary
+ * under the pointer barely shows a hover in dark (light keeps a 1.69:1 step; white is 1.47:1). Such a control steps to
+ * white in dark or carries another hover cue: a fill, a border, a ring, a shadow or an underline. Thirteen controls had
+ * only the ink step when the dark secondary rose to gray-300.
  *
  * The cue must change something in dark. A `dark:` variant compiles to `:is(.dark *)`, as specific as `:hover` and later
  * in the stylesheet, so a `hover:` cue without `dark:` is overruled in dark by a `dark:` rest or `dark:` hover of the same

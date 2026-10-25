@@ -91,7 +91,7 @@
   --duration-ambient: 1800ms; /* deliberate off-scale step — shared by citation-flash (was 1.5s) + shimmer (was 2s) */
 }
 
-.dark { --heading-color: #D7DADC; }
+.dark { --heading-color: #EAECEF; }
 
 @layer base {
   html {

@@ -92,7 +92,7 @@ export function chartTheme(dark: boolean): ChartTheme {
         tipBorder: 'rgba(255,255,255,0.10)',
         tipShadow: 'none', // dark cards/overlays separate by fill + hairline, never shadow
         nameInk: '#D1D5DB', // text.secondary.dark
-        valueInk: '#D7DADC', // text.primary.dark
+        valueInk: '#EAECEF', // text.primary.dark
         gain: '#34D399',
         loss: '#FB7185',
         flat: '#9CA3AF',

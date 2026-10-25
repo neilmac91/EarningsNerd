@@ -19,8 +19,8 @@
    custom-property rules from app/globals.css, with `.dark` toggled on <html>
    exactly as the app's theme bootstrap does. By default those rules go through
    lightningcss first, as `next dev` / `next build` (Turbopack) serve them: it
-   lowercases hex values, so the served signal is `#d7dadc`, not the source
-   `#D7DADC`. One scenario keeps the source spelling (`next dev --webpack`).
+   lowercases hex values, so the served signal is `#eaecef`, not the source
+   `#EAECEF`. One scenario keeps the source spelling (`next dev --webpack`).
    With --app-url the panel is mounted in the running app instead, so the real
    served CSS, fonts and theme bootstrap apply. The OS colour scheme is emulated
    independently to prove it never overrides the app's explicit theme.

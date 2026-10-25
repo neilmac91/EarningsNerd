@@ -171,7 +171,7 @@ const SPECIMEN_ROLES: Record<string, [string, string | null]> = {
   header: ['background-light@0.8', 'background-dark@0.8'],
   'header-line': ['border-light', 'white@0.06'],
   // A control resting in the secondary ink: primary under the pointer in light, white in dark, where dark primary sits
-  // 1.05:1 from dark secondary (DESIGN_SYSTEM.md §2; tests/unit/themePairs.spec.ts holds the source).
+  // 1.24:1 from dark secondary and white 1.47:1 (DESIGN_SYSTEM.md §2; tests/unit/themePairs.spec.ts holds the source).
   'hover-ink': ['text-primary-light', 'white'],
 }
 

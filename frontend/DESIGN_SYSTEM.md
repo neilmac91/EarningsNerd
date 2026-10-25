@@ -23,10 +23,10 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 |------|-------|------|---------|
 | **Brand** | `brand #4F7A63` (**fill only**) / `brand-strong #3C6650` (text/links) / `brand-emphasis #345C48` (active) / `brand-weak #ECF2EE` (tint) / `brand-border #CFE0D6` | `brand-dark #7FB295` (fill/accent) / `brand-strong-dark #98C5AD` (text/links) / `brand-fill-dark #569272` (active) / `brand-weak-dark` / `brand-border-dark` | Primary actions, links, accents, focus rings, active states |
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
-| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #D7DADC` / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
+| **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
 | **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` (+ `warning.data-dark #FCD34D`: a review letter on the analysis figure surfaces, Lc -81.8 on the sheet, -78.8 on panel) · error `#F87171` · info `#60A5FA` | Genuine state messages only |
-| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #6EE7B7` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
+| **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (†, neutral letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
@@ -93,10 +93,12 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   and below the secondary ink': 4.5:1 or more on the dark panel and page, and at least 15 Lc quieter than
   secondary).
 - **A dark hover steps where the eye can see it: secondary never turns only primary under the
-  pointer.** Dark primary `#D7DADC` and dark secondary `#D1D5DB` are 1.05:1 apart (light's pair is
-  1.69:1), so a control that rests in secondary and only turns primary (or heading) under the
-  pointer shows no hover in dark. It steps to white in dark (`dark:hover:text-white`, 1.47:1) or
-  carries another hover cue that dark shows: a fill, a border, a ring, a shadow or an underline.
+  pointer.** Dark primary `#EAECEF` and dark secondary `#D1D5DB` are 1.24:1 apart (1.05:1 before
+  primary rose from `#D7DADC`, 2026-10-25; `tests/unit/figureSurfaceInks.spec.ts` keeps the step at
+  1.2:1 or more; light's pair is 1.69:1), so a control that rests in secondary and only turns primary
+  (or heading) under the pointer barely shows a hover in dark. It steps to white in dark
+  (`dark:hover:text-white`, 1.47:1) or carries another hover cue that dark shows: a fill, a border,
+  a ring, a shadow or an underline.
   A `dark:` class compiles to `:is(.dark *)`, as specific as `:hover` and later in the stylesheet,
   so a `hover:` cue without `dark:` loses in dark to any `dark:` rest or hover of its property, and
   a `dark:hover:` fill equal to the dark rest is no cue. Thirteen controls had only the ink step
@@ -121,7 +123,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 
 - **Headings:** Inter loaded WITH the variable `opsz` axis (`font-optical-sizing: auto` = SF-style
   Text↔Display cuts). ONE display weight: **600** (700/800 collapse to it). One theme-aware ink via
-  `--heading-color` (`#1A1A17` / `#D7DADC`) — hierarchy comes from size + weight, never a second color.
+  `--heading-color` (`#1A1A17` / `#EAECEF`) — hierarchy comes from size + weight, never a second color.
   Promotional emphasis shares the italic and filled-ground treatment in §7 across its current surfaces;
   it retains Inter 600 and leaves ordinary headings in their existing upright role.
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
@@ -564,17 +566,20 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  The analysis figure surfaces alone amend the 700-level clause (CLAUDE.md rule 11):
                  their change lines (MetricsTable's, KpiStrip's) take
                  lib/financialTone.dataDirectionText, up text-gain-data dark:text-gain-data-dark
-                 (#166534 green-800 / #6EE7B7), down text-loss-data dark:text-loss-data-dark (#B91C1C /
+                 (#166534 green-800 / #B6E4CE), down text-loss-data dark:text-loss-data-dark (#B91C1C /
                  #FECDD3), flat text-text-secondary-light dark:text-note-dark, each held to APCA
                  |Lc| ≥ 75 on the sheet and the panel. Three of the general delta inks miss that tier
                  there: green-700 #15803D is Lc 72.4 on the light sheet and 71.1 on the panel, and in
                  dark emerald-400 #34D399 is -65.6 / -62.6 and rose-400 #FB7185 -49.7 / -46.7; green-800
-                 holds 82.6 / 81.3, emerald-300 -78.5 / -75.5 and rose-200 -83.1 / -80.1. The light loss
-                 ink holds: red-700 #B91C1C is 78.4 / 77.2, so loss.data is red-700 too, a role of its
-                 own that can move alone. The sign still carries the direction. Every other delta keeps
+                 holds 82.6 / 81.3 and rose-200 -83.1 / -80.1. The dark gain matches rose-200 in
+                 lightness and chroma (OKLCH chroma 0.056 each), -83.5 / -80.5, so neither direction
+                 reads louder: emerald-300 #6EE7B7 (-78.5 / -75.5, chroma 0.130) outshouted the loss
+                 beside it. The light loss ink holds: red-700 #B91C1C is 78.4 / 77.2, so loss.data is
+                 red-700 too, a role of its own that can move alone. The sign still carries the direction. Every other delta keeps
                  directionText and the 700 level. Gates: tests/unit/figureSurfaceInks.spec.ts (the data
                  inks are written only in financialTone, dataDirectionText is read only by MetricsTable
-                 and KpiStrip, and every pair meets its tier); tests/unit/designSystemDoneGate.spec.ts
+                 and KpiStrip, every pair meets its tier, and the dark gain and loss stay within 1 Lc and
+                 0.01 chroma of each other); tests/unit/designSystemDoneGate.spec.ts
                  (its classes reach the production CSS).
 
 Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a calculated origin, then a
@@ -990,7 +995,7 @@ Toast            Sonner's Toaster, rendered by ThemedToaster (app/providers.tsx)
                  rests on the panel in secondary ink, and its hover takes `!` as its rest does (Sonner's
                  own hover loses to a forced rest): the quiet controls' tint (hover:!bg-brand-weak) with
                  the primary ink in light; in dark white over the panel it keeps, since dark primary
-                 all but meets the dark secondary rest (1.05:1, §2) and the button overhangs the card's
+                 sits only 1.24:1 over the dark secondary rest (§2) and the button overhangs the card's
                  corner, where a translucent tint (brand-weak-dark) would show the page through it. Gate: tests/unit/toastTokens.spec.tsx (token classes only; the
                  card's e4 and dark none; the close button's hover, forced, on opaque fills).
 
@@ -1215,7 +1220,7 @@ Segmented ctrl   <SegmentedControl label options value onChange size="sm|md|adap
                  1.625rem, so it scales with the root and holds its label at 200% text. `mono` options set
                  codes (10-K) in the data face. One selected colour per group — never an ink fill for "All".
                  A resting option is secondary ink that turns primary under the pointer in light and white
-                 in dark (§2: dark primary sits 1.05:1 from dark secondary).
+                 in dark (§2: dark primary sits 1.24:1 from dark secondary, white 1.47:1).
                  `fullWidth` stretches the segments across a phone row and wraps them onto another row when
                  they do not fit (a form filter with amendments; the feedback form's type under 200% text,
                  E169), so every option stays visible; from 40rem it is one auto-width row: 640px at the
@@ -2341,7 +2346,8 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **The analysis figure surfaces' change lines take the data inks**, the one amendment to "chip/delta
   text = the 700-level tokens" (CLAUDE.md rule 11): `lib/financialTone.dataDirectionText`, up
-  `text-gain-data dark:text-gain-data-dark` (#166534 / #6EE7B7: light moves from green-700 to green-800),
+  `text-gain-data dark:text-gain-data-dark` (#166534 / #B6E4CE: light moves from green-700 to green-800,
+  dark matches the loss ink's lightness and chroma),
   down `text-loss-data dark:text-loss-data-dark` (#B91C1C / #FECDD3), flat
   `text-text-secondary-light dark:text-note-dark`, read by MetricsTable and KpiStrip alone; a review
   letter there is `text-warning-light dark:text-warning-data-dark` (#FCD34D). Each change ink holds APCA

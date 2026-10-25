@@ -823,7 +823,9 @@ measures Lc −48.6, which is under 60 for 12 px text.
 on the slate panel and −80.3 on navy, and gray-400 `#9CA3AF` became `text.tertiary.dark`; see
 `frontend/DESIGN_SYSTEM.md` §2. The sentence above records the token as this audit measured it. Whether these
 dark texts take the DS secondary ink rather than `chart.label.dark` is the migration's call; this spec is
-unchanged until it makes it.)
+unchanged until it makes it. The same pull request raised DS `text.primary.dark` from `#D7DADC` to `#EAECEF`,
+Lc −91.8 on the slate panel and −94.8 on navy, so today's value ink, which mirrors it in `Chart.tsx`, draws
+`#EAECEF`; the `value` row and the legend values above keep the token as this audit measured it.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
