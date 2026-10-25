@@ -55,7 +55,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
                   </span>
                 </div>
                 {ev.eps_estimated != null && (
-                  <div className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                  <div className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                     Est. EPS {fmtCurrency(ev.eps_estimated, { digits: 2 })}
                   </div>
                 )}

@@ -22,8 +22,8 @@
    the toolbar's compact select instead, so its SegmentedControl never shows more
    than five (FilingIndex.spec.tsx renders both sides). The sites today: the
    insider window 3 (90D, 180D, 1Y) and the calendar view 2 (Week, Month), both
-   counted; the filings form filter, pinned; the six other sites hold two or
-   three (the analysis mode and table window, the feedback form's type, and the
+   counted; the filings form filter, pinned; the five other sites hold two or
+   three (the analysis mode, the feedback form's type, and the
    comparison source, review scope and evidence workspace switches of three
    prototypes).
 

@@ -67,7 +67,7 @@ export function DayDetailDialog({
       <header className="flex items-start justify-between gap-3 border-b border-border-light px-cap-5 py-4 dark:border-white/10">
         <div>
           <h2 className="text-lg font-semibold">{formatLocalDate(iso, 'EEEE, MMMM d')}</h2>
-          <p className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mt-0.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
             {holiday ? 'Market holiday' : `${events.length} ${events.length === 1 ? 'company reports' : 'companies report'}`} ·
             grouped by report time, large caps and most followed first in each · U.S. Eastern
           </p>
@@ -76,7 +76,7 @@ export function DayDetailDialog({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-text-tertiary-light transition-colors duration-fast hover:bg-brand-weak hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-secondary-dark dark:hover:bg-brand-weak-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
+          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-text-tertiary-light transition-colors duration-fast hover:bg-brand-weak hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-text-tertiary-dark dark:hover:bg-brand-weak-dark dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon className="h-4 w-4" />
         </button>
@@ -105,7 +105,7 @@ export function DayDetailDialog({
           </div>
         ))}
       </div>
-      <footer className="border-t border-border-light px-cap-5 py-2.5 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-secondary-dark">
+      <footer className="border-t border-border-light px-cap-5 py-2.5 text-xs text-text-tertiary-light dark:border-white/10 dark:text-text-tertiary-dark">
         Alert emails arrive the morning a company reports, U.S. Eastern.
       </footer>
     </dialog>

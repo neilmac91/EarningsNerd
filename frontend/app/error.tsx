@@ -30,7 +30,7 @@ export default function Error({
             <>
               The error has been logged and we&apos;ll look into it.
               {error.digest && (
-                <span className="mt-2 block text-text-tertiary-light dark:text-text-secondary-dark">
+                <span className="mt-2 block text-text-tertiary-light dark:text-text-tertiary-dark">
                   Error ID: {error.digest}
                 </span>
               )}
@@ -60,7 +60,7 @@ export default function Error({
               {error.message}
             </pre>
             {error.stack && (
-              <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                 {error.stack}
               </pre>
             )}

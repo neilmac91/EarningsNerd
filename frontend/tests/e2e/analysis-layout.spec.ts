@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
+import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
+import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -11,6 +13,11 @@ import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TAB
  * expand it to the overflowing document. Compare scrollWidth with document.clientWidth
  * AND the configured viewport. Off-screen sr-only text still counts in that check.
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
+ *
+ * The trend charts are read through fixtures/trendChartDom.ts, from whichever renderer the build draws: today's
+ * Recharts charts in the e2e-tests job, the spec renderer's (NEXT_PUBLIC_CHARTS_V2) in e2e-charts-v2, which runs this
+ * file too (step 6 of the trend-chart migration, E194). Recharts' keyboard and notes case runs on Recharts alone;
+ * charts-v2.spec.ts holds the renderer's, and step 7 (E195) retires it.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
@@ -337,7 +344,9 @@ async function tableGeometry(page: Page) {
   })
 }
 
-async function assertTable(page: Page, expectedPeriods: string[], state: AnalysisState) {
+async function assertTable(page: Page, state: AnalysisState) {
+  // The table always holds every period: the 6-of-N window is retired.
+  const expectedPeriods = PERIODS
   const table = page.locator(TABLE)
   const headers = table.locator('thead th')
   await expect(headers).toHaveCount(expectedPeriods.length + 1)
@@ -356,12 +365,11 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   }
   await expect(sourceControls.locator('[data-note-kind="unavailable"]')).toHaveCount(unavailableCount)
   await expect(table.locator('tbody button[aria-label*="\u003a unavailable"]')).toHaveCount(unavailableCount)
-  const window = expectedPeriods.length === 12 ? 'all' : expectedPeriods[0] === PERIODS[0] ? 'earliest' : 'newest'
   // Count value marks inside source controls separately from comparison marks below them.
-  await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state][window])
+  await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state])
   // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
-  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS[window])
-  await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state][window])
+  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
+  await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state])
   const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
   const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
     const notes = (slots: typeof expectedNotes.value) => slots
@@ -432,25 +440,7 @@ async function stableAnalysisOutsideTable(page: Page) {
   return {
     kpis: await page.locator('[data-analysis-kpi]').allTextContents(),
     notes: await page.locator(`${NOTES} > details > summary`).innerText(),
-    charts: await page.locator('[data-analysis-chart]').evaluateAll(charts => charts.map(chart => ({
-      name: chart.getAttribute('data-analysis-chart'),
-      // Recharts renders tick lines and labels in separate layers. Inspect the painted
-      // label layer: counting the line groups can pass with twelve empty strings.
-      ticks: [...chart.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-label')].map(tick => {
-        const glyphs = [...tick.querySelectorAll('text,tspan')].filter(glyph => glyph.textContent?.trim())
-        return {
-          text: tick.textContent?.replace(/\s/g, '') ?? '',
-          painted: glyphs.length > 0 && glyphs.every(glyph => {
-            const box = glyph.getBoundingClientRect()
-            const style = getComputedStyle(glyph)
-            return glyph.checkVisibility({ visibilityProperty: true, opacityProperty: true })
-              && box.width > 0 && box.height > 0 && style.fill !== 'none' && Number(style.fillOpacity) > 0
-          }),
-        }
-      }),
-      // Rendered line/bar geometry makes this stronger than a period-count attribute.
-      shapes: [...chart.querySelectorAll('.recharts-line-curve,.recharts-area-curve,.recharts-bar-rectangle path,.recharts-bar-rectangle rect')].map(shape => ['d', 'x', 'y', 'width', 'height'].map(attr => shape.getAttribute(attr))),
-    }))),
+    charts: await page.locator('[data-analysis-chart]').evaluateAll(readTicksAndShapes, CHARTS_V2),
   }
 }
 
@@ -475,43 +465,32 @@ async function assertNotes(page: Page, state: AnalysisState) {
 for (const theme of THEMES) for (const profile of PROFILES) {
   test.describe(`analysis layout / ${theme} / ${profile.name}`, () => {
     test.use({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.deviceScaleFactor ?? 1, isMobile: profile.width <= 390, hasTouch: profile.width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    for (const state of STATES) test(`${state}: content stays readable across table windows`, async ({ page, baseURL }) => {
+    for (const state of STATES) test(`${state}: content stays readable with every period in the table`, async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       const traffic = await openAnalysis(page, baseURL!, state, theme, profile.textScale ?? 1)
       await assertNotes(page, state)
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-      await expect(page.locator('[data-analysis-chart]')).toHaveCount(4)
+      await drawnCharts(page)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
-        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => `${period.slice(4)}'${period.slice(2, 4)}`))
+        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => tickText(period, CHARTS_V2)))
         for (const tick of chart.ticks) expect(tick.painted, `${chart.name}: ${tick.text} has visible glyphs`).toBe(true)
         expect(chart.shapes.length, `${chart.name}: actual plotted data`).toBeGreaterThan(0)
       }
       const section = page.locator('[data-analysis-metrics]')
-      const window = section.getByRole('group', { name: 'Table window', exact: true })
-      const selections = [
-        { label: 'All 12', periods: PERIODS },
-        { label: 'Newest 6', periods: PERIODS.slice(-6) },
-        { label: 'Earliest 6', periods: PERIODS.slice(0, 6) },
-        { label: 'All 12', periods: PERIODS },
-      ]
-      for (const [index, selection] of selections.entries()) {
-        if (index > 0) await window.getByRole('button', { name: selection.label, exact: true }).click()
-        await expect(window.getByRole('button', { name: selection.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
-        await expect(section.getByRole('status')).toHaveText(`Showing ${selection.periods.length} of 12 quarters`)
-        if (index > 0) await expect(window.getByRole('button', { name: selection.label, exact: true })).toBeFocused()
-        await assertTable(page, selection.periods, state)
-        await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-        expect(await stableAnalysisOutsideTable(page), 'table windows do not change KPI, note totals, or chart data').toEqual(baseline)
-      }
+      // Every period, always: the 6-of-N window is retired, so no control can narrow the table.
+      await expect(section.getByRole('group', { name: 'Table window', exact: true })).toHaveCount(0)
+      await assertTable(page, state)
+      await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
+      expect(await stableAnalysisOutsideTable(page), 'the table leaves KPI, note totals and chart data alone').toEqual(baseline)
       // Disclosure content is also part of the responsive page, not an overflow escape hatch.
       await section.getByRole('button', { name: /^Review data notes/ }).focus()
       await page.keyboard.press('Enter')
       await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
       await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-      expect(traffic.dataset, 'table windows reuse the selected dataset').toBe(1)
-      expect(traffic.stream, 'table windows never regenerate analysis').toBe(1)
+      expect(traffic.dataset, 'the report reads its dataset once').toBe(1)
+      expect(traffic.stream, 'the report never regenerates analysis').toBe(1)
       expect(traffic.unexpectedApi).toEqual([])
     })
   })
@@ -552,7 +531,9 @@ for (const theme of THEMES) for (const profile of [
       }
     }
     await assertEarlierHint(initial.left)
-    await section.getByRole('button', { name: 'Earliest 6', exact: true }).focus()
+    // The scroll region is the next Tab stop after the card's last heading control (Export Excel on the Pro surface).
+    const exportButton = section.getByRole('button', { name: 'Export Excel', exact: true })
+    await (await exportButton.count() ? exportButton : section.getByRole('button', { name: /^Review data notes/ })).focus()
     await page.keyboard.press('Tab')
     await expect(region).toBeFocused()
     const baseline = await settleTable(page)
@@ -665,10 +646,6 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
       await assertPaintedMarks(page, TABLE)
       if (state === 'annual') {
         await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
-        await page.locator('[data-analysis-metrics]').getByRole('button', { name: 'Newest 6', exact: true }).click()
-        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
-        await expect(page.locator('[data-analysis-metrics]').getByRole('status')).toHaveText('Showing 6 of 10 years')
-        await assertTableGeometry(page, 7)
       }
       if (state === 'edge') {
         await expect(page.locator(`${TABLE} [data-note-letter="aa"]`).first()).toHaveAttribute('data-note-kind', 'review')
@@ -686,6 +663,309 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
   })
 }
 
+for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, () => {
+  test.use({ viewport: { width: 1440, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('a figure reached by Shift+Tab lands below the heading rail, never under it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    const rows = page.locator(`${TABLE} tbody tr`)
+    // Put row 8's top just under the site header, past the table's own heading row, so the rail shows over it.
+    await rows.nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+    })
+    const rail = page.locator('[data-table-header-rail] > div')
+    await expect(rail).toBeVisible()
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
+    const covered = await page.evaluate(() => {
+      const rail = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect()
+      const row = document.querySelectorAll('[data-analysis-metrics] table tbody tr')[8].getBoundingClientRect()
+      return row.top < rail.bottom
+    })
+    expect(covered, 'the planted row starts under the rail').toBe(true)
+    // A click on the rail, over a figure it covers, opens nothing: the rail lets the pointer through (for wheels and
+    // swipes), and the table drops a press or click in the rail's band.
+    const point = await page.evaluate(() => {
+      const band = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect()
+      const covered = [...document.querySelectorAll<HTMLElement>('[data-analysis-metrics] tbody button')].map((button) => button.getBoundingClientRect())
+        .find((box) => box.top < band.bottom - 2 && box.bottom > band.top + 2 && box.width > 4)!
+      const x = covered.left + covered.width / 2
+      const y = Math.max(covered.top, band.top) + 1
+      return { x, y, under: !!document.elementFromPoint(x, y)?.closest('tbody button') }
+    })
+    expect(point.under, 'the point lies over a figure the rail covers').toBe(true)
+    await page.mouse.click(point.x, point.y)
+    await expect(page.getByRole('dialog'), 'a click on the rail opens no hidden figure').toHaveCount(0)
+    expect(await page.evaluate(() => !!document.activeElement?.closest('[data-analysis-metrics] tbody')), 'nor focuses it').toBe(false)
+    // The press still reaches outside-press listeners: an open header menu closes on a press in the band.
+    // Pressed where it is, as a reader would: the locator's own click scrolls a header control "into view" first.
+    const bell = page.getByRole('button', { name: 'Notifications', exact: true })
+    const bellBox = (await bell.boundingBox())!
+    await page.mouse.click(bellBox.x + bellBox.width / 2, bellBox.y + bellBox.height / 2)
+    await expect(bell).toHaveAttribute('aria-expanded', 'true')
+    const left = await page.evaluate(() => { const band = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect(); return { x: band.left + 24, y: band.top + band.height / 2 } })
+    await page.mouse.click(left.x, left.y)
+    await expect(bell, 'a press in the rail band closes the open menu').toHaveAttribute('aria-expanded', 'false')
+    // Tab into the row below, then back up: focus lands on row 8's last figure, which the page must scroll clear.
+    await rows.nth(9).locator('button[aria-label$="View source and calculation"]').first().focus()
+    await page.keyboard.press('Shift+Tab')
+    const focused = page.locator(':focus')
+    await expect(focused).toHaveAttribute('aria-label', /View source and calculation$/)
+    const place = await focused.evaluate(button => {
+      const top = button.getBoundingClientRect().top
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const rail = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect().bottom ?? 0
+      return { top, clear: Math.max(header, rail) }
+    })
+    expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+  })
+
+  test('a figure focused while the rail is hidden lands below the band the rail then takes', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    // A last row taller than the heading row, its figure under the site header while the rail is hidden. Chromium
+    // centres an obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to
+    // the scroll padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
+    const placed = await page.evaluate(() => {
+      const table = document.querySelector('[data-analysis-metrics] table')!
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const head = table.querySelector('thead')!.getBoundingClientRect().height
+      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
+      for (const cell of row.cells) cell.style.height = `${header / 2 + head - 4}px`
+      // Room below the table to place it, and its bottom 4px inside the heading row's height under the header.
+      document.body.style.paddingBottom = '150vh'
+      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - head + 4)
+      return { rail: !!document.querySelector('[data-table-header-rail] > div'), bottom: table.getBoundingClientRect().bottom - header - head }
+    })
+    expect(placed.rail, 'the rail is hidden before the focus moves').toBe(false)
+    // The reserve follows the scroll a frame later; the focus move waits for it, as a reader's key press would.
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
+    const figure = page.locator(`${TABLE} tbody tr:last-child button[aria-label$="View source and calculation"]`).last()
+    await figure.evaluate((button: HTMLElement) => {
+      button.focus({ preventScroll: true })
+      button.scrollIntoView({ block: 'nearest' })
+    })
+    await expect(page.locator('[data-table-header-rail] > div'), 'the tall row brings the rail back').toBeVisible()
+    await expect.poll(() => figure.evaluate(button => {
+      const rail = document.querySelector('[data-table-header-rail] > div')!.getBoundingClientRect().bottom
+      return button.getBoundingClientRect().top >= rail - 1
+    }), 'the focused figure clears the rail').toBe(true)
+  })
+
+  test('a figure focused earlier stays put when the reader scrolls the rail over it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    const rows = page.locator(`${TABLE} tbody tr`)
+    // Focus a figure while the table's own heading row is in view, then scroll with no focus move until the rail
+    // covers that figure's row: the page stays where the reader put it.
+    await rows.nth(8).locator('button[aria-label$="View source and calculation"]').first().evaluate((button: HTMLElement) => button.focus({ preventScroll: true }))
+    await page.waitForTimeout(1200)
+    const target = await rows.nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      const y = Math.round(row.getBoundingClientRect().top + window.scrollY - header - 8)
+      window.scrollTo(0, y)
+      return y
+    })
+    await expect(page.locator('[data-table-header-rail] > div')).toBeVisible()
+    await page.waitForTimeout(300)
+    expect(await page.evaluate(() => Math.round(window.scrollY)), 'the page did not jump back to the focused figure').toBe(target)
+  })
+
+  test('the landing demo, in a frame that clips overflow, never shows the rail nor reserves its padding', async ({ page }) => {
+    test.setTimeout(60_000)
+    await page.addInitScript((theme) => {
+      localStorage.setItem('theme', theme)
+      localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z' }))
+    }, theme)
+    await page.goto('/')
+    const demo = page.locator('[data-capture="multi-period-analysis"]')
+    await demo.locator('table').scrollIntoViewIfNeeded()
+    // Its heading row just past the header line, the rest of the table below: where the analysis page shows the rail.
+    const passed = await demo.locator('table').evaluate(table => {
+      const line = parseFloat(getComputedStyle(table.closest('[data-capture]')!.querySelector('[data-table-header-rail]')!).top)
+      window.scrollTo(0, table.querySelector('thead')!.getBoundingClientRect().top + window.scrollY - line + 12)
+      const head = table.querySelector('thead')!.getBoundingClientRect()
+      return head.top < line && table.getBoundingClientRect().bottom > line + head.height
+    })
+    expect(passed, 'the demo table sits where a page rail would show').toBe(true)
+    await page.waitForTimeout(200)
+    await expect(demo.locator('[data-table-header-rail] > div')).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toBe('')
+  })
+})
+
+test.describe('analysis heading rail / 1024px', () => {
+  test.use({ viewport: { width: 1024, height: 800 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('a horizontal wheel over the rail still moves the table under it', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 1)
+    const scroller = page.locator(`${TABLE}`).locator('xpath=ancestor::*[@role="region"][1]')
+    expect(await scroller.evaluate(el => el.scrollWidth > el.clientWidth + 1), 'the table overflows at 1024px').toBe(true)
+    await page.locator(`${TABLE} tbody tr`).nth(8).evaluate(row => {
+      const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+      window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+    })
+    const rail = page.locator('[data-table-header-rail] > div')
+    await expect(rail).toBeVisible()
+    const band = (await rail.boundingBox())!
+    const before = await scroller.evaluate(el => el.scrollLeft)
+    await page.mouse.move(band.x + band.width * 0.6, band.y + band.height / 2)
+    await page.mouse.wheel(before > 0 ? -400 : 400, 0)
+    await expect.poll(() => scroller.evaluate(el => el.scrollLeft), 'the wheel reached the table through the rail').not.toBe(before)
+  })
+})
+
+/** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
+ *  4.375rem, so below md, in the band where that cost the third period, the metric column gives up to 6px (MetricsTable).
+ *  A period counts only inside the scroll box and beside a label that is itself in view, so an unstuck label column
+ *  cannot pass it with the columns scrolled off to the left. */
+for (const width of [375, 390]) test.describe(`analysis table periods / ${width}px`, () => {
+  test.use({ viewport: { width, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('three whole periods sit beside the metric names at rest', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 1)
+    const table = page.locator(TABLE)
+    await expect.poll(() => table.evaluate(element => {
+      const region = element.closest('[role="region"]')!
+      const box = region.getBoundingClientRect()
+      const heads = [...element.querySelectorAll('thead th')].map(th => th.getBoundingClientRect())
+      const label = heads[0]
+      if (label.left < box.left - 0.5 || label.right > box.right + 0.5) return -1
+      return heads.slice(1).filter(r => r.left >= label.right - 0.5 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5).length
+    }), 'whole period columns beside the metric names in view').toBeGreaterThanOrEqual(3)
+  })
+})
+
+/** The band stops at md. At 200% text an 816px screen's card has a 19.4375rem content box, inside the band, and there it
+ *  would cut the 8.25rem metric column to about 5.2rem, too narrow for its names (MetricsTable). */
+test.describe('analysis table periods / 816px at 200% text', () => {
+  test.use({ viewport: { width: 816, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('md keeps its full metric column where a phone would give up 6px', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 2)
+    const geometry = await page.locator(TABLE).evaluate(element => {
+      const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const card = element.closest('[class~="[container-type:inline-size]"]') as HTMLElement
+      const style = getComputedStyle(card)
+      const content = (card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / root
+      const metric = element.querySelector('thead th')!.getBoundingClientRect().width / root
+      const overflowing = [...element.querySelectorAll('tbody th')].filter(th => th.scrollWidth > th.clientWidth + 1).length
+      return { root, content, metric, overflowing }
+    })
+    expect(geometry.root, 'the text is at 200%').toBeCloseTo(32, 1)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeGreaterThanOrEqual(19.25)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeLessThan(19.625)
+    expect(geometry.metric, 'the metric column, in rem').toBeCloseTo(8.25, 2)
+    expect(geometry.overflowing, 'metric names wider than their cells').toBe(0)
+  })
+})
+
+for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, state, theme, 1)
+    expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
+    const selector = `[data-analysis-kpi] button[aria-label$="View source and calculation"], ${TABLE} tbody button[aria-label$="View source and calculation"]`
+    const controls = await page.locator(selector).evaluateAll(buttons => buttons.map(button => {
+      const cell = button.closest('td, [data-analysis-kpi]')!
+      const style = getComputedStyle(cell)
+      const box = cell.getBoundingClientRect()
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const glyphs: Array<{ mark: string | null; display: string; left: number; right: number; top: number; bottom: number }> = []
+      let face = ''
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const parent = node.parentElement!
+        if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        const mark = parent.closest('[data-note-letter]') ? 'letter' : node.textContent.trim() === '†' ? 'dagger' : null
+        if (!mark && !face) face = `${getComputedStyle(parent).fontFamily}|${getComputedStyle(parent).fontVariantNumeric}`
+        const display = getComputedStyle(parent).display
+        for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark, display, left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+      }
+      return {
+        name: button.getAttribute('aria-label')!, text: button.textContent!, table: cell.tagName === 'TD', face, rem,
+        underlined: getComputedStyle(button).textDecorationLine.includes('underline'),
+        left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight), glyphs,
+      }
+    }))
+    expect(controls.filter(control => control.table).length).toBeGreaterThanOrEqual(METRICS * 10)
+    expect(controls.filter(control => !control.table)).toHaveLength(4)
+    const problems: string[] = []
+    for (const control of controls) {
+      const figure = control.glyphs.filter(glyph => !glyph.mark)
+      const [family, numeric] = control.face.split('|')
+      if (figure.length && (!family.startsWith('"EN Figure Minus"') || !/tabular-nums/.test(numeric) || !/lining-nums/.test(numeric))) problems.push(`${control.name}: not in the figure face (${control.face})`)
+      if (new Set(figure.map(glyph => Math.round(glyph.top))).size > 1) problems.push(`${control.name}: the figure wraps`)
+      const line = figure[0]
+      const end = figure.at(-1)?.right ?? -Infinity
+      const marks = control.glyphs.filter(glyph => glyph.mark)
+      for (const [index, mark] of marks.entries()) {
+        if (line && (mark.top > line.bottom || mark.bottom < line.top)) problems.push(`${control.name}: a mark left the figure's line`)
+        if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
+        // The first mark keeps 2px from its figure: set flush, readers dropped "$4.1B†a"'s dagger at 1x in dark.
+        if (index === 0 && figure.length && mark.left - end < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a mark touches its figure`)
+        // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
+        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
+        // A staircase: a letter after † stands above it. Level, "†a" read as one mark at 1x in dark (the readout).
+        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.top > marks[index - 1].top - 1) problems.push(`${control.name}: a letter is not above its dagger`)
+        // The control's dotted underline skips an inline-block, but a flex item is blockified (display: block) and the
+        // underline reaches it, drawn again under the mark at its raised baseline.
+        if (control.underlined && mark.display !== 'inline-block') problems.push(`${control.name}: a ${mark.mark} is a ${mark.display} box under the control's underline`)
+      }
+      // The table's figures carry no underline: under every value it parted values from their change lines, and readers
+      // gave a period with no change the next column's (the readout, dark at 1x). The KPI value keeps its.
+      if (control.table === control.underlined) problems.push(`${control.name}: ${control.table ? 'a table figure is underlined' : 'the KPI value lost its underline'}`)
+      if (control.table) for (const glyph of control.glyphs) if (glyph.left < control.left - 1 || glyph.right > control.right + 1) problems.push(`${control.name}: ${glyph.mark ? 'a mark' : 'the figure'} leaves its cell`)
+    }
+    expect(problems).toEqual([])
+    expect(controls.some(control => control.glyphs.some((glyph, index, all) => glyph.mark === 'letter' && all[index - 1]?.mark === 'dagger')), 'a dagger and a letter are measured together').toBe(true)
+    // A change line's letter keeps 2px from its change too. The change sits outside the figure's source button, so it is
+    // measured from its own line: the change's glyphs (n/m's visible abbreviation included), then the letter.
+    const changeLines = await page.locator(`${TABLE} tbody td`).evaluateAll(cells => cells.flatMap(cell => [...cell.querySelectorAll('[data-note-letter]')]
+      .filter(mark => !mark.closest('button'))
+      .map(mark => {
+        const line = mark.parentElement!
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+        const glyphs: Array<{ mark: boolean; left: number; right: number }> = []
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const parent = node.parentElement!
+          if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark: !!parent.closest('[data-note-letter]'), left: r.left, right: r.right })
+        }
+        const style = getComputedStyle(cell)
+        const box = cell.getBoundingClientRect()
+        return { name: `${cell.closest('tr')?.querySelector('th')?.textContent?.trim()} · ${line.textContent?.trim()}`, rem, glyphs, left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight) }
+      })))
+    const changeProblems: string[] = []
+    for (const line of changeLines) {
+      const end = Math.max(...line.glyphs.filter(glyph => !glyph.mark).map(glyph => glyph.right))
+      const first = line.glyphs.find(glyph => glyph.mark)!
+      if (first.left - end < 0.125 * line.rem - 0.5) changeProblems.push(`${line.name}: a change line's letter touches its change`)
+      // Right-justified, a line too wide for its cell runs out at the left.
+      if (line.glyphs.some(glyph => glyph.left < line.left - 1 || glyph.right > line.right + 1)) changeProblems.push(`${line.name}: a change line leaves its cell`)
+    }
+    expect(changeProblems).toEqual([])
+    expect(changeLines.length, 'a change line with a letter is measured').toBeGreaterThan(0)
+    if (state === 'edge') {
+      // The planted figures fill their column's whole budget with their marks (nine glyphs: the figure, the dagger and
+      // a two-letter note), the sign the ASCII hyphen-minus.
+      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$92.2M'], [/^Financing cash flow, Q4 2025: /, '-$922M']] as const) {
+        const control = controls.find(item => name.test(item.name))
+        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}†[a-z]{2}$`))
+      }
+      expect(controls.map(control => control.text).join('')).not.toContain('−')
+      // n/m stays visible and is read as words.
+      const tbody = page.locator(`${TABLE} tbody`)
+      await expect(tbody.getByText('n/m', { exact: true }).first()).toHaveAttribute('aria-hidden', 'true')
+      await expect(tbody.getByText('not meaningful', { exact: true }).first()).toHaveClass(/\bsr-only\b/)
+    }
+  })
+})
+
 /** Every amount in Swiss francs: a currency code makes the longest tick labels ("CHF 150B"). */
 const inSwissFrancs = (dataset: AnalysisDataset) => {
   for (const series of dataset.series) if (!series.percent) {
@@ -699,31 +979,15 @@ for (const theme of THEMES) {
     test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
     // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
-    // Wider axes must not make a chart at its card's full desktop width scroll.
+    // Wider axes must not make a chart at its card's full desktop width scroll. The spec renderer sets each label 8 px
+    // left of its plot, from a gutter sized to its widest label (D5). It scrolls a chart only where the plan is wider
+    // than its card (M6), and these plans fit a desktop card.
     for (const [name, state, edit] of [
       ['quarterly', 'captured', undefined], ['quarterly in CHF', 'captured', inSwissFrancs], ['annual in CHF', 'annual', inSwissFrancs],
     ] as const) {
       test(`${name}: every y tick label is painted on one line inside its axis, and no chart scrolls`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll(elements => elements.map(chart => {
-          const svg = chart.querySelector('svg.recharts-surface')!.getBoundingClientRect()
-          const grid = chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect()
-          const labels = [...chart.querySelectorAll('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-label')]
-          const viewport = chart.closest('[data-analysis-chart-scroll]')!
-          return {
-            name: chart.getAttribute('data-analysis-chart'),
-            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-            labels: labels.map(label => label.textContent ?? ''),
-            broken: labels.filter(label => label.querySelectorAll('tspan').length !== 1).map(label => label.textContent),
-            outside: labels.flatMap(label => {
-              const box = label.getBoundingClientRect()
-              const inside = box.right <= grid.left + 1 ? box.left >= svg.left + 8 - 0.5 : box.right <= svg.right - 16 + 0.5
-              return inside ? [] : [`${label.textContent} at ${Math.round(box.left - svg.left)}–${Math.round(box.right - svg.left)} of ${Math.round(svg.width)}`]
-            }),
-          }
-        }))
+        const charts = await (await drawnCharts(page)).evaluateAll(readAxes, CHARTS_V2)
         for (const chart of charts) {
           expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
           expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
@@ -739,22 +1003,16 @@ for (const theme of THEMES) {
 for (const theme of THEMES) {
   test.describe(`analysis chart quarters / ${theme} / 390px`, () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // On a phone a quarterly plot keeps 28 px a quarter past its axes, however wide they are, and scrolls inside its card.
+    // On a phone a quarterly plot keeps 28 px a quarter past its axes (the spec renderer MIN_SLOT's 36), however wide
+    // they are, and scrolls inside its card.
     for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
-      test(`quarterly in ${name}: each quarter keeps 28 px, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
+      test(`quarterly in ${name}: each quarter keeps its slot, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll((elements, periods) => elements.map(chart => {
-          const viewport = chart.closest('[data-analysis-chart-scroll]')!
-          return {
-            name: chart.getAttribute('data-analysis-chart'),
-            quarter: chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect().width / periods,
-            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-          }
-        }), PERIODS.length)
+        const charts = await (await drawnCharts(page)).evaluateAll(readSlots, { v2: CHARTS_V2, periods: PERIODS.length })
         for (const chart of charts) {
-          expect(chart.quarter, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual(28 - 0.01)
+          // Recharts keeps 28 px a quarter; the spec renderer's slot is at least MIN_SLOT (M6).
+          expect(chart.ticks, `${chart.name}: a printed tick a quarter`).toBe(PERIODS.length)
+          expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual((CHARTS_V2 ? MIN_SLOT : 28) - 0.01)
           expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways').toBe(true)
@@ -767,6 +1025,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
+      test.skip(CHARTS_V2, 'Today’s Recharts keyboard and notes contract: charts-v2.spec.ts holds the spec renderer’s (D13), and step 7 (E195) retires this case.')
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'discrepancy', theme)
       const plots = page.locator('[data-analysis-chart]')
@@ -811,11 +1070,11 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       await assertViewport()
       const revenue = plots.first()
       const viewport = revenue.locator('..')
-      const allBars = revenue.locator('.recharts-bar-rectangle path')
+      const allBars = revenue.locator(RECHARTS.bars)
       await expect(allBars).toHaveCount(12)
       const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
       await revenueValues.focus()
-      const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
+      const tooltip = revenue.locator(RECHARTS.tooltip).getByRole('status')
       const settleViewport = async () => {
         const settled = await viewport.evaluate(async element => {
           let previous = element.scrollLeft
@@ -865,8 +1124,8 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       }
       // Moving the pointer does not blur the SVG. Hover a different period near a clipped
       // edge, then return to the retained keyboard index without moving the pointer away.
-      const hover = await viewport.evaluate(element => {
-        const bar = element.querySelectorAll('.recharts-bar-rectangle path')[8]
+      const hover = await viewport.evaluate((element, bars) => {
+        const bar = element.querySelectorAll(bars)[8]
         const frame = element.getBoundingClientRect()
         if (element.scrollWidth > element.clientWidth + 1) {
           const before = bar.getBoundingClientRect()
@@ -875,7 +1134,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
         }
         const target = bar.getBoundingClientRect()
         return { x: target.x + target.width / 2, y: frame.y + 80, left: element.scrollLeft }
-      })
+      }, RECHARTS.bars)
       await page.mouse.move(hover.x, hover.y)
       await expect(revenueValues).toBeFocused()
       await expect(tooltip).toContainText('Q3 2025')

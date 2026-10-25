@@ -57,7 +57,7 @@ const DARK: ChartTokens = {
   cursor: 'rgba(62,142,132,.16)',
   note: '#B8BEC7', // Lc −63.6
   name: '#B8BEC7', // Lc −63.6
-  figure: '#D7DADC', // Lc −80.3
+  figure: '#EAECEF', // Lc −91.8: the DS text.primary.dark since #1606 (was #D7DADC, −80.3)
 }
 
 export const CHART_TOKENS = { light: LIGHT, dark: DARK } as const

@@ -2,13 +2,14 @@
    trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
-   fixture dataset and chart: the spec's DOM checks that need no layout engine (docs/design/analysis-trend-charts-spec-
-   2026-10.md §6: D4, D5, D7, D11, D12, D14), every printed string, and literal paint the PNG export can serialise. The
+   fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
+   trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
+   role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
-   boxes, collisions, the font (D1, D2, D8) and the reading contract's geometry need a browser:
-   tests/e2e/charts-v2.spec.ts.
+   boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
+   tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -50,9 +51,11 @@ vi.mock('sonner', async (importOriginal) => {
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
+import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
+import { plannedByRole } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
@@ -105,6 +108,20 @@ function drawnStrings(svg: SVGSVGElement): string[] {
 
 const num = (element: Element, name: string) => Number(element.getAttribute(name))
 
+/** A text's box as the plan sets it: Geist Mono's 0.6 em advance a character, its glyphs 8.8 px above the baseline and
+ *  2.2 below (§0.5), from its anchor; each tspan line below the first is its own row. */
+function plannedBoxes(text: Element) {
+  const lines = text.querySelector('tspan') ? [...text.querySelectorAll('tspan')] : [text]
+  const anchor = text.getAttribute('text-anchor')
+  let y = num(text, 'y')
+  return lines.map((line) => {
+    y += line === text ? 0 : Number(line.getAttribute('dy') ?? 0)
+    const width = [...(line.textContent ?? '')].length * ADVANCE
+    const x = num(line, 'x') - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0)
+    return { left: x, right: x + width, top: y - 8.8, bottom: y + 2.2 }
+  })
+}
+
 /** The plan's checks on one drawn SVG (spec §6). */
 function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLayout, tokens: ChartTokens) {
   expect([num(svg, 'width'), num(svg, 'height')], 'the SVG is the plan’s size').toEqual([layout.width, layout.height])
@@ -116,6 +133,9 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
   const groups = [...svg.querySelectorAll('g[data-panel]')]
   expect(groups.map((group) => [group.getAttribute('data-panel'), group.getAttribute('data-axis-step'), group.getAttribute('data-axis-domain')]))
     .toEqual(layout.panels.map((box) => [box.panel.id, String(box.panel.axis.step), box.panel.axis.domain.join(',')]))
+  // And its plot rect, which D3 reads in a browser.
+  const plots = layout.panels.map((box) => ({ id: box.panel.id, left: layout.plotLeft, right: layout.plotRight, top: box.top, bottom: box.top + box.height }))
+  expect(groups.map((group) => group.getAttribute('data-plot'))).toEqual(plots.map((plot) => `${plot.left} ${plot.top} ${plot.right - plot.left} ${plot.bottom - plot.top}`))
 
   layout.panels.forEach((box, p) => {
     const group = groups[p]
@@ -189,13 +209,36 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     layout.panels.reduce((sum, box) => sum + box.panel.axis.ticks.length + (box.offAbove ? 1 : 0) + (box.offBelow ? 1 : 0) + 2 * box.bars.filter((bar) => bar.clipped).length, 0))
 
   expect(drawnStrings(svg), 'every printed string is the plan’s, and only those').toEqual(plannedStrings(model, layout))
+
+  // Every text names its role and paints its role's ink (D6 on the plan), and each role prints the plan's strings.
+  const texts = [...svg.querySelectorAll('text')]
+  const drawn: Partial<Record<TextRole, string[]>> = {}
+  for (const text of texts) (drawn[text.getAttribute('data-text') as TextRole] ??= []).push(`${text.textContent}|${text.getAttribute('fill')}`)
+  for (const list of Object.values(drawn)) list.sort()
+  expect(drawn, 'each role’s strings and ink').toEqual(plannedByRole(model, layout, tokens))
+
+  // D3: inside a plot rect, only a bar label, an A13b label, or a gap's "—" or "n/m" on its zero rule.
+  const inside: string[] = []
+  for (const text of texts) for (const box of plannedBoxes(text)) for (const plot of plots) {
+    const across = Math.min(box.right, plot.right) - Math.max(box.left, plot.left)
+    const down = Math.min(box.bottom, plot.bottom) - Math.max(box.top, plot.top)
+    if (across > 0.01 && down > 0.01 && !['label', 'near-zero', 'gap'].includes(text.getAttribute('data-text')!)) inside.push(`${text.getAttribute('data-text')} "${text.textContent}" in ${plot.id}`)
+  }
+  expect(inside, 'D3: text inside a plot rect').toEqual([])
+  layout.panels.forEach((box, p) => {
+    for (const gap of groups[p].querySelectorAll('text[data-text="gap"]')) expect(num(gap, 'y'), 'a gap’s glyph sits on its zero rule').toBeCloseTo(box.y(0) - 3, 9)
+  })
 }
 
 describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
-  for (const view of ['card', 'expanded'] as ChartView[]) {
-    it(view, () => {
+  for (const view of ['card', 'expanded'] as ChartView[]) for (const theme of ['light', 'dark'] as const) {
+    it(`${view}, ${theme}`, () => {
       const ds = dataset(name)
-      const { container } = render(<TrendChartsV2 dataset={ds} />)
+      const { container } = render(
+        <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>
+          <TrendChartsV2 dataset={ds} />
+        </ThemeContext.Provider>
+      )
       const sections = cards(container)
       expect(sections, 'every chart keeps its card (§3.4)').toHaveLength(CHART_IDS.length)
       CHART_IDS.forEach((chart, i) => {
@@ -210,7 +253,7 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         if (view === 'expanded') fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
         const svg = card.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
         expect(svg.getAttribute('aria-label')).toBe(`${model.title} chart`)
-        expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS.light)
+        expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
       })
     })
   }
@@ -437,7 +480,7 @@ describe('the PNG export', () => {
     await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })))
     const options = vi.mocked(exportPanelPng).mock.calls[0][2]
     expect(options?.dark).toBe(true)
-    // The secondary ink is chart.tick's on dark: the export's own (#9CA3AF) is under §3.8's floor of 60 there.
+    // The secondary ink is chart.tick's on dark, the card's legend names' ink (§3.8), not the export's own.
     expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
   })

@@ -314,6 +314,12 @@ jobs:
         env:
           ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_admin_invite_transactions.py
+      - name: Verify feedback submission concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          FEEDBACK_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_feedback_submission_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -722,15 +728,16 @@ jobs:
 
   # The trend charts' spec renderer behind NEXT_PUBLIC_CHARTS_V2 (E192). NEXT_PUBLIC_ values are inlined at build time,
   # so the flag needs its own build: e2e-tests' build with the flag set. This job runs the browser checks that cover
-  # the charts (their DOM checks, the PNG export's fidelity, the locked teaser's first screen, and the analysis route's
-  # text floors); e2e-tests runs everything against the flag-off build production ships. It is a required check on
+  # the charts (their DOM checks, the analysis page's layout around them, the PNG export's fidelity, the locked teaser's
+  # first screen, and the analysis route's text floors); e2e-tests runs everything against the flag-off build
+  # production ships. It is a required check on
   # main (ruleset 23561253, since 2026-10-25), so step 7 (tasks/todo.md E195) takes it out of the ruleset before it
   # moves these specs into e2e-tests and deletes the job. deploy-backend does not wait for it.
   e2e-charts-v2:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Require a valid browser scope
         env:
@@ -790,11 +797,11 @@ jobs:
         working-directory: frontend
       - name: Run the charts' E2E tests
         if: needs.ci-scope.outputs.records_only == 'false'
-        # charts-v2.spec.ts skips unless this process has the flag too. Both runs always run, the second reporting into
+        # The charts-v2 specs skip unless this process has the flag too. Both runs always run, the second reporting into
         # its own folder of the same artifact, and the step fails if either does.
         run: |
           status=0
-          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
+          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/charts-v2-gallery.spec.ts tests/e2e/analysis-layout.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
           PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/text-floors npx playwright test tests/e2e/text-floors.spec.ts -g 'analysis: muted ink' || status=1
           exit $status
         working-directory: frontend
@@ -982,8 +989,8 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18,
-          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # sessions and one execution of each other job, configured application demand is 19,
+          # or 22 with the optional worker's three connections; preserve a database reserve.
           # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
@@ -1030,7 +1037,7 @@ jobs:
         # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
         # created yet so CD never fails.
         run: |
-          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
+          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge earningsnerd-feedback-media-cleanup; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
               # Each declared job entrypoint passes one business session through its service; the
               # ledger session runs before/after it. One pooled connection is therefore sufficient

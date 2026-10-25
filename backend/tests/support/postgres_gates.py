@@ -44,6 +44,7 @@ POSTGRES_GATES = {
     "test_filing_insert_transactions.py": "FILING_INSERT_CONCURRENCY_TEST_DATABASE_URL",
     "test_admin_maintenance_transactions.py": "ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL",
     "test_admin_invite_transactions.py": "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL",
+    "test_feedback_submission_transactions.py": "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL",
 }
 # Each gate home's PostgreSQL engine fixture: a case that takes it, directly or through another fixture, is one of
 # the home's PostgreSQL cases.

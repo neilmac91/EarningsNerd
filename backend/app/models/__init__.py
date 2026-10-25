@@ -17,7 +17,7 @@ from app.models.financial_fact_revision import FinancialFactRevision
 from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, FeedbackSubmission, FeedbackAttachment
 from app.models.job_run import JobRun
 from app.models.billing_payment import BillingPayment
 from app.models.usage_reservation import UsageReservation

@@ -329,6 +329,12 @@ def test_e2e_tests_keeps_the_founders_35_minute_limit():
     assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
 
 
+def test_e2e_charts_v2_keeps_room_for_the_layout_spec():
+    # Since E194 the job runs analysis-layout.spec.ts on the renderer: about 14 minutes on CI (2026-10-25), from about
+    # 3. It is a required check on main, so a run cancelled at its limit blocks merging until it is re-run.
+    assert workflow()["jobs"]["e2e-charts-v2"]["timeout-minutes"] == "30"
+
+
 def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
     # NEXT_PUBLIC_ values are inlined at build time (E192): the charts-v2 job builds, serves and tests with the flag, on
     # e2e-tests' own build settings, so the two builds differ in that flag alone.
@@ -343,9 +349,14 @@ def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
         assert "NEXT_PUBLIC_CHARTS_V2" not in step("e2e-tests", name)["env"]
     run = step("e2e-charts-v2", "Run the charts")
     assert run["env"]["NEXT_PUBLIC_CHARTS_V2"] == "true"
-    for spec in ("charts-v2", "chart-export-fidelity", "analysis-teaser-window"):
+    for spec in ("charts-v2", "charts-v2-gallery", "analysis-layout", "chart-export-fidelity", "analysis-teaser-window"):
         assert f"tests/e2e/{spec}.spec.ts" in run["run"], spec
     assert "tests/e2e/text-floors.spec.ts -g 'analysis: muted ink'" in run["run"]
+    # Every spec that reads the flag runs here: one that skips without it (the gallery) runs nowhere else, and one that
+    # reads either renderer (analysis-layout) runs on the flag-off build in e2e-tests too.
+    flagged = sorted(path.name for path in (ROOT / "frontend/tests/e2e").glob("*.spec.ts") if "CHARTS_V2" in path.read_text())
+    assert flagged, "no spec reads the flag"
+    assert [name for name in flagged if f"tests/e2e/{name}" not in run["run"]] == []
     # A failing first run never hides the second: each records its status, and the step exits with either's failure.
     lines = [line.strip() for line in run["run"].strip().splitlines()]
     assert lines[0] == "status=0" and lines[-1] == "exit $status"

@@ -11,7 +11,7 @@ The mark is the letters **E + N** with the N's final stroke rising into an arrow
 | `earningsnerd-icon-light.svg` | Bare mark in `#3C6650` (brand.strong) — light surfaces. |
 | `earningsnerd-icon-dark.svg` | Bare mark in `#7FB295` (brand.dark) — navy surfaces. |
 | `earningsnerd-logo-light.svg` | Full lockup: mark + wordmark ("Earnings" ink `#1A1A17`, italic "Nerd" `#3C6650`) — light surfaces. |
-| `earningsnerd-logo-dark.svg` | Full lockup for navy (`#7FB295` mark, `#D7DADC` ink). |
+| `earningsnerd-logo-dark.svg` | Full lockup for navy (`#7FB295` mark, `#D7DADC` ink: the dark primary until 2026-10-25, kept here as a brand asset; the in-app wordmark's "Earnings" now draws the dark primary `#EAECEF`). |
 | `earningsnerd-mark-sage.svg` | Bare mark, fixed sage `#3C6650`. |
 | `earningsnerd-mark-navy.svg` | Bare mark, fixed navy `#0B1120` (for light non-brand surfaces). |
 | `earningsnerd-mark-white.svg` | Bare mark, fixed white (for photos / dark fills). |

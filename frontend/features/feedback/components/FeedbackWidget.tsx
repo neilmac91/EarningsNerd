@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { ChatCircleDotsIcon, PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, type SegmentedOption } from '@/components/ui'
-import { submitFeedback, type FeedbackType } from '@/features/feedback/api/feedback-api'
-import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
-import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { Button, Modal, ModalBody, ModalHeader, SegmentedControl, inputClasses, primaryUnavailableClass, type SegmentedOption } from '@/components/ui'
+import { getFeedbackCapabilities, type FeedbackType } from '@/features/feedback/api/feedback-api'
+import { useFeedbackDraft } from '@/features/feedback/hooks/useFeedbackDraft'
+import FeedbackFilePicker from '@/features/feedback/components/FeedbackFilePicker'
+import { clearPendingFeedback, readPendingFeedback } from '@/features/feedback/lib/feedbackFiles'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { queryKeys } from '@/lib/queryKeys'
-import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { ENABLE_FEEDBACK_WIDGET } from '@/lib/featureFlags'
 import { BOTTOM_CHROME_OFFSET } from '@/lib/consentLayer'
 
@@ -49,6 +50,11 @@ export default function FeedbackWidget() {
     staleTime: 60_000,
   })
 
+  useEffect(() => {
+    if (user === null) clearPendingFeedback()
+    else if (user) readPendingFeedback(user.id)
+  }, [user])
+
   // Undefined is an unresolved identity, not a guest. Retained identity survives a failed
   // background read; confirmed logout or a different reader unmounts the private draft.
   if (!ENABLE_FEEDBACK_WIDGET || !user) return null
@@ -56,56 +62,41 @@ export default function FeedbackWidget() {
 }
 
 function AccountFeedback({ readerId }: { readerId: number }) {
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [type, setType] = useState<FeedbackType>('general')
-  const [message, setMessage] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const inFlight = useRef(false)
-  const mounted = useRef(false)
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const close = () => setOpen(false)
+  const {
+    type, setType, message, setMessage, files, addFiles, removeFile, submit,
+    locked, busy, phase, progress, notice, statusFailure, editableFailure, edit,
+  } = useFeedbackDraft(readerId, close)
+  const capabilityKey = queryKeys.feedback.capabilities(readerId)
+  const capabilities = useQuery({
+    queryKey: capabilityKey,
+    queryFn: ({ signal }) => getFeedbackCapabilities(signal),
+    enabled: open,
+    staleTime: 60_000,
+    retry: false,
+  })
+  const capabilityFailure = useRetainedFailure(capabilities, capabilityKey)
+  const attachmentsEnabled = capabilities.data?.attachments_enabled === true
+  const mediaUnavailable = phase === 'editing' && files.length > 0 && !attachmentsEnabled
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    if (mediaUnavailable) return
+    void submit()
+  }
 
-  useEffect(() => {
-    mounted.current = true
-    return () => { mounted.current = false }
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Send uses `loading` (aria-disabled + click guard, not native disabled) so it keeps focus while
-    // the request is in flight; a submit that bypasses its click must not send a second report.
-    if (inFlight.current) return
-    if (message.trim().length < 5) return
-    // Read ownership at activation as well as completion: a cache transition may have happened
-    // before React renders the new reader. The generation also catches A → logout → A.
-    const generation = getSessionGeneration()
-    const ownsFeedback = () => mounted.current
-      && isSessionGenerationCurrent(generation)
-      && queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id === readerId
-    if (!ownsFeedback()) return
-    inFlight.current = true
-    setSubmitting(true)
-    try {
-      await submitFeedback({
-        type,
-        message: message.trim(),
-        pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
-      })
-      if (!ownsFeedback()) return
-      toast.success('Thanks for the feedback', { description: 'We read every note. It really helps.' })
-      setMessage('')
-      setType('general')
-      setOpen(false)
-    } catch (err: unknown) {
-      if (!ownsFeedback()) return
-      toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not send feedback. Please try again.')
-    } finally {
-      inFlight.current = false
-      // A failed logout can retain the same reader after moving the generation. Release this
-      // form's busy state without publishing its old result or discarding the retained draft.
-      if (mounted.current) setSubmitting(false)
-    }
+  function handlePaste(event: React.ClipboardEvent) {
+    if (!attachmentsEnabled || locked) return
+    const pasted = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null)
+    if (pasted.length) addFiles(pasted)
+    // Native text paste remains intact, including mixed text/image clipboard data.
+  }
+  function handleAddFiles(incoming: readonly File[]) {
+    if (attachmentsEnabled) addFiles(incoming)
   }
 
   return (
@@ -115,15 +106,16 @@ function AccountFeedback({ readerId }: { readerId: number }) {
           Send feedback
         </ModalHeader>
         <ModalBody>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <SegmentedControl label="Feedback type" options={TYPES} value={type} onChange={setType} size="md" fullWidth />
+          <form onSubmit={handleSubmit} className="space-y-3" onPaste={handlePaste}>
+            <SegmentedControl label="Feedback type" options={TYPES.map((option) => ({ ...option, disabled: locked }))} value={type} onChange={setType} size="md" fullWidth focusableDisabled />
 
             <textarea
               ref={messageRef}
               aria-label="Feedback message"
               aria-describedby="feedback-message-help"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={(e) => { if (!locked) setMessage(e.target.value) }}
+              readOnly={locked}
               required
               rows={4}
               maxLength={4000}
@@ -135,16 +127,48 @@ function AccountFeedback({ readerId }: { readerId: number }) {
               Describe what happened. You can paste a web link here too.
             </p>
 
+            {(attachmentsEnabled || files.length > 0) && (
+              <FeedbackFilePicker files={files} locked={locked} canAdd={attachmentsEnabled} onAdd={handleAddFiles} onRemove={removeFile} messageRef={messageRef} />
+            )}
+            {!attachmentsEnabled && files.length > 0 && phase === 'editing' && (
+              <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                Screenshot uploads are unavailable right now. Remove the screenshots to send just your note, or keep this draft for later.
+              </p>
+            )}
+            {capabilityFailure.failed && !files.length && (
+              <div className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>Screenshots are unavailable right now. You can still send a note or link.</p>
+                <RetryButton failures={[capabilityFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {notice && <p role="status" className="break-words text-sm text-text-secondary-light dark:text-text-secondary-dark">{notice}</p>}
+            {phase === 'sending' && files.length > 0 && (
+              <div className="space-y-1">
+                <progress aria-label="Screenshot upload" value={progress} max={100} className="w-full accent-brand dark:accent-brand-dark" />
+                <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  {progress < 100 ? `Uploading screenshots: ${progress}%` : 'Upload complete. Saving your feedback…'}
+                </p>
+              </div>
+            )}
+            {statusFailure.failed && (
+              <div role="alert" className="space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                <p>We could not check whether your feedback was saved. Keep this draft while we check again.</p>
+                <RetryButton failures={[statusFailure]} focusTarget={messageRef} textField />
+              </div>
+            )}
+            {editableFailure && <Button type="button" variant="secondary" wrap onClick={() => { edit(); messageRef.current?.focus() }}>Edit feedback</Button>}
+
             {/* `loading`, never native `disabled`, while sending: Chromium blurs a focused button
                 that turns disabled (focus → <body>). Native `disabled` stays only for the too-short
                 message — the textarea sets it, and the success reset that clears the message also
                 closes this panel in the same render, so it never flips under focus. */}
             <Button
               type="submit"
-              loading={submitting}
-              loadingText="Sending…"
+              loading={busy}
+              loadingText={phase === 'checking' ? 'Checking…' : files.length ? progress < 100 ? 'Uploading…' : 'Saving…' : 'Sending…'}
               disabled={message.trim().length < 5}
-              className="w-full py-2 font-semibold active:scale-[0.99]"
+              aria-disabled={busy || mediaUnavailable || undefined}
+              className={`w-full py-2 font-semibold active:scale-[0.99] ${mediaUnavailable ? primaryUnavailableClass : ''}`}
             >
               <span className="flex items-center justify-center gap-2">
                 <PaperPlaneTiltIcon className="h-4 w-4" />

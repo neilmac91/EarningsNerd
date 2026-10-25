@@ -219,7 +219,7 @@ export default function PricingSection({
       </div>
 
       {overflowing && (
-        <p id={hintId} className="mt-4 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p id={hintId} className="mt-4 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           Scroll horizontally to read all columns.
         </p>
       )}

@@ -175,7 +175,7 @@ export default function FullTextSearch() {
       <div className="relative">
         <MagnifyingGlassIcon
           aria-hidden
-          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-tertiary-dark"
         />
         <input
           ref={inputRef}

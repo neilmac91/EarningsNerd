@@ -173,7 +173,7 @@ export function WhatChanged({
           <div data-change-layout="table" className="hidden overflow-x-auto sm:block">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+                <tr className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
                   <th scope="col" className="py-2 pr-4 text-left font-semibold">Metric</th>
                   <th scope="col" className="py-2 pl-4 text-right font-semibold">Prior</th>
                   <th scope="col" className="py-2 pl-4 text-right font-semibold">Current</th>

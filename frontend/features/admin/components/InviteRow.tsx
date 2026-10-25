@@ -84,7 +84,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
     <tr className="hover:bg-background-light dark:hover:bg-white/5">
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-primary-light dark:text-text-primary-dark">
         {invite.email ?? (
-          <span className="text-text-tertiary-light dark:text-text-secondary-dark">Link only</span>
+          <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Link only</span>
         )}
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">

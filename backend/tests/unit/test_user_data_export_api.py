@@ -23,7 +23,7 @@ from app.routers.auth import get_current_user
 
 EXPORT_KEYS = [
     "profile", "searches", "saved_summaries", "watchlist", "usage", "billing_payments",
-    "section_reviews", "account_agreements", "export_timestamp",
+    "section_reviews", "account_agreements", "feedback", "export_timestamp",
 ]
 PROFILE_KEYS = [
     "user_id", "email", "full_name", "is_active", "is_pro", "stripe_customer_id",
@@ -93,7 +93,7 @@ def test_export_key_order_filename_and_audit_row(client):
         assert payload["profile"]["user_id"] == uid
         assert payload["profile"]["email"] == email
         assert payload["profile"]["full_name"] == "Export Owner"
-        for key in ("searches", "saved_summaries", "watchlist", "usage", "billing_payments", "section_reviews", "account_agreements"):
+        for key in ("searches", "saved_summaries", "watchlist", "usage", "billing_payments", "section_reviews", "account_agreements", "feedback"):
             assert payload[key] == []
         assert datetime.fromisoformat(payload["export_timestamp"]).utcoffset() == timedelta(0)
         assert _audit_rows(email) == [("data_exported", str(uid), "success")]

@@ -516,6 +516,8 @@ _POSTGRES_STEPS = [
      "ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL"),
     ("admin invite concurrency", "test_admin_invite_transactions.py",
      "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL"),
+    ("feedback submission concurrency", "test_feedback_submission_transactions.py",
+     "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 
@@ -811,7 +813,7 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
 
-_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic"
+_OPS_PREFLIGHT_EXEMPT = "describe-service describe-jobs logs-probe rollback-traffic feedback-media-inspect feedback-media-verify-inspect"
 
 
 def test_ops_workflow_is_dispatch_only_and_sets_lock_timeout():
