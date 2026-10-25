@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatTableGrowth, formatTableValue, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import type { DataNote } from '@/features/analysis/lib/dataNotes'
 
 const series = (unit: string, percent = false): AnalysisSeries => ({ concept: 'test', label: 'Test', unit, percent, points: [], cagr: null })
 
@@ -47,5 +48,23 @@ describe('fixed-column display formatting', () => {
     expect(tableCurrencyLabel(series('USD/shares'))).toBeNull()
     expect(formatTableValue(15154, series('CAD/shares'))).toBe('15.2K')
     expect(formatTableValue(-1e25, series('CAD'))).toBe('-1e25')
+  })
+
+  it('prints a figure cell at the budget a marked note leaves, as MetricsTable does (M15)', () => {
+    const usd = series('USD')
+    const note = (kind: DataNote['kind'], reasons: string[], letter: string) => ({ kind, reasons, letter })
+    // Nine glyphs with no mark: "-$999.9M" fits, calculated or not, since a calculated figure draws no dagger (D-061).
+    expect(tableFigureText(-999_900_000, usd)).toBe('-$999.9M')
+    // A note that questions the number takes its letter's glyphs: one leaves eight, two leave seven, so "-$1B".
+    expect(tableFigureText(-999_900_000, usd, note('review', ['source_conflict'], 'a'))).toBe('-$999.9M')
+    expect(tableFigureText(-999_900_000, usd, note('review', ['source_conflict'], 'ab'))).toBe('-$1B')
+    // A note that marks nothing (record-only, unknown, unavailable) takes no glyph.
+    expect(tableFigureText(-999_900_000, usd, note('review', ['legacy_calculation'], 'ab'))).toBe('-$999.9M')
+    expect(tableFigureText(-999_900_000, usd, note('unknown', ['legacy_unknown'], 'ab'))).toBe('-$999.9M')
+    // The change line follows the same rule with its own comparison note.
+    expect(tableComparisonText(1234.567, false)).toBe('+123,457%')
+    expect(tableComparisonText(1234.567, false, note('review', ['unit_mismatch'], 'a'))).toBe('+123.5K%')
+    expect(tableComparisonText(1234.567, false, note('review', ['unit_mismatch'], 'ab'))).toBe('+123K%')
+    expect(tableComparisonText(1234.567, false, note('review', ['legacy_calculation'], 'ab'))).toBe('+123,457%')
   })
 })

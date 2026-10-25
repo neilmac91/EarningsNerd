@@ -5,7 +5,8 @@ import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
  * The trend charts' spec renderer in a browser (NEXT_PUBLIC_CHARTS_V2, E192, E193): how the route loads it, and how a
  * reader reads a chart (docs/design/analysis-trend-charts-spec-2026-10.md §3.9, §3.13, D13; DESIGN_SYSTEM.md §10): one
  * values stop a chart, the period walk with its tooltip and column wash in view, the pointer and touch, Escape, and the
- * tooltip's contrast and reflow under 200% text. The DOM checks of the drawing itself (D1–D3, D5, D6, D8–D10, D14, M6,
+ * tooltip's contrast and reflow under 200% text; and the states §3.9 and §3.10 add (E200): the bones a plot holds while
+ * its font loads, the export busy while a PNG is drawn, and the plot row running to its new height on a toggle. The DOM checks of the drawing itself (D1–D3, D5, D6, D8–D10, D14, M6,
  * M19) run on the gallery, charts-v2-gallery.spec.ts, through fixtures/chartChecks.ts. CI's e2e-charts-v2 job builds
  * with the flag set; the main e2e job's build has it unset, and these cases skip there, where one case holds that the
  * flag-off route loads none of the renderer.
@@ -307,5 +308,152 @@ test.describe('trend charts v2 / a tap pins a tooltip', () => {
     const heading = (await card.getByRole('heading', { level: 2 }).boundingBox())!
     await page.touchscreen.tap(heading.x + 4, heading.y + 4)
     await expect(tooltip).toHaveCount(0)
+  })
+})
+
+test.describe('trend charts v2 / the states while a chart is not ready (spec §3.9; E200)', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('a plot holds its bones, busy, while its font loads, and draws once it arrives', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    // Hold every font file the page does not preload (next/font marks a preloaded one ".p.") until the bones have been
+    // read: the preloads pass, so the page loads, and the latin-ext face the plots wait for (G3, E199) does not, though
+    // the page asks for it before the run. The wait's 1,500 ms cap paints regardless.
+    let release!: () => void
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/_next/static/media/*.woff2', async (route) => {
+      if (!/\.p\.[^/]*\.woff2$/.test(route.request().url())) await held
+      await route.continue()
+    })
+    await page.addInitScript(() => {
+      new MutationObserver((_, observer) => {
+        const bones = document.querySelector('[data-trend-chart] [data-chart-bones]')
+        if (!bones) return
+        observer.disconnect()
+        const card = bones.closest('section')!
+        const box = bones.getBoundingClientRect()
+        const parts = [...bones.querySelectorAll(':scope > div > div')].map((bone) => bone.getBoundingClientRect())
+        Object.assign(window, { __bones: {
+          busy: card.getAttribute('aria-busy'),
+          hidden: bones.getAttribute('aria-hidden'),
+          plot: card.querySelector('[data-analysis-chart] > svg') != null,
+          height: box.height,
+          parts: parts.length,
+          painted: parts.every((part) => part.width > 0 && part.height > 0),
+          inside: parts.every((part) => part.left >= box.left - 0.5 && part.right <= box.right + 0.5 && part.top >= box.top - 0.5 && part.bottom <= box.bottom + 0.5),
+        } })
+        // A card's first commit always carries its bones, since the wait's latch flips after mount: the held face is
+        // what keeps them. So they are read again six frames on, well inside the wait's 1,500 ms cap.
+        let frames = 6
+        const again = () => {
+          if (--frames > 0) return void requestAnimationFrame(again)
+          Object.assign(window, { __waiting: {
+            bones: document.querySelectorAll('[data-trend-chart] [data-chart-bones]').length,
+            busy: document.querySelectorAll('section[aria-busy="true"]').length,
+            plots: document.querySelectorAll('[data-analysis-chart] > svg').length,
+          } })
+        }
+        requestAnimationFrame(again)
+      }).observe(document, { childList: true, subtree: true })
+    })
+    const opened = openAnalysis(page, baseURL!, 'captured', 'light')
+    // Read only once the page's own document has committed: a read in flight as the navigation lands loses its context
+    // and throws, which a poll does not retry (CI, 547d9495).
+    await page.waitForURL(/\/analysis\?/, { waitUntil: 'commit' })
+    const read = () => page.evaluate(() => (window as unknown as { __bones?: Record<string, unknown> }).__bones ?? null)
+    const reread = () => page.evaluate(() => (window as unknown as { __waiting?: { bones: number; busy: number; plots: number } }).__waiting ?? null)
+    await expect.poll(read, { message: 'a card drew its bones' }).not.toBeNull()
+    await expect.poll(reread, { message: 'the bones read again' }).not.toBeNull()
+    const bones = (await read())!
+    const waiting = (await reread())!
+    expect(waiting.bones, 'still waiting while the face is held').toBeGreaterThan(0)
+    expect(waiting, 'every waiting card busy, and no plot drawn').toEqual({ bones: waiting.bones, busy: waiting.bones, plots: 0 })
+    release()
+    await opened
+    expect(bones).toMatchObject({ busy: 'true', hidden: 'true', plot: false, height: 320, painted: true, inside: true })
+    expect(bones.parts as number).toBeGreaterThan(8)
+    await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)
+    await expect(page.locator('[data-chart-bones]')).toHaveCount(0)
+    await expect(page.locator('section[aria-busy]')).toHaveCount(0)
+  })
+
+  test('the export is busy while its PNG is drawn, then ready again', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    await openAnalysis(page, baseURL!, 'captured', 'light')
+    const button = page.locator('[data-trend-chart="margins"]').getByRole('button', { name: 'Download chart as PNG', exact: true })
+    await button.evaluate((element) => {
+      const seen: (string | null)[] = []
+      new MutationObserver(() => seen.push(element.getAttribute('aria-busy'))).observe(element, { attributes: true, attributeFilter: ['aria-busy'] })
+      Object.assign(window, { __busy: seen })
+    })
+    await Promise.all([page.waitForEvent('download'), button.click()])
+    await expect(button).not.toHaveAttribute('aria-busy')
+    expect(await page.evaluate(() => (window as unknown as { __busy: (string | null)[] }).__busy), 'busy, then not').toEqual(['true', null])
+    await expect(button).toBeEnabled()
+  })
+})
+
+test.describe('trend charts v2 / the grid while the renderer’s chunk loads, at 320 px and 200% text (spec §3.9; E200)', () => {
+  test.use({ viewport: { width: 320, height: 1000 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+
+  test('four cards of bones under one status, inside the page, then the charts', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    // Hold the renderer's own chunk (its panel attribute names it, as the flag-off case reads) until the skeleton is read.
+    let release!: () => void
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.route('**/_next/static/chunks/*.js', async (route) => {
+      const response = await route.fetch()
+      const body = await response.text()
+      if (body.includes('data-axis-domain')) await held
+      await route.fulfill({ response, body })
+    })
+    const opened = openAnalysis(page, baseURL!, 'annual', 'light', 2)
+    const status = page.getByRole('status', { name: 'Loading charts' })
+    await expect(status).toBeVisible()
+    await expect(status).not.toHaveAttribute('aria-busy')
+    await expect(status.locator('[data-chart-bones]')).toHaveCount(4)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), 'the page does not scroll sideways').toBeLessThanOrEqual(321)
+    release()
+    await opened
+    await expect(status).toHaveCount(0)
+    await expect(page.locator('[data-trend-chart]')).toHaveCount(4)
+  })
+})
+
+for (const motion of ['no-preference', 'reduce'] as const) test.describe(`trend charts v2 / a toggle with motion ${motion} (spec §3.10; E200)`, () => {
+  test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: motion, serviceWorkers: 'block' })
+
+  test(motion === 'reduce' ? 'the plot row takes its new height at once' : 'the plot row runs to its expanded height, then sizes itself again', async ({ page, baseURL }) => {
+    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    await openAnalysis(page, baseURL!, 'captured', 'light')
+    const row = page.locator('[data-trend-chart="margins"] [data-analysis-chart-scroll]').locator('xpath=../..')
+    const run = await row.evaluate(async (element) => {
+      const before = element.getBoundingClientRect().height
+      element.closest('section')!.querySelector<HTMLButtonElement>('button[aria-label="Expand chart"]')!.click()
+      const heights: number[] = []
+      let inline = ''
+      await new Promise<void>((resolve) => {
+        const started = performance.now()
+        const tick = () => {
+          if (!heights.length) inline = element.style.height
+          heights.push(element.getBoundingClientRect().height)
+          if (performance.now() - started < 600) requestAnimationFrame(tick)
+          else resolve()
+        }
+        requestAnimationFrame(tick)
+      })
+      return { before, inline, heights, after: element.style.height }
+    })
+    const end = run.heights.at(-1)!
+    expect(end, 'the expanded plot is taller').toBeGreaterThan(run.before + 100)
+    expect(run.after, 'the row sizes itself once the run ends').toBe('')
+    const between = run.heights.filter((height) => height > run.before + 1 && height < end - 1)
+    if (motion === 'reduce') {
+      expect(run.inline, 'no running height').toBe('')
+      expect(between, 'no height between').toEqual([])
+    } else {
+      expect(run.inline, 'the row runs at a set height').toMatch(/^\d+(\.\d+)?px$/)
+      expect(between.length, 'heights between the two').toBeGreaterThan(0)
+    }
   })
 })

@@ -6,7 +6,7 @@ import { FileXlsIcon } from '@/lib/icons'
 import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
-import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatTableGrowth, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
 import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { calculatedMetricsSentence, reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
 import { markedNote } from '@/features/analysis/lib/dataNotes'
@@ -101,11 +101,11 @@ export default function MetricsTable({
         const note = notes.noteFor(point)
         const growthNote = notes.noteForComparison(point, growthBasis)
         // Only a note that questions the number draws a letter, so only its letter takes a glyph from the budget.
-        const compactGrowth = formatTableGrowth(growth, row.series.percent, tableTokenBudget(markedNote(growthNote)?.letter))
+        const compactGrowth = tableComparisonText(growth, row.series.percent, growthNote)
         return (
           <div className={FIGURE_CELL}>
             <span className="block">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{formatTableValue(point.value, row.series, tableTokenBudget(markedNote(note)?.letter))}</span></SourceValue>
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
             </span>
             {growthText && (
               <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>

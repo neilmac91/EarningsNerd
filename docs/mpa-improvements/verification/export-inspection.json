@@ -1,0 +1,492 @@
+[
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "company name",
+  "result": "PARTIAL",
+  "evidence": "Present on every page header, but as EDGAR capitals 'REGENERON PHARMACEUTICALS, INC.'; the web page and chart PNG print 'Regeneron Pharmaceuticals, Inc.'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "period range",
+  "result": "PASS",
+  "evidence": "'FY2016–FY2025' 19x; title block 'REGN · Annual · FY2016–FY2025'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "notation legend",
+  "result": "PARTIAL",
+  "evidence": "Data notes a/b on p1; the letters/† key is on p4, not on the table's page p3; summary says '16 comparisons need review' where the web says 'carry note a'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "Narrative sources list + Sources & methods p4–p45 (42 of 46 pages); legacy calculated sources [8]–[11],[13] carry no filing link and print raw keys ('operating_margin')"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "About this document, p45"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "Logo lockup in the p1 header; 'EarningsNerd · earningsnerd.io' footer on every page"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "A4/A4-landscape; smallest text 7.2pt (note letters), body 8.5pt; 46 pages; glyphs set in a fallback font: {'†': 52, '→': 2, '◦': 614, ' ': 614}; timestamps print as raw ISO with microseconds"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "document metadata / tagging",
+  "result": "FAIL",
+  "evidence": "metadata {'Producer': 'WeasyPrint 70.0'}; tagged=False"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "company name",
+  "result": "PARTIAL",
+  "evidence": "Present on every page header, but as EDGAR capitals 'REGENERON PHARMACEUTICALS, INC.'; the web page and chart PNG print 'Regeneron Pharmaceuticals, Inc.'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "period range",
+  "result": "PASS",
+  "evidence": "'FY2016–FY2025' 19x; title block 'REGN · Annual · FY2016–FY2025'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "notation legend",
+  "result": "PARTIAL",
+  "evidence": "Data notes a/b on p1; the letters/† key is on p4, not on the table's page p3; summary says '16 comparisons need review' where the web says 'carry note a'"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "Narrative sources list + Sources & methods p4–p45 (42 of 46 pages); legacy calculated sources [8]–[11],[13] carry no filing link and print raw keys ('operating_margin')"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "About this document, p45"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "Logo lockup in the p1 header; 'EarningsNerd · earningsnerd.io' footer on every page"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "A4/A4-landscape; smallest text 7.2pt (note letters), body 8.5pt; 46 pages; glyphs set in a fallback font: {'†': 52, '→': 2, '◦': 614, ' ': 614}; timestamps print as raw ISO with microseconds"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "document metadata / tagging",
+  "result": "FAIL",
+  "evidence": "metadata {'Producer': 'WeasyPrint 70.0'}; tagged=False"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "light",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "Text identical across themes once timestamps are masked: the PDF is always the light print layout"
+ },
+ {
+  "artefact": "PDF",
+  "theme": "dark",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "Text identical across themes once timestamps are masked: the PDF is always the light print layout"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "company name",
+  "result": "PARTIAL",
+  "evidence": "Overview A7 'REGENERON PHARMACEUTICALS, INC. · Multi-Period Analysis' (EDGAR capitals)"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "period range",
+  "result": "PASS",
+  "evidence": "Overview 'Periods: FY2016–FY2025 · 10 periods'; Metrics header FY2016..FY2025"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "notation legend",
+  "result": "PASS",
+  "evidence": "Overview A26–A29 states the counts and notes a/b; † appears only in that count line"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "notation visible in the grid",
+  "result": "FAIL",
+  "evidence": "14 review cells and 52 calculated cells both carry only a comment triangle; 0 cells show a mark, 0 review cells are styled: a reviewed figure looks like any calculated one"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "Sources & methods sheet, 1006 rows, Source URL and Accession columns"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "Overview A31"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "Logo image at Overview A1; 'EarningsNerd · earningsnerd.io' source line"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "font sizes {15.0: 1, 9.0: 12, 10.0: 46, 11.0: 13230}; Metrics freezes B2; no print area, fit-to-width or landscape setup: default orientation, fitToWidth=None; raw concept keys in column B"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "document metadata",
+  "result": "FAIL",
+  "evidence": "title=None, creator='openpyxl'"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "company name",
+  "result": "PARTIAL",
+  "evidence": "Overview A7 'REGENERON PHARMACEUTICALS, INC. · Multi-Period Analysis' (EDGAR capitals)"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "period range",
+  "result": "PASS",
+  "evidence": "Overview 'Periods: FY2016–FY2025 · 10 periods'; Metrics header FY2016..FY2025"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "notation legend",
+  "result": "PASS",
+  "evidence": "Overview A26–A29 states the counts and notes a/b; † appears only in that count line"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "notation visible in the grid",
+  "result": "FAIL",
+  "evidence": "14 review cells and 52 calculated cells both carry only a comment triangle; 0 cells show a mark, 0 review cells are styled: a reviewed figure looks like any calculated one"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "Sources & methods sheet, 1006 rows, Source URL and Accession columns"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "Overview A31"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "Logo image at Overview A1; 'EarningsNerd · earningsnerd.io' source line"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "font sizes {15.0: 1, 9.0: 12, 10.0: 46, 11.0: 13230}; Metrics freezes B2; no print area, fit-to-width or landscape setup: default orientation, fitToWidth=None; raw concept keys in column B"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "document metadata",
+  "result": "FAIL",
+  "evidence": "title=None, creator='openpyxl'"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "light",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "Parts that differ between the two downloads: ['docProps/core.xml', 'xl/worksheets/sheet1.xml'] (export timestamps only)"
+ },
+ {
+  "artefact": "Excel",
+  "theme": "dark",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "Parts that differ between the two downloads: ['docProps/core.xml', 'xl/worksheets/sheet1.xml'] (export timestamps only)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "company name",
+  "result": "PASS",
+  "evidence": "Title 'Regeneron Pharmaceuticals, Inc.' (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "period range",
+  "result": "FAIL",
+  "evidence": "No fiscal-year range in the image; only '16–'25 ticks; the range is in the file name alone"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "notation legend",
+  "result": "PASS",
+  "evidence": "No noted figure on this chart, so no legend is needed (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "'Source: SEC filings via EarningsNerd · data as of Oct 24, 2026' (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "'Research only. Not investment advice…' + earningsnerd.io/terms (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "EN mark + wordmark bottom right (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "background (251, 250, 246) = panel token (251, 250, 246); footer ink contrast 9.9:1. The image follows the page theme while the PDF and workbook stay light"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "light",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "1004x818px, no DPI tag; at 6.5in wide it prints at 154dpi, where the ~20px axis text is ~9.3pt"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "company name",
+  "result": "PASS",
+  "evidence": "Title 'Regeneron Pharmaceuticals, Inc.' (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "period range",
+  "result": "FAIL",
+  "evidence": "No fiscal-year range in the image; only '16–'25 ticks; the range is in the file name alone"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "notation legend",
+  "result": "PASS",
+  "evidence": "No noted figure on this chart, so no legend is needed (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "'Source: SEC filings via EarningsNerd · data as of Oct 24, 2026' (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "'Research only. Not investment advice…' + earningsnerd.io/terms (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "EN mark + wordmark bottom right (read by eye)"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "background (31, 41, 55) = panel token (31, 41, 55); footer ink contrast 5.8:1. The image follows the page theme while the PDF and workbook stay light"
+ },
+ {
+  "artefact": "PNG (revenue)",
+  "theme": "dark",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "1004x818px, no DPI tag; at 6.5in wide it prints at 154dpi, where the ~20px axis text is ~9.3pt"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "company name",
+  "result": "PASS",
+  "evidence": "Title 'Regeneron Pharmaceuticals, Inc.' (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "period range",
+  "result": "FAIL",
+  "evidence": "No fiscal-year range in the image; only '16–'25 ticks; the range is in the file name alone"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "notation legend",
+  "result": "PARTIAL",
+  "evidence": "'Note a: …' with its figures, 'Includes figures calculated by EarningsNerd'; the hollow-ring marker for a noted point is not explained; letters are grey, not the review colour (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "'Source: SEC filings via EarningsNerd · data as of Oct 24, 2026' (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "'Research only. Not investment advice…' + earningsnerd.io/terms (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "EN mark + wordmark bottom right (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "background (251, 250, 246) = panel token (251, 250, 246); footer ink contrast 9.9:1. The image follows the page theme while the PDF and workbook stay light"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "light",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "1004x962px, no DPI tag; at 6.5in wide it prints at 154dpi, where the ~20px axis text is ~9.3pt"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "company name",
+  "result": "PASS",
+  "evidence": "Title 'Regeneron Pharmaceuticals, Inc.' (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "period range",
+  "result": "FAIL",
+  "evidence": "No fiscal-year range in the image; only '16–'25 ticks; the range is in the file name alone"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "notation legend",
+  "result": "PARTIAL",
+  "evidence": "'Note a: …' with its figures, 'Includes figures calculated by EarningsNerd'; the hollow-ring marker for a noted point is not explained; letters are grey, not the review colour (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "sources",
+  "result": "PASS",
+  "evidence": "'Source: SEC filings via EarningsNerd · data as of Oct 24, 2026' (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "disclaimer",
+  "result": "PASS",
+  "evidence": "'Research only. Not investment advice…' + earningsnerd.io/terms (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "branding",
+  "result": "PASS",
+  "evidence": "EN mark + wordmark bottom right (read by eye)"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "theme correctness",
+  "result": "PASS",
+  "evidence": "background (31, 41, 55) = panel token (31, 41, 55); footer ink contrast 5.8:1. The image follows the page theme while the PDF and workbook stay light"
+ },
+ {
+  "artefact": "PNG (margins)",
+  "theme": "dark",
+  "check": "legibility at print size",
+  "result": "PARTIAL",
+  "evidence": "1004x962px, no DPI tag; at 6.5in wide it prints at 154dpi, where the ~20px axis text is ~9.3pt"
+ }
+]

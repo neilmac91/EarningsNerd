@@ -8,19 +8,22 @@ never generates on its own.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypeVar
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Filing, SavedSummary, Summary, SummaryGenerationProgress, User
+from app.models import Filing, SavedSummary, Summary, SummaryGenerationProgress
 from app.services import admin_filing_service, audit_service
+from app.services.request_work import run_owned_sync
 from app.services.summary_refresh import generation_failed, stale_filter
 from app.services.summary_versioning import is_stale
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 def _chunked(seq: Sequence[int], size: int = 900) -> Iterator[Sequence[int]]:
@@ -134,17 +137,63 @@ def select_stale_candidates(
     return stale_total, candidate_filing_ids
 
 
+def _in_own_session(job: Callable[..., T], /, *args, **kwargs) -> T:
+    """``job(db, *args, **kwargs)`` in a session of its own, for the stale refresh's work after its route has
+    released the request's. A close that fails is logged, not raised, as the request session's release is
+    (``filing_list_service.release_request_session``): the re-read or the audit row has run, and raising would put
+    a 500 in place of the batch's outcomes after its paid generations. ``SessionLocal`` is read at call time, so a
+    test that patches ``app.database.SessionLocal`` reaches it."""
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        return job(db, *args, **kwargs)
+    finally:
+        try:
+            db.close()
+        except Exception:
+            logger.exception("Closing the stale refresh's own session failed; its read or write stands")
+
+
+def _summary_is_current(db: Session, filing_id: int) -> bool:
+    """Whether the filing's stored summary carries the current stamps."""
+    stamp = (
+        db.query(Summary.schema_version, Summary.prompt_version)
+        .filter(Summary.filing_id == filing_id)
+        .first()
+    )
+    return stamp is not None and not is_stale(stamp[0], stamp[1])
+
+
+def _record_refresh(db: Session, *, user_id: int, user_email: Optional[str], details: dict) -> None:
+    """The refresh's audit row. A call of its own, with its action written out, so the legal pages' audit walk
+    (``frontend/tests/unit/legalTruth.spec.tsx``) reads what the row records."""
+    audit_service.create_audit_log(
+        db,
+        action="summaries_refresh_stale",
+        user_id=user_id,
+        user_email=user_email,
+        entity_type="summaries",
+        details=details,
+        status="success",
+    )
+
+
 async def regenerate_in_place(
-    db: Session,
     candidate_filing_ids: list[int],
     *,
-    actor: User,
+    actor_id: int,
+    actor_email: Optional[str],
     filing_type: Optional[str],
     schema_version_lt: Optional[int],
     stale_total: int,
 ) -> tuple[list[int], list[int], list[int]]:
     """Regenerate each candidate in place, sequentially, through the ONE orchestrator, then write the
-    audit row. Returns (updated, kept_by_gate, failed) filing ids."""
+    audit row. Returns (updated, kept_by_gate, failed) filing ids.
+
+    It takes no session, so none is held while a generation runs (E171): the generation runs in the
+    pipeline's own sessions, and each stamp re-read and the audit row in a short session of its own,
+    in the thread pool."""
     from app.services.summary_generation_service import generate_summary_background
 
     # Honest per-filing outcomes: a keep-better gate-keep regenerates nothing (the stored better
@@ -154,52 +203,36 @@ async def regenerate_in_place(
     kept_by_gate: list[int] = []
     failed: list[int] = []
 
-    # Guard the admin session against N+1 re-expiry across the loop's own commits; generation
-    # runs in the pipeline's OWN sessions, so this only protects rows/audit held here.
-    prev_expire = db.expire_on_commit
-    db.expire_on_commit = False
-    try:
-        for fid in candidate_filing_ids:
-            try:
-                outcome = await generate_summary_background(fid, None, force_regenerate=True)
-            except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
-                logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
-                failed.append(fid)
-                continue
-            if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
-                logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
-                failed.append(fid)
-                continue
-            # Re-read the (separately-committed) row's stamps: current => actually updated;
-            # still stale => the keep-better gate kept the stored version (not regenerated).
-            # Commit first to end this session's read transaction so the fresh SELECT sees the
-            # generation session's commit (no writes pending here, so it's a transaction reset).
-            db.commit()
-            stamp = (
-                db.query(Summary.schema_version, Summary.prompt_version)
-                .filter(Summary.filing_id == fid)
-                .first()
-            )
-            if stamp is not None and not is_stale(stamp[0], stamp[1]):
-                updated.append(fid)
-            else:
-                kept_by_gate.append(fid)
-        audit_service.create_audit_log(
-            db=db,
-            action="summaries_refresh_stale",
-            user_id=actor.id,
-            user_email=getattr(actor, "email", None),
-            entity_type="summaries",
-            details={
-                "filing_type": filing_type,
-                "schema_version_lt": schema_version_lt,
-                "stale_total": stale_total,
-                "updated_count": len(updated),
-                "kept_by_gate_count": len(kept_by_gate),
-                "failed_count": len(failed),
-            },
-            status="success",
-        )
-    finally:
-        db.expire_on_commit = prev_expire
+    for fid in candidate_filing_ids:
+        try:
+            outcome = await generate_summary_background(fid, None, force_regenerate=True)
+        except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
+            logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
+            failed.append(fid)
+            continue
+        if generation_failed(outcome):  # a terminal error event is a failed paid attempt, not a gate keep
+            logger.warning("refresh-stale: generation ended in a terminal error for filing %s", fid)
+            failed.append(fid)
+            continue
+        # Re-read the (separately-committed) row's stamps: current => actually updated;
+        # still stale => the keep-better gate kept the stored version (not regenerated).
+        # A new session's transaction sees the generation session's commit.
+        if await run_owned_sync(_in_own_session, _summary_is_current, fid):
+            updated.append(fid)
+        else:
+            kept_by_gate.append(fid)
+    await run_owned_sync(
+        _in_own_session,
+        _record_refresh,
+        user_id=actor_id,
+        user_email=actor_email,
+        details={
+            "filing_type": filing_type,
+            "schema_version_lt": schema_version_lt,
+            "stale_total": stale_total,
+            "updated_count": len(updated),
+            "kept_by_gate_count": len(kept_by_gate),
+            "failed_count": len(failed),
+        },
+    )
     return updated, kept_by_gate, failed

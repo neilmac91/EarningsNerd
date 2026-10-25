@@ -14,9 +14,10 @@
    Every printed value of every chart on the 19 fixtures, card and expanded, at a phone's, a desktop card's and an
    expanded plot's width: bar and growth labels, A13b's near-zero labels, the off-scale values, the expanded strip's
    cells, the legend's latest values (and the period a stale one names), and the tooltip's readouts. The table's cell
-   is built as MetricsTable builds it (formatTableValue at the cell's budget, less the letter of a note that marks it),
-   its growth as the table prints a YoY (formatTableGrowth): the chart's growth panel is always YoY, where a quarterly
-   table shows QoQ when it has it, so the agreement is with the YoY the table prints beside or in place of it.
+   is read through the helpers MetricsTable prints with (tableFigureText, tableComparisonText), so a change to its
+   rule (only a marked note's letter takes a glyph; a calculated figure takes none) reaches this check; its growth is
+   the YoY the table prints: the chart's growth panel is always YoY, where a quarterly table shows QoQ when it has it,
+   so the agreement is with the YoY the table prints beside or in place of it.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -25,9 +26,9 @@ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/an
 import { layoutChart } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { markedNote, resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import { formatTableGrowth, formatTableValue, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { tableComparisonText, tableFigureText } from '@/features/analysis/lib/tableFormat'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { dataset: AnalysisDataset }>
@@ -46,8 +47,8 @@ export function printed(text: string): { value: number; unit: number } {
   return { value: Number(match[1]) * scale, unit: 10 ** -(match[2]?.length ?? 0) * scale }
 }
 
-/** The metrics table's cell for a series key (`concept`, or `concept:yoy` for its YoY) and period, as MetricsTable
- *  formats it; null where the table prints no number. */
+/** The metrics table's cell for a series key (`concept`, or `concept:yoy` for its YoY) and period, through the helpers
+ *  MetricsTable prints with; null where the table prints no number. */
 function tableCell(dataset: AnalysisDataset, notes: DataNotesModel, key: string, period: string): { text: string; truth: number } | null {
   const [concept, basis] = key.split(':')
   const series = dataset.series.find((candidate) => candidate.concept === concept) as AnalysisSeries
@@ -55,10 +56,10 @@ function tableCell(dataset: AnalysisDataset, notes: DataNotesModel, key: string,
   if (!point) return null
   if (basis === 'yoy') {
     if (typeof point.yoy !== 'number') return null
-    return { text: formatTableGrowth(point.yoy, series.percent, tableTokenBudget(markedNote(notes.noteForComparison(point, 'yoy'))?.letter)), truth: series.percent ? point.yoy : point.yoy * 100 }
+    return { text: tableComparisonText(point.yoy, series.percent, notes.noteForComparison(point, 'yoy')), truth: series.percent ? point.yoy : point.yoy * 100 }
   }
   if (point.value == null) return null
-  return { text: formatTableValue(point.value, series, tableTokenBudget(markedNote(notes.noteFor(point))?.letter)), truth: point.value }
+  return { text: tableFigureText(point.value, series, notes.noteFor(point)), truth: point.value }
 }
 
 /** Whether two printed numbers could be one value's: each prints the values less than half its unit from it. */
@@ -161,5 +162,23 @@ describe('reading a printed number', () => {
     expect(both('+28.0%', '+28.0%')).toBe(true)
     expect(both('−$3.6M', '-$3.6M')).toBe(true)
     expect(both('−$3.6M', '$3.6M')).toBe(false)
+  })
+})
+
+describe('the table this check reads is the one MetricsTable prints (M15; review of #1644)', () => {
+  // tableCell reads the helpers, so the check holds only while MetricsTable prints through them: a figure cell
+  // formatted in the component again would drift from this check unseen. Comments are read out first.
+  const source = readFileSync('features/analysis/components/MetricsTable.tsx', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  const calls = (name: string) => source.match(new RegExp(`\\b${name}\\(`, 'g'))?.length ?? 0
+
+  it('prints each figure and its change line through tableFigureText and tableComparisonText', () => {
+    expect(calls('tableFigureText')).toBe(1)
+    expect(calls('tableComparisonText')).toBe(1)
+  })
+
+  it('formats no figure itself, and a growth only for the window column, which no chart prints', () => {
+    expect(calls('formatTableValue')).toBe(0)
+    expect(calls('formatTableGrowth')).toBe(1)
+    expect(source).toMatch(/\bformatTableGrowth\(win\.value, win\.isPercent,/)
   })
 })

@@ -1,0 +1,727 @@
+{
+ "first_run": {
+  "labels": {
+   "P": "current",
+   "Q": "ring",
+   "R": "quiet, with the narrative leak",
+   "S": "no marks, with the narrative leak"
+  },
+  "results": [
+   {
+    "design": "P",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 3,
+    "trust_fcf_reason": "The page lets me check the arithmetic. Source [11] gives free cash flow as $4,080,500,000, which is labelled a calculated figure. The table shows FY2025 operating cash flow of $5.0B (source [6]: 4,978,900,000) and capex of $898.4M, and 4,978.9M minus 898.4M is 4,080.5M, so the number adds up. The trouble is the orange \"b\" next to the dagger on the headline card, on the +17.3% CAGR, in the table and on the [11] citation chip. The summary line under the cards says \"13 figures need review (a, b)\", so I read \"b\" as \"this needs review\", and nothing I can see says why. A headline number I can rebuild myself but that is flagged for review with no reason given ends up in the middle.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "The page itself raises doubts about this figure. The table shows \"$5.1B\" with a superscript a and \"-12.4%\" with a superscript a. The Revenue & growth chart puts a circled \"a\" on the FY2018 bar and on its growth point, and the chart has a \"Notes a\" chip. The data notes line says \"13 figures need review (a, b)\". The other numbers on the page also look wrong for that year: revenue supposedly fell 12.4% while operating income rose 21.9% and net income rose 104%, operating margin jumped to 49.3% and net margin to 47.5%, and revenue then \"rebounds\" 27.4% in FY2019. Together that looks like a data problem, not a business event. I can tell something is off, but the page does not say what, or what the correct figure is, unless I open the collapsed Data notes. (Not from the page: I recall Regeneron's 2018 total revenue being roughly $6.7B. I left that out of this score.)",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "In the Metrics table, \"$5.1B\" and \"-12.4%\" for FY2018 both carry a superscript \"a\". In the Revenue & growth chart, a circled \"a\" sits on the FY2018 bar and growth point, the FY2017-FY2020 points carry floating \"a\" labels, and there is a \"Notes a\" chip. The Data notes line reads \"13 figures need review (a, b) · 19 comparisons carry notes a, b\". The FY2018 row also clashes with other figures on the page: operating income +21.9%, net income +104.0%, operating margin 49.3% and net margin 47.5%, all in the same year revenue fell 12.4%.",
+    "used_outside_knowledge": false,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and its -12.4% growth (and the a-flagged FY2017-FY2020 revenue and growth values around it)",
+     "FY2018 operating margin 49.3% and net margin 47.5%, which look inflated by the low revenue base",
+     "FY2019 revenue growth +27.4%",
+     "FY2023-FY2025 net income above operating income (FY2025 net margin 31.4% vs operating margin 24.9%), all b-flagged with no reason shown",
+     "FY2025 free cash flow $4.1B (b flag), though it does equal OCF $5.0B minus capex $898.4M",
+     "Long-term debt $0.00 in FY2019, then flat at $2.0B with +0.1% a year; FY2016-FY2018 unavailable",
+     "Investing cash flow FY2020 -$70.6M (and the -7,527.1% swing after it)",
+     "Financing cash flow FY2017 -$24.4M",
+     "Working capital and current ratio FY2024-FY2025 (b-flagged)",
+     "Revenue CAGR +12.8%, which depends on the FY2016 base of $4.9B"
+    ],
+    "visual_cleanliness": 3,
+    "alarming_or_distracting": [
+     "The orange monospace line under the KPI cards, 'Data notes · 13 figures need review (a, b) · 19 comparisons carry notes a, b · 3 unavailable (c) · 50 calculated †'. It reads as the product admitting its own numbers aren't checked, and it's the first thing seen after the headline numbers.",
+     "'†b' attached to the headline FREE CASH FLOW $4.1B and NET MARGIN 31.4% cards, and to their CAGR/Chg sub-lines. It makes the hero numbers look suspect.",
+     "Circled 'a' markers on the FY2018 bar and growth point in the Revenue & growth chart look like error badges.",
+     "Small 'a' and 'b' letters floating over chart points in the Revenue, Margins and Cash generation charts clutter the charts and say nothing unless you hover or expand.",
+     "Orange superscript a/b letters scattered through the Metrics table and on the AI citation chips ([8]b, [9]b, [10]b, [11]b, [13]b) look like warning signs everywhere.",
+     "A dagger after roughly 50 figures is visual noise for something as ordinary as 'calculated'.",
+     "Raw full-precision values in Sources, e.g. '(0.1277642638015346 (growth fraction))' and '(24.945443390109393%)', look like debug output.",
+     "The disclaimer 'Source entries ... do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.' plus two more disclaimers lower down. Too much hedging erodes confidence.",
+     "The AI text is repetitive and robotic ('net income growth of +2.1% [3][5] was above revenue growth of +1.0% [1][4]'), restating the same numbers with doubled citations.",
+     "Odd values with no flag at all ($0.00 long-term debt in FY2019, -$70.6M investing cash flow in FY2020, -7,527.1%) make the flagging feel inconsistent.",
+     "Missing: no plain-language reason is visible for what 'a' or 'b' actually means for a figure unless the collapsed Data notes is opened."
+    ],
+    "site_feels_trustworthy": 3,
+    "where_to_find_source": "The 'Sources · Filed and calculated figures' list at the bottom of the AI trend analysis card, which has numbered entries and 'Original filing' links; the [n] citation chips in the text point to it. Also the collapsed 'Data notes' expander under the KPI cards, the 'Notes a/b/c' chips on each chart and table header, and selecting a value in the Metrics table ('Select a value for full precision'; 'Each value's source detail states its calculation range').",
+    "what_marks_mean": "† (dagger): a calculated or derived figure, stated as '50 calculated †' and '† calculated' in the table header. Orange superscript 'a' and 'b': caveat notes. Going by the Data notes line '13 figures need review (a, b)', I take them to mean 'needs review / possibly wrong'. 'a' sits on FY2017-FY2020 revenue and growth. 'b' sits on recent margins, FCF, working capital and current ratio, possibly because net income exceeds operating income, but that's a guess. Superscript 'c' on dashes: unavailable, confirmed by 'Long-term debt: unavailable for FY2016, FY2017, FY2018'. Circled 'a' on chart points: the same note a, marked on the chart. [1]-[13] chips: citations to the Sources list. Green and red values: positive or negative change, with gray for flows where direction is ambiguous.",
+    "one_change": "Mark only the figures that are actually doubtful, such as FY2018 revenue, with a single quiet neutral marker whose tap or hover says in plain words what is off and links the filing. Drop the orange '13 figures need review' count line, the letters on the headline cards and the letters floating over chart points. Move the 'calculated' dagger and the a/b/c explanations into one muted legend or fine-print line under the table."
+   },
+   {
+    "design": "P",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The page shows how the figure was built, and the numbers agree with each other. Source [11] gives free cash flow of 4,080,500,000 USD and labels it \"Calculated figure\". In the table, FY2025 operating cash flow is $5.0B (source [6], 4,978,900,000 USD, with an \"Original filing\" link) and capex is $898.4M, and 4,978.9M minus 898.4M is 4,080.5M. I did not give it a 5 for two reasons. First, the capex input has no entry or filing link in the sources list. Second, the figure carries a \"b\" note whose meaning is hidden in the collapsed \"Data notes\", and the same \"b\" sits on every FY2023-FY2025 free cash flow cell and on the margin figures. So something about those years is flagged, and the page doesn't tell me what without another click.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "The page itself raises doubt about this figure. $5.1B carries a superscript \"a\", and so do -12.4%, the FY2019 $6.6B / +27.4% and the FY2020 +29.6%. The FY2018 bar in the Revenue & growth chart has a circled \"a\", and the Data notes strip says \"13 figures need review (a, b)\". The shape is also suspicious on its face: revenue drops 12% and then jumps 27% the next year, while net income doubles in FY2018 (+104%) and the net margin hits 47.5%. A real revenue decline doesn't usually look like that, so this looks like a data-extraction problem. The page never says on the figure what \"a\" is. \"Needs review\" tells me only that the vendor isn't sure, not what is wrong or what the filed number is. I would not use this figure without opening the 10-K. (Separately, from memory I believe Regeneron's FY2018 total revenue was about $6.7B, which would make $5.1B wrong. My rating of 2 is based on the page alone.)",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "The table cell reads \"$5.1B^a\" with \"-12.4%^a\" below it, the next year reads \"$6.6B^a\" / \"+27.4%^a\", and the FY2018 bar in the \"Revenue & growth\" chart has a circled \"a\" marker. The Data notes strip reads \"13 figures need review (a, b) · 19 comparisons carry notes a, b\". The chips \"Notes a\" (chart) and \"Notes a, b, c\" (table) are also shown. The V-shaped -12.4% / +27.4% pattern next to a 47.5% FY2018 net margin is also visible on the page.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and FY2019 revenue $6.6B, plus the FY2018-FY2020 growth rates (-12.4%, +27.4%, +29.6%), all flagged 'a'",
+     "FY2018 operating margin 49.3% and net margin 47.5%, and FY2019 33.7% / 32.3%: these are calculated from the flagged revenue but carry no 'a' flag themselves, which is inconsistent",
+     "The 10-year revenue CAGR of +12.8% and the other CAGRs anchored on FY2016 (does the FY2016 base match the filing?)",
+     "FY2023-FY2025 net margin above operating margin (FY2025 net income $4.5B vs operating income $3.6B), flagged 'b' with no visible explanation",
+     "FY2023-FY2025 free cash flow $3.9B / $3.7B / $4.1B (flagged 'b'); also capex has no source link",
+     "FY2024-FY2025 working capital and current ratio (flagged 'b')",
+     "Long-term debt: '—c' (unavailable) for FY2016-FY2018 and then exactly $0.00 in FY2019 before a flat $2.0B. Is the $0.00 real or missing data?",
+     "Investing cash flow FY2021 growth of -7,527.1% and the financing cash flow % changes (-681.6%, -216.0%, -227.0%) on negative bases. The page says n/m means not meaningful, yet it shows these",
+     "Capital expenditures FY2017 $272.6M (-46.7%), an outlier in an otherwise rising series"
+    ],
+    "visual_cleanliness": 3,
+    "alarming_or_distracting": [
+     "The orange/red monospace strip 'Data notes · 13 figures need review (a, b) · 19 comparisons carry notes a, b · 3 unavailable (c) · 50 calculated †'. It reads as the vendor admitting that 13 of its numbers are unchecked, it is the loudest text on the page after the KPI cards, and it gives no reason. This is the single element that most undermines trust.",
+     "The phrase 'need review' itself. To me it says 'we didn't finish checking this' rather than 'this differs from the filing because X'",
+     "The circled 'a' markers sitting on the FY2018 and FY2019 revenue bars and growth points. They look like warning badges on the chart and draw the eye straight to the problem years",
+     "Letter labels 'b' scattered around the last three points of the Margins chart and on the Cash generation chart: chart clutter",
+     "'†b' on the headline KPI cards (Free cash flow $4.1B†b, Net margin 31.4%†b, with superscript b on the CAGR line too). The headline numbers look footnoted and caveated before I've read anything",
+     "Superscript 'b' on many citation chips in the AI commentary ([8]b, [9]b, [10]b, [11]b, [13]b), which makes the prose look hedged",
+     "Dense superscripts (†, a, b, c) across the table make it noisy to scan; nearly every cell from FY2023 on carries one",
+     "Full float precision in the sources list (e.g. '24.945443390109393%', '0.1277642638015346 (growth fraction)'). It looks like a debug dump rather than a finished product",
+     "Meaningless growth rates like '-7,527.1%' on investing cash flow, and % changes on negative financing flows",
+     "Dual-axis charts that put net income on a separate right axis from operating CF/FCF (same unit, dollars). That invites misleading visual comparisons",
+     "Several stacked disclaimers ('AI-generated... can be incomplete or wrong', the page footer, the site footer) on top of the review strip, which together make the product feel unsure of itself"
+    ],
+    "site_feels_trustworthy": 3,
+    "where_to_find_source": "The 'SOURCES · FILED AND CALCULATED FIGURES' list at the bottom of the AI trend analysis card. It has numbered entries [1]-[13] with exact USD values, 'Original filing' links for filed figures and 'Calculated figure' labels for derived ones, and the bracketed [n] chips in the commentary link to it. For table values, the note says 'Select a value for full precision', and the text says each value's source detail states its calculation range, so I would click a cell. The collapsed 'Data notes' disclosure and the 'Notes a/b/c' chips should explain the flags.",
+    "what_marks_mean": "'†' marks a calculated figure, derived by the vendor rather than read directly from the filing. This is stated in the table header ('† calculated') and the Data notes strip ('50 calculated †'). Superscript 'a' and 'b' are data-quality notes: the strip groups them as 'figures need review (a, b)', but their actual meaning sits behind the collapsed 'Data notes' toggle, so from the page as shown I can only infer that 'a' relates to the FY2017-FY2020 revenue series and 'b' to the FY2023-FY2025 margin, cash-flow and working-capital figures. 'c' means unavailable ('3 unavailable (c)', shown as '—c' for long-term debt FY2016-FY2018). The circled 'a' on the chart points is the same 'a' note drawn on the chart. Bracketed numbers like [1] and [11] in the commentary are citations to the sources list. 'Notes a' / 'Notes b' chips on chart and card headers say which notes apply to that panel.",
+    "one_change": "Replace the coloured 'N figures need review (a, b)' strip and the letter codes with a quiet, specific explanation on the figure itself. Mark a figure that deviates from or can't be matched to the filing with a small neutral indicator, such as a muted dotted underline in the table only, not on the charts or the headline KPI cards. Clicking or hovering it should show plain words: what the filing says, what the page shows, and why ('FY2018 revenue: 10-K reports total revenues of $X; this shows $Y because ...'). Move the counts and the † key into the fine-print footnote under the table. As a sceptical user I don't want the flag removed entirely: I do want to know when a number doesn't tie to the filing. But a vague, prominent 'needs review' makes me distrust every number on the page, while a specific, quiet note on the one cell makes the product look rigorous. Better still, fix or resolve the flagged figures so they don't have to be shown as unreviewed."
+   },
+   {
+    "design": "Q",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 3,
+    "trust_fcf_reason": "The number itself holds up. The table shows FY2025 operating cash flow of $5.0B and capex of $898.4M, and source [11] gives FCF as 4,080,500,000 USD. Operating cash flow [6] is 4,978.9M, and 4,978.9M minus 898.4M is exactly 4,080.5M. Neither input is flagged. Even so, the headline card says \"needs a source check\" in orange, with a ringed b on the value and on the CAGR, and the page never says what is wrong. I can't tell whether the number has a problem or the flag does, so I lowered my score below what the arithmetic supports. Because of this flag, the warning marks on the page start to look arbitrary.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "The page tells me not to trust it. The figure is ringed (a), and Data notes says \"Ringed letters mark figures to check before relying on them: Revenue (FY2018–FY2019)\". The table also contradicts it. Revenue falls 12.4% to $5.1B in FY2018, yet operating income rises 21.9% to $2.5B, net income rises 104% to $2.4B, and operating margin jumps to 49.3%. The next year revenue rebounds 27.4%. On that evidence I would not use the number until I had checked it against the 10-K. The flag was useful here, because it sent me to the one figure that looks wrong. I also recall from memory that Regeneron's 2018 revenue was well above $5.1B, but I based this score on the page alone.",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "Data notes: \"Ringed letters mark figures to check before relying on them: Revenue (FY2018–FY2019)\" and \"(a) 2 need a source check\". In the table, FY2018 Revenue reads \"$5.1B(a) / -12.4%(a)\", and the Revenue & growth chart has \"a\" markers on the '18 dip. The table also contradicts itself for FY2018: Operating income is $2.5B (+21.9%), Net income $2.4B (+104.0%), Operating margin 49.3% and Net margin 47.5%, while revenue falls 12.4% and then grows 27.4% in FY2019.",
+    "used_outside_knowledge": false,
+    "figures_you_would_check": [
+     "FY2018 Revenue $5.1B (-12.4%) and the FY2019 (+27.4%) and FY2020 (+29.6%) growth figures that depend on it",
+     "FY2018 Operating margin 49.3% and Net margin 47.5%, which depend on that revenue",
+     "FY2018 Net income $2.4B (+104%) and EPS ($22.65 basic) against falling revenue",
+     "FY2025 Net income $4.5B exceeding Operating income $3.6B (net margin 31.4% above operating margin 24.9%): I would want to see the non-operating income line",
+     "FY2023-FY2025 Free cash flow, Operating margin and Net margin, only to learn why they carry a 'needs a source check' flag when their inputs are unflagged",
+     "FY2024 Current ratio 4.73x (18.7B / 3.9B is about 4.79x as displayed) and Working capital $14.7B",
+     "Long-term debt $0.00 in FY2019 jumping to $2.0B in FY2020",
+     "Investing cash flow FY2020 -$70.6M, far out of line with -$1B to -$5.4B in other years"
+    ],
+    "visual_cleanliness": 3,
+    "alarming_or_distracting": [
+     "Orange 'needs a source check' text on two of the four headline cards (Free cash flow, Net margin). The product is telling me its own headline numbers may be wrong, and that is the first thing I see after the search box.",
+     "The legend shows '(a) needs a source check' and '(b) needs a source check': two different symbols with the same label and no visible reason for the difference.",
+     "The marks stack up in the table. Operating margin, Net margin and Free cash flow for FY2023-FY2025 carry '†(b)' on the value and another (b) on the change line underneath, so the right side of the table is dense with symbols.",
+     "A ringed (b) follows nearly every citation in the AI analysis's Margins, Cash, Red flags and What to watch sections, e.g. '[8](b)', '[9](b)', '[11](b)'.",
+     "Small 'a' and 'b' letters float above and below chart points in the Revenue, Margins and Cash generation charts, which clutters otherwise clean charts.",
+     "'Of 200 figures, 184 passed automated checks' plus a full paragraph listing the flagged figures. Transparent, but it reads as 'about 8% failed' and it is long.",
+     "The Free cash flow flag looks spurious, because operating cash flow minus capex matches the shown value exactly. That makes the warning system feel like noise and weakens the one flag that matters (FY2018 revenue).",
+     "Raw full-precision numbers in the Sources list, such as '24.945443390109393%' and '0.1277642638015346 (growth fraction)', look like debug output.",
+     "Grey growth percentages like '-7,527.1%' and '-681.6%' on the cash-flow rows.",
+     "The AI commentary is repetitive and robotic ('net income growth of +2.1% was above revenue growth of +1.0%' appears twice), and there is a 'Red flags' heading."
+    ],
+    "site_feels_trustworthy": 3,
+    "where_to_find_source": "There are three places. First, the 'Sources · Filed and calculated figures' list under the AI trend analysis, which has 'Original filing' links for filed numbers and marks derived ones as 'Calculated figure'. Second, the 'Details' link at the end of the Data notes bar. Third, clicking a value in the Metrics by period table ('Select a value for full precision'; 'Each value's source detail states its calculation range'). FY2018 revenue is not in the Sources list, so for that figure I would have to click the table cell or use Details.",
+    "what_marks_mean": "† (dagger) means the product calculated the figure from filed inputs. Ringed (a) means 'needs a source check'; it covers Revenue FY2018-FY2019 and the growth figures built on it. Ringed (b) also means 'needs a source check' and covers Operating margin, Net margin and Free cash flow for FY2023-FY2025, plus Working capital and Current ratio for FY2024; the page doesn't say how (a) and (b) differ. Superscript c means 'not in our data' (Long-term debt FY2016-FY2018). A dash means no value. n/m means not meaningful. Bracketed [n] tags in the AI text point to the numbered Sources list.",
+    "one_change": "Fold (a) and (b) into one small, quiet mark on the flagged figure only, not also on its change line, chart point and every citation. Take the 'needs a source check' wording off the headline cards and move the explanation into the fine print / Data notes line and a hover. Reserve the mark for figures with a concrete problem, and say what the problem is (e.g. 'FY2018 revenue differs from the filing's reported total') instead of telling me to check it myself. Removing it entirely would be a mistake: the FY2018 revenue flag was the only thing on the page that warned me off a number that looks wrong, but the flags on calculations that check out should go."
+   },
+   {
+    "design": "Q",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 3,
+    "trust_fcf_reason": "The arithmetic checks out from the page itself. Operating cash flow of $4,978.9M (source [6], which links to the filing) minus capex of $898.4M gives $4,080.5M, the same as source [11]. Even so, the product puts \"needs a source check\" and a ringed b under this headline card and never says why. Source [11] reads only \"Calculated figure\", with no filing link and no formula, while [2] and [12] read \"Calculated from recorded inputs\". I can't tell whether the flag points at a real problem, such as the wrong capex line, or is just caution about a derived number. A number I can rebuild myself, carrying a vague warning from the vendor, ends up at medium trust. The flag lowers my trust in a figure that looks correct.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "This score comes from the page alone. The page marks FY2018 revenue ($5.1B) and its -12.4% growth with a ringed a, and the Data notes say to check it before relying on it. The series also looks wrong: $5.9B, then $5.1B, then $6.6B (-12.4% followed by +27.4%) in a revenue line that otherwise grows steadily, and the revenue chart shows the same dip. FY2018 revenue isn't in the source list, so I can't see which filing or tag it came from without clicking. I wouldn't use it. Separately, from memory I believe Regeneron's FY2018 total revenue was about $6.7B. That would put this figure at 1, but I kept it out of the score above.",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "The Data notes say: \"Ringed letters mark figures to check before relying on them: Revenue (FY2018–FY2019)\" and \"(a) 2 need a source check\". In the Metrics table, FY2018 reads \"$5.1B(a)\" and \"-12.4%(a)\", and FY2019 reads \"$6.6B(a)\" and \"+27.4%(a)\". The Revenue & growth chart has a dip at '18 and labels that bar and growth point with \"a\". The odd -12.4% then +27.4% pattern is a clue in itself.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and the growth figures built on it (-12.4% in FY2018, +27.4% in FY2019): the page flags them, and the dip-then-rebound is out of pattern",
+     "FY2025 net margin 31.4% above an operating margin of 24.9% (net income $4.5B against operating income $3.6B): this needs a large non-operating gain or a tax benefit, and the page doesn't explain it",
+     "FY2023-FY2025 free cash flow: which capex line is subtracted, and why the page flags it when the arithmetic ties out",
+     "Investing cash flow FY2020 of -$70.6M, an outlier between -$2.0B and -$5.4B, and its -7,527.1% FY2021 'growth', which should be n/m",
+     "Financing cash flow growth percentages on negative bases (-216.0%, -227.0%, -681.6%): they mean nothing as shown",
+     "FY2024 working capital and current ratio (flagged b) against the balance sheet in the 10-K",
+     "Long-term debt of $0.00 in FY2019 against 'not in our data' for FY2016-FY2018: is it really zero or missing?",
+     "Operating margin FY2023-FY2025 (30.9%, 28.1%, 24.9%): the AI 'Red flags' section is built on these flagged figures"
+    ],
+    "visual_cleanliness": 3,
+    "alarming_or_distracting": [
+     "Brown 'needs a source check' text under the headline Free Cash Flow and Net Margin cards, the first numbers I see. It reads as the product doubting its own headline figures and handing me the job. It tells me to act but doesn't explain anything.",
+     "Two different ringed letters, a and b, both labelled 'needs a source check' in the Data notes and in the Metrics by period legend. Nothing on the page says how a differs from b.",
+     "The ringed b appears about a dozen times in the AI narrative ([8]b, [9]b, [10]b, [11]b, [13]b), again in the source list, and dozens of times in the table. A whole block of the table (FY2023-FY2025 margins and FCF) is speckled with brown circles.",
+     "Letters 'a' and 'b' drawn directly on chart points and bars in the Revenue & growth and Margins charts. That clutters the plots.",
+     "The Data notes line 'Of 200 figures, 184 passed automated checks' reads like an internal QA report and implies 16 figures failed something.",
+     "The flags never give a reason. When I can rebuild a flagged figure from the page (FCF FY2025 = $4,978.9M - $898.4M), the flag makes the product look unsure of correct numbers.",
+     "Percentage changes on negative cash-flow bases (-7,527.1%, -681.6%) shown as if they meant something, even though the page says 'n/m means not meaningful'. This hurt my trust more than any flag did.",
+     "The flagged FY2018 revenue is still plotted and used in growth figures without explanation",
+     "The 'Red flags' heading in the AI analysis is a little dramatic, given it rests entirely on figures the page has flagged",
+     "What's missing: no definition of free cash flow on the page, no fiscal year-end dates, no as-reported versus restated distinction, and no reason attached to any flag"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "The 'Sources · filed and calculated figures' list under the AI trend analysis, where filed figures have 'Original filing' links. In the Metrics by period table, 'Select a value for full precision' suggests clicking a value opens its source detail. The 'Details' link at the end of the Data notes bar. Calculated figures such as [11] FCF show only 'Calculated figure', with no link or formula inline.",
+    "what_marks_mean": "Dagger: a calculated figure, not one filed directly (legend: '† calculated', '50 calculated'). Ringed a: 'needs a source check', apparently a doubtful reported value (Revenue FY2018-FY2019 and growth built on it). Ringed b: also 'needs a source check'. It seems to cover calculated figures whose inputs are questionable (margins and FCF FY2023-FY2025, working capital and current ratio FY2024). The source list hints at this by calling these 'Calculated figure' rather than 'Calculated from recorded inputs', but the page never explains the difference between a and b. Superscript c with a dash: not in their data (long-term debt FY2016-FY2018). Bracketed numbers like [1] and [8]: citations to the numbered source list. Green and red growth text show direction of change, and grey seems to mark neutral items (capex, investing and financing cash flow). n/m: not meaningful, per the note, though none appear in the table.",
+    "one_change": "Don't remove the flags, and don't push them all into the fine print. The FY2018 revenue flag is the most useful thing on the page, and if I later found an unflagged wrong number, I'd stop trusting the whole product. Instead, swap the generic 'needs a source check' for one short line on each flag saying what is wrong. For example: 'FY2018 revenue: $5.1B here vs $X in the FY2019 10-K comparative'. Or: 'FCF uses purchases of PP&E; tag changed in FY2023'. Show that line on hover or click, and in the Data notes. Show the flag itself as one small neutral marker with no wording on the headline cards. Use separate treatments for real conflicts (a) and for method caveats on derived figures (b). The b caveats could fold into the dagger footnote, since their inputs are already shown."
+   },
+   {
+    "design": "R",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The page shows how it got the number. Source [11] gives free cash flow of 4,080,500,000 USD and labels it a \"Calculated figure\". The FY2025 table column shows operating cash flow of $5.0B and capex of $898.4M, and $5.0B minus $0.9B is about $4.1B, so the arithmetic checks out from figures on the page, and the figures it is built from link to the original filing. I took off one point for two reasons. The number carries an unexplained superscript \"b\". And the Data notes line says \"11 of them before we kept calculation records\", which makes me wonder whether this figure is one of those. Nothing tells me which figures fall in that group.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "The page flags the figure itself. $5.1B and -12.4% both carry a superscript \"a\", and the chart shows small circled \"a\" markers at '18 and '19. The collapsed Data notes line under the table says \"Revenue FY2018, FY2019: the company's filings disagree\". The shape also looks wrong. Revenue drops 12.4% in an otherwise growing decade and then jumps 29.6%. In the same year, operating margin spikes to 49.3% and net margin to 47.5%, which fits revenue being understated. The note does not say which filing's number is shown or what the other filing reports, so I can't use this number without opening the 10-Ks. The FY2018 margins and the FY2019 growth figure depend on this disputed revenue but carry no flag of their own. (Separately, from memory I recall Regeneron's 2018 revenue as about $6.7B. That memory did not set this score.)",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "The superscript \"a\" on \"$5.1B\" and on \"-12.4%\" in the Metrics by period table. The circled \"a\" markers on the FY2018/FY2019 bar and growth points in the Revenue & growth chart. The \"Notes a\" chips on the chart and table headers. The Data notes line under the table: \"a Revenue FY2018, FY2019: the company's filings disagree\". The table numbers also look odd: -12.4% then +29.6% growth, and FY2018 margins of 49.3% (operating) and 47.5% (net).",
+    "used_outside_knowledge": false,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and its -12.4% growth (flagged 'a': filings disagree; which figure is shown?)",
+     "FY2019 revenue $6.6B and its +29.6% growth (flagged 'a'; the growth depends on the disputed FY2018 base)",
+     "FY2018 operating margin 49.3% and net margin 47.5% (built on the disputed revenue but not flagged)",
+     "FY2021 revenue $16.1B (+89.1%) and net income $8.1B (+129.9%): an outlier year; is it one-off?",
+     "Investing cash flow FY2020 -$70.6M and the -7,527.1% change in FY2021: looks like a data or calculation artifact",
+     "Long-term debt: '—' for FY2016-FY2018, $0.00 in FY2019, then $2.0B; is $0.00 real or missing data?",
+     "Any of the 11 figures 'calculated before we kept calculation records'; the page doesn't say which ones"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "Data notes line: 'the company's filings disagree'. It sounds alarming but doesn't say which value is shown or what the alternative is, so it raises doubt without resolving it",
+     "Data notes line: '11 of them before we kept calculation records'. This reads like an internal admission and makes me wonder which numbers are less reliable, without telling me",
+     "Unexplained superscript 'b' on many figures in the AI commentary ([8]b, [9]b, [10]b, [11]b, [13]b). It clutters the prose and its meaning is never stated; other calculated sources ([2], [12]) lack it, so it is inconsistent",
+     "'Notes a' chips on the chart and table headers are cryptic; they look like a code rather than a label",
+     "The explanation for 'a' sits in a collapsed 'Data notes' disclosure at the very bottom, far from the chart and the row it explains",
+     "The sources list shows raw machine precision ('24.945443390109393%', '0.1277642638015346 (growth fraction)'), which looks unpolished",
+     "'-7,527.1%' change in investing cash flow is a noisy, meaningless percentage",
+     "The AI commentary repeats the same comparison (net income growth +2.1% vs revenue growth +1.0%) several times, which feels generated rather than analytical",
+     "Long-term debt line in the balance sheet chart starts from zero at '19 and jumps, which looks like a data gap drawn as a real value"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "The \"Sources · filed and calculated figures\" list at the end of the AI trend analysis. Each [n] citation maps to a figure with an \"Original filing\" link or a \"Calculated figure\" label. For the table, the note says \"Select any value for its source and full precision\", so I would click the cell. For the flagged values, I would open the \"Data notes\" disclosure below the table.",
+    "what_marks_mean": "These marks appear on the page:\n- Superscript \"a\" (on FY2018/FY2019 revenue and growth) and the small circled \"a\" markers on the revenue chart point to a data note: \"Revenue FY2018, FY2019: the company's filings disagree\". That note is explained only in the collapsed Data notes line at the bottom.\n- \"Notes a\" chips on the chart and table headers seem to be links to that note.\n- Superscript \"b\" on several AI-commentary citations and source rows appears next to \"Calculated figure\". I guess it means a computed figure, possibly one of the 11 calculated \"before we kept calculation records\". The page never says, and [2] and [12] are calculated but have no \"b\".\n- [1]-[13] are citations to the sources list.\n- \"—\" means not in the data.\n- n/m means not meaningful.\n- \"pp\" means percentage points.",
+    "one_change": "Make each mark explain itself where it appears, and keep only marks that warn about something. Tapping or hovering on the small \"a\" should show one plain sentence beside the number, for example \"The FY2018 and FY2019 10-Ks report different revenue; showing the later filing's $X (the earlier one says $Y)\". Figures that depend on the disputed value (FY2018 margins, FY2019 growth) should get the same mark. Drop the \"b\" superscript from the narrative, because the sources list already labels calculated figures. Then the rest of the page stays clean, and the one mark left signals a real data problem rather than a code I have to decode at the bottom of the page."
+   },
+   {
+    "design": "R",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The figure checks out on the page. Source [11] gives $4.1B at full precision (4,080,500,000 USD) and labels it a calculated figure. Operating cash flow of $4,978,900,000 links to the original filing ([6]), and FY2025 capex in the table is $898.4M; 4,978.9 - 898.4 = 4,080.5, which matches exactly. The CAGR (+17.3%) and the YoY change (+11.3%) also agree with the table. I held back one point for three reasons. Capex has no citation of its own in the sources list. The FCF definition (OCF minus capex) is implied but never stated. And the figure carries a superscript \"b\" that the page never defines. The data notes say \"11 of them before we kept calculation records\", which makes me wonder whether this is one of the figures without an audit trail.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "Based only on the page. The cell is flagged ($5.1Bᵃ, -12.4%ᵃ), and the data note says \"Revenue FY2018, FY2019: the company's filings disagree\". So the product itself is telling me this number is contested. It doesn't say which filing the $5.1B comes from or what the other filing reports, so I can't settle it without opening EDGAR. The page's own numbers point the same way. A -12.4% drop sits in the middle of an otherwise steady growth run (+20.8%, then +27.4% and +29.6% after it). In the same year, operating margin jumps to 49.3% and net margin to 47.5%, against about 35% and 33.7% in the neighbouring years. That pattern fits an understated denominator. Those derived margins carry no flag. From memory (kept out of the score), Regeneron's FY2018 revenue was about $6.7B, so I believe $5.1B is wrong. That knowledge would push my trust to 1.",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "Data notes line below the table: \"ᵃ Revenue FY2018, FY2019: the company's filings disagree\". The table shows superscripts on \"$5.1Bᵃ\" and \"$6.6Bᵃ\" and on the growth figures \"-12.4%ᵃ\", \"+27.4%ᵃ\" and \"+29.6%ᵃ\". The revenue chart and the Metrics table both have a \"Notes a\" chip, and the chart puts small \"a\" markers on the FY2018 and FY2019 bars and on the FY2018-FY2020 growth points. The page's own numbers also look wrong: a -12.4% dip in a growth run, and FY2018 operating and net margins spiking to 49.3% and 47.5%.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and FY2019 revenue $6.6B: which filing each comes from, and what the conflicting filing reports",
+     "FY2018 -12.4%, FY2019 +27.4% and FY2020 +29.6% revenue growth (all depend on the flagged values)",
+     "FY2018 operating margin 49.3% and net margin 47.5%: derived from the flagged revenue but carry no flag",
+     "FY2019 operating margin 33.7% and net margin 32.3% (same dependency, no flag)",
+     "FY2025 capex $898.4M, the FCF input that has no citation in the sources list",
+     "Long-term debt FY2019 $0.00 next to '—' for FY2016-FY2018: a real zero or missing data?",
+     "Red flags: 'compressed 5.9pp' while the displayed 30.9% -> 24.9% reads as 6.0pp",
+     "Operating margin endpoint column -2.4pp while the rounded endpoints 27.4% -> 24.9% read as -2.5pp",
+     "Investing cash flow FY2020 -$70.6M and FY2021 -$5.4B (-7,527.1%)",
+     "FY2021 net income $8.1B and EPS $76.40 (outlier year; confirm no one-offs)"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "Nothing on the page reads as dramatic about data quality. The 'a' footnote is a single line of fine print under the table, and the chart markers are small. If anything they are too cryptic: the 'Notes a' chip and the tiny circled 'a' on the bars mean nothing until you find the data note.",
+     "\"Data notes ... 50 calculated from filed figures, 11 of them before we kept calculation records\" reads like an internal process detail. It admits a gap in the audit trail without saying which figures are affected, and this line dents trust more than the 'a' flag does.",
+     "Superscript 'b' appears on many figures in the AI text and the sources list ([8]ᵇ, [11]ᵇ ...) and is never defined anywhere visible.",
+     "The 'the company's filings disagree' note is vague. It raises doubt without resolving it: no shown-vs-other value, no filing named.",
+     "A 'Red flags' heading for an ordinary margin compression feels more alarmist than the content warrants.",
+     "The AI narrative is choppy and repetitive. Citation chips plus superscripts every few words, and 'net income of $4.5B [3]' repeated four times, make it read machine-generated.",
+     "Extreme percentage changes in the investing/financing cash flow rows (-7,527.1%, -681.6%, -227.0%) are noise. They would be better shown as n/m.",
+     "The cash generation chart uses dual axes with irregular ticks ($7.1B over $6.0B on the left; $8.1B, $5.0B, $2.5B on the right), so net income and OCF lines overlap in a way that suggests a false equivalence.",
+     "The KPI label 'FY2025 CAGR +12.8%' is ambiguous: it is a FY2016-FY2025 CAGR.",
+     "The disclaimer 'The analysis can be incomplete or wrong' is candid and acceptable, but it stacks with three other disclaimers on the page."
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "The 'Sources · Filed and calculated figures' list at the bottom of the AI trend analysis gives each [n] citation the full-precision value, an 'Original filing' link, and a filed-vs-calculated label. In the Metrics by period table, the instruction says 'Select any value for its source and full precision', so I would click the cell. The 'Data notes' disclosure under the table covers flags and missing or calculated values.",
+    "what_marks_mean": "'ᵃ' (superscript in the table, 'a' markers on the revenue chart bars and growth points, and the 'Notes a' chips) marks a revenue value, and growth figures derived from it, where the data note says the company's filings disagree for FY2018/FY2019. Probably an original-vs-restated conflict. 'ᵇ' (on calculated figures such as operating margin, net margin and FCF in the AI text and sources list) is not defined on the page. I infer it means a calculated figure with no stored calculation record, because the [n] entries without it say 'Calculated from recorded inputs' and the data notes mention '11 of them before we kept calculation records'. That is a guess. '[n]' chips link to the numbered sources list. '—' means not in their data, and 'n/m' means not meaningful. Green and red deltas show direction; grey deltas appear on rows where direction isn't good or bad (capex, investing/financing CF).",
+    "one_change": "Keep the marks small and in the fine print, but make each one say exactly what it means where it appears. The 'a' note should name which filing the shown value comes from and what the other filing reports (for example: 'FY2018: $5.1B per FY2018 10-K; FY2019 10-K reports $X; shown: original'). The same flag should carry onto every figure derived from it (FY2018/FY2019 margins). The undefined 'b' and the '11 before we kept calculation records' line should be replaced with a plain one-line definition. As it stands, the flags are calm but too vague to act on, and the unexplained marks erode trust more than a clear, specific note would."
+   },
+   {
+    "design": "S",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The page agrees with itself everywhere this figure appears. The KPI tile, the narrative (\"free cash flow of $4.1B [11]\") and the table all show $4.1B. Source [11] gives the full value as 4,080,500,000 USD and labels it \"Calculated figure\". I checked it against the table: operating cash flow of $4,978.9M (source [6], linked to the original filing) minus capital expenditures of $898.4M is exactly $4,080.5M. The note above the table also says free cash flow is calculated from filed figures. I didn't give it a 5 for two reasons. Nowhere does the page state the formula (operating cash flow minus capex); I worked it out myself. And the citation carries a superscript \"b\" that the page never explains.",
+    "trust_revenue_fy2018": 3,
+    "trust_revenue_reason": "Judging from the page alone, nothing marks this number as different from any other year. It shows up as a plain $5.1B with -12.4%, and the chart shows the same dip. The table header says revenue comes from filed figures, while only margins, free cash flow, working capital and the current ratio are calculated. The page's own math hangs together: $5.9B less 12.4% is about $5.1B, and the next year's +27.4% gets to $6.6B. My only hesitation comes from a pattern the page shows but never comments on. In the same year net income rises 104%, operating margin jumps to 49.3% and net margin to 47.5%, sharp outliers against 35% and 33% on either side. In a year when revenue fell, that is odd. I would click the value to see its source, but nothing asks me to. None of the 13 sources in the AI section reach back before FY2023, so I can't see FY2018's provenance without clicking.",
+    "noticed_issue_with_fy2018_revenue": false,
+    "page_evidence_for_revenue": "Nothing on the page. FY2018 revenue appears as \"$5.1B\" over \"-12.4%\" with no mark, footnote or note. The only hint is indirect and the page never points it out: the same column shows net income \"+104.0%\", operating margin \"49.3%\" and net margin \"47.5%\", outliers on the margins chart.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B (-12.4%) and the FY2019 +27.4% that depends on it. (From memory, not the page: I recall Regeneron's 2018 total revenue was about $6.7B, so $5.1B looks wrong. I kept this out of the page-based scores.)",
+     "FY2018 operating margin 49.3% and net margin 47.5%: outliers that follow directly from the FY2018 revenue figure",
+     "Long-term debt: '$0.00' in FY2019 against '—' (unavailable) for FY2016-FY2018, then a flat $2.0B with +0.1% every year",
+     "Investing cash flow FY2020 -$70.6M (neighbouring years are about -$1.5B to -$5.4B) and the resulting FY2021 change of -7,527.1%",
+     "Financing cash flow FY2017 -$24.4M and changes such as -681.6%, -227.0% and -216.0%",
+     "FY2021 revenue $16.1B (+89.1%) and net income $8.1B (+129.9%): real but probably one-off. The page doesn't say why.",
+     "FY2025 free cash flow $4.1B: it checks out (operating cash flow $4,978.9M minus capex $898.4M) but is worth confirming against the cash flow statement"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "Superscript 'b' on citations such as '[8]b', '[11]b' and '[13]b'. Nothing on the page explains it. It's puzzling rather than alarming, but I don't know what it is telling me.",
+     "The 'b' appears on some calculated figures (margins, FCF) but not others ([2] Revenue CAGR and [12] Current ratio are also calculated, labelled 'Calculated from recorded inputs'), so the mark seems inconsistent",
+     "The sources list shows long raw decimals, e.g. '24.945443390109393%', '0.1277642638015346 (growth fraction)' and '4.125515062723194 (ratio)'. It reads like debug output, not a finished product.",
+     "Citation chips are dense and repeated in the narrative. 'Growth quality' repeats '+2.1% [3] [5]' three times, and the stilted sentences read like a robot wrote them.",
+     "Very large percentages in the table: '-7,527.1%', '-681.6%', '-227.0%'. The table says 'n/m means not meaningful', but these weren't shown as n/m.",
+     "'Long-term debt $0.00' for FY2019 next to '—' for earlier years, and the balance-sheet chart line plunging to zero at '19",
+     "The 'Red flags' heading is a slightly strong label for a 5.9pp margin compression, though the content itself is measured",
+     "Three overlapping disclaimers (under the AI analysis, below the table, in the footer). The AI one says sources 'do not verify every nearby narrative figure or conclusion. The analysis can be incomplete or wrong.' Honest, but it chips at confidence.",
+     "KPI tile labels 'FY2025 CAGR' and 'FY2025 Chg' are ambiguous: they are actually FY2016-FY2025 figures",
+     "Nothing like a large warning badge or 'needs source check' label appears anywhere. The page feels calm, not dramatic."
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "The 'SOURCES · FILED AND CALCULATED FIGURES' list at the bottom of the AI trend analysis card. Each numbered chip [1]-[13] maps to an entry there, and filed values have an 'Original filing' link. For any number in the 'Metrics by period' table, the note says 'Select any value for its source and full precision', so I would click the cell (e.g. FY2018 revenue).",
+    "what_marks_mean": "The bracketed green chips [1]-[13] are citations to the numbered Sources list. Some chips carry a superscript 'b' ([8]b, [9]b, [10]b, [11]b, [13]b). My guess is that it marks a figure derived from filed numbers rather than filed directly, because each one matches a 'Calculated figure' entry. The page never defines it, and the CAGR [2] and current ratio [12] entries are also calculated but carry no 'b', so I'm not sure. The '—' in the table means unavailable (the balance sheet chart says 'Long-term debt: unavailable for FY2016, FY2017, FY2018'). 'n/m' is defined as not meaningful (I didn't see it used). 'pp' means percentage points. Green and red show the direction of the change, and grey changes on capex and cash flow rows look neutral.",
+    "one_change": "Remove the unexplained superscript 'b' from routine calculated figures. The Sources list already says 'Calculated figure', and the table note already says which rows are derived, so a single line of fine print is enough. Use an inline mark only for the rare figure that fails a consistency check (such as FY2018 revenue), and keep it quiet: a small dot or dotted underline with a hover note like 'differs from a later filing — see source'. Explain that mark in one line of fine print. That keeps the page calm while warning me about the one number I should actually question."
+   },
+   {
+    "design": "S",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "It ties out on the page. Operating cash flow of $4,978.9M (source [6], linked to the original filing) minus FY2025 capex of $898.4M in the table gives $4,080.5M, which is exactly source [11]. It is labelled \"Calculated figure\", and the table note says free cash flow is calculated from filed figures. I didn't give it a 5 for three reasons. The [11] entry has no \"Original filing\" link, and the capex input isn't cited anywhere in the narrative. The formula (OCF minus capex, and which capex line) is never written out. And the superscript \"b\" next to it is never explained.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "Based on the page alone, the FY2018 column doesn't add up. Revenue falls 12.4% to $5.1B, yet operating income rises 21.9% to $2.5B, net income rises 104% and diluted EPS rises 106%. Operating margin jumps to 49.3% and net margin to 47.5%, against about 34-35% in the years either side. The Margins chart also spikes at '18. A revenue drop combined with a sharp margin spike usually means the revenue line picked up the wrong concept or a partial total. The page gives no marker, footnote or \"check\" note on this cell. It looks exactly like every other figure, so I'd have to click it and go to the filing myself.",
+    "noticed_issue_with_fy2018_revenue": false,
+    "page_evidence_for_revenue": "Nothing on the page flags it. There is no mark, footnote or note on the FY2018 revenue cell or its -12.4% delta. The only hint I could get from the page was by cross-checking the numbers myself: revenue is $5.1B (-12.4%) while operating income is $2.5B (+21.9%), operating margin is 49.3% and net margin is 47.5% in the same column, plus the '18 spike in the Margins chart. The page itself never presents this as a problem.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B (-12.4% YoY): inconsistent with operating income +21.9%, operating margin 49.3% and net margin 47.5% in the same column (from memory, REGN's FY2018 total revenue was about $6.7B; I've kept that out of the page-based scores)",
+     "FY2018 operating margin 49.3% and net margin 47.5%: these depend on the revenue denominator above",
+     "FY2025 net margin 31.4% above operating margin 24.9%: implies large non-operating income, which the narrative never explains",
+     "FY2020 investing cash flow -$70.6M against -$2.0B in FY2019 and -$5.4B in FY2021, which produces the -7,527.1% delta",
+     "FY2025 capex $898.4M: an input to the $4.1B free cash flow figure with no filing link in the sources",
+     "Long-term debt: $0.00 in FY2019, then a flat $2.0B with +0.1% deltas; the note says FY2016-FY2018 are unavailable",
+     "Headline card 'Net margin 31.4%, FY2025 Chg +13.0pp': this reads like a year-on-year change, but it is the FY2016-FY2025 change (YoY was +0.3pp)",
+     "Headline cards labelled 'FY2025 CAGR' without stating the period"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "Nothing on the page is visually alarming; the palette and layout are calm",
+     "Unexplained superscript 'b' next to some citations and source values ([8]b, [9]b, [10]b, [11]b, [13]b). It is never defined, so it reads as a footnote with nothing behind it",
+     "Inconsistent labels: [2] and [12] say 'Calculated from recorded inputs' with no 'b', while [8]-[11] and [13] say 'Calculated figure' with a 'b'. The difference is unclear",
+     "Raw floating-point precision in the source list looks like debug output, e.g. '24.945443390109393%' and '(0.1277642638015346 (growth fraction))' with double parentheses",
+     "Repetitive, mechanical AI prose: 'net income growth of +2.1% [3] [5] was above revenue growth of +1.0% [1] [4]' restates figures from the previous sentence, and two or three citation pills per clause add visual noise",
+     "Three separate disclaimers (below the analysis, above the footer, and in the footer). The line 'The analysis can be incomplete or wrong' slightly undercuts confidence",
+     "The FY2018 anomaly sits in the table with no marking, which is worse for trust than a quiet flag would be",
+     "The 'Red flags' heading is fine in tone but covers only margin compression, not the FY2018 data oddity or net margin exceeding operating margin",
+     "The floating 'Feedback' pill in the left margin is a minor distraction"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "The 'Sources · Filed and calculated figures' list under the AI trend analysis: the numbered citation pills [1]-[13] map to it, and SEC-filed values have 'Original filing' links. For table cells, the 'Metrics by period' note says 'Select any value for its source and full precision', so I would click the cell.",
+    "what_marks_mean": "There are numbered citation pills [1]-[13] that point to the sources list. A superscript 'b' appears on some citations and source values ([8], [9], [10], [11], [13]); I guess it marks a figure EarningsNerd derived rather than one taken directly from the filing, but the page never defines it. '–' means the value is unavailable, and the page defines 'n/m' as 'not meaningful'. Green and red deltas show favourable and unfavourable year-on-year moves; grey deltas on capex, investing and financing cash flow appear to be direction-neutral. The 'PRO' badge marks the paid feature.",
+    "one_change": "Drop the unexplained 'b' superscript, or define it in one short line beside the sources list and the table; the 'Calculated figure' text already carries that meaning. Then save the one visible signal for figures that fail an internal consistency check, like FY2018 revenue falling 12.4% while operating income rises 21.9%. Mark those with a quiet dotted underline and a hover note such as 'Check against filing: margin moves inconsistent with revenue', instead of tagging every calculated figure or adding a loud badge."
+   }
+  ]
+ },
+ "retest": {
+  "labels": {
+   "R2": "quiet, leak fixed",
+   "S2": "no marks, leak fixed"
+  },
+  "results": [
+   {
+    "design": "R2",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The figure checks out from what the page shows. Source [11] gives \"Free cash flow · FY2025 · $4.1B (4,080,500,000 USD) · Calculated figure\". Operating cash flow of $4,978,900,000 (source [6], linked to the original filing) minus FY2025 capex of $898.4M from the table is exactly $4,080.5M. The KPI card, the table and the FCF CAGR all agree: $974.0M in FY2016 to $4.1B in FY2025 works out to about +17.3%. Recent years also follow the same arithmetic, for example FY2024 at $4.4B minus $755.9M is about $3.7B. I held back one point for two reasons. The capex input has no \"Original filing\" link in the source list. The page also never states that FCF means OCF minus capex; I worked that out myself.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "This score uses only what the page shows. The value carries a superscript \"a\", and the data note says it was \"restated in a later filing; we show the later value\". The page does not show the original figure or how big the restatement was. The restated figure creates a -12.4% revenue dip between a +20.8% year and a +27.4% year. In the same year, operating income rose +21.9% and net income +104.0%, which gives an operating margin of 49.3% that then falls back to 33.7%. That pattern looks odd for one company in one year. The -12.4% growth figure also seems to compare a restated FY2018 with an FY2017 that was not restated. The FY2018 margins come from the restated revenue but carry no marker. The AI analysis never mentions the dip. I would not use this number until I had checked it against the filings.",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "There is a superscript \"a\" on \"$5.1B\" and on \"-12.4%\", and \"Notes a\" chips appear on the Revenue chart and the table header. The collapsed Data notes line under the table says: \"a Revenue FY2018, FY2019: restated in a later filing; we show the later value\". The table pattern itself also stands out: revenue goes from $5.9B to $5.1B (-12.4%) while operating margin goes from 35.4% to 49.3% and net income rises +104.0%. The note is worded like a routine housekeeping footnote rather than a warning, so I noticed it mainly because the numbers around it don't fit together.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and its -12.4% growth: compare with the originally filed FY2018 figure, which the page does not show",
+     "FY2019 revenue $6.6B (restated) and the FY2020 growth of +29.6% calculated from it",
+     "FY2018 operating margin 49.3% and net margin 47.5%: derived from the restated revenue but not marked, and the page doesn't say whether operating income was restated too",
+     "FY2018 net income $2.4B (+104.0%) and EPS $22.65 (+101.0%)",
+     "FY2020 investing cash flow -$70.6M, which is far out of line with the other years, and the FY2021 change of -7,527.1%",
+     "Long-term debt: '—' for FY2016-FY2018, '$0.00' for FY2019, then a flat $2.0B for FY2020-FY2025",
+     "FY2021 revenue $16.1B (+89.1%) and the FY2022 drop to $12.2B (-24.3%): one-off or recurring?",
+     "FY2025 capex $898.4M, the input to free cash flow that has no linked source"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "The 'Red flags' heading in the AI analysis sounds dramatic for a single 5.9pp operating-margin compression",
+     "Meaningless huge percentages that are not shown as n/m even though the page defines n/m: investing cash flow '-7,527.1%', financing '-681.6%', '-227.0%', '-216.0%'",
+     "Red and green deltas in nearly every cell of the table, with inconsistent colours: the current-liabilities CAGR '+15.0%' is red while the capex CAGR '+6.4%' is grey",
+     "The KPI cards read 'FY2025 CAGR +12.8%' and 'FY2025 Chg +13.0pp', which look like one-year changes but are 9-year figures. All four are green, which feels flattering next to FY2025 revenue growth of +1.0% and a falling operating margin",
+     "Raw machine precision in the source list ('24.945443390109393%', '0.1277642638015346 (growth fraction)') looks like a debug dump",
+     "Dual-axis charts: in Cash generation, net income uses a right axis (top $8.1B) and OCF/FCF use a left axis (top $7.1B), so lines that look close are on different scales. The left ticks are also unevenly spaced ($7.1B, $6.0B, $4.0B)",
+     "The FY2018 revenue bar dips in the chart and looks like a real business decline. The small 'a' glyphs on the bars and line points are easy to miss and add clutter",
+     "Long-term debt shows as '$0.00' and jumps vertically in the balance-sheet chart. The '$0.00' format on axes measured in billions looks odd",
+     "The AI prose is repetitive and robotic ('was above... was above') and covers only FY2023-FY2025. It says nothing about the FY2018 dip or the FY2021 spike in a 10-year 'multi-period' analysis",
+     "'Cached · Served from an earlier run' made me wonder briefly whether the commentary is stale",
+     "Missing: the originally filed value and the size of the restatement, and any explanation for the large swings"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "There are three places. (1) The 'Sources · Filed and calculated figures' list at the bottom of the AI trend analysis: the [1]-[13] chips in the text link to entries with 'Original filing' links or 'Calculated figure' labels. (2) In the 'Metrics by period' table, the page says 'Select any value for its source and full precision', so you click a cell. (3) The collapsed 'Data notes' line under the table, which the 'Notes a' chips point to.",
+    "what_marks_mean": "A superscript 'a' appears on FY2018 and FY2019 revenue and on the FY2018-FY2020 growth figures. It means the revenue was restated in a later filing and the page shows the later value; FY2020 growth carries it because its base year was restated. The 'Notes a' chips on the Revenue chart and the table header point to that note. Small 'a' circles on the revenue bars and the YoY line mark the same years. '—' means not in the data (long-term debt FY2016-FY2018). 'n/m' means not meaningful; it is defined, but I didn't see it used. Bracketed [1]-[13] are citations to the source list. 'pp' means percentage points, '×' is a ratio, 'PRO' is the plan badge and 'Cached' means the commentary was served from an earlier run. Note that the FY2018 margins, which come from the restated revenue, carry no 'a'.",
+    "one_change": "Replace the tiny superscript 'a' and the collapsed footnote with a labelled caveat right at the figure. It should show the originally filed value next to the restated one, with the difference and links to both filings, and say that growth across that boundary mixes restated and unrestated bases. It should also carry onto every figure derived from it: the FY2018-FY2020 growth figures, the FY2018-FY2019 margins and the chart bars."
+   },
+   {
+    "design": "R2",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The figure checks out on the page. Source [11] gives FCF FY2025 as 4,080,500,000 USD, marked \"Calculated figure\". Operating cash flow [6] is a filed figure of 4,978,900,000, and the table shows FY2025 capex of $898.4M. 4,978.9 - 898.4 = 4,080.5, so it reconciles to the dollar. The table header also says FCF is calculated from filed figures. I took off one point because the source entry does not show the formula and does not cite the capex input. Capex is not among the 13 sources, so I have to rebuild the number myself. It also does not say which cash-flow line counts as capex.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "The page itself marks this value as unusual. $5.1B and its -12.4% growth both carry a superscript \"a\". The data note says FY2018 and FY2019 revenue were \"restated in a later filing; we show the later value\". It does not give the original value, the reason for the restatement or which filing restated it. FY2017 ($5.9B) has no \"a\", so the -12.4% compares a restated FY2018 with an unrestated FY2017. That is likely not a like-for-like comparison. The rest of the same column looks inconsistent with a 12% revenue fall: operating income +21.9%, net income +104%, operating margin up 13.8pp to 49.3% and net margin 47.5%. A dip between +20.8% and +27.4% years, with profits rising, looks like a change in definition or presentation, not real business performance. I would not use this number or the FY2018 margins without opening the filings.",
+    "noticed_issue_with_fy2018_revenue": true,
+    "page_evidence_for_revenue": "The table shows \"$5.1B^a\" and \"-12.4%^a\" (FY2019 $6.6B^a, and the FY2019 and FY2020 growth figures are also marked \"a\"). There are \"Notes a\" chips on the Revenue & growth chart and the Metrics by period table, and small \"a\" markers on the FY2018 and FY2019 bars and growth points. The Data notes under the table say: \"a Revenue FY2018, FY2019: restated in a later filing; we show the later value\". The FY2018 column also has internal tension: revenue -12.4% against operating income +21.9%, net income +104.0%, operating margin 49.3% (+13.8pp) and net margin 47.5% (+27.1pp).",
+    "used_outside_knowledge": false,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B and FY2019 $6.6B (restated): I'd want the originally filed values and the reason for the restatement",
+     "FY2018 revenue growth -12.4%: it compares restated FY2018 with unrestated FY2017",
+     "FY2018 operating margin 49.3% and net margin 47.5%, which may be inflated by the restated revenue base",
+     "FY2025 capital expenditures $898.4M: the uncited input to the $4.1B FCF",
+     "FY2020 investing cash flow of -$70.6M, an outlier next to -$2.0B and -$5.4B, followed by a -7,527.1% change",
+     "Long-term debt: $0.00 in FY2019, then a flat $2.0B for FY2020-FY2025, with dashes for FY2016-FY2018",
+     "FY2021 net income $8.1B on revenue $16.1B (50.2% net margin) and the FY2022 reversal",
+     "FY2025 current ratio 4.13x and working capital $13.7B (current assets $18.0B, current liabilities $4.4B)"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "The 'Red flags' heading feels a little dramatic for one moderate item (operating margin 30.9% to 28.1% to 24.9%), though the text itself is measured",
+     "The AI analysis is 'Cached - Served from an earlier run' with no timestamp or data as-of date anywhere on the page",
+     "Dual-axis charts plot dollar series against each other on different scales. Cash generation has net income on a $0-$8.1B right axis and OCF/FCF on a $0-$7.1B left axis, which invites false visual comparisons. Balance sheet does the same with equity against debt and cash",
+     "A hover tooltip is frozen open on the Margins chart (FY2023) and covers part of the lines",
+     "False-precision source strings look like debug output, e.g. '24.945443390109393%' and '0.1277642638015346 (growth fraction)'",
+     "Meaningless percentage changes on negative cash-flow lines (-7,527.1%, -681.6%, -227.0%) are not marked n/m, even though the page defines n/m",
+     "Every table cell carries a red or green delta, which makes the table dense",
+     "The AI prose is mechanical and repetitive ('net income growth of +2.1% [3][5] was above revenue growth of +1.0% [1][4]'). It ignores the FY2021 spike, the FY2022 drop and the FY2018 restatement that dominate the charts",
+     "The restatement explanation sits in a collapsed 'Data notes' line below the table, where it is easy to miss",
+     "KPI cards say 'FY2025 CAGR +12.8%' without stating the window (FY2016-FY2025 is only implied)",
+     "Missing: fiscal year-end dates, a currency statement on the table (USD appears only in sources), a definition of FCF, original as-filed values for restated items, and filing dates or accession numbers"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "Three places. First, the 'Sources - filed and calculated figures' list at the end of the AI trend analysis: the bracketed citations [1]-[13] map to it, and filed values have 'Original filing' links. Second, the Metrics by period table, which says 'Select any value for its source and full precision'. Third, the 'Data notes' disclosure under the table.",
+    "what_marks_mean": "Superscript 'a' on FY2018 and FY2019 revenue, on the FY2018-FY2020 growth figures and on the revenue chart bars and points means the value was restated in a later filing and the later value is shown. The 'Notes a' chips point to that note. Bracketed [1]-[13] are citations to the sources list. '—' means the value is not in their data (3 cells, long-term debt FY2016-FY2018). 'pp' means percentage points, 'x' is a ratio, and 'n/m' (defined but none visible) means not meaningful. The 'PRO' badge marks a paid feature, and the 'Cached' chip means the AI text came from an earlier run.",
+    "one_change": "Show restatements inline where the number appears. Hovering or clicking the 'a' should give the originally filed value, the restated value, the restating filing and date, and the reason. YoY growth that crosses a restatement boundary (FY2017 to FY2018) should either use a restated comparative or be marked not comparable (n/m), rather than showing -12.4% beside a superscript whose explanation is collapsed below the table."
+   },
+   {
+    "design": "S2",
+    "persona": "retail",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The page shows how the figure was built, and the arithmetic checks out. Source [11] labels it a \"Calculated figure\" of 4,080,500,000 USD. Operating cash flow of $5.0B (4,978,900,000 USD, [6], linked to \"Original filing\") minus FY2025 capital expenditures of $898.4M gives exactly $4,080.5M. The same $4.1B appears in the KPI card, the Cash generation chart, the commentary and the table. It's not a 5 because capex has no source citation in the commentary, and the page never spells out its free cash flow formula; it only says the figure is \"calculated from filed figures.\"",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "Judging from the page alone, the FY2018 column doesn't add up. Revenue is $5.1B, down 12.4%. In the same year operating income rises 21.9% to $2.5B, operating margin jumps 13.8pp to 49.3%, and net margin jumps 27.1pp to 47.5%. Then revenue rebounds 27.4% in FY2019 while both margins drop back about 15pp. A sales dip that comes with a spike in profitability is the kind of thing I'd expect to see explained or flagged. The page does neither: no note on the cell, and the \"Red flags\" section only covers FY2023-25 margin compression. FY2018 revenue isn't cited in the AI commentary, so I'd have to click the cell to find its source. Separately, I remember Regeneron's reported 2018 revenue being well above $5.1B. I've tried to keep that out of this score, but it's why I'd rate this figure even lower if I weren't limited to the page.",
+    "noticed_issue_with_fy2018_revenue": false,
+    "page_evidence_for_revenue": "Nothing on the page flags it: no mark, footnote or caveat on the FY2018 revenue cell, and the \"Red flags\" section doesn't mention it. The only hint is indirect, in the table's own numbers. Revenue FY2018 is \"$5.1B\" with \"-12.4%\" in red. In the same column, Operating income is \"$2.5B +21.9%\", Operating margin \"49.3% +13.8pp\", Net income \"$2.4B +104.0%\" and Net margin \"47.5% +27.1pp\". The Margins chart also peaks near 49% at '18. You only see the problem by comparing rows yourself.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 revenue $5.1B (-12.4%) and the FY2017 $5.9B -> FY2018 $5.1B -> FY2019 $6.6B path",
+     "FY2018 operating margin 49.3% and net margin 47.5% (big outliers next to 33.7%/32.3% in FY2019)",
+     "FY2021 operating margin 55.7% / net margin 50.2% and revenue +89.1%",
+     "Net margin above operating margin in FY2024-FY2025 (31.4% vs 24.9%), which the page doesn't explain",
+     "FY2020 investing cash flow -$70.6M between -$2.0B (FY2019) and -$5.4B (FY2021), shown with a -7,527.1% delta",
+     "Long-term debt: '-' for FY2016-2018, '$0.00' in FY2019, then $2.0B from FY2020 onward",
+     "FY2017 financing cash flow -$24.4M vs -$700.5M in FY2016",
+     "FY2025 free cash flow $4.1B = OCF $5.0B - capex $898.4M (I checked this and it reconciles)"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "The FY2018 column: revenue down 12.4% while operating income is up 21.9%, net income up 104.0% and margins spike to 49.3%/47.5%, with no explanation or flag. The 'Red flags' section doesn't mention it.",
+     "Absurd percentage deltas on negative cash flows: investing cash flow '-7,527.1%' (FY2021), financing '-681.6%', '-227.0%', '-216.0%'. It's noise that makes the table look machine-generated.",
+     "Unrounded raw numbers in the sources list: '24.945443390109393%', '0.1277642638015346 (growth fraction)', '4.125515062723194 (ratio)'. They look like debug output, not a finished product.",
+     "The AI commentary is robotic and repetitive. 'net income growth of +2.1% [3] [5] was above revenue growth of +1.0% [1] [4]' appears twice in one paragraph, and 'The current ratio was 4.13x ... above 1.00x' is filler. The 'Growth quality' section says nothing about quality.",
+     "KPI cards say 'FY2025 CAGR +12.8%', which mixes a single-year label with a multi-year growth rate. It's unclear which period the CAGR covers until you reach the table header.",
+     "Long-term debt shows '-' for FY2016-2018 but '$0.00' for FY2019, then a red '+0.1%' every year after. The formatting is inconsistent and the red coloring is alarmist for a flat number.",
+     "The 'Red flags' heading is a bit dramatic for what follows, while it misses the clearest anomaly in the data.",
+     "The page doesn't explain why net margin exceeds operating margin in recent years.",
+     "The 'Cached - Served from an earlier run' badge makes me wonder how fresh the commentary is, though it's honest.",
+     "The footer says 'The analysis can be incomplete or wrong.' It's honest, but it puts the checking burden back on me.",
+     "Missing: no filing date, form type or accession number shown per fiscal year in the table. Provenance only appears when you click a cell or for the 13 cited figures.",
+     "The Margins chart has a tooltip stuck open on FY2023, and the floating 'Feedback' pill sits in the left margin. Both are minor."
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "There are two places. First, the numbered citation chips [1]-[13] in the AI trend analysis map to the 'Sources - Filed and calculated figures' list, which has 'Original filing - SEC filing' links for filed figures and 'Calculated figure' labels for derived ones. Second, the 'Metrics by period' table, which says 'Select any value for its source and full precision', so you click the cell. FY2018 revenue isn't among the cited figures, so clicking its table cell is the only route.",
+    "what_marks_mean": "[1]-[13] bracketed chips are citations into the Sources list. 'Original filing' is a link to the SEC filing for a filed figure. 'Calculated figure' and 'Calculated from recorded inputs' mark derived values. The small green or red numbers under each table value are the change vs the prior year (green good, red bad; grey on the capex, investing and financing cash flow rows, which seem to have no good/bad direction). 'pp' means percentage points, 'x' means a ratio. '-' means unavailable (the chart note says long-term debt is unavailable for FY2016-2018). 'n/m' means not meaningful; it's defined in the table intro, but I didn't see it used. The 'PRO' badge marks a paid feature, the 'Cached' badge means the commentary comes from an earlier run, and 'RE' looks like a placeholder logo. I saw no warning or data-quality marks next to any figure.",
+    "one_change": "Add a visible per-cell data-quality marker, a small warning dot with a tooltip and a legend, on values that fail the page's own cross-checks. FY2018 is the example: revenue falls 12.4% while operating income rises 21.9% and margins jump to about 49%. Those flags should also feed the 'Red flags' section, so readers don't have to click every cell or spot inconsistencies across rows themselves."
+   },
+   {
+    "design": "S2",
+    "persona": "pro",
+    "trust_overall": 3,
+    "trust_fcf_fy2025": 4,
+    "trust_fcf_reason": "The figure ties out on the page. Source [11] marks it as a \"Calculated figure\" (4,080,500,000 USD). The table shows operating cash flow of $5.0B, cited as [6] with an \"Original filing\" link to 4,978,900,000, and capex of $898.4M. 4,978.9 minus 898.4 is 4,080.5, so the math holds and full precision is shown. I took off one point for three reasons. The page never states the FCF definition; I had to infer OCF minus capex. The capex input has no source entry or filing link of its own. And the \"Original filing\" link carries no form type, filing date or accession number, so I can't see which 10-K, or which amendment, the figure came from without clicking.",
+    "trust_revenue_fy2018": 2,
+    "trust_revenue_reason": "Judging from the page alone, the $5.1B sits in the table with the same confidence as every other cell. It has no inline source, no footnote, and no note on accounting changes; 2018 is a year in which revenue recognition could have changed. The surrounding numbers look wrong for an ordinary year. Revenue falls 12.4%, yet operating income rises 21.9% and net income rises 104%. Operating margin jumps to 49.3% and net margin to 47.5%, both in the margins chart as an isolated peak. Then FY2019 revenue rises 29.6% while operating income drops 12.8%. A dip followed by a rebound alongside a margin spike usually means the revenue concept changed or a component is missing. Nothing on the page explains it, so I would click through before using it.",
+    "noticed_issue_with_fy2018_revenue": false,
+    "page_evidence_for_revenue": "Nothing on the page flags it: no mark, warning, footnote or source chip sits next to FY2018 revenue $5.1B / -12.4%. The only cue is indirect and has to be pieced together from other rows: operating income +21.9%, net income +104.0%, operating margin 49.3% (+13.8pp), net margin 47.5% (+27.1pp) in the same year, then FY2019 revenue +29.6% with operating income -12.8%. That pattern is odd, but the page presents it as normal data.",
+    "used_outside_knowledge": true,
+    "figures_you_would_check": [
+     "FY2018 Revenue $5.1B (-12.4%) and the FY2019 rebound +29.6%: likely a change in revenue concept or definition",
+     "FY2018 Operating margin 49.3% and Net margin 47.5%, which depend on that revenue figure",
+     "Long-term debt FY2016-FY2019: shown as '—' for FY2016-18 (note says unavailable) but '$0.00' for FY2019; is that truly zero or missing?",
+     "FY2020 Investing cash flow -$70.6M versus -$2.0B the year before and -$5.4B the year after",
+     "FY2016 Financing cash flow -$700.5M versus FY2017 -$24.4M",
+     "FY2025 Capital expenditures $898.4M, which feeds FCF but has no source entry of its own",
+     "FY2021 Net income $8.1B / net margin 50.2% and EPS diluted $71.97",
+     "KPI card 'Net margin 31.4%, FY2025 Chg +13.0pp': confirm the window is FY2016-FY2025 and not year over year (the table shows +0.3pp YoY)",
+     "Revenue CAGR +12.8% FY2016-FY2025, which depends on the FY2016 base of $4.9B"
+    ],
+    "visual_cleanliness": 4,
+    "alarming_or_distracting": [
+     "'Red flags' heading in the AI analysis is a dramatic label for an ordinary 5.9pp operating-margin compression",
+     "Investing cash flow FY2021 delta '-7,527.1%' and financing deltas '-681.6%', '-227.0%', '-216.0%': the page defines 'n/m means not meaningful' but does not use it for these",
+     "Signed percentage changes on negative cash-flow values (e.g. financing -$24.4M shown as '+96.5%') are confusing to read",
+     "Repeated citation chips make the narrative cluttered and robotic: '[3] [5]' appears three times in one Growth quality paragraph, which restates the same two growth rates twice",
+     "Ambiguous KPI card captions 'FY2025 CAGR +12.8%' and 'FY2025 Chg +13.0pp': the window (FY2016-FY2025) is not stated on the card, so 'Chg' reads as a year-over-year move",
+     "Cash generation chart plots net income on a separate right-hand dollar axis from OCF/FCF on the left, so same-unit lines appear to cross or converge misleadingly",
+     "Red/green on every delta cell, including red for long-term debt '+0.1%' and for rising current liabilities, is a lot of colour noise in a dense table",
+     "Long-term debt is inconsistent: '—' for FY2016-18 but '$0.00' for FY2019, and the chart line starts from zero at '19",
+     "'Cached · Served from an earlier run' with no timestamp or data as-of date",
+     "The floating 'Feedback' pill overlaps the left margin beside the charts",
+     "The 'not investment advice' disclaimer appears three times (under the AI analysis, under the table, in the footer)",
+     "Missing: filing form, filing date or accession number on sources; XBRL concept names; any restatement or accounting-change notes; any per-cell data-quality flags; visible sourcing for FY2016-FY2022 values without clicking"
+    ],
+    "site_feels_trustworthy": 4,
+    "where_to_find_source": "Two places. First, the \"SOURCES · FILED AND CALCULATED FIGURES\" list at the bottom of the AI trend analysis card. Its entries [1]-[13] give the full-precision value and an \"Original filing\" link, or say \"Calculated figure\". Second, clicking a cell in the Metrics by period table, which the note above the table says shows \"its source and full precision\". Nothing else on the page shows provenance for FY2016-FY2022 values.",
+    "what_marks_mean": "Marks and symbols seen on the page:\n- Bracketed numbers [1]-[13] in the AI narrative are citation chips that point to the Sources list.\n- A dash '—' means unavailable or not computed: long-term debt FY2016-18, and the end column for cash-flow, current-ratio and debt rows.\n- 'pp' means percentage points.\n- '×' marks a ratio.\n- Green or red delta text marks a favourable or unfavourable move; grey marks neutral rows such as capex, investing and financing.\n- 'n/m' is defined in the table note but I did not see it used.\n- The 'PRO' badge marks the paid tier.\n- The 'Cached' and '13 sources' chips sit on the AI analysis header.\n- 'RE' is a logo placeholder next to the company name.\n- 'Calculated figure', 'Calculated from recorded inputs' and 'SEC filing' tags appear in the sources list.\nI saw no data-quality, restatement or anomaly markers on any figure.",
+    "one_change": "Add a visible per-cell data-quality marker with a legend for any figure that fails a cross-period consistency check, uses a different revenue concept than adjacent years, or comes from a restated or amended filing. Example: a small flag on FY2018 revenue reading 'concept differs from FY2017/FY2019; check filing'. Pair it with a one-line provenance strip under each fiscal-year header (form, filing date, accession), so sourcing for older years is visible without clicking each cell."
+   }
+  ]
+ },
+ "rules_check": {
+  "collisions": [
+   {
+    "file": "tasks/analysis-redesign-2026-10/astra-prompt.md",
+    "line": 74,
+    "quote": "Never mark a legacy record validated from the frontend, never hide a note, never show the word \"verified\".",
+    "kind": "founder-decision",
+    "severity": "blocker-needs-founder",
+    "what_to_do": "This constraint is attributed to the founder in tasks/analysis-redesign-2026-10/review-2026-10-10.md:36 (\"the letter of a figure that needs review, which the founder's \\\"never hide a note\\\" forbids\"). Item 2 takes the on-figure letter off figures whose stored validation is needs_review (reason legacy_calculation), off unavailable values and off figures with no validation record. Today that is the exact case the P0 review called a violation. Get the founder's explicit words that \"never hide a note\" now means \"every note stays in the evidence dialog and the data notes, and only a note that questions the number keeps a mark beside it\". Record that as a new decision row in docs/brand/decisions-log.md (or the redesign doc §9) and point both astra-prompt.md and review-2026-10-10.md at it. The other two clauses still hold. The fine print and the dialog must keep counting legacy figures as needing review, and must never print \"No figures need review\" while a legacy note exists."
+   },
+   {
+    "file": "docs/design/analysis-data-notes-redesign-2026-10.md",
+    "line": 896,
+    "quote": "Changing what counts as `needs_review` or `unavailable`.",
+    "kind": "founder-decision",
+    "severity": "note",
+    "what_to_do": "This sits in the brief's out-of-scope list, beside \"Any frontend override that marks a legacy record validated, hides a note, or shows \\\"verified\\\"\" (line 895). Implement item 2 as presentation only. Keep the note's kind as review, keep the totals unchanged, and decide which notes get an on-figure mark from their reason codes in one shared helper used by the web and the exports. Reclassifying legacy_calculation in backend/app/services/trend_analysis/data_notes.py, with a new kind or a validation other than needs_review, would change what counts as needs_review. That is a separate founder call. It would also fail the strict kind check in frontend/features/analysis/lib/dataNotesContract.ts:59 for browser tabs already open."
+   },
+   {
+    "file": "DESIGN.md",
+    "line": 498,
+    "quote": "Multi-period analysis uses a neutral † for calculated figures and lettered data notes grouped by their underlying reasons. ... Only unresolved source concerns use warning ink; missing validation makes no passed-check claim. An unavailable table value is — with its note letter ... The table’s Notes chip names letters present in visible cells in report order, including unavailable values and annual window comparisons. Legends explain n/m, fiscal quarters and the Q4 flow-figure dagger ... Charts keep bars filled and mark affected observations with hollow points or note letters.",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Rewrite the Calculation Provenance Rule: no † on figures, with one sentence above the table naming the calculated metrics. A neutral superscript letter appears only for notes that question the number, never in warning ink. Unavailable values show — with no letter. The Notes chip names only marked letters. Charts mark only questioning notes. Data notes become one line of fine print below the table. Keep \"A calculation describes a figure’s origin, not a failed check\" and the evidence-dialog clauses. The rule was written by #1191 and is not a founder decision. Follow the design-docs-maintenance skill."
+   },
+   {
+    "file": ".impeccable/design.json",
+    "line": 602,
+    "quote": "\"body\": \"A calculation describes a figure’s origin, not a failed check. Multi-period analysis uses a neutral † for calculated figures and lettered data notes grouped by their underlying reasons.",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Refresh the sidecar's copy of the rule with the same words as DESIGN.md. frontend/tests/unit/designSnapshotParity.spec.ts:311-314 checks every named \"The ... Rule\" body in DESIGN.md against design.json, so editing only DESIGN.md fails CI."
+   },
+   {
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 492,
+    "quote": "Data note mark   <DataNoteMark> (analysis) — neutral † for a calculated origin, then a superscript letter for its grouped data note. ... Warning ink belongs only to unresolved review concerns; unavailable values and missing validation use secondary ink.",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Rewrite the recipe. No dagger. One neutral letter, only for a note that questions the number. No mark for legacy_calculation-only, unavailable or unknown notes. Keep the accessible-name rules (the name still states the note, and \"calculated\" if you keep it in the name) and \"Letters are snapshot-local\" (line 499). Saved snapshots store their letters (data_notes.py _finish orders review notes first), so a legacy note can keep \"a\" while the only visible letter is \"b\". Either accept that or reletter only the marked notes in the web, the PDF and the PNG together."
+   },
+   {
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 645,
+    "quote": "Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page ground, below the KPIs. The title uses primary ink; counts use the data face, with review counts in warning ink and every count beside its relevant note letters.",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Move the recipe below the metrics table as one fine-print line in neutral ink, with no warning ink. Keep the native <details> so the Notes chips can still open it and focus a note (the e2e spec relies on this), keep \"No figures need review\" (founder decision 9), and keep the sample's \"sample data (one saved run)\" (lines 659-661). The fine print must clear 4.5:1 for tests/e2e/text-floors.spec.ts. Use 12px running copy, not text-data-xs, or add an entry to dataXsAllowlist.spec.ts, whose caps are equalities."
+   },
+   {
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 564,
+    "quote": "The table's Notes chip lists only letters present in its visible cells, including unavailable values and annual window comparisons, in report note order. ... Only a period-derived Q4 receives a column dagger; ordinary arithmetic ratios do not create one. The legend explains n/m and the fiscal-quarter basis. A Q4 header dagger applies to flow figures calculated from annual totals less nine months",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Drop \"including unavailable values\" from the chip rule. Settle the scope question \"no dagger anywhere on the page\" leaves open: the Q4 column-header † (MetricsTable.tsx:68, legend :211) and the period picker's \"Q4 2023 †\" option and \"† Fourth-quarter flows…\" line (PeriodPicker.tsx:131,161) are not figures. Either keep them and say so in the one sentence, or turn them into words. The redesign doc (:915-916) requires the picker to keep calculated-Q4 availability in its options either way."
+   },
+   {
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 2083,
+    "quote": "Multi-period analysis uses neutral `† calculated` marks and lettered data notes ... Warning ink identifies an unresolved concern, never routine arithmetic. ... Unavailable table values use — with a note letter and read “Unavailable” in the evidence view ... Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Update §10. Hollow points and letters apply only to notes that question the number, not to legacy_calculation-only notes or gaps (a gap stays a broken line). There is no warning ink. Unavailable values read — with no letter. PNG notes follow the same rule. Keep the halo, keyboard and tooltip mechanics, and keep \"Do not remove inherited concerns from growth\" for questioning notes."
+   },
+   {
+    "file": "lessons/arch-reconciliation-follows-values-and-growth.md",
+    "line": 20,
+    "quote": "same letters, reason identities and counts across the report and exports; keep a mark at each affected figure.",
+    "kind": "lesson",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Lessons outrank docs (AGENTS.md §2). Lines 15-16 also say \"Frontend metric/KPI/trend/narrative regression cases pin the corresponding visible warnings; mutations removing these paths must fail those tests.\" Once the founder confirms the first item, amend the rule to: a mark at each figure whose note questions the number; every note, legacy included, in the dialog, the data notes and the exports. Keep the gates that pin questioning marks. CLAUDE.md also asks for a lesson after any user correction, and \"is your proposal overkill\" is one."
+   },
+   {
+    "file": "docs/design/analysis-data-notes-redesign-2026-10.md",
+    "line": 912,
+    "quote": "A single page-level banner for exceptions was rejected: it would say that something is wrong without saying where. The letter beside each affected figure keeps material exceptions apparent at the point of use at a cost of two characters.",
+    "kind": "design-rule",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "The quiet scheme keeps this reasoning for questioning notes and drops it for the rest. Add a dated supersession note: §1 items 2–3 (:31-34, \"`†` for calculated and a letter in warning ink\", \"One **Data notes strip** under the headline cards\"), §4.2 (:303-305), §4.3 position (:326, \"Position: under the KPI strip … so it is the legend for everything below\") and the §4.10 vocabulary table (:576, `26.1%†ᵃ`, `—ᵇ`) are replaced. The §9 decisions stay in force: 1 (letters), 3, 6 (glyph budget) and 9 (\"Unavailable\" / \"No figures need review\") are all compatible."
+   },
+   {
+    "file": "docs/mpa-improvements/coherence.md",
+    "line": 230,
+    "quote": "**One key beside every mark.** No surface shows a mark whose meaning is only in a collapsed disclosure.",
+    "kind": "other",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "This branch's own report recommends the scheme the founder just called overkill. It calls for a ringed review letter (:33, \"a review letter is ringed, so it never depends on colour alone\"), \"needs a source check\" in warning ink on the KPI period line (:314), warning-ink fonts in the workbook (:320) and a key beside every mark. Fine print below the table puts a KPI letter's key far from it. Rewrite §0.3, §2.1–2.5, the WP1 row of §6 and the prototype (docs/mpa-improvements/prototype/notation-prototype.diff) for the quiet scheme. Record why §3.4's comprehension evidence (the reader had to guess what \"a\" meant) is still covered: the figure's accessible name, the dialog and the one sentence."
+   },
+   {
+    "file": "frontend/tests/e2e/analysis-layout.spec.ts",
+    "line": 116,
+    "quote": "await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Update the browser gate and its fixture (frontend/tests/e2e/fixtures/analysisLayoutApi.ts:117-195). Dagger counts are pinned at lines 120 and 362, EXPECTED_KPI_VALUES.daggers and EXPECTED_TABLE_VALUE_DAGGERS = { all: 101 … }. The legacy state's review letters (EXPECTED_KPI_LETTERS.legacy, EXPECTED_TABLE_CELL_NOTES.legacy, EXPECTED_TABLE_REVIEWS.legacy, EXPECTED_TABLE_COMPARISON_REVIEWS.legacy) come from legacy_calculation and become zero marks. The unavailable marks (:356, unavailableLetter) go. The chip name at :385 must drop the unavailable letter. The summary text at :457-472 changes with the fine-print copy. The chip-to-note focus at :507-510 needs the disclosure kept. Keep the discrepancy state's letters as the proof that questioning notes stay marked."
+   },
+   {
+    "file": "frontend/tests/unit/metrics-table.spec.tsx",
+    "line": 73,
+    "quote": "it('renders values, deltas, the derived dagger, and — for missing points', () => { ... expect(screen.getByText('† calculated')).toBeInTheDocument() ... expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Replace the \"† calculated\" chip assertion with the sentence above the table, and decide whether an unavailable value's accessible name still says \"data note\". Lines 355-367 pin the Q4 header † and its legend; change them only if the header dagger goes. Also update frontend/tests/unit/analysis-table-format.spec.ts:41-43 (tableTokenBudget(true, 'a') is 7): features/analysis/lib/tableFormat.ts:19-20 subtracts a glyph for the dagger, so dropping it frees a glyph under founder decision 6."
+   },
+   {
+    "file": "frontend/tests/unit/narrative-pane.spec.tsx",
+    "line": 271,
+    "quote": "expect(chip.querySelector('[data-note-kind=\"review\"]')).toHaveTextContent('a')",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "This case (from :261) is a legacy_calculation citation, so under item 2 its chip loses the letter. Assert there is no mark, while the source entry and #analysis-data-note-a still say \"Its inputs need review.\" Lines 286-296 (the source list's review and unknown marks) and 316 also change. Keep the chips for questioning notes (e.g. source_conflict) asserted."
+   },
+   {
+    "file": "frontend/tests/unit/trend-charts-annotation.spec.tsx",
+    "line": 127,
+    "quote": "revenue.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "These chart cases (:127, :149, :166, with chips \"Review data notes a, b\" at :158 and :228) build their letters from legacy_calculation and gaps. Switch them to a questioning reason, or assert no hollow point or letter for legacy. Do the same in frontend/tests/unit/chart-export.spec.ts:67-98: the PNG \"Note a\" for a legacy YoY, and its unavailable line, which stays as a sentence."
+   },
+   {
+    "file": "frontend/tests/unit/analysis-source-quality.spec.tsx",
+    "line": 196,
+    "quote": "expect(screen.getByText('† calculated')).not.toHaveClass('bg-warning-light/10')",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "The \"† calculated\" element goes. Re-pin the summary text at :71-82, :188, :245-249 and :357 to the fine-print line (keeping \"No figures need review · N checked\"). Lines :253-286 test the legacy_calculation dialog. Keep those: the dialog still names the note."
+   },
+   {
+    "file": "backend/tests/unit/test_export_service.py",
+    "line": 648,
+    "quote": "assert \"$1,500 †\" in html",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Item 5 removes the PDF dagger (export_service.py:349-350 appends \" †\"; the footnote at :465 reads \"Letters refer to Data notes. † Calculated figure;\"). Re-pin :648 and :675. Line :677 pins '—<sup class=\"data-note\"><a href=\"#analysis-data-note-b\">b</a></sup>' on an unavailable value, which goes. The count line \"calculated †\" in analysis_export_metadata.py:113 and its assertion at :813 change too. The workbook already shows notes only in comments (test_excel_export.py:218), so it needs little."
+   },
+   {
+    "file": "backend/tests/unit/test_export_voice.py",
+    "line": 188,
+    "quote": "\"Data notes\", \"Metrics by period\", \"Narrative sources\", \"Sources & methods\", \"About this document\",",
+    "kind": "test-gate",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "The PDF prints Data notes as an h2 before the grid. If the export moves it below the table as fine print with no h2, update this heading-order pin and test_export_service.py:761 (`html.count(\"<h2>Data notes</h2>\") == 1`). Touching backend/app also triggers the paid eval-baseline run on each push (reserve first, D-056) and the whole frontend unit suite before pushing (CLAUDE.md)."
+   },
+   {
+    "file": "frontend/features/analysis/components/NarrativePane.tsx",
+    "line": 121,
+    "quote": "'Sources identify filed figures or calculated figures (marked †).'",
+    "kind": "public-promise",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "This in-product copy also renders in the teaser's sample, and it promises a † that will no longer appear. Reword, e.g. \"Sources identify filed and calculated figures.\" Apply lessons/brand-a-promise-names-what-the-code-enforces.md and grep for other copies."
+   },
+   {
+    "file": "frontend/features/analysis/components/DataNotes.tsx",
+    "line": 103,
+    "quote": "Letters identify data notes; † marks a calculated figure, not an error.",
+    "kind": "public-promise",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "Rewrite the legend for the quiet scheme (\"A letter marks a figure a note questions; select any figure for its source and calculation.\"). The \"N calculated †\" count clause at :97 also loses its dagger. Under lessons/brand-a-colour-rule-recolours-a-value-and-never-deletes-it.md, dropping a count from the strip must be named as a copy decision in the PR's What, with its reason."
+   },
+   {
+    "file": "frontend/features/marketing/components/AnalysisDemo.tsx",
+    "line": 45,
+    "quote": "<DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />",
+    "kind": "public-promise",
+    "severity": "must-update-in-same-pr",
+    "what_to_do": "The landing's demo (and AnalysisTeaser.tsx:41) puts the strip right after KpiStrip, as AnalysisPageClient.tsx:448 does. Move it below MetricsTable in all three so the landing shows the product as it is. The strip carries the sample's scope label \"sample data (one saved run)\" (DESIGN_SYSTEM.md:660, D-046/E93), which docs/brand/09-stress-test.md:43 (T11) counts on, so keep it visible in the fine print."
+   },
+   {
+    "file": "docs/design/analysis-data-notes-redesign-2026-10.md",
+    "line": 931,
+    "quote": "1. Letters (a, b, c) as the note mark, or one warning glyph for all notes. Recommended: letters.",
+    "kind": "founder-decision",
+    "severity": "note",
+    "what_to_do": "No conflict. The quiet scheme keeps letters as the note mark and only narrows which notes show one. Decisions 6 (glyph budget, :965) and 9 (\"Unavailable\" / \"No figures need review\", :973) also survive. Name them in the PR body as untouched."
+   },
+   {
+    "file": "frontend/app/analysis/page.tsx",
+    "line": 8,
+    "quote": "with source-linked figures, transparent calculations and AI-assisted commentary.",
+    "kind": "public-promise",
+    "severity": "note",
+    "what_to_do": "The meta description still holds without a visible dagger: every figure opens its method, inputs and checks in SourceValue, and the sentence above the table names the calculated metrics. No change needed."
+   },
+   {
+    "file": "frontend/features/analysis/components/NarrativePane.tsx",
+    "line": 127,
+    "quote": "Run an analysis to see cited figures checked against the company’s filed data and source warnings shown for review.",
+    "kind": "public-promise",
+    "severity": "note",
+    "what_to_do": "This shows on the teaser and the landing's sample. It stays true if questioning notes keep their letter and the fine print lists them. With warning ink gone everywhere, consider \"source concerns noted for review\" so the copy does not promise a warning style the page no longer draws (narrative-pane.spec.tsx:415 pins the sentence)."
+   },
+   {
+    "file": "frontend/DESIGN_SYSTEM.md",
+    "line": 1351,
+    "quote": "`changeNote` marks Change with a dagger the footer explains",
+    "kind": "design-rule",
+    "severity": "note",
+    "what_to_do": "The filing page's Financial Highlights keeps \"Change†\" (FinancialMetricsTable.tsx:222; tasks/evidence-row-ux-plan-2026-10-22.md:230-236), so † stays the product's sign for \"calculated\" there. The analysis change is not a contradiction. Say in the PR that the two surfaces now differ on purpose, or plan the filing page's own review."
+   },
+   {
+    "file": "lessons/brand-an-evidence-label-names-only-its-check.md",
+    "line": 59,
+    "quote": "A meaning that rides on styling alone must also reach a screen reader.",
+    "kind": "lesson",
+    "severity": "note",
+    "what_to_do": "The quiet letter carries meaning by letter, not colour, so this holds as long as the figure's accessible name keeps \"data note x\" (DataNoteMark announce path) and the sentence above the table is real text. Keep \"calculated\" in each figure's accessible name, or state the scope in the sentence, so screen-reader users keep what the dagger used to say."
+   },
+   {
+    "file": "docs/brand/00-audit.md",
+    "line": 55,
+    "quote": "the Multi-Period demo opens with \"Data notes · illustrative sample · 18 figures have no validation record · 18 comparisons have no validation record\"",
+    "kind": "other",
+    "severity": "note",
+    "what_to_do": "Supports the quiet scheme: the audit scored the demo's leading data-notes line as \"the disclaimer forgot to be a product\" (T11). After the PR, retake the landing capture referenced in docs/brand/09-stress-test.md:43 if T11 is rescored. No gate depends on it."
+   }
+  ],
+  "public_promises_that_depend_on_visible_marks": [
+   "No marketing, pricing, legal or brand page promises a visible per-figure mark. That covers the ProDepth analysis pitch (frontend/features/marketing/components/ProDepth.tsx:110), the plan lines in frontend/lib/planLimits.ts:96-103, /terms, /privacy, /security and docs/brand/*.md (whose \"each checkable figure\" promises are about filing summaries).",
+   "frontend/features/analysis/components/NarrativePane.tsx:121 (in-product, also rendered in the teaser's sample): \"Sources identify filed figures or calculated figures (marked †).\" This promises the dagger and must change.",
+   "frontend/features/analysis/components/DataNotes.tsx:103 (in-product legend): \"Letters identify data notes; † marks a calculated figure, not an error.\" This must change.",
+   "frontend/features/analysis/components/NarrativePane.tsx:127 (teaser and landing sample note): \"...source warnings shown for review.\" It holds if questioning notes keep a letter; reword if no warning styling remains.",
+   "frontend/app/analysis/page.tsx:8 (meta description): \"source-linked figures, transparent calculations\". The evidence dialog and the one sentence satisfy it without a visible mark.",
+   "The landing demo and the teaser carry the sample's scope label \"sample data (one saved run)\" inside the Data notes strip (frontend/DESIGN_SYSTEM.md:660; D-046). Moving the strip below the table must keep that scope visible."
+  ],
+  "verdict": "Most of the quiet scheme can ship as a design change. No ADR touches it. No D-0xx founder decision requires the dagger, warning ink or the strip under the KPI cards: the Calculation Provenance Rule and the † came from #1191's design work, not a founder decision. The founder's 2026-10-10 analysis decisions (letters as the note mark, the period vocabulary, the glyph budget, \"Unavailable\" / \"No figures need review\") all stay compatible. No marketing, pricing, legal or brand promise depends on a visible per-figure mark. The PR must still update a lot together: DESIGN.md's rule with the .impeccable/design.json sidecar (designSnapshotParity), the Data note mark, Analysis table, Data notes strip and §10 entries in frontend/DESIGN_SYSTEM.md, the reconciliation lesson, the superseded parts of the redesign doc, this branch's own coherence.md and prototype, the in-product copy that names the † (NarrativePane:121, DataNotes:103), the landing demo and teaser layout, and the unit, e2e and backend export tests that pin daggers, legacy and unavailable letters and the strip's place. One item needs the founder's explicit word first. Item 2 removes the on-figure letter from figures whose stored validation is needs_review (legacy_calculation), from unavailable values and from figures with no validation record. The redesign records this as the founder's \"never hide a note\", and a P0 review enforced it for exactly this case. The founder's message leans this way, so a one-line confirmation recorded as a decision (narrowing the rule to \"every note stays in the dialog and the data notes; only notes that question the number keep a mark\") is enough. Keep this presentation-only: the note kind and totals stay as they are, legacy figures are never shown as validated, and the fine print never says \"No figures need review\" while a legacy note exists. Reclassifying legacy_calculation in the backend would change what counts as needs_review, a separate founder call that also breaks the strict note-kind decoder for tabs already open. The rest is design scope: decide whether the Q4 column-header and period-picker daggers stay, and handle the letters stored in saved snapshots, where a legacy note can keep \"a\" while the only visible letter is \"b\"."
+ }
+}
