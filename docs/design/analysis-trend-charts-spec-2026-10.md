@@ -807,6 +807,11 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 
 The dark subtitle, footnotes and legend names use `chart.label.dark` because DS `text.secondary.dark #9CA3AF`
 measures Lc −48.6, which is under 60 for 12 px text.
+(2026-10-25: the analysis number system raised DS `text.secondary.dark` app-wide to gray-300 `#D1D5DB`, Lc −77.3
+on the slate panel and −80.3 on navy, and gray-400 `#9CA3AF` became `text.tertiary.dark`; see
+`frontend/DESIGN_SYSTEM.md` §2. The sentence above records the token as this audit measured it. Whether these
+dark texts take the DS secondary ink rather than `chart.label.dark` is the migration's call; this spec is
+unchanged until it makes it.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
