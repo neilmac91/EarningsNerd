@@ -202,8 +202,9 @@ says so; everything else follows the spec.
   - A currency code prints a symbol only when the browser's list of ISO 4217 codes holds it, so `ABC` and `XXX`
     print none.
 - **A labelled chart widens to print its values (E192).** At the 36 px minimum slot, A4 found no label tier for six
-  of the audit's 72 top lines (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual, on a 342 px phone card): labels
-  of six characters ("$4.86B") cannot keep 2 px apart at a 36 px pitch, and RIVN's "+2,915%" cannot either. The
+  of the audit's 72 top lines (LCID, NVDA, PLUG, REGN, REGNPN and RIVN, all annual): labels of six characters
+  ("$4.86B") cannot keep 2 px apart at a 36 px pitch, and RIVN's "+2,915%" cannot either. On a 342 px phone card
+  five of them printed no top-line value; LCID's card already gives it 41.9 px a period. The
   layout (`minChartWidth`) now gives a chart with labelled marks the narrowest whole-pixel width, at most 42 px a
   period (`LABELLED_MAX_SLOT`), at which every labelled panel has a tier; a phone card then scrolls a little
   further inside its card (REGN and NVDA 409 to 465 px, PLUG 432, RIVN 382; LCID's 342 px card already holds them).
