@@ -227,6 +227,11 @@ LEAKS = [
     # A sentence citing a segment line takes no company-wide value: NEER's net income is not NEE's.
     ("packs", "NEE", "Net income was $6.83 billion in FY2025 [F32].", "The filing ties NEER's higher results, to $6.83 billion "
      "of net income [S29], to new investments, partly offset by higher financing costs [P26]."),
+    # The substitution test's leak once segment values became slots: total revenue printed as Volkswagen Group's part of
+    # it, with the segment's own ID (S5) omitted. A phrase before the figure and "of revenue" after it name a part.
+    ("packs", "RIVN", "Revenue was $5,387 million in FY2025 [F7].", "Software growth depends on joint-venture services for "
+     "Volkswagen Group [P18], which the filing says may reduce gross profit in 2028 [P16]; Volkswagen Group was $5387 "
+     "million of FY2025 revenue."),
     # "plus" is no word of "Buybacks plus dividends": the total is not the buybacks.
     ("packs", "MSFT", "Buybacks plus dividends were $48.7 billion in FY2026 [D467].", "Buybacks of $48.7 billion plus "
      "dividends of $26.4 billion absorbed 72.7% of free cash flow [X157][D468]."),
@@ -363,6 +368,38 @@ def test_the_substitution_test_runs_both_arms_and_every_kind() -> None:
     assert counts["omitted"]["gap"]["matches_nothing"] >= 1  # with F5 out, 1.2% reads as nothing: the old route's shape
     assert not result["leaks"]["kept"] and not result["leaks"]["omitted"]
     assert result["control"]["recovered"] >= 1  # "Gross margin fell 3.9pp to 71.1% in FY2025 [D1]" gets F4 back
+
+
+def test_a_checked_peer_rank_and_a_segment_value_are_substitution_slots() -> None:
+    # Their series keys have a third part (version 2's "...|FY2025|checked") or bars of their own (a segment's
+    # members). Read by their period, they are slots like any other, so the test covers what the P and C arms cite.
+    amd, duk = _pack("packs-v2", "AMD"), _pack("packs", "DUK")
+    rank = {"section": "balance_sheet", "type": "comparison",
+            "text": "Net cash ranks at the 100th percentile of five semis peers, against a -17.3% median [D844][D845]."}
+    assert [vid for _, _, vid in autocite._slots(rank, amd)] == ["D844", "D845"]
+    # The version-1 median the checked one replaces (D827, same series under no tag) is another metric's value.
+    assert ("metric", "D845", "-13.9%") in {(kind, vid, printed) for kind, _, vid, _, printed in autocite.substitutes(rank, amd, ["D827"])}
+    segment = {"section": "drivers", "type": "fact",
+               "text": "Duke Energy Florida electric revenue rose to $6.99 billion in FY2025 [S123]."}
+    assert [vid for _, _, vid in autocite._slots(segment, duk)] == ["S123"]
+    assert ("year", "S123", "$6.49 billion") in {(kind, vid, printed) for kind, _, vid, _, printed in autocite.substitutes(segment, duk, [])}
+
+
+def test_a_tagged_values_year_swaps_stay_under_its_tag() -> None:
+    # A checked rank's year before would be its own series' (none is filed), not the version-1 rank's.
+    pack = {"values": dict([_value("D1", "Net cash % of revenue: percentile vs peers (n=6)", "FY2024", "pctile", 70.0),
+                            _value("D2", "Net cash % of revenue: percentile vs peers (n=6)", "FY2025", "pctile", 80.0),
+                            _value("D3", "Net cash % of revenue: percentile vs peers (n=5)", "FY2025", "pctile", 60.0)]),
+            "series_keys": {"peer_pctile:net_cash_to_revenue|FY2024": "D1", "peer_pctile:net_cash_to_revenue|FY2025": "D2",
+                            "peer_pctile:net_cash_to_revenue|FY2025|checked": "D3"},
+            "passages": [], "red_flags": []}
+
+    def swaps(text: str) -> set:
+        sentence = {"section": "balance_sheet", "type": "comparison", "text": text}
+        return {(kind, printed) for kind, _, _, _, printed in autocite.substitutes(sentence, pack, []) if kind == "year"}
+
+    assert swaps("Net cash ranks at the 60th percentile of five peers in FY2025 [D3].") == set()
+    assert swaps("Net cash ranks at the 80th percentile of six peers in FY2025 [D2].") == {("year", "70th percentile")}
 
 
 def test_a_licence_shows_as_a_leak_in_both_arms(monkeypatch: pytest.MonkeyPatch) -> None:
