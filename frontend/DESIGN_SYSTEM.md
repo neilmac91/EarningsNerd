@@ -619,8 +619,11 @@ Data note mark   <DataNoteMark> (analysis) — the footnote mark: a letter for a
                  and any marked inherited comparison note once; a shared figure/comparison note is named
                  once with its scope. A record-only, unknown or unavailable note is read in the dialog.
                  The separate visual change mark does not repeat the spoken note. Letters are
-                 snapshot-local, review notes first. Data notes counts distinguish values, QoQ, YoY and
-                 annual window comparisons; a missing validation record is never counted as a passed
+                 snapshot-local: the notes that mark a figure first (data notes version 2, in both
+                 producers), then review, unknown and unavailable notes, so a page's first visible letter
+                 is "a"; a snapshot saved under version 1 keeps its stored letters. The data notes count
+                 figures and growth figures apart (the model keeps QoQ, YoY and annual window counts for
+                 the exports); a missing validation record is never counted as a passed
                  check. Preserve every reason, including comparison-only concerns. Full-width status
                  Badges and nowrap labels do not belong in an analysis KPI or metrics cell.
                  Gates: tests/unit/dataNoteMarking.spec.tsx (D-061's rule, rule 12: noteMarksFigure
@@ -657,10 +660,12 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
                  its place: "unavailable" by default, the analysis evidence's word, or the site's own where
                  that would claim more than its data says ("no cohort", "no page", "no role listed",
-                 "name unavailable", "no percentage", "no takeaway", "Not included"). `relative`, so the words stay
-                 inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
-                 missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
-                 formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
+                 "name unavailable", "no percentage", "no takeaway", "Not included"), or "a dash" where the
+                 analysis data notes' fine print shows the token itself ("3 not in our data, shown as —").
+                 `relative`, so the words stay inside a truncating cell or a table's scroll box. A
+                 formatter returns null or '' for a missing value and its caller renders the element
+                 (`fmt(v) ?? <MissingValue />`), so the formatter's string fallback stays for a CSV, a
+                 title or an aria label. Never the token by
                  hand, a hidden dash with no words, or a span pair of one's own.
                  On the metrics table's figure sheet the dash takes the note ink (text-note-light
                  dark:text-note-dark: Lc 75.4 / -80.3 on the sheet) on the figure edge, with an empty
@@ -932,11 +937,14 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  that marks a figure (noteMarksFigure), in letter order, “ · ” and its letter as
                  DataNoteMark draws it (an sr-only “Note a: ” before it), its places (the metrics with
                  their periods, “Revenue Q2 2026; Net margin Q2 2026”, or for a note only on growth
-                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and the
-                 first clause of its message (up to the first “: ” or “. ”; a mixed note passes over the
-                 record-only sentence it may open with); then “ · N not in our data, shown as a dash”, never
-                 the dash itself in copy; “ · N figures with no check recorded” and, kept apart, “ · N
-                 growth figures with no check recorded”; “ · N calculated from filed figures”; and, for a
+                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and its
+                 summary words (noteSummary: each reason's clause from provenance.ts REASON_SUMMARIES,
+                 “not yet matched to the filing”, a record-only reason passed over and any other reason on
+                 SUMMARY_FALLBACK, “questioned by an automated check”, each clause once, joined by “; ”; the
+                 backend's data_notes.note_summary writes the same words); then “ · N not in our data,
+                 shown as —”, the table's dash itself, alone in a MissingValue whose words are “a dash”;
+                 “ · N figures with no check recorded” and, kept apart, “ · N growth figures with no
+                 check recorded”; “ · N calculated from filed figures”; and, for a
                  live report whose every populated figure passed, “ · No figures need review · N checked”
                  in the ink (sage never colours a number, D-030), independent of concerns on comparisons
                  (decision 9) and never while a record-only note exists, one on a growth figure included.
@@ -944,8 +952,9 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  Open, the detail lists every note, marked ones first, each an li with its stable id
                  (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
                  only for a note that marks a figure, the track kept for alignment), then its message,
-                 its metrics and periods, its counts in the data face (figures, then QoQ, YoY and annual
-                 window comparisons, distinct and never added to by a repeated appearance) and
+                 its metrics and periods, its counts in the data face (“11 figures; 16 growth figures
+                 built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
+                 figures alone, each distinct and never added to by a repeated appearance) and
                  “Comparisons: …” with their periods; an annual window keeps its recorded range. No note
                  says where on the page it appears: the comparison locators are gone. One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
@@ -961,7 +970,12 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  Gates: tests/unit/analysis-source-quality.spec.tsx and narrative-pane.spec.tsx (the
                  summary's words, the counts, the condition on “No figures need review”, the chips),
                  tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
-                 marked letters), tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
+                 marked letters), tests/unit/data-notes.spec.ts and the backend's
+                 tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
+                 summary words held to the shared notes fixture; marked notes lettered first), the
+                 backend's tests/unit/test_data_note_reasons_have_words.py (every reason the backend writes
+                 has words: a new one cannot fall back to the generic sentence unseen, rule 12),
+                 tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
