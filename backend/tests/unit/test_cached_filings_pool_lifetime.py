@@ -593,6 +593,10 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
     loop_statements: list[bool] = []
     event.listen(engine, "before_cursor_execute",
                  lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # The statements that touch the progress row: the force branch's clear is one DELETE, with no read before it.
+    progress_statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: progress_statements.append(
+        statement.split()[0].upper()) if "summary_generation_progress" in statement else None)
     loop_checkins: list[bool] = []
     event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
     # The served body projects the summary's Risks over the filing's text, CPU work that runs no SQL: where it ran.
@@ -632,6 +636,9 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
         assert loop_statements and loop_statements == [False] * len(loop_statements)
         assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
         assert built_on_loop == ([False] * 8 if stored is not None and case != "missing" else [])
+        # Only a Pro force touches the progress row, with one DELETE each: off the loop eight of them clear it at
+        # once, and a read before the delete would leave all but one deleting a row already gone.
+        assert progress_statements == (["DELETE"] * 8 if case == "force_pro" else [])
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open. A generation's
         # snapshot that left the subscription unloaded reads it in a session of its own, which closes once.
