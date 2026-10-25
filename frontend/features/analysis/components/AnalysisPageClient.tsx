@@ -348,7 +348,7 @@ export default function AnalysisPageClient() {
         </div>
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
-          <div ref={companyHeadingRef} tabIndex={-1} className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <div ref={companyHeadingRef} tabIndex={-1} className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark outline-none">
             <CompanyLogo decorative ticker={ticker} name={companyName} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
               {companyName}

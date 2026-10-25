@@ -147,7 +147,7 @@ export default function NotificationBell({
           className="absolute right-0 z-header mt-2 flex max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)] w-80 origin-top-right flex-col overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none max-lg:inset-x-4 max-lg:w-auto max-lg:origin-top sm:max-lg:inset-x-6"
         >
           <div className="shrink-0 border-b border-border-light dark:border-white/10 px-3 py-2.5">
-            <p ref={titleRef} tabIndex={-1} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>
+            <p ref={titleRef} tabIndex={-1} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark outline-none">Notifications</p>
           </div>
 
           <div className="min-h-0 max-h-96 overflow-y-auto">

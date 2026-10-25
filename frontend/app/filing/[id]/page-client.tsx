@@ -267,10 +267,10 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
 
   if (!filing) {
     return (
-      <main ref={summaryContentRef} tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4" aria-label="Filing">
+      <main ref={summaryContentRef} tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4 outline-none" aria-label="Filing">
         <div className="w-full max-w-lg">
           <h1 className="text-2xl font-semibold mb-4">{filingNotFound ? 'Filing not found' : 'Filing unavailable'}</h1>
-          {filingNotFound ? <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">This filing could not be found. Check the link or choose another filing.</p> : filingFailureNotice}
+          {filingNotFound ? <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Check the link, or search for the company from the homepage.</p> : filingFailureNotice}
           <Link href="/" className="mt-4 inline-block text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
@@ -354,7 +354,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
           />
         }
       >
-        <main ref={summaryContentRef} tabIndex={-1} aria-label="Filing research" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main ref={summaryContentRef} tabIndex={-1} aria-label="Filing research" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 outline-none">
           {filingFailure.failed && <div className="mb-6">{filingFailureNotice}</div>}
           {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
             <StreamingSummaryDisplay
