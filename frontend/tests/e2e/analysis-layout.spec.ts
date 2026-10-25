@@ -161,17 +161,25 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
   await assertPaintedMarks(page, '[data-analysis-kpi]')
   expect(geometry.rootFontSize).toBeCloseTo(16 * textScale, 1)
   await assertKpiStrip(page, width, geometry)
+  // The dollar fixtures' counts, pinned apart from the budget: two across at phone widths (decision 4, 320px
+  // included) and on tablets, four from lg at ordinary text and at 1480px under 200% text, one on a phone under 200%.
+  expect(geometry.rows[0].values, 'the dollar fixtures keep two cards below lg and four from lg').toBe(textScale > 1 && width < 1024 ? 1 : width >= 1024 ? 4 : 2)
 }
 
-/** The strip's columns follow its widest value (KpiStrip, E197): as many as the viewport allows (two below lg, one per
- *  tile from lg, never three of four) when every card holds that value on one line, else two, else one, and one below
- *  17em of its own text size. Each share keeps 0.5px back, as KpiStrip's do. */
+/** The columns KpiStrip's grid gives (E197): auto-fill tracks of at least the widest card (its value plus padding and
+ *  border), half the strip below lg, and from lg a column per tile, four at most, or half the strip once a card is
+ *  wider than that, never three of four; one below 17em of its own text size. Each share keeps 0.5px back, as
+ *  KpiStrip's do. The budget it starts from is checked against the painted values, and the dollar fixtures' counts are
+ *  pinned apart from it (assertPageAndCards). */
 function expectedKpiColumns(geometry: Awaited<ReturnType<typeof pageAndCardGeometry>>, width: number) {
   if (geometry.kpiWidth < 17 * geometry.rootFontSize) return 1
+  const strip = geometry.kpiWidth, gap = geometry.kpiGap
   const card = geometry.kpiBudget + Math.max(...geometry.cards.map(item => item.chrome))
-  const fits = (n: number) => card <= (geometry.kpiWidth - (n - 1) * geometry.kpiGap) / n - 0.5
-  const most = width >= 1024 ? Math.min(4, geometry.cards.length) : 2
-  return [most, 2, 1].find(n => n <= most && fits(n)) ?? 1
+  const half = (strip - gap) / 2 - 0.5
+  const tiles = Math.min(4, geometry.cards.length)
+  const each = (strip - (tiles - 1) * gap) / tiles - 0.5
+  const track = width >= 1024 ? Math.max(each, card, Math.min(half, each + (card - each) * 1e6)) : Math.max(card, half)
+  return Math.min(geometry.cards.length, Math.max(1, Math.floor((strip + gap) / (track + gap))))
 }
 
 /** No KPI value leaves its card or wraps, the page does not scroll sideways, the strip's budget is its widest value as
@@ -1037,7 +1045,9 @@ const withCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
 /** E197: a code-prefixed value that two cards cannot hold puts the strip in one column instead of leaving its card
  *  ("CHF 22.8B†" ran 18px past it at 320px) or wrapping its dagger ("CA$968.0M†" at 360px); from 375px both fit two up,
  *  and under 200% text from lg the strip takes two cards where four cannot hold them. */
-for (const theme of THEMES) test.describe(`analysis KPI strip, long values / ${theme}`, () => {
+// Geometry only, so one theme: the inks are the phone marks' and the text floors' to check.
+test.describe('analysis KPI strip, long values', () => {
+  const theme = 'light' as const
   for (const [name, state, edit, value] of [
     ['annual in CHF', 'annual', inSwissFrancs, 'CHF\u00a022.8B'], ['quarterly in CA$', 'legacy', withCanadianFreeCashFlow, 'CA$968.0M'],
   ] as const) for (const [width, textScale, columns] of [[320, 1, 1], [360, 1, 1], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 2]] as const) {

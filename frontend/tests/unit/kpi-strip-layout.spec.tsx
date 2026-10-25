@@ -9,6 +9,7 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueWidth } from '@/features/analysis/lib/kpiStripLayout'
 import { compactCurrencyCountUp, fmtCurrency } from '@/lib/format'
+import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
 
 type Theme = { fontSize: Record<string, [string, unknown]>; spacing: Record<string, string>; borderWidth: Record<string, string> }
 const require = createRequire(import.meta.url)
@@ -63,11 +64,65 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
   })
 
   it('takes two cards or one below lg, one per tile (four at most), two or one from lg, and one below 17em', () => {
+    // KPI_GRID's own rule, evaluated: its custom properties and its tracks' minimum for a viewport, a strip width and a
+    // root size, then auto-fill's count, floor((strip + gap) / (minimum + gap)).
     const grid = STRIP.match(/const KPI_GRID = '([^']*)'/)?.[1] ?? ''
-    expect(grid).toContain(' [grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-card),var(--kpi-half)),1fr))] ')
-    expect(grid).toContain(' lg:[grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-each),var(--kpi-card),min(var(--kpi-half),calc(var(--kpi-each)_+_(var(--kpi-card)_-_var(--kpi-each))_*_1000000))),1fr))] ')
-    expect(grid).toMatch(/ \[@container\(width<17em\)\]:grid-cols-1$/)
+    const classes = grid.split(' ')
+    const gap = rem(theme.spacing['3'])
+    /** The tracks' minimum as a function of the strip's width, for one viewport, root, value and tile count. */
+    const minimum = (viewport: number, root: number, value: number, tiles: number) => {
+      const vars: Record<string, string> = { 'kpi-value': `${value}rem`, 'kpi-cols': `${tiles}` }
+      let template = ''
+      for (const name of classes) {
+        const match = /^(sm:|lg:)?\[(--[\w-]+|grid-template-columns):(.+)\]$/.exec(name)
+        if (!match || (match[1] === 'sm:' && viewport < 640) || (match[1] === 'lg:' && viewport < 1024)) continue
+        if (match[2] === 'grid-template-columns') template = match[3]
+        else vars[match[2].slice(2)] = match[3]
+      }
+      let expression = /^repeat\(auto-fill,minmax\((.+),1fr\)\)$/.exec(template)?.[1] ?? 'NaN'
+      for (let depth = 0; depth < 5; depth++) expression = expression.replace(/var\(--([\w-]+)\)/g, (_, key: string) => `(${vars[key]})`)
+      const js = expression.replace(/_/g, ' ').replace(/calc\(/g, '(').replace(/max\(/g, 'Math.max(').replace(/min\(/g, 'Math.min(')
+        .replace(/(\d*\.?\d+)rem/g, `($1*${root})`).replace(/(\d*\.?\d+)px/g, '($1)').replace(/100%/g, '(strip)')
+      return new Function('strip', `return (${js})`) as (strip: number) => number
+    }
+    const fallback = classes.includes('[@container(width<17em)]:grid-cols-1')
+    // The values of E197 and of the fixtures, in rem on one line: "$60.8B", "$1.7B†", "$1.7B†a", "CHF 22.8B†", "-CHF 999.9B†a".
+    const values = [kpiValueWidth('$60.8B', false), kpiValueWidth('$1.7B', true), kpiValueWidth('$1.7B', true, 'a'), kpiValueWidth('CHF 22.8B', true), kpiValueWidth('-CHF 999.9B', true, 'a')]
+    const problems: string[] = []
+    let checked = 0
+    for (const root of [16, 32]) for (const viewport of [360, 800, 1280]) for (const tiles of [3, 4]) for (const value of values) {
+      const track = minimum(viewport, root, value, tiles)
+      const chrome = (viewport >= 640 ? 2 * rem(theme.spacing['4']) : 2 * rem(theme.spacing['3'])) * root + 2
+      const card = value * root + chrome
+      for (let strip = 200; strip <= 1500; strip += 0.5) {
+        const n = fallback && strip < 17 * root ? 1 : Math.max(1, Math.floor((strip + gap * root) / (track(strip) + gap * root)))
+        const share = (count: number) => (strip - (count - 1) * gap * root) / count
+        const fail = (why: string) => problems.length < 20 && problems.push(`${viewport}px viewport, ${root}px root, ${tiles} tiles, a ${card}px card, a ${strip}px strip: ${n} columns (${why})`)
+        if (n > 1 && card > share(n) + 1e-9) fail('a card narrower than its value')
+        if (tiles === 4 && n === 3) fail('three of four')
+        if (strip < 17 * root) { if (n !== 1) fail('below 17em'); continue }
+        if (viewport < 1024 && n > 2) fail('more than two below lg')
+        if (viewport < 1024 && card <= share(2) - 0.5 && n !== 2) fail('one where two fit below lg')
+        if (viewport >= 1024 && card <= share(tiles) - 0.5 && n !== tiles) fail('fewer than one per tile where they fit')
+        if (viewport >= 1024 && card > share(tiles) && n !== (card <= share(2) ? 2 : 1)) fail('neither two nor one where the tiles do not fit')
+        checked++
+      }
+    }
+    expect(problems).toEqual([])
+    expect(checked).toBeGreaterThan(50_000)
     expect(grid, 'no fixed column count fights the widest value').not.toMatch(/(^| )(lg:)?grid-cols-[2-4]\b/)
+  })
+
+  it('lays the landing sample\'s three tiles three across, the count no wrapper caps any more', () => {
+    const { container } = render(<KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />)
+    expect(container.querySelectorAll('[data-analysis-kpi]')).toHaveLength(3)
+    expect(container.querySelector('dl')!.style.getPropertyValue('--kpi-cols')).toBe('3')
+  })
+
+  it('counts a glyph the figure face lacks at a full em, so the budget never undercuts what paints', () => {
+    // Geist Mono has no ₩, ₱ or ₫: they fall back to a proportional face.
+    expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1 - 0.6) * 1.5, 9)
+    expect(kpiValueWidth('€22.8B', false)).toBeCloseTo(6 * 0.9, 9)
   })
 
   it('sets the widest value, as the cards render it, and the tile count on the strip', () => {
@@ -108,6 +163,12 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
         const shown = frame(final * step / 200)
         expect([...shown].length, `${currency} ${final}: "${shown}" before "${last}"`).toBeLessThanOrEqual([...last].length)
       }
+    }
+    // An update from a larger value (useCountUp tweens previous → next) prints those frames compactly, never "$1,700.0M".
+    const update = compactCurrencyCountUp(450_000_000, 'USD')
+    for (let step = 0; step <= 200; step++) {
+      const value = 1_700_000_000 + (450_000_000 - 1_700_000_000) * step / 200
+      expect([...update(value)].length, update(value)).toBeLessThanOrEqual([...fmtCurrency(value, { compact: true })].length)
     }
     // Compact notation on every frame would show "CHF 999.9M" on the way to "CHF 22.8B", one glyph wider.
     expect(compactCurrencyCountUp(22_768_000_000, 'CHF')(999_900_000)).toBe('CHF\u00a01.0B')
