@@ -25,8 +25,9 @@ export const CARD_BONES: BonesPlan = { width: 502, height: 320, plotLeft: 48, pl
 
 /** A bar's height in its panel, a fraction cycled over the slots: bones read as bars, never as data. */
 const BAR_SHAPE = [0.55, 0.7, 0.45, 0.8, 0.6, 0.75, 0.5, 0.85]
-/** Gridlines a panel: its top, two between, and its baseline. */
+/** Gridlines a panel: its top, two between, and its baseline, each this many px. */
 const GRIDLINES = 4
+const GRIDLINE = 2
 
 export const bonesPlan = (layout: ChartLayout): BonesPlan => ({
   width: layout.width,
@@ -38,6 +39,15 @@ export const bonesPlan = (layout: ChartLayout): BonesPlan => ({
   barWidth: layout.barWidth,
 })
 
+/** One bone at its place in the box: the place on a wrapper, since `Skeleton` sets its own `relative`. */
+function Bone({ left, width, top, height }: { left: string; width: string; top: string; height: string }) {
+  return (
+    <div className="absolute" style={{ left, width, top, height }}>
+      <Skeleton className="h-full w-full" />
+    </div>
+  )
+}
+
 /** A plot's bones, laid over its box in percent of the plan, so a box of any width keeps their shape. */
 export function ChartBones({ plan }: { plan: BonesPlan }) {
   const x = (px: number) => `${(px / plan.width) * 100}%`
@@ -48,14 +58,14 @@ export function ChartBones({ plan }: { plan: BonesPlan }) {
       {plan.panels.map((panel, p) => (
         <div key={p}>
           {Array.from({ length: GRIDLINES }, (_, line) => (
-            <Skeleton key={`grid${line}`} className="absolute h-0.5"
-              style={{ left: x(plan.plotLeft), width: x(plan.plotRight - plan.plotLeft), top: y(panel.top + (panel.height * line) / (GRIDLINES - 1) - 1) }} />
+            <Bone key={`grid${line}`} left={x(plan.plotLeft)} width={x(plan.plotRight - plan.plotLeft)}
+              top={y(panel.top + (panel.height * line) / (GRIDLINES - 1) - 1)} height={y(GRIDLINE)} />
           ))}
           {Array.from({ length: plan.slots }, (_, index) => {
             const height = panel.height * BAR_SHAPE[index % BAR_SHAPE.length]
             return (
-              <Skeleton key={`bar${index}`} className="absolute"
-                style={{ left: x(plan.plotLeft + slot * (index + 0.5) - plan.barWidth / 2), width: x(plan.barWidth), top: y(panel.top + panel.height - height), height: y(height) }} />
+              <Bone key={`bar${index}`} left={x(plan.plotLeft + slot * (index + 0.5) - plan.barWidth / 2)} width={x(plan.barWidth)}
+                top={y(panel.top + panel.height - height)} height={y(height)} />
             )
           })}
         </div>

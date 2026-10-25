@@ -479,9 +479,15 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
         left: parseFloat(bone.style.left) * plan.width / 100,
         right: (parseFloat(bone.style.left) + parseFloat(bone.style.width)) * plan.width / 100,
         top: parseFloat(bone.style.top) * plan.height / 100,
+        height: parseFloat(bone.style.height) * plan.height / 100,
+        // jsdom lays nothing out, so the place must be the wrapper's own, never a class the bone's recipe overrides.
+        positioned: bone.classList.contains('absolute') && !bone.classList.contains('relative'),
       }))
       expect(boxes, `${chart}: four gridlines and a bar a slot, each panel`).toHaveLength(plan.panels.length * (4 + plan.slots))
       for (const box of boxes) {
+        expect(box.positioned, `${chart}: placed on its own`).toBe(true)
+        expect(box.height, `${chart}: a bone with height`).toBeGreaterThan(0)
+        expect(box.right - box.left, `${chart}: a bone with width`).toBeGreaterThan(0)
         expect(box.left, `${chart}: inside the plot rect`).toBeGreaterThanOrEqual(plan.plotLeft - 0.01)
         expect(box.right, `${chart}: inside the plot rect`).toBeLessThanOrEqual(plan.plotRight + 0.01)
         expect(plan.panels.some((panel) => box.top >= panel.top - 1.01 && box.top <= panel.top + panel.height), `${chart}: inside a panel`).toBe(true)
