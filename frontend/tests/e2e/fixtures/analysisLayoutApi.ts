@@ -122,6 +122,54 @@ function geometryFixture(state: AnalysisGeometryState): Fixture {
   return fixture
 }
 
+/** The geometry fixture's dataset as the page receives it, for a spec that plans its charts (charts-v2-gallery). */
+export const geometryDataset = (state: AnalysisGeometryState): AnalysisDataset => geometryFixture(state).dataset
+
+/**
+ * Any dataset on the page, for the trend charts' gallery (E194): a unit fixture from tests/unit/fixtures/chart-datasets.json
+ * (trimmed to the plotted concepts, values unchanged) under its own ticker, with coverage that holds exactly its periods,
+ * so the page's newest range is the dataset's window, and the legacy run's completion with a synthetic narrative. Its
+ * provenance gains the structural defaults the captured projection gives (geometryFixture), never operands. Its wire
+ * `data_notes` go: they describe the full dataset the audit rebuilt, whose concerns the trimmed fixture no longer carries,
+ * so the page's contract (decodeDataNotes) rightly refuses them. The page then groups the notes from the points, as it
+ * does for any dataset without them, and a spec that plans the charts reads the same dataset.
+ */
+export function datasetFixture(source: AnalysisDataset): { fixture: Fixture; coverage: AnalysisCoverage } {
+  const dataset: AnalysisDataset = {
+    ...structuredClone(source),
+    series: source.series.map(series => ({
+      ...structuredClone(series),
+      points: series.points.map(point => ({
+        ...structuredClone(point),
+        provenance: projectedProvenance(point.provenance as DataNoteQuality['provenance']),
+        yoy_provenance: projectedProvenance(point.yoy_provenance as DataNoteQuality['provenance']),
+      })),
+    })),
+  }
+  delete (dataset as { data_notes?: unknown }).data_notes
+  const fixture: Fixture = {
+    dataset,
+    completion: {
+      ...structuredClone(archive.legacy.completion),
+      narrative: '## The trajectory\nSynthetic gallery fixture.',
+      citations: [],
+      grounded: 0,
+      n_periods: dataset.periods.length,
+      snapshot_id: dataset.snapshot_id!,
+    },
+  }
+  const annual = dataset.mode === 'annual'
+  const coverage: AnalysisCoverage = {
+    ...structuredClone(archive.coverage),
+    ticker: dataset.ticker,
+    company_name: dataset.company_name,
+    annual: annual ? dataset.periods.map(period => ({ key: period.key, fiscal_year: period.fiscal_year, period_end: period.period_end, has_core: true })) : [],
+    quarterly: annual ? [] : dataset.periods.map(period => ({ key: period.key, fiscal_year: period.fiscal_year, fiscal_period: period.fiscal_period, period_end: period.period_end, derived: false })),
+    limits: { annual: 10, quarterly: 12 },
+  }
+  return { fixture, coverage }
+}
+
 export const EXPECTED_NOTES = {
   clean: { passed: 230, reviewValues: 0, reviewComparisons: 0, unavailable: 10, calculated: 101 },
   legacy: { passed: 220, reviewValues: 10, reviewComparisons: 24, unavailable: 10, calculated: 101 },
@@ -196,12 +244,14 @@ export const EXPECTED_TABLE_VALUE_DAGGERS = 101
 export const EXPECTED_TABLE_COMPARISON_REVIEWS = { clean: 0, legacy: 14, discrepancy: 3 } as const
 
 /**
- * The analysis page's API for a signed-in Pro reader, answered in the browser: META's company, coverage, dataset
- * and narrative stream from `fixture` (the legacy state by default). Only the target frontend's own GET and HEAD
- * reads reach the network; anything else is aborted, and an API path the page should not call is answered 404 and
- * recorded in the returned traffic. Shared by openAnalysis and text-floors.spec.ts's /analysis entry.
+ * The analysis page's API for a signed-in Pro reader, answered in the browser: the company and coverage `coverage` names
+ * (META's by default), and the dataset and narrative stream from `fixture` (the legacy state by default). Only the target
+ * frontend's own GET and HEAD reads reach the network; anything else is aborted, and an API path the page should not
+ * call is answered 404 and recorded in the returned traffic. Shared by openAnalysis, openDataset and
+ * text-floors.spec.ts's /analysis entry.
  */
-export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fixture = fixtureFor('legacy')) {
+export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fixture = fixtureFor('legacy'), coverage: AnalysisCoverage = archive.coverage) {
+  const { ticker } = coverage
   const origin = new URL(baseURL).origin
   const traffic = { dataset: 0, stream: 0, unexpectedApi: [] as string[], submittedRanges: [] as unknown[] }
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
@@ -221,13 +271,13 @@ export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fi
         case '/api/subscriptions/subscription': return json({ is_pro: true, stripe_customer_id: 'cus_fixture', stripe_subscription_id: 'sub_fixture', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
         case '/api/subscriptions/usage': return json({ summaries_used: 0, summaries_limit: 100, is_pro: true, month: '2026-10', qa_used: 0, qa_limit: 300, copilot_free_taste_used: 0, copilot_free_taste_total: 0, analysis_used: 0, analysis_limit: 50 })
         case '/api/users/me/notifications': return json({ items: [], unread_count: 0 })
-        case '/api/companies/META': return json({ id: 1, cik: '1326801', ticker: 'META', name: 'Meta Platforms, Inc.', exchange: 'NASDAQ' })
-        case '/api/analysis/META/coverage': return json(archive.coverage)
-        case '/api/analysis/META/dataset':
+        case `/api/companies/${ticker}`: return json({ id: 1, cik: ticker === 'META' ? '1326801' : '1', ticker, name: coverage.company_name, exchange: 'NASDAQ' })
+        case `/api/analysis/${ticker}/coverage`: return json(coverage)
+        case `/api/analysis/${ticker}/dataset`:
           traffic.dataset++
           traffic.submittedRanges.push(request.postDataJSON())
           return json(fixture.dataset)
-        case '/api/analysis/META/stream':
+        case `/api/analysis/${ticker}/stream`:
           traffic.stream++
           return route.fulfill({ status: 200, headers, contentType: 'text/event-stream', body: `data: ${JSON.stringify(fixture.completion)}\n\n` })
         default:
@@ -244,12 +294,12 @@ export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fi
   return traffic
 }
 
-/** Runs the analysis in `mode` on /analysis?ticker=META, then waits for what only a finished run shows: the four KPI
-    cards, the metrics table's heading and the refresh control. */
-export async function runAnalysis(page: Page, mode: AnalysisDataset['mode']) {
+/** Runs the analysis in `mode` on the open /analysis page, then waits for what only a finished run shows: its KPI cards
+    (four for META), the metrics table's heading and the refresh control. */
+export async function runAnalysis(page: Page, mode: AnalysisDataset['mode'], kpis = 4) {
   await page.getByRole('button', { name: mode === 'annual' ? 'Annual' : 'Quarterly', exact: true }).click()
   await page.getByRole('button', { name: 'Run analysis', exact: true }).click()
-  await expect(page.locator('[data-analysis-kpi]')).toHaveCount(4)
+  await expect(page.locator('[data-analysis-kpi]')).toHaveCount(kpis)
   await expect(page.getByRole('heading', { name: 'Metrics by period', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Refresh analysis', exact: true })).toBeVisible()
 }
@@ -267,15 +317,25 @@ export async function openAnalysis(page: Page, baseURL: string, state: AnalysisS
     operand.reconciled = false
     operand.provenance = { ...operand.provenance!, validation: 'needs_review', reasons: ['legacy_calculation'] }
   }
+  return openFixture(page, baseURL, fixture, archive.coverage, theme, textScale)
+}
+
+/** /analysis with `dataset` on the page, run in its mode (datasetFixture). `kpis` is the KPI cards the run shows. */
+export async function openDataset(page: Page, baseURL: string, dataset: AnalysisDataset, theme: AnalysisTheme, kpis: number) {
+  const { fixture, coverage } = datasetFixture(dataset)
+  return openFixture(page, baseURL, fixture, coverage, theme, 1, kpis)
+}
+
+async function openFixture(page: Page, baseURL: string, fixture: Fixture, coverage: AnalysisCoverage, theme: AnalysisTheme, textScale: number, kpis = 4) {
   await page.addInitScript(({ theme, textScale }) => {
     localStorage.setItem('theme', theme)
     localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z' }))
     // Root text-size emulation, not a claim about native browser zoom. Apply before render.
     if (textScale !== 1) document.addEventListener('DOMContentLoaded', () => { document.documentElement.style.fontSize = `${100 * textScale}%` }, { once: true })
   }, { theme, textScale })
-  const traffic = await answerAnalysisApi(page, baseURL, fixture)
-  await page.goto('/analysis?ticker=META')
-  await runAnalysis(page, fixture.dataset.mode)
+  const traffic = await answerAnalysisApi(page, baseURL, fixture, coverage)
+  await page.goto(`/analysis?ticker=${coverage.ticker}`)
+  await runAnalysis(page, fixture.dataset.mode, kpis)
   await page.evaluate(() => document.fonts.ready)
   await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/)
   expect(traffic.dataset).toBe(1)

@@ -790,11 +790,11 @@ jobs:
         working-directory: frontend
       - name: Run the charts' E2E tests
         if: needs.ci-scope.outputs.records_only == 'false'
-        # charts-v2.spec.ts skips unless this process has the flag too. Both runs always run, the second reporting into
+        # The charts-v2 specs skip unless this process has the flag too. Both runs always run, the second reporting into
         # its own folder of the same artifact, and the step fails if either does.
         run: |
           status=0
-          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
+          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/charts-v2-gallery.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
           PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/text-floors npx playwright test tests/e2e/text-floors.spec.ts -g 'analysis: muted ink' || status=1
           exit $status
         working-directory: frontend

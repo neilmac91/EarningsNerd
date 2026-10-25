@@ -1,139 +1,17 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
-import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
-import { openAnalysis, type AnalysisGeometryState, type AnalysisTheme } from './fixtures/analysisLayoutApi'
+import { expect, test, type Locator } from '@playwright/test'
+import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
- * The trend charts' spec renderer in a browser (NEXT_PUBLIC_CHARTS_V2, E192): the spec's DOM checks that need real text
- * metrics and layout (docs/design/analysis-trend-charts-spec-2026-10.md §6). tests/unit/trend-charts-v2.spec.tsx holds
- * the drawing to the engine's plan; this spec holds the plan to the page:
- * - D1: every text box lies inside the SVG;
- * - D2: no two text boxes intersect;
- * - D8: every string paints at Geist Mono's 0.6 em advance, so the planner's widths are the screen's;
- * - D9: a grid row's cards align, every card's plot is 320 px tall, and the page never scrolls sideways at 390 px;
- * - D10: no chart animates under reduced motion;
- * - M6 on the page: a plot fills its card, or is wider and scrolls inside it as a keyboard stop, opened at its newest
- *   period behind A7's sticky gutter, which repeats the y axis at the viewport's edge and passes D1, D2 and D8 itself;
- * - D9: a grid row's plots start at one height, whatever its legends wrap to (the cards' subgrid, E193);
- * - D13 and DESIGN_SYSTEM.md §10 (E193): one values stop a chart, the period walk with its tooltip and column wash in
- *   view, the pointer and touch, Escape, and the tooltip's contrast and reflow under 200% text.
- * The expanded view is checked the same way. CI's e2e-charts-v2 job builds with the flag set; the main e2e job's build
- * has it unset, and these cases skip there, where one case holds that the flag-off route loads none of the renderer.
+ * The trend charts' spec renderer in a browser (NEXT_PUBLIC_CHARTS_V2, E192, E193): how the route loads it, and how a
+ * reader reads a chart (docs/design/analysis-trend-charts-spec-2026-10.md §3.9, §3.13, D13; DESIGN_SYSTEM.md §10): one
+ * values stop a chart, the period walk with its tooltip and column wash in view, the pointer and touch, Escape, and the
+ * tooltip's contrast and reflow under 200% text. The DOM checks of the drawing itself (D1–D3, D5, D6, D8–D10, D14, M6,
+ * M19) run on the gallery, charts-v2-gallery.spec.ts, through fixtures/chartChecks.ts. CI's e2e-charts-v2 job builds
+ * with the flag set; the main e2e job's build has it unset, and these cases skip there, where one case holds that the
+ * flag-off route loads none of the renderer.
  */
 const enabled = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
 const THEMES: AnalysisTheme[] = ['light', 'dark']
-/** The planner's advance: Geist Mono is 0.6 em at 11 px (layout.ts ADVANCE). */
-const ADVANCE = 0.6 * 11
-
-const inSwissFrancs = (dataset: AnalysisDataset) => {
-  for (const series of dataset.series) if (!series.percent) {
-    series.unit = 'CHF'
-    for (const point of series.points) point.unit = 'CHF'
-  }
-}
-const CASES: Array<[string, number, AnalysisGeometryState, ((dataset: AnalysisDataset) => void) | undefined]> = [
-  ['quarterly', 1280, 'captured', undefined],
-  ['annual in CHF', 1280, 'annual', inSwissFrancs],
-  ['quarterly', 390, 'captured', undefined],
-  ['annual', 390, 'annual', undefined],
-]
-
-interface TextReport {
-  outside: string[]
-  collisions: string[]
-  advances: string[]
-}
-
-interface PlotReport extends TextReport {
-  name: string
-  height: number
-  animations: number
-  svgWidth: number
-  viewportWidth: number
-  scrolls: boolean
-  /** How far the viewport sits from its newest period (0 there). */
-  fromNewest: number
-  keyboardStop: boolean
-  /** A7's sticky gutter, while the plot's own has scrolled away: its text, and its left edge against the viewport's. */
-  gutter: (TextReport & { offset: number; ticks: string[]; plotTicks: string[] }) | null
-}
-
-/** One report per chart plot, measured in the page. */
-async function measurePlots(page: Page): Promise<PlotReport[]> {
-  return page.locator('[data-analysis-chart]').evaluateAll((plots, advance) => plots.map((plot) => {
-    // D1, D2 and D8 on one SVG's text.
-    const textOf = (svg: SVGSVGElement) => {
-      const [, , width, height] = svg.getAttribute('viewBox')!.split(' ').map(Number)
-      const texts = [...svg.querySelectorAll('text')]
-      const boxes = texts.map((text) => ({ text: text.textContent ?? '', box: text.getBBox() }))
-      const where = ({ text, box }: { text: string; box: DOMRect }) => `"${text}" at ${box.x.toFixed(1)},${box.y.toFixed(1)} ${box.width.toFixed(1)}×${box.height.toFixed(1)}`
-      const outside = boxes.filter(({ box }) => box.x < -0.01 || box.y < -0.01 || box.x + box.width > width + 0.01 || box.y + box.height > height + 0.01).map(where)
-      const collisions: string[] = []
-      boxes.forEach((a, i) => boxes.slice(i + 1).forEach((b) => {
-        const x = Math.min(a.box.x + a.box.width, b.box.x + b.box.width) - Math.max(a.box.x, b.box.x)
-        const y = Math.min(a.box.y + a.box.height, b.box.y + b.box.height) - Math.max(a.box.y, b.box.y)
-        if (x > 0.01 && y > 0.01) collisions.push(`${where(a)} and ${where(b)}`)
-      }))
-      const advances = texts
-        .flatMap((text) => (text.querySelector('tspan') ? [...text.querySelectorAll('tspan')] : [text]))
-        .flatMap((node) => {
-          const chars = [...(node.textContent ?? '')].length
-          const painted = node.getComputedTextLength()
-          return Math.abs(painted - advance * chars) > 0.5 ? [`"${node.textContent}" paints ${painted.toFixed(2)} px, not ${(advance * chars).toFixed(2)}`] : []
-        })
-      return { width, height, outside, collisions, advances }
-    }
-    const svg = plot.querySelector('svg')!
-    const { width, height, ...text } = textOf(svg)
-    const viewport = plot.closest<HTMLElement>('[data-analysis-chart-scroll]')!
-    const overlay = viewport.querySelector<SVGSVGElement>('[data-chart-gutter] svg')
-    const ticks = (root: SVGSVGElement) => [...root.querySelectorAll('text[text-anchor="end"]')].map((tick) => `${tick.textContent}@${tick.getAttribute('y')}`)
-    return {
-      name: plot.getAttribute('data-analysis-chart')!,
-      height,
-      ...text,
-      // The plot's own; the card's controls keep the design system's colour transitions (DESIGN_SYSTEM.md §11).
-      animations: plot.getAnimations({ subtree: true }).length,
-      svgWidth: width,
-      viewportWidth: viewport.clientWidth,
-      scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-      fromNewest: viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft,
-      keyboardStop: viewport.tabIndex === 0 && viewport.getAttribute('role') === 'region',
-      gutter: overlay && {
-        ...textOf(overlay),
-        offset: overlay.getBoundingClientRect().left - viewport.getBoundingClientRect().left,
-        ticks: ticks(overlay),
-        plotTicks: ticks(svg),
-      },
-    }
-  }), ADVANCE)
-}
-
-function expectSound(report: PlotReport) {
-  const { name } = report
-  expect(report.outside, `${name}: D1, text outside the SVG`).toEqual([])
-  expect(report.collisions, `${name}: D2, text boxes that intersect`).toEqual([])
-  expect(report.advances, `${name}: D8, text not at Geist Mono's advance`).toEqual([])
-  expect(report.animations, `${name}: D10, animations under reduced motion`).toBe(0)
-  // M6: the plot is laid out at its card's whole-pixel width, or at its wider minimum, and then scrolls in its card.
-  expect(report.svgWidth, `${name}: the plot is at least its card's width`).toBeGreaterThanOrEqual(Math.floor(report.viewportWidth))
-  expect(report.scrolls, `${name}: scrolls exactly when it is wider than its card`).toBe(report.svgWidth > report.viewportWidth + 1)
-  expect(report.keyboardStop, `${name}: a scrolling plot is a keyboard stop, and only then`).toBe(report.scrolls)
-  // A plot that scrolls opens at its newest period, the one the legend and the metrics table quote, behind A7's sticky
-  // gutter: at the viewport's left edge, its text sound, its tick labels the plot's own.
-  if (!report.scrolls) {
-    expect(report.gutter, `${name}: no gutter overlay on a plot that fits`).toBeNull()
-    return
-  }
-  expect(report.fromNewest, `${name}: opens at its newest period`).toBeLessThanOrEqual(1)
-  expect(report.gutter, `${name}: the sticky gutter repeats the y axis`).not.toBeNull()
-  const gutter = report.gutter!
-  expect(Math.abs(gutter.offset), `${name}: the gutter sticks to the viewport's left edge`).toBeLessThanOrEqual(0.5)
-  expect(gutter.outside, `${name}: D1 in the gutter`).toEqual([])
-  expect(gutter.collisions, `${name}: D2 in the gutter`).toEqual([])
-  expect(gutter.advances, `${name}: D8 in the gutter`).toEqual([])
-  expect(gutter.ticks, `${name}: the gutter's tick labels are the plot's`).toEqual(gutter.plotTicks)
-}
-
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every advance to a whole
 // pixel unless the SVG asks for geometric precision, so D1 and D8 run in the case that can break them. The local
@@ -186,57 +64,6 @@ test.describe('trend charts v2 when the renderer’s chunk fails to load', () =>
     await expect(page.getByRole('heading', { name: 'Metrics by period' })).toBeVisible()
   })
 })
-
-for (const theme of THEMES) for (const [name, width, state, edit] of CASES) {
-  test.describe(`trend charts v2 / ${theme} / ${width}px / ${name}`, () => {
-    test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-
-    test('every chart’s text sits inside its plot, apart, in Geist Mono, on aligned cards; expanded too', async ({ page, baseURL }) => {
-      test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
-      test.setTimeout(90_000)
-      await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
-      const cards = page.locator('section:has([data-analysis-chart])')
-      await expect(cards).toHaveCount(4)
-
-      const reports = await measurePlots(page)
-      for (const report of reports) {
-        expect(report.height, `${report.name}: D9, a card's plot is 320 px tall`).toBe(320)
-        expectSound(report)
-      }
-      // D9: the cards of a grid row are one height (two columns from md up, one on a phone).
-      const boxes = await cards.evaluateAll((sections) => sections.map((section) => section.getBoundingClientRect()).map((box) => [Math.round(box.top), box.height]))
-      const rows = new Map<number, number[]>()
-      for (const [top, height] of boxes) rows.set(top, [...(rows.get(top) ?? []), height])
-      expect(rows.size, 'two columns on a desktop, one on a phone').toBe(width >= 768 ? 2 : 4)
-      for (const heights of rows.values()) expect(new Set(heights).size, 'a grid row’s cards are one height').toBe(1)
-      // D9: a grid row's plots start at one height, whatever its legends wrap to (the cards' subgrid).
-      const plotTops = await cards.evaluateAll((sections) => sections.map((section) => [
-        Math.round(section.getBoundingClientRect().top),
-        section.querySelector('[data-analysis-chart-scroll]')!.getBoundingClientRect().top,
-      ]))
-      const tops = new Map<number, number[]>()
-      for (const [row, top] of plotTops) tops.set(row, [...(tops.get(row) ?? []), top])
-      for (const values of tops.values()) expect(Math.max(...values) - Math.min(...values), 'a grid row’s plots start at one height').toBeLessThanOrEqual(0.5)
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways').toBe(true)
-      if (edit) {
-        // A code-prefixed currency's labels miss their tier on a desktop card, and the card says so (A4).
-        await expect(cards.first().getByText('Values don’t fit at this width. The metrics table lists them.')).toBeVisible()
-      }
-
-      for (let index = 0; index < 4; index++) {
-        const card = cards.nth(index)
-        await card.getByRole('button', { name: 'Expand chart', exact: true }).click()
-        await expect.poll(async () => Number(await card.locator('[data-analysis-chart] > svg').getAttribute('height'))).toBeGreaterThan(320)
-        const expanded = (await measurePlots(page))[index]
-        expect(expanded.height, `${expanded.name}: the expanded plot is 520 px, plus its strip`).toBeGreaterThanOrEqual(520)
-        expectSound(expanded)
-        await card.getByRole('button', { name: 'Collapse chart', exact: true }).click()
-        await expect(card.locator('[data-analysis-chart] > svg')).toHaveAttribute('height', '320')
-      }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways after expanding').toBe(true)
-    })
-  })
-}
 
 /** WCAG's relative-luminance contrast of two computed colours ("rgb(…)"; an alpha ink is mixed over the ground). */
 function contrast(ink: string, ground: string): number {
