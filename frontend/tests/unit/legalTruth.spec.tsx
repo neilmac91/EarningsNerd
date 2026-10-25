@@ -869,12 +869,15 @@ function denied(reading: Reading, p: Said, wait: Wait): boolean {
   const excepts = (t: Token, k: number) => /^(?:but|yet|unless|except|excepting)$/i.test(t.text) || (t.lower === 'than' && between[k - 1]?.lower === 'other')
   const contrast = between.some(excepts) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
   if (!governing || contrast) return false
-  // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises). A
-  // denial on a subject coordinated before the predication's own, or a "nor" that joins its clause, is not composed
-  // with the verb's, so the reader excuses nothing there and main's floor decides ("No analytics or server events are
-  // not collected ...", "Neither analytics nor server events are not collected ...": Codex on #1618).
-  const coordinated = reading.tokens[p.clauseStart - 1]?.lower === 'nor' || p.subjects.slice(0, -1).some(({ start, end }) => reading.tokens.slice(start, end).some((t) => /^(?:no|none|nobody|nothing|neither|nor)$/i.test(t.text)))
-  if (governing.own) return !coordinated && deniedPlainly(reading, p.group) !== deniesItsClause(p.subject)
+  // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises). The
+  // reader composes a denying word in the subjects only as its own subject's quantifier or head; one it does not
+  // account for there (in a subject coordinated before its own, a carried subject, a determiner: "Nobody's analytics"),
+  // or a "nor" that joins its clause, leaves the wait to main's floor ("No analytics or server events are not collected
+  // ...", "Neither analytics nor server events are not collected ...": Codex on #1618).
+  const denying = p.subjects.flatMap(({ start, end }) => reading.tokens.slice(start, end)).filter((t) => /^(?:no|none|nobody|nothing|neither|nor)$/.test(t.lower.replace(/['’]s$/, '')))
+  const own = p.subject && (['no', 'none', 'neither'].includes(p.subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(p.subject.head.text)) ? 1 : 0
+  const unaccounted = reading.tokens[p.clauseStart - 1]?.lower === 'nor' || denying.length !== own
+  if (governing.own) return !unaccounted && deniedPlainly(reading, p.group) !== deniesItsClause(p.subject)
   // Past the predication's own group, only the clause its verb takes after "that" says the wait, with its own subject
   // and group ("It is not true that analytics are not collected only with your consent."). A negation in a relative,
   // an adverbial or a bracketed clause between the verb and the wait denies nothing, as one before the verb does not
@@ -2698,6 +2701,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Codex on #1618: a denial on a coordinated subject is not composed with the verb's; main's floor decides.
       ['<p>No analytics or server events are not collected only with your consent.</p>', true],
       ['<p>Neither analytics nor server events are not collected only with your consent.</p>', true],
+      ['<p>No analytics, and no server events, are not collected only with your consent.</p>', true],
+      ['<p>Nobody’s analytics are not collected only with your consent.</p>', true],
       // Codex on #1618: a negation from outside over "without your consent" with no negation of its own is the
       // promise's own; over a clause that promises, it denies the promise.
       ['<p>It is not true that analytics are collected without your consent.</p>', true],
