@@ -12,8 +12,10 @@
 -- 2 lists their companies and concepts, 3 lists the calculations computed from them, and 4 lists the
 -- filings' rows, current or not, the cross-check replaced with a proxy's figure. Together they are the
 -- cohort of the journaled repair a separate PR builds. It names companies and changes nothing.
--- Retire: the session that applies that repair deletes this file in the records PR that closes it,
--- after a detection-sql run reads no rows in sets 2, 3 and 4, and by 2026-12-31 at the latest.
+-- Retire: the session that applies that repair deletes this file, and the unit test that holds its
+-- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), in the
+-- records PR that closes it, after a detection-sql run reads no rows in sets 2, 3 and 4, and by
+-- 2026-12-31 at the latest.
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so the four sets share one snapshot. Tables:
 -- companies, financial_fact. Each statement gets 120 s and waits at most 10 s for a lock (SET LOCAL
