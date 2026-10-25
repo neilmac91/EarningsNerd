@@ -177,8 +177,10 @@ class TestOverviewSheet:
         book = load_workbook(io.BytesIO(build_analysis_workbook(dataset, exported_at=EXPORTED_AT)))
         overview = book["Overview"]
         assert overview["A7"].value == "Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis"
+        assert book.properties.title == "Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis"
         texts = [str(cell.value) for sheet in book.worksheets for row in sheet.iter_rows() for cell in row if cell.value]
         assert texts and not any("REGENERON" in text for text in texts)
+        assert "REGENERON" not in str(vars(book.properties))
         facts = {row[0].value: row[1].value for row in overview.iter_rows(min_row=10, max_row=17)}
         assert list(facts)[:5] == ["Ticker", "Mode", "Periods", "Exported", "Source data as of"]
         assert facts["Exported"] == "July 6, 2026, 00:00 UTC"
@@ -208,6 +210,33 @@ class TestOverviewSheet:
                 name.startswith("xl/media/") and name.endswith(".png")
                 for name in archive.namelist()
             )
+
+
+class TestFileAndPrintSetup:
+    """WP3-A: the inspection read creator "openpyxl", no title and no page setup on any sheet."""
+
+    def test_the_file_names_itself(self, workbook):
+        properties = workbook.properties
+        assert (properties.creator, properties.lastModifiedBy) == ("EarningsNerd", "EarningsNerd")
+        assert properties.title == "Test & Co · Multi-Period Analysis"
+        assert properties.subject == "TST · Annual · FY2022–FY2024"
+        # openpyxl writes the instant as UTC and reads it back naive; it stamps the modified time on save.
+        assert properties.created == EXPORTED_AT.replace(tzinfo=None) and properties.language == "en"
+
+    def test_every_sheet_prints_one_page_wide_with_the_brand_footer(self, workbook):
+        for sheet in workbook.worksheets:
+            setup = sheet.page_setup
+            assert setup.orientation == ("portrait" if sheet.title == "Overview" else "landscape"), sheet.title
+            assert (setup.fitToWidth, setup.fitToHeight, sheet.sheet_properties.pageSetUpPr.fitToPage) == (1, 0, True), sheet.title
+            assert (sheet.oddFooter.left.text, sheet.oddFooter.right.text) == (
+                "EarningsNerd · earningsnerd.io", "Page &P of &N"), sheet.title
+            assert str(sheet.sheet_properties.tabColor.rgb).endswith("4F7A63"), sheet.title  # the setup keeps the tab
+        metrics, sources = workbook["Metrics"], workbook["Sources & methods"]
+        # Written "1:1" and "A:A"; the file's defined name reads back absolute.
+        assert (metrics.print_title_rows, metrics.print_title_cols) == ("$1:$1", "$A:$A")
+        assert (sources.print_title_rows, sources.print_title_cols) == ("$1:$1", None)
+        assert workbook["Overview"].print_title_rows is None
+        assert metrics["B2"].value == "revenue"  # the machine column keeps the raw concept key
 
 
 class TestMetricsSheet:

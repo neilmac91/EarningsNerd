@@ -21,12 +21,15 @@ Conventions (also stated on the Overview sheet, where users see them):
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 - Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
   no text here (D-041, applying D-030); the sage tab colour marks the workbook as EarningsNerd's.
+- The file names itself (title, subject, EarningsNerd as creator, the export instant as created, English)
+  and every sheet prints one page wide with the brand footer and a page count: the Overview portrait, the
+  grids and panels landscape, Metrics repeating its header row and label column, Sources its header row.
 """
 from __future__ import annotations
 
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Optional
@@ -38,6 +41,7 @@ from openpyxl.comments import Comment
 from openpyxl.drawing.image import Image as XlsxImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.properties import PageSetupProperties
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
@@ -47,7 +51,7 @@ from app.services.analysis_export_metadata import (
 )
 from app.services.trend_analysis.data_notes import resolve_data_notes
 from app.utils.company_names import display_company_name
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import ensure_utc, utcnow
 
 # 256px-wide sage mark on transparent, rasterized by frontend/scripts/generate-brand-assets.mjs
 # (openpyxl can't rasterize SVG; the PNG is committed so the backend needs no SVG toolchain).
@@ -138,6 +142,16 @@ def _write_point(
         cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
 
+def _print_setup(ws: Worksheet, *, landscape: bool, title_rows: str | None = None, title_cols: str | None = None) -> None:
+    """One page wide (as many pages tall as it takes), the brand footer and a page count, and a grid's header
+    row and label column repeated on every page it prints across."""
+    ws.page_setup.orientation = "landscape" if landscape else "portrait"
+    ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    ws.print_title_rows, ws.print_title_cols = title_rows, title_cols
+    ws.oddFooter.left.text, ws.oddFooter.right.text = "EarningsNerd · earningsnerd.io", "Page &P of &N"
+
+
 def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
     for col, text in enumerate(headers, start=1):
         cell = _write_text(ws, 1, col, text)
@@ -151,6 +165,10 @@ def _display_name(dataset: dict[str, Any]) -> str:
     """The company as the page prints it, never EDGAR's capitals (display only: the dataset's company_name
     feeds its fingerprint and stays as served)."""
     return display_company_name(dataset.get("company_name")) or str(dataset.get("ticker", ""))
+
+
+def _document_title(dataset: dict[str, Any]) -> str:
+    return f"{_display_name(dataset)} · Multi-Period Analysis"
 
 
 def _has_derived(dataset: dict[str, Any]) -> bool:
@@ -176,7 +194,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
     periods = dataset.get("periods", [])
 
-    title = _write_text(ws, 7, 1, f"{_display_name(dataset)} · Multi-Period Analysis")
+    title = _write_text(ws, 7, 1, _document_title(dataset))
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
     subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd · AI summaries of SEC filings")
     subtitle.font = _FOOTNOTE_FONT
@@ -464,13 +482,30 @@ def build_analysis_workbook(
     envelope = resolve_data_notes(dataset)
     indexed = note_index(envelope)
     workbook = Workbook()
+    # The file's own metadata, which openpyxl otherwise leaves as creator "openpyxl" and no title. openpyxl
+    # sets the modified time when it saves, so only the created time is the export's.
+    properties = workbook.properties
+    properties.creator = properties.lastModifiedBy = "EarningsNerd"
+    properties.title = _document_title(dataset)
+    mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
+    properties.subject = f"{dataset.get('ticker', '')} · {mode_label} · {period_label(dataset.get('period_key', ''))}"
+    properties.created = ensure_utc(exported).astimezone(timezone.utc)
+    properties.language = "en"
     overview = workbook.active
     overview.title = "Overview"
     _build_overview(overview, dataset, exported, envelope)
-    _build_metrics(workbook.create_sheet("Metrics"), dataset, indexed)
-    _build_sources(workbook.create_sheet("Sources & methods"), dataset, indexed)
+    _print_setup(overview, landscape=False)
+    metrics = workbook.create_sheet("Metrics")
+    _build_metrics(metrics, dataset, indexed)
+    # The raw concept keys stay in column B: it is the machine column.
+    _print_setup(metrics, landscape=True, title_rows="1:1", title_cols="A:A")
+    sources = workbook.create_sheet("Sources & methods")
+    _build_sources(sources, dataset, indexed)
+    _print_setup(sources, landscape=True, title_rows="1:1")
     _add_top_line_sheet(workbook, dataset, indexed)
     _add_line_panel_sheets(workbook, dataset, indexed)
+    for panel in workbook.worksheets[3:]:
+        _print_setup(panel, landscape=True)
 
     buffer = io.BytesIO()
     workbook.save(buffer)
