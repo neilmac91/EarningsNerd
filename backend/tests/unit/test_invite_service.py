@@ -66,8 +66,14 @@ def test_invite_revoked_after_it_validated_is_not_redeemed(db):
     invite, raw, _ = invite_service.mint_invite(db, created_by=None, email=None)
     validated = invite_service.validate_invite(db, raw, "a@b.com")
     assert validated is not None
-    # An admin's revoke commits while the registration checks and hashes the password (E201): the revoke wins.
-    invite_service.revoke_invite(db, invite.id)
+    # An admin's revoke commits on a session of its own while the registration checks and hashes the password
+    # (E201). The registration's session keeps the invite as it validated it, so only the UPDATE can see the revoke.
+    admin = sessionmaker(bind=db.get_bind())()
+    try:
+        invite_service.revoke_invite(admin, invite.id)
+    finally:
+        admin.close()
+    assert validated.is_revoked is False
     assert invite_service.redeem_invite(db, validated, SimpleNamespace(id=42)) is False
     db.refresh(invite)
     assert invite.is_revoked is True and invite.used_at is None and invite.user_id is None

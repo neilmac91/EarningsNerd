@@ -89,8 +89,8 @@ def create_password_account(
         stage_account_agreement(db, user, agreement, source="password")
         # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
         # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
-        # lost redemption race rolls the account back too (the invite's single-use invariant holds),
-        # and a failed insert never burns an invite.
+        # refused redemption (the invite redeemed or revoked since it validated) rolls the account
+        # back too, so the invite's single-use invariant holds, and a failed insert never burns one.
         if invite is not None:
             if not invite_service.redeem_invite(db, invite, user, commit=False):
                 db.rollback()

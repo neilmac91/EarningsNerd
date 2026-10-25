@@ -154,12 +154,13 @@ def _unused_invite_locked(db: Session, invite_id: int) -> InviteCode:
     """The unused invite ``invite_id``, read under its row lock until the caller's commit (E171).
 
     The admin router runs a revoke or re-issue in the thread pool, where a registration on the same
-    instance, as on the other, can redeem the invite between the check and the write. Under the lock
-    (PostgreSQL; SQLite has none and runs one writer at a time) a redemption that wrote first is waited
-    for and seen, so the check refuses the redeemed invite instead of revoking it or minting its
-    replacement. An entity query hands back an invite the session still holds unchanged, so
-    ``populate_existing`` re-reads it: a caller that kept an invite it read before the lock sees the
-    redemption too."""
+    instance, as on the other, can redeem the invite between the check and the write. On PostgreSQL a
+    redemption that wrote first is waited for and seen, so the check refuses the redeemed invite instead
+    of revoking it or minting its replacement; one that comes second waits for the commit and finds the
+    invite revoked (``redeem_invite``, E201). SQLite, which the tests use, has no row locks, so there a
+    redemption that commits between the check and the write is not seen. An entity query hands back an
+    invite the session still holds unchanged, so ``populate_existing`` re-reads it: a caller that kept an
+    invite it read before the lock sees the redemption too."""
     invite = (
         db.query(InviteCode)
         .filter(InviteCode.id == invite_id)
