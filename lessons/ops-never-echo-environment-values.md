@@ -322,21 +322,23 @@ list included) and the str of a log's body that is not text only after `before_s
   check-in, the transaction, the log and the metric are each lost to `callback_error`.
 - **Task processes.** The bootstrap's callers are pinned: `init_sentry('api')` in main.py, once at import, before it
   imports the database, a router or a service and before it builds the app; `init_sentry('worker')` in
-  `task_worker_main.py`, once at import, before its app; `report_task_failure(error, kind)` in
-  `task_process.main()`'s one `except Exception` handler, before its `return 1`; main.py binds none of the
-  bootstrap's private names. The task options differ from the API's in their named keys alone (the integrations,
-  sampling, the request body and the four hooks), so a hook an SDK upgrade adds fails, and the fixtures' option
-  checks run on both builders. Under the task options, each of twelve carriers (a message, an exception, a
-  breadcrumb, an extra, a tag, a context, a user, a request, a span, a log, a metric and a check-in) quoting a
-  payload word and an address drawn at run time sends neither, and nothing but errors; a payload-quoting validation
-  error chained under a RuntimeError with a note sends both types and their frames alone, the secret in a type's
-  name `[Filtered]` (the value scrubber runs last); a filter or scrubber that raises sends nothing. In fresh
-  processes: the real child, through `run_task_process` against a loopback ingest, sends one event (its type,
-  frames, release, environment and kind; no value, frame variable, payload word, address, token or DSN key); a child
-  whose ingest refuses or never answers keeps its exit code, waits once and prints no SDK line; a child whose task
-  succeeds never loads the SDK; importing the bootstrap starts nothing; the worker starts its client once, which a
-  later `import main` keeps; and a worker whose task fails with an exception quoting the address and the payload
-  answers 503 then 200 and sends neither, with a transport that keeps and one that raises.
+  `task_worker_main.py`, once at import, before its app; `report_task_failure(error, kind)` in `task_process.main()`'s
+  one `except Exception` handler, before its `return 1`; main.py binds none of the bootstrap's private names. The task
+  options differ from the API's in their named keys alone (the integrations, sampling, the request body and the four
+  hooks), so a hook an SDK upgrade adds fails, and the fixtures' option checks run on both builders. Under the task
+  options, each of twelve carriers (a message, an exception, a breadcrumb, an extra, a tag, a context, a user, a
+  request, a span, a log, a metric and a check-in) quoting a payload word and an address drawn at run time sends
+  neither, and nothing but errors; a payload-quoting validation error chained under a RuntimeError with a note sends
+  both types and their frames alone, the secret in a type's name `[Filtered]` (the value scrubber runs last); a
+  `task.kind` outside `[a-z_]{1,32}` as a whole (another character, a longer value, a trailing newline, a value that
+  is not text) is dropped, as is every other tag; a filter or scrubber that raises sends nothing. In fresh processes:
+  the real child, through `run_task_process` against a loopback ingest, sends one event (its type, frames, release,
+  environment and kind; no value, frame variable, payload word, address, token or DSN key); a child whose ingest
+  refuses or never answers keeps its exit code, waits once and prints no SDK line; a child whose task succeeds never
+  loads the SDK; importing the bootstrap starts nothing; a worker whose start fails on a malformed DSN logs `Sentry
+  error tracking: failed` alone, no fragment of the DSN the SDK's error quotes; the worker starts its client once,
+  which a later `import main` keeps; and a worker whose task fails with an exception quoting the address and the
+  payload answers 503 then 200 and sends neither, with a transport that keeps and one that raises.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a

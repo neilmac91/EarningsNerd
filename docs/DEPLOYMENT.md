@@ -88,7 +88,9 @@ Override the image command to `uvicorn` with args
 Do not launch it through `main:app`: the API's HTTP middleware deadline is shorter than task work.
 The parent imports no database engine; its isolated child uses `DB_POOL_SIZE=3`,
 `DB_MAX_OVERFLOW=0`, and the existing Cloud SQL socket. Budget three additional connections.
-Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email;
+Use the existing runtime identity and Secret Manager references needed for SQL, SEC, AI and email,
+and the API's `SENTRY_DSN` for the worker and its task children to report failures (F50; binding it is a
+founder/IAM step, and without it the worker logs `Sentry error tracking: unconfigured`);
 do not copy secret values into commands, tasks, source or logs. Match current generation flags.
 Set `TASKS_WORKER_PROCESS=true`, `DURABLE_TASKS_ENABLED=true`, and the complete `TASKS_*` queue,
 worker-origin and identity settings on the worker, plus `SEC_RATE_LIMIT_PER_SECOND=1` and

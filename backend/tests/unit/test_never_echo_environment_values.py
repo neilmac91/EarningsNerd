@@ -845,7 +845,7 @@ def _assert_option_invariants(options: dict) -> None:
     assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
     # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
     assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
-    # Continuous profiling sends profile chunks, which pass no hook either; main samples transaction profiles only.
+    # Continuous profiling sends profile chunks, which pass no hook either; the API samples transaction profiles only, the task processes none.
     assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
         set(options) | set(options.get("_experiments", {}))
     )
@@ -1740,7 +1740,7 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
             for path in _structure(item)
             if isinstance(path[-1], str) and len(path[-1]) >= telemetry_bootstrap._MIN_SECRET_LENGTH
         )
-    # Main keeps exactly these paths for each kind: none missing, none dead, each spelled as the SDK spells it. The
+    # The bootstrap keeps exactly these paths for each kind: none missing, none dead, each spelled as the SDK spells it. The
     # capture sets no context of its own, so every context in it is the SDK's.
     assert telemetry_bootstrap._PROTOCOL_PATHS == paths, {
         kind: (
@@ -1985,7 +1985,7 @@ def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
 
 @pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))
 def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
-    # Main keeps a key only at the paths the protocol gives the item's kind (an error's here), none of them below a field
+    # The bootstrap keeps a key only at the paths the protocol gives the item's kind (an error's here), none of them below a field
     # of the gate's list, so a weak secret equal to a protocol word is withheld as a key there at any depth (a list's
     # items too, a protocol structure nested there too), and in a context the app set, while the same word stays where
     # the protocol puts it (a user's `username`, the trace context's `trace_id`).
@@ -3017,7 +3017,7 @@ def test_the_task_processes_change_only_their_policy_of_the_apis_options(monkeyp
 
 @pytest.mark.parametrize("carrier", _CARRIERS)
 def test_a_task_process_sends_no_text_a_carrier_holds(monkeypatch, caplog, task_sentry_envelopes, carrier):
-    # Each carrier quotes an address, payload text and a secret: none reaches Sentry from a task process, whose errors
+    # Each carrier quotes an address and payload text: none reaches Sentry from a task process, whose errors
     # carry their type and stack only; nothing but errors is sent (no transaction, log, metric or check-in).
     import sentry_sdk
     from fastapi import FastAPI
@@ -3058,6 +3058,7 @@ def test_a_task_process_sends_no_text_a_carrier_holds(monkeypatch, caplog, task_
             sentry_sdk.set_extra("detail", quoted)
         elif carrier == "tag":
             sentry_sdk.set_tag("detail", quoted)
+            sentry_sdk.set_tag("task.kind", quoted)  # the one tag a task event keeps, only in its own pattern
         elif carrier == "context":
             sentry_sdk.set_context("job", {"detail": quoted, word: "a key"})
         else:
@@ -3119,6 +3120,17 @@ def test_a_task_event_says_what_failed_and_where_never_on_what(monkeypatch, capl
     assert not {"logentry", "message", "breadcrumbs", "extra", "user", "request", "modules", "_meta"} & event.keys()
     sent = json.dumps(envelopes)
     assert word not in sent and not _fragments(token, sent, width=8) and not _of(envelopes, "check_in")
+
+
+@pytest.mark.parametrize("value", ["f50-x@example.com", "a" * 33, "companyfacts\n", "Companyfacts", 7])
+def test_a_task_kind_outside_its_pattern_is_dropped(value):
+    # task.kind is the one tag a task event keeps, and only as a whole match of [a-z_]{1,32}: a character outside the
+    # class, a longer value, a trailing newline (a search would pass it) or a value that is not text drops it.
+    from app.utils import telemetry_bootstrap
+
+    assert "tags" not in telemetry_bootstrap._task_event({"tags": {"task.kind": value, "other": "y"}})
+    kept = telemetry_bootstrap._task_event({"tags": {"task.kind": "internal_job", "other": "y"}})
+    assert kept["tags"] == {"task.kind": "internal_job"}
 
 
 @pytest.mark.parametrize("error", [RuntimeError, _Halt])

@@ -1,8 +1,9 @@
 """Sentry's start for each backend process, and the scrubbing every item passes through (moved from main.py).
 
-Importing it loads app.config, the standard library and sqlalchemy.engine's URL parser, nothing else: never
-sentry_sdk (each function imports what it needs, so a failure there is caught with init's own), main, the database,
-a model, a router or a service. So the API (main.py) can start Sentry before it imports the app.
+Importing it loads app.config, app.utils.feedback_privacy (standard library only), the standard library and
+sqlalchemy.engine's URL parser, nothing else: never sentry_sdk (each function imports what it needs, so a failure
+there is caught with init's own), main, the database, a model, a router or a service. So the API (main.py) can start
+Sentry before it imports the app.
 """
 import logging
 import re
@@ -84,7 +85,7 @@ def _secret_values() -> tuple[str, ...]:
 # another kind's path: a log's `attributes` written into an error) is scrubbed like any key. A shorter key needs no
 # entry (no secret fits in it), so the lists are complete for that floor, on the structures the gate's capture builds;
 # the gate derives each kind's paths from the SDK's items there and fails on a missing one there or a dead one.
-# Continuous profiling, which main does not configure, would add `contexts.profile.profiler_id`.
+# Continuous profiling, which the bootstrap does not configure, would add `contexts.profile.profiler_id`.
 _PROTOCOL_PATHS = {
     kind: frozenset(tuple(path.split(".")) for path in paths.split())
     for kind, paths in {
@@ -169,7 +170,7 @@ def _overlaps(secret: str, placeholder: str) -> bool:
 def _placeholder(secret_values: tuple[str, ...]) -> str:
     """The first placeholder no secret value overlaps, the SDK's own `[Filtered]` unless a weak secret does: no
     placeholder can then hold a secret or form one with the text beside it, however often the text is replaced. If
-    every placeholder overlaps one, this raises, and main's startup turns Sentry off rather than send one."""
+    every placeholder overlaps one, this raises, and init_sentry turns Sentry off rather than send one."""
     for placeholder in _PLACEHOLDERS:
         if not any(_overlaps(secret, placeholder) for secret in secret_values):
             return placeholder

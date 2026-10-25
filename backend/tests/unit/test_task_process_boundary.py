@@ -176,7 +176,7 @@ async def test_private_asgi_worker_has_its_own_work_deadline(monkeypatch, preser
 
 class _Ingest:
     """A loopback Sentry ingest (no DNS, inside the network gate's loopback allowance): every envelope POSTed to it,
-    decompressed as sent (brotli when installed, else gzip)."""
+    decompressed as sent (brotli, which requirements.txt pins and the SDK therefore uses, gzip or deflate)."""
 
     def __init__(self):
         self.bodies, self.paths = [], []
@@ -233,6 +233,7 @@ async def test_a_fresh_task_process_reports_its_failure_without_its_content(monk
     assert service._command() == (sys.executable, "-m", "app.services.task_process")
     sentinel, ingest = _sentinels(), _Ingest()
     monkeypatch.setattr(settings, "TASKS_WORKER_PROCESS", True)
+    monkeypatch.setattr(settings, "TASKS_WORK_TIMEOUT_SECONDS", 60)  # a hung child fails here, not in 8 minutes
     monkeypatch.setenv("SENTRY_DSN", f"http://{sentinel['key']}@127.0.0.1:{ingest.port}/42")
     monkeypatch.setenv("SENTRY_RELEASE", sentinel["release"])
     monkeypatch.setenv("ENVIRONMENT", "staging")
@@ -358,6 +359,22 @@ def test_the_bootstrap_starts_nothing_on_import_and_each_process_starts_sentry_o
                                               "SENTRY_DSN not configured", "Sentry SDK not available"))
 
 
+@pytest.mark.parametrize("shape", ["https://pub:{}/42", "http://k@127.0.0.1/{}"])
+def test_a_worker_whose_sentry_start_fails_logs_its_status_alone(shape):
+    # The SDK's error for a malformed DSN quotes the part it could not parse (the port, the project): the worker logs its
+    # start's status alone, never that text, and still starts. The fragment is drawn at run time.
+    fragment = f"fab{uuid.uuid4().hex[:12]}"
+    worker = subprocess.run(
+        [sys.executable, "-c", "import task_worker_main"], cwd=BACKEND_DIR, env=_child_env(shape.format(fragment)),
+        capture_output=True, text=True, timeout=60,
+    )
+    assert worker.returncode == 0, worker.stderr
+    output = worker.stdout + worker.stderr
+    lines = [line for line in output.splitlines() if "Sentry error tracking" in line]
+    assert len(lines) == 1 and lines[0].endswith("Sentry error tracking: failed"), lines
+    assert fragment not in output
+
+
 class _Halt(BaseException):
     """Not an Exception, as KeyboardInterrupt and SystemExit are not."""
 
@@ -401,7 +418,7 @@ def task_telemetry(monkeypatch):
 
 
 @pytest.mark.parametrize("failure", [None, OSError, _Halt, "init", "unconfigured"])
-def test_a_failed_task_exits_1_whatever_its_telemetry_does(monkeypatch, task_telemetry, failure):
+def test_a_failed_task_exits_1_whatever_its_telemetry_does(monkeypatch, task_telemetry, failure, preserve_worker_logging):
     from app.services import task_process
     from app.utils import telemetry_bootstrap
 
@@ -465,7 +482,8 @@ print("SENT " + json.dumps(sent))
 def test_the_worker_answers_alike_and_sends_no_task_content(mode):
     # AC2/AC4: a fresh worker, Sentry started at import as in production. A failed delivery still answers 503 and a
     # completed one 200 when the transport raises; the one event a failure sends (the router's log line) carries neither
-    # the body's address nor the token, though the work's exception quotes both.
+    # the body's address nor the token, though the work's exception quotes the address and the payload and the request
+    # carries the token.
     sentinel = _sentinels()
     worker = subprocess.run(
         [sys.executable, "-c", _WORKER, mode, sentinel["email"], sentinel["token"]], cwd=BACKEND_DIR,
