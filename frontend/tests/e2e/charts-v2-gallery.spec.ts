@@ -83,14 +83,21 @@ async function expectChart(card: Locator, model: ChartModel, view: ChartView, th
   expect(report.texts, `${name}: every text is the plan's, by role and ink`).toEqual(plannedByRole(model, plan, tokens))
   await expect(card.locator('[data-chart-text="fit"]'), `${name}: says its values don't fit exactly when they don't`).toHaveCount(plan.valuesDontFit ? 1 : 0)
   expectSound({ ...report, name })
+  await expectCardInks(card, name, theme, report.paints)
+}
+
+/** D6 on a card: its HTML text (subtitle, legend, footnotes, "Values don't fit", a chart's not-applicable sentence) and
+ *  any plot paints, each against the card's computed background, itself the chart surface. */
+async function expectCardInks(card: Locator, name: string, theme: AnalysisTheme, paints: Paint[]) {
   const ground = await card.evaluate((section) => getComputedStyle(section).backgroundColor)
-  expect(hexOf(ground), `${name}: the card is the chart surface`).toBe(tokens.surface)
+  expect(hexOf(ground), `${name}: the card is the chart surface`).toBe(CHART_TOKENS[theme].surface)
   const html = await card.locator('[data-chart-text]').evaluateAll((nodes) => nodes.map((node) => ({
     what: `${node.getAttribute('data-chart-text')} "${node.textContent}"`,
     floor: node.getAttribute('data-chart-text') === 'figure' ? 'values' as const : 'text' as const,
     colour: getComputedStyle(node).color,
   })))
-  expectInks(name, [...report.paints, ...html] as Paint[], ground)
+  expect(html.length, `${name}: the card's text is read`).toBeGreaterThan(0)
+  expectInks(name, [...paints, ...html] as Paint[], ground)
 }
 
 test.describe.configure({ mode: 'parallel' })
@@ -124,8 +131,10 @@ for (const [name, source, why] of GALLERY) for (const theme of THEMES) for (cons
       for (const [index, model] of models.entries()) {
         const card = cards.nth(index)
         await expect(card).toHaveAttribute('data-trend-chart', CHART_IDS[index])
-        if (model.unavailable) await expect(card.locator('[data-chart-text="unavailable"]')).toHaveText(model.unavailable)
-        else await expectChart(card, model, 'card', theme)
+        if (model.unavailable) {
+          await expect(card.locator('[data-chart-text="unavailable"]')).toHaveText(model.unavailable)
+          await expectCardInks(card, `${model.title} (does not apply)`, theme, [])
+        } else await expectChart(card, model, 'card', theme)
       }
 
       // D9: each card has kept one height since it was drawn, a grid row's cards are one height and its plots start at
