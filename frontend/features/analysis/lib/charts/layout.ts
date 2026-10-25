@@ -13,6 +13,8 @@ export const ADVANCE = FONT_PX * 0.6
 export const textWidth = (text: string) => [...text].length * ADVANCE
 
 const HEIGHT: Record<ChartView, number> = { card: 320, expanded: 520 }
+/** A card's height, the same for a chart that draws and one that says why it does not (D13). */
+export const CARD_HEIGHT = HEIGHT.card
 const CAPTION = 14
 const LABEL_PAD = 14
 const TICK_PAD = 8
