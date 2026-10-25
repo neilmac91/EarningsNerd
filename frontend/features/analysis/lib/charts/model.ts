@@ -9,7 +9,7 @@ import { resolveDataNotes, type DataNote, type DataNotesModel } from '@/features
 import { annualTickLabel, formatAnalysisPeriod, formatAnalysisWindow, quarterlyTickLines } from '@/features/analysis/lib/periodLabels'
 import { currencySymbol } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { moneyFormat, niceAxis, outlierCut, percentFormat, type AxisFormat } from './scale'
+import { outlierCut, valueAxis, type AxisFormat } from './scale'
 
 export type ChartId = 'topline' | 'margins' | 'cash' | 'balance'
 export type ChartView = 'card' | 'expanded'
@@ -110,6 +110,9 @@ export interface ChartModel {
 }
 
 const MARKERS: Marker[] = ['circle', 'square', 'triangle']
+
+/** A1's interval cap for each panel's axis, fixed so every view shows the same ticks. */
+export const AXIS_CAPS = { topline: 5, growth: 4, margins: 8, cash: 8, debtcash: 6, equity: 4 } as const
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** The top line the first chart plots: revenue, else a bank's net interest income, else an insurer's
@@ -180,6 +183,12 @@ function currencyOf(ds: AnalysisDataset, series: AnalysisSeries[]): { currency: 
   return { currency: unit && currencySymbol(unit) ? unit : null, mixed: false }
 }
 
+/** The currency the given concepts' amounts share in the window, for a renderer outside the engine (today's charts);
+ *  `mixed` when they share none, and then the chart says MIXED_CURRENCY instead of drawing. */
+export function chartCurrency(ds: AnalysisDataset, concepts: string[]): { currency: string | null; mixed: boolean } {
+  return currencyOf(ds, ds.series.filter((series) => concepts.includes(series.concept)))
+}
+
 function valuesOf(ds: AnalysisDataset, series: AnalysisSeries | undefined): ModelPoint[] {
   const byPeriod = new Map((series?.points ?? []).map((point) => [point.period, point]))
   return ds.periods.map(({ key }) => ({ period: key, value: byPeriod.get(key)?.value ?? null }))
@@ -217,21 +226,19 @@ function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelP
 const valuesIn = (marks: ModelMark[]) => marks.flatMap((mark) => mark.points.map((point) => point.value).filter((value): value is number => value != null))
 
 function moneyPanel(id: string, caption: string | null, weight: number, nmax: number, marks: ModelMark[], currency: string | null): ModelPanel {
-  const values = valuesIn(marks)
-  const axis = niceAxis(values, nmax)
-  return { id, caption, weight, nmax, marks, currency, axis: { ...axis, format: moneyFormat(values, axis.step, axis.ticks, currency) } }
+  return { id, caption, weight, nmax, marks, currency, axis: valueAxis(valuesIn(marks), nmax, 'money', currency) }
 }
 
 function percentPanel(id: string, caption: string | null, weight: number, nmax: number, marks: ModelMark[], signed: boolean): ModelPanel {
   const cut = outlierCut(marks.map((mark) => mark.points.map((point) => point.value).filter((value): value is number => value != null)))
   const inRange = marks.flatMap((mark, i) => mark.points.map((point) => point.value).filter((value): value is number => value != null && cut.inRange(value, i)))
-  const axis = niceAxis(inRange, nmax)
+  const axis = valueAxis(inRange, nmax, signed ? 'growth' : 'percent')
   for (const mark of marks) for (const point of mark.points) {
     if (point.value == null) continue
     if (point.value > axis.domain[1]) point.offscale = 'above'
     if (point.value < axis.domain[0]) point.offscale = 'below'
   }
-  return { id, caption, weight, nmax, marks, currency: null, axis: { ...axis, format: percentFormat(axis.step, signed) } }
+  return { id, caption, weight, nmax, marks, currency: null, axis }
 }
 
 /** Note letters run a, b, …, z, aa, ab, …: shorter first, then alphabetical. */
@@ -374,7 +381,7 @@ function unavailableModel(ds: AnalysisDataset, id: ChartId, title: string, unit:
   return { id, title, subtitle: subtitleOf(ds, unit), mode: ds.mode, periods: periodsOf(ds), panels: [], legend: [], notesBand: null, footnotes: [], unavailable: sentence, strip: [] }
 }
 
-const MIXED_CURRENCY = 'These figures are filed in more than one currency, so one scale can’t show them. The table lists each in its own currency.'
+export const MIXED_CURRENCY = 'These figures are filed in more than one currency, so one scale can’t show them. The table lists each in its own currency.'
 
 /** The top-line series the first chart plots, or undefined when the dataset has none (A12). */
 export function chartTopLine(ds: AnalysisDataset): AnalysisSeries | undefined {
@@ -394,7 +401,7 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const bars: ModelMark = { kind: 'bar', seriesKey: top.concept, label: top.label, color: 0, points: valuesOf(ds, top), labelled: true }
   const growth = growthOf(ds, top)
   const growthMark: ModelMark = { kind: 'growth', seriesKey: `${top.concept}:yoy`, label: 'YoY growth', color: 1, points: growth.points, labelled: true }
-  const growthPanel = percentPanel('growth', 'YoY growth', 0.4, 4, [growthMark], true)
+  const growthPanel = percentPanel('growth', 'YoY growth', 0.4, AXIS_CAPS.growth, [growthMark], true)
   const { band, letters, partly } = notesBandOf(ds, notes, [top], top)
   const statePeriods = (...states: GrowthState[]) => ds.periods.filter((_, i) => states.includes(growth.states[i])).map((period) => period.key)
   // One line for every growth slot printed "—", structural or unavailable, and one for every "n/m" (spec §3.3).
@@ -407,7 +414,7 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   ]
   return {
     id: 'topline', title, subtitle: subtitleOf(ds, currency), mode: ds.mode, periods: periodsOf(ds),
-    panels: [moneyPanel('value', top.label, 0.6, 5, [bars], currency), growthPanel],
+    panels: [moneyPanel('value', top.label, 0.6, AXIS_CAPS.topline, [bars], currency), growthPanel],
     legend: [], notesBand: band, unavailable: null, strip: [],
     footnotes: [
       ...letterFootnotes(ds, letters, [top.concept], true),
@@ -434,7 +441,7 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
           : 'Margins need revenue, which is not in this company’s filed data.'
     return unavailableModel(ds, 'margins', 'Margins', '% of revenue', sentence)
   }
-  const panel = percentPanel('margins', null, 1, 8, marks, false)
+  const panel = percentPanel('margins', null, 1, AXIS_CAPS.margins, marks, false)
   const series = marks.map((mark) => by[mark.seriesKey])
   const { band, letters, partly } = notesBandOf(ds, notes, series)
   const format = panel.axis.format
@@ -463,7 +470,7 @@ export function buildCashModel(ds: AnalysisDataset, notes: DataNotesModel = reso
   const series = marks.map((mark) => by[mark.seriesKey])
   const { currency, mixed } = currencyOf(ds, series)
   if (mixed) return unavailableModel(ds, 'cash', 'Cash generation', null, MIXED_CURRENCY)
-  const panel = moneyPanel('cash', null, 1, 8, marks, currency)
+  const panel = moneyPanel('cash', null, 1, AXIS_CAPS.cash, marks, currency)
   const { band, letters, partly } = notesBandOf(ds, notes, series)
   const format = panel.axis.format
   return {
@@ -491,8 +498,8 @@ export function buildBalanceModel(ds: AnalysisDataset, notes: DataNotesModel = r
   if (mixed) return unavailableModel(ds, 'balance', 'Balance sheet', null, MIXED_CURRENCY)
   // In order over the series present (chart-1.. never skipped): debt, cash, then equity.
   const equity: ModelMark = { kind: 'signedBar', seriesKey: 'shareholders_equity', label: 'Equity', color: lines.length, points: valuesOf(ds, equitySeries), labelled: false }
-  const panelA = moneyPanel('debtcash', lines.length ? `${joinNames(lines.map((mark) => mark.label))}` : null, 0.6, 6, lines, currency)
-  const panelB = moneyPanel('equity', 'Shareholders’ equity', 0.4, 4, equitySeries ? [equity] : [], currency)
+  const panelA = moneyPanel('debtcash', lines.length ? `${joinNames(lines.map((mark) => mark.label))}` : null, 0.6, AXIS_CAPS.debtcash, lines, currency)
+  const panelB = moneyPanel('equity', 'Shareholders’ equity', 0.4, AXIS_CAPS.equity, equitySeries ? [equity] : [], currency)
   const panels = [...(lines.length ? [panelA] : []), ...(equitySeries ? [panelB] : [])]
   const { band, letters, partly } = notesBandOf(ds, notes, series)
   const drawn = [...lines, ...(equitySeries ? [equity] : [])]
