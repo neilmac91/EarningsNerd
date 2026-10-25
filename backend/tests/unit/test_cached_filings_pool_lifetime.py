@@ -19,13 +19,13 @@ One rule, three parts in this one module:
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
   and a Free question, a missing filing and the admission's three refusals), the summary exports (the PDF
   and the CSV, a Free reader's 403, and a missing summary's and filing's 404), the admin feedback triage and
-  filing and summary maintenance routes (their 404s, and the bulk routes' dry and real runs) and the admin
-  invite routes (the list, mint with and without mail, revoke and re-send, their 404s and 409s, and the
-  re-send's 503 with invitation mail closed) must answer an eight-request burst with no checkout on the
-  loop and nothing left for the finalizer; and the join, the contact form, the feedback submit and the
-  invite mint and re-send must send their mails, the analysis and summary exports render, Stripe checkout and the
-  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
-  with no connection out.
+  filing and summary maintenance routes (their 404s, and the bulk routes' and the stale-summary refresh's dry and
+  real runs) and the admin invite routes (the list, mint with and without mail, revoke and re-send, their 404s and
+  409s, and the re-send's 503 with invitation mail closed) must answer an eight-request burst with no checkout on
+  the loop and nothing left for the finalizer; and the join, the contact form, the feedback submit and the
+  invite mint and re-send must send their mails, the analysis and summary exports render, the stale-summary
+  refresh generate, Stripe checkout and the portal make their Stripe calls, and the account deletion its Stripe
+  cancellation and PostHog flush, with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
@@ -2965,6 +2965,8 @@ async def test_an_instance_takes_no_more_requests_than_the_thread_tokens_its_uni
     ("POST", "/api/admin/filings/bulk-reset-stale?dry_run=false", "bulk_reset"),
     ("POST", "/api/admin/summaries/reset-all", "reset_all_dry"),
     ("POST", "/api/admin/summaries/reset-all?dry_run=false", "reset_all"),
+    ("POST", "/api/admin/summaries/refresh-stale", "refresh_stale_dry"),
+    ("POST", "/api/admin/summaries/refresh-stale?dry_run=false", "refresh_stale"),
 ])
 async def test_admin_maintenance_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
     """The admin feedback triage and the filing and summary maintenance routes run their service call (with the
@@ -2972,10 +2974,16 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
     admins on four slots make no checkout, statement or release on the loop and leave nothing for the finalizer. On
     the loop, each statement after the auth lookup ran there (the stale-XBRL audit and bulk reset loading every
     filing's XBRL), each read after a write's commit checked a connection out there, and every case but a summary
-    delete that found its filing left its transaction for the finalizer, the 404s included."""
+    delete that found its filing left its transaction for the finalizer, the 404s included.
+
+    The stale-summary refresh reads its candidates in such a unit; a real run then regenerates each (stubbed here,
+    leaving every row stale) and re-reads its stamp, and writes its audit row, each in a session of its own in the
+    thread pool. On the loop, a real run had re-read each stamp and written its audit row on the request's session,
+    checking a connection out there for each."""
     from app.models import AuditLog, User
     from app.models.feedback import Feedback
     from app.routers import auth
+    from app.services import summary_generation_service
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'admin-maintenance.db'}",
@@ -3044,6 +3052,15 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
+    # The stale refresh's generations, on the real function's signature: each leaves its row stale, so every
+    # request's answer is the same however the eight interleave.
+    generations: list[tuple[int, Any, bool, bool]] = []
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        generations.append((filing_id, user_id, force_regenerate, rebuild_excerpt))
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def send(i: int) -> httpx.Response:
@@ -3063,8 +3080,11 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
         assert loop_statements and loop_statements == [False] * len(loop_statements)
         assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
         assert engine.pool.checkedout() == 0
-        # Each route released its own connection; the dependency's finalizer found nothing open.
-        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        # Each route released its own connection; the dependency's finalizer found nothing open. A real stale refresh
+        # also opens a session for each of its five stamp re-reads and for its audit row, which closes once, itself.
+        own = [session for session in request_sessions if len(session.open_at_close) == 1] if case == "refresh_stale" else []
+        assert len(own) == (8 * (5 + 1) if case == "refresh_stale" else 0)
+        assert [request.open_at_close[-1:] for request in request_sessions if request not in own] == [[False]] * 8
         missing = case in ("feedback_missing", "filing_missing", "xbrl_missing", "reset_missing")
         assert [response.status_code for response in responses] == [404 if missing else 200] * 8
         payloads = [response.json() for response in responses]
@@ -3094,6 +3114,19 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             # Each reads all eight filings or summaries before any of the others commits, or none after (below).
             counted = [payload["affected_count" if case == "bulk_reset" else "deleted_count"] for payload in payloads]
             assert set(counted) <= {0, 8} and 8 in counted, counted
+        elif case in ("refresh_stale_dry", "refresh_stale"):
+            # Each finds the eight stale summaries and samples five of them; a real run regenerates those five, and
+            # the keep-better gate's count takes each, its row still stale.
+            assert [(payload["stale_total"], payload["batch_limit"], payload["updated_count"],
+                     payload["kept_by_gate_count"], payload["failed_count"]) for payload in payloads] == [
+                (8, 5, 0, 5 if case == "refresh_stale" else 0, 0)] * 8
+            sampled = [payload["candidate_filing_ids"] for payload in payloads]
+            assert all(len(set(ids)) == 5 and set(ids) <= set(filing_ids) for ids in sampled), sampled
+            if case == "refresh_stale":
+                assert [payload["kept_by_gate_filing_ids"] for payload in payloads] == sampled
+        assert sorted(generations) == (
+            sorted((filing_id, None, True, False) for ids in sampled for filing_id in ids) if case == "refresh_stale"
+            else [])
         with sessions() as db:
             summaries = db.query(Summary).count()
             # A cleared JSON column holds JSON null, which a SQL IS NOT NULL still counts.
@@ -3125,8 +3158,91 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
             assert audits == sorted(
                 ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)
                 for i, count in enumerate(counted) if count == 8)
+        elif case == "refresh_stale":
+            kept = (("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5), ("schema_version_lt", None),
+                    ("stale_total", 8), ("updated_count", 0))
+            assert audits == sorted(("summaries_refresh_stale", admin_ids[email], email, "", kept) for email in emails)
         else:
             assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch, tmp_path):
+    """A real stale refresh generates with no pooled connection out: it reads its candidates and releases the
+    request's session before the first generation, and re-reads each stamp, and writes its audit row after the last,
+    in a session of its own in the thread pool. One admin and two stale summaries; the first generation stamps its
+    row current, so the answer counts that one updated and the other kept by the keep-better gate. On the loop, the
+    request's session held its connection through each generation."""
+    from app.models import AuditLog, User
+    from app.routers import auth
+    from app.services import summary_generation_service
+    from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'stale-refresh.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000010", ticker="STALE", name="Stale fixture")
+        db.add(company)
+        db.flush()
+        db.add(User(email="admin@example.com", is_active=True, is_admin=True))
+        for i in range(2):
+            filing = Filing(company_id=company.id, accession_number=f"0000000010-26-00000{i}", filing_type="10-K",
+                            filing_date=utcnow(), sec_url=f"https://example.test/stale/{i}/",
+                            document_url=f"https://example.test/stale/{i}.htm")
+            db.add(filing)
+            db.flush()
+            db.add(Summary(filing_id=filing.id, business_overview="# Summary"))  # no stamps: stale
+        db.commit()
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+
+    def stamp_current(filing_id: int) -> None:
+        with sessions() as db:
+            db.query(Summary).filter(Summary.filing_id == filing_id).update(
+                {"schema_version": SUMMARY_SCHEMA_VERSION, "prompt_version": SUMMARY_PROMPT_VERSION})
+            db.commit()
+
+    # Each generation: the connections out as it starts and as it ends. The first stamps its row current in a session
+    # of its own, off the loop, as the pipeline's stages write theirs.
+    held: list[tuple[int, int]] = []
+    generated: list[int] = []
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        start = engine.pool.checkedout()
+        if not generated:
+            await asyncio.to_thread(stamp_current, filing_id)
+        generated.append(filing_id)
+        held.append((start, engine.pool.checkedout()))
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    token = auth.create_access_token({"sub": "admin@example.com"})
+    try:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post("/api/admin/summaries/refresh-stale?dry_run=false&limit=2")
+        assert response.status_code == 200, response.text
+        assert held == [(0, 0), (0, 0)]
+        payload = response.json()
+        assert (payload["updated_filing_ids"], payload["kept_by_gate_filing_ids"], payload["failed_count"]) == (
+            generated[:1], generated[1:], 0)
+        with sessions() as db:
+            audits = [details for (details,) in db.query(AuditLog.details).filter(
+                AuditLog.action == "summaries_refresh_stale")]
+        assert audits == [{"filing_type": None, "schema_version_lt": None, "stale_total": 2, "updated_count": 1,
+                           "kept_by_gate_count": 1, "failed_count": 0}]
     finally:
         engine.dispose()
 
@@ -3387,6 +3503,58 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
     assert logged.exc_info[1] is error
 
 
+@pytest.mark.asyncio
+async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_to_close(monkeypatch, tmp_path, caplog):
+    """The stale refresh re-reads each stamp, and writes its audit row, in a session of its own after its route has
+    released the request's (``admin_summary_service._in_own_session``). A close that raised there would put a 500 in
+    place of the batch's outcomes after its paid generations. With every such close failing, as a connection dropped
+    after the unit's last statement does, the run still returns its outcomes and writes its audit row, and logs each
+    failed close, as the release does."""
+    from app.models import AuditLog
+    from app.services import admin_summary_service, summary_generation_service
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'refresh-close.db'}", connect_args={"check_same_thread": False})
+    database.Base.metadata.create_all(engine)
+    with sessionmaker(bind=engine)() as db:
+        company = Company(cik="0000000011", ticker="CLOSE", name="Close fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000011-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/close/",
+                        document_url="https://example.test/close.htm")
+        db.add(filing)
+        db.flush()
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary"))  # no stamps: stale
+        db.commit()
+        filing_id = filing.id
+    error = OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly"))
+
+    class DroppedOnClose(Session):
+        def close(self) -> None:
+            super().close()
+            raise error
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedOnClose))
+
+    async def generate(filing_id: int, user_id: Any, *, force_regenerate: bool = False,
+                       rebuild_excerpt: bool = False) -> None:
+        return None
+
+    monkeypatch.setattr(summary_generation_service, "generate_summary_background", generate)
+    try:
+        outcomes = await admin_summary_service.regenerate_in_place(
+            [filing_id], actor_id=7, actor_email="admin@example.com", filing_type=None, schema_version_lt=None,
+            stale_total=1)
+        assert outcomes == ([], [filing_id], [])
+        with sessionmaker(bind=engine)() as db:
+            assert [tuple(row) for row in db.query(AuditLog.action, AuditLog.user_id)] == [("summaries_refresh_stale", "7")]
+        # One failed close for the stamp re-read and one for the audit row, each with its traceback.
+        assert [record.exc_info[1] for record in caplog.records
+                if "Closing the stale refresh's own session failed" in record.getMessage()] == [error, error]
+    finally:
+        engine.dispose()
+
+
 # ── Structure: every async route keeps its request session off the loop ──────────────
 #
 # The ratchet: an async route never works its request session on the event loop.
@@ -3505,8 +3673,6 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
 # entries keeps in-place number edits on different entries mergeable in any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/admin.py", "refresh_stale_summaries"): 2,
-
     ("app/routers/auth.py", "apple_callback"): 6,
 
     ("app/routers/auth.py", "apple_login"): 1,

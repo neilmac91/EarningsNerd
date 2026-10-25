@@ -344,6 +344,23 @@ income, 3,826 where the 10-K gives $3,826M): it merged as #1622 on 2026-10-25 (h
 some of them; the journaled repair of the rest is E211, the first item in E206 (`tasks/todo.md`;
 #1622's body says which rows a sync heals).
 
+**Its first run** ([Ops run 40236489889](https://github.com/neilmac91/EarningsNerd/actions/runs/40236489889), main `15ee1e89`, 2026-10-25 21:39Z) found the cohort small, though not all
+of it can be checked from the database:
+- **Set 1.** 65 current rows that a proxy statement (DEF 14A) supplied, all `net_income`, at 9
+  companies: BIIB, BMRN, CRM, FTNT, JPM, META, NVDA, RDDT and REGN. Of the 65, 35 are annual
+  rows (FY2021–FY2026) and 30 are Q4 quarters derived from them.
+- **The 12 with a report row behind them** (at BIIB, JPM and NVDA) are close: 8 differ from it,
+  none by more than 1%, and the largest gap is JPM's, 0.1%.
+- **The other 53 have none,** so the database cannot say how far they are from the 10-K. E211's
+  dry run reads the 10-K's figure for them; the repair has to fetch it rather than promote a
+  stored row.
+- **Set 3.** 35 `net_margin` rows built on them, at 9 company and period keys across 6 companies.
+- **Set 4.** None found: no filing row that the old cross-check replaced with a proxy's figure, of
+  those the query can see. A replacement made before #1191 records no original, so only a stored
+  proxy row witnesses it, and one with no witness is outside the query.
+
+FDX, the case that found the defect, holds none of them.
+
 **Owner.** Data, in two parts:
 - the history rows in `facts/**` (high tier);
 - the evidence, its line in the data notes, the n/m rule and the sign-or-scale mark in
@@ -366,6 +383,34 @@ The review, withheld and dagger counts and the reason breakdown were identical.
 It runs only from main, through the Ops workflow's `detection-sql` operation. Run it after this
 lands, and again after the backfill's apply, to confirm the drop. E206 (`tasks/todo.md`) holds
 both runs.
+
+**The first run** ([Ops run 40236489889](https://github.com/neilmac91/EarningsNerd/actions/runs/40236489889), main `15ee1e89`, 2026-10-25 21:39Z, before WP0's apply), over
+31 companies and 6,939 cells in every fiscal year:
+- **The review letter** marks 787 cells (11.3%), and 773 of them for `legacy_calculation` alone.
+  The other 14 are `source_check_needed`. No cell is withheld.
+- **It sits on the calculated metrics:** gross margin 62.7%, free cash flow 58.0%, net margin
+  57.8%, operating margin 51.1%, working capital and current ratio 45.3% each. No reported metric
+  is above 1.0%.
+- **By owner,** filing-owned rows (19 companies, 1,073 cells) carry it at 23.7%, and companyfacts
+  rows (22 companies, 5,866 cells) at 9.1%.
+- **By year,** it stays at 9.4–11.8% from FY2008 to FY2022, then reads 13.9% in FY2023, 15.0% in
+  FY2024, 13.9% in FY2025 and 16.4% in FY2026 (six companies). §1.2's 16.9% is another cut, each
+  company's latest annual cells, so the two are not the same quantity.
+- **Per company, in its newest ten years:** 9 of 31 show no review cell, 2 show 1–5, 6 show
+  6–10, 7 show 11–20 and 7 more than 20.
+
+**These are the notation as it ships today, not as D-061 draws it** (chief design on #1646).
+Under D-061 (WP1) a `legacy_calculation` note is record-only and draws no letter. So of these
+cells, a reader would see a letter on 14 (0.2%): the `source_check_needed` cells.
+- They sit on reported figures only: EPS and diluted EPS 4 each, operating income and financing
+  cash flow 2 each, cash and investing cash flow 1 each.
+- They are at 5 of the 31 companies. Today 22 show a letter in their newest ten years alone.
+
+The second run, after WP0's apply, measures the change against these figures. WP0 can turn a
+legacy cell into one whose recomputation passes, or into one that disagrees, which D-061 marks. So
+the review share can fall while the count readers see rises. That run reads two numbers:
+- the review count less the record-only reasons (14 now);
+- the legacy share (62.2% now).
 
 ## 2. The notation as one system
 
