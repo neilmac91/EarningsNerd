@@ -7,9 +7,10 @@
  * literal SVG attributes in the theme's hexes, never classes or var(), so the PNG export serialises the plot whole.
  * Text renders with geometric precision: under full font hinting at 1× (headless Chrome's default, and some desktops)
  * Blink otherwise snaps each advance to a whole pixel, 7 px where the plan counts Geist Mono's 6.6 (spec G1, D8).
- * The data-* attributes are the ones the DOM checks read (§4.0, D4, D12, D14; step 6, E194): a mark in a series' colour
- * names its series and period, a line run its periods space-separated, and the value strip's swatches sit in its
- * data-strip group. GutterOverlay repeats the gutter's text for A7's sticky gutter, from the same pieces.
+ * The data-* attributes are the ones the DOM checks read (§4.0, D3, D4, D12, D14; step 6, E194): a mark in a series'
+ * colour names its series and period, a line run its periods space-separated, the value strip's swatches sit in its
+ * data-strip group, each panel names its plot rect (data-plot, "x y width height"), and every text its role
+ * (data-text, TextRole). GutterOverlay repeats the gutter's text for A7's sticky gutter, from the same pieces.
  */
 import { memo } from 'react'
 import { Group } from '@visx/group'
@@ -21,6 +22,10 @@ import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { BreakMark, MarkerShape, StripSwatch } from './chartMarks'
 
 const gridY = (y: number) => Math.round(y) + 0.5
+
+/** What each `<text>` is, as its data-text attribute names it for the DOM checks (D3: only a bar label, an A13b label
+ *  or a gap's "—"/"n/m" may sit inside a plot rect). */
+export type TextRole = 'caption' | 'tick' | 'x' | 'label' | 'gap' | 'near-zero' | 'off-arrow' | 'off-value' | 'strip-name' | 'strip' | 'notes' | 'note'
 
 /** A line's valued points split at each gap: the path never joins across a missing value (§3.4). */
 function runsOf(points: ModelPoint[]): ModelPoint[][] {
@@ -38,14 +43,14 @@ function runsOf(points: ModelPoint[]): ModelPoint[][] {
 
 /** A panel's caption, left-aligned in its band (§3.6). */
 function Caption({ box, tokens }: { box: PanelBox; tokens: ChartTokens }) {
-  return box.captionY != null && box.panel.caption ? <text x={0} y={box.captionY} fill={tokens.tick}>{box.panel.caption}</text> : null
+  return box.captionY != null && box.panel.caption ? <text x={0} y={box.captionY} fill={tokens.tick} data-text="caption">{box.panel.caption}</text> : null
 }
 
 /** A panel's y tick labels, right-aligned 8 px left of the plot (D5, D11). */
 function TickLabels({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout; tokens: ChartTokens }) {
   const { axis } = box.panel
   return axis.ticks.map((tick) => (
-    <text key={tick} x={layout.gutter - 8} y={box.y(tick)} dy="0.32em" textAnchor="end" fill={tokens.tick}>{axis.format.tick(tick)}</text>
+    <text key={tick} x={layout.gutter - 8} y={box.y(tick)} dy="0.32em" textAnchor="end" fill={tokens.tick} data-text="tick">{axis.format.tick(tick)}</text>
   ))
 }
 
@@ -54,7 +59,7 @@ function StripName({ row, y, tokens }: { row: StripRow; y: number; tokens: Chart
   return (
     <>
       <StripSwatch swatch={row.swatch} marker={row.marker} x={STRIP_MARKER_X} y={y - 4} color={tokens.series[row.color]} ring={tokens.surface} />
-      <text x={STRIP_LABEL_X} y={y} fill={tokens.tick}>{row.short}</text>
+      <text x={STRIP_LABEL_X} y={y} fill={tokens.tick} data-text="strip-name">{row.short}</text>
     </>
   )
 }
@@ -122,10 +127,10 @@ function Bars({ box, tokens, marks }: { box: PanelBox; tokens: ChartTokens; mark
         )
       })}
       {box.bars.map((bar) => bar.label && (
-        <text key={`${bar.seriesKey}:${bar.period}`} x={bar.x + bar.width / 2} y={bar.label.y} textAnchor="middle" fill={tokens.value}>{bar.label.text}</text>
+        <text key={`${bar.seriesKey}:${bar.period}`} x={bar.x + bar.width / 2} y={bar.label.y} textAnchor="middle" fill={tokens.value} data-text="label">{bar.label.text}</text>
       ))}
-      {box.gaps.map((gap) => <text key={gap.period} x={gap.x} y={gap.y} textAnchor="middle" fill={tokens.tick}>{gap.text}</text>)}
-      {box.nearZero.map((label) => <text key={label.period} x={label.x} y={label.y} textAnchor="middle" fill={tokens.value}>{label.text}</text>)}
+      {box.gaps.map((gap) => <text key={gap.period} x={gap.x} y={gap.y} textAnchor="middle" fill={tokens.tick} data-text="gap">{gap.text}</text>)}
+      {box.nearZero.map((label) => <text key={label.period} x={label.x} y={label.y} textAnchor="middle" fill={tokens.value} data-text="near-zero">{label.text}</text>)}
     </g>
   )
 }
@@ -140,8 +145,8 @@ function OffScale({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout;
         <g key={side}>
           {band.items.map((item) => (
             <g key={`${item.seriesKey}:${item.period}`}>
-              <text x={item.left} y={band.top + 10 + OFF_ROW * item.row} fill={tokens.series[item.color]} data-series={item.seriesKey} data-period={item.period}>{arrow}</text>
-              <text x={item.left + OFF_GLYPH} y={band.top + 10 + OFF_ROW * item.row} fill={tokens.value}>{item.text}</text>
+              <text x={item.left} y={band.top + 10 + OFF_ROW * item.row} fill={tokens.series[item.color]} data-series={item.seriesKey} data-period={item.period} data-text="off-arrow">{arrow}</text>
+              <text x={item.left + OFF_GLYPH} y={band.top + 10 + OFF_ROW * item.row} fill={tokens.value} data-text="off-value">{item.text}</text>
             </g>
           ))}
         </g>
@@ -171,7 +176,8 @@ export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }
         ))}
       </defs>
       {layout.panels.map((box) => (
-        <Group key={box.panel.id} data-panel={box.panel.id} data-axis-step={box.panel.axis.step} data-axis-domain={box.panel.axis.domain.join(',')}>
+        <Group key={box.panel.id} data-panel={box.panel.id} data-axis-step={box.panel.axis.step} data-axis-domain={box.panel.axis.domain.join(',')}
+          data-plot={`${layout.plotLeft} ${box.top} ${layout.plotRight - layout.plotLeft} ${box.height}`}>
           <PanelAxis box={box} layout={layout} tokens={tokens} />
           {box.panel.marks.some((mark) => mark.kind !== 'line') && <Bars box={box} tokens={tokens} marks={marks} />}
           {box.panel.marks.filter((mark) => mark.kind === 'line').map((mark) => (
@@ -182,7 +188,7 @@ export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }
       ))}
       <g>
         {model.periods.map((period) => (
-          <text key={period.key} x={layout.x(period.key)} y={layout.xTickY} textAnchor="middle" fill={tokens.tick}>
+          <text key={period.key} x={layout.x(period.key)} y={layout.xTickY} textAnchor="middle" fill={tokens.tick} data-text="x">
             {period.tick.map((line, i) => <tspan key={line} x={layout.x(period.key)} dy={i === 0 ? 0 : 12}>{line}</tspan>)}
           </text>
         ))}
@@ -191,15 +197,15 @@ export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }
         <g key={row.label} data-strip={row.label}>
           <StripName row={row} y={layout.stripRowY[i]} tokens={tokens} />
           {model.periods.map((period) => (
-            <text key={period.key} x={layout.x(period.key)} y={layout.stripRowY[i]} textAnchor="middle" fill={tokens.value}>{row.cells[period.key]}</text>
+            <text key={period.key} x={layout.x(period.key)} y={layout.stripRowY[i]} textAnchor="middle" fill={tokens.value} data-text="strip">{row.cells[period.key]}</text>
           ))}
         </g>
       ))}
       {/* The notes band is a visual index of the footnotes under the card, which carry the same letters. */}
       <g aria-hidden="true">
-        {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick}>Notes</text>}
+        {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick} data-text="notes">Notes</text>}
         {noteGlyphs(model, layout).map((glyph) => (
-          <text key={`${glyph.period}:${glyph.text}`} x={glyph.x} y={layout.notesY} textAnchor="middle" fill={glyph.tone === 'review' ? tokens.review : tokens.tick}>{glyph.text}</text>
+          <text key={`${glyph.period}:${glyph.text}`} x={glyph.x} y={layout.notesY} textAnchor="middle" fill={glyph.tone === 'review' ? tokens.review : tokens.tick} data-text="note">{glyph.text}</text>
         ))}
       </g>
     </svg>
@@ -231,7 +237,7 @@ export function GutterOverlay({ model, layout, tokens, cover, cuts }: { model: C
         </g>
       ))}
       {layout.stripTop != null && model.strip.map((row, i) => <StripName key={row.label} row={row} y={layout.stripRowY[i]} tokens={tokens} />)}
-      {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick}>Notes</text>}
+      {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick} data-text="notes">Notes</text>}
     </svg>
   )
 }

@@ -7,6 +7,8 @@
  * the plot (theme.ts, which mirrors the renderer's Tailwind pairs, E194), and so does its PNG's header. TrendChartPlot holds the plot and the ways to read it. The card spans three rows of the grid's
  * subgrid, its header, plot and notes, so a grid row's plots start at one height whatever its legends wrap to (chief
  * design's review of #1609). Escape in an expanded card collapses it and returns focus to its toggle (§3.10, D13).
+ * The card names its chart (data-trend-chart) and each piece of its text (data-chart-text) for the gallery's DOM checks
+ * (D6, D9, M19; step 6, E194).
  */
 import { useCallback, useContext, useId, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -91,7 +93,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
 
   return (
     <Card as="section" className={cx('row-span-3 grid min-w-0 grid-cols-1 grid-rows-subgrid gap-y-0 p-cap-5', expanded && 'md:col-span-2')}
-      onKeyDown={(event) => {
+      data-trend-chart={chart} onKeyDown={(event) => {
         // A portalled dialog's Escape is not the card's: its DOM sits outside the section.
         if (event.key !== 'Escape' || !expanded || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return
         event.preventDefault()
@@ -101,7 +103,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{model.title}</h2>
-          <p className="mt-0.5 text-xs" style={{ color: tokens.note }}>{model.subtitle}</p>
+          <p className="mt-0.5 text-xs" style={{ color: tokens.note }} data-chart-text="subtitle">{model.subtitle}</p>
           {(model.legend.length > 0 || panelNotes.length > 0) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
               {model.legend.length > 0 && (
@@ -109,8 +111,8 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
                   {model.legend.map((item) => (
                     <li key={item.label} className="inline-flex items-center gap-1.5 text-xs">
                       <LegendSwatch item={item} tokens={tokens} />
-                      <span style={{ color: tokens.name }}>{item.label}</span>
-                      {item.value && <span className="font-data" style={{ color: tokens.figure }}>{item.value}</span>}
+                      <span style={{ color: tokens.name }} data-chart-text="name">{item.label}</span>
+                      {item.value && <span className="font-data" style={{ color: tokens.figure }} data-chart-text="figure">{item.value}</span>}
                     </li>
                   ))}
                 </ul>
@@ -134,17 +136,17 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
         <TrendChartPlot model={model} layout={layout} readouts={readouts} tokens={tokens} fontReady={fontReady} uid={uid} view={view}
           plotRef={plotRef} onWidth={onWidth} />
       ) : (
-        <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }}>
+        <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
           {model.unavailable}
         </div>
       )}
       {/* Always rendered: the subgrid's third row. */}
       <div>
-        {layout?.valuesDontFit && <p className="mt-2 text-xs" style={{ color: tokens.note }}>{VALUES_DONT_FIT}</p>}
+        {layout?.valuesDontFit && <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT}</p>}
         {model.footnotes.length > 0 && (
           <ul className="mt-2 space-y-0.5 text-xs" style={{ color: tokens.note }}>
             {model.footnotes.map((footnote) => (
-              <li key={`${footnote.mark}${footnote.text}`}>
+              <li key={`${footnote.mark}${footnote.text}`} data-chart-text="footnote">
                 {footnote.mark && <span className="mr-2 font-data">{footnote.mark}</span>}
                 {footnote.text}
               </li>
