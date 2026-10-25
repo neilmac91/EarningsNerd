@@ -354,8 +354,10 @@ of it can be checked from the database:
 - **The other 53 have none,** so the database cannot say how far they are from the 10-K. E211's
   dry run reads the 10-K's figure for them; the repair has to fetch it rather than promote a
   stored row.
-- **Set 3.** `net_margin` rows built on them, at 9 company and period keys across 6 companies.
-- **Set 4.** No filing row that the old cross-check replaced with a proxy's figure.
+- **Set 3.** 35 `net_margin` rows built on them, at 9 company and period keys across 6 companies.
+- **Set 4.** None found: no filing row that the old cross-check replaced with a proxy's figure, of
+  those the query can see. A replacement made before #1191 records no original, so only a stored
+  proxy row witnesses it, and one with no witness is outside the query.
 
 FDX, the case that found the defect, holds none of them.
 
@@ -392,8 +394,8 @@ both runs.
 - **By owner,** filing-owned rows (19 companies, 1,073 cells) carry it at 23.7%, and companyfacts
   rows (22 companies, 5,866 cells) at 9.1%.
 - **By year,** it stays at 9.4–11.8% from FY2008 to FY2022, then reads 13.9% in FY2023, 15.0% in
-  FY2024, 13.9% in FY2025 and 16.4% in FY2026. That is in line with §1.2's sample, which read 16.9%
-  over each company's latest year.
+  FY2024, 13.9% in FY2025 and 16.4% in FY2026 (six companies). §1.2's 16.9% is another cut, each
+  company's latest annual cells, so the two are not the same quantity.
 - **Per company, in its newest ten years:** 9 of 31 show no review cell, 2 show 1–5, 6 show
   6–10, 7 show 11–20 and 7 more than 20.
 
