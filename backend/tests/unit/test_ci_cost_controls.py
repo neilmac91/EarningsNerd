@@ -384,7 +384,8 @@ def test_documented_required_checks_are_jobs_a_workflow_runs():
 def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     ci = workflow()
     # Unique run_id fallbacks prevent queued main/manual runs replacing each other,
-    # which cancel-in-progress:false alone would NOT prevent.
+    # which cancel-in-progress:false alone would NOT prevent. Neither this group nor eval-baseline's reads the
+    # event's action or draft state, so a pull request's ready-mark run and its draft runs supersede one another (F55).
     assert ci["concurrency"] == {
         "group": "ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}",
         "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
@@ -398,6 +399,16 @@ def test_cancellation_is_pr_scoped_and_never_groups_main_or_manual_runs():
     assert set(ci["jobs"]["deploy-backend"]["needs"]) == {
         "backend-tests", "frontend-tests", "migrations-postgres", "e2e-tests", "secret-scan",
     }
+
+
+def test_each_head_reports_required_checks_and_the_ready_mark_starts_the_paid_eval():
+    # F55: drafts draw no eval-baseline (test_eval_parity.py runs its scope shell against the live draft flag), so the
+    # ready mark must start a run of its own; the three default types keep every required check reporting on each
+    # head, drafts included. The job still runs on a pull request or a dispatch, never on a push.
+    ci = workflow()
+    assert ci["on"]["pull_request"]["types"] == ["opened", "synchronize", "reopened", "ready_for_review"]
+    assert ci["jobs"]["eval-baseline"]["if"] == (
+        "github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'")
 
 
 def test_pip_caches_downloads_keyed_by_the_installed_pins_not_environments():
