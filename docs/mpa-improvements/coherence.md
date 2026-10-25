@@ -107,7 +107,8 @@ sibling plans have landed:
    5. Surfaces and the results header, last.
 
    E206 in `tasks/todo.md` tracks them in this order. The proxy-statement fix the census found
-   (§1.6) went first: it merged as #1622, and its repair of the rows stored before it is E211.
+   (§1.6) went first: it merged as #1622, and its repair of the rows stored before it, E211, is
+   E206's first item.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
    founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
    scheme stops marking: a figure whose only note is `legacy_calculation`. The founder approved
@@ -340,7 +341,8 @@ The fix (ingest skips proxy and information statements, plus a read-only query t
 production rows) went first, as it could put a wrong number on the page (FDX's FY2022–FY2026 net
 income, 3,826 where the 10-K gives $3,826M): it merged as #1622 on 2026-10-25 (high tier), with
 `ops/detection/proxy_form_winners.sql` to measure the rows production holds. The next sync heals
-some of them; the journaled repair of the rest is E211 (#1622's body says which).
+some of them; the journaled repair of the rest is E211, the first item in E206 (`tasks/todo.md`;
+#1622's body says which rows a sync heals).
 
 **Owner.** Data, in two parts:
 - the history rows in `facts/**` (high tier);
@@ -1038,11 +1040,12 @@ unresolved conflict.
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
 so it can start today.
 
-**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order, after the
-proxy-statement fix, which merged as #1622 (its repair is E211):
-1. WP0–WP5 in the order above (WP5 also commits a rerunnable restatement census);
-2. the concept-selection decision for REGN's change of scope (§1.6);
-3. the `detection-sql` runs before and after the backfill's apply (§1.7).
+**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order. The
+proxy-statement fix went first and merged as #1622; what it left leads the row:
+1. E211, the journaled repair of the proxy rows stored before #1622 (§1.6, high tier);
+2. WP0–WP5 in the order above (WP5 also commits a rerunnable restatement census);
+3. the concept-selection decision for REGN's change of scope (§1.6);
+4. the `detection-sql` runs before and after the backfill's apply (§1.7).
 
 ## 7. Findings for the other plans
 
