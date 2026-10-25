@@ -458,8 +458,8 @@
                align="right" (markdown table alignment emits it natively).
    - tr.total  bold a table's total row (tfoot gets it without the class).
 
-   AA both themes: prose = secondary (10.4:1 cream / 7.0:1 navy); header +
-   captions = tertiary light / SECONDARY dark (tertiary-dark fails on navy). */
+   AA both themes: prose = secondary (10.4:1 cream / 12.8:1 navy); header, captions,
+   list markers and the link underline = tertiary, the de-emphasised ink in both themes. */
 .markdown-body,
 .filing-reader {
   @apply text-text-primary-light dark:text-text-primary-dark;
@@ -543,7 +543,7 @@
 :is(.markdown-body, .filing-reader) ol { list-style-type: decimal; }
 :is(.markdown-body, .filing-reader) li { padding-left: 0.125em; }
 :is(.markdown-body, .filing-reader) li + li { margin-top: 0.5em; }
-:is(.markdown-body, .filing-reader) ::marker { @apply text-text-tertiary-light dark:text-text-secondary-dark; }
+:is(.markdown-body, .filing-reader) ::marker { @apply text-text-tertiary-light dark:text-text-tertiary-dark; }
 :is(.markdown-body, .filing-reader) ol > li::marker { font-variant-numeric: tabular-nums; }
 
 /* inline figures — $391.0B, 61.2%, tickers. OPT-IN: the renderer wraps money/
@@ -575,7 +575,7 @@
 :is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]) {
   @apply rounded-sm underline decoration-text-tertiary-light underline-offset-4 box-decoration-clone transition-colors duration-fast;
   @apply hover:text-brand-strong hover:decoration-current focus-visible:outline-none focus-visible:shadow-ring-brand;
-  @apply dark:decoration-text-secondary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
+  @apply dark:decoration-text-tertiary-dark dark:hover:text-brand-strong-dark dark:hover:decoration-current dark:focus-visible:shadow-ring-brand-dark;
 }
 :is(.markdown-body, .filing-reader, .copilot-answer) a:not([data-citation-kind]):hover * { color: inherit; }
 
@@ -598,7 +598,7 @@
   margin-bottom: 2rem;
 }
 :is(.markdown-body, .filing-reader) table th {
-  @apply text-text-tertiary-light dark:text-text-secondary-dark border-b border-border-light dark:border-border-dark;
+  @apply text-text-tertiary-light dark:text-text-tertiary-dark border-b border-border-light dark:border-border-dark;
   background: none;
   font-family: var(--font-heading);
   font-weight: 600;

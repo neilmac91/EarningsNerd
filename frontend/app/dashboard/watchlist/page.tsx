@@ -196,7 +196,7 @@ export default function WatchlistDashboardPage() {
                           />
                         )}
                       </div>
-                      <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                      <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                         {insight.total_filings} filing{insight.total_filings === 1 ? '' : 's'} on
                         record
                       </p>
@@ -226,19 +226,19 @@ export default function WatchlistDashboardPage() {
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {latest.filing_type}
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <CalendarDotsIcon className="h-4 w-4" />
                             {/* formatLocalDate gives '' for a date that is missing or does not read, and MissingValue stands in
                                 its place. The filed date's line has no label of its own, so its words name the date. */}
                             <span>{formatLocalDate(latest.filing_date, 'MMM dd, yyyy') || <MissingValue label="filing date unavailable" />}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <ClockIcon className="h-4 w-4" />
                             <span>Period end: {formatLocalDate(latest.period_end_date, 'MMM dd, yyyy') || <MissingValue />}</span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+                        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
                           No filings synced yet for this company.
                         </p>
                       )}
@@ -251,7 +251,7 @@ export default function WatchlistDashboardPage() {
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Updated {formatRelative(latest.summary_updated_at || latest.summary_created_at)}
                           </div>
-                          <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                          <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             Summary ID #{latest.summary_id}
                           </div>
                         </>
@@ -261,7 +261,7 @@ export default function WatchlistDashboardPage() {
                             {progressStage} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
-                            <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                            <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                               Elapsed {Math.max(0, Math.round(elapsedSeconds))}s
                             </div>
                           )}

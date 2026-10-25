@@ -49,7 +49,7 @@ export default function WaitlistPage() {
               </Suspense>
             </div>
 
-            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               No spam. Early access invites and product updates only.
             </p>
 

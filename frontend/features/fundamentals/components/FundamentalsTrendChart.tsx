@@ -151,7 +151,7 @@ export default function FundamentalsTrendChart({
             )}
           </div>
           {subtitle && (
-            <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">{subtitle}</p>
+            <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{subtitle}</p>
           )}
         </div>
         {available.length > 0 && (
@@ -177,7 +177,7 @@ export default function FundamentalsTrendChart({
           <span className="sr-only">Loading…</span>
         </div>
       ) : chartData.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
           No multi-year data available for this metric.
         </p>
       ) : (
@@ -212,7 +212,7 @@ export default function FundamentalsTrendChart({
         </div>
       )}
 
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
         Annual figures from SEC filings (XBRL){activeCurrency !== 'USD' ? `, reported in ${activeCurrency}` : ''}.{' '}
         {active ? active.label : ''} by fiscal year.
       </p>

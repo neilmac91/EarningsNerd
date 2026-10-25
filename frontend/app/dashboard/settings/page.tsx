@@ -169,7 +169,7 @@ export default function SettingsPage() {
                   Download the account records available through this feature, including your profile, search history,
                   saved summaries, watchlist and usage statistics, in JSON format.
                 </p>
-                <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mb-4">
+                <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mb-4">
                   For other personal information or data rights requests, see the Privacy Policy below.
                 </p>
               </div>
@@ -305,7 +305,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* Privacy Notice */}
-          <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-secondary-dark text-center">
+          <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-tertiary-dark text-center">
             <p>
               For more information about how we handle your data, please read our{' '}
               <Link href="/privacy" className="rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-brand-strong dark:text-brand-strong-dark hover:underline">

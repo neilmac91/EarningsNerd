@@ -627,7 +627,7 @@ function PanelCard({
       </div>
       </ChartViewport>
       {unavailableNotes.length > 0 && (
-        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           {unavailableNotes.join(' ')}
         </p>
       )}

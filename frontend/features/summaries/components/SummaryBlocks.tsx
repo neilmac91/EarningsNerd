@@ -164,7 +164,7 @@ export function SummaryBlocks({ sections, summary, whatChanged, whatChangedConte
                   href={`#${section.id}`}
                   className={`flex gap-2.5 rounded py-1 text-sm transition-colors duration-fast hover:text-text-primary-light focus-visible:outline-none focus-visible:shadow-ring-brand dark:hover:text-text-primary-dark dark:focus-visible:shadow-ring-brand-dark ${MUTED}`}
                 >
-                  <span aria-hidden="true" className="font-data text-xs leading-5 text-text-tertiary-light dark:text-text-secondary-dark">
+                  <span aria-hidden="true" className="font-data text-xs leading-5 text-text-tertiary-light dark:text-text-tertiary-dark">
                     {sectionIndex(i)}
                   </span>
                   <span className="min-w-0">{section.title}</span>
@@ -267,7 +267,7 @@ function MobileSectionNav({ sections }: { sections: PageSection[] }) {
               href={`#${section.id}`}
               className={cx('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium shadow-e1 dark:border-white/10 dark:bg-panel-dark dark:shadow-none', countControlClass('button'))}
             >
-              <span aria-hidden="true" className="font-data text-text-tertiary-light dark:text-text-secondary-dark">
+              <span aria-hidden="true" className="font-data text-text-tertiary-light dark:text-text-tertiary-dark">
                 {sectionIndex(i)}
               </span>
               {section.title}
@@ -307,7 +307,7 @@ function BlockView({ block, tableLabel }: { block: RenderedBlock; tableLabel?: s
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {/* The speaker is attribution, not the filing's words: the body face, inside a marked block too. */}
               {block.speaker && (
-                <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
+                <cite className="block font-sans text-sm not-italic text-text-tertiary-light dark:text-text-tertiary-dark">
                   {block.speaker}
                 </cite>
               )}
@@ -417,7 +417,7 @@ function GenericTable({ label, headers, rows, rowEvidence }: {
             <tr className={`border-b ${HAIRLINE}`}>
               {headers.map((header, i) => (
                 <th key={i} scope="col"
-                  className={`px-3 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light first:pl-0 last:pr-0 dark:text-text-secondary-dark ${numericCol[i] ? 'text-right' : 'text-left'}`}>
+                  className={`px-3 py-2 text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light first:pl-0 last:pr-0 dark:text-text-tertiary-dark ${numericCol[i] ? 'text-right' : 'text-left'}`}>
                   {header}
                 </th>
               ))}

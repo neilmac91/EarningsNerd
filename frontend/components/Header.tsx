@@ -405,7 +405,7 @@ export default function Header({
                     onClick={handleMobileLogout}
                     className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   >
-                    <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+                    <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
                     Log out
                   </button>
                 </>

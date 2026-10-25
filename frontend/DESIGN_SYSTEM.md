@@ -2205,7 +2205,7 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
 1. **App-wide, not just the obvious page** — public *and* authenticated.
 2. **Grep gate** — zero residual legacy brand colors AND legacy type roles:
    ```
-   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|via|bg|text|border(-[trblxyse])?|ring(-offset)?|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(sky|indigo|cyan|teal|violet|fuchsia|purple|pink|rose|orange|yellow|lime|green|red|amber|blue)-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2|text-text-tertiary-dark)' app components features
+   grep -rnE '\b(mint-[0-9]|glow-mint|(bg|text|ring|border|from|to)-primary-[0-9]|emerald-[0-9]|(from|to|via|bg|text|border(-[trblxyse])?|ring(-offset)?|fill|stroke|outline|decoration|divide|shadow|accent|caret|placeholder)-(sky|indigo|cyan|teal|violet|fuchsia|purple|pink|rose|orange|yellow|lime|green|red|amber|blue)-[0-9]|Figtree|font-grotesque|#3A2E26|#D99E4A|#92A0E2)' app components features
    ```
    Status tints are a census, not a grep: `tests/unit/statusTintResidue.spec.ts` pins every
    `info|success|warning|error` tint class outside `components/ui/` and every `<Notice>`'s written

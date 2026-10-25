@@ -75,8 +75,8 @@ const FIELD_BASE = cx(
   // over the DS ring. ring-0 zeroes its spread and ring-offset-0 its offset; `focus:`, since the plugin's rule is too.
   'focus:outline-none focus:ring-0 focus:ring-offset-0',
   'disabled:cursor-not-allowed disabled:bg-background-light disabled:opacity-60',
-  // dark: muted copy uses `secondary`, never `tertiary` (fails AA on navy)
-  'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
+  // dark: the placeholder takes tertiary's dark twin, so it stays apart from the typed value (secondary is all but primary)
+  'dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark',
   'dark:disabled:bg-white/5',
 )
 const FIELD = cx('w-full', FIELD_BASE)
@@ -268,7 +268,7 @@ function Shell({
           {error}
         </p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p id={`${id}-hint`} className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           {hint}
         </p>
       ) : null}
@@ -318,7 +318,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         {icon ? (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-tertiary-light dark:text-text-tertiary-dark"
           >
             {icon}
           </span>
@@ -361,7 +361,7 @@ const COMPOSER = cx(
   'text-text-primary-light placeholder:text-text-tertiary-light',
   'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
   'disabled:cursor-not-allowed disabled:opacity-60',
-  'dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark',
+  'dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark',
 )
 
 export type TextareaVariant = 'default' | 'composer'

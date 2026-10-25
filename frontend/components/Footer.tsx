@@ -63,7 +63,7 @@ export default function Footer() {
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+              <h3 className="text-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
                 {category}
               </h3>
               <ul className="mt-4 space-y-3">
@@ -100,7 +100,7 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-light pt-8 dark:border-white/[0.06] sm:flex-row">
-          <p suppressHydrationWarning className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p suppressHydrationWarning className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
             &copy; {year} EarningsNerd. All rights reserved.
           </p>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -112,7 +112,7 @@ export default function Footer() {
         {/* Logo.dev's Community plan asks a commercial site for this link on a public page, in the form
             its attribution page gives (the whole phrase as the link text); its dashboard loads the page
             to find it. tests/unit/Footer.spec.tsx holds the link. */}
-        <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           <a
             href="https://logo.dev"
             target="_blank"

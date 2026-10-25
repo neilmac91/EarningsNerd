@@ -152,6 +152,31 @@ function unpaired(own: string, shared = ''): string[] {
   })
 }
 
+/**
+ * The text ramp keeps its rung in dark (DESIGN_SYSTEM.md §2). Tertiary's twin is tertiary-dark, the de-emphasised
+ * gray-400; secondary's is secondary-dark, the reading gray-300. Twinned across rungs, de-emphasised copy reads as body
+ * copy in dark, or body copy fades: until the dark secondary rose to gray-300, 140 tertiary sites took secondary-dark as
+ * their twin because tertiary-dark (then gray-600) failed as text, and they would all have brightened with it.
+ */
+const CROSSED_RUNG: Record<string, string> = { 'text-tertiary-light': 'text-secondary-dark', 'text-secondary-light': 'text-tertiary-dark' }
+/** The classes of `own` on a light text rung whose `dark:` twin, in `own` or in `shared`, is the other rung's. */
+function crossedRungs(own: string, shared = ''): string[] {
+  const twins = new Map<string, Set<string>>()
+  for (const token of [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean)) {
+    const { variants, utility } = splitClass(token)
+    const match = PROPERTY.exec(utility)
+    if (!variants.includes('dark') || !match) continue
+    const key = `${variants.filter((v) => v !== 'dark').sort().join(':')}|${match[1]}`
+    twins.set(key, (twins.get(key) ?? new Set()).add(bare(match[2])))
+  }
+  return own.split(/\s+/).filter(Boolean).filter((token) => {
+    const { variants, utility } = splitClass(token)
+    const match = PROPERTY.exec(utility)
+    const crossed = match && !variants.includes('dark') ? CROSSED_RUNG[bare(match[2])] : undefined
+    return !!crossed && !!twins.get(`${[...variants].sort().join(':')}|${match![1]}`)?.has(crossed)
+  })
+}
+
 const isPlus = (node: ts.Node): node is ts.BinaryExpression => ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
 const isText = (node: ts.Node) => ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
 
@@ -185,12 +210,12 @@ function staticText(node: ts.Node): string | undefined {
   return undefined
 }
 
-function themePairFindings(source: string, rel: string): Finding[] {
+function themePairFindings(source: string, rel: string, check: (own: string, shared?: string) => string[] = unpaired): Finding[] {
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
   const findings: Finding[] = []
   const report = (node: ts.Node, own: string, shared: string) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-    for (const className of unpaired(own, shared)) findings.push({ rel, line, className })
+    for (const className of check(own, shared)) findings.push({ rel, line, className })
   }
   /** One built className: its unconditional strings are one list, and each conditional string sits beside them. */
   const built = (node: ts.Node, parts: readonly ts.Node[], context: string) => {
@@ -285,11 +310,11 @@ function applyBlocks(source: string): Apply[][] {
 }
 
 /** A stylesheet's rule blocks: the `@apply` statements directly inside one `{ … }` style one element, so they are one class list. */
-function applyFindings(source: string, rel: string): Finding[] {
+function applyFindings(source: string, rel: string, check: (own: string, shared?: string) => string[] = unpaired): Finding[] {
   return applyBlocks(source).flatMap((block) =>
     block.flatMap((apply) => {
       const shared = block.filter((other) => other !== apply).map((other) => other.classes).join(' ')
-      return unpaired(apply.classes, shared).map((className) => ({ rel, line: apply.line, className }))
+      return check(apply.classes, shared).map((className) => ({ rel, line: apply.line, className }))
     }),
   )
 }
@@ -410,6 +435,33 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
 
   it('every unpaired class is in the residue, and every residue count is current', () => {
     expect(residueProblems(findings, THEME_PAIR_RESIDUE, 'THEME_PAIR_RESIDUE', 'unpaired'), 'give each light-half class its dark: twin in the same class list').toEqual([])
+  })
+
+  it('keeps tertiary and secondary on their own rungs in dark: no tertiary-light twinned with secondary-dark, or the reverse', () => {
+    const crossed = FILES.flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      return file.endsWith('.css') ? applyFindings(source, rel(file), crossedRungs) : themePairFindings(source, rel(file), crossedRungs)
+    })
+    expect(crossed.map((f) => `${f.rel}:${f.line} ${f.className}`), 'twin text-text-tertiary-light with dark:text-text-tertiary-dark').toEqual([])
+  })
+
+  it('reads a crossed rung wherever a twin is read (a self-check on a fixed source)', () => {
+    const src = [
+      "const caption = 'text-xs text-text-tertiary-light dark:text-text-secondary-dark'",
+      "const body = 'text-text-secondary-light dark:text-text-tertiary-dark'",
+      "const field = cx('placeholder:text-text-tertiary-light', 'dark:placeholder:text-text-secondary-dark')",
+      // On its own rung, or twinned under another variant, nothing is crossed.
+      "const muted = 'text-text-tertiary-light dark:text-text-tertiary-dark'",
+      "const read = 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-tertiary-light dark:hover:text-text-tertiary-dark'",
+      "const other = 'text-text-tertiary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark'",
+    ].join('\n')
+    expect(themePairFindings(src, 'probe.tsx', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 text-text-tertiary-light',
+      '2 text-text-secondary-light',
+      '3 placeholder:text-text-tertiary-light',
+    ])
+    const css = ':is(.markdown-body) a { @apply underline decoration-text-tertiary-light;\n  @apply dark:decoration-text-secondary-dark; }'
+    expect(applyFindings(css, 'probe.css', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual(['1 decoration-text-tertiary-light'])
   })
 
   it('every dark half outside a dark: variant is in BARE_DARK_RESIDUE, and every count is current', () => {

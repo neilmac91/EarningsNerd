@@ -99,7 +99,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
     </summary>
     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
       {figures.map((figure, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
-        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && ' †'}</span>
+        <span className="font-data text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && ' †'}</span>
         <span>{figure.label}</span>
         <span className="font-data">{figure.display}</span>
         <span><NarrativeCitationChip citation={figure.source} notes={notes} /></span>
@@ -155,7 +155,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
-      <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+      <div className="mb-2 text-xs font-medium uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
         {sample
           ? 'Sources · sample data (one saved run)'
           : 'Sources · filed and calculated figures'}
@@ -178,7 +178,7 @@ function CitationList({ citations, sample, notes }: { citations: AnalysisCitatio
               <DataNoteMark note={notes.noteForQuality(citation)} calculated={citation.provenance?.method === 'calculated' || (!citation.provenance && citation.derived)} announce />
               {sourceUrl(citation.source_url ?? citation.provenance?.source_url) && <a className="ml-2 rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark" href={sourceUrl(citation.source_url ?? citation.provenance?.source_url)!} target="_blank" rel="noopener noreferrer" aria-label={`Original filing for source ${citation.n}: ${citation.concept?.replaceAll('_', ' ') || 'figure'}, ${citation.period ? formatAnalysisPeriod(citation.period) : 'period not recorded'}`}>Original filing</a>}
               {citation.section_ref && (
-                <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
+                <span className="ml-1 text-text-tertiary-light dark:text-text-tertiary-dark">
                   · {citation.provenance?.method === 'calculated' ? (citation.provenance.inputs.length ? 'Calculated from recorded inputs' : 'Calculated figure') : citation.provenance?.method === 'reported' ? 'SEC filing' : citation.section_ref}
                 </span>
               )}
@@ -261,7 +261,7 @@ export default function NarrativePane({
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
-            <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+            <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
               <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
             </span>
@@ -283,7 +283,7 @@ export default function NarrativePane({
             // The explanation is a visible line, not a title tooltip: a phone or a keyboard never shows a title.
             <>
               <Badge>Cached</Badge>
-              <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              <span className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                 Served from an earlier run · regenerates if these figures change
               </span>
             </>

@@ -392,7 +392,7 @@ describe('NarrativePane citation chips', () => {
     // A phone and a keyboard never show a title, so the explanation is on the page, in muted ink.
     expect(screen.getByText('Cached')).not.toHaveAttribute('title')
     const line = screen.getByText('Served from an earlier run · regenerates if these figures change')
-    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-secondary-dark')
+    expect(line).toHaveClass('text-text-tertiary-light', 'dark:text-text-tertiary-dark')
     expect(line.parentElement).toBe(screen.getByText('Cached').parentElement)
   })
 

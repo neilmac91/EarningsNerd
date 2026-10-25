@@ -63,10 +63,10 @@ export const WORDING_FEATURE = 'Risk factor wording review'
 
 const INK = 'text-text-primary-light dark:text-text-primary-dark'
 const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'
-const TERTIARY = 'text-text-tertiary-light dark:text-text-secondary-dark'
+const TERTIARY = 'text-text-tertiary-light dark:text-text-tertiary-dark'
 const HAIRLINE = 'border-border-light dark:border-white/10'
 const INS = 'underline decoration-2 underline-offset-2 font-medium text-text-primary-light dark:text-text-primary-dark'
-const DEL = 'line-through decoration-1 text-text-tertiary-light dark:text-text-secondary-dark'
+const DEL = 'line-through decoration-1 text-text-tertiary-light dark:text-text-tertiary-dark'
 const RING = 'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
 
 const KIND_LABEL: Record<SectionChange['kind'], string> = { modified: 'Modified', added: 'Added', removed: 'Removed', moved: 'Moved' }

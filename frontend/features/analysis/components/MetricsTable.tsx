@@ -1,18 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Button, Card, DataTable, MissingValue, SegmentedControl, type Column } from '@/components/ui'
+import { useMemo } from 'react'
+import { Button, Card, DataTable, MissingValue, type Column } from '@/components/ui'
 import { FileXlsIcon } from '@/lib/icons'
 import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
 import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
-import { tableComparisonBasis, tablePeriods, tablePresentation, type TableWindow } from '@/features/analysis/lib/reportPresentation'
+import { reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNoteMark from './DataNoteMark'
-import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
+import { useDataNotes } from './DataNotesContext'
 import DataNotesLink from './DataNotesLink'
+import GrowthText from './GrowthText'
 import SourceValue from './SourceValue'
 
 // DataTable's generic requires an index signature (Record<string, unknown>).
@@ -34,13 +35,10 @@ export default function MetricsTable({
   onExportXlsx,
   exporting = false,
   headingLevel: Heading = 'h2',
-  sample = false,
 }: {
   dataset: AnalysisDataset
   /** Heading element for "Metrics by period"; the landing page nests the table under an h3. */
   headingLevel?: 'h2' | 'h3' | 'h4'
-  /** Illustrative samples always show their complete fixed range. */
-  sample?: boolean
   /** Branded Excel workbook of the whole dataset (built server-side) — the page passes this on
    *  the Pro results surface only. */
   onExportXlsx?: () => void
@@ -49,14 +47,11 @@ export default function MetricsTable({
   exporting?: boolean
 }) {
   const notes = useDataNotes(dataset)
-  const selection = useAnalysisTableWindow(dataset)
-  // PROTOTYPE ONLY (paging vs scroll study): ?tableWindow=none shows every period with no window control.
-  // The table renders after the run's data arrives, never in the server pass, so reading the URL once here is safe.
-  const [windowControl] = useState(() => new URLSearchParams(globalThis.location?.search ?? '').get('tableWindow') !== 'none')
-  const window = sample || !windowControl ? 'all' : selection.window
-  const periods = useMemo(() => tablePeriods(dataset, window), [dataset, window])
-  const visibleNotes = useMemo(() => tablePresentation(dataset, periods, notes).notes, [dataset, periods, notes])
-  // A count agrees with the run's length: "1 of 1 year", "6 of 10 years".
+  // Every period of the run, in one horizontally scrolling table: from 1280px up all of them fit, and on a phone the
+  // table opens on the newest (the 6-of-N window it replaced hid periods and saved nothing).
+  const periods = dataset.periods
+  const visibleNotes = useMemo(() => tablePresentation(dataset, notes).notes, [dataset, notes])
+  // A count agrees with the run's length: "1 year", "10 years".
   const periodUnit = `${dataset.mode === 'quarterly' ? 'quarter' : 'year'}${dataset.periods.length === 1 ? '' : 's'}`
   const basis = dataset.mode === 'quarterly' ? 'prior quarter' : 'prior year'
   // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
@@ -108,7 +103,7 @@ export default function MetricsTable({
                 {dataset.mode === 'quarterly' && growthLabel === 'YoY' && <span>YoY </span>}
                 <span className={FIGURE_LINE}>
                   <span className="sr-only">Change vs {dataset.mode === 'quarterly' && growthLabel === 'YoY' ? 'same quarter last year' : basis} </span>
-                  {compactGrowth}<DataNoteMark compact note={growthNote} />
+                  <GrowthText text={compactGrowth} /><DataNoteMark compact note={growthNote} />
                 </span>
               </span>
             )}
@@ -121,10 +116,12 @@ export default function MetricsTable({
       key: 'metric',
       header: <><span>Metric</span><span className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
       rowHeader: true,
+      // The metric column sits on the panel frame: the name in the figure ink (Lc 101.3 / -91.8 on panel), its currency
+      // line in the panel's secondary ink (90.9 / -77.3).
       render: (row: Row) => (
         <span className="font-medium text-figure-light dark:text-figure-dark">
           {row.series.label}{tableCurrencyLabel(row.series) ? ' ' : ''}
-          {tableCurrencyLabel(row.series) && <span className="block text-data-xs font-normal text-note-light dark:text-note-dark">{tableCurrencyLabel(row.series)}</span>}
+          {tableCurrencyLabel(row.series) && <span className="block text-data-xs font-normal text-text-secondary-light dark:text-text-secondary-dark">{tableCurrencyLabel(row.series)}</span>}
         </span>
       ),
     }
@@ -206,23 +203,12 @@ export default function MetricsTable({
           </Button>
         )}
       </div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p role="status" className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Showing {periods.length} of {dataset.periods.length} {periodUnit}</p>
-        {!sample && windowControl && dataset.periods.length > 6 && <SegmentedControl<TableWindow>
-          label="Table window"
-          size="md"
-          fullWidth
-          value={window}
-          onChange={selection.setWindow}
-          options={[{ value: 'all', label: `All ${dataset.periods.length}` }, { value: 'newest', label: 'Newest 6' }, { value: 'earliest', label: 'Earliest 6' }]}
-        />}
-      </div>
       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Figures are rounded for display. Select a value for full precision.</p>
       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful.{dataset.mode === 'quarterly'
         ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
         : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>
       <DataTable<Row>
-        key={selection.identity}
+        key={reportIdentity(dataset)}
         columns={columns}
         rows={rows}
         rowKey={(row) => row.series.concept}
@@ -238,7 +224,7 @@ export default function MetricsTable({
           hint: periods.length === 1 ? '← Metric names' : `← Earlier ${periodUnit}`,
           startAtEndOnMobile: true,
         }}
-        caption={`Metrics by period, ${periods.length} of ${dataset.periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows the full selected window CAGR, or percentage-point change for margins.' : ''}`}
+        caption={`Metrics by period, ${periods.length} ${periodUnit}: value and change versus ${basis}.${dataset.mode === 'quarterly' ? ' Fiscal quarters follow the company’s reporting calendar. YoY labels identify comparisons versus the prior year when a quarterly comparison is unavailable.' : showsCagr ? ' The final column shows the full selected window CAGR, or percentage-point change for margins.' : ''}`}
         stickyFirstColumn
         surface="well"
         pageHeader

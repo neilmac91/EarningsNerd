@@ -2,13 +2,8 @@ import type { AnalysisDataset, AnalysisPoint } from '@/features/analysis/api/ana
 import type { DataNote, DataNoteBasis, DataNotesModel } from './dataNotes'
 import { windowGrowth, windowRange } from './growth'
 
-export type TableWindow = 'all' | 'newest' | 'earliest'
-
 export const reportIdentity = (dataset: AnalysisDataset) =>
   JSON.stringify([dataset.ticker, dataset.mode, dataset.period_key, dataset.snapshot_id ?? null])
-
-export const tablePeriods = (dataset: AnalysisDataset, window: TableWindow) =>
-  window === 'newest' ? dataset.periods.slice(-6) : window === 'earliest' ? dataset.periods.slice(0, 6) : dataset.periods
 
 export const topLineConcept = (dataset: AnalysisDataset) =>
   dataset.series.some(series => series.concept === 'revenue') ? 'revenue' : 'net_interest_income'
@@ -32,13 +27,13 @@ export const tableComparisonBasis = (mode: AnalysisDataset['mode'], point: Analy
 
 const comparisonId = (concept: string, period: string, basis: DataNoteBasis) => JSON.stringify([concept, period, basis])
 
-/** Actual rendered table membership, including gaps and the full annual window column. */
-export function tablePresentation(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
+/** Actual rendered table membership: every period, including gaps, and the full annual window column. */
+export function tablePresentation(dataset: AnalysisDataset, notes: DataNotesModel) {
   const letters = new Set<string>()
   const comparisons = new Set<string>()
   const include = (note: DataNote | null) => { if (note) letters.add(note.key) }
   for (const series of dataset.series) {
-    for (const period of periods) {
+    for (const period of dataset.periods) {
       const point = series.points.find(point => point.period === period.key) ?? { period: period.key, value: null }
       include(notes.noteFor(point))
       if (point.value == null) continue
@@ -56,7 +51,7 @@ export function tablePresentation(dataset: AnalysisDataset, periods: AnalysisDat
 }
 
 /** Count distinct concept/period/basis identities; a second appearance never adds a comparison. */
-export function comparisonLocations(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
+export function comparisonLocations(dataset: AnalysisDataset, notes: DataNotesModel) {
   const headline = new Set(selectHeadlineFigures(dataset).flatMap(({ series, point }) => {
     const annual = dataset.mode === 'annual'
     if ((annual ? windowGrowth(series).value : point.yoy) == null) return []
@@ -69,15 +64,13 @@ export function comparisonLocations(dataset: AnalysisDataset, periods: AnalysisD
     const point = topLine?.points.find(point => point.period === period.key)
     return typeof point?.yoy === 'number' ? [comparisonId(topLine!.concept, period.key, 'yoy')] : []
   }))
-  const table = tablePresentation(dataset, periods, notes).comparisons
-  const fullTable = tablePresentation(dataset, dataset.periods, notes).comparisons
+  const table = tablePresentation(dataset, notes).comparisons
   return (note: DataNote) => (['qoq', 'yoy', 'cagr', 'window_pp'] as const).flatMap(basis => {
     const identities = new Set(note.comparisons.filter(comparison => comparison.basis === basis)
       .map(comparison => comparisonId(comparison.concept, comparison.period, basis)))
     if (!identities.size) return []
     const count = (surface: Set<string>) => [...identities].filter(identity => surface.has(identity)).length
     return [{ basis, total: identities.size, headline: count(headline), chart: count(chart), table: count(table),
-      fullTable: count(fullTable), chartLabel: topLine?.label.toLowerCase() ?? 'top-line',
-      windowed: periods.length < dataset.periods.length, periods: periods.length, quarterly: dataset.mode === 'quarterly' }]
+      chartLabel: topLine?.label.toLowerCase() ?? 'top-line', quarterly: dataset.mode === 'quarterly' }]
   })
 }

@@ -9,6 +9,7 @@ import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
+import GrowthText from './GrowthText'
 
 const sourceLinkClass = 'rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
 const legacyLineage = (value: number | null) => value == null
@@ -144,7 +145,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           </section>
           {comparison && <section className="space-y-2 border-t border-border-light pt-3 dark:border-white/10">
             <h3 className="font-semibold">{comparison.label} comparison</h3>
-            <p className="font-data">{comparison.display}</p>
+            <p className="relative font-data"><GrowthText text={comparison.display} /></p>
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}

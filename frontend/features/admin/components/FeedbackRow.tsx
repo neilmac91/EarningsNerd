@@ -80,7 +80,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
           </span>
         ) : (
           // Feedback sent from no page carries none: the words say so rather than "unavailable".
-          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-secondary-dark" />
+          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-tertiary-dark" />
         )}
       </td>
       {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
@@ -90,7 +90,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         <span className="block w-max max-w-[14rem] [overflow-wrap:anywhere]">
           {feedback.user_email ?? (
-            <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
+            <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Anonymous</span>
           )}
         </span>
       </td>

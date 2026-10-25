@@ -157,8 +157,8 @@ module.exports = {
           grid: { light: 'rgba(229,231,235,0.6)', dark: 'rgba(255,255,255,0.06)' }, // hairline @ 60% — quieter than the axis
           axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },               // = the hairline itself
           // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
-          // the card charts sit on; on bare cream use secondary). Dark = text.SECONDARY
-          // (tertiary-dark fails on navy — same rule as muted text).
+          // the card charts sit on; on bare cream use secondary). Dark = text.TERTIARY, gray-400 #9CA3AF
+          // (7.4:1 on navy), chrome that stays quieter than the secondary ink.
           label: { light: '#6B7280', dark: '#9CA3AF' },
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
@@ -171,11 +171,15 @@ module.exports = {
           // v2: ONE heading ink — same espresso as body (walnut #3A2E26 retired); hierarchy comes
           // from size + weight, never a second color.
           heading: { light: '#1A1A17', dark: '#D7DADC' },
-          secondary: { light: '#374151', dark: '#9CA3AF' },
+          // secondary.dark #D1D5DB (gray-300; was gray-400 #9CA3AF, APCA Lc -48.6 on panel for 12px copy): Lc -77.3 on
+          // panel, -80.3 on navy, so secondary reads in dark as it does in light (90.9 on panel). Secondary carries
+          // anything that must be read.
+          secondary: { light: '#374151', dark: '#D1D5DB' },
           // tertiary.light #636A77 (P-02, 2026-10 critique; was gray-500 #6B7280 = 4.35:1 on cream, an AA
-          // fail at 12px): 4.9:1 on cream, 5.2:1 on panel, 4.8:1 in the brand-weak tint. Secondary
-          // still carries anything that must be read. tertiary.dark stays banned as text (2.9:1 on navy).
-          tertiary: { light: '#636A77', dark: '#4B5563' },
+          // fail at 12px): 4.9:1 on cream, 5.2:1 on panel, 4.8:1 in the brand-weak tint. tertiary.dark is its
+          // dark twin, de-emphasised but readable: gray-400 #9CA3AF, the ink tertiary text has always shown in dark
+          // (5.8:1 on panel, 7.4:1 on navy; it was secondary.dark's value, and #4B5563 failed as text at 2.9:1).
+          tertiary: { light: '#636A77', dark: '#9CA3AF' },
         },
         // ---- Borders ----
         border: {
@@ -183,20 +187,21 @@ module.exports = {
           dark: '#374151', // gray-700
         },
 
-        // ---- Analysis figure surfaces (the metrics table's well, the KPI cards' figures) ----
+        // ---- Analysis figure surfaces (the metrics table's sheet, the KPI cards' figures) ----
         // Measured with APCA (apca-w3 0.1.9) against the actual ground; targets by role: figures and metric names
-        // |Lc| >= 90 (Bronze: non-body text no smaller than 12px), change lines and labels >= 75, marks >= 60, rules >= 15.
-        // well: the table's inset sheet inside its panel Card. Platinum white is cooler and brighter than warm paper;
-        // near-black is the navy ground itself, so the sheet reads as recessed in dark.
+        // |Lc| >= 90 (Bronze: non-body text no smaller than 12px), change lines and labels >= 75, marks >= 60, rules >= 15
+        // and a hovered row's rules >= 30. The table's heading row and metric column stay on panel (DataTable's well frame).
+        // well: the sheet the figures sit on inside the panel Card. Platinum white is cooler and brighter than the warm
+        // panel framing it; near-black is the navy ground itself, so the sheet reads as recessed in dark.
         well: { light: '#FCFCFD', dark: '#0B1120' },
-        // rule: the well's row hairlines and outline. border-light is Lc 10.0 on the well (below the non-text 15);
-        // strong: the two rules of a hovered row (Lc 35.8 / -27.6), the hover that leaves every text pair unchanged.
-        rule: { light: '#D9DCE1', dark: '#4B5563', 'strong-light': '#B5BAC2', 'strong-dark': '#6B7280' },
-        // figure: values and metric names. Espresso is Lc 102.5 on the light well; dark needs gray-200, Lc -91.6
-        // (text-primary-dark #D7DADC is -83.3).
-        figure: { light: '#1A1A17', dark: '#E5E7EB' },
-        // note: period headers, flat changes, †, neutral letters and the missing-value token. Tertiary is Lc 75.4 on
-        // the light well; dark needs gray-300, -80.3 on the well and -77.3 on panel (secondary #9CA3AF is -51.6).
+        // rule: row hairlines and the sheet's outline, on the sheet and on the panel-coloured frame (border-light is Lc
+        // 10.0 on the sheet, 8.8 on panel): 16.5 / 15.3 light, -18.8 / -15.9 dark. strong: a hovered row's two rules, the
+        // hover that leaves every text pair unchanged: 35.8 / 34.5 light, -33.8 / -30.9 dark.
+        rule: { light: '#D9DCE1', dark: '#545E6D', 'strong-light': '#B5BAC2', 'strong-dark': '#768090' },
+        // figure: values and metric names. Espresso is Lc 102.5 on the sheet and 101.3 on panel; dark is -94.8 on the
+        // sheet and -91.8 on panel (gray-200 #E5E7EB is -88.7 on panel, text-primary-dark #D7DADC -80.3).
+        figure: { light: '#1A1A17', dark: '#EAECEF' },
+        // note: flat changes, †, neutral letters and the missing-value token on the sheet: Lc 75.4 / -80.3.
         note: { light: '#636A77', dark: '#D1D5DB' },
 
         // v3: the ONE modal/sheet scrim (brand navy @ 55%), both themes —

@@ -97,6 +97,29 @@ describe('MetricsTable', () => {
     expect(firstBodyCell).toHaveClass('left-0')
   })
 
+  it('frames the sheet: the heading row and the Metric column keep the panel surface and its inks, the figures sit on the sheet', () => {
+    // The founder's call on the sheet: the labels keep the normal theme colours, for slight contrast with the data.
+    const { container } = render(<MetricsTable dataset={dataset} />)
+    const table = container.querySelector('table')!
+    const frame = table.parentElement!.parentElement!
+    expect(frame).toHaveClass('rounded-xl', 'outline', 'outline-1', 'outline-rule-light', 'bg-well-light', 'dark:outline-rule-dark', 'dark:bg-well-dark')
+    expect(table.querySelector('thead tr')).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
+    for (const th of table.querySelectorAll('thead th')) expect(th).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    for (const row of table.querySelectorAll('tbody tr')) {
+      const [label, ...figures] = [...row.children]
+      expect(label).toHaveClass('bg-panel-light', 'dark:bg-panel-dark', 'border-r', 'border-rule-light', 'dark:border-rule-dark')
+      for (const cell of figures) expect(cell.className, 'a figure cell shows the sheet').not.toMatch(/(?:^|\s)(?:dark:)?bg-/)
+    }
+    expect(within(table).getByRole('rowheader', { name: 'Revenue' }).firstElementChild).toHaveClass('text-figure-light', 'dark:text-figure-dark')
+  })
+
+  it('sets every figure and change line in the figure face, with tabular lining numerals and no tracking', () => {
+    render(<MetricsTable dataset={dataset} />)
+    const cell = screen.getByRole('button', { name: /^Revenue, Q3 2024:/ }).closest('td')!
+    expect(cell.firstElementChild).toHaveClass('font-figure', 'tabular-nums', 'lining-nums', 'tracking-normal')
+    expect(within(cell).getByText(/Change vs prior quarter/).closest('[class*="text-gain-data"]')).not.toBeNull()
+  })
+
   it('rounds unusually long table figures while source detail preserves value and full comparison', async () => {
     const large = structuredClone(dataset)
     large.series[1].points[0] = { period: '2024Q3', value: -15154, reconciled: false, qoq: 1234.567, qoq_reconciled: false }
@@ -233,6 +256,11 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
   it('renders "n/m" for a sign-flip growth value instead of a nonsensical percentage', () => {
     render(<MetricsTable dataset={annualDataset} />)
     expect(screen.getByText('n/m').parentElement).toHaveTextContent('Change vs prior year')
+    // Read aloud as words, not "n slash m": the abbreviation is hidden and the words stand in for it.
+    const token = screen.getByText('n/m')
+    expect(token).toHaveAttribute('aria-hidden', 'true')
+    expect(token.nextElementSibling).toHaveClass('sr-only')
+    expect(token.nextElementSibling).toHaveTextContent(/^not meaningful$/)
     expect(screen.getByText(/n\/m means not meaningful/)).toHaveTextContent('The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.')
   })
 
@@ -250,8 +278,8 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     expect(screen.getByRole('columnheader', { name: 'FY2024' })).toBeInTheDocument()
     expect(screen.queryByText('CAGR')).not.toBeInTheDocument()
     expect(screen.getByText(/n\/m means not meaningful/).textContent).toBe('n/m means not meaningful.')
-    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 of 1 year: value and change versus prior year.')
-    expect(screen.getByText(/^Showing /).textContent).toBe('Showing 1 of 1 year')
+    expect(container.querySelector('caption')?.textContent).toBe('Metrics by period, 1 year: value and change versus prior year.')
+    expect(container.textContent).not.toMatch(/Showing \d/)
   })
 
   it('names the metric names as what lies left of a one-period table on a phone, annual or quarterly (E185)', () => {
@@ -309,7 +337,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
 })
 
 
-describe('MetricsTable period windows', () => {
+describe('MetricsTable periods', () => {
   const twelve: AnalysisDataset = {
     ...dataset,
     period_key: '2023Q1..2025Q4',
@@ -324,26 +352,24 @@ describe('MetricsTable period windows', () => {
     })) }],
   }
 
-  it('keeps All as the default, limits only table columns, and resets for a new dataset', async () => {
+  it('shows every period with no window control, and starts a new report on a fresh scroller', () => {
+    // The 6-of-N window is retired: the table always holds the whole run and scrolls sideways where it must.
     const input = structuredClone(twelve)
     const { rerender } = render(<MetricsTable dataset={input} />)
     const table = screen.getByRole('table')
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
     expect(within(table).getAllByRole('columnheader')).toHaveLength(13)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 6 of 12 quarters')
-    expect(screen.getByRole('button', { name: 'Newest 6' })).toHaveFocus()
-    expect(screen.queryByRole('button', { name: /Revenue, Q1 2023:/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Earliest 6' }))
+    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(All 12|Newest 6|Earliest 6)$/ })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Revenue, Q1 2023:/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Revenue, Q4 2025:/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Revenue, Q4 2025:/ })).toBeInTheDocument()
     expect(input).toEqual(twelve)
+    // The same report keeps its scroller (and so its scroll position); another report gets a new one.
+    const scroller = table.parentElement
+    rerender(<MetricsTable dataset={structuredClone(input)} />)
+    expect(screen.getByRole('table').parentElement).toBe(scroller)
     rerender(<MetricsTable dataset={{ ...input, ticker: 'OTHER' }} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('table').parentElement).not.toBe(scroller)
     expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    rerender(<MetricsTable dataset={input} />)
-    expect(screen.getByRole('button', { name: 'All 12' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('marks only a populated, actually derived Q4 header and uses semantic row headers', () => {
@@ -367,13 +393,4 @@ describe('MetricsTable period windows', () => {
     expect(screen.getByText(/^n\/m means not meaningful\./)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
   })
 
-  it('shows every period and suppresses window controls for an explicit illustrative sample', async () => {
-    const { rerender } = render(<MetricsTable dataset={twelve} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Newest 6' }))
-    rerender(<MetricsTable dataset={twelve} sample />)
-    expect(screen.getByRole('status')).toHaveTextContent('Showing 12 of 12 quarters')
-    expect(screen.getAllByRole('columnheader')).toHaveLength(13)
-    expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Newest 6' })).not.toBeInTheDocument()
-  })
 })

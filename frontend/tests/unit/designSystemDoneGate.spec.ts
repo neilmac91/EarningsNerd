@@ -7,7 +7,7 @@ import postcss from 'postcss'
 import tailwindcss, { type Config } from 'tailwindcss'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import { directionChip, directionText } from '@/lib/financialTone'
+import { dataDirectionText, directionChip, directionText } from '@/lib/financialTone'
 
 /**
  * Structural gate for DESIGN_SYSTEM.md §12, the definition-of-done for any theme/token change.
@@ -142,6 +142,8 @@ describe('DESIGN_SYSTEM §12 item 2 — legacy colors and type roles are gone', 
     expect(pattern.test('text-emerald-500')).toBe(true)
     expect(pattern.test('font-grotesque')).toBe(true)
     expect(pattern.test('text-text-primary-light')).toBe(false)
+    // tertiary-dark is tertiary-light's text-safe twin (gray-400), no longer the banned gray-600 it was.
+    expect(pattern.test('text-text-tertiary-dark')).toBe(false)
   })
 
   it('returns zero hits across app, components and features', () => {
@@ -395,7 +397,7 @@ describe('tailwind content scans every module that composes classes', () => {
     // config file, so a run from another directory would otherwise scan nothing.
     const globs = (config.content as string[]).map((glob) => path.join(frontendDir, glob))
     const built = await generatedClasses(globs, { stylesheet: 'app/globals.css' })
-    const composed = [directionText, directionChip].flatMap((tones) =>
+    const composed = [directionText, directionChip, dataDirectionText].flatMap((tones) =>
       Object.values(tones).flatMap((tone) => tone.split(/\s+/)),
     )
     expect(composed.filter((c) => !built.has(c)), 'purged from production CSS').toEqual([])

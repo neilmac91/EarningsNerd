@@ -223,7 +223,7 @@ export function resolveDataNotes(dataset: DataNotesDataset): DataNotesModel {
     : groupDataNotes(dataset)
 }
 
-/** Group concerns once per full report, independently of any table window or presentation. */
+/** Group concerns once per full report, independently of any presentation. */
 export function groupDataNotes(dataset: DataNotesDataset): DataNotesModel {
   const groups = createGroups()
   const totals: DataNotesTotals = { reviewValues: 0, reviewComparisons: 0, unavailable: 0, passed: 0, unknown: 0, calculated: 0, total: 0 }

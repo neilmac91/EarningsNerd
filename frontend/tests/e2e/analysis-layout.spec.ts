@@ -336,7 +336,9 @@ async function tableGeometry(page: Page) {
   })
 }
 
-async function assertTable(page: Page, expectedPeriods: string[], state: AnalysisState) {
+async function assertTable(page: Page, state: AnalysisState) {
+  // The table always holds every period: the 6-of-N window is retired.
+  const expectedPeriods = PERIODS
   const table = page.locator(TABLE)
   const headers = table.locator('thead th')
   await expect(headers).toHaveCount(expectedPeriods.length + 1)
@@ -355,12 +357,11 @@ async function assertTable(page: Page, expectedPeriods: string[], state: Analysi
   }
   await expect(sourceControls.locator('[data-note-kind="unavailable"]')).toHaveCount(unavailableCount)
   await expect(table.locator('tbody button[aria-label*="\u003a unavailable"]')).toHaveCount(unavailableCount)
-  const window = expectedPeriods.length === 12 ? 'all' : expectedPeriods[0] === PERIODS[0] ? 'earliest' : 'newest'
   // Count value marks inside source controls separately from comparison marks below them.
-  await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state][window])
+  await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state])
   // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
-  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS[window])
-  await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state][window])
+  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
+  await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state])
   const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
   const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
     const notes = (slots: typeof expectedNotes.value) => slots
@@ -474,7 +475,7 @@ async function assertNotes(page: Page, state: AnalysisState) {
 for (const theme of THEMES) for (const profile of PROFILES) {
   test.describe(`analysis layout / ${theme} / ${profile.name}`, () => {
     test.use({ viewport: { width: profile.width, height: profile.height }, deviceScaleFactor: profile.deviceScaleFactor ?? 1, isMobile: profile.width <= 390, hasTouch: profile.width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    for (const state of STATES) test(`${state}: content stays readable across table windows`, async ({ page, baseURL }) => {
+    for (const state of STATES) test(`${state}: content stays readable with every period in the table`, async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       const traffic = await openAnalysis(page, baseURL!, state, theme, profile.textScale ?? 1)
       await assertNotes(page, state)
@@ -487,30 +488,19 @@ for (const theme of THEMES) for (const profile of PROFILES) {
         expect(chart.shapes.length, `${chart.name}: actual plotted data`).toBeGreaterThan(0)
       }
       const section = page.locator('[data-analysis-metrics]')
-      const window = section.getByRole('group', { name: 'Table window', exact: true })
-      const selections = [
-        { label: 'All 12', periods: PERIODS },
-        { label: 'Newest 6', periods: PERIODS.slice(-6) },
-        { label: 'Earliest 6', periods: PERIODS.slice(0, 6) },
-        { label: 'All 12', periods: PERIODS },
-      ]
-      for (const [index, selection] of selections.entries()) {
-        if (index > 0) await window.getByRole('button', { name: selection.label, exact: true }).click()
-        await expect(window.getByRole('button', { name: selection.label, exact: true })).toHaveAttribute('aria-pressed', 'true')
-        await expect(section.getByRole('status')).toHaveText(`Showing ${selection.periods.length} of 12 quarters`)
-        if (index > 0) await expect(window.getByRole('button', { name: selection.label, exact: true })).toBeFocused()
-        await assertTable(page, selection.periods, state)
-        await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-        expect(await stableAnalysisOutsideTable(page), 'table windows do not change KPI, note totals, or chart data').toEqual(baseline)
-      }
+      // Every period, always: the 6-of-N window is retired, so no control can narrow the table.
+      await expect(section.getByRole('group', { name: 'Table window', exact: true })).toHaveCount(0)
+      await assertTable(page, state)
+      await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
+      expect(await stableAnalysisOutsideTable(page), 'the table leaves KPI, note totals and chart data alone').toEqual(baseline)
       // Disclosure content is also part of the responsive page, not an overflow escape hatch.
       await section.getByRole('button', { name: /^Review data notes/ }).focus()
       await page.keyboard.press('Enter')
       await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
       await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-      expect(traffic.dataset, 'table windows reuse the selected dataset').toBe(1)
-      expect(traffic.stream, 'table windows never regenerate analysis').toBe(1)
+      expect(traffic.dataset, 'the report reads its dataset once').toBe(1)
+      expect(traffic.stream, 'the report never regenerates analysis').toBe(1)
       expect(traffic.unexpectedApi).toEqual([])
     })
   })
@@ -551,7 +541,9 @@ for (const theme of THEMES) for (const profile of [
       }
     }
     await assertEarlierHint(initial.left)
-    await section.getByRole('button', { name: 'Earliest 6', exact: true }).focus()
+    // The scroll region is the next Tab stop after the card's last heading control (Export Excel on the Pro surface).
+    const exportButton = section.getByRole('button', { name: 'Export Excel', exact: true })
+    await (await exportButton.count() ? exportButton : section.getByRole('button', { name: /^Review data notes/ })).focus()
     await page.keyboard.press('Tab')
     await expect(region).toBeFocused()
     const baseline = await settleTable(page)
@@ -664,10 +656,6 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
       await assertPaintedMarks(page, TABLE)
       if (state === 'annual') {
         await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
-        await page.locator('[data-analysis-metrics]').getByRole('button', { name: 'Newest 6', exact: true }).click()
-        await expect(page.getByRole('columnheader', { name: 'FY2016–FY2025 CAGR', exact: true })).toBeAttached()
-        await expect(page.locator('[data-analysis-metrics]').getByRole('status')).toHaveText('Showing 6 of 10 years')
-        await assertTableGeometry(page, 7)
       }
       if (state === 'edge') {
         await expect(page.locator(`${TABLE} [data-note-letter="aa"]`).first()).toHaveAttribute('data-note-kind', 'review')
@@ -684,6 +672,70 @@ for (const theme of THEMES) for (const state of ['captured', 'edge', 'annual'] a
     })
   })
 }
+
+for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, state, theme, 1)
+    expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
+    const selector = `[data-analysis-kpi] button[aria-label$="View source and calculation"], ${TABLE} tbody button[aria-label$="View source and calculation"]`
+    const controls = await page.locator(selector).evaluateAll(buttons => buttons.map(button => {
+      const cell = button.closest('td, [data-analysis-kpi]')!
+      const style = getComputedStyle(cell)
+      const box = cell.getBoundingClientRect()
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const glyphs: Array<{ mark: string | null; left: number; right: number; top: number; bottom: number }> = []
+      let face = ''
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const parent = node.parentElement!
+        if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        const mark = parent.closest('[data-note-letter]') ? 'letter' : node.textContent.trim() === '†' ? 'dagger' : null
+        if (!mark && !face) face = `${getComputedStyle(parent).fontFamily}|${getComputedStyle(parent).fontVariantNumeric}`
+        for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark, left: r.left, right: r.right, top: r.top, bottom: r.bottom })
+      }
+      return {
+        name: button.getAttribute('aria-label')!, text: button.textContent!, table: cell.tagName === 'TD', face, rem,
+        left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight), glyphs,
+      }
+    }))
+    expect(controls.filter(control => control.table).length).toBeGreaterThanOrEqual(METRICS * 10)
+    expect(controls.filter(control => !control.table)).toHaveLength(4)
+    const problems: string[] = []
+    for (const control of controls) {
+      const figure = control.glyphs.filter(glyph => !glyph.mark)
+      const [family, numeric] = control.face.split('|')
+      if (figure.length && (!family.startsWith('"EN Figure Minus"') || !/tabular-nums/.test(numeric) || !/lining-nums/.test(numeric))) problems.push(`${control.name}: not in the figure face (${control.face})`)
+      if (new Set(figure.map(glyph => Math.round(glyph.top))).size > 1) problems.push(`${control.name}: the figure wraps`)
+      const line = figure[0]
+      const end = figure.at(-1)?.right ?? -Infinity
+      const marks = control.glyphs.filter(glyph => glyph.mark)
+      for (const [index, mark] of marks.entries()) {
+        if (line && (mark.top > line.bottom || mark.bottom < line.top)) problems.push(`${control.name}: a mark left the figure's line`)
+        if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
+        // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
+        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
+      }
+      if (control.table) for (const glyph of control.glyphs) if (glyph.left < control.left - 1 || glyph.right > control.right + 1) problems.push(`${control.name}: ${glyph.mark ? 'a mark' : 'the figure'} leaves its cell`)
+    }
+    expect(problems).toEqual([])
+    expect(controls.some(control => control.glyphs.some((glyph, index, all) => glyph.mark === 'letter' && all[index - 1]?.mark === 'dagger')), 'a dagger and a letter are measured together').toBe(true)
+    if (state === 'edge') {
+      // The planted figures render at full length, each with its dagger and a letter, the sign the ASCII hyphen-minus.
+      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$922.0M'], [/^Financing cash flow, Q4 2025: /, '-$92.2M']] as const) {
+        const control = controls.find(item => name.test(item.name))
+        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}†[a-z]+$`))
+      }
+      expect(controls.map(control => control.text).join('')).not.toContain('−')
+      // n/m stays visible and is read as words.
+      const tbody = page.locator(`${TABLE} tbody`)
+      await expect(tbody.getByText('n/m', { exact: true }).first()).toHaveAttribute('aria-hidden', 'true')
+      await expect(tbody.getByText('not meaningful', { exact: true }).first()).toHaveClass(/\bsr-only\b/)
+    }
+  })
+})
 
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {

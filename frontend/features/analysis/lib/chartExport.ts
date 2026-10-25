@@ -243,7 +243,7 @@ export const MARK_STAMP = {
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {
   primary: { light: '#1A1A17', dark: '#D7DADC' },
-  secondary: { light: '#374151', dark: '#9CA3AF' },
+  secondary: { light: '#374151', dark: '#D1D5DB' },
 } as const
 
 /** Draw the branded footer strip bottom-right, opaque, as the logo's lockup: the EN mark, then the
