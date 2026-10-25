@@ -827,7 +827,9 @@ test.describe('analysis heading rail / 1024px', () => {
 })
 
 /** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
- *  4.375rem, so in the band where that cost the third period the metric column gives up to 6px (MetricsTable). */
+ *  4.375rem, so below md, in the band where that cost the third period, the metric column gives up to 6px (MetricsTable).
+ *  A period counts only inside the scroll box and beside a label that is itself in view, so an unstuck label column
+ *  cannot pass it with the columns scrolled off to the left. */
 for (const width of [375, 390]) test.describe(`analysis table periods / ${width}px`, () => {
   test.use({ viewport: { width, height: 812 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce', serviceWorkers: 'block' })
   test('three whole periods sit beside the metric names at rest', async ({ page, baseURL }) => {
@@ -839,8 +841,33 @@ for (const width of [375, 390]) test.describe(`analysis table periods / ${width}
       const box = region.getBoundingClientRect()
       const heads = [...element.querySelectorAll('thead th')].map(th => th.getBoundingClientRect())
       const label = heads[0]
-      return heads.slice(1).filter(r => r.left >= label.right - 0.5 && r.right <= box.right + 0.5).length
-    }), 'whole period columns beside the metric names').toBeGreaterThanOrEqual(3)
+      if (label.left < box.left - 0.5 || label.right > box.right + 0.5) return -1
+      return heads.slice(1).filter(r => r.left >= label.right - 0.5 && r.left >= box.left - 0.5 && r.right <= box.right + 0.5).length
+    }), 'whole period columns beside the metric names in view').toBeGreaterThanOrEqual(3)
+  })
+})
+
+/** The band stops at md. At 200% text an 816px screen's card has a 19.4375rem content box, inside the band, and there it
+ *  would cut the 8.25rem metric column to about 5.2rem, too narrow for its names (MetricsTable). */
+test.describe('analysis table periods / 816px at 200% text', () => {
+  test.use({ viewport: { width: 816, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test('md keeps its full metric column where a phone would give up 6px', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', 'light', 2)
+    const geometry = await page.locator(TABLE).evaluate(element => {
+      const root = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const card = element.closest('[class~="[container-type:inline-size]"]') as HTMLElement
+      const style = getComputedStyle(card)
+      const content = (card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)) / root
+      const metric = element.querySelector('thead th')!.getBoundingClientRect().width / root
+      const overflowing = [...element.querySelectorAll('tbody th')].filter(th => th.scrollWidth > th.clientWidth + 1).length
+      return { root, content, metric, overflowing }
+    })
+    expect(geometry.root, 'the text is at 200%').toBeCloseTo(32, 1)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeGreaterThanOrEqual(19.25)
+    expect(geometry.content, 'the card\'s content box sits in the band').toBeLessThan(19.625)
+    expect(geometry.metric, 'the metric column, in rem').toBeCloseTo(8.25, 2)
+    expect(geometry.overflowing, 'metric names wider than their cells').toBe(0)
   })
 })
 

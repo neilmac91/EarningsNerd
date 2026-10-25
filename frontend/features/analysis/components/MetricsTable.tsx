@@ -25,8 +25,10 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
 // data annotation size has none. A period column holds its widest line inside its 1px phone inset: a seven-glyph figure,
 // a dagger and a one-letter note, 7 × 7.2 + 2 + 6.6 + 2 + 6.6 = 67.6px, so 4.375rem (70px, 68px inside) on a phone and
 // 4.75rem (68px inside its 4px inset) from md. metrics-table.spec.tsx derives both from tableTokenBudget. Those 2px a
-// column cost a 375px phone its third whole period (a 309px card, 104 + 3 × 70 > 309), so on a card 19.25rem to
-// 19.625rem wide the metric column gives up to 6px (0.375rem) and three periods sit beside it, as at 390px.
+// column cost a 375px phone its third whole period (a 309px content box, 104 + 3 × 70 > 309), so below md, where the
+// card's content box is 19.25rem to 19.625rem wide, the metric column gives up to 0.375rem (6px at the default text
+// size) and three periods sit beside it, as at 390px. From md the band would cut the 8.25rem column instead: at 200%
+// text an 816px screen's card falls in it, and its metric column would drop to 5.2rem, too narrow for its names.
 const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
 const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 
@@ -221,7 +223,7 @@ export default function MetricsTable({
         cellPadding="compact"
         layout="fixed"
         colWidths={columns.map((column) => column.key === 'metric' ? 'var(--metric-col)' : 'var(--period-col)')}
-        className="[--metric-col:min(6.5rem,100cqi)] [@container(19.25rem<=width<19.625rem)]:[--metric-col:calc(100cqi-3*var(--period-col))] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
+        className="[--metric-col:min(6.5rem,100cqi)] max-md:[@container(19.25rem<=width<19.625rem)]:[--metric-col:calc(100cqi-3*var(--period-col))] [--period-col:4.375rem] md:[--metric-col:min(8.25rem,100cqi)] md:[--period-col:4.75rem]"
         snapColumns
         scrollRegion={{
           label: `Metrics by period, scrollable table of ${periods.length} ${periodUnit}`,

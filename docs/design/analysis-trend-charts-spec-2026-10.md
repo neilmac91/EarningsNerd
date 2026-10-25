@@ -672,7 +672,7 @@ LCID annual margins: domain −600…+100%; one band below the plot holds six it
      centred in the box;
    - 6 px gap, then the name (12 px; light `text.secondary #374151`, dark `chart.label.dark #B8BEC7`);
    - 6 px gap, then the latest available value (Geist Mono 12; light `text.primary #1A1A17`, dark
-     `text.primary.dark #D7DADC`), at the panel's tier (F$ d0, or F%), with ` (FY2024)` or ` (Q1 ’25)` when it is not
+     `text.primary.dark #EAECEF`), at the panel's tier (F$ d0, or F%), with ` (FY2024)` or ` (Q1 ’25)` when it is not
      the last period.
    - Names: Margins `Gross`, `Operating`, `Net`; Cash `Operating CF`, `Free cash flow`, `Net income`; Balance
      `Long-term debt`, `Cash`, `Equity`.
@@ -844,7 +844,7 @@ unchanged until it makes it. The same pull request raised DS `text.primary.dark`
 Lc −91.8 on the slate panel and −94.8 on navy. The legend values row above takes it, since the renderer's legend
 values are that token (`charts/theme.ts`'s dark `figure`, held to it by `chart-theme.spec.ts`), as is today's chart
 tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a chart-scope token of its own, keep
-`#D7DADC` as this audit measured it, for the migration (E194) to decide.)
+`#D7DADC` as this audit measured it, for the migration to decide.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

@@ -441,10 +441,14 @@ describe('MetricsTable column widths', () => {
   }))
   const widest = Math.max(...lines.map(([, width]) => width))
 
-  it('lets the metric column give up to 6px only where that buys a phone its third whole period', () => {
+  it('lets the metric column give up to 6px only below md, where that buys a phone its third whole period', () => {
     const base = /\[--metric-col:min\(([\d.]+)rem,100cqi\)\]/.exec(source)
-    const band = /\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:calc\(100cqi-3\*var\(--period-col\)\)\]/.exec(source)
-    expect(base && band, 'the metric column and its band').toBeTruthy()
+    const bands = [...source.matchAll(/(\S*)\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:/g)]
+    expect(base && bands.length === 1, 'the metric column and its one band').toBeTruthy()
+    // From md the band would cut the 8.25rem column, not the phone's 6.5rem: at 200% text an 816px screen falls in it.
+    expect(bands[0][1], 'the band\'s variant').toBe('max-md:')
+    const band = /max-md:\[@container\(([\d.]+)rem<=width<([\d.]+)rem\)\]:\[--metric-col:calc\(100cqi-3\*var\(--period-col\)\)\]/.exec(source)
+    expect(band, 'the band\'s rule').toBeTruthy()
     const [low, high] = [Number(band![1]), Number(band![2])]
     // From the top of the band three periods fit beside the full metric column anyway; below its foot they cannot.
     expect(high).toBeCloseTo(Number(base![1]) + 3 * rem('period-col'), 6)
