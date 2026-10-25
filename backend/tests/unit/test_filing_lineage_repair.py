@@ -225,6 +225,31 @@ def test_a_recomputed_mismatch_is_written_as_calculation_mismatch_and_unreconcil
     assert result["revisions"] == 1
 
 
+def test_latest_fy_counts_the_companys_newest_fiscal_year_alone(db):
+    """Every year keeps a current annual row, so ``latest_fy`` counts only the company's newest
+    year, the year whose review notes the Multi-Period Analysis baseline counts (77 of 82)."""
+    company, filing = _company(db)
+    _margin(db, company, filing)
+    accession = "0000872589-25-000007"
+    url = build_sec_archive_url(company.cik, accession)
+    prior = Filing(
+        company_id=company.id, accession_number=accession, filing_type="10-K",
+        filing_date=datetime(2025, 2, 10, tzinfo=timezone.utc), sec_url=url, document_url=f"{url}a.htm",
+    )
+    db.add(prior)
+    db.flush()
+    year = {"filing": prior, "end": date(2024, 12, 31), "fiscal_year": 2024}
+    _row(db, company, "revenue", 800, start=date(2024, 1, 1), **year)
+    _row(db, company, "operating_income", 100, start=date(2024, 1, 1), **year)
+    _row(db, company, "operating_margin", 12.5, **year)
+    db.commit()
+
+    result = repair.backfill_company(db, company.id, apply=False, run_id="dry")
+
+    assert result["outcomes"] == {"passed": 2, "needs_review": 0}
+    assert result["latest_fy"] == {"cleared": 1, "marked": 0, "held": 0}
+
+
 @pytest.mark.parametrize("revenue, reason", [
     pytest.param({"reconciled": False}, "source_check_needed", id="legacy-operand-flagged"),
     pytest.param({"provenance": _v1("needs_review", ["magnitude_vs_prior"])}, "magnitude_vs_prior", id="v1-operand-review"),

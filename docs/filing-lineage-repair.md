@@ -55,8 +55,10 @@ mismatch is a real inconsistency between the figure and its stored inputs.
 
 Each company line carries `scanned` (its targets), `writes`, `outcomes`, `reasons`, `held`,
 `diagnostics` (the causes behind `inputs_not_found`), `revisions` (zero in a dry run) and
-`latest_fy`: for current annual targets (`is_latest`, fiscal period `FY`), how many the run clears
-(passes), marks (concerns) and holds. `rows` lists every target with its id, concept,
+`latest_fy`: for the current annual targets (`is_latest`, fiscal period `FY`) of the company's newest
+fiscal year (its newest current annual row of any concept), how many the run clears (passes), marks
+(concerns) and holds. That is the year whose review notes the Multi-Period Analysis baseline counts
+(77 of 82 are `legacy_calculation`, #1610). `rows` lists every target with its id, concept,
 fiscal year and period, period end, accession, `is_latest`, value, outcome, the calculator's
 `validation` and `reasons`, and its `inputs` as `[concept, value]` pairs. The summary line totals
 the counts. A company holding more than 10,000 facts is refused with an `error` line, because the
@@ -159,6 +161,14 @@ written.
   `dataset_fingerprint`), so its narrative is regenerated when next requested, as after the other
   repairs.
 - **A held row** stays a legacy calculation, as before.
+- **A ratio of an issuer that also reports in another currency** can change which row is current at
+  the next companyfacts sync. A ratio with no record never counts as computed from USD operands
+  (`facts/currency._usd_derived`); once its record names USD operands it does, so a sync that stores
+  the native-currency calculation for the same period demotes it and promotes that one, as #1365
+  intended for every ratio with recorded operands. One whose record names native operands can be
+  the row such a sync promotes. The `is_latest` change is the sync's, never the backfill's, and, as
+  any later write does, it closes that company's rollback window ("Audited rollback"). A USD-only
+  issuer is unaffected.
 
 The reconciliation-flag audit (`scripts/audit_reconciliation_flags.py`) can still rewrite a written
 row's `reconciled` alone, leaving its provenance.

@@ -94,13 +94,17 @@ def _diagnose(fact: dict[str, Any], facts: list[dict[str, Any]]) -> dict[str, An
     return {"label": label, "inputs": inputs}
 
 
-def plan_company(targets: list[FinancialFact], scope: list[FinancialFact]) -> dict[str, Any]:
+def plan_company(
+    targets: list[FinancialFact], scope: list[FinancialFact], newest_fy: int | None = None,
+) -> dict[str, Any]:
     """Decide each target from the calculator's verdict on its accession's rows; reads attributes only.
 
     ``scope`` is every row of the company in the targets' accessions, whatever its owner: the first
     writer to store an identity owns it, so an operand can be a companyfacts row. The calculator
     matches operands by its own scope rule. Formula rows that are not targets are left out: they
-    are never operands. Holds come first, in this order, then passes and concerns.
+    are never operands. Holds come first, in this order, then passes and concerns. ``latest_fy``
+    counts the current annual targets of ``newest_fy``, the company's newest fiscal year, the year
+    whose review notes the Multi-Period Analysis baseline counts.
     """
     target_ids = {row.id for row in targets}
     by_accession: dict[str, list[FinancialFact]] = defaultdict(list)
@@ -140,7 +144,7 @@ def plan_company(targets: list[FinancialFact], scope: list[FinancialFact]) -> di
                 reasons.update(found)
             if outcome in HOLD_REASONS:
                 held[outcome] += 1
-            if row.is_latest and row.fiscal_period == "FY":
+            if row.is_latest and row.fiscal_period == "FY" and row.fiscal_year == newest_fy:
                 latest_fy[{"passed": "cleared", "needs_review": "marked"}.get(outcome, "held")] += 1
             entry = {
                 "fact_id": row.id, "concept": row.concept, "fiscal_year": row.fiscal_year,
@@ -186,7 +190,11 @@ def backfill_company(db: Session, company_id: int, *, apply: bool, run_id: str) 
             FinancialFact.accession.in_(sorted({row.accession for row in targets})),
         ).order_by(FinancialFact.id).populate_existing()
         scope = (query.with_for_update() if apply else query).all()
-    plan = plan_company(targets, scope)
+    newest_fy = db.query(func.max(FinancialFact.fiscal_year)).filter(
+        FinancialFact.company_id == company_id, FinancialFact.is_latest.is_(True),
+        FinancialFact.fiscal_period == "FY",
+    ).scalar()
+    plan = plan_company(targets, scope, newest_fy)
     revisions = 0
     if apply and plan["writes"]:
         if db.query(FinancialFactRevision.id).filter(
