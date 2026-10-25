@@ -4,8 +4,9 @@
 system; the data notes; a heuristic evaluation and competitor teardown; the exports as files; the
 order in which this work and the sibling plans (charts, analysis, table) should land.
 Evidence lives beside this file: [`verification/`](verification/), [`screens/`](screens/),
-[`exports/`](exports/), [`competitors/`](competitors/), [`prototype/`](prototype/) and the
-[methods appendix](methods.md).
+[`exports/`](exports/), [`prototype/`](prototype/) and the [methods appendix](methods.md).
+File and line citations are at the base `a41c6e4` unless they name another revision; #1606 and the
+merges after it have moved many of them, so each work package re-pins its own before it edits.
 
 **Revised the same day.** The first version recommended ringed review letters, "needs a source
 check" on the KPI cards and a key beside every mark. The founder found that dramatic and
@@ -14,11 +15,15 @@ The ring design stays on record in [`prototype/notation-prototype.diff`](prototy
 and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.png).
 
 **Approved 2026-10-25.** The founder approved the quiet scheme and the narrowed rule ("approved,
-narrow the rule") and asked for the plan to be implemented. In the day since this report was
-written, the sibling plans have landed or opened:
-- the table plan is `neilmac91/EarningsNerd#1606`;
-- the charts plan is steps 1–3 merged (`neilmac91/EarningsNerd#1602`, `#1603`, `#1607`) and step 4
-  open (`neilmac91/EarningsNerd#1609`).
+narrow the rule") and asked for the plan to be implemented. The founder then confirmed the
+revision the census brought (§1.6): a later filing's value for a year gets evidence, not a mark.
+The competitor captures stay out of the repository, which is public (§4.3). D-061 in
+`docs/brand/decisions-log.md` records all three. In the day since this report was written, the
+sibling plans have landed:
+- the table plan merged as `neilmac91/EarningsNerd#1606`;
+- the charts plan merged steps 1–5 (`neilmac91/EarningsNerd#1602`, `#1603`, `#1607`, `#1609`,
+  `#1617`) and step 6's gates (`#1620`, `#1624`, `#1631`). Step 6's remainder (E194) takes this
+  report's rule for the notes band.
 
 §2.6 reconciles with them, and §6 re-measures the order.
 
@@ -65,6 +70,8 @@ written, the sibling plans have landed or opened:
    - a small neutral letter, with no ring and no warning ink, only where a note questions the number;
    - the legacy-calculation notes and gaps go unmarked, but remain in the fine print and the
      evidence dialog;
+   - a later filing's value for a year goes unmarked too: both filings in the dialog, one line in
+     the fine print, and n/m growth across the change of basis (§1.6);
    - the Data notes strip becomes one line of fine print under the table;
    - the exports follow the same rule.
 
@@ -92,16 +99,23 @@ written, the sibling plans have landed or opened:
    - Neither chart PNG states its period range.
 6. **Order (§6):**
    1. The lineage backfill. It shares no code file with any UI plan.
-   2. The quiet notation, built on the table plan (`neilmac91/EarningsNerd#1606`) and landing after it.
+   2. The quiet notation, built on main now that the table plan (`neilmac91/EarningsNerd#1606`)
+      has merged.
    3. The data-notes words, then the later-filing evidence (WP5, revised by measurement, §1.6;
       they share `data_notes.py`).
-   4. The exports, split so each piece follows the sibling that owns its file and #1601.
+   4. The exports, split by file; the siblings they waited for (#1601, #1609) have merged.
    5. Surfaces and the results header, last.
+
+   E206 in `tasks/todo.md` tracks them in this order, after the proxy-statement ingest fix
+   (§1.6), which goes first because it may put a wrong number on the page today.
 7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
    founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
    scheme stops marking: a figure whose only note is `legacy_calculation`. The founder approved
    narrowing it to "every note stays in the evidence dialog and the data notes; only a note that
-   questions the number keeps a mark beside the figure". The change stays presentation-only:
+   questions the number keeps a mark beside the figure". The same day the founder confirmed the
+   census's revision (§1.6): a later filing's value for a year gets evidence, not a mark, so REGN's
+   FY2018 revenue, the blind test's payoff case, now carries none. D-061 in
+   `docs/brand/decisions-log.md` records both. The change stays presentation-only:
    - note kinds and totals are unchanged;
    - a legacy figure is never shown as validated;
    - the fine print never says "No figures need review" while a legacy note exists.
@@ -291,7 +305,10 @@ after it. That is the overkill this scheme exists to avoid.
    tag, as a non-latest row (high tier: `facts/**`). Companyfacts stores only the winner today, so
    REGN's $6,710.8M exists nowhere in our data.
 2. **Evidence on demand, with no mark.** The evidence dialog shows: "First reported as $6.7B in its
-   own annual report (10-K, filed …); a later filing (filed …) reports $5.1B, shown here."
+   own annual report (10-K, filed …); a later filing (filed …) reports $5.1B, shown here." The
+   data notes' open detail carries one line with a count and the places, which also explains the
+   n/m of item 3: "A later filing reports a different value for 2 figures (Revenue FY2018,
+   FY2019); growth across the change reads n/m. Select one to see both filings."
 3. **Growth across a change of basis reads n/m.** That is any comparison whose two years sit on
    different bases relative to what each year first reported (the ratio of shown to first-reported
    moves by more than 1%). The dialog gives the growth as first reported. For REGN, revenue growth
@@ -307,7 +324,7 @@ after it. That is the overkill this scheme exists to avoid.
 What stays imperfect: the data cannot tell a change of scope like REGN's from a legitimate recast.
 So REGN's FY2018 margin still shows 49.3% unmarked, with the explanation one tap away and the
 broken growth reading n/m. A fix for the scope change itself belongs in concept selection
-(`facts/concepts.py`), which is a separate decision.
+(`facts/concepts.py`), a separate decision tracked in E206 (`tasks/todo.md`).
 
 **A separate data bug the census found.** Since 2023, proxy statements carry a pay-versus-performance
 table that tags five years of net income, filed after the 10-K. Ingest takes the latest-filed item
@@ -318,11 +335,14 @@ of any form, so the proxy's value wins.
 - **Nothing flags it.** Companyfacts rows skip the reconciliation checks.
 
 The fix (ingest skips proxy and information statements, plus a read-only query that sizes the
-production rows) is its own work package, high tier.
+production rows) is its own work package, high tier, and the first item in E206 (`tasks/todo.md`).
+It goes first: if production ingested those proxies, FDX's FY2022–FY2026 net income is a wrong
+number on the page today (3,826 where the 10-K gives $3,826M).
 
 **Owner.** Data, in two parts:
 - the history rows in `facts/**` (high tier);
-- the evidence, the n/m rule and the sign-or-scale mark in `trend_analysis/` (routine tier).
+- the evidence, its line in the data notes, the n/m rule and the sign-or-scale mark in
+  `trend_analysis/` (routine tier).
 
 The mark's words and ink belong to this notation system (§2.2).
 
@@ -339,7 +359,8 @@ branch: stored v1 passed, needs review and unavailable; legacy calculated; legac
 The review, withheld and dagger counts and the reason breakdown were identical.
 
 It runs only from main, through the Ops workflow's `detection-sql` operation. Run it after this
-lands, and again after the backfill's apply, to confirm the drop.
+lands, and again after the backfill's apply, to confirm the drop. E206 (`tasks/todo.md`) holds
+both runs.
 
 ## 2. The notation as one system
 
@@ -366,13 +387,14 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
   alone: 77 of production's 82 latest-year review flags, and all 11 REGN cells reproduce exactly
   from their inputs. A gap shows "—" and needs no letter. A missing validation record makes no
   claim either way. The list of record-only reasons is closed. Any other reason marks the figure, so
-  a new reason fails loud, not silent.
+  a new reason fails loud, not silent. WP5's later-filing note (§1.6) joins the unmarked list: it
+  shows the comparable basis, not a doubtful value.
 - **Calculation is routine, so it goes unmarked.** One sentence above the table names the
   calculated metrics. Each figure's evidence dialog states the method and inputs. Its accessible
   name keeps "calculated", so a screen reader still hears what the dagger used to say.
-- **Small and neutral.** The letter is raised and set at the 11px data-xs size in secondary text
-  ink. It never scales with the figure, and it has no ring and no warning ink. A mark that appears
-  rarely does not need to shout, and both quiet-design readers found it (§2.8).
+- **Small and neutral.** The letter is raised and set at the 11px data-xs size in the `note` ink
+  (§2.3). It never scales with the figure, and it has no ring and no warning ink. A mark that
+  appears rarely does not need to shout, and both quiet-design readers found it (§2.8).
 - **Filtered, never reclassified.** The scheme decides only which notes put a mark beside a
   figure.
   - Note kinds, reasons and totals stay as the backend computes them.
@@ -388,7 +410,8 @@ mark. That version is kept in [`prototype/notation-prototype.diff`](prototype/no
 
 | Note | On the figure | In the fine print under the table | In the evidence dialog |
 |---|---|---|---|
-| Questions the number (a sign or scale disagreement between filings, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now. Figures calculated from it should too (WP5: FY2018 margins built on restated revenue) | The letter, its places and one sentence, in the summary line | The note in full. For a restatement: both values, both filings and their dates |
+| Questions the number (a sign or scale disagreement between filings, filings disagree, unmatched, calculation mismatch) | A neutral raised letter. The growth figures built on it carry the same letter, as now | The letter, its places and one sentence, in the summary line | The note in full. For a disagreement between filings: both values, both filings and their dates |
+| A later filing reports a different value for the year (WP5, §1.6; REGN's FY2018–FY2019 revenue) | nothing. Growth across the change of basis reads n/m. Figures calculated from it (REGN's FY2018–FY2019 margins) stay unmarked | One line in the open detail, with a count and places, which also explains the n/m: "A later filing reports a different value for 2 figures (Revenue FY2018, FY2019); growth across the change reads n/m. Select one to see both filings." | Both values, both filings and their dates, and the growth as first reported. A figure calculated from it shows the same evidence |
 | Calculated, inputs linked | nothing | Named in the sentence above the table | Method, formula, linked inputs |
 | Calculated before lineage existed (`legacy_calculation`) | nothing | One sentence, its places and its counts (figures, and the growth built on them), in the open detail | "Calculated before 10 October 2026 …; shown as stored, inputs not linked" |
 | Not in our data | "—" | A count in the summary; one sentence in the detail | "Not in our data" |
@@ -448,9 +471,11 @@ strip's place under the KPI cards goes.
 ### 2.4 The key
 
 There is almost nothing to key, so there is no key beside every mark:
-- **Above the table**, one sentence replaces the "† calculated" label: "Figures are rounded for
-  display; margins, free cash flow, working capital and the current ratio are calculated from
-  filed figures. Select any value for its source and full precision."
+- **Above the table**, one sentence replaces the "† calculated" label. It is built from the
+  calculated metrics the run actually shows, so a run without working capital does not name it.
+  For REGN: "Figures are rounded for display; margins, free cash flow, working capital and the
+  current ratio are calculated from filed figures. Select any value for its source and full
+  precision."
 - **Notes chips.** The table's chip lists only the visible marked letters and opens the fine print
   at that note. Each chart's chip does the same. A hollow point appears only where a note is
   marked, and the chart's chip explains it ("Notes a · hollow point: figure carries note a"). The
@@ -479,24 +504,29 @@ This report owns notation semantics: which notes mark a figure, the words, the g
 and the vocabulary. The sibling plans own their surfaces' geometry. On 2026-10-25 both siblings
 exist in code.
 
-**The table plan, `neilmac91/EarningsNerd#1606`** (open, marked ready). Its number system makes
-every mark one footnote type: 11px figure face and zero line-height, in its own ink, hung in a
-one-mark gutter in the table. It also adds the `note` ink and raises dark secondary text to
-#D1D5DB. It keeps the dagger, set as a staircase below the letter, and review letters in
+**The table plan, `neilmac91/EarningsNerd#1606`** (merged 2026-10-25, `99fda0f6`). Its number
+system makes every mark one footnote type: 11px figure face and zero line-height, in its own ink,
+hung in a one-mark gutter in the table. It also adds the `note` ink and raises dark secondary text
+to #D1D5DB. It keeps the dagger, set as a staircase below the letter, and review letters in
 `warning.data-dark`. The quiet scheme keeps #1606's type, gutter and ink. It removes:
 - the dagger from figures, and with it the staircase step;
 - the warning ink from letters, so a marked letter takes `note`.
 
-WP1 stacks on #1606: they share 21 files (§6).
+WP1 builds on main, where #1606 landed; they share 21 files (§6).
 
 **The charts plan.**
 - **Merged:** steps 1–3, the spec engine and the PNG's font (`neilmac91/EarningsNerd#1602`); today's
-  charts on the engine's axes (`#1603`); labelled charts that widen (`#1607`).
-- **Open:** step 4, the spec renderer behind `NEXT_PUBLIC_CHARTS_V2` (`#1609`).
+  charts on the engine's axes (`#1603`); labelled charts that widen (`#1607`). Then, on
+  2026-10-25: step 4, the spec renderer behind `NEXT_PUBLIC_CHARTS_V2` (`#1609`, `0009fb90`), and
+  its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
+  `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
+- **Open:** step 6's remainder (E194 in `tasks/todo.md`), which takes the notes band to this
+  report's rule (below); step 7 (E195), after the founder's switch (F66).
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
   value (unavailable notes included, so "every missing point has a letter"), † for a partly
-  calculated series, and review letters in review ink.
+  calculated series, and review letters in review ink. Its A5 (§3.3) and D9 now carry dated
+  pointer lines to this section (2026-10-25, D-061).
 
 Under the approved scheme the band follows the marking rule:
 - A cell shows only the letters of notes that question the number, in the mark's neutral ink.
@@ -509,7 +539,7 @@ Under the approved scheme the band follows the marking rule:
   note, as everywhere else.
 
 The rule lives in one helper (§2.1), which WP1 adds to `lib/dataNotes.ts`. The band can call it,
-so the renderer needs no copy of the rule.
+so the renderer needs no copy of the rule. E194 builds the band on it.
 
 **The analysis plan.** It has no PR. Its chips mark through the same helper.
 
@@ -612,8 +642,15 @@ findings, with file, line and exact words, are in
 enforced it for exactly the case the scheme stops marking: a `legacy_calculation` figure.
 - **The decision.** The founder approved narrowing it to "every note stays in the evidence dialog
   and the data notes; only a note that questions the number keeps a mark beside the figure"
-  ("approved, narrow the rule"). WP1 records it as a decision row in `docs/brand/decisions-log.md`,
-  with both task files pointing at it.
+  ("approved, narrow the rule"). It is recorded as D-061 in `docs/brand/decisions-log.md` (this
+  PR). WP1 points both task files (`tasks/analysis-redesign-2026-10/astra-prompt.md:74`,
+  `review-2026-10-10.md:36`) at it.
+- **Confirmed the same day.** The founder confirmed the census's revision (§1.6): a later filing's
+  value for a year gets evidence, not a mark. REGN's FY2018 revenue, the blind test's payoff case
+  (§2.8), now carries no mark: its growth across the change of basis reads n/m, its evidence dialog
+  shows both filings, and a line in the data notes counts it. The FY2018–FY2019 margins stay
+  unmarked, with the evidence in their dialogs. D-061 records it, with the founder's call to keep
+  the competitor captures out of this public repository (§9.f).
 - **What still holds.** The rule's other two clauses: never mark a legacy record validated, and
   never say "verified".
 - **What is out of scope.** Reclassifying `legacy_calculation` in the backend changes what counts
@@ -633,6 +670,7 @@ enforced it for exactly the case the scheme stops marking: a `legacy_calculation
 |---|---|---|
 | Rule and sidecar | `DESIGN.md:498`, `.impeccable/design.json:602` | Rewrite the Calculation Provenance Rule for §2.1 and keep "a calculation describes a figure's origin, not a failed check". `designSnapshotParity.spec.ts` checks both copies. |
 | Recipes | `frontend/DESIGN_SYSTEM.md:492` (note mark), `:564` (table chip, Q4 dagger), `:645` (Data notes strip), `:2083` (§10) | Rewrite each for §2.2–§2.5. Keep the native `<details>` so a chip can open a note. Keep the sample's "sample data (one saved run)" label (D-046). |
+| Token and mark (#1606's, on main at `0dfee8cc`) | `frontend/tailwind.config.js:134` (`warning.data-dark`); `DataNoteMark.tsx:26-32` (the staircase comment and the dagger's offset) | Retire both once no letter takes warning ink and no figure carries a dagger. Only `DataNoteMark.tsx` reads the token. It is pinned by `figureSurfaceInks.spec.ts:35` and `:108` and `data-note-mark.spec.tsx:39`, and named in `DESIGN.md:59`, `:375` and `:383`, `.impeccable/design.json:331` and `frontend/DESIGN_SYSTEM.md:28`, `:601` and `:2390`. No other code uses the staircase. Beside the Rule and recipes above, `DESIGN.md:416` (the Footnote mark type), `data-note-mark.spec.tsx:24` and `analysis-layout.spec.ts:918` describe it. The letter keeps its raise. |
 | Lesson | `lessons/arch-reconciliation-follows-values-and-growth.md:20` | "Keep a mark at each affected figure" becomes "at each figure whose note questions the number; every note in the dialog, the data notes and the exports". The process lesson from this correction is already in this branch: `lessons/brand-test-a-trust-mark-blind-against-quieter-and-none.md`. |
 | Design record | `docs/design/analysis-data-notes-redesign-2026-10.md` §1, §4.2, §4.3, §4.10 | A dated supersession note. Its §9 decisions stay in force. |
 | In-product copy | `NarrativePane.tsx:121`, `DataNotes.tsx:103` | Both promise a † that no longer appears (§2.5). |
@@ -692,11 +730,10 @@ cards. After the founder's review and the blind test (§2.8), the data notes bec
 the metrics table: neutral ink, 12px, one line while closed, and the detail one click away.
 
 ```
-▸ Data notes · ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value · 3 not in our data, shown as — · 50 calculated from filed figures
-  (the blind test's planted note; after the census, WP5 marks a sign or scale disagreement only, §1.6)
+▸ Data notes · 3 not in our data, shown as — · 50 calculated from filed figures
 
-  a. Restated in a later filing: the year's own annual report gave a different value. We show the later filing's value;
-     select one to see both filings. Revenue FY2018, FY2019.
+  A later filing reports a different value for 2 figures (Revenue FY2018, FY2019); growth across the change reads n/m.
+     Select one to see both filings.
   Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs
      not linked. Operating margin FY2023, FY2024, FY2025; Net margin FY2023, FY2024, FY2025; Free cash flow FY2023,
      FY2024, FY2025; Working capital FY2024; Current ratio FY2024. 11 figures; 16 growth figures built on them.¹
@@ -707,6 +744,11 @@ the metrics table: neutral ink, 12px, one line while closed, and the detail one 
 
 ¹ The prototype's detail has no counts, as the screens below show. This design adds them, because
 the fine print must keep counting legacy notes (§2.1).
+
+This is REGN under the confirmed scheme (D-061): no note questions a number, so the summary line
+names no letter. The screens below show the blind test's planted version instead: a marked "a" on
+the same two figures ("restated in a later filing; we show the later value"). After the census,
+WP5 marks only a sign or scale disagreement (§1.6).
 
 The screens are [`quiet-light-datanotes-closed.png`](screens/variants/quiet-light-datanotes-closed.png),
 [`quiet-light-datanotes-open.png`](screens/variants/quiet-light-datanotes-open.png),
@@ -722,6 +764,8 @@ is in [`screens/`](screens/) as `final-*`.
     the checked count (founder decision 9). It never says that while a legacy note exists.
 - **Legacy notes** appear only in the detail. Their sentence says the record is incomplete, not
   the figure.
+- **A later filing's value** appears only in the detail too: one line with a count and the places,
+  which also explains the n/m growth beside them (§1.6).
 - **Comparison locators move off the page.** "13 year-over-year comparisons carry this note. The
   table shows 13. Exports carry all 13." describes plumbing. The letter on each growth figure
   locates the comparison.
@@ -740,19 +784,20 @@ is in [`screens/`](screens/) as `final-*`.
 
 | Place | Today | Proposed |
 |---|---|---|
-| Summary, a note that questions the number | "11 figures need review (a)" (every review note in one count) | "ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value": places and words, no count |
+| Summary, a note that questions the number | "11 figures need review (a)" (every review note in one count) | "ᵃ {places}: {words}": the letter, its places and its words, no count. The blind test's planted "ᵃ Revenue FY2018, FY2019: restated in a later filing; we show the later value" is unmarked under WP5 (the WP5 rows below) |
 | Summary, legacy calculations | inside the same count | detail only |
 | Summary, gaps | "3 unavailable (b)" | "3 not in our data, shown as —" |
 | Summary, no validation record | "N figures have no validation record (c)" (`DataNotes.tsx:94`) | "N with no check recorded" |
 | Summary, calculated | "50 calculated †" | "50 calculated from filed figures" |
 | `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation's inputs; shown as stored, with its inputs not linked." |
-| WP5, a later filing changes the value (no mark; dialog only) | (none: the figure reads clean) | "First reported as {value} in its own annual report ({form}, filed {date}). A later filing (filed {date}) reports {value}, shown here." |
+| WP5, a later filing changes the value: the dialog (no mark) | (none: the figure reads clean) | "First reported as {value} in its own annual report ({form}, filed {date}). A later filing (filed {date}) reports {value}, shown here." |
+| WP5, a later filing changes the value: the fine print's detail | (none) | "A later filing reports a different value for {n} figures ({places}); growth across the change reads n/m. Select one to see both filings." |
 | WP5, a sign or scale disagreement (marked) | (none) | "A later filing reports this figure with the opposite sign" / "at 1,000 times the scale of the year's own annual report. One of them is likely a tagging error; select it to see both filings." |
 | `source_conflict` (filings disagree, no later restatement) | "Available sources disagree on this figure." | "The company's filings report different values for this figure. We show the most recent filing's value; select it to compare." |
 | `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing: our automated check could not confirm this figure against the company's filed data. Select it to compare with the filing." |
 | `not_in_dataset` | "Not available in this dataset." | "Not in our data for these periods; shown as —, never as zero." |
 | Legend | "Letters identify data notes; † marks a calculated figure, not an error." | "Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come from the company's filed data (XBRL); they are not an audit of the company's accounts." |
-| Above the table | "Figures are rounded for display. Select a value for full precision." | "Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision." |
+| Above the table | "Figures are rounded for display. Select a value for full precision." | It names the calculated metrics the run shows (§2.4). For REGN: "Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision." |
 | KPI card | "$4.1B†ᵃ" | "$4.1B": a letter only for a note that questions the figure |
 
 Each sentence promises only what the code enforces:
@@ -789,7 +834,8 @@ do. The full transcripts are in
 - **One reader took the restatement note for housekeeping** (§2.8, R2 retail). The census (§1.6)
   then showed most later-filing differences are legitimate recasts, so WP5 marks only sign and
   scale disagreements. Every other difference shows both values and both filings, with their
-  dates, in the dialog, and growth across the change of basis reads n/m.
+  dates, in the dialog; one line in the fine print's detail counts and places them; and growth
+  across the change of basis reads n/m. The founder confirmed this on 2026-10-25 (D-061).
 - **A legacy figure carries no mark.** A reader learns of its incomplete record only in the fine
   print's detail or the dialog. That is the founder decision in §2.9, and the backfill (§1.5)
   removes the case.
@@ -861,16 +907,15 @@ supersedes them.
 
 ### 4.3 Competitor teardown
 
-Three paid products' equivalent views, captured with Playwright for REGN, are in
-[`competitors/`](competitors/). Alpha Spread is a supplement: its AI financial profile, before its
-bot check closed the door.
+Three paid products' equivalent views were captured with Playwright for REGN (§9.f). Alpha Spread
+is a supplement: its AI financial profile, before its bot check closed the door.
 
 | Product (paid tier) | View | Surfaces and elevation | How figure states are marked | Worth taking |
 |---|---|---|---|---|
-| Roic.ai | Financials: 15 fiscal years, chart over statement ([light](competitors/roic-financials-chart-light.jpg), [dark](competitors/roic-financials-chart-dark.jpg), statement [light](competitors/roic-financials-statement-light.jpg) / [dark](competitors/roic-financials-statement-dark.jpg)) | One flat white surface, one bordered statement panel, hairline rows, no card stack | None: no calculated or quality marks; negatives in red | Colour swatches on table rows tie each row to its chart series; an "As of date" row of period ends under the year header; $ /sh % YoY unit toggles |
-| Yahoo Finance (Finance Plus) | Financials › Income Statement ([chart](competitors/yahoo-financials-chart-light.jpg), [statement](competitors/yahoo-financials-statement-light.jpg)); no dark theme signed out | One surface; the table is the page; rows carry checkboxes that add them to the chart | Padlocks mark paid ranges (10Y, 20Y, ALL, Download); no quality marks | Unit control (Auto/K/MM/B), an order toggle, row-to-chart selection, a TTM column |
-| Finviz (Elite) | Statements on the quote page ([light](competitors/finviz-statements-light.jpg), [dark](competitors/finviz-statements-dark.jpg)) | Zebra rows on one panel; the upgrade panel covers locked years | A padlock with words for locked years; no quality marks | A per-row sparkline beside each metric; "Period End Date" and "Period Length" rows; Data / YoY / YoY % toggles |
-| Alpha Spread (supplement) | AI financial profile ([light](competitors/alphaspread-financial-profile-light.jpg)) | A narrative band above the fold | "Sources:" link at the foot of the AI text, not per figure | Narrative-level sourcing is the floor; EarningsNerd's per-figure citations go further |
+| Roic.ai | Financials: 15 fiscal years, chart over statement (light and dark) | One flat white surface, one bordered statement panel, hairline rows, no card stack | None: no calculated or quality marks; negatives in red | Colour swatches on table rows tie each row to its chart series; an "As of date" row of period ends under the year header; $ /sh % YoY unit toggles |
+| Yahoo Finance (Finance Plus) | Financials › Income Statement (chart and statement, light); no dark theme signed out | One surface; the table is the page; rows carry checkboxes that add them to the chart | Padlocks mark paid ranges (10Y, 20Y, ALL, Download); no quality marks | Unit control (Auto/K/MM/B), an order toggle, row-to-chart selection, a TTM column |
+| Finviz (Elite) | Statements on the quote page (light and dark) | Zebra rows on one panel; the upgrade panel covers locked years | A padlock with words for locked years; no quality marks | A per-row sparkline beside each metric; "Period End Date" and "Period Length" rows; Data / YoY / YoY % toggles |
+| Alpha Spread (supplement) | AI financial profile (light) | A narrative band above the fold | "Sources:" link at the foot of the AI text, not per figure | Narrative-level sourcing is the floor; EarningsNerd's per-figure citations go further |
 
 What the teardown shows:
 1. None of the three marks calculated or checked figures. Per-figure provenance is EarningsNerd's
@@ -884,8 +929,9 @@ What the teardown shows:
 
 ### 4.4 The surface, elevation and spacing system the gaps call for
 
-The table plan's surface proposal has not landed (§2.6), so this follows DESIGN.md's Lifted Paper
-Rule and its existing tokens, and it leaves the table's interior to that plan.
+The table plan's surface landed with #1606 (§2.6): the figures on a sheet inside the panel card.
+This follows DESIGN.md's Lifted Paper Rule and its existing tokens, and it leaves the table's
+interior to that plan.
 
 | Level | Token | Holds | Change from today |
 |---|---|---|---|
@@ -935,6 +981,11 @@ merge base. Each work package lists the files it edits.
 - **Scopes:** the charts plan's later steps and the analysis plan have no branch, so their rows
   stay scopes.
 - **Dropped:** #1597, #1600, #1602, #1603 and #1607 have merged, and the section-nav branch is gone.
+- **Now merged:** #1609 (`0009fb90`, 08:13 UTC), #1601, #1608 and #1606 (`99fda0f6`, 16:22 UTC);
+  only #1583 is open. The matrix keeps the measurement as taken: a count against a merged PR now
+  names files a work package edits on main, not a branch to wait for. The charts plan's steps 5
+  and 6 have merged in part too (E193 `#1617`; E194's gates `#1620`, `#1624`, `#1631`), so its
+  scope row stands for step 6's remainder (E194) and step 7 (E195).
 
 The computation is in the [methods appendix](methods.md).
 
@@ -957,40 +1008,51 @@ The computation is in the [methods appendix](methods.md).
 Every shared file by pair is listed under the matrix in
 [verification/file-overlap.md](verification/file-overlap.md). Four points are worth naming:
 - **WP1 and the table plan share 21 files.** These include the mark, the table, the KPI strip, the
-  data notes, the narrative, the landing demo, the design docs and the browser gate. #1606 is
-  marked ready and merges first, so WP1 is built on its branch and lands after it.
+  data notes, the narrative, the landing demo, the design docs and the browser gate. #1606 merged
+  on 2026-10-25, so WP1 builds on main, on those files as #1606 left them.
 - **WP1, WP2 and WP4 land strictly in sequence.** WP1 shares four files with WP2 and six with
   WP4.
-- **`chartExport.ts` is shared by WP3, #1606 and #1609.** WP3's PNG part follows #1609.
+- **`chartExport.ts` is shared by WP3, #1606 and #1609.** Both have merged, so WP3's PNG part
+  builds on main.
 - **`export_service.py` is shared by WP3, #1601 and the analysis plan.** #1601 edits the summary
   export, and WP3 edits the analysis PDF, so their lines are disjoint. Both edit
-  `test_export_service.py` and `test_export_voice.py`, so WP3's PDF part follows #1601.
+  `test_export_service.py` and `test_export_voice.py`. #1601 has merged, so WP3's PDF part builds
+  on main.
 
 **Order and merge points.** Each step ships something a subscriber can see, and none waits on an
 unresolved conflict.
 
 | Step | Lands | After | Visible result |
 |---|---|---|---|
-| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its shared files are `tasks/todo.md` and, with #1608, `test_migration_lock_safety.py` | The legacy notes the dry run can reach leave the fine print and the dialogs, as passes or as specific concerns. The dry run counts them, and the holds, before the founder approves the apply |
-| 2 | **WP1** quiet notation: routine tier | #1606, which it is built on | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
-| 3 | **WP2** data-notes words and **WP5** later-filing evidence, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue shows both filings in its dialog, and its growth across the change reads n/m |
-| 4a | **WP3-png** (`chartExport.ts`) | #1609 | Chart marks only for notes in question; the PNG states its period range |
+| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its only file shared with open work is `tasks/todo.md` (#1608, which also edited `test_migration_lock_safety.py`, has merged) | The legacy notes the dry run can reach leave the fine print and the dialogs, as passes or as specific concerns. The dry run counts them, and the holds, before the founder approves the apply |
+| 2 | **WP1** quiet notation: routine tier | Nothing open: it builds on main, where #1606 merged | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
+| 3 | **WP2** data-notes words and **WP5** later-filing evidence, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue shows both filings in its dialog, its growth across the change reads n/m, and one line in the fine print's detail counts and places it |
+| 4a | **WP3-png** (`chartExport.ts`) | #1609 (merged) | Chart marks only for notes in question; the PNG states its period range |
 | 4b | **WP3-xlsx** (`excel_export_service.py`) | WP1 | A letter in the workbook grid for figures in question |
-| 4c | **WP3-pdf** (`export_service.py`) | #1601, WP1 | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
-| 5 | **WP4** surfaces and results header | WP1 and #1606 (it moves the KPI strip, under #1606's heading rail) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
+| 4c | **WP3-pdf** (`export_service.py`) | WP1 (#1601 has merged) | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
+| 5 | **WP4** surfaces and results header | WP1 (it moves the KPI strip, under the heading rail #1606 landed) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
 
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
 so it can start today.
+
+**Tracking.** One row, E206 in `tasks/todo.md`, holds this report's work in order:
+1. the proxy-statement ingest fix (§1.6, high tier), first, since it may put a wrong number on the
+   page today;
+2. WP0–WP5 in the order above;
+3. the concept-selection decision for REGN's change of scope (§1.6);
+4. the `detection-sql` runs before and after the backfill's apply (§1.7).
 
 ## 7. Findings for the other plans
 
 These came out of this evaluation but sit in the sibling areas.
 
 - **Charts:**
-  - Same-unit USD series split across two axes, so FY2025 FCF ($4.1B) plots above net income
-    ($4.5B) while the text says it is below (Y-F6, Z-F7).
-  - Year ticks run together on phones.
-  - Irregular top ticks, and "$0.00" on billion-dollar axes.
+  - Fixed on main by #1603 (`a7d4ea2a`): cash generation has one axis, so FY2025 FCF ($4.1B) no
+    longer plots above net income ($4.5B) (Y-F6, Z-F7), and every value axis takes the engine's
+    round ticks, with "$0" at zero. The balance sheet keeps equity's right axis on today's charts;
+    the spec renderer draws equity as its own panel.
+  - Still open on today's charts: year ticks run together on phones. The spec renderer (#1609,
+    merged) replaces them; production waits on the founder's switch (F66).
 - **Analysis:**
   - Red flags and "What to watch" assert conclusions from flagged figures with no caveat (X-F12,
     Y-F2).
@@ -1088,12 +1150,10 @@ The matrix is in §6; the full pairwise file list is in
 
 ### f. Competitor screenshots
 
-[`competitors/`](competitors/) holds:
-- Roic.ai: financials chart and statement, light and dark;
-- Yahoo Finance: financials chart and statement, light (no dark theme signed out);
-- Finviz: statements, light and dark;
-- Alpha Spread: AI financial profile, light (supplement);
-- `captures.json`, the URL and theme each was captured from.
+The captures behind §4.3 (Roic.ai, Yahoo Finance, Finviz and Alpha Spread, signed out, with
+Playwright on 2026-10-24) were taken for the teardown and are not committed, since the repository
+is public (founder, 2026-10-25; D-061). The scripts are in the
+[methods appendix](methods.md#competitor-captures).
 
 ### g. Notation variant test (added after the founder's review)
 

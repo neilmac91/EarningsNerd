@@ -445,6 +445,9 @@ async function run(browser, width, label) {
 
 ## Competitor captures
 
+The captures these scripts wrote, and their `captures.json` log, are not committed: the repository
+is public (founder, 2026-10-25; D-061). The report's §4.3 keeps the written teardown.
+
 Stock Analysis, Simply Wall St, GuruFocus, Seeking Alpha, TipRanks, Stockrow and Fiscal.ai turned
 the headless browser away at a bot check. Morningstar served an image captcha, and solving
 captchas is out of bounds. Alpha Spread served a Cloudflare challenge on the second visit, so
