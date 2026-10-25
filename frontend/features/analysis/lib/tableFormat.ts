@@ -14,10 +14,11 @@ export function tableCurrencyLabel(series: AnalysisSeries): string | null {
   return currency === 'USD' ? null : `${currency}${series.unit.endsWith('/shares') ? ' per share' : ''}`
 }
 
-// A fixed financial column has room for nine data glyphs, less its dagger/letter.
-// Formatting is display-only: SourceValue keeps the original number and comparison.
-export function tableTokenBudget(calculated = false, letter = ''): number {
-  return Math.max(4, 9 - Number(calculated) - letter.length)
+// A fixed financial column has room for nine data glyphs, less its note letter: only a note that questions the number
+// draws one (markedNote), and a calculated figure draws no dagger. Formatting is display-only: SourceValue keeps the
+// original number and comparison.
+export function tableTokenBudget(letter = ''): number {
+  return Math.max(4, 9 - letter.length)
 }
 
 function bounded(candidates: string[], budget: number): string {

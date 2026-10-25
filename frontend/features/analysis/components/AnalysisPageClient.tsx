@@ -445,7 +445,6 @@ export default function AnalysisPageClient() {
         <DataNotesProvider dataset={dataset}>
           <div className="flex flex-col gap-4">
             <KpiStrip dataset={dataset} />
-            <DataNotes dataset={dataset} />
             <TrendCharts dataset={dataset} exportEnabled />
             <NarrativePane
               state={narrative}
@@ -453,7 +452,11 @@ export default function AnalysisPageClient() {
               refreshDisabled={narrative.status === 'streaming'}
               onExport={exportPdf}
             />
-            <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
+            {/* The data notes are the table's fine print: 8px under its card, not the results' 16px apart (D-061). */}
+            <div className="flex flex-col gap-2">
+              <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
+              <DataNotes dataset={dataset} />
+            </div>
           </div>
         </DataNotesProvider>
       )}

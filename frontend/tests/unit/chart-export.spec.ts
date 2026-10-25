@@ -75,7 +75,7 @@ describe('chartDataNotes', () => {
     series.points[0].provenance = passed
     series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     series.points[1].yoy = 0.2
-    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['unit_mismatch'] }
     series.points.push({ period: 'FY1999', value: 1, reconciled: false })
     const grouped = groupDataNotes(dataset)
     const panel = chartDataNotes(dataset, [series], grouped, true)
@@ -86,7 +86,25 @@ describe('chartDataNotes', () => {
     expect(chartDataNotes(dataset, [series], grouped, false).panelNotes.map((note) => note.letter)).toEqual(['a'])
   })
 
-  it('preserves gaps, legacy calculation labels and the cash-flow definition in standalone exports', () => {
+  it('leaves a note about the record, not the number, out of the panel and the PNG footer (D-061)', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    const passed = { version: 1 as const, method: 'reported' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    series.points[0].provenance = passed
+    series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    series.points[1].yoy = 0.2
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    const grouped = groupDataNotes(dataset)
+    // The legacy YoY is note b in the report: the page's fine print lists it, the plot and its PNG do not.
+    expect(grouped.notes.map((note) => [note.letter, note.reasons])).toEqual([['a', ['source_conflict']], ['b', ['legacy_calculation']]])
+    const panel = chartDataNotes(dataset, [series], grouped, true)
+    expect(panel.panelNotes.map((note) => note.letter)).toEqual(['a'])
+    expect(panel.exportNotes).toContain(`Note a: ${grouped.notes[0].message} Revenue, net (Q4 2024).`)
+    expect(panel.exportNotes.join(' ')).not.toContain('Note b')
+    expect(panel.exportNotes.join(' ')).not.toContain(grouped.notes[1].message)
+  })
+
+  it('preserves gaps, calculated figures and the cash-flow definition in standalone exports, a gap once and with no letter', () => {
     const dataset = structuredClone(quarterly)
     const series = dataset.series[0]
     series.concept = 'free_cash_flow'
@@ -96,7 +114,10 @@ describe('chartDataNotes', () => {
     expect(panel.unavailable).toEqual(['Free cash flow: unavailable for Q3 2024.'])
     expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
     expect(panel.exportNotes).toContain(FCF_DEFINITION)
-    expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
+    // A gap's note marks nothing, so the footer says it in words, once, with no letter.
+    expect(panel.panelNotes).toEqual([])
+    expect(panel.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')
+    expect(panel.exportNotes.some((note) => note.startsWith('Note '))).toBe(false)
     expect(panel.exportNotes.filter((note) => note.includes('Q3 2024'))).toHaveLength(1)
     const withoutRecordedNotes = chartDataNotes(dataset, [series], { ...groupDataNotes(dataset), noteFor: () => null }, false)
     expect(withoutRecordedNotes.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')

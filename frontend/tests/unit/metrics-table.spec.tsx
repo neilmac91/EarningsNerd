@@ -70,19 +70,46 @@ describe('MetricsTable', () => {
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
-  it('renders values, deltas, the derived dagger, and — for missing points', () => {
-    render(<MetricsTable dataset={dataset} />)
+  it('renders values, deltas and — for missing points, and no dagger on a calculated figure', () => {
+    const { container } = render(<MetricsTable dataset={dataset} />)
 
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
-    // Derived Q4 revenue carries the computed dagger; the badge explains it.
+    // Derived Q4 revenue says "calculated" in its name and draws no dagger (D-061); no "† calculated" label explains one.
     expect(screen.getByRole('button', { name: /Revenue, Q4 2024:.*calculated/ })).toBeInTheDocument()
-    expect(screen.getByText('† calculated')).toBeInTheDocument()
-    // The never-derived EPS Q4 renders an em-dash placeholder.
-    expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/† calculated/)).not.toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    expect(screen.getByText(/^Figures are rounded for display\. Select any value for its source and full precision\.$/)).toBeInTheDocument()
+    // The never-derived EPS Q4 renders an em-dash placeholder; its gap note marks nothing, so its name names none.
+    expect(screen.getByRole('button', { name: /^EPS \(diluted\), Q4 2024: unavailable\. View source/ })).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
     expect(screen.getByText('+2.0%').parentElement).toHaveTextContent('Change vs prior quarter')
+  })
+
+  it('names the metrics the run calculates in the sentence above the table, as the dataset labels them', () => {
+    const calculated = { version: 1 as const, method: 'calculated' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    const reported = { ...calculated, method: 'reported' as const }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    const row = (concept: string, label: string, provenance: typeof calculated, percent = false) => ({
+      concept, label, unit: percent ? 'pure' : 'USD', percent, cagr: null,
+      points: years.map((year, index) => ({ period: year.key, value: 10 + index, provenance })),
+    })
+    const annual: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [
+      row('revenue', 'Revenue', reported),
+      row('operating_margin', 'Operating margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated),
+      // An abbreviation keeps its capitals inside the sentence.
+      row('eps_diluted', 'EPS (diluted)', calculated),
+    ] }
+    const { container, rerender } = render(<MetricsTable dataset={annual} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, free cash flow and EPS (diluted) are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    // A row calculated in only one year is not named; one name takes "is".
+    const partly = structuredClone(annual)
+    partly.series = [annual.series[0], annual.series[2], { ...annual.series[1], points: [annual.series[1].points[0], { ...annual.series[1].points[1], provenance: reported }] }]
+    rerender(<MetricsTable dataset={partly} />)
+    expect(screen.getByText('Figures are rounded for display; free cash flow is calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
   })
 
   it('hides the CAGR column entirely in quarterly mode (dead UI otherwise)', () => {
@@ -131,7 +158,7 @@ describe('MetricsTable', () => {
     const figure = screen.getByRole('button', { name: /EPS \(diluted\), Q3 2024:/ })
     expect(figure).toHaveTextContent('-$15.2K')
     expect(figure.closest('td')).toHaveTextContent('+123.5K%')
-    expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
+    expect(screen.getByText('Figures are rounded for display. Select any value for its source and full precision.')).toBeVisible()
     await userEvent.click(figure)
     const detail = screen.getByRole('dialog')
     expect(within(detail).getByText('As stored: -15,154 USD per share')).toBeVisible()

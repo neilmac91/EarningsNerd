@@ -38,9 +38,10 @@ describe('fixed-column display formatting', () => {
   })
 
   it('reserves space for marks without changing source data or currency identity', () => {
+    // A calculated figure carries no dagger, so only a note letter takes room from the nine glyphs.
     expect(tableTokenBudget()).toBe(9)
-    expect(tableTokenBudget(true, 'a')).toBe(7)
-    expect(tableTokenBudget(false, 'ab')).toBe(7)
+    expect(tableTokenBudget('a')).toBe(8)
+    expect(tableTokenBudget('ab')).toBe(7)
     expect(tableCurrencyLabel(series('CAD/shares'))).toBe('CAD per share')
     expect(tableCurrencyLabel(series('CAD'))).toBe('CAD')
     expect(tableCurrencyLabel(series('USD/shares'))).toBeNull()

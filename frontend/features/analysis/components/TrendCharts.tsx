@@ -54,7 +54,7 @@ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/an
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
-import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { markedNote, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
 
@@ -368,9 +368,11 @@ function PanelCard({
 
   const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
   const { panelNotes, unavailable: unavailableNotes, exportNotes } = chartDataNotes(dataset, plottedSeries, notes, !!panel.growthLine)
+  // A point carries a hollow ring and a letter, and its tooltip row names a note, only where the note questions the
+  // number (D-061): every chart mark below reads its note here.
   const noteAt = (concept: string, period: string, growth = false) => {
     const point = series[concept]?.points.find((entry) => entry.period === period)
-    return point ? growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point) : null
+    return point ? markedNote(growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point)) : null
   }
   const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
     const period = props.payload?.period ?? ''
