@@ -230,9 +230,9 @@ says so; everything else follows the spec.
   datasets, every chart and both views: D4, D5, D7, D11, D12 and D14, every printed string, and paint the export can
   serialise. `frontend/tests/e2e/charts-v2.spec.ts` runs D1, D2, D8, D9 and D10 in a browser under full font hinting,
   in both themes at 1280 and 390 px, card and expanded, in CI's `e2e-charts-v2` job, which also runs the export's
-  fidelity check (E1) against the renderer; the job binds a merge once the founder makes it a required check (F66),
-  and step 7 moves its specs into `e2e-tests` (E195). The unit spec also runs M14. D3, D6 and D13 are not yet run:
-  D6's inks are the table's, measured in the audit. M15 and M19 move with E194.
+  fidelity check (E1) against the renderer; the job is a required check on `main`, and step 7 moves its specs into
+  `e2e-tests` (E195). The unit spec also runs M14. D3, D6 and D13 are not yet run: D6's inks are the table's, measured
+  in the audit. M15 and M19 move with E194.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
