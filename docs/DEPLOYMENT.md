@@ -258,8 +258,9 @@ printed it in the last seven days, with a count from the newest 500 entries per 
 `SENTRY_DSN`) and `sdk-missing`, or `none`; a read that fails prints
 `sentry startup (7d) <kind>: UNVERIFIED (<class>; gcloud's error text withheld)`, with the classes above,
 and the step adds one `::warning::` that names those kinds and the remedy for each class.
-The task worker runs `task_worker_main.py`, which never imports `main.py` and starts no Sentry, so its
-revisions appear under no kind. After a deploy, the API service's new revision should appear under
+The task worker runs `task_worker_main.py`, which never imports `main.py`: it starts Sentry with the task
+policy but prints none of the four lines (it logs `Sentry error tracking: <status>`), so its revisions appear
+under no kind. After a deploy, the API service's new revision should appear under
 `initialized` and nowhere else, with none of the four lines `UNVERIFIED`. Without the SDK, each start
 would count twice under `sdk-missing`, as `app/routers/users.py` logs the same words. It never prints a
 log line (the failure line can quote an exception) or gcloud's own error text, which names the acting

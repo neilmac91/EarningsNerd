@@ -27,7 +27,7 @@ each gated here:
   non-ASCII value, a 500 whose frame held the secret;
 - that scrubber matches key names, so a secret's value quoted inside a value (a message, an exception, a breadcrumb, an
   extra, a tag, a context, a user, a request, a span, a log or a metric) still reached Sentry, a malformed
-  DATABASE_URL's digits among them, which the driver quotes as the port: main's hooks withhold each secret setting's
+  DATABASE_URL's digits among them, which the driver quotes as the port: the bootstrap's hooks withhold each secret setting's
   whole value and each connection URL's password on every channel that carries text (through str's own `replace`,
   which a text subclass cannot override), and a hook that fails sends nothing;
 - and, for every route at once, no output call (a print, log, warn or write call, `click.echo`, `pprint`, a Sentry
@@ -863,7 +863,7 @@ def task_sentry_envelopes():
 
 
 def _capturing(builder: str):
-    # main.py's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
+    # the API's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
     # the envelope's and each item's headers, and each lost item's reason and category as a "lost" item; it reads the
     # DSN as the SDK's own does, so the dynamic sampling context carries its public key), every transaction sampled (a
     # transaction carries the request too), no profiler thread and a fixed release (none would run `git rev-parse`).
@@ -900,7 +900,7 @@ def _capturing(builder: str):
     sentry_sdk.init(**options)
     try:
         # The serializer runs before before_send and before_send_transaction and would cut each string at
-        # max_value_length (main's options or an SDK default): a cut inside a secret leaves a prefix that no hook matches.
+        # max_value_length (the options or an SDK default): a cut inside a secret leaves a prefix that no hook matches.
         assert sentry_sdk.get_client().options["max_value_length"] is None
         with sentry_sdk.isolation_scope():  # no breadcrumb or tag left by another test
             yield keep.items
@@ -934,8 +934,8 @@ def _sentry_inits(tree: ast.Module) -> list[str]:
 
 def test_main_passes_sentry_only_its_options():
     # The fixture checks what `_sentry_options` returns; a keyword added at the call itself (`data_collection`, a hook)
-    # or a second init anywhere else would escape it, so the backend's one init call is main.py's, and it takes those
-    # options and nothing else.
+    # or a second init anywhere else would escape it, so the backend's one init call is the bootstrap's, and it takes
+    # those options (the API's, or the task processes' built on them) and nothing else.
     found = [
         f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
         for path in _scanned_files()
@@ -1209,8 +1209,8 @@ def test_private_feedback_events_remain_withheld_after_request_context_ends(path
 
 
 def _scrubbing_envelopes(request, monkeypatch, **values: str | None) -> list:
-    """The sentry_envelopes fixture, built once these settings values are in place: main's value scrubber reads the
-    settings when `_sentry_options()` runs, as main.py's one call does at startup."""
+    """The sentry_envelopes fixture, built once these settings values are in place: the value scrubber reads the
+    settings when `_sentry_options()` runs, as the bootstrap's one init does at a process's start."""
     from app.config import settings
 
     for name, value in values.items():
@@ -1289,7 +1289,7 @@ def test_sentry_withholds_a_secret_value_wherever_it_rides(monkeypatch, request,
 
 
 def test_sentry_withholds_every_secret_setting_and_connection_password(monkeypatch, request):
-    # Every secret field's value (the gate's own SECRET_FIELDS, the oracle of main's copy of the rule), the database
+    # Every secret field's value (the gate's own SECRET_FIELDS, the oracle of the bootstrap's copy of the rule), the database
     # password as written (an "@" percent-encoded) and decoded, and the Redis password (an "@" unescaped, which
     # redis-py reads to the last "@"), quoted in one message, each arrive as "[Filtered]" and nothing else changes: a
     # URL quoted whole is withheld whole. The Alpha Vantage key keeps its format's 16 characters, the shortest secret
@@ -1428,7 +1428,7 @@ def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
 
 
 def test_sentry_withholds_a_new_secret_setting_under_each_suffix(monkeypatch, request):
-    # A secret setting added later is withheld without a change to main.py when its name ends in one of the rule's
+    # A secret setting added later is withheld without a change to the bootstrap when its name ends in one of the rule's
     # suffixes (the gate's copy, the oracle), `_PASSWORD` included, which no field carries yet.
     import pydantic
     import sentry_sdk
@@ -1527,7 +1527,7 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
 
 
 def _capture_every_structure(caplog) -> None:
-    """One capture of the structures the SDK builds under main's options, on every channel, as far as the design and
+    """One capture of the structures the SDK builds under the API's options, on every channel, as far as the design and
     delta checks of #1297 read the SDK (2.71.0, re-checked under 2.72.0): an error with a chained exception (its
     frames and mechanism), an exception group (its mechanism's links), a log record with its thread's stack,
     breadcrumbs from a log line and by hand, a user, a request that continues a trace and a log entry; then, past
@@ -1694,16 +1694,16 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # in each child span, breadcrumb, frame or monitor config. Every key of 8 characters or more that the SDK's own
     # items carry outside user data (as each hook received them, from one capture of the structures the design checks
     # found the SDK builds, on every channel), each taken as a secret, leaves every item's structure as it was. The keys
-    # come from the SDK's items, not from main's list: a key on a structure the capture builds fails here until
-    # telemetry_bootstrap._PROTOCOL_PATHS has its path for the item's kind, and an SDK upgrade fails the pin below until the capture is
-    # checked again.
+    # come from the SDK's items, not from the bootstrap's list: a key on a structure the capture builds fails here
+    # until telemetry_bootstrap._PROTOCOL_PATHS has its path for the item's kind, and an SDK upgrade fails the pin
+    # below until the capture is checked again.
     import copy
 
     import sentry_sdk
 
     from app.utils import telemetry_bootstrap
 
-    # The capture reaches the structures the design checks of #1297 found the SDK builds under main's options (not a
+    # The capture reaches the structures the design checks of #1297 found the SDK builds under the API's options (not a
     # subprocess span, errno mechanism data or a gauge); re-checked for 2.72.0, which adds keys inside user data only.
     # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
     assert sentry_sdk.VERSION == "2.72.0"
@@ -2239,7 +2239,7 @@ def test_no_placeholder_holds_or_forms_a_secret(monkeypatch, request, overlap, t
 
 
 def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
-    # Weak secrets that overlap every placeholder fail the options at startup, so main.py's init, which catches the
+    # Weak secrets that overlap every placeholder fail the options at startup, so the bootstrap's init, which catches the
     # failure, leaves Sentry off rather than send a placeholder that holds one; the error names no value.
     from app.utils import telemetry_bootstrap
     from app.config import settings
@@ -2264,11 +2264,11 @@ def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
             if isinstance(call, ast.Call)
         )
     ]
-    assert guarded  # main.py's one init catches the failure: Sentry stays off, and the app starts
+    assert guarded  # the bootstrap's one init catches the failure: Sentry stays off, and the app starts
 
 
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
-    # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again, by
+    # The values are read when `_sentry_options()` runs, as the bootstrap's one init does at startup, and never again, by
     # any path: not at the first item, not per item, and a value set afterwards is not withheld.
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger

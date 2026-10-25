@@ -69,7 +69,7 @@ def _secret_values() -> tuple[str, ...]:
 
 # Where the protocol puts its own keys, by item kind: the path of each key of _MIN_SECRET_LENGTH characters or more,
 # from an item's top through the keys above it (a list's items share the list's path), as the SDK builds each kind under
-# main's options: an error (its exceptions, their mechanisms and frames, its threads' frames, breadcrumbs and the
+# the API's options: an error (its exceptions, their mechanisms and frames, its threads' frames, breadcrumbs and the
 # serializer's `_meta` note on them, log entry, request and user, and the dynamic sampling context of the trace it is
 # captured in, which names the transaction heading that trace), a transaction (its spans, request, user and response
 # context), a check-in (its monitor config, and the trace context of a span it is captured in), a log and a metric, each

@@ -141,7 +141,7 @@ backend/
 │   ├── models/           # SQLAlchemy ORM (core in __init__.py, rest in submodules)
 │   ├── schemas/          # Pydantic request/response contracts
 │   ├── integrations/     # external market-data APIs
-│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float)
+│   ├── utils/            # datetimes.py (aware utcnow, iso_z, ensure_utc, utc_from_iso), numbers.py (coerce_float), telemetry_bootstrap.py (each process's Sentry start and scrubbers)
 │   ├── config.py         # Pydantic Settings — ALL env access goes through it
 │   └── database.py       # session management (each engine session at UTC) + ensure_additive_columns
 ├── evals/                # AI eval harness + regression gate (see evals/RUNBOOK.md)

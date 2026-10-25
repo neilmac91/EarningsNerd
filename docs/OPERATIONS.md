@@ -467,9 +467,11 @@ Forgot-password and resend-verification queue their mail, the `account_mail` tas
 - **Where failures surface.** A failed send logs `Reset email NOT sent to user id=N: <class>` (or
   `Verification email ...`) at ERROR and is not retried. A send that sent nothing (a 429, a 5xx, no
   connection, no API key) logs `... email not sent to user id=N: <class> (nothing sent)`, and Cloud
-  Tasks delivers it again, up to the queue's five attempts. The worker reports to no Sentry (F50
-  (1)), so these lines reach Cloud Logging only: filter `earningsnerd-task-worker` for `email NOT
-  sent` and `(nothing sent)`. Registration's own verification mail is still sent from the API, whose
+  Tasks delivers it again, up to the queue's five attempts. These lines reach Cloud Logging only:
+  filter `earningsnerd-task-worker` for `email NOT sent` and `(nothing sent)`. With `SENTRY_DSN` bound on
+  the worker, a failed delivery also reaches Sentry by its exception's type and stack alone (the worker's
+  `Durable task failed` and the child's `AccountMailNotSent`, F50); a send that failed after sending is no
+  failed delivery, so it reaches Sentry not at all. Registration's own verification mail is still sent from the API, whose
   ERROR lines reach Sentry.
 - **The cap.** `ACCOUNT_MAIL_LIMITER` (`routers/auth.py`) admits 60 account mails an hour per API
   instance across both routes, after each caller's per-IP (20 an hour per route) and per-address (3
