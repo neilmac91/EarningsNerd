@@ -3100,7 +3100,7 @@ class TestNativeReportingCurrencySync:
     def test_a_usd_series_carrying_a_list_in_another_currency_involves_it_only_where_a_filing_reads_it(self, filing):
         # A USD filer whose payload also tags net income in EUR. Inside its USD 10-Ks (every period again, so main's
         # per-concept pick read the EUR list), each 10-K reads USD, more of its amount items being in USD: no filing
-        # reads another currency and no row is stored in one, so the sync is main's, its EUR list notwithstanding.
+        # reads another currency and no row is stored in one, so the sync takes main's path, its EUR list notwithstanding.
         # In a 10-Q of its own (Q1-25), that 10-Q reads EUR (``PayloadView.own``), so the sync involves another
         # currency and runs the currency step. Either way the series reads USD and the 10-Q's item is not read.
         from app.database import SessionLocal

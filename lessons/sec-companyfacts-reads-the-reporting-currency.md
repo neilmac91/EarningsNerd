@@ -234,7 +234,10 @@ first-tag priority (the per-filing writer's own rule stores it behind an undated
 where the older filings have no Filing rows), the older figure stays current, as on main. Where a
 quarantined row or a current unlabelled twin leaves a key as found, the row current there stays. And
 ratios do not converge: a margin at a period whose amounts moved to another filing's rows keeps its
-calculation, so in that shape the newer filing's margin sits beside the older filing's revenue. A
+calculation, so in that shape the newer filing's margin sits beside the older filing's revenue; and
+where a newer filing's stored margin was computed from another currency's operands (an earlier
+sync's convenience lists), `_replace_stale_ratios` replaces it with the batch's older calculation,
+which no later sync undoes until the journaled repair recomputes it. A
 sync in USD alone keeps main's convergence gaps (E198): an amendment the per-filing writer stored
 behind its original's companyfacts row stays behind, a newer filing's restatement under a
 lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
