@@ -144,12 +144,16 @@ import {
  *    consent."), or a negated verb that asserts the clause it takes after "that" ("It is not true that analytics wait
  *    for your consent.", "We do not promise that analytics wait for your consent."), but not a negation in a relative
  *    or a complement clause ("Analytics that do not identify you are collected only with your consent." and "Nobody
- *    doubts that analytics wait for your consent." fail) nor one a "but", or a mark before "only" (a comma, a dash or a
- *    bracket), sets apart ("Analytics are not collected when you visit, but only after you allow them." and "Analytics
- *    are not collected automatically, only after you consent." fail: Codex on #1618), nor one before a verb a denial
- *    turns into a yes ("Server events never cease to require your consent." fails). A negation on a verb before the
- *    wait's own that shares its object denies it only where "or", with no comma before it, distributes it to another
- *    verb that opens its own predicate in the same form ("PostHog never runs or requires your consent." passes;
+ *    doubts that analytics wait for your consent." fail), nor one in a relative, an adverbial or a bracketed clause
+ *    between the verb and the wait ("We collect analytics that do not identify you only with your consent." fails), nor
+ *    one in a clause a condition holds over the condition the reader sets after it, unless that clause is said of the
+ *    analytics ("We collect analytics when you are not signed in only with your consent." fails; "..., while server
+ *    events are not collected only after you consent." passes), nor one a "but", or a mark before "only" (a comma, a
+ *    dash or a bracket), sets apart ("Analytics are not collected when you visit, but only after you allow them." and
+ *    "Analytics are not collected automatically, only after you consent." fail: Codex on #1618), nor one before a verb
+ *    a denial turns into a yes ("Server events never cease to require your consent." fails). A negation on a verb
+ *    before the wait's own that shares its object denies it only where "or", with no comma before it, distributes it to
+ *    another verb that opens its own predicate in the same form ("PostHog never runs or requires your consent." passes;
  *    "PostHog never runs and requires your consent.", "Analytics are not sold and are collected only with your
  *    consent.", "Server events are not shared and require your consent." and "Server events never run, or run only
  *    after you consent." fail: Codex and the verification lens on #1618). A negation on the verb or the subject makes
@@ -841,7 +845,8 @@ const deniesItsClause = (subject: NounPhrase | null) =>
   !!subject && (subject.takenBack || ['no', 'none', 'neither'].includes(subject.quantifier ?? '') || /^(?:nobody|nothing|none|neither)$/i.test(subject.head.text))
 /** Whether a wait is denied where the verb says the promise: the verb group that governs it negated, the predication's
     own as the predication reads it (resumed across an aside, denied with the verbs that share its object, or as an
-    ellipsis says it), or, where that is the predication's own, its subject denied ("No analytics are collected only
+    ellipsis says it) or, past another clause, only the group of the clause its verb takes after "that"
+    (clauseAfterThat), or, where that is the predication's own, its subject denied ("No analytics are collected only
     with your consent.", "Analytics are not, as a rule, collected only with your consent.", "Server events do not in any
     case require your consent."). "Not X but Y" affirms Y, as BUT_AFFIRMS reads it for logging out: a "but" or "yet"
     between the verb and the wait takes the denial off ("Analytics are not collected when you visit, but only after you
@@ -858,7 +863,23 @@ function denied(reading: Reading, p: Said, wait: Wait): boolean {
   const contrast = between.some((t) => /^(?:but|yet)$/i.test(t.text)) || (only > 0 && mark >= 0 && /^[,;:(\-\u2013\u2014]$/.test(between[mark].text))
   if (!governing || contrast) return false
   // A denied subject and a denied verb cancel ("No analytics are not collected only with your consent." promises).
-  return governing.own ? deniedPlainly(reading, p.group) !== deniesItsClause(p.subject) : deniedPlainly(reading, governing.group)
+  if (governing.own) return deniedPlainly(reading, p.group) !== deniesItsClause(p.subject)
+  // Past the predication's own group, only the clause its verb takes after "that" says the wait, with its own subject
+  // and group ("It is not true that analytics are not collected only with your consent."). A negation in a relative,
+  // an adverbial or a bracketed clause between the verb and the wait denies nothing, as one before the verb does not
+  // ("We collect analytics that do not identify you only with your consent.": Codex's class on #1618).
+  const inner = clauseAfterThat(reading, p.group, wait.at)
+  return !!inner && deniedPlainly(reading, inner.group) !== deniesItsClause(inner.subject)
+}
+/** The clause a verb group takes after "that" (complementAt) where its own group governs a token: its subject and that
+    group, or null. */
+function clauseAfterThat(reading: Reading, group: VerbGroup, at: number): { subject: NounPhrase; group: VerbGroup } | null {
+  const { tokens } = reading
+  const complement = complementAt(tokens, group)
+  const subject = complement && at > complement.that ? nounPhraseAt(tokens, complement.that + 1) : null
+  if (!subject || !startsVerbGroup(tokens, subject.end, ANOTHER_OPERATION)) return null
+  const own = verbGroupAt(tokens, subject.end)
+  return governingGroup(tokens, subject.start, own, at, ANOTHER_OPERATION)?.own ? { subject, group: own } : null
 }
 /** A verb that a denial makes say what follows it ("never cease to", "do not fail to", "do not hesitate to": the
     second round's verification lens on #1618). */
@@ -1025,7 +1046,12 @@ function readWait(reading: Reading, said: Said[], index: number, wait: Wait): Wa
     return promises ? 'denied' : 'unread'
   }
   if (wait.kind === 'without' && !withoutPromises(reading, p, wait)) return 'unread'
-  if (wait.kind !== 'without' && wait.kind !== 'until' && denied(reading, p, wait)) return 'denied'
+  // A condition the reader sets after the predicate of a clause a condition holds may be the outer clause's ("We
+  // collect analytics when you are not signed in only with your consent."), so that clause's denial takes it back only
+  // where the clause is said of the analytics ("..., while server events are not collected only after you consent.").
+  const carried = p.conditions.some((c) => c.start >= p.predicateEnd && wait.at >= c.start && wait.at < c.end)
+  const ofTheAnalytics = () => p.subjects.some((_, subject) => analyticsIn(reading, p, subject, wait, []))
+  if (wait.kind !== 'without' && wait.kind !== 'until' && denied(reading, p, wait) && (!carried || ofTheAnalytics())) return 'denied'
   const operations = operationsOf(reading, p, wait)
   if (operations.length && operations.every((op) => ANOTHER_OPERATION.test(op.verb.text) && !appears(reading, op) && !toTheAnalytics(reading, op))) return 'another operation'
   return p.subjects.some((_, subject) => !scoped(reading, said, index, subject, wait) && analyticsIn(reading, p, subject, wait, operations)) ? 'claim' : 'unread'
@@ -2657,6 +2683,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<p>It is never not true that analytics are collected only with your consent.</p>', true],
       ['<p>Nobody does not promise that analytics are collected only with your consent.</p>', true],
       ['<p>Nobody does not promise that analytics are collected until you allow them.</p>', true],
+      // A negation in a relative, an adverbial or a bracketed clause between the verb and the wait denies nothing, and
+      // one in a clause a condition holds takes back the condition the reader sets after it only where that clause is
+      // said of the analytics (the class of Codex's findings on #1618).
+      ['<p>We collect analytics that do not identify you only with your consent.</p>', true],
+      ['<p>Analytics are collected (we do not deny it) only with your consent.</p>', true],
+      ['<p>Analytics are collected where we do not use cookies only with your consent.</p>', true],
+      ['<p>We collect analytics when you are not signed in only with your consent.</p>', true],
+      ['<p>PostHog runs in your browser, while server events are not collected only after you consent.</p>', false],
       // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
       // "only" sets nothing apart.
       ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
