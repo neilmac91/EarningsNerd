@@ -170,13 +170,25 @@ timeout the deploy does not set, or on a forced quit), but Cloud Run's SIGKILL, 
 SIGTERM, stops a deletion wherever it is (F18). Their burst cases hold every checkout, statement and
 release off the loop, and one deletion makes its Stripe and PostHog calls with no connection out
 (2026-10-24, E171).
+The Copilot ask stream read its filing, resolved the plan and took its admission's lease on the loop, on
+the connection the auth lookup had checked out. Eight askers on four slots answered as they should, but
+56 of 128 statements ran on the loop for eight Pro questions and 48 of 88 for eight Free ones, each
+admission's commit gave its connection back there, and a missing filing (8 of 24 statements) or a
+reached cap (16 of 32) left its transaction for the finalizer. On a local PostgreSQL 16, another
+transaction holding the asker's `users` row for 1.0 s froze the loop for 1.0 s, Pro or Free: the
+admission waits for that row's lock (up to `USAGE_COUNTER_LOCK_TIMEOUT_MS`, 3 s), and every request on
+the instance waited with it. The filing read, its snapshot, the plan and the admission are now one
+thread-pool unit that releases its session before the stream starts, its refusals included; with the
+row held the same way, the loop's longest gap between its 10 ms ticks was 14 ms (five runs of each).
+Its burst case holds every checkout, statement and release off the loop, each answer and each asker's
+metering (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still hand their session to a call on the loop at
-their counts (the rest of the auth router, E121; 15 routes in two other routers, E171; and the summaries
+their counts (the rest of the auth router, E121; the admin router's 14 routes, E171; and the summaries
 router's generate stream and two exports; five of those hand-offs, the header's strict ones, use no
 connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
