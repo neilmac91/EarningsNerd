@@ -161,27 +161,31 @@ def _waiting(engine, sessions: int) -> bool:
 class _Redemption:
     """A registration's redemption of the invite (``redeem_invite`` with ``commit=False``, as registration calls it),
     on a thread of its own, left uncommitted until ``commit``. A case enters it after its thread pool, so a failed
-    assertion commits it before the pool waits for a write that waits for it."""
+    assertion commits it before the pool waits for a write that waits for it. A redemption that fails commits before
+    the case fails, so its open transaction does not hold the case's schema teardown until its thread's wait runs out."""
 
     def __init__(self, engine, invite_id: int, user_id: int):
         self.engine = engine
         self.invite_id = invite_id
         self.user_id = user_id
-        self.redeemed = threading.Event()
+        self.attempted = threading.Event()
+        self.redeemed = False
         self.committing = threading.Event()
         self.thread = threading.Thread(target=self._redeem)
 
     def _redeem(self) -> None:
         with _session(self.engine) as db:
-            if invite_service.redeem_invite(db, db.get(InviteCode, self.invite_id), db.get(User, self.user_id),
-                                            commit=False):
-                self.redeemed.set()
+            self.redeemed = invite_service.redeem_invite(db, db.get(InviteCode, self.invite_id),
+                                                         db.get(User, self.user_id), commit=False)
+            self.attempted.set()
             self.committing.wait(timeout=30)
             db.commit()
 
     def __enter__(self) -> "_Redemption":
         self.thread.start()
-        assert self.redeemed.wait(timeout=5), "the registration must redeem the invite"
+        if not (self.attempted.wait(timeout=5) and self.redeemed):
+            self.commit()
+            pytest.fail("the registration must redeem the invite")
         return self
 
     def __exit__(self, *exc) -> None:
@@ -306,6 +310,13 @@ def _redemption_behind_a_write(engine, monkeypatch, write: str) -> tuple[bool, E
     return redeemed, error
 
 
+def _replacement_live(engine) -> bool:
+    """Whether the newest invite, a re-send's replacement of the seeded one, is unused and unrevoked."""
+    with _session(engine) as db:
+        newest = db.query(InviteCode).order_by(InviteCode.id.desc()).first()
+        return newest.used_at is None and not newest.is_revoked
+
+
 def _unguarded(db: Session, invite: InviteCode, user, *, commit: bool = True) -> bool:
     """``redeem_invite`` without its ``is_revoked`` guard, as it redeemed before E201."""
     result = db.execute(
@@ -327,6 +338,7 @@ def test_without_the_guard_a_redemption_behind_a_write_redeems_the_revoked_invit
     assert error is None, error
     assert redeemed is True
     assert _state(postgres_engine) == (True, True, 2 if write == "re-send" else 1)
+    assert write != "re-send" or _replacement_live(postgres_engine)
 
 
 @pytest.mark.parametrize("write", ["revoke", "re-send"])
@@ -337,3 +349,4 @@ def test_a_redemption_behind_a_write_refuses_the_revoked_invite(postgres_engine,
     assert error is None, error
     assert redeemed is False
     assert _state(postgres_engine) == (False, True, 2 if write == "re-send" else 1)
+    assert write != "re-send" or _replacement_live(postgres_engine)
