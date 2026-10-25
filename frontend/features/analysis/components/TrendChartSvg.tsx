@@ -9,13 +9,14 @@
  * Blink otherwise snaps each advance to a whole pixel, 7 px where the plan counts Geist Mono's 6.6 (spec G1, D8).
  * The data-* attributes are the ones the DOM checks read (§4.0, D4, D12, D14; step 6, E194): a mark in a series' colour
  * names its series and period, a line run its periods space-separated, and the value strip's swatches sit in its
- * data-strip group.
+ * data-strip group. GutterOverlay repeats the gutter's text for A7's sticky gutter, from the same pieces.
  */
+import { memo } from 'react'
 import { Group } from '@visx/group'
 import { Bar, LinePath } from '@visx/shape'
 import { CHART_FONT } from '@/components/ui/Chart'
-import { noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type PanelBox } from '@/features/analysis/lib/charts/layout'
-import type { ChartModel, ModelMark, ModelPoint } from '@/features/analysis/lib/charts/model'
+import { CAPTION, captionBacking, FONT_PX, gutterOverlayWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, STRIP_LABEL_X, STRIP_MARKER_X, type ChartLayout, type PanelBox } from '@/features/analysis/lib/charts/layout'
+import type { ChartModel, ModelMark, ModelPoint, StripRow } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { BreakMark, MarkerShape, StripSwatch } from './chartMarks'
 
@@ -35,18 +36,50 @@ function runsOf(points: ModelPoint[]): ModelPoint[][] {
   return runs
 }
 
+/** A panel's caption, left-aligned in its band (§3.6). */
+function Caption({ box, tokens }: { box: PanelBox; tokens: ChartTokens }) {
+  return box.captionY != null && box.panel.caption ? <text x={0} y={box.captionY} fill={tokens.tick}>{box.panel.caption}</text> : null
+}
+
+/** A panel's y tick labels, right-aligned 8 px left of the plot (D5, D11). */
+function TickLabels({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout; tokens: ChartTokens }) {
+  const { axis } = box.panel
+  return axis.ticks.map((tick) => (
+    <text key={tick} x={layout.gutter - 8} y={box.y(tick)} dy="0.32em" textAnchor="end" fill={tokens.tick}>{axis.format.tick(tick)}</text>
+  ))
+}
+
+/** An expanded value-strip row's name: its series' swatch, then its short name, inside the gutter (§3.10). */
+function StripName({ row, y, tokens }: { row: StripRow; y: number; tokens: ChartTokens }) {
+  return (
+    <>
+      <StripSwatch swatch={row.swatch} marker={row.marker} x={STRIP_MARKER_X} y={y - 4} color={tokens.series[row.color]} ring={tokens.surface} />
+      <text x={STRIP_LABEL_X} y={y} fill={tokens.tick}>{row.short}</text>
+    </>
+  )
+}
+
+/** A panel's gridlines from x1 to x2, 1 px at round(y) + 0.5: the zero tick's in «t.zero», the rest in «t.grid». */
+function GridLines({ box, x1, x2, tokens }: { box: PanelBox; x1: number; x2: number; tokens: ChartTokens }) {
+  return box.panel.axis.ticks.map((tick) => (
+    <line key={tick} x1={x1} x2={x2} y1={gridY(box.y(tick))} y2={gridY(box.y(tick))} stroke={tick === 0 ? tokens.zero : tokens.grid} strokeWidth={1} />
+  ))
+}
+
+/** A3b's dashed rule on each clipped edge of a panel, from x1 to x2. */
+function EdgeRules({ box, x1, x2, tokens }: { box: PanelBox; x1: number; x2: number; tokens: ChartTokens }) {
+  const [low, high] = box.panel.axis.domain
+  return ([[box.offAbove, high], [box.offBelow, low]] as const).map(([band, edge]) => band && (
+    <line key={edge} x1={x1} x2={x2} y1={gridY(box.y(edge))} y2={gridY(box.y(edge))} stroke={tokens.tick} strokeWidth={1} strokeDasharray="2 2" />
+  ))
+}
+
 function PanelAxis({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout; tokens: ChartTokens }) {
-  const { axis, caption } = box.panel
   return (
     <g>
-      {box.captionY != null && caption && <text x={0} y={box.captionY} fill={tokens.tick}>{caption}</text>}
-      {axis.ticks.map((tick) => (
-        <line key={tick} x1={layout.plotLeft} x2={layout.plotRight} y1={gridY(box.y(tick))} y2={gridY(box.y(tick))}
-          stroke={tick === 0 ? tokens.zero : tokens.grid} strokeWidth={1} />
-      ))}
-      {axis.ticks.map((tick) => (
-        <text key={tick} x={layout.gutter - 8} y={box.y(tick)} dy="0.32em" textAnchor="end" fill={tokens.tick}>{axis.format.tick(tick)}</text>
-      ))}
+      <Caption box={box} tokens={tokens} />
+      <GridLines box={box} x1={layout.plotLeft} x2={layout.plotRight} tokens={tokens} />
+      <TickLabels box={box} layout={layout} tokens={tokens} />
     </g>
   )
 }
@@ -100,12 +133,11 @@ function Bars({ box, tokens, marks }: { box: PanelBox; tokens: ChartTokens; mark
 /** A3b: the dashed rule on a clipped edge, then each off-scale value in its row: the arrow in its series' colour and
  *  the true value in the value ink (§3.4). */
 function OffScale({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout; tokens: ChartTokens }) {
-  const [low, high] = box.panel.axis.domain
   return (
     <g>
-      {([['above', box.offAbove, high, '↑'], ['below', box.offBelow, low, '↓']] as const).map(([side, band, edge, arrow]) => band && (
+      <EdgeRules box={box} x1={layout.plotLeft} x2={layout.plotRight} tokens={tokens} />
+      {([['above', box.offAbove, '↑'], ['below', box.offBelow, '↓']] as const).map(([side, band, arrow]) => band && (
         <g key={side}>
-          <line x1={layout.plotLeft} x2={layout.plotRight} y1={gridY(box.y(edge))} y2={gridY(box.y(edge))} stroke={tokens.tick} strokeWidth={1} strokeDasharray="2 2" />
           {band.items.map((item) => (
             <g key={`${item.seriesKey}:${item.period}`}>
               <text x={item.left} y={band.top + 10 + OFF_ROW * item.row} fill={tokens.series[item.color]} data-series={item.seriesKey} data-period={item.period}>{arrow}</text>
@@ -118,7 +150,8 @@ function OffScale({ box, layout, tokens }: { box: PanelBox; layout: ChartLayout;
   )
 }
 
-export default function TrendChartSvg({ model, layout, tokens, label, uid }: {
+/** Memoised: its card re-renders as its viewport scrolls (the sticky gutter's cover), and the plan has not changed. */
+export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }: {
   model: ChartModel
   layout: ChartLayout
   tokens: ChartTokens
@@ -156,8 +189,7 @@ export default function TrendChartSvg({ model, layout, tokens, label, uid }: {
       </g>
       {layout.stripTop != null && model.strip.map((row, i) => (
         <g key={row.label} data-strip={row.label}>
-          <StripSwatch swatch={row.swatch} marker={row.marker} x={STRIP_MARKER_X} y={layout.stripRowY[i] - 4} color={tokens.series[row.color]} ring={tokens.surface} />
-          <text x={STRIP_LABEL_X} y={layout.stripRowY[i]} fill={tokens.tick}>{row.short}</text>
+          <StripName row={row} y={layout.stripRowY[i]} tokens={tokens} />
           {model.periods.map((period) => (
             <text key={period.key} x={layout.x(period.key)} y={layout.stripRowY[i]} textAnchor="middle" fill={tokens.value}>{row.cells[period.key]}</text>
           ))}
@@ -170,6 +202,35 @@ export default function TrendChartSvg({ model, layout, tokens, label, uid }: {
           <text key={`${glyph.period}:${glyph.text}`} x={glyph.x} y={layout.notesY} textAnchor="middle" fill={glyph.tone === 'review' ? tokens.review : tokens.tick}>{glyph.text}</text>
         ))}
       </g>
+    </svg>
+  )
+})
+
+/**
+ * A7's sticky gutter (E193): while a plot that scrolls has scrolled its own y axis away, this layer repeats the gutter at
+ * the viewport's left edge, at the positions the plot draws them: the surface over the gutter, each panel's caption on
+ * a surface backing as wide as the caption (it runs past the gutter), the tick labels, "Notes" and the expanded strip's
+ * row names. Past the gutter it covers the column a scroll leaves cut at its edge (layout.ts gutterCover), carrying the
+ * plot's gridlines and edge rules across it. The caller sticks it over the plot, outside the plot's node, so the PNG
+ * export never draws it.
+ */
+export function GutterOverlay({ model, layout, tokens, cover }: { model: ChartModel; layout: ChartLayout; tokens: ChartTokens; cover: number }) {
+  const width = gutterOverlayWidth(layout, cover)
+  return (
+    <svg width={width} height={layout.height} viewBox={`0 0 ${width} ${layout.height}`} aria-hidden="true"
+      fontFamily={CHART_FONT} fontSize={11} textRendering="geometricPrecision" style={{ display: 'block' }}>
+      <rect x={0} y={0} width={cover} height={layout.height} fill={tokens.surface} />
+      {layout.panels.map((box) => (
+        <g key={box.panel.id}>
+          {cover > layout.plotLeft && <GridLines box={box} x1={layout.plotLeft} x2={cover} tokens={tokens} />}
+          {cover > layout.plotLeft && <EdgeRules box={box} x1={layout.plotLeft} x2={cover} tokens={tokens} />}
+          {captionBacking(box) > 0 && <rect x={0} y={box.captionY! - FONT_PX} width={captionBacking(box)} height={CAPTION} fill={tokens.surface} />}
+          <Caption box={box} tokens={tokens} />
+          <TickLabels box={box} layout={layout} tokens={tokens} />
+        </g>
+      ))}
+      {layout.stripTop != null && model.strip.map((row, i) => <StripName key={row.label} row={row} y={layout.stripRowY[i]} tokens={tokens} />)}
+      {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick}>Notes</text>}
     </svg>
   )
 }

@@ -5,8 +5,10 @@
    fixture dataset and chart: the spec's DOM checks that need no layout engine (docs/design/analysis-trend-charts-spec-
    2026-10.md §6: D4, D5, D7, D11, D12, D14), every printed string, and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
-   dark tokens, the expanded view, and the flag switch in TrendCharts. Text boxes, collisions and the font (D1, D2,
-   D8) need a browser: tests/e2e/charts-v2.spec.ts.
+   dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
+   and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
+   boxes, collisions, the font (D1, D2, D8) and the reading contract's geometry need a browser:
+   tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -50,9 +52,10 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { CARD_HEIGHT, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { CARD_HEIGHT, gutterCover, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
+import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
@@ -227,7 +230,7 @@ describe('the card around the plot', () => {
       expect(phone.width).toBe(465)
       expect(plot.style.width).toBe('465px')
       expect(plot.querySelector('svg')!.getAttribute('width')).toBe('465')
-      expect(plot.parentElement).toHaveAttribute('data-analysis-chart-scroll')
+      expect(plot.closest('[data-analysis-chart-scroll]')).not.toBeNull()
       unmount()
       // A chart that fits takes the card's whole-pixel width, so the export draws it at its on-screen size.
       measured = 502.6
@@ -247,7 +250,9 @@ describe('the card around the plot', () => {
       const model = buildChartModel(chart, ds)
       if (model.unavailable) continue
       const plan = layoutChart(model, DEFAULT_WIDTH, 'card')
-      expect(html).toContain(`data-analysis-chart="${model.title.replace(/&/g, '&amp;')}" style="width:${plan.width}px;height:${plan.height}px"></div>`)
+      const title = model.title.replace(/&/g, '&amp;')
+      // The values stop holds the plot's box, empty until the font has loaded.
+      expect(html).toMatch(new RegExp(`data-analysis-chart="${title}"[^>]*style="width:${plan.width}px;height:${plan.height}px"></div>`))
     }
     expect(html).not.toContain('<svg role="img"')
     expect(html).not.toMatch(/<svg width="\d+" height="320"/)
@@ -455,5 +460,291 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     expect(container.querySelector('[data-recharts]')).not.toBeNull()
     expect(container.querySelector('g[data-panel]')).toBeNull()
+  })
+})
+
+describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_SYSTEM.md §10)', () => {
+  const NAME = (title: string) => `${title} chart values`
+  const setup = (name = 'REGN_annual', chart: (typeof CHART_IDS)[number] = 'balance') => {
+    const ds = dataset(name)
+    const utils = render(<TrendChartsV2 dataset={ds} />)
+    const notes = resolveDataNotes(ds)
+    const model = buildChartModel(chart, ds, notes)
+    const card = cards(utils.container)[CHART_IDS.indexOf(chart)]
+    const stop = within(card).getByRole('slider', { name: NAME(model.title) })
+    // The plot under the values stop, which passes the pointer through to it.
+    const plot = card.querySelector<HTMLElement>('[data-analysis-chart]')!
+    const tooltip = () => card.querySelector<HTMLElement>('[data-chart-tooltip]')
+    const wash = () => card.querySelector<HTMLElement>('[data-chart-wash]')
+    const status = within(card).getByRole('status')
+    return { ...utils, ds, model, card, stop, plot, tooltip, wash, status, readouts: chartReadouts(model, ds, notes) }
+  }
+  /** The pointer leaving the chart: React reads a leave from the pointerout into what lies outside. */
+  const leave = (from: Element, pointerType: string) =>
+    fireEvent(from, new PointerEvent('pointerout', { bubbles: true, relatedTarget: document.body, pointerType, pointerId: 1 }))
+  /** Focus as a keyboard user arrives, with Tab: jsdom's :focus-visible follows the last key, and a printable one turns it
+   *  off. */
+  const tabTo = (element: HTMLElement) => {
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab' })
+    act(() => element.focus())
+  }
+  /** A colour as the browser reads it back from a style. */
+  const css = (property: 'color' | 'background', value: string) => {
+    const probe = document.createElement('div')
+    probe.style[property] = value
+    return probe.style[property]
+  }
+  /** jsdom lays nothing out, so a pointer's client x is the stage's x. */
+  const pointer = (target: Element, type: string, clientX: number, pointerType = 'mouse', clientY = 10) =>
+    fireEvent(target, new PointerEvent(type, { bubbles: true, cancelable: true, clientX, clientY, pointerType, pointerId: 1 }))
+
+  it('each drawn chart has one values stop, a slider at the newest period whose value text is its readout', () => {
+    const ds = dataset('JPM_annual')
+    const { container } = render(<TrendChartsV2 dataset={ds} />)
+    const notes = resolveDataNotes(ds)
+    CHART_IDS.forEach((chart, i) => {
+      const card = cards(container)[i]
+      const model = buildChartModel(chart, ds, notes)
+      if (model.unavailable) {
+        expect(within(card).queryByRole('slider'), 'a chart that does not apply has nothing to read').toBeNull()
+        return
+      }
+      const stop = within(card).getByRole('slider', { name: NAME(model.title) })
+      const readouts = chartReadouts(model, ds, notes)
+      expect(stop).toHaveAttribute('tabindex', '0')
+      expect([stop.getAttribute('aria-valuemin'), stop.getAttribute('aria-valuemax'), stop.getAttribute('aria-valuenow')])
+        .toEqual(['0', String(model.periods.length - 1), String(model.periods.length - 1)])
+      expect(stop).toHaveAttribute('aria-valuetext', readouts.at(-1)!.announcement)
+      // A layer over the viewport, after it in the Tab order, holding nothing; the export's node holds the chart's SVG
+      // alone, without the tooltip, wash or gutter.
+      const viewport = card.querySelector('[data-analysis-chart-scroll]')!
+      expect(stop.childElementCount).toBe(0)
+      expect(stop).toHaveClass('pointer-events-none', 'absolute', 'inset-0', 'focus-visible:shadow-ring-brand', 'dark:focus-visible:shadow-ring-brand-dark')
+      expect(stop.parentElement).toBe(viewport.parentElement)
+      expect(viewport.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect([...card.querySelector('[data-analysis-chart]')!.children].map((child) => child.tagName.toLowerCase())).toEqual(['svg'])
+      expect(card.querySelectorAll('[tabindex="0"]')).toHaveLength(1)
+    })
+  })
+
+  it('Left and Right step a period, Down and Up too, Home and End jump, and the keys never scroll natively', () => {
+    const { stop, readouts } = setup()
+    const last = readouts.length - 1
+    const at = () => Number(stop.getAttribute('aria-valuenow'))
+    expect(fireEvent.keyDown(stop, { key: 'ArrowLeft' }), 'default prevented').toBe(false)
+    expect(at()).toBe(last - 1)
+    expect(stop).toHaveAttribute('aria-valuetext', readouts[last - 1].announcement)
+    fireEvent.keyDown(stop, { key: 'ArrowDown' })
+    expect(at()).toBe(last - 2)
+    fireEvent.keyDown(stop, { key: 'ArrowUp' })
+    fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    expect(at()).toBe(last)
+    expect(fireEvent.keyDown(stop, { key: 'Home' })).toBe(false)
+    expect(at()).toBe(0)
+    expect(stop).toHaveAttribute('aria-valuetext', readouts[0].announcement)
+    fireEvent.keyDown(stop, { key: 'End' })
+    expect(at()).toBe(last)
+    expect(fireEvent.keyDown(stop, { key: 'a' }), 'other keys are not the chart’s').toBe(true)
+  })
+
+  it('a step past either end says so in the status line, fresh on every press', async () => {
+    const { stop, status } = setup()
+    fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    await waitFor(() => expect(status).toHaveTextContent('Newest period.'))
+    fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    expect(status, 'cleared, so the same words are spoken again').toHaveTextContent('')
+    await waitFor(() => expect(status).toHaveTextContent('Newest period.'))
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    expect(status).toHaveTextContent('')
+    fireEvent.keyDown(stop, { key: 'Home' })
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    await waitFor(() => expect(status).toHaveTextContent('Oldest period.'))
+  })
+
+  it('the keyboard’s period shows its tooltip and its column wash, both hidden from screen readers', () => {
+    const { stop, tooltip, wash, readouts, model } = setup('PGR_quarterly', 'topline')
+    expect(tooltip()).toBeNull()
+    tabTo(stop)
+    const last = readouts.length - 1
+    const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+    expect(tooltip()).toHaveAttribute('aria-hidden', 'true')
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[last].header)
+    expect([...tooltip()!.querySelectorAll('li')].map((row) => row.textContent)).toEqual(readouts[last].rows.map((row) => `${row.label}${row.text}`))
+    expect(wash()).toHaveAttribute('aria-hidden', 'true')
+    expect([wash()!.style.left, wash()!.style.width, wash()!.style.height])
+      .toEqual([`${layout.x(model.periods[last].key) - layout.slot / 2}px`, `${layout.slot}px`, `${layout.height}px`])
+    expect(wash()!.style.background).toBe(css('background', CHART_TOKENS.light.cursor))
+    fireEvent.keyDown(stop, { key: 'Home' })
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[0].header)
+    expect(wash()!.style.left).toBe(`${layout.x(model.periods[0].key) - layout.slot / 2}px`)
+    // Focus leaving hides the keyboard's tooltip and keeps its period.
+    act(() => stop.blur())
+    expect(tooltip()).toBeNull()
+    expect(wash()).toBeNull()
+    expect(stop).toHaveAttribute('aria-valuenow', '0')
+  })
+
+  it('a review note’s letter takes the review ink in the tooltip, as in the notes band; a calculated value says so', () => {
+    const ds = dataset('REGNPN_annual')
+    const { container } = render(<TrendChartsV2 dataset={ds} />)
+    const card = cards(container)[CHART_IDS.indexOf('cash')]
+    const stop = within(card).getByRole('slider')
+    tabTo(stop)
+    const row = [...card.querySelectorAll('[data-chart-tooltip] li')].find((item) => item.textContent?.startsWith('Free cash flow'))!
+    expect(row).toHaveTextContent('· Calculated (a)')
+    const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ' (a)')!
+    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.letter === 'a')!
+    expect(note.kind, 'REGNPN’s simulated flags are review notes').toBe('review')
+    expect(letter.style.color).toBe(css('color', CHART_TOKENS.light.review))
+  })
+
+  it('Escape dismisses the tooltip first, then collapses an expanded card and returns focus to its toggle', () => {
+    const { card, stop, tooltip } = setup()
+    fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+    tabTo(stop)
+    expect(tooltip()).not.toBeNull()
+    expect(fireEvent.keyDown(stop, { key: 'Escape' })).toBe(false)
+    expect(tooltip()).toBeNull()
+    expect(card, 'the first Escape closes the tooltip alone').toHaveClass('md:col-span-2')
+    fireEvent.keyDown(stop, { key: 'Escape' })
+    expect(card).not.toHaveClass('md:col-span-2')
+    const toggle = within(card).getByRole('button', { name: 'Expand chart' })
+    expect(toggle).toHaveFocus()
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    // Collapsed, Escape is not the card's.
+    expect(fireEvent.keyDown(toggle, { key: 'Escape' })).toBe(true)
+  })
+
+  it('a pointer reads the period under it, never the gutter; the next key resumes the keyboard’s own period', () => {
+    const { stop, plot, tooltip, readouts, model } = setup()
+    const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+    const last = readouts.length - 1
+    fireEvent.keyDown(stop, { key: 'ArrowLeft' })
+    pointer(plot, 'pointermove', layout.plotLeft + layout.slot * 2 + 1)
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[2].header)
+    expect(stop, 'pointing moves no keyboard period').toHaveAttribute('aria-valuenow', String(last - 1))
+    // Resting on the tooltip keeps its period (WCAG 1.4.13), wherever the tooltip lies.
+    pointer(tooltip()!, 'pointermove', layout.plotLeft + layout.slot * 6 + 1)
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[2].header)
+    pointer(plot, 'pointermove', layout.plotLeft - 1)
+    expect(tooltip(), 'the gutter is no period').toBeNull()
+    pointer(plot, 'pointermove', layout.plotLeft + layout.slot * 2 + 1)
+    fireEvent.keyDown(stop, { key: 'ArrowRight' })
+    expect(stop).toHaveAttribute('aria-valuenow', String(last))
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[last].header)
+    pointer(plot, 'pointermove', layout.plotLeft + 1)
+    leave(plot, 'mouse')
+    expect(tooltip()).toBeNull()
+  })
+
+  it('Escape closes a pointer’s tooltip wherever focus is', () => {
+    const { card, plot, tooltip, model } = setup()
+    const layout = layoutChart(model, DEFAULT_WIDTH, 'expanded')
+    fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+    pointer(plot, 'pointermove', layout.plotLeft + 1)
+    expect(tooltip()).not.toBeNull()
+    const toggle = within(card).getByRole('button', { name: 'Collapse chart' })
+    tabTo(toggle)
+    fireEvent.keyDown(toggle, { key: 'Escape' })
+    expect(tooltip()).toBeNull()
+    expect(card, 'the tooltip took that Escape').toHaveClass('md:col-span-2')
+  })
+
+  it('a tap pins its period’s tooltip until a second tap or a press outside; a swipe pins nothing', () => {
+    const { plot, tooltip, readouts, model } = setup()
+    const layout = layoutChart(model, DEFAULT_WIDTH, 'card')
+    const tap = (x: number, endX = x) => {
+      pointer(plot, 'pointerdown', x, 'touch')
+      pointer(plot, 'pointerup', endX, 'touch')
+    }
+    tap(layout.plotLeft + layout.slot * 3 + 2, layout.plotLeft + layout.slot * 3 + 40)
+    expect(tooltip(), 'a swipe').toBeNull()
+    tap(layout.plotLeft + layout.slot * 3 + 2)
+    expect(tooltip()!.querySelector('p')).toHaveTextContent(readouts[3].header)
+    leave(plot, 'touch')
+    expect(tooltip(), 'a lifted finger leaves the cell; the tooltip stays').not.toBeNull()
+    tap(layout.plotLeft + layout.slot * 3 + 4)
+    expect(tooltip(), 'a second tap on its period').toBeNull()
+    tap(layout.plotLeft + layout.slot * 4 + 2)
+    expect(tooltip()).not.toBeNull()
+    fireEvent(document.body, new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+    expect(tooltip(), 'a press outside the chart').toBeNull()
+  })
+
+  it('a new window starts again at its newest period', () => {
+    const { stop, rerender, ds } = setup()
+    fireEvent.keyDown(stop, { key: 'Home' })
+    expect(stop).toHaveAttribute('aria-valuenow', '0')
+    const narrow = structuredClone(ds)
+    narrow.periods = narrow.periods.slice(-4)
+    rerender(<TrendChartsV2 dataset={narrow} />)
+    expect(stop).toHaveAttribute('aria-valuenow', '3')
+    expect(stop).toHaveAttribute('aria-valuemax', '3')
+  })
+
+  it('a plot that scrolls opens at its newest period, behind a sticky gutter that repeats its y axis', () => {
+    const viewportWidth = 300
+    const scroll = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? (this.firstElementChild as HTMLElement).offsetWidth || Number.parseFloat((this.firstElementChild as HTMLElement).style.width) : 0
+    })
+    const width = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-analysis-chart-scroll') ? viewportWidth : 0
+    })
+    try {
+      const { card, model, plot, ds } = setup('REGN_annual', 'topline')
+      const viewport = card.querySelector<HTMLElement>('[data-analysis-chart-scroll]')!
+      const layout = layoutChart(model, viewportWidth, 'card')
+      expect(layout.width).toBeGreaterThan(viewportWidth)
+      expect(viewport).toHaveAttribute('role', 'region')
+      expect(viewport.scrollLeft, 'opened at the newest period').toBe(layout.width)
+      const gutter = card.querySelector<HTMLElement>('[data-chart-gutter]')!
+      expect(gutter).toHaveAttribute('aria-hidden', 'true')
+      expect(plot.contains(gutter), 'outside the node the export serialises').toBe(false)
+      const svg = gutter.querySelector('svg')!
+      expect(Number(svg.getAttribute('width'))).toBe(gutterOverlayWidth(layout, gutterCover(layout, viewport.scrollLeft)))
+      expect(Number(svg.getAttribute('width'))).toBeGreaterThan(layout.plotLeft)
+      // Its text: the plot's captions and tick labels at the plot's positions, and the band's "Notes".
+      const plotted = [...plot.querySelectorAll('svg > g[data-panel] text')].filter((text) => Number(text.getAttribute('x')) < layout.plotLeft || text.getAttribute('text-anchor') === 'end')
+      const repeated = [...svg.querySelectorAll('text')].filter((text) => text.textContent !== 'Notes')
+      expect(repeated.map((text) => [text.textContent, text.getAttribute('x'), text.getAttribute('y')]))
+        .toEqual(plotted.map((text) => [text.textContent, text.getAttribute('x'), text.getAttribute('y')]))
+      expect([...svg.querySelectorAll('text')].some((text) => text.textContent === 'Notes')).toBe(model.notesBand != null)
+      // Scrolled into a column, the gutter covers that whole column, its gridlines carried across, and a pointer there
+      // reads no period.
+      viewport.scrollLeft = layout.slot * 2 + 5
+      fireEvent.scroll(viewport)
+      const cover = gutterCover(layout, viewport.scrollLeft)
+      expect(cover).toBeCloseTo(layout.plotLeft + layout.slot - 5, 9)
+      const surface = card.querySelector('[data-chart-gutter] svg > rect')!
+      expect(Number(surface.getAttribute('width'))).toBeCloseTo(cover, 9)
+      const rules = [...card.querySelectorAll('[data-chart-gutter] svg line')]
+      expect(rules.length).toBeGreaterThan(0)
+      for (const rule of rules) expect([Number(rule.getAttribute('x1')), Number(rule.getAttribute('x2'))]).toEqual([layout.plotLeft, cover])
+      // A browser moves the scrolled stage left by the scroll; jsdom lays nothing out.
+      vi.spyOn(viewport.firstElementChild!, 'getBoundingClientRect').mockReturnValue(new DOMRect(-viewport.scrollLeft, 0, layout.width, layout.height))
+      fireEvent(plot, new PointerEvent('pointermove', { bubbles: true, clientX: cover - 1, clientY: 10, pointerType: 'mouse' }))
+      expect(card.querySelector('[data-chart-tooltip]'), 'under the cover').toBeNull()
+      fireEvent(plot, new PointerEvent('pointermove', { bubbles: true, clientX: cover + 1, clientY: 10, pointerType: 'mouse' }))
+      expect(card.querySelector('[data-chart-tooltip] p')).toHaveTextContent(chartReadouts(model, ds, resolveDataNotes(ds))[3].header)
+      // Scrolled back to the start, the plot's own axis shows and the gutter goes.
+      viewport.scrollLeft = 0
+      fireEvent.scroll(viewport)
+      expect(card.querySelector('[data-chart-gutter]')).toBeNull()
+      // A resize keeps the reader's place: the plot opens at its newest period once.
+      fireEvent(window, new Event('resize'))
+      expect(viewport.scrollLeft).toBe(0)
+    } finally {
+      scroll.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it('a grid row’s cards share its rows: header, plot, notes (the subgrid)', () => {
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} />)
+    for (const card of cards(container)) {
+      expect(card).toHaveClass('row-span-3', 'grid', 'grid-cols-1', 'grid-rows-subgrid', 'gap-y-0')
+      const flow = [...card.children].filter((child) => !child.classList.contains('sr-only'))
+      expect(flow, 'three rows in flow').toHaveLength(3)
+    }
   })
 })

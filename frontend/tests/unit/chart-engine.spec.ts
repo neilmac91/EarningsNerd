@@ -14,10 +14,11 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { captionBacking, columnOf, gutterCover, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
+import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
-import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
+import { groupDataNotes, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -451,6 +452,40 @@ describe('the cases the step-1 data required', () => {
   })
 })
 
+describe('reading a chart: the slot under a pointer, a period’s column and the sticky gutter (§3.9, A7)', () => {
+  it.each(DATASETS.map(([name]) => name))('%s', (name) => {
+    for (const chart of CHART_IDS) {
+      const model = buildChartModel(chart, dataset(name))
+      if (model.unavailable) continue
+      for (const width of [342, 502]) {
+        const layout = layoutChart(model, width, 'card')
+        // §3.9's hit target: every x of a slot's full width reads its period, and nothing in the gutter or right pad.
+        model.periods.forEach((period, i) => {
+          const column = columnOf(layout, period.key)
+          expect(column.width).toBe(layout.slot)
+          expect(column.left + column.width / 2).toBeCloseTo(layout.x(period.key), 9)
+          for (const x of [column.left + 0.001, layout.x(period.key), column.left + column.width - 0.001]) expect(slotAt(layout, x)).toBe(i)
+        })
+        expect(slotAt(layout, layout.plotLeft - 0.001)).toBeNull()
+        expect(slotAt(layout, layout.plotRight)).toBeNull()
+        // A7's gutter covers the plot's own at rest; scrolled, out to the next slot boundary, so no column shows cut.
+        expect(gutterCover(layout, 0)).toBe(layout.plotLeft)
+        for (const scroll of [1, layout.slot / 2, layout.slot, layout.slot * 2.25, layout.width - width]) {
+          const cover = gutterCover(layout, scroll)
+          expect(cover).toBeGreaterThanOrEqual(layout.plotLeft - 1e-9)
+          expect(cover).toBeLessThan(layout.plotLeft + layout.slot)
+          const boundary = (scroll + cover - layout.plotLeft) / layout.slot
+          expect(Math.abs(boundary - Math.round(boundary)), 'the cover ends on a slot boundary').toBeLessThan(1e-6)
+        }
+        expect(gutterOverlayWidth(layout)).toBe(Math.max(layout.plotLeft, ...layout.panels.map(captionBacking)))
+        for (const box of layout.panels) {
+          if (box.captionY != null && box.panel.caption) expect(captionBacking(box)).toBeGreaterThanOrEqual(textWidth(box.panel.caption) + 4)
+        }
+      }
+    }
+  })
+})
+
 describe('amounts carry their filer’s currency, never a default dollar sign', () => {
   const inUnit = (unit: string) => (ds: AnalysisDataset) => {
     for (const series of ds.series) if (!series.percent) {
@@ -581,8 +616,13 @@ const golden = (value: unknown) => `${JSON.stringify(value, null, 2).replace(/\[
 describe.each(GOLDEN)('%s: the golden plan', (name) => {
   it('matches its committed plan in every chart and view', async () => {
     const plans = Object.fromEntries(CHART_IDS.map((chart) => {
-      const m = buildChartModel(chart, dataset(name))
-      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')) }]
+      const ds = dataset(name)
+      const notes = resolveDataNotes(ds)
+      const m = buildChartModel(chart, ds, notes)
+      // The tooltip's header and rows, then the live status's sentence, one line a period (readout.ts): view-independent,
+      // so once a chart.
+      const readout = chartReadouts(m, ds, notes).map((period) => [period.header, ...period.rows.map((row) => `${row.label}: ${row.text}`), period.announcement])
+      return [chart, { card: plan(m, layoutChart(m, 502, 'card')), expanded: plan(m, layoutChart(m, 1030, 'expanded')), readout }]
     }))
     await expect(golden(plans)).toMatchFileSnapshot(`fixtures/chart-golden/${name}.json`)
   })

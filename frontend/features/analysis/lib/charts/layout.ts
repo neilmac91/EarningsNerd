@@ -15,7 +15,8 @@ export const textWidth = (text: string) => [...text].length * ADVANCE
 const HEIGHT: Record<ChartView, number> = { card: 320, expanded: 520 }
 /** A card's height, the same for a chart that draws and one that says why it does not (D13). */
 export const CARD_HEIGHT = HEIGHT.card
-const CAPTION = 14
+/** A panel caption's band; its baseline is the band's top + FONT_PX. */
+export const CAPTION = 14
 const LABEL_PAD = 14
 const TICK_PAD = 8
 /** Off-scale band row pitch: an 11 px line box is about 13 px tall, so rows sit 14 px apart. */
@@ -141,6 +142,35 @@ export interface ChartLayout {
   /** The notes band's baseline: the band is reserved on every chart, so plots line up across a grid row. */
   notesY: number
 }
+
+/** The slot an SVG x falls in, as an index into the model's periods: §3.9's hit target is the slot's full width and the
+ *  SVG's full height. Null in the gutter or the right pad. */
+export function slotAt(layout: ChartLayout, x: number): number | null {
+  if (x < layout.plotLeft || x >= layout.plotRight) return null
+  const count = Math.round((layout.plotRight - layout.plotLeft) / layout.slot)
+  return Math.min(count - 1, Math.floor((x - layout.plotLeft) / layout.slot))
+}
+
+/** A period's column, its slot's left edge and width: the hover and focus wash (§3.9) and the span a keyboard move
+ *  brings into view. */
+export function columnOf(layout: ChartLayout, period: string): { left: number; width: number } {
+  return { left: layout.x(period) - layout.slot / 2, width: layout.slot }
+}
+
+/** The surface behind a panel's caption in A7's sticky gutter: the caption runs past the gutter, so its band is backed
+ *  to its own width plus 4 px. 0 for a panel without a caption. */
+export const captionBacking = (box: PanelBox) => (box.captionY != null && box.panel.caption ? Math.ceil(textWidth(box.panel.caption)) + 4 : 0)
+
+/** How far A7's sticky gutter covers the viewport at a scroll offset: the plot's own gutter, and while the scroll
+ *  leaves a period's column cut at the gutter's edge, that whole column, out to the next slot boundary. No value then
+ *  shows in part beside the axis, where a cut "−19%" would read "19%". */
+export function gutterCover(layout: ChartLayout, scrollLeft: number): number {
+  if (scrollLeft <= 0) return layout.plotLeft
+  return layout.plotLeft + Math.ceil(scrollLeft / layout.slot - 1e-9) * layout.slot - scrollLeft
+}
+
+/** A7's sticky gutter's width: what it covers, or the widest caption's backing past it. */
+export const gutterOverlayWidth = (layout: ChartLayout, cover = layout.plotLeft) => Math.max(cover, ...layout.panels.map(captionBacking))
 
 /**
  * The left gutter and the narrowest slot. The gutter holds the widest tick label (G_L). An expanded view with a
