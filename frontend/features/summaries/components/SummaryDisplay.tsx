@@ -39,12 +39,9 @@ const FundamentalsTrendChart = dynamic(
 // figure is false: the literal-matching check can miss a valid presentation of the figure.
 const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
 const NO_GROUNDING_REASON = 'filing grounding unavailable: no usable excerpt or numeric XBRL data'
-const REASON_WORDS: Record<string, string> = {
-  [GROUNDING_REASON]: 'The filed revenue or net income was not found in the summary by the automatic check.',
-  [NO_GROUNDING_REASON]: 'The filing’s text and figures were unavailable to check against.',
-}
 export function reasonWords(reason: string): string {
-  if (REASON_WORDS[reason]) return REASON_WORDS[reason]
+  if (reason === GROUNDING_REASON) return 'The filed revenue or net income was not found in the summary by the automatic check.'
+  if (reason === NO_GROUNDING_REASON) return 'The filing’s text and figures were unavailable to check against.'
   const sections = /^only (\d+)\/(\d+) sections populated$/.exec(reason)
   if (sections) return `Only ${sections[1]} of ${sections[2]} summary sections contain information.`
   const figures = /^(\d+) summary figure\(s\) not traceable to filing data$/.exec(reason)
