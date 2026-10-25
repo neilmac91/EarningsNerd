@@ -84,7 +84,7 @@ for (const demo of [false, true]) {
     it.each([undefined, { tier: 'unrecognized' }])('states unknown when the coverage verdict is %s', quality => {
       show({ quality }, demo)
       expect(screen.getByText('Coverage unknown')).toBeVisible()
-      expect(screen.getByText('No coverage check was recorded for this summary.')).toBeInTheDocument()
+      expect(screen.getByText('No coverage check result is available for this summary.')).toBeInTheDocument()
       expect(screen.queryByText('Full summary')).not.toBeInTheDocument()
     })
   })

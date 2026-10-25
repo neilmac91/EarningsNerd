@@ -206,7 +206,7 @@ export function SummaryDisplay({
                           ? 'This summary passed the automatic coverage checks when it was generated.'
                           : coverageTier === 'partial'
                             ? 'Some information could not be included or checked in this summary.'
-                            : 'No coverage check was recorded for this summary.'}
+                            : 'No coverage check result is available for this summary.'}
                       </p>
                       {coverageReasons.length > 0 ? (
                         <ul className="list-disc space-y-2 pl-5">
