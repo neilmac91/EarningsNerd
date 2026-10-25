@@ -32,3 +32,17 @@ export function formatAnalysisPeriods(text: string): string {
     .replace(WINDOW_KEY, (_key, start: string, end: string) => formatAnalysisWindow(start, end))
     .replace(QUARTER_KEY, (period) => formatAnalysisPeriod(period))
 }
+
+/** "FY2016" → "'16", the annual chart tick (owner decision D2: every period ticked). Unrecognized keys pass
+ *  through untouched. */
+export function annualTickLabel(key: string): string {
+  const match = /^FY(\d{4})$/.exec(key)
+  return match ? `'${match[1].slice(2)}` : key
+}
+
+/** "2023Q2" → ["Q2", "'23"] (quarter over year), the stacked quarterly chart tick; null for unrecognized keys. */
+export function quarterlyTickLines(key: string): [string, string] | null {
+  const match = /^(\d{4})(Q[1-4])$/.exec(key)
+  if (!match) return null
+  return [match[2], `'${match[1].slice(2)}`]
+}

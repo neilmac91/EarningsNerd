@@ -85,9 +85,8 @@ def _clear_events(*tickers):
     db.close()
 
 
-@pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_only_watched_tickers_returned_sorted():
+def test_only_watched_tickers_returned_sorted():
     from app.database import SessionLocal
 
     today = date.today()
@@ -98,7 +97,7 @@ async def test_only_watched_tickers_returned_sorted():
     try:
         with _user_watching(["AAPL", "MSFT"]) as uid:
             db = SessionLocal()
-            events = await upcoming_for_user(db, uid, days_ahead=30)
+            events = upcoming_for_user(db, uid, days_ahead=30)
             db.close()
 
         tickers = [e["ticker"] for e in events]
@@ -112,9 +111,8 @@ async def test_only_watched_tickers_returned_sorted():
         _clear_events("AAPL", "MSFT", "ZZZZ")
 
 
-@pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_out_of_window_excluded():
+def test_out_of_window_excluded():
     from app.database import SessionLocal
 
     today = date.today()
@@ -123,29 +121,27 @@ async def test_out_of_window_excluded():
     try:
         with _user_watching(["AAPL"]) as uid:
             db = SessionLocal()
-            events = await upcoming_for_user(db, uid, days_ahead=30)
+            events = upcoming_for_user(db, uid, days_ahead=30)
             db.close()
         assert events == []
     finally:
         _clear_events("AAPL")
 
 
-@pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_empty_when_no_events():
+def test_empty_when_no_events():
     from app.database import SessionLocal
 
     _clear_events("AAPL")
     with _user_watching(["AAPL"]) as uid:
         db = SessionLocal()
-        events = await upcoming_for_user(db, uid, days_ahead=30)
+        events = upcoming_for_user(db, uid, days_ahead=30)
         db.close()
     assert events == []
 
 
-@pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_empty_when_no_watchlist():
+def test_empty_when_no_watchlist():
     from app.database import SessionLocal
     from app.models import User
 
@@ -155,7 +151,7 @@ async def test_empty_when_no_watchlist():
     db.commit()
     uid = user.id
     try:
-        events = await upcoming_for_user(db, uid)
+        events = upcoming_for_user(db, uid)
         assert events == []
     finally:
         db.query(User).filter(User.id == uid).delete()
@@ -163,9 +159,8 @@ async def test_empty_when_no_watchlist():
         db.close()
 
 
-@pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_upcoming_not_filtered_by_index_membership(monkeypatch):
+def test_upcoming_not_filtered_by_index_membership(monkeypatch):
     """Decision: the index filter is a DISCOVERY-surface concern only. A company a user has
     explicitly watchlisted still shows in their dashboard 'upcoming' even when it's outside the
     S&P 500 / Nasdaq 100 and the filter is on."""
@@ -181,7 +176,7 @@ async def test_upcoming_not_filtered_by_index_membership(monkeypatch):
         _seed_event("TAILWCH", date.today() + timedelta(days=5))
         db = SessionLocal()
         try:
-            events = await upcoming_for_user(db, uid, days_ahead=30)
+            events = upcoming_for_user(db, uid, days_ahead=30)
         finally:
             db.close()
         assert any(e["ticker"] == "TAILWCH" for e in events), "watched non-member must still appear"

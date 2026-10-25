@@ -118,5 +118,13 @@ async def get_upcoming_calendar(
     db: Session = Depends(get_db),
 ):
     """Upcoming earnings dates for the user's watched companies (empty until earnings_events is seeded)."""
-    events = await calendar_service.upcoming_for_user(db, current_user.id, days_ahead=days)
+    def events_for_viewer():
+        # The reads and the release, one unit off the event loop, as the feed's
+        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        try:
+            return calendar_service.upcoming_for_user(db, current_user.id, days_ahead=days)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    events = await run_in_threadpool(events_for_viewer)
     return {"events": events}

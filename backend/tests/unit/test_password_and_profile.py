@@ -136,6 +136,21 @@ def test_clear_profile_name(client):
 
 
 @pytest.mark.requires_db
+def test_update_profile_name_of_a_user_another_session_loaded(client):
+    # The edit writes through the row the request's own session reads, so it is saved even when the
+    # user the auth dependency hands over was loaded, and detached, by another session.
+    with _auth_as(has_password=True) as uid:
+        db = SessionLocal()
+        detached = db.query(User).filter(User.id == uid).first()
+        db.close()
+        app.dependency_overrides[get_current_user] = lambda: detached
+        resp = client.patch("/api/users/me", json={"full_name": "Elsewhere"})
+        assert resp.status_code == 200
+        assert resp.json()["full_name"] == "Elsewhere"
+        assert _reload_name(uid) == "Elsewhere"
+
+
+@pytest.mark.requires_db
 def test_empty_profile_patch_keeps_name(client):
     # Only the fields the client sent are applied: leaving full_name out must not clear it.
     with _auth_as(has_password=True) as uid:

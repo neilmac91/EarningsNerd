@@ -44,11 +44,12 @@ from sqlalchemy.pool import QueuePool
 
 from app import database
 from app.models import (
-    Company, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary, SummaryGenerationProgress,
-    WaitlistSignup,
+    Company, EarningsEvent, Filing, FilingContentCache, FinancialFact, NotableFiling, Summary,
+    SummaryGenerationProgress, WaitlistSignup,
 )
-from app.routers import companies, filings, notable_filings, watchlist
-from app.services import filing_list_service, notable_filings_service
+from app.models.earnings import STATUS_REPORTED
+from app.routers import companies, filings, notable_filings, reporting_this_week, watchlist
+from app.services import filing_list_service, notable_filings_service, reporting_this_week_service
 from app.services.filing_amendment_service import expand_amendment_forms
 from app.services.rate_limiter import RateLimiter
 from app.utils.datetimes import utcnow
@@ -83,6 +84,7 @@ pytestmark = pytest.mark.usefixtures("collection_ready")
     ("/api/waitlist/status/reader@example.com", "waitlist_status"),
     ("/api/waitlist/status/nobody@example.com", "waitlist_missing"),
     ("/api/notable_filings", "notable"),
+    ("/api/reporting_this_week", "reporting"),
 ])
 async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     monkeypatch, tmp_path, path, payload_kind
@@ -106,6 +108,7 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
     SummaryGenerationProgress.__table__.create(engine)
     WaitlistSignup.__table__.create(engine)
     NotableFiling.__table__.create(engine)
+    EarningsEvent.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     accession = "0000000001-26-000001"
     with sessions() as db:
@@ -135,6 +138,12 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
                                  company_name="Cached fixture", form="10-K", reason="annual_report", score=55,
                                  filed_date=notable_filings_service.today_eastern(),
                                  sec_url="https://example.test/filing/"))
+        if payload_kind == "reporting":
+            # The stored company's report this week, already out, so the strip shows it on any weekday.
+            monday, _ = reporting_this_week_service.current_market_week()
+            db.add(EarningsEvent(ticker="CACHED", company_name="Cached fixture", event_date=monday,
+                                 fiscal_period_end=monday - timedelta(days=30), event_time="amc",
+                                 status=STATUS_REPORTED, anticipation_score=100))
         if payload_kind == "progress_stalled":
             stalled_at = utcnow() - timedelta(hours=1)
             db.add(SummaryGenerationProgress(filing_id=filing.id, stage="analyzing",
@@ -184,6 +193,16 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
         monkeypatch.setattr(notable_filings, "notable_filings_service", reader)
         monkeypatch.setattr(settings, "NOTABLE_FILINGS_ENABLED", True)
         monkeypatch.setattr(notable_filings_service, "MIN_COMPANIES", 1)
+    if payload_kind == "reporting":
+        from app.config import settings
+
+        # One company enough to serve the strip, no index filter, and a cache that never holds, so
+        # each of the eight requests reads.
+        strip = reporting_this_week_service.ReportingThisWeekService()
+        strip._cache_ttl = timedelta(0)
+        monkeypatch.setattr(reporting_this_week, "reporting_this_week_service", strip)
+        monkeypatch.setattr(reporting_this_week_service, "MIN_COMPANIES", 1)
+        monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
     filing_list_service._mark_filings_synced("CACHED", expand_amendment_forms(["10-K", "10-Q"]), company_id)
     try:
         async with httpx.AsyncClient(
@@ -247,6 +266,10 @@ async def test_cached_filings_burst_exceeding_pool_finishes_without_upstream(
             elif payload_kind == "notable":
                 # The feed: its window and summary reads and the release in one unit off the event loop.
                 assert [(row["ticker"], row["form"]) for row in payload["filings"]] == [("CACHED", "10-K")]
+            elif payload_kind == "reporting":
+                # The strip: its week's read and the release in one unit off the event loop.
+                assert payload["status"] == "ok"
+                assert [(row["ticker"], row["time"]) for row in payload["companies"]] == [("CACHED", "amc")]
             else:
                 assert payload == {"detail": "Filing not found"}
         assert engine.pool.checkedout() == 0
@@ -1924,6 +1947,445 @@ async def test_company_routes_release_their_connection_off_the_loop(monkeypatch,
         engine.dispose()
 
 
+_SAVED_STATUS = {"save_missing": 404, "update_missing": 404, "delete_missing": 404}
+# Each failing case's service call, made to raise after its first query: the unit's release in its finally
+# still returns the connection, so the route answers 500 with nothing left for the finalizer.
+_SAVED_UNIT_FAILS = {
+    "save_fails": "save_summary", "list_fails": "list_saved_summaries", "status_fails": "saved_summary_status",
+    "update_fails": "update_saved_summary_notes", "delete_fails": "delete_saved_summary",
+}
+# Each reader's library after the burst, by case: the notes of its one row, or no row.
+_SAVED_NOTES_AFTER = {
+    "save": [None], "save_existing": ["Renoted"], "save_missing": [], "list": ["Kept"], "status": ["Kept"],
+    "update": ["Edited"], "update_missing": ["Kept"], "delete": [], "delete_missing": ["Kept"],
+    **{case: ["Kept"] for case in _SAVED_UNIT_FAILS},
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("POST", "/api/saved-summaries/", "save"),
+    ("POST", "/api/saved-summaries/", "save_existing"),
+    ("POST", "/api/saved-summaries/", "save_missing"),
+    ("GET", "/api/saved-summaries/", "list"),
+    ("GET", "/api/saved-summaries/status/{summary_id}", "status"),
+    ("PUT", "/api/saved-summaries/{saved_id}", "update"),
+    ("PUT", "/api/saved-summaries/999999", "update_missing"),
+    ("DELETE", "/api/saved-summaries/{saved_id}", "delete"),
+    ("DELETE", "/api/saved-summaries/999999", "delete_missing"),
+    ("POST", "/api/saved-summaries/", "save_fails"),
+    ("GET", "/api/saved-summaries/", "list_fails"),
+    ("GET", "/api/saved-summaries/status/{summary_id}", "status_fails"),
+    ("PUT", "/api/saved-summaries/{saved_id}", "update_fails"),
+    ("DELETE", "/api/saved-summaries/{saved_id}", "delete_fails"),
+])
+async def test_saved_summary_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """Each saved-summary route runs its session work, its payload and the release in one thread-pool
+    unit, its refusals and its failures included, so eight readers on four slots leave nothing for the
+    finalizer and make no checkout, statement or release on the loop. The status route is a sync route,
+    which FastAPI runs in the thread pool, and it releases its own connection as well."""
+    from app.models import SavedSummary, User
+    from app.routers import auth
+    from app.services import saved_summary_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'saved-summary-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    saved_ids: list[int] = []
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.flush()
+        summary = Summary(filing_id=filing.id, business_overview="Overview")
+        db.add(summary)
+        db.flush()
+        summary_id = summary.id
+        for i in range(8):
+            reader = User(email=f"saved-reader-{i}@example.com", is_active=True)
+            db.add(reader)
+            db.flush()
+            if case not in ("save", "save_missing"):
+                row = SavedSummary(user_id=reader.id, summary_id=summary_id, notes="Kept")
+                db.add(row)
+                db.flush()
+                saved_ids.append(row.id)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth
+    # lookup's, which the route's session keeps).
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    if case in _SAVED_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(SavedSummary.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(saved_summary_service, _SAVED_UNIT_FAILS[case], fails_after_its_first_query)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    body = {"summary_id": 999999 if case == "save_missing" else summary_id}
+    if case == "save_existing":
+        body["notes"] = "Renoted"
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"saved-reader-{i}@example.com"})
+        target = path.format(summary_id=summary_id, saved_id=saved_ids[i] if saved_ids else 0)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            if method == "POST":
+                return await client.post(target, json=body)
+            if method == "PUT":
+                return await client.put(target, params={"notes": "Edited"})
+            return await client.request(method, target)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [
+            500 if case in _SAVED_UNIT_FAILS else _SAVED_STATUS.get(case, 200)] * 8
+        payloads = [response.json() for response in responses]
+        if case in _SAVED_UNIT_FAILS:
+            assert [payload["type"] for payload in payloads] == ["internal_server_error"] * 8
+        elif case in ("save", "save_existing", "update"):
+            notes = {"save": None, "save_existing": "Renoted", "update": "Edited"}[case]
+            # Each payload reads the summary, filing and company rows, and a new row's created_at, inside
+            # the unit.
+            assert [(payload["summary_id"], payload["notes"], payload["company"]["ticker"],
+                     payload["created_at"] is not None) for payload in payloads] == [
+                (summary_id, notes, "CACHED", True)] * 8
+        elif case == "save_missing":
+            assert payloads == [{"detail": "Summary not found"}] * 8
+        elif case == "list":
+            assert [[(row["summary_id"], row["notes"]) for row in payload] for payload in payloads] == [
+                [(summary_id, "Kept")]] * 8
+        elif case == "status":
+            assert payloads == [{"is_saved": True}] * 8
+        elif case == "delete":
+            assert payloads == [{"status": "success"}] * 8
+        else:
+            assert payloads == [{"detail": "Saved summary not found"}] * 8
+        with sessions() as db:
+            rows = db.query(SavedSummary.user_id, SavedSummary.notes).order_by(SavedSummary.user_id).all()
+        # Each write landed once per reader, and each refusal wrote nothing.
+        assert [tuple(row) for row in rows] == [
+            (user_id, notes) for user_id in range(1, 9) for notes in _SAVED_NOTES_AFTER[case]
+        ]
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["watching", "unwatched", "fails"])
+async def test_upcoming_calendar_releases_its_connection_off_the_loop(monkeypatch, tmp_path, case):
+    """The dashboard's upcoming calendar reads its rows and releases its session in one thread-pool
+    unit, for a reader who watches a reporting company, one who watches nothing and a read that fails
+    after its first query, so eight readers on four slots leave nothing for the finalizer and make no
+    checkout, statement or release on the loop."""
+    from app.models import EarningsEvent, User, Watchlist
+    from app.routers import auth
+    from app.services import calendar_service
+    from app.services.earnings_calendar_service import today_eastern
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'upcoming-calendar.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    reporting_day = today_eastern() + timedelta(days=1)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        db.add(EarningsEvent(ticker="CACHED", company_name="Cached fixture", event_date=reporting_day,
+                             fiscal_period_end=reporting_day - timedelta(days=30), event_time="amc"))
+        for i in range(8):
+            reader = User(email=f"calendar-reader-{i}@example.com", is_active=True)
+            db.add(reader)
+            db.flush()
+            if case == "watching":
+                db.add(Watchlist(user_id=reader.id, company_id=company.id))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    if case == "fails":
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(Watchlist.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(calendar_service, "upcoming_for_user", fails_after_its_first_query)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"calendar-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.get("/api/dashboard/calendar/upcoming")
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # The unit released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        if case == "fails":
+            assert [(response.status_code, response.json()["type"]) for response in responses] == [
+                (500, "internal_server_error")] * 8
+        else:
+            events = [{"ticker": "CACHED", "company_name": "Cached fixture", "earnings_date": reporting_day.isoformat(),
+                       "time": "amc", "eps_estimated": None, "revenue_estimated": None}] if case == "watching" else []
+            assert [(response.status_code, response.json()) for response in responses] == [
+                (200, {"events": events})] * 8
+    finally:
+        engine.dispose()
+
+
+# Each failing case's service call, made to raise after its first query: the unit's release in its finally
+# still returns the connection, so the route answers 500 with nothing left for the finalizer.
+_ACCOUNT_UNIT_FAILS = {
+    "profile_fails": ("app.services.user_account_service", "apply_profile_update"),
+    "prefs_fails": ("app.routers.users", "get_or_create_preferences"),
+    "prefs_update_fails": ("app.routers.users", "apply_preference_update"),
+    "bell_fails": ("app.services.user_notification_feed_service", "recent_notifications"),
+    "seen_fails": ("app.services.user_notification_feed_service", "mark_seen"),
+}
+_PREFS_DEFAULTS = {
+    "notify_10k": True, "notify_10q": True, "notify_8k": False, "notify_20f": True, "notify_6k": False,
+    "channel": "email", "digest": "daily", "realtime": False, "realtime_available": False, "eightk_available": False,
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,path,case", [
+    ("PATCH", "/api/users/me", "profile"),
+    ("GET", "/api/users/me/notification-preferences", "prefs"),
+    ("GET", "/api/users/me/notification-preferences", "prefs_first"),
+    ("GET", "/api/users/me/notification-preferences", "prefs_pro"),
+    ("PUT", "/api/users/me/notification-preferences", "prefs_update"),
+    ("PUT", "/api/users/me/notification-preferences", "prefs_refused"),
+    ("GET", "/api/users/me/notifications", "bell"),
+    ("POST", "/api/users/me/notifications/seen", "seen"),
+    ("PATCH", "/api/users/me", "profile_fails"),
+    ("GET", "/api/users/me/notification-preferences", "prefs_fails"),
+    ("PUT", "/api/users/me/notification-preferences", "prefs_update_fails"),
+    ("GET", "/api/users/me/notifications", "bell_fails"),
+    ("POST", "/api/users/me/notifications/seen", "seen_fails"),
+])
+async def test_account_routes_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, path, case):
+    """The profile edit, the alert preferences and the bell run their session work, their payload and the
+    release in one thread-pool unit, a refusal and their failures included, so eight readers on four
+    slots leave nothing for the finalizer and make no checkout, statement or release on the loop. The
+    plan behind the preferences' Pro toggles reads the account's subscription row, inside the unit too: in
+    the ``prefs_pro`` case only that row grants Pro (``is_pro`` is False), so a plan resolved after the
+    release, which falls back to the mirror, answers Free."""
+    import importlib
+
+    from app.models import NotificationLog, NotificationPreferences, Subscription, User
+    from app.routers import auth
+
+    # A first read, an update and a mark each check a connection out twice (the row's reload after the
+    # commit), so readers queued for a slot wait longer than the other bursts' do on a loaded host. An
+    # on-loop checkout or statement still fails the loop assertions below at any timeout.
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'account-routes.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000001", ticker="CACHED", name="Cached fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000001-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.flush()
+        for i in range(8):
+            reader = User(email=f"account-reader-{i}@example.com", is_active=True, full_name="Original")
+            db.add(reader)
+            db.flush()
+            if case != "prefs_first":
+                db.add(NotificationPreferences(user_id=reader.id))
+            if case == "prefs_pro":
+                db.add(Subscription(user_id=reader.id, plan="pro", status="active"))
+            db.add(NotificationLog(user_id=reader.id, filing_id=filing.id, channel="email", status="sent"))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    # A statement on the loop blocks it even on a connection the thread pool checked out (the auth lookup's,
+    # which the route's session keeps), and a lazy load (the account's subscription row) is one too.
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    if case in _ACCOUNT_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        module, name = _ACCOUNT_UNIT_FAILS[case]
+        monkeypatch.setattr(importlib.import_module(module), name, fails_after_its_first_query)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"account-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            if method == "PATCH":
+                return await client.patch(path, json={"full_name": "Renamed"})
+            if method == "PUT":
+                # A Free account's realtime toggle is coerced off by its plan.
+                body = {"channel": "carrier-pigeon"} if case == "prefs_refused" else {"notify_10q": False, "realtime": True}
+                return await client.put(path, json=body)
+            return await client.request(method, path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        failing = case in _ACCOUNT_UNIT_FAILS
+        assert [response.status_code for response in responses] == [
+            500 if failing else 400 if case == "prefs_refused" else 200] * 8
+        payloads = [response.json() for response in responses]
+        if failing:
+            assert [payload["type"] for payload in payloads] == ["internal_server_error"] * 8
+        elif case == "profile":
+            assert payloads == [{"id": i + 1, "email": f"account-reader-{i}@example.com", "full_name": "Renamed",
+                                 "is_pro": False} for i in range(8)]
+        elif case in ("prefs", "prefs_first"):
+            assert payloads == [_PREFS_DEFAULTS] * 8
+        elif case == "prefs_pro":
+            assert payloads == [{**_PREFS_DEFAULTS, "realtime_available": True, "eightk_available": True}] * 8
+        elif case == "prefs_update":
+            assert payloads == [{**_PREFS_DEFAULTS, "notify_10q": False}] * 8
+        elif case == "prefs_refused":
+            assert payloads == [{"detail": "Channel must be one of: email, in_app."}] * 8
+        else:
+            # The bell's one alert, unread until the reader opens it.
+            assert [[(item["ticker"], item["read"]) for item in payload["items"]] for payload in payloads] == [
+                [("CACHED", case == "seen")]] * 8
+            assert [payload["unread_count"] for payload in payloads] == [0 if case == "seen" else 1] * 8
+        with sessions() as db:
+            names = [name for (name,) in db.query(User.full_name).order_by(User.id)]
+            seen = [stamp is not None for (stamp,) in db.query(User.notifications_seen_at).order_by(User.id)]
+            prefs = db.query(NotificationPreferences.user_id, NotificationPreferences.notify_10q).order_by(
+                NotificationPreferences.user_id).all()
+        # Each write landed once per reader, and the refusal and the failures wrote nothing: a first read
+        # stores one row of defaults per reader, and an update stores its change.
+        assert names == ["Renamed" if case == "profile" else "Original"] * 8
+        assert seen == [case == "seen"] * 8
+        assert [tuple(row) for row in prefs] == [(user_id, case != "prefs_update") for user_id in range(1, 9)]
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2002,9 +2464,7 @@ def test_release_logs_a_failed_close_instead_of_raising_it(caplog, error):
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main six such hand-offs never do:
-# - ``reporting_this_week_service.get_reporting_this_week`` hands its read to the thread pool itself
-#   (leaving that transaction for the finalizer, E171);
+# though a callee may never use it on the loop. On main five such hand-offs never do:
 # - ``admin_account_service.create_free_account``, a refusal, never uses the session;
 # - the four OAuth starts' ``_start_google`` and ``_start_apple`` put their state write in the thread
 #   pool themselves (since #1547).
@@ -2116,18 +2576,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 
     ("app/routers/auth.py", "verify_email"): 3,
 
-    ("app/routers/dashboard.py", "get_upcoming_calendar"): 1,
-
-    ("app/routers/reporting_this_week.py", "get_reporting_this_week"): 1,
-
-    ("app/routers/saved_summaries.py", "delete_saved_summary"): 1,
-
-    ("app/routers/saved_summaries.py", "get_saved_summaries"): 1,
-
-    ("app/routers/saved_summaries.py", "save_summary"): 1,
-
-    ("app/routers/saved_summaries.py", "update_saved_summary"): 1,
-
     ("app/routers/summaries.py", "ask_filing_stream"): 4,
 
     ("app/routers/summaries.py", "export_summary_csv"): 2,
@@ -2139,16 +2587,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/users.py", "delete_user_account"): 3,
 
     ("app/routers/users.py", "export_user_data"): 2,
-
-    ("app/routers/users.py", "get_notification_preferences"): 1,
-
-    ("app/routers/users.py", "list_notifications"): 1,
-
-    ("app/routers/users.py", "mark_notifications_seen"): 2,
-
-    ("app/routers/users.py", "update_notification_preferences"): 2,
-
-    ("app/routers/users.py", "update_profile"): 1,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
