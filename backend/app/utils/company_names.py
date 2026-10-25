@@ -80,8 +80,9 @@ LOWER_MIDWORD: frozenset[str] = frozenset({
     "de", "del", "la", "da", "di", "du", "van", "von", "y", "et",
 })
 
-# JavaScript's WhiteSpace and LineTerminator, the set its \s, split(/\s+/) and trim() read.
-_SPACE = "[\t\n\v\f\r    -     　﻿]"
+# JavaScript's WhiteSpace and LineTerminator, the set its \s, split(/\s+/) and trim() read, written as
+# escapes for re to read: a raw U+2028 in the source would split this line for str.splitlines().
+_SPACE = r"[\t\n\v\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]"
 _TRIM = re.compile(rf"\A{_SPACE}+|{_SPACE}+\Z")
 _SPLIT = re.compile(rf"{_SPACE}+")
 

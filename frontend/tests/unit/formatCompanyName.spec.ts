@@ -25,6 +25,8 @@ describe('formatCompanyName', () => {
   it('reads a case table that reaches every part of the rule', () => {
     expect(table.groups.length).toBeGreaterThanOrEqual(12)
     expect(table.groups.every((group) => group.cases.length > 0)).toBe(true)
+    // Rule 5's decomposed accent: a served name holding a combining mark, written in the fixture as a JSON escape.
+    expect(cases.some(([, served]) => /\p{M}/u.test(served))).toBe(true)
   })
 
   it.each(cases)('%s: %j -> %j', (_rule, served, shown) => {

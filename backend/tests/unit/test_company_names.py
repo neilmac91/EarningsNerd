@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -33,9 +34,21 @@ def test_the_shared_table_reads_as_the_page_reads_it(rule, served, shown):
 
 def test_the_table_reaches_every_part_of_the_rule():
     assert all(group["cases"] for group in TABLE["groups"]) and len(TABLE["groups"]) >= 12
+    # Rule 5's decomposed accent: a served name holding a combining mark (category M), which the fixture writes
+    # as a JSON escape so that no editor composes it into a precomposed letter.
+    assert any(unicodedata.category(char).startswith("M") for _, served, _ in CASES for char in served)
     assert display_company_name(None) == "" and display_company_name("   ") == ""
     # The analysis exports' inspected issuer (docs/mpa-improvements export inspection).
     assert display_company_name("REGENERON PHARMACEUTICALS, INC.") == "Regeneron Pharmaceuticals, Inc."
+
+
+def test_the_module_writes_no_invisible_character():
+    """The whitespace class is written as escapes: a raw U+2028 split its source line for str.splitlines(), and
+    a raw space or format character reads as nothing in review."""
+    source = (REPO / "backend" / "app" / "utils" / "company_names.py").read_text(encoding="utf-8")
+    invisible = sorted({f"U+{ord(char):04X}" for char in source
+                        if unicodedata.category(char) in ("Zs", "Zl", "Zp", "Cf", "Cc") and char not in " \n"})
+    assert invisible == []
 
 
 def _ts_block(name: str, source: str) -> str:
