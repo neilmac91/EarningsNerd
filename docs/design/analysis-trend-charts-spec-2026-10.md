@@ -273,7 +273,7 @@ says so; everything else follows the spec.
     whatever its legends wrap to (chief design's review of #1609).
   - §3.9's and §3.10's states (E200):
     - `loading`: while its font loads (G4) a plot's box holds bones from its own plan, four gridlines a panel and a
-      bar a slot (`TrendChartBones.tsx`), and its card is `aria-busy`; the plot then fades in over them, the first
+      bar a slot (`TrendChartBones.tsx`), and its card is `aria-busy`; the plot then replaces them with a fade, the first
       data paint's `duration-base` fade (DESIGN_SYSTEM.md §11, skeleton→content). While the renderer's chunk loads,
       the grid holds four cards of bones, each a header, a two-line legend and a 320 px plot, under one
       `role="status"` ("Loading charts"), where it drew nothing. Bones are `Skeleton`s, so static under reduced motion.

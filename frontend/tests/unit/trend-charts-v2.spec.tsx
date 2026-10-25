@@ -458,7 +458,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     for (const button of screen.getAllByRole('button', { name: 'Download chart as PNG' })) expect(button).toBeEnabled()
   })
 
-  it('holds bones from its own plan and is busy until then, and the plot fades in over them (§3.9 loading; E200)', async () => {
+  it('holds bones from its own plan and is busy until then, and the plot replaces them with a fade (§3.9 loading; E200)', async () => {
     let loaded!: () => void
     withFonts({ check: () => false, load: vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) })) })
     const ds = dataset('REGN_annual')

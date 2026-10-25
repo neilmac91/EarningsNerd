@@ -16,7 +16,7 @@
  * Escape dismisses it before it collapses an expanded card (WCAG 1.4.13).
  *
  * Until its font has loaded (G4) the plot's box holds bones from its own plan, its gridlines and bars (§3.9 `loading`),
- * and the plot fades in over them (DESIGN_SYSTEM.md §11, skeleton→content; E200).
+ * and the plot replaces them with a fade (DESIGN_SYSTEM.md §11, skeleton→content; E200).
  *
  * The wash, the gutter and the tooltip sit outside the plot's node (plotRef), whose SVG is what the PNG export
  * serialises, so none of them reaches the image (§3.11 rule 4). They paint in DOM order without a z-index: the wash

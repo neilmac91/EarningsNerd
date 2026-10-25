@@ -316,14 +316,13 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
 
   test('a plot holds its bones, busy, while its font loads, and draws once it arrives', async ({ page, baseURL }) => {
     test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
-    // Hold every font file the run asks for until the first card's bones have been read: the page's preloads pass, so
-    // it loads, and the latin-ext face the plots wait for (G3, E199) does not. The wait's 1,500 ms cap paints regardless.
-    let running = false
+    // Hold every font file the page does not preload (next/font marks a preloaded one ".p.") until the bones have been
+    // read: the preloads pass, so the page loads, and the latin-ext face the plots wait for (G3, E199) does not, though
+    // the page asks for it before the run. The wait's 1,500 ms cap paints regardless.
     let release!: () => void
     const held = new Promise<void>((resolve) => { release = resolve })
-    page.on('request', (request) => { if (/\/api\/analysis\/[^/]+\/dataset/.test(request.url())) running = true })
     await page.route('**/_next/static/media/*.woff2', async (route) => {
-      if (running) await held
+      if (!/\.p\.[^/]*\.woff2$/.test(route.request().url())) await held
       await route.continue()
     })
     await page.addInitScript(() => {
@@ -343,12 +342,29 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
           painted: parts.every((part) => part.width > 0 && part.height > 0),
           inside: parts.every((part) => part.left >= box.left - 0.5 && part.right <= box.right + 0.5 && part.top >= box.top - 0.5 && part.bottom <= box.bottom + 0.5),
         } })
+        // A card's first commit always carries its bones, since the wait's latch flips after mount: the held face is
+        // what keeps them. So they are read again six frames on, well inside the wait's 1,500 ms cap.
+        let frames = 6
+        const again = () => {
+          if (--frames > 0) return void requestAnimationFrame(again)
+          Object.assign(window, { __waiting: {
+            bones: document.querySelectorAll('[data-trend-chart] [data-chart-bones]').length,
+            busy: document.querySelectorAll('section[aria-busy="true"]').length,
+            plots: document.querySelectorAll('[data-analysis-chart] > svg').length,
+          } })
+        }
+        requestAnimationFrame(again)
       }).observe(document, { childList: true, subtree: true })
     })
     const opened = openAnalysis(page, baseURL!, 'captured', 'light')
     const read = () => page.evaluate(() => (window as unknown as { __bones?: Record<string, unknown> }).__bones ?? null)
+    const reread = () => page.evaluate(() => (window as unknown as { __waiting?: { bones: number; busy: number; plots: number } }).__waiting ?? null)
     await expect.poll(read, { message: 'a card drew its bones' }).not.toBeNull()
+    await expect.poll(reread, { message: 'the bones read again' }).not.toBeNull()
     const bones = (await read())!
+    const waiting = (await reread())!
+    expect(waiting.bones, 'still waiting while the face is held').toBeGreaterThan(0)
+    expect(waiting, 'every waiting card busy, and no plot drawn').toEqual({ bones: waiting.bones, busy: waiting.bones, plots: 0 })
     release()
     await opened
     expect(bones).toMatchObject({ busy: 'true', hidden: 'true', plot: false, height: 320, painted: true, inside: true })
