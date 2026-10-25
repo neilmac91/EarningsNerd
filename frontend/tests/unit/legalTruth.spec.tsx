@@ -2695,6 +2695,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // negation from outside says it again.
       ['<p>We promise that no analytics are collected only with your consent.</p>', false],
       ['<p>It is not true that no analytics are collected only with your consent.</p>', true],
+      ['<p>We promise that nothing is collected only with your consent, analytics included.</p>', false],
+      ['<p>It is not true that nothing is collected only with your consent, analytics included.</p>', true],
       // Codex on #1618: "only" set off by a mark sets the promise apart from the denial before it; a list before
       // "only" sets nothing apart.
       ['<p>Analytics are not collected automatically, only after you consent.</p>', true],
