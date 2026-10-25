@@ -280,9 +280,11 @@ API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototy
 
 **How often a later filing changes a year's value: measured.** The question was put to SEC's
 companyfacts for 59 large filers, read through the app's own transport and grouped exactly as
-ingest groups it. That gave 8,616 cells (company × concept × fiscal year, newest ten years). The
-script is `backend/scripts/restatement_census.py`, on the WP5 branch; its output is
-[verification/restatement-census.md](verification/restatement-census.md).
+ingest groups it. That gave 8,616 cells (company × concept × fiscal year, newest ten years). Its
+output is [verification/restatement-census.md](verification/restatement-census.md), whose header
+holds the run's time and every definition it used. The script, `backend/scripts/restatement_census.py`,
+was written on a WP5 branch that was never pushed, and it went with its session, so this repository
+cannot rerun it; WP5 commits a rerunnable census with its evidence (E206).
 - **At a 1% tolerance,** a later filing's value differs from the year's own report in 438 cells
   (5.1%), at 52 of the 59 companies.
 - **Noise.** Every rounding difference sits below 0.1%.

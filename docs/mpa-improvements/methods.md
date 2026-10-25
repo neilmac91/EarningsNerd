@@ -793,7 +793,9 @@ It drops and recreates every table, so it runs against a scratch database of its
 the reproduction's: `DATABASE_URL=postgresql://postgres@localhost:5433/parity` for the app, and the same
 database for `psql`. The review of 2026-10-25 added the cases for a withheld cell (no YoY on either side,
 no dagger) and an empty `raw_tag`; the SQL before that fix fails them (`AssertionError: ('6', 4)` on the
-YoY count).
+YoY count). The second review added a zero prior: `_growth` gives no YoY across one outside the margins,
+so the expected count now comes from the dataset's own delta functions, and the SQL before that fix
+fails it too (`AssertionError: ('5', 4)`).
 
 ```python
 """Parity: ops/detection/mpa_notation_frequency.sql classifies cells as provenance_for_fact does.
@@ -812,6 +814,7 @@ from app.database import Base, engine, SessionLocal  # noqa: E402
 import app.models  # noqa: E402,F401
 from app.models import Company, FinancialFact  # noqa: E402
 from app.services.fact_provenance import provenance_for_fact  # noqa: E402
+from app.services.trend_analysis.dataset import _PERCENT_CONCEPTS, _growth, _pp_delta  # noqa: E402
 
 Base.metadata.drop_all(engine)
 Base.metadata.create_all(engine)
@@ -837,11 +840,14 @@ cases = [
     ("eps_diluted", 2022, "companyfacts", "us-gaap:EarningsPerShareDiluted", True, v1("reported", "passed", [])),
     ("gross_margin", 2023, "edgar_xbrl", "", True, None),  # empty raw_tag: a legacy calculation, as in Python
     ("free_cash_flow", 2024, "derived", None, True, v1("calculated", "unavailable", ["legacy_calculation_not_supported"])),
+    # a zero prior: no YoY outside the margins (_growth), as the charts spec's zero long-term debt
+    ("long_term_debt", 2020, "companyfacts", "us-gaap:LongTermDebt", True, v1("reported", "passed", []), 0),
+    ("long_term_debt", 2021, "companyfacts", "us-gaap:LongTermDebt", True, v1("reported", "passed", []), 5),
 ]
 rows = []
-for concept, fy, source, raw_tag, reconciled, provenance in cases:
+for concept, fy, source, raw_tag, reconciled, provenance, *value in cases:
     row = FinancialFact(company_id=co.id, concept=concept, raw_tag=raw_tag, unit="USD",
-                        period_end=date(fy, 12, 31), fiscal_year=fy, fiscal_period="FY", value=1,
+                        period_end=date(fy, 12, 31), fiscal_year=fy, fiscal_period="FY", value=value[0] if value else 1,
                         accession=f"0000000001-{fy % 100:02d}-000001", source=source,
                         reconciled=reconciled, provenance=provenance, is_latest=True)
     db.add(row)
@@ -850,14 +856,18 @@ db.commit()
 
 from app.services.fact_provenance import published_value  # noqa: E402
 expected_review = expected_withheld = expected_calc = 0
-published = {(r.concept, r.fiscal_year): published_value(r) is not None for r in rows}
-expected_yoy = sum(1 for (c, fy), ok in published.items() if ok and published.get((c, fy - 1)))
+# A YoY as add_comparisons makes it: both cells publish a value, and the series' delta gives one.
+published = {(r.concept, r.fiscal_year): published_value(r) for r in rows}
+delta = lambda c: _pp_delta if c in _PERCENT_CONCEPTS else _growth  # noqa: E731
+expected_yoy = sum(1 for (c, fy), v in published.items()
+                   if v is not None and published.get((c, fy - 1)) is not None
+                   and delta(c)(v, published[(c, fy - 1)]) is not None)
 expected_reasons: dict[str, int] = {}
 for row in rows:
     pv = provenance_for_fact(row)
     expected_review += pv["validation"] == "needs_review"
     expected_withheld += pv["validation"] == "unavailable"
-    expected_calc += pv["method"] == "calculated" and published_value(row) is not None
+    expected_calc += pv["method"] == "calculated" and published[(row.concept, row.fiscal_year)] is not None
     key = "+".join(sorted(pv["reasons"])) or "none"
     expected_reasons[key] = expected_reasons.get(key, 0) + 1
 
@@ -996,6 +1006,15 @@ const results = tests.filter(Boolean)
 log(`${results.length} of ${cells.length} blind verdicts returned; rules check ${rules ? 'returned' : 'missing'}`)
 return { results, rules }
 ```
+
+## Restatement census
+
+The census behind coherence.md §1.6 and D-061 ([verification/restatement-census.md](verification/restatement-census.md))
+ran on 2026-10-25 from `backend/scripts/restatement_census.py`, written on a WP5 branch that was never pushed. The
+script went with its session, so it is not here and the census cannot be rerun from this repository. Its output's
+header records the run's time, its source (SEC companyfacts through `app.services.facts.transport`) and every
+definition it used (winner, own, within, across, later filing, gap). WP5 commits a rerunnable census with its
+evidence (E206).
 
 ## File-overlap script
 

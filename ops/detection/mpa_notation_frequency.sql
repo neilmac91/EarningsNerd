@@ -14,8 +14,10 @@
 -- unavailable letter ("b" on REGN, with cells that have no row at all, which this file does not count),
 -- method calculated is the dagger, counted only on a cell that publishes a value (a withheld cell shows
 -- none, as data_notes and the exports count it). YoY: a cell with a cell for the year before, neither of
--- them withheld (dataset_quality.add_comparisons skips a missing value on either side); the comparison
--- carries the review note when either side needs review (data_notes inherits operand validation).
+-- them withheld nor without a value (dataset_quality.add_comparisons skips a missing value on either side),
+-- and outside the three margins a prior that is not zero (dataset._growth gives none across a zero prior;
+-- a margin's point change, _pp_delta, needs only both values); the comparison carries the review note when
+-- either side needs review (data_notes inherits operand validation).
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so both sets share one snapshot. Each
 -- statement gets 120 s and waits at most 10 s for a lock. Cost: each set scans the current FY rows of
@@ -39,7 +41,7 @@ WITH params AS (
     SELECT '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard
 ), cells AS MATERIALIZED (
     SELECT DISTINCT ON (ff.company_id, ff.concept, ff.fiscal_year)
-           ff.company_id, ff.concept, ff.fiscal_year, ff.source, ff.raw_tag, ff.reconciled,
+           ff.company_id, ff.concept, ff.fiscal_year, ff.source, ff.raw_tag, ff.reconciled, ff.value,
            CASE WHEN ff.filing_id IS NOT NULL THEN 'filing' ELSE 'companyfacts' END AS owner,
            CASE WHEN ff.provenance IS NULL OR ff.provenance::text = 'null' THEN NULL
                 WHEN ff.provenance::text ~ p.json_hazard
@@ -65,7 +67,7 @@ WITH params AS (
                AND (NULLIF(c.raw_tag, '') IS NULL OR c.raw_tag = c.concept)) AS legacy_calculated
     FROM cells c
 ), classified AS (
-    SELECT l.company_id, l.concept, l.fiscal_year, l.owner, l.stored,
+    SELECT l.company_id, l.concept, l.fiscal_year, l.owner, l.stored, l.value,
            CASE WHEN l.stored THEN COALESCE(l.pv ->> 'method', 'unknown')
                 WHEN l.legacy_calculated THEN 'calculated' ELSE 'reported' END AS method,
            CASE WHEN l.concept IN ('earnings_per_share', 'eps_diluted', 'eps_basic') AND l.source = 'derived'
@@ -87,7 +89,10 @@ WITH params AS (
 ), compared AS (
     SELECT k.*,
            lag(k.fiscal_year) OVER w = k.fiscal_year - 1
-               AND k.validation <> 'unavailable' AND lag(k.validation) OVER w <> 'unavailable' AS has_yoy,
+               AND k.validation <> 'unavailable' AND lag(k.validation) OVER w <> 'unavailable'
+               AND k.value IS NOT NULL AND lag(k.value) OVER w IS NOT NULL
+               AND (k.concept IN ('net_margin', 'operating_margin', 'gross_margin') OR lag(k.value) OVER w <> 0)
+               AS has_yoy,
            lag(k.validation) OVER w AS prior_validation
     FROM classified k
     WINDOW w AS (PARTITION BY k.company_id, k.concept ORDER BY k.fiscal_year)

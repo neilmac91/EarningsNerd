@@ -20,7 +20,8 @@ Evidence for coherence.md:
 - [`prototype/`](prototype/): the two notation prototypes as diffs against `a41c6e4`: the ring
   design (`notation-prototype.diff`, superseded) and the recommended quiet design
   (`notation-quiet.diff`).
-- [methods.md](methods.md): every script that produced a number.
+- [methods.md](methods.md): every script that produced a number, apart from the restatement census's,
+  which was never pushed ([coherence.md §1.6](coherence.md#16-upstream-fix-2-a-later-filings-value-replaces-the-years-own-and-every-check-passes)).
 
 The competitor captures behind the teardown (coherence.md §4.3) are not committed, since the
 repository is public (D-061; coherence.md §9.f).
