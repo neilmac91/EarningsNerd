@@ -20,6 +20,13 @@ ops = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ops)
 
 
+@pytest.fixture(autouse=True)
+def live_verification_is_an_independent_prerequisite(monkeypatch):
+    # This gate owns bucket/job/monitoring invariants. The isolated verifier gate separately
+    # proves the signed receipt and that enablement cannot skip it.
+    monkeypatch.setattr(ops, "require_live_verification", lambda *_: None)
+
+
 def service():
     return {
         "etag": "service-version", "template": {
