@@ -12,21 +12,21 @@ the second stands in for text the parser does not split, such as a command subst
 allow rules the docs do not state. Under that model a wildcard rule admits whatever it is chained to, which
 is why the pinned rules carry no `*`.
 
-The gate fails when the allow entries outside the E8 launch kit's seven are not exactly the pinned three; when
-a pinned rule carries a wildcard or shell syntax; when a deny or ask rule shadows one; when a dispatched
-operation is gated by `ops-apply` or is not exempt from the deploy pre-flight; when ops.yml gains a job, or a job
-other than `ops` or a step of `ops` may run for a read dispatch beyond the pinned read-only steps (a condition
-the gate cannot read counts as one that runs: `read_dispatch_problems`, with its evasion cases); when ops.yml,
-the ops job or a read's own step gains a key, the workflow's env names, permissions or runner change, a shared
-step a read runs is not its pinned shape, the resolve script runs a line outside its validation vocabulary, or a
-read step hands an environment on to the steps after it; when the reads lose the concurrency group of their own
-run, which keeps a read from replacing a pending run, an approved apply's included; when a read step reaches gcloud other than to read; when any allow rule admits a command in
-the forbidden corpus (every other Ops operation, read from ops.yml, in the same form; the same two operations
-with any other input, ref or repository; REST and GraphQL dispatches; deployment approvals and rejections; run
-re-runs, cancellations and log reads; cloud writes and direct production reads; and the pinned forms chained to
-an apply dispatch); when a pinned form is refused by the approval guard (which test_ops_approval_guard.py
-pins for the approval and rejection calls); or when docs/OPERATIONS.md does not show each pinned command
-verbatim.
+The gate fails when the allow entries outside the E8 launch kit's seven are not exactly the pinned three; when a
+pinned rule carries a wildcard or shell syntax; when a deny or ask rule shadows one; when a dispatched operation is
+gated by `ops-apply` or is not exempt from the deploy pre-flight; when ops.yml gains a job, or a job other than
+`ops` or a step of `ops` may run for a read dispatch beyond the pinned read-only steps (a condition the gate cannot
+read counts as one that runs: `read_dispatch_problems`, with its evasion cases); when ops.yml, the ops job or a
+read's own step gains a key, the workflow's env names, permissions or runner change, a shared step a read runs is
+not its pinned shape, the resolve script runs a line outside its validation vocabulary, or a read step hands an
+environment on to the steps after it; when the reads lose the concurrency group of their own run, which keeps a read
+from replacing a pending run, an approved apply's included; when a read step reaches gcloud other than to read; when
+any allow rule admits a command in the forbidden corpus (every other Ops operation, read from ops.yml, in the same
+form; the same two operations with any other input, ref or repository; REST and GraphQL dispatches; deployment
+approvals and rejections; run re-runs, cancellations and log reads; cloud writes and direct production reads; and
+the pinned forms chained to an apply dispatch); when a pinned form is refused by the approval guard (which
+test_ops_approval_guard.py pins for the approval and rejection calls); or when docs/OPERATIONS.md does not show each
+pinned command verbatim.
 
 Review-checked, not gated: `ops/describe/service.py`, the free-form Python every allowed describe-service runs.
 test_ops_stderr_withheld.py pins its subprocess and import vocabulary and the six gcloud reads it makes, but a gate
