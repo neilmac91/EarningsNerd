@@ -91,7 +91,8 @@ EXPECTED_ALLOW_RULES = (
 )
 # The kit's banner while E8 is parked: its seven rules then stay out of the allow list. Both states are checked whole
 # in memory from whichever one is live, so parking or resuming is one change, banner and rules together.
-PARKED_BANNER = re.compile(r"^> \*\*Parked\.\*\*", re.MULTILINE)
+# Any line Markdown renders as that banner: up to three spaces before the quote marker, any spacing after it.
+PARKED_BANNER = re.compile(r"^ {0,3}>[ \t]*\*\*Parked\.\*\*", re.MULTILINE)
 # What the in-memory parked copy of a resumed kit carries after its title.
 BANNER = "> **Parked.** E8 judging is parked (the gate's in-memory copy).\n"
 
@@ -99,6 +100,8 @@ BANNER = "> **Parked.** E8 judging is parked (the gate's in-memory copy).\n"
 def parked(markdown: str) -> bool:
     """A banner line anywhere parks the kit: one moved below the intro still forbids the seven rules (fails closed)."""
     return bool(PARKED_BANNER.search(markdown))
+
+
 PROBE = "python3 tasks/fable-e8-repin-2026-09-22/restore_e8_session.py --help"
 PACKAGE = REPO_ROOT / "tasks" / "fable-e8-repin-2026-09-22"
 GUARD_DIR = "/home/user/fable-judging/fable-resume-corrected-2026-09-20/e8/guard"
@@ -458,12 +461,15 @@ def test_parking_or_resuming_e8_moves_its_banner_and_its_seven_rules_together() 
     assert rule_problems(_parked_settings(), is_parked=False), "a resumed kit without its rules was accepted"
     assert kit_problems(_resumed(kit), _parked_settings()), "a resumed kit whose commands no rule covers was accepted"
     assert rule_problems(_resumed_settings(), is_parked=True), "a parked kit with its rules still allowed was accepted"
-    # A banner further down still parks the kit, so the seven rules cannot stay allowed beside it.
-    assert parked(_resumed(kit) + "\n> **Parked.** moved below the intro\n")
+    # A banner further down, or indented as Markdown still renders it, parks the kit too, so the seven rules cannot
+    # stay allowed beside it.
+    for banner in ("> **Parked.** moved below the intro", "   > **Parked.** indented", ">**Parked.** unspaced"):
+        assert parked(_resumed(kit) + f"\n{banner}\n"), banner
+        assert not parked(_resumed(_resumed(kit) + f"\n{banner}\n")), banner
 
 
 def test_the_live_kit_and_rules_pass_every_check_and_the_probe_comes_first() -> None:
-    problems = all_problems(KIT.read_text(), _settings())
+    problems = rule_problems(_settings()) + all_problems(KIT.read_text(), _settings())
     assert problems == [], (
         "tasks/fable-e8-launch-kit.md and .claude/settings.json disagree: once E8 resumes, every command is the literal "
         "prefix of an allow rule, starting with the --help probe; while it is parked, the seven rules stay out "
