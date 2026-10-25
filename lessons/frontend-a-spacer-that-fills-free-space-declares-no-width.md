@@ -2,7 +2,7 @@
 
 Date: 2026-10-25   Area: frontend
 
-**Context**: The metrics table hangs each figure's footnote marks in a gutter one mark wide, so a marked and
+**Context**: The metrics table hangs each figure's footnote marks in a gutter one mark wide (one mark and its 2px gap since #1606's first-mark gap), so a marked and
 an unmarked figure end on one edge. The first version gave an unmarked figure a spacer of the gutter's width
 (`w-[var(--mark-gutter)]`). In a fixed 76px period column a full nine-glyph change ("-2,448.5%") then
 overflowed its cell by 3.9px and clipped: a declared width counts toward the flex line's min-content, so

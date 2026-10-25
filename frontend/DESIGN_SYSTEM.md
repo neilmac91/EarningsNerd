@@ -611,12 +611,15 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  spacer that grows from nothing up to the gutter into free space only (grow basis-0
                  max-w-[var(--mark-gutter)]; a declared width counts toward the line's minimum and
                  pushed a nine-glyph figure past its cell), so a marked and an unmarked figure share one
-                 edge. A period column holds nine glyphs and their gaps (a figure, a dagger and a
-                 two-letter note, 67px): 4.375rem on a phone inside its 1px inset, 4.75rem from md.
+                 edge. A period column holds its widest line (a seven-glyph figure, a dagger and a
+                 one-letter note, 67.6px) inside its inset: 4.375rem on a phone (68px inside 1px a side),
+                 4.75rem from md (68px inside 4px a side). tests/unit/metrics-table.spec.tsx derives the
+                 gutter and both widths from tableTokenBudget and the type sizes.
                  Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the spacer, and large
                  only at the two 24px figures); “analysis phone marks” in
                  tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, 2px
-                 after its figure, a letter above its dagger and 2px after it, and a mark under an
+                 after its figure and a change line's letter 2px after its change, a letter above its
+                 dagger and 2px after it, and a mark under an
                  underlined control an
                  inline-block: a flex row blockifies its children, and an underline reaches every flex
                  item).
@@ -634,8 +637,11 @@ Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a cal
                  tests/e2e/analysis-layout.spec.ts “analysis phone marks” (390px, both themes, the
                  legacy and edge states, the edge fixture planting “$92.2M” and “-$922M”, each with † and
                  a two-letter note, its column's whole nine-glyph budget: every mark on its figure's line
-                 and inside its cell, 2px after the figure's end, 2px between † and a letter, the figure
-                 face computed); tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
+                 and inside its cell, 2px after the figure's end, a change line's letter 2px after its
+                 change, 2px between † and a letter, the figure face computed);
+                 tests/unit/metrics-table.spec.tsx (the gutter one mark and its gap, every period column
+                 its widest line, at the default and a doubled text size);
+                 tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
 
 Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses

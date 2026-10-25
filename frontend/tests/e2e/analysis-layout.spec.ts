@@ -887,6 +887,34 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     }
     expect(problems).toEqual([])
     expect(controls.some(control => control.glyphs.some((glyph, index, all) => glyph.mark === 'letter' && all[index - 1]?.mark === 'dagger')), 'a dagger and a letter are measured together').toBe(true)
+    // A change line's letter keeps 2px from its change too. The change sits outside the figure's source button, so it is
+    // measured from its own line: the change's glyphs (n/m's visible abbreviation included), then the letter.
+    const changeLines = await page.locator(`${TABLE} tbody td`).evaluateAll(cells => cells.flatMap(cell => [...cell.querySelectorAll('[data-note-letter]')]
+      .filter(mark => !mark.closest('button'))
+      .map(mark => {
+        const line = mark.parentElement!
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+        const glyphs: Array<{ mark: boolean; left: number; right: number }> = []
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const parent = node.parentElement!
+          if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark: !!parent.closest('[data-note-letter]'), left: r.left, right: r.right })
+        }
+        const style = getComputedStyle(cell)
+        const box = cell.getBoundingClientRect()
+        return { name: `${cell.closest('tr')?.querySelector('th')?.textContent?.trim()} · ${line.textContent?.trim()}`, rem, glyphs, right: box.right - parseFloat(style.paddingRight) }
+      })))
+    const changeProblems: string[] = []
+    for (const line of changeLines) {
+      const end = Math.max(...line.glyphs.filter(glyph => !glyph.mark).map(glyph => glyph.right))
+      const first = line.glyphs.find(glyph => glyph.mark)!
+      if (first.left - end < 0.125 * line.rem - 0.5) changeProblems.push(`${line.name}: a change line's letter touches its change`)
+      if (line.glyphs.some(glyph => glyph.right > line.right + 1)) changeProblems.push(`${line.name}: a change line leaves its cell`)
+    }
+    expect(changeProblems).toEqual([])
+    expect(changeLines.length, 'a change line with a letter is measured').toBeGreaterThan(0)
     if (state === 'edge') {
       // The planted figures fill their column's whole budget with their marks (nine glyphs: the figure, the dagger and
       // a two-letter note), the sign the ASCII hyphen-minus.

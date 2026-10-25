@@ -181,9 +181,10 @@ describe('the analysis figure surfaces keep their own inks', () => {
     expect(apca('#1A1A17', '#FBFAF6')).toBeCloseTo(101.3, 1)
     expect(apca('#9CA3AF', '#1F2937')).toBeCloseTo(-48.6, 1)
     expect(apca('#888888', '#888888')).toBe(0)
-    // OKLCH chroma against its published values: pure red is oklch(0.628 0.2577 29.2), pure blue oklch(0.452 0.3132
-    // 264.1) (between them every column of OKLab's first matrix), a neutral grey 0.
+    // OKLCH chroma against its published values: pure red oklch(0.628 0.2577 29.2), pure green oklch(0.866 0.2948
+    // 142.5) and pure blue oklch(0.452 0.3132 264.1), one column of OKLab's first matrix each, and a neutral grey 0.
     expect(chroma('#FF0000')).toBeCloseTo(0.2577, 4)
+    expect(chroma('#00FF00')).toBeCloseTo(0.2948, 4)
     expect(chroma('#0000FF')).toBeCloseTo(0.3132, 4)
     expect(chroma('#888888')).toBeCloseTo(0, 4)
   })

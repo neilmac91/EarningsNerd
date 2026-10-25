@@ -22,8 +22,9 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
 // A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
 // gutter to its right, DataNoteMark compact: --mark-gutter is one 11px mark, 0.4125rem, and its 2px gap), in the figure
 // face (Geist Mono with a drawn minus), whose fixed 600-unit advance gives tabular lining figures; no tracking, as the
-// data annotation size has none. A period column holds nine glyphs and their gaps inside its 1px phone inset: a figure, a
-// dagger and a two-letter note, 6 × 7.2 + 2 + 6.6 + 2 + 13.2 = 67px, so 4.375rem (70px) on a phone; 4.75rem from md.
+// data annotation size has none. A period column holds its widest line inside its 1px phone inset: a seven-glyph figure,
+// a dagger and a one-letter note, 7 × 7.2 + 2 + 6.6 + 2 + 6.6 = 67.6px, so 4.375rem (70px, 68px inside) on a phone and
+// 4.75rem (68px inside its 4px inset) from md. metrics-table.spec.tsx derives both from tableTokenBudget.
 const FIGURE_CELL = 'relative flex flex-col gap-0.5 font-figure tabular-nums lining-nums tracking-normal'
 const FIGURE_LINE = 'flex w-full items-baseline justify-end'
 

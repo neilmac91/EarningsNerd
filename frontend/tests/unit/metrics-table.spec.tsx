@@ -1,8 +1,15 @@
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import MetricsTable from '@/features/analysis/components/MetricsTable'
+import { tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+
+const TAILWIND_FONT_SIZE = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { fontSize: Record<string, [string, unknown]> } } }).theme.extend.fontSize
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -405,4 +412,44 @@ describe('MetricsTable periods', () => {
     expect(screen.getByText(/^n\/m means not meaningful\./)).toHaveTextContent('A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.')
   })
 
+})
+
+/**
+ * The column arithmetic (DESIGN_SYSTEM.md, Data note mark): a figure is 12px Geist Mono (DataTable's compact text-xs),
+ * a mark 11px (text-data-xs), each glyph 0.6em wide (Geist Mono's 600-unit advance, which the e2e "analysis phone
+ * marks" gate measures on the real glyphs), and every mark keeps 2px (ml-0.5) from what precedes it; a note's letters
+ * share one box. The gutter is one mark and its gap, so a marked and an unmarked figure share one edge, and a period
+ * column holds the widest line tableTokenBudget allows inside its inset (1px a side on a phone, 4px from md).
+ */
+describe('MetricsTable column widths', () => {
+  const source = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../features/analysis/components/MetricsTable.tsx'), 'utf8')
+  const rem = (name: string, prefix = '') => {
+    const match = new RegExp(`(?:^|[\\s"])${prefix.replace(':', '\\:')}\\[--${name}:([\\d.]+)rem\\]`).exec(source)
+    if (!match) throw new Error(`${prefix}--${name} is not a rem value in MetricsTable.tsx`)
+    return Number(match[1])
+  }
+  const ADVANCE = 0.6
+  const FIGURE = parseFloat(TAILWIND_FONT_SIZE.xs[0]) // rem, text-xs
+  const MARK = parseFloat(TAILWIND_FONT_SIZE['data-xs'][0]) // rem, text-data-xs
+  const GAP = 0.125 // rem, ml-0.5
+  /** Each line the budget allows: [label, width in rem], over a dagger or none and a note of none, one or two letters. */
+  const lines = [false, true].flatMap((calculated) => ['', 'a', 'ab'].map((letter) => {
+    const glyphs = tableTokenBudget(calculated, letter)
+    const marks = [calculated, letter !== ''].filter(Boolean).length
+    const width = glyphs * ADVANCE * FIGURE + marks * GAP + (Number(calculated) + letter.length) * ADVANCE * MARK
+    return [`${glyphs} glyphs${calculated ? ' †' : ''}${letter ? ` ${letter}` : ''}`, width] as const
+  }))
+  const widest = Math.max(...lines.map(([, width]) => width))
+
+  it('keeps the mark gutter one mark and its 2px gap wide', () => {
+    expect(rem('mark-gutter')).toBeCloseTo(GAP + ADVANCE * MARK, 6)
+  })
+
+  it('gives every period column room for its widest line inside its inset, at the default and a doubled text size', () => {
+    expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(67.6, 6)
+    for (const root of [16, 32]) {
+      expect(rem('period-col') * root - 2, `phone, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
+      expect(rem('period-col', 'md:') * root - 8, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
+    }
+  })
 })
