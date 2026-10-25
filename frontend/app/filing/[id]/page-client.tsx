@@ -35,6 +35,9 @@ import { ChangeReportCard } from '@/features/summaries/components/ChangeReportCa
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { isSummaryFailure } from '@/features/summaries/lib/summaryPlaceholder'
+import { Notice } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getErrorStatus } from '@/lib/api/types'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 // The summary-generation state machine lives in features/summaries/hooks/useSummaryGeneration;
@@ -88,12 +91,16 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
 
   // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale so the client refetches
   // on mount — the seed only guarantees the first paint (and the crawler HTML).
-  const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
+  const filingQuery = useQuery<Filing>({
     queryKey: queryKeys.filing(filingId),
     queryFn: () => getFiling(filingId),
     initialData: initialFiling,
     initialDataUpdatedAt: 0,
   })
+  const filingFailure = useRetainedFailure(filingQuery, queryKeys.filing(filingId))
+  const filingNotFound = getErrorStatus(filingFailure.error) === 404
+  // A confirmed missing filing supersedes an older server/cache seed too.
+  const filing = filingNotFound ? undefined : filingQuery.data
 
   const {
     summary,
@@ -238,24 +245,37 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
     }
   }, [hasSummaryContent, filing, summary, entryPoint, authPending, authError, currentUser])
 
-  if (filingLoading) {
+  if (filingQuery.isPending && !filingFailure.failed) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
-      </div>
+      <main className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark" aria-label="Filing">
+        <div role="status">
+          <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+          <span className="sr-only">Loading filing…</span>
+        </div>
+      </main>
     )
   }
 
+  const filingFailureNotice = (
+    <Notice
+      variant="error"
+      title={filing ? 'Could not refresh this filing.' : 'Could not load this filing.'}
+      description={filing ? 'Showing the last loaded filing.' : 'Try again in a moment.'}
+      action={<RetryButton failures={[filingFailure]} focusTarget={summaryContentRef} size="sm" />}
+    />
+  )
+
   if (!filing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
+      <main ref={summaryContentRef} tabIndex={-1} className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark px-4" aria-label="Filing">
+        <div className="w-full max-w-lg">
+          <h1 className="text-2xl font-semibold mb-4">{filingNotFound ? 'Filing not found' : 'Filing unavailable'}</h1>
+          {filingNotFound ? <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">This filing could not be found. Check the link or choose another filing.</p> : filingFailureNotice}
+          <Link href="/" className="mt-4 inline-block text-brand-strong dark:text-brand-strong-dark hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
             Go back home
           </Link>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -334,7 +354,8 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
           />
         }
       >
-        <main ref={summaryContentRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main ref={summaryContentRef} tabIndex={-1} aria-label="Filing research" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {filingFailure.failed && <div className="mb-6">{filingFailureNotice}</div>}
           {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
             <StreamingSummaryDisplay
               streamingText={streamingText}

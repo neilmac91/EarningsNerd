@@ -36,12 +36,13 @@ import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
 import NarrativePane, { type NarrativeState } from './NarrativePane'
-import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
+import PeriodPicker, { defaultRange, optionsFor, type PeriodRange } from './PeriodPicker'
 import TrendCharts from './TrendCharts'
 import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
 import { ANALYSIS_DISCLOSURE } from '@/features/analysis/lib/provenance'
 import { ANALYSIS_MAX_ANNUAL_PERIODS, ANALYSIS_MAX_QUARTERLY_PERIODS } from '@/lib/planLimits'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 
 /**
  * Multi-Period Analysis — the Pro flagship page.
@@ -101,6 +102,8 @@ export default function AnalysisPageClient() {
   const [running, setRunning] = useState(false)
   const [narrative, setNarrative] = useState<NarrativeState>({ status: 'idle', text: '' })
   const abortRef = useRef<AbortController | null>(null)
+  const companyHeadingRef = useRef<HTMLDivElement>(null)
+  const rangeOwnerRef = useRef<{ ticker: string | null; mode: AnalysisMode } | null>(null)
   const queryClient = useQueryClient()
 
   // Tri-state auth: undefined = resolving, null = guest, object = signed in (Header's contract).
@@ -116,11 +119,7 @@ export default function AnalysisPageClient() {
   const isPro = !!subscription?.is_pro
   const authResolved = user !== undefined
 
-  const {
-    data: coverage,
-    isLoading: coverageLoading,
-    error: coverageError,
-  } = useQuery<AnalysisCoverage>({
+  const coverageQuery = useQuery<AnalysisCoverage>({
     queryKey: queryKeys.analysisCoverage(ticker),
     queryFn: () => getAnalysisCoverage(ticker as string),
     enabled: !!ticker && !!user,
@@ -130,14 +129,23 @@ export default function AnalysisPageClient() {
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
   })
+  const coverageFailure = useRetainedFailure(coverageQuery, queryKeys.analysisCoverage(ticker))
+  const { data: coverage } = coverageQuery
 
-  // New coverage / mode → reset the range to the newest window and clear stale results.
+  // A refresh keeps a valid choice for this company/mode; a new selection starts at the newest window.
   useEffect(() => {
     if (coverage) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync selection to freshly-loaded coverage (external data), not derivable at render time
-      setRange(defaultRange(coverage, mode))
+      const sameSelection = rangeOwnerRef.current?.ticker === ticker && rangeOwnerRef.current.mode === mode
+      rangeOwnerRef.current = { ticker, mode }
+      setRange((previous) => {
+        const options = optionsFor(coverage, mode)
+        const start = options.findIndex((option) => option.key === previous?.start && !option.disabled)
+        const end = options.findIndex((option) => option.key === previous?.end && !option.disabled)
+        if (sameSelection && start >= 0 && end >= start && end - start < coverage.limits[mode]) return previous
+        return defaultRange(coverage, mode)
+      })
     }
-  }, [coverage, mode])
+  }, [coverage, mode, ticker])
 
   const resetResults = useCallback(() => {
     abortRef.current?.abort()
@@ -340,7 +348,7 @@ export default function AnalysisPageClient() {
         </div>
         <CompanySearch onSelect={selectCompany} />
         {ticker && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <div ref={companyHeadingRef} tabIndex={-1} className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             <CompanyLogo decorative ticker={ticker} name={companyName} size={20} />
             <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
               {companyName}
@@ -367,21 +375,22 @@ export default function AnalysisPageClient() {
 
         {ticker && !!user && (
           <div className="mt-4">
-            {coverageLoading && !coverage ? (
+            {coverageFailure.failed && (
+              <Notice
+                variant="error"
+                className="mb-4"
+                title={coverage ? 'Could not refresh available periods.' : 'Could not load available periods.'}
+                description={coverage ? 'Showing the last loaded periods.' : undefined}
+                action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
+              />
+            )}
+            {coverageQuery.isPending && !coverageFailure.failed ? (
               <div role="status" aria-label="Loading available periods">
                 <Skeleton className="h-16 w-full rounded-lg" />
                 <span className="sr-only">Loading…</span>
               </div>
-            ) : coverageError ? (
-              <Notice
-                variant="error"
-                title={
-                  coverageError instanceof ApiError
-                    ? coverageError.detail
-                    : 'Could not load available periods. Please try again.'
-                }
-              />
             ) : coverage?.syncing ? (
+              !coverageFailure.failed &&
               <Notice
                 variant="info"
                 title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
