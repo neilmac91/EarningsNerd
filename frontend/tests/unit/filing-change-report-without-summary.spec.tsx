@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import FilingPageClient from '@/app/filing/[id]/page-client'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
+import type { Filing } from '@/features/filings/api/filings-api'
 
 /**
  * The change report needs no summary (it is computed from stored XBRL), and the company page's
@@ -16,13 +18,14 @@ const state = vi.hoisted(() => ({
   user: null as { id: number } | null,
   generation: {} as Record<string, unknown>,
   getWhatChanged: vi.fn(),
+  getFiling: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: '42' }), useRouter: () => ({ back: vi.fn(), push: vi.fn() }) }))
 vi.mock('@/lib/api/client', () => ({ default: { get: vi.fn(), post: vi.fn() }, getApiUrl: vi.fn() }))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: () => Promise.resolve(state.user) }))
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({ getSubscriptionStatus: () => Promise.resolve({ is_pro: false }) }))
 vi.mock('@/features/filings/api/filings-api', () => ({
-  getFiling: () => Promise.resolve({ id: 42, filing_type: '10-K', filing_date: '2025-10-31', company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.' } }),
+  getFiling: state.getFiling,
 }))
 vi.mock('@/features/summaries/api/summaries-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/summaries/api/summaries-api')>()),
@@ -54,12 +57,19 @@ const REPORT: ChangeReport = {
 }
 const FAILED = 'The filing could not be summarized right now.'
 const LIMIT = "You've reached your monthly limit. Upgrade to Pro for unlimited summaries."
+const FILING: Filing = {
+  id: 42, filing_type: '10-K', filing_date: '2025-10-31', accession_number: 'test-filing',
+  sec_url: 'https://www.sec.gov/Archives/', document_url: 'https://www.sec.gov/Archives/filing.htm',
+  company: { id: 1, ticker: 'AAPL', name: 'Apple Inc.' },
+}
+const clients: QueryClient[] = []
 
-function mount(initialChangeReport?: ChangeReport) {
+function mount(initialChangeReport?: ChangeReport, initialFiling?: Filing) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
+  clients.push(client)
+  return render(
     <QueryClientProvider client={client}>
-      <FilingPageClient initialChangeReport={initialChangeReport} />
+      <FilingPageClient initialChangeReport={initialChangeReport} initialFiling={initialFiling} />
     </QueryClientProvider>,
   )
 }
@@ -71,15 +81,65 @@ const scrolledTo = () => vi.mocked(Element.prototype.scrollIntoView).mock.contex
 beforeEach(() => {
   state.user = null
   state.generation = {}
+  state.getFiling.mockReset().mockResolvedValue(FILING)
   state.getWhatChanged.mockReturnValue(new Promise(() => {}))
   window.history.replaceState(null, '', '#what-changed')
   Element.prototype.scrollIntoView = vi.fn()
 })
 afterEach(() => {
   cleanup()
+  clients.splice(0).forEach((client) => client.clear())
+  onlineManager.setOnline(true)
   vi.clearAllMocks()
   window.history.replaceState(null, '', window.location.pathname)
   Element.prototype.scrollIntoView = jsdomScrollIntoView
+})
+
+describe('filing read recovery', () => {
+  it('keeps an initial offline read unresolved rather than declaring the filing missing', () => {
+    onlineManager.setOnline(false)
+    mount()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading filing')
+    expect(screen.queryByRole('heading', { name: 'Filing not found' })).not.toBeInTheDocument()
+    expect(state.getFiling).not.toHaveBeenCalled()
+  })
+
+  it.each([new Error('offline'), { status: 503 }, { status: 403 }])('offers local recovery for a read failure (%s)', async (error) => {
+    state.getFiling.mockRejectedValueOnce(error)
+    mount()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load this filing.')
+    expect(screen.queryByRole('heading', { name: 'Filing not found' })).not.toBeInTheDocument()
+    let finish!: (filing: Filing) => void
+    state.getFiling.mockImplementationOnce(() => new Promise<Filing>((resolve) => { finish = resolve }))
+    const user = userEvent.setup()
+    const retry = screen.getByRole('button', { name: 'Try again' })
+    retry.focus()
+    await user.keyboard('{Enter}{Enter}')
+    expect(state.getFiling).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load this filing.')
+    expect(retry).toHaveFocus()
+    await act(async () => finish(FILING))
+    expect(await screen.findByRole('heading', { name: 'Apple Inc.' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('main', { name: 'Filing research' })).toHaveFocus())
+  })
+
+  it.each([undefined, FILING])('uses not-found for a confirmed missing filing, including an older seed (%s)', async (seed) => {
+    state.getFiling.mockRejectedValue({ status: 404 })
+    mount(undefined, seed)
+    expect(await screen.findByRole('heading', { name: 'Filing not found' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Apple Inc.' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go back home' })).toBeInTheDocument()
+  })
+
+  it('keeps the server-seeded filing available when its refresh fails', async () => {
+    state.getFiling.mockRejectedValue(new Error('offline'))
+    mount(REPORT, FILING)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Showing the last loaded filing.')
+    expect(screen.getByRole('heading', { name: 'Apple Inc.' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'What changed' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
 })
 
 describe('the change report on a filing with no summary', () => {
