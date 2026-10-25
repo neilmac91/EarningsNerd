@@ -155,9 +155,13 @@ def record_ai_call(
         record["estimated_cost_usd"] = cost["cost_usd"]
         record["peak"] = cost["peak"]
         key = tuple(record[field] for field in ("operation", "provider", "actual_model", "outcome"))
-        bucket = _calls.setdefault(key, {"count": 0, "usage": _empty_usage(), "estimated_cost_usd": 0.0})
+        bucket = _calls.setdefault(
+            key, {"count": 0, "usage": _empty_usage(), "estimated_cost_usd": 0.0, "estimated_cost_unknown_calls": 0})
         bucket["count"] += 1
-        bucket["estimated_cost_usd"] = round(bucket["estimated_cost_usd"] + (cost["cost_usd"] or 0.0), 6)
+        if cost["cost_usd"] is None:
+            bucket["estimated_cost_unknown_calls"] += 1
+        else:
+            bucket["estimated_cost_usd"] = round(bucket["estimated_cost_usd"] + cost["cost_usd"], 6)
         _add_usage(bucket["usage"], normalized)
     logger.info("ai_call %s", json.dumps(record, separators=(",", ":")))
     sink = _observer.get()
@@ -203,10 +207,18 @@ def record_ai_summary(records: Sequence[dict], outcome: str) -> dict:
 
 
 def get_ai_metrics() -> dict:
-    """Copy bounded counters for the existing admin metrics endpoint, never a last response."""
+    """Copy bounded counters for the existing admin metrics endpoint, never a last response.
+
+    A call whose cost is unknown adds nothing to its bucket's ``estimated_cost_usd`` (kept for old
+    readers), so each bucket also says how complete that sum is: ``estimated_cost_known_usd`` names
+    it as the known subtotal, ``estimated_cost_unknown_calls`` counts the calls outside it, and
+    ``estimated_cost_complete`` is true only when there are none."""
     with _lock:
-        calls = [dict(zip(("operation", "provider", "actual_model", "outcome"), key),
-                      count=bucket["count"], estimated_cost_usd=bucket.get("estimated_cost_usd", 0.0),
-                      usage={field: dict(value) for field, value in bucket["usage"].items()})
-                 for key, bucket in _calls.items()]
+        calls = []
+        for key, bucket in _calls.items():
+            known, unknown = bucket["estimated_cost_usd"], bucket["estimated_cost_unknown_calls"]
+            calls.append(dict(zip(("operation", "provider", "actual_model", "outcome"), key),
+                              count=bucket["count"], estimated_cost_usd=known, estimated_cost_known_usd=known,
+                              estimated_cost_unknown_calls=unknown, estimated_cost_complete=unknown == 0,
+                              usage={field: dict(value) for field, value in bucket["usage"].items()}))
         return {"scope": "process", "calls": calls, "summaries": dict(_summaries)}

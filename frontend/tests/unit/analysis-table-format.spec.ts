@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatTableGrowth, formatTableValue, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 
 const series = (unit: string, percent = false): AnalysisSeries => ({ concept: 'test', label: 'Test', unit, percent, points: [], cagr: null })
 
@@ -46,5 +47,20 @@ describe('fixed-column display formatting', () => {
     expect(tableCurrencyLabel(series('USD/shares'))).toBeNull()
     expect(formatTableValue(15154, series('CAD/shares'))).toBe('15.2K')
     expect(formatTableValue(-1e25, series('CAD'))).toBe('-1e25')
+  })
+
+  it('prints a figure cell at the budget its calculated mark and note letter leave, as MetricsTable does (M15)', () => {
+    const usd = series('USD')
+    const provenance = (method: FactProvenance['method']): FactProvenance => ({ version: 1, method, validation: 'passed', reasons: [], formula: null, inputs: [] })
+    // Nine glyphs for a reported figure: "-$999.9M" fits; a calculated mark and a letter leave seven, so "-$1B".
+    expect(tableFigureText(-999_900_000, {}, usd)).toBe('-$999.9M')
+    expect(tableFigureText(-999_900_000, { provenance: provenance('calculated') }, usd, 'a')).toBe('-$1B')
+    // With no provenance a derived figure is calculated; a figure's provenance outranks its derived flag.
+    expect(tableFigureText(-999_900_000, { derived: true, provenance: null }, usd, 'a')).toBe('-$1B')
+    expect(tableFigureText(-999_900_000, { derived: true, provenance: provenance('reported') }, usd, 'a')).toBe('-$999.9M')
+    // The change line takes no calculated mark: only its own note letter narrows it.
+    expect(tableComparisonText(1234.567, false)).toBe('+123,457%')
+    expect(tableComparisonText(1234.567, false, 'a')).toBe('+123.5K%')
+    expect(tableComparisonText(1234.567, false, 'ab')).toBe('+123K%')
   })
 })
