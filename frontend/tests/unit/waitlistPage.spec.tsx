@@ -17,6 +17,14 @@ vi.mock('@/features/legal/hooks/useLegalReadiness', async () => {
   const { readyLegalHook } = await import('./fixtures/legalReady')
   return { useLegalReadiness: () => readyLegalHook }
 })
+vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
+  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
+  const { legalReady } = await import('./fixtures/legalReady')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode],
+    usePublicReadiness: () => ({ readiness: legalReady, loading: false }),
+  }
+})
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/lib/analytics', () => ({ default: { exampleCtaClicked: vi.fn() } }))
 vi.mock('@/lib/featureFlags', async (importOriginal) => ({
@@ -78,7 +86,7 @@ describe('/waitlist', () => {
     const { container } = render(<WaitlistPage />)
     fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'ada@example.test' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join the waitlist' }))
-    expect(await screen.findByRole('heading', { level: 2, name: "You're on the list." })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 2, name: "You're on the waitlist." })).toBeInTheDocument()
     expect(headingSkips(container)).toEqual([])
   })
 

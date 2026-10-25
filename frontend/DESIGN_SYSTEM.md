@@ -29,7 +29,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer, behind a flag until F66, pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -133,7 +133,8 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   contextual alternates draw an x between digits, as in `p4x8n2wd`, as a multiplication sign).
   `.tabular` = mono evidence register; `.tnum` = tabular figures in the CURRENT (body) face —
   numerals inside prose/UI copy only. Data tables and KPI tiles are **not** `.tnum` surfaces: their
-  numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule).
+  numerics render mono (DataTable numeric cells, StatCard figures — the data-role rule). Until Geist Mono
+  arrives (`font-display: swap`) the role paints in the platform's monospace, never a proportional face (§8, E199).
   **The figure face** is the data role on the analysis figures: MetricsTable's values, change lines and
   window column, KpiStrip's value and change line, the DataNoteMark marks and the evidence dialog's
   figures (SourceValue: the 24px value, "As stored", the arithmetic line, each input's value and the
@@ -2250,7 +2251,9 @@ has none; it fits a 390px phone at the default size and, wider than its box (a p
 scrolls inside a box that `useOverflowRegion` names and puts in the Tab order, never the page.
 `/pricing` does not share it and keeps its two plan cards. The page closes with one line
 (`ClosingLine.tsx`): the live example as a text link and the access mode's call to action as a button
-at the end of one sentence, under the last row's rule. Gates: `earningsnerd/no-four-up-grid`
+at the end of one sentence while collection is available, under the last row's rule. Otherwise the
+sentence's example link is the sole action; a focused account action that leaves hands focus to it.
+Gates: `earningsnerd/no-four-up-grid`
 (`eslint.designRules.mjs`, run on `LANDING_GRID_FILES`: the route, every marketing module and the
 sections the route mounts from other features) fails a class that sets four column tracks or more under
 any variant (a template, a grid shorthand, a column flow, or multi-column by its count or column width);
@@ -2379,8 +2382,8 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   with the wordmark `display: none` (sr-only text still lays out past the link, which the bar's checks
   read). At 360px and 200% text the lockup ran to 369px. Gate: `tests/e2e/reflow-200.spec.ts` (360px at
   200%, the bar's edge in the logo's clear space).
-- Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono, Newsreader), one
-  instance each, in `app/fonts.ts`, which the root layout and the global error page import, so a page
+- Fonts are self-hosted via `next/font` (Inter with `axes: ['opsz']`, Geist Mono with a monospace fallback,
+  Newsreader), one instance each, in `app/fonts.ts`, which the root layout and the global error page import, so a page
   declares one Inter (gate: `tests/unit/oneFontInstance.spec.ts`); promotional emphasis also loads its
   shared local Inter italic face (§7). One face is not a `next/font` instance: the figure stack's
   `EN Figure Minus` (§3), a plain `@font-face` in `app/globals.css` serving
@@ -2389,7 +2392,17 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   minus; `next/font/local` would break the specs that cannot load it. Gate:
   `tests/unit/designSystemDoneGate.spec.ts` ('tailwind fontFamily.figure is the minus face, then exactly
   the data stack', which reads the `@font-face` too).
-  SF Pro / New York are platform-licensed and must never be embedded.
+  Each face swaps in when it arrives (`font-display: swap`), and its text paints in the loader's fallback until
+  then. Geist Mono's is a platform monospace (E199; trend-chart spec §3.2 G1): `adjustFontFallback: false` and
+  `fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']`. next/font's default, "Geist Mono Fallback",
+  is Arial at `size-adjust: 134.59%`, a proportional face whose digits are 0.749 em to Geist Mono's 0.6, so every
+  figure painted a quarter wider until the face arrived. Only the `latin` file (23 KB) is preloaded, on every route,
+  since the root's one instance cannot preload per route; the other subsets keep their `@font-face` and
+  `unicode-range` and load where a page paints one of their characters: latin-ext (14.7 KB) holds †, ₹, ₪ and ₱
+  (spec §0.5). Gate: `tests/unit/designSystemDoneGate.spec.ts` (§12 item 3), and the emitted stylesheet in
+  `tests/e2e/analysis-layout.spec.ts`'s "analysis phone marks".
+  SF Pro / SF Mono / New York are platform-licensed and must never be embedded; `ui-monospace` and `SFMono-Regular`
+  reach the platform's SF Mono by name, never a file of ours.
 
 ## 9. Exemptions
 
@@ -2495,15 +2508,27 @@ label as Recharts sets it; a tooltip prints each value in its own axis's format.
 one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
 own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
 edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
-axes", and the export gate's Swiss-franc case).
+axes", which reads either renderer, and the export gate's Swiss-franc case). The engine's formats round as the
+metrics table rounds, half away from zero on the decimal, for these tooltips and axes as for the spec renderer below;
+the spec's M15 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
 **The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
 `docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes; the raw-colour lint rule exempts that file, and `tests/unit/chart-theme.spec.ts` holds it to the spec's
-table and its light values to the Tailwind tokens they share. Until step 6 (E194) moves the dark tokens into
-Tailwind, the card's subtitle, legend and footnotes take those inks inline. Its text renders with geometric
-precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Every chart keeps its 320 px card,
+both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review`
+pairs and the text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary`,
+`text-secondary` and `warning` (the gridline's is new), so no production chart takes the new dark values before F66.
+The raw-colour lint rule exempts that file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config and
+keeps the pairs' own hexes out of every other mirror, `tests/unit/chart-theme.spec.ts` holds each field to the spec's
+table and its own token and keeps the pairs out of every class, and `tests/unit/chart-apca.spec.ts` holds each ink to
+the spec's APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under
+the column wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
+take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
+precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
+latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
+the text `0†₹₪₱`, since with no text the Font Loading API takes the latin face alone, so † never swaps on a plot (G3)
+and no route preloads latin-ext (spec §0.5). Past the wait a plot paints in the loader's monospace fallback (§8),
+whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
 plots start at one height whatever its legends wrap to. Its keyboard contract (E193) keeps the shape of the one
 above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
@@ -2521,7 +2546,9 @@ flush beside its column, inside the viewport's sides and outside its clip, so 20
 is hoverable; a tap pins it until a second tap or a press outside, and a swipe pins nothing. Escape dismisses a
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
-`tests/e2e/charts-v2.spec.ts` and CI's `e2e-charts-v2` job, a required check on `main`.
+`tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
+themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` on the renderer and CI's `e2e-charts-v2` job, a
+required check on `main`.
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
@@ -2616,7 +2643,13 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    `var(--font-newsreader)`). next/font exposes each family through these vars, and the var is
    the contract: the family name it declares (a plain `Inter` in this build, under which two
    loader calls once collided, E147) is no promise, so a literal-only stack is not wired to the
-   loader. Five sanctioned exceptions, all
+   loader. The var carries the loader's fallback too, which paints until the face arrives. next/font's
+   default is `'<family> Fallback'`, a local Arial (Times New Roman for a serif) size-adjusted to the
+   family's average width, which Inter and Newsreader keep. Geist Mono's loader sets
+   `adjustFontFallback: false` and `fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']`
+   (E199), so `--font-geist-mono` is `'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace` and
+   the data role never paints in a proportional face; the generic `monospace` ends it, so the mono
+   stacks' literals after the var serve only where the var is unset. Five sanctioned exceptions, all
    of which still reach a var: `fontFamily.body` and `--font-body` keep `-apple-system` first
    with the var ahead of the `'Inter'` literal; `fontFamily.sans` is `['var(--font-body)', …]`
    and `--font-active` is `var(--font-body)`, both reaching `--font-inter` one hop later;
@@ -2624,7 +2657,8 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    (`unicode-range: U+002D`, §3), then is exactly the `data` stack, so it reaches
    `var(--font-geist-mono)` second. Do not "fix" those five to lead with a next/font var.
    Items 2 (first grep) and 3 are enforced by `tests/unit/designSystemDoneGate.spec.ts`, which
-   reads the grep pattern out of this file and pins each exception to its exact shape — so
+   reads the grep pattern out of this file, pins each exception to its exact shape and holds Geist
+   Mono's loader to those two options — so
    editing this section without editing the gate fails, and vice versa.
 4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
 5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.

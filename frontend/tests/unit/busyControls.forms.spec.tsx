@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
@@ -24,6 +24,8 @@ import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/sub
 const api = vi.hoisted(() => ({
   submitContactForm: vi.fn(),
   submitFeedback: vi.fn(),
+  getFeedbackCapabilities: vi.fn(),
+  getFeedbackSubmission: vi.fn(),
   joinWaitlist: vi.fn(),
   getCurrentUserSafe: vi.fn(),
   // The pricing page reads the public registration gate for its guest CTA; public here keeps the
@@ -36,7 +38,7 @@ const api = vi.hoisted(() => ({
   toastError: vi.fn(),
 }))
 vi.mock('@/features/contact/api/contact-api', () => ({ submitContactForm: api.submitContactForm }))
-vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: api.submitFeedback }))
+vi.mock('@/features/feedback/api/feedback-api', () => ({ submitFeedback: api.submitFeedback, getFeedbackCapabilities: api.getFeedbackCapabilities, getFeedbackSubmission: api.getFeedbackSubmission }))
 vi.mock('@/features/waitlist/api/waitlist-api', () => ({ joinWaitlist: api.joinWaitlist }))
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: api.getCurrentUserSafe }))
 vi.mock('@/features/marketing/api/access-api', () => ({ getRegistrationConfig: api.getRegistrationConfig }))
@@ -85,6 +87,14 @@ function expectBusyAndFocused(control: HTMLElement) {
   expect(control).toHaveAttribute('aria-disabled', 'true')
   expect(document.activeElement).toBe(control)
 }
+
+beforeEach(() => {
+  sessionStorage.clear()
+  api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: false })
+  api.getFeedbackSubmission.mockImplementation(async (key: string) => ({ submission_id: key, state: 'retryable', retry_after_seconds: null, feedback: null }))
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:feedback-test') })
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() })
+})
 
 afterEach(() => {
   cleanup()
@@ -203,6 +213,8 @@ describe('FeedbackWidget', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Send feedback' }))
     const message = await screen.findByLabelText('Feedback message')
+    expect(message).toHaveAccessibleDescription('Describe what happened. You can paste a web link here too.')
+    expect(message.closest('[role="dialog"]')).toHaveClass('ph-no-capture')
     const send = screen.getByRole('button', { name: 'Send feedback' })
     // Too short is a kept availability state: set by the textarea, never by Send's own activation.
     expect(send).toBeDisabled()
@@ -222,12 +234,206 @@ describe('FeedbackWidget', () => {
 
     await act(async () => post.reject(new Error('offline')))
     await waitFor(() => expect(api.toastError).toHaveBeenCalledTimes(1))
-    expect(send).toHaveTextContent('Send feedback')
+    await waitFor(() => expect(send).toHaveTextContent('Send feedback'))
     expect(send).not.toHaveAttribute('aria-disabled')
     expect(send).not.toHaveAttribute('aria-busy')
     expect(send).not.toBeDisabled()
     expect(document.activeElement).toBe(send)
     expect(message).toHaveValue('The chart is off by one.')
+  })
+
+  it('keeps screenshot bytes local, preserves mixed paste, and removes a selected file with focus hand-off', async () => {
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    const image = new File(['image'], 'private-account.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [image] } })
+    expect(screen.getByText('private-account.png')).toBeInTheDocument()
+    expect(api.submitFeedback).not.toHaveBeenCalled()
+    const text = screen.getByLabelText('Feedback message')
+    const pasted = fireEvent.paste(text, { clipboardData: {
+      items: [{ kind: 'file', getAsFile: () => new File(['second'], 'paste.png', { type: 'image/png' }) }],
+      getData: () => 'A note with https://example.test',
+    } })
+    expect(pasted).toBe(true) // native text paste was not prevented or replaced
+    expect(screen.getAllByRole('img')).toHaveLength(2)
+    const remove = screen.getByRole('button', { name: 'Remove screenshot 1' })
+    remove.focus()
+    fireEvent.click(remove)
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:feedback-test')
+    expect(screen.queryByText('private-account.png')).not.toBeInTheDocument()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add screenshots' }))
+  })
+
+  it('freezes the complete upload snapshot, closes without cancelling, and checks an uncertain receipt before reusing the key', async () => {
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    api.getFeedbackSubmission.mockImplementation(async (key: string) => ({ submission_id: key, state: 'not_found', retry_after_seconds: null, feedback: null }))
+    const post = deferred<unknown>()
+    const second = deferred<unknown>()
+    api.submitFeedback.mockReturnValueOnce(post.promise).mockReturnValueOnce(second.promise)
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    const image = new File(['image'], 'private.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [image] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Screenshot explains this problem' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    const [input, options] = api.submitFeedback.mock.calls[0]
+    expect(options.files).toEqual([image])
+    expect(screen.getByLabelText('Feedback message')).toHaveAttribute('readonly')
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Must not replace snapshot' } })
+    expect(screen.getByLabelText('Feedback message')).toHaveValue(input.message)
+    act(() => options.onUploadProgress(100))
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    expect(screen.getByRole('button', { name: 'Saving…' })).toHaveAttribute('aria-busy', 'true')
+    await act(async () => post.reject(new ApiError(0, 'network interrupted')))
+    await screen.findByText('We could not confirm the submission. Send this same draft again to check it safely.')
+    expect(api.getFeedbackSubmission).toHaveBeenCalledWith(options.submissionId, expect.any(AbortSignal))
+    expect(JSON.parse(sessionStorage.getItem('en_feedback_pending')!)).toEqual({ owner: 1, key: options.submissionId })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    act(() => {
+      api.submitFeedback.mock.calls[1][1].onUploadProgress(20)
+      options.onUploadProgress(100) // a stale progress event from the first transport
+    })
+    expect(screen.getByRole('progressbar', { name: 'Screenshot upload' })).toHaveAttribute('value', '20')
+    await act(async () => second.resolve({ id: 7 }))
+    await waitFor(() => expect(api.toastSuccess).toHaveBeenCalledTimes(1))
+    expect(api.submitFeedback.mock.calls[1][0]).toEqual(input)
+    expect(api.submitFeedback.mock.calls[1][1]).toMatchObject({ submissionId: options.submissionId, files: [image], readerId: 1 })
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+  })
+
+  it('keeps an uncertain submission identity when a later resend is rejected before the earlier attempt settles', async () => {
+    const receipt = deferred<unknown>()
+    api.submitFeedback.mockRejectedValueOnce(new ApiError(0, 'network interrupted'))
+    api.submitFeedback.mockRejectedValueOnce(new ApiError(429, 'Please wait.'))
+    api.getFeedbackSubmission.mockImplementationOnce(async (key: string) => ({ submission_id: key, state: 'not_found', retry_after_seconds: null, feedback: null }))
+    api.getFeedbackSubmission.mockReturnValueOnce(receipt.promise)
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'An uncertain original submission' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByText('We could not confirm the submission. Send this same draft again to check it safely.')
+    const key = api.submitFeedback.mock.calls[0][1].submissionId
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await waitFor(() => expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(2))
+    expect(JSON.parse(sessionStorage.getItem('en_feedback_pending')!).key).toBe(key)
+    expect(screen.getByLabelText('Feedback message')).toHaveAttribute('readonly')
+    fireEvent.submit(screen.getByRole('button', { name: 'Checking…' }).closest('form')!)
+    expect(api.submitFeedback).toHaveBeenCalledTimes(2)
+    await act(async () => receipt.resolve({ submission_id: key, state: 'submitted', retry_after_seconds: null, feedback: { id: 11 } }))
+    await waitFor(() => expect(api.toastSuccess).toHaveBeenCalledTimes(1))
+    expect(api.submitFeedback.mock.calls[1][1].submissionId).toBe(key)
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
+  })
+
+  it('restarts a receipt check under a retained reader’s new session generation and ignores its old answer', async () => {
+    const oldReceipt = deferred<unknown>()
+    const freshReceipt = deferred<unknown>()
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    api.submitFeedback.mockRejectedValueOnce(new ApiError(0, 'network interrupted'))
+    api.getFeedbackSubmission.mockReturnValueOnce(oldReceipt.promise).mockReturnValueOnce(freshReceipt.promise)
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [new File(['private'], 'retained.png', { type: 'image/png' })] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Keep this screenshot through a failed logout' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await waitFor(() => expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(1))
+    const key = api.submitFeedback.mock.calls[0][1].submissionId
+    advanceSessionGeneration()
+    await act(async () => oldReceipt.resolve({ submission_id: key, state: 'submitted', retry_after_seconds: null, feedback: { id: 12 } }))
+    await waitFor(() => expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(2))
+    expect(api.toastSuccess).not.toHaveBeenCalled()
+    expect(screen.getByText('retained.png')).toBeInTheDocument()
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('Keep this screenshot through a failed logout')
+    expect(JSON.parse(sessionStorage.getItem('en_feedback_pending')!).key).toBe(key)
+    await act(async () => freshReceipt.resolve({ submission_id: key, state: 'submitted', retry_after_seconds: null, feedback: { id: 12 } }))
+    await waitFor(() => expect(api.toastSuccess).toHaveBeenCalledTimes(1))
+    expect(api.submitFeedback).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
+  })
+
+  it('releases a reconstructed conflicting draft only after the older receipt is fenced as retryable', async () => {
+    const key = '00000000-0000-4000-8000-000000000001'
+    sessionStorage.setItem('en_feedback_pending', JSON.stringify({ owner: 1, key }))
+    api.getFeedbackSubmission.mockImplementationOnce(async () => ({ submission_id: key, state: 'not_found', retry_after_seconds: null, feedback: null }))
+    api.submitFeedback.mockRejectedValueOnce(new ApiError(409, 'Submission differs.'))
+    api.submitFeedback.mockReturnValueOnce(new Promise(() => {}))
+    mountFeedback()
+    await waitFor(() => expect(api.getFeedbackSubmission).toHaveBeenCalledTimes(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByText('We could not confirm your earlier submission. Re-enter the note and select the screenshots; we will check the same submission.')
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'A reconstructed different note' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByText('Your earlier feedback was not saved. Your current draft is ready to send.')
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('A reconstructed different note')
+    expect(screen.getByLabelText('Feedback message')).not.toHaveAttribute('readonly')
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    expect(api.submitFeedback.mock.calls[0][1].submissionId).toBe(key)
+    expect(api.submitFeedback.mock.calls[1][1].submissionId).not.toBe(key)
+  })
+
+  it('starts a fresh submission after an image validation rejection and allows the rejected draft to be corrected', async () => {
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    api.submitFeedback.mockRejectedValueOnce(new ApiError(422, 'Crop this screenshot and try again.'))
+    api.submitFeedback.mockReturnValueOnce(new Promise(() => {}))
+    mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    const original = new File(['large image'], 'original.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [original] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'The original screenshot' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByText('Crop this screenshot and try again.')
+    expect(screen.getByLabelText('Feedback message')).not.toHaveAttribute('readonly')
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
+    expect(api.getFeedbackSubmission).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove screenshot 1' }))
+    const cropped = new File(['cropped image'], 'cropped.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [cropped] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'A corrected screenshot and note' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    expect(api.submitFeedback.mock.calls[1][1].submissionId).not.toBe(api.submitFeedback.mock.calls[0][1].submissionId)
+    expect(api.submitFeedback.mock.calls[1][1].files).toEqual([cropped])
+    expect(api.submitFeedback.mock.calls[1][0].message).toBe('A corrected screenshot and note')
+  })
+
+  it('clears selected images on an account switch and ignores old upload progress and receipt', async () => {
+    api.getFeedbackCapabilities.mockResolvedValue({ attachments_enabled: true })
+    const post = deferred<unknown>()
+    api.submitFeedback.mockReturnValue(post.promise)
+    const client = mountFeedback()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    await screen.findByRole('button', { name: 'Add screenshots' })
+    fireEvent.change(screen.getByLabelText('Screenshot files'), { target: { files: [new File(['private'], 'A-only.png', { type: 'image/png' })] } })
+    fireEvent.change(screen.getByLabelText('Feedback message'), { target: { value: 'Private A screenshot' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    const options = api.submitFeedback.mock.calls[0][1]
+    act(() => client.setQueryData(queryKeys.currentUser(), reader(2)))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(URL.revokeObjectURL).toHaveBeenCalled()
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Send feedback' }))
+    act(() => options.onUploadProgress(100))
+    await act(async () => post.resolve({ id: 8 }))
+    expect(screen.getByLabelText('Feedback message')).toHaveValue('')
+    expect(screen.queryByText('A-only.png')).not.toBeInTheDocument()
+    expect(api.toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it('recovers a saved receipt after reload without persisting note text or sending again', async () => {
+    sessionStorage.setItem('en_feedback_pending', JSON.stringify({ owner: 1, key: '00000000-0000-4000-8000-000000000001' }))
+    api.getFeedbackSubmission.mockResolvedValue({ submission_id: '00000000-0000-4000-8000-000000000001', state: 'submitted', retry_after_seconds: null, feedback: { id: 9 } })
+    mountFeedback()
+    await waitFor(() => expect(api.toastSuccess).toHaveBeenCalledTimes(1))
+    expect(api.submitFeedback).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem('en_feedback_pending')).toBeNull()
   })
 
   it('follows login and logout without remounting, and never carries a draft between readers', async () => {

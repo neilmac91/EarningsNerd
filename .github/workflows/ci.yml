@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # The three default types keep every required check reporting on each head, drafts included;
+  # ready_for_review starts eval-baseline's paid draw, which drafts never make (F55).
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       limit:
@@ -308,6 +311,18 @@ jobs:
         env:
           ADMIN_MAINTENANCE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_admin_maintenance_transactions.py
+      - name: Verify admin invite concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_admin_invite_transactions.py
+      - name: Verify feedback submission concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          FEEDBACK_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_feedback_submission_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -464,10 +479,18 @@ jobs:
   # filtered so it only runs when AI-relevant code changes, and evals.runner parallelizes across
   # filings with an explicit CI cap of 2 (runner default stays 5). This unmeasured starting
   # assumption may lengthen CI; recovery fan-out and other PRs can still add provider calls.
+  # A pull request draws only while it is ready (the ready mark and each push after it) or on a
+  # dispatch; a draft's run says whether its head would draw and spends nothing (F55). Unlike
+  # copilot-eval, nothing limits a head to one draw: a second ready mark, a reopen or a re-run
+  # while ready draws again.
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
+    # The scope step reads the pull request's live draft flag; no step needs a write scope.
+    permissions:
+      contents: read
+      pull-requests: read
     # Each run is a real DeepSeek measurement (see step below). Without this, every new
     # push to an open PR queues another full run on top of the still-running one from the last
     # push — only the latest push's result matters, so cancel superseded runs to stop paying for
@@ -481,10 +504,15 @@ jobs:
           fetch-depth: 2
       - name: Detect AI-relevant changes
         id: scope
-        # Classify this checked PR merge, not upstream changes since a stale event base.
+        # Classify this checked PR merge, not upstream changes since a stale event base. Only a pull
+        # request that is ready now draws. An event's payload can still say draft after the ready
+        # mark, and a re-run keeps its payload (#1315, backend/scripts/review_gate.py), so an
+        # AI-relevant head reads the live draft flag; anything but an exact "false" fails closed.
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
@@ -516,10 +544,23 @@ jobs:
               backend/app/*|backend/evals/*|backend/prompts/*) RUN=true ;;
             esac
           done < "$CHANGED_PATHS"
-          echo "run=$RUN" >> "$GITHUB_OUTPUT"
           if [ "$RUN" = "false" ]; then
             echo "No AI-relevant backend changes — skipping eval-baseline."
+          else
+            DRAFT=unreadable
+            if [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+              DRAFT=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .draft) || DRAFT=unreadable
+            fi
+            case "$DRAFT" in
+              false) ;;
+              true)
+                RUN=false
+                echo "::notice::Draft pull request: eval-baseline draws nothing. This head changes AI-relevant paths, so marking it ready for review starts the paid run; reserve first (lessons/ops-reserve-eval-baseline-before-each-push.md)."
+                ;;
+              *) echo "::error::Cannot read whether this pull request is a draft."; exit 1 ;;
+            esac
           fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
       - name: Check for eval API key
         id: key
         if: steps.scope.outputs.run == 'true'
@@ -716,15 +757,16 @@ jobs:
 
   # The trend charts' spec renderer behind NEXT_PUBLIC_CHARTS_V2 (E192). NEXT_PUBLIC_ values are inlined at build time,
   # so the flag needs its own build: e2e-tests' build with the flag set. This job runs the browser checks that cover
-  # the charts (their DOM checks, the PNG export's fidelity, the locked teaser's first screen, and the analysis route's
-  # text floors); e2e-tests runs everything against the flag-off build production ships. It is a required check on
+  # the charts (their DOM checks, the analysis page's layout around them, the PNG export's fidelity, the locked teaser's
+  # first screen, and the analysis route's text floors); e2e-tests runs everything against the flag-off build
+  # production ships. It is a required check on
   # main (ruleset 23561253, since 2026-10-25), so step 7 (tasks/todo.md E195) takes it out of the ruleset before it
   # moves these specs into e2e-tests and deletes the job. deploy-backend does not wait for it.
   e2e-charts-v2:
     needs: [ci-scope]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Require a valid browser scope
         env:
@@ -784,11 +826,11 @@ jobs:
         working-directory: frontend
       - name: Run the charts' E2E tests
         if: needs.ci-scope.outputs.records_only == 'false'
-        # charts-v2.spec.ts skips unless this process has the flag too. Both runs always run, the second reporting into
+        # The charts-v2 specs skip unless this process has the flag too. Both runs always run, the second reporting into
         # its own folder of the same artifact, and the step fails if either does.
         run: |
           status=0
-          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
+          npx playwright test tests/e2e/charts-v2.spec.ts tests/e2e/charts-v2-gallery.spec.ts tests/e2e/analysis-layout.spec.ts tests/e2e/chart-export-fidelity.spec.ts tests/e2e/analysis-teaser-window.spec.ts || status=1
           PLAYWRIGHT_HTML_OUTPUT_DIR=playwright-report/text-floors npx playwright test tests/e2e/text-floors.spec.ts -g 'analysis: muted ink' || status=1
           exit $status
         working-directory: frontend
@@ -976,8 +1018,8 @@ jobs:
           # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
           # filing-load audit). The 2026-09-27 source/session audit budgets four connections per
           # serving instance with no overflow. At the current two-instance cap, pregenerate's three
-          # sessions and one execution of each other job, configured application demand is 18,
-          # or 21 with the optional worker's three connections; preserve a database reserve.
+          # sessions and one execution of each other job, configured application demand is 19,
+          # or 22 with the optional worker's three connections; preserve a database reserve.
           # --max=2 pins the service-level limit across
           # traffic-serving revisions while --max-instances=2 pins each new revision. Cloud Run can
           # briefly exceed a configured maximum, and jobs remain outside this service limit; measure
@@ -1024,7 +1066,7 @@ jobs:
         # CI bumps the image and sets the DB pool and SEC budget keys. Skip each gracefully if it hasn't been
         # created yet so CD never fails.
         run: |
-          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge; do
+          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings earningsnerd-retention-purge earningsnerd-feedback-media-cleanup; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
               # Each declared job entrypoint passes one business session through its service; the
               # ledger session runs before/after it. One pooled connection is therefore sufficient

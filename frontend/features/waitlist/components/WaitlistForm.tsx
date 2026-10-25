@@ -11,7 +11,8 @@ import { ApiError } from '@/lib/api/client'
 import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
-import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { exampleFilingHref, TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { Button, Card, Input, Notice, buttonVariants, cx, primaryUnavailableClass } from '@/components/ui'
 
 type WaitlistSuccess = {
@@ -180,14 +181,24 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
       <Card className="p-cap-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
-          <span className="text-sm font-semibold uppercase tracking-eyebrow">You&apos;re in</span>
+          <span className="text-sm font-semibold">Waitlist request received</span>
         </div>
         <h2 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {success.message || "You're on the waitlist."}
+          You&apos;re on the waitlist.
         </h2>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
         </p>
+        <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          This is not an account or an invitation yet. You can explore the live example while you wait.
+        </p>
+        <ExampleCtaLink
+          href={exampleFilingHref('waitlist_success_example')}
+          placement="waitlist"
+          className={buttonVariants({ variant: 'secondary', size: 'md', wrap: true, className: 'mt-4' })}
+        >
+          Read a live example while you wait
+        </ExampleCtaLink>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
           <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">

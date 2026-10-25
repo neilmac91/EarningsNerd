@@ -1,4 +1,4 @@
-import { legalReady } from './fixtures/legalReady'
+import { answerLegalReadiness, legalReady } from './fixtures/legalReady'
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import { calendarWeekReady, pinCalendarWeek } from './fixtures/calendarWeek'
 import { settled } from './fixtures/contrast'
@@ -157,7 +157,10 @@ const ROUTES: Route[] = [
   {
     name: 'filing',
     path: '/filing/3',
-    open: (p, b) => answerApi(p, b, 'anon'),
+    open: async (p, b) => {
+      await answerApi(p, b, 'anon')
+      await answerLegalReadiness(p, b)
+    },
     // Only a rendered summary has sections to jump to.
     ready: (p) => expect(p.getByRole('navigation', { name: 'Jump to section' })).toBeVisible(),
     ...siteHeader,
@@ -1120,6 +1123,7 @@ test('filing (/filing/3) keeps the stuck section nav below the header at 200% te
     } catch {}
   })
   await answerApi(page, baseURL!, 'anon')
+  await answerLegalReadiness(page, baseURL!)
   await page.goto('/filing/3')
   const nav = page.getByRole('navigation', { name: 'Jump to section' })
   await expect(nav).toBeVisible()

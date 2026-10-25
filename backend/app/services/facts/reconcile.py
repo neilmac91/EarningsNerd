@@ -11,6 +11,7 @@ from app.services.facts.concepts import (
     CROSS_CHECK_TOLERANCE, HEADLINE_GAAP_TAGS, NON_NEGATIVE_CONCEPTS,
     _INSTANT_HEADLINE, _MAGNITUDE_TOLERANCE, _parse_date,
 )
+from app.services.facts.currency import is_proxy_form
 from app.services.facts.lineage import (
     annotate_filing_calculations, authoritative_reconciliation, local_reconciliation,
 )
@@ -163,9 +164,9 @@ def _prior_values(
 def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], float]:
     """Map ``(headline concept, period_end) -> authoritative annual USD value`` from companyfacts.
 
-    Reads ``facts."us-gaap".<tag>.units.USD[]``. For duration concepts (revenue, net income)
-    only the ~annual duration is kept (the FY value our facts carry); for the instant concept
-    (total assets) the period-end value is taken. Pure/defensive — ``{}`` for anything malformed.
+    Reads ``facts."us-gaap".<tag>.units.USD[]``, never a proxy's item (``is_proxy_form``). For duration
+    concepts (revenue, net income) only the ~annual duration is kept (the FY value our facts carry); for the
+    instant concept (total assets) the period-end value is taken. Pure/defensive — ``{}`` for anything malformed.
     """
     out: dict[tuple[str, date], float] = {}
     if not isinstance(companyfacts, dict):
@@ -185,7 +186,7 @@ def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], fl
                 continue
             best: dict[date, tuple[int, float]] = {}  # period_end -> (duration penalty, value)
             for item in items:
-                if not isinstance(item, dict):
+                if not isinstance(item, dict) or is_proxy_form(item.get("form")):
                     continue
                 value = item.get("val")
                 if not isinstance(value, (int, float)) or isinstance(value, bool):

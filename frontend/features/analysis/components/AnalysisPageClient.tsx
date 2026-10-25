@@ -461,7 +461,7 @@ export default function AnalysisPageClient() {
               refreshDisabled={narrative.status === 'streaming'}
               onExport={exportPdf}
             />
-            {/* The data notes are the table's fine print: 8px under its card, not the results' 16px apart (D-061). */}
+            {/* The data notes are the table's fine print (D-061), 8px under its card, not the results' 16px apart. */}
             <div className="flex flex-col gap-2">
               <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
               <DataNotes dataset={dataset} />

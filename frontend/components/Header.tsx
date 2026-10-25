@@ -15,7 +15,8 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { ACCESS_COPY, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
   // Flag-gated: /search, /analysis and /calendar all 404 while their flags are off, so the nav
@@ -79,7 +80,7 @@ export default function Header({
   }, [])
   const router = useRouter()
   const queryClient = useQueryClient()
-  const account = ACCESS_COPY[accessMode]
+  const account = usePublicAccess(accessMode)
   const headerRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)

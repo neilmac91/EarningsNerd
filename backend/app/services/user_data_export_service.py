@@ -9,7 +9,44 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from app.models import AccountAgreement, BillingPayment, SavedSummary, SectionReview, User, UserSearch, UserUsage, Watchlist
-from app.utils.datetimes import iso_z, utcnow
+from app.models.feedback import Feedback, FeedbackAttachment
+from app.utils.datetimes import ensure_utc, iso_z, utcnow
+
+
+def _feedback_export(db: Session, owner_id: int) -> list[dict[str, Any]]:
+    """Retained reports and a private media manifest, never storage keys or image bytes."""
+    now = utcnow()
+    reports = db.query(Feedback).filter(Feedback.user_id == owner_id).order_by(Feedback.id).all()
+    attachments = db.query(FeedbackAttachment).filter(
+        FeedbackAttachment.owner_id == owner_id,
+        FeedbackAttachment.feedback_id.is_not(None),
+    ).order_by(FeedbackAttachment.created_at, FeedbackAttachment.id).all()
+    by_report: dict[int, list[dict[str, Any]]] = {}
+    for attachment in attachments:
+        expired = attachment.expires_at is not None and ensure_utc(attachment.expires_at) <= now
+        available = attachment.state == "available" and attachment.deleted_at is None and not expired
+        item = {
+            "id": attachment.id,
+            "content_type": attachment.content_type,
+            "width": attachment.width,
+            "height": attachment.height,
+            "byte_count": attachment.byte_count,
+            "sha256": attachment.checksum,
+            "created_at": iso_z(ensure_utc(attachment.created_at)),
+            "expires_at": iso_z(ensure_utc(attachment.expires_at)) if attachment.expires_at else None,
+            "status": "available" if available else "expired" if expired else "unavailable",
+            "download_path": f"/api/feedback/attachments/{attachment.id}" if available else None,
+        }
+        by_report.setdefault(attachment.feedback_id, []).append(item)
+    return [{
+        "id": report.id,
+        "type": report.type,
+        "message": report.message,
+        "page_url": report.page_url,
+        "status": report.status,
+        "created_at": iso_z(ensure_utc(report.created_at)),
+        "attachments": by_report.get(report.id, []),
+    } for report in reports]
 
 
 def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
@@ -145,6 +182,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "billing_payments": payments_data,
         "section_reviews": reviews_data,
         "account_agreements": agreements_data,
+        "feedback": _feedback_export(db, current_user.id),
         "export_timestamp": utcnow().isoformat(),
     }
     return export_data

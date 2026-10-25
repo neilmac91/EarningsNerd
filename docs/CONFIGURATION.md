@@ -108,6 +108,9 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `RESEND_REPLY_TO_EMAIL` | `"support@earningsnerd.io"` | Reply destination for direct transactional mail; defaults to the shared public role config. Durable deliveries freeze this optional value at selection; existing batches keep their stored value or header omission across retries and configuration changes. |
 | `CONTACT_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for contact-form notifications, independent of the sending address. |
 | `FEEDBACK_NOTIFICATION_EMAIL` | `"support@earningsnerd.io"` | Workspace recipient for beta-feedback notifications, independent of the sending address. |
+| `FEEDBACK_MEDIA_ENABLED` | `false` | Accept new screenshot submissions only after private storage, cleanup and alert verification; disabling keeps existing authorized reads and cleanup available. |
+| `FEEDBACK_MEDIA_BUCKET` | `""` | Private GCS bucket for screenshot objects; use separate production and preview buckets with their corresponding isolated database/runtime. Empty disables storage access. |
+| `FEEDBACK_MEDIA_RETENTION_DAYS` | `180` | Screenshot lifetime from creation, recorded on each manifest; account deletion revokes access immediately and queues earlier removal. |
 | `RESEND_WEBHOOK_SECRET` | `""` | Resend/Svix webhook signature secret. |
 | `FRONTEND_URL` | `"https://www.earningsnerd.io"` | Public frontend origin: mail links, sign-in redirects and the mail header's tile (`/assets/earningsnerd-appicon.png`) are built on it. Use the origin that answers without a redirect (the apex answers 307 to www): sent mail keeps the whole address. Set it without a trailing slash: the tile and the waitlist's links strip one, the other links append their paths to it as it is. |
 | `DATA_QUALITY_REPORT_EMAIL` | `"neil@earningsnerd.io"` | Recipient of the operator-run data-quality report. |

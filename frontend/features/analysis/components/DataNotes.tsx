@@ -89,8 +89,9 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
     : formatLocalDate(dataset.data_as_of, 'MMMM d, yyyy')
   const marked = model.notes.filter(noteMarksFigure)
   const unknownComparisons = model.notes.filter((note) => note.kind === 'unknown').reduce((count, note) => count + note.comparisons.length, 0)
-  // Decision 9 says it whenever every populated figure passed, whatever a comparison carries; D-061 never lets it stand
-  // beside a note that needs review but marks nothing, a growth figure's included.
+  // Decision 9 says it whenever every populated figure passed, whatever a comparison carries. D-061 keeps "never mark a
+  // legacy record validated", so it never stands beside a note that needs review but marks nothing, a growth figure's
+  // included.
   const allPopulatedPassed = totals.reviewValues === 0 && totals.unknown === 0 && totals.passed > 0
     && !model.notes.some((note) => note.kind === 'review' && !noteMarksFigure(note))
   const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`

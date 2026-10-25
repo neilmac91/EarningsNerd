@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import User
 from app.models.feedback import Feedback
 from app.schemas.feedback import FeedbackStatus, FeedbackType
+from app.services.feedback_submission_service import attachment_metadata  # noqa: F401 - shared admin projection
 
 
 def list_feedback(

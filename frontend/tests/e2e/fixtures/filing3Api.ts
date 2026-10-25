@@ -70,6 +70,15 @@ export async function answerApi(page: Page, baseURL: string, who: Who = 'anon', 
         return who === 'anon'
           ? json(401, { detail: 'Not authenticated' })
           : json(200, { id: 1, email: 'pro@example.com', full_name: 'Pro User', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
+      case '/api/feedback/capabilities':
+        // These shared cases use the healthy text-only composer, not a capabilities failure.
+        return json(200, {
+          attachments_enabled: false,
+          max_files: 3,
+          max_file_bytes: 5 * 1024 * 1024,
+          max_total_bytes: 16 * 1024 * 1024,
+          accepted_content_types: ['image/png', 'image/jpeg', 'image/webp'],
+        })
       case '/api/subscriptions/subscription':
         return json(200, { is_pro: true, stripe_customer_id: 'cus_1', stripe_subscription_id: 'sub_1', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
       case '/api/subscriptions/usage':

@@ -347,6 +347,20 @@ BINDING_MENTIONS = {
     # The GDPR export reads the binding and each payment's copy into the export payload.
     ("backend/app/services/user_data_export_service.py", "build_user_data_export", "read"): 2,
     ("backend/app/services/user_data_export_service.py", "build_user_data_export", "key"): 2,
+    # The isolated verifier refuses a synthetic account with a billing identity; it never writes it.
+    ("ops/feedback_media/verify_runtime.py", "owned_rows", "read"): 1,
+    # These SELECTs interpolate only the fixed verifier-marker table, not a billing table or column.
+    ("ops/feedback_media/verify_runtime.py", "check_database", "dynamic"): 1,
+    ("ops/feedback_media/verify_runtime.py", "marker", "dynamic"): 2,
+    # Fixed marker UPDATEs write only fixtures, receipt and completed_at; neither touches a user binding.
+    ("ops/feedback_media/verify_runtime.py", "fixtures", "dynamic"): 2,
+    ("ops/feedback_media/verify_runtime.py", "complete", "dynamic"): 2,
+    # counts.update builds evidence counters in a Python dictionary, not an ORM row.
+    ("ops/feedback_media/verify_runtime.py", "snapshot", "dynamic"): 1,
+    # os.environ.update clears integration credentials before application import; no database writer.
+    ("ops/feedback_media/verify_runtime.py", "main", "dynamic"): 1,
+    # getattr selects a runtime method only after the fixed control-action allowlist admits it.
+    ("ops/feedback_media/verify_runtime.py", "__call__", "dynamic"): 1,
     # The columns.
     ("backend/app/models/subscription.py", "Subscription", "definition"): 1,
     ("backend/app/models/__init__.py", "User", "definition"): 1,

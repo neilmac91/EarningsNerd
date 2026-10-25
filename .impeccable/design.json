@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-25T02:25:40+00:00",
+  "generatedAt": "2026-10-25T17:56:00+00:00",
   "title": "Design System: EarningsNerd",
   "extensions": {
     "colorMeta": {
@@ -440,7 +440,7 @@
       },
       "data": {
         "displayName": "Data",
-        "purpose": "Mono evidence register; size follows component context."
+        "purpose": "Mono evidence register; size follows component context. Inside the app a platform monospace face (ui-monospace, SFMono-Regular, Menlo, then monospace) stands in while Geist Mono loads, never a proportional one."
       },
       "data-xs": {
         "displayName": "Dense Data Annotation",

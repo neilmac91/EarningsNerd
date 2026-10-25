@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
+import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
+import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -11,6 +13,11 @@ import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TAB
  * expand it to the overflowing document. Compare scrollWidth with document.clientWidth
  * AND the configured viewport. Off-screen sr-only text still counts in that check.
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
+ *
+ * The trend charts are read through fixtures/trendChartDom.ts, from whichever renderer the build draws: today's
+ * Recharts charts in the e2e-tests job, the spec renderer's (NEXT_PUBLIC_CHARTS_V2) in e2e-charts-v2, which runs this
+ * file too (step 6 of the trend-chart migration, E194). Recharts' keyboard and notes case runs on Recharts alone;
+ * charts-v2.spec.ts holds the renderer's, and step 7 (E195) retires it.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
@@ -439,25 +446,7 @@ async function stableAnalysisOutsideTable(page: Page) {
   return {
     kpis: await page.locator('[data-analysis-kpi]').allTextContents(),
     notes: await page.locator(`${NOTES} > details > summary`).innerText(),
-    charts: await page.locator('[data-analysis-chart]').evaluateAll(charts => charts.map(chart => ({
-      name: chart.getAttribute('data-analysis-chart'),
-      // Recharts renders tick lines and labels in separate layers. Inspect the painted
-      // label layer: counting the line groups can pass with twelve empty strings.
-      ticks: [...chart.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-label')].map(tick => {
-        const glyphs = [...tick.querySelectorAll('text,tspan')].filter(glyph => glyph.textContent?.trim())
-        return {
-          text: tick.textContent?.replace(/\s/g, '') ?? '',
-          painted: glyphs.length > 0 && glyphs.every(glyph => {
-            const box = glyph.getBoundingClientRect()
-            const style = getComputedStyle(glyph)
-            return glyph.checkVisibility({ visibilityProperty: true, opacityProperty: true })
-              && box.width > 0 && box.height > 0 && style.fill !== 'none' && Number(style.fillOpacity) > 0
-          }),
-        }
-      }),
-      // Rendered line/bar geometry makes this stronger than a period-count attribute.
-      shapes: [...chart.querySelectorAll('.recharts-line-curve,.recharts-area-curve,.recharts-bar-rectangle path,.recharts-bar-rectangle rect')].map(shape => ['d', 'x', 'y', 'width', 'height'].map(attr => shape.getAttribute(attr))),
-    }))),
+    charts: await page.locator('[data-analysis-chart]').evaluateAll(readTicksAndShapes, CHARTS_V2),
   }
 }
 
@@ -488,10 +477,10 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       const traffic = await openAnalysis(page, baseURL!, state, theme, profile.textScale ?? 1)
       await assertNotes(page, state)
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
-      await expect(page.locator('[data-analysis-chart]')).toHaveCount(4)
+      await drawnCharts(page)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
-        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => `${period.slice(4)}'${period.slice(2, 4)}`))
+        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => tickText(period, CHARTS_V2)))
         for (const tick of chart.ticks) expect(tick.painted, `${chart.name}: ${tick.text} has visible glyphs`).toBe(true)
         expect(chart.shapes.length, `${chart.name}: actual plotted data`).toBeGreaterThan(0)
       }
@@ -892,6 +881,13 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, state, theme, 1)
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
+    // The stylesheet the build emits (E199): the data face falls back to a monospace one, with no metric-matched Arial.
+    const mono = await page.evaluate(() => ({
+      stack: getComputedStyle(document.documentElement).getPropertyValue('--font-geist-mono').trim(),
+      metricFallback: [...document.fonts].some(face => face.family.replace(/["']/g, '') === 'Geist Mono Fallback'),
+    }))
+    expect(mono.stack, 'the data face falls back to a monospace one').toMatch(/^["']Geist Mono["'],\s*ui-monospace,\s*SFMono-Regular,\s*Menlo,\s*monospace$/)
+    expect(mono.metricFallback, 'no metric-matched Arial face for Geist Mono').toBe(false)
     const selector = `[data-analysis-kpi] button[aria-label$="View source and calculation"], ${TABLE} tbody button[aria-label$="View source and calculation"]`
     const controls = await page.locator(selector).evaluateAll(buttons => buttons.map(button => {
       const cell = button.closest('td, [data-analysis-kpi]')!
@@ -1027,31 +1023,15 @@ for (const theme of THEMES) {
     test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
     // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
-    // Wider axes must not make a chart at its card's full desktop width scroll.
+    // Wider axes must not make a chart at its card's full desktop width scroll. The spec renderer sets each label 8 px
+    // left of its plot, from a gutter sized to its widest label (D5). It scrolls a chart only where the plan is wider
+    // than its card (M6), and these plans fit a desktop card.
     for (const [name, state, edit] of [
       ['quarterly', 'captured', undefined], ['quarterly in CHF', 'captured', inSwissFrancs], ['annual in CHF', 'annual', inSwissFrancs],
     ] as const) {
       test(`${name}: every y tick label is painted on one line inside its axis, and no chart scrolls`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll(elements => elements.map(chart => {
-          const svg = chart.querySelector('svg.recharts-surface')!.getBoundingClientRect()
-          const grid = chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect()
-          const labels = [...chart.querySelectorAll('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-label')]
-          const viewport = chart.closest('[data-analysis-chart-scroll]')!
-          return {
-            name: chart.getAttribute('data-analysis-chart'),
-            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-            labels: labels.map(label => label.textContent ?? ''),
-            broken: labels.filter(label => label.querySelectorAll('tspan').length !== 1).map(label => label.textContent),
-            outside: labels.flatMap(label => {
-              const box = label.getBoundingClientRect()
-              const inside = box.right <= grid.left + 1 ? box.left >= svg.left + 8 - 0.5 : box.right <= svg.right - 16 + 0.5
-              return inside ? [] : [`${label.textContent} at ${Math.round(box.left - svg.left)}–${Math.round(box.right - svg.left)} of ${Math.round(svg.width)}`]
-            }),
-          }
-        }))
+        const charts = await (await drawnCharts(page)).evaluateAll(readAxes, CHARTS_V2)
         for (const chart of charts) {
           expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
           expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
@@ -1067,22 +1047,16 @@ for (const theme of THEMES) {
 for (const theme of THEMES) {
   test.describe(`analysis chart quarters / ${theme} / 390px`, () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // On a phone a quarterly plot keeps 28 px a quarter past its axes, however wide they are, and scrolls inside its card.
+    // On a phone a quarterly plot keeps 28 px a quarter past its axes (the spec renderer MIN_SLOT's 36), however wide
+    // they are, and scrolls inside its card.
     for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
-      test(`quarterly in ${name}: each quarter keeps 28 px, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
+      test(`quarterly in ${name}: each quarter keeps its slot, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
-        const plots = page.locator('[data-analysis-chart]')
-        await expect(plots).toHaveCount(4)
-        const charts = await plots.evaluateAll((elements, periods) => elements.map(chart => {
-          const viewport = chart.closest('[data-analysis-chart-scroll]')!
-          return {
-            name: chart.getAttribute('data-analysis-chart'),
-            quarter: chart.querySelector('.recharts-cartesian-grid')!.getBoundingClientRect().width / periods,
-            scrolls: viewport.scrollWidth > viewport.clientWidth + 1,
-          }
-        }), PERIODS.length)
+        const charts = await (await drawnCharts(page)).evaluateAll(readSlots, { v2: CHARTS_V2, periods: PERIODS.length })
         for (const chart of charts) {
-          expect(chart.quarter, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual(28 - 0.01)
+          // Recharts keeps 28 px a quarter; the spec renderer's slot is at least MIN_SLOT (M6).
+          expect(chart.ticks, `${chart.name}: a printed tick a quarter`).toBe(PERIODS.length)
+          expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual((CHARTS_V2 ? MIN_SLOT : 28) - 0.01)
           expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways').toBe(true)
@@ -1095,6 +1069,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
     test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
     test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
+      test.skip(CHARTS_V2, 'Today’s Recharts keyboard and notes contract: charts-v2.spec.ts holds the spec renderer’s (D13), and step 7 (E195) retires this case.')
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'discrepancy', theme)
       const plots = page.locator('[data-analysis-chart]')
@@ -1139,11 +1114,11 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       await assertViewport()
       const revenue = plots.first()
       const viewport = revenue.locator('..')
-      const allBars = revenue.locator('.recharts-bar-rectangle path')
+      const allBars = revenue.locator(RECHARTS.bars)
       await expect(allBars).toHaveCount(12)
       const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
       await revenueValues.focus()
-      const tooltip = revenue.locator('.recharts-tooltip-wrapper').getByRole('status')
+      const tooltip = revenue.locator(RECHARTS.tooltip).getByRole('status')
       const settleViewport = async () => {
         const settled = await viewport.evaluate(async element => {
           let previous = element.scrollLeft
@@ -1193,8 +1168,8 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       }
       // Moving the pointer does not blur the SVG. Hover a different period near a clipped
       // edge, then return to the retained keyboard index without moving the pointer away.
-      const hover = await viewport.evaluate(element => {
-        const bar = element.querySelectorAll('.recharts-bar-rectangle path')[8]
+      const hover = await viewport.evaluate((element, bars) => {
+        const bar = element.querySelectorAll(bars)[8]
         const frame = element.getBoundingClientRect()
         if (element.scrollWidth > element.clientWidth + 1) {
           const before = bar.getBoundingClientRect()
@@ -1203,7 +1178,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
         }
         const target = bar.getBoundingClientRect()
         return { x: target.x + target.width / 2, y: frame.y + 80, left: element.scrollLeft }
-      })
+      }, RECHARTS.bars)
       await page.mouse.move(hover.x, hover.y)
       await expect(revenueValues).toBeFocused()
       await expect(tooltip).toContainText('Q3 2025')
