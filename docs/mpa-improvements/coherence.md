@@ -13,6 +13,15 @@ distrust-inducing. A blind test of four designs agreed, so the recommendation is
 The ring design stays on record in [`prototype/notation-prototype.diff`](prototype/notation-prototype.diff)
 and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.png).
 
+**Approved 2026-10-25.** The founder approved the quiet scheme and the narrowed rule ("approved,
+narrow the rule") and asked for the plan to be implemented. In the day since this report was
+written, the sibling plans have landed or opened:
+- the table plan is `neilmac91/EarningsNerd#1606`;
+- the charts plan is steps 1–3 merged (`neilmac91/EarningsNerd#1602`, `#1603`, `#1607`) and step 4
+  open (`neilmac91/EarningsNerd#1609`).
+
+§2.6 reconciles with them, and §6 re-measures the order.
+
 ## 0. The answer first
 
 1. **Fix the data before the design.** In production, "needs review" is on 16.9% of the newest
@@ -78,16 +87,16 @@ and [`screens/variants/ring-light-full.png`](screens/variants/ring-light-full.pn
    - Neither chart PNG states its period range.
 6. **Order (§6):**
    1. The lineage backfill. It shares no code file with any UI plan.
-   2. The quiet notation, after #1597.
+   2. The quiet notation, built on the table plan (`neilmac91/EarningsNerd#1606`) and landing after it.
    3. The data-notes words, then the restatement note (its own backend change; they share
       `data_notes.py`).
    4. The exports, split so each piece follows the sibling that owns its file and #1601.
    5. Surfaces and the results header, last.
-7. **One decision for the founder before step 2 (§2.9).** The 2026-10 redesign records the
+7. **The founder's decision, taken 2026-10-25 (§2.9).** The 2026-10 redesign records the
    founder's rule "never hide a note". A P0 review enforced it for exactly the case the quiet
-   scheme stops marking: a figure whose only note is `legacy_calculation`. The proposed wording is
-   "every note stays in the evidence dialog and the data notes; only a note that questions the
-   number keeps a mark beside the figure". The change stays presentation-only:
+   scheme stops marking: a figure whose only note is `legacy_calculation`. The founder approved
+   narrowing it to "every note stays in the evidence dialog and the data notes; only a note that
+   questions the number keeps a mark beside the figure". The change stays presentation-only:
    - note kinds and totals are unchanged;
    - a legacy figure is never shown as validated;
    - the fine print never says "No figures need review" while a legacy note exists.
@@ -334,20 +343,26 @@ It is a design instrument, not the code to merge.
 ```yaml
 components:
   figure-note-mark:
-    textColor: "{colors.text-secondary-light}"
+    textColor: "{colors.note-light}"
     typography: "{typography.data-xs}"
   figure-note-mark-dark:
-    textColor: "{colors.text-secondary-dark}"
+    textColor: "{colors.note-dark}"
   data-notes-fine-print:
     textColor: "{colors.text-secondary-light}"
   data-notes-fine-print-dark:
     textColor: "{colors.text-secondary-dark}"
 ```
 
+The mark's ink is the `note` token that the table plan (`neilmac91/EarningsNerd#1606`) adds for
+neutral marks on the figure surfaces: #636A77 light (Lc 75.4) and #D1D5DB dark (−80.3). It keeps
+#1606's mark type: 11px figure face, zero line-height, its gutter in the table. Only the
+dagger, the staircase step and the warning ink go.
+
 The change mostly removes rules. The dagger's sizing goes, the warning-ink letters go, and the
 strip's place under the KPI cards goes.
-- **Legibility.** `text-secondary-light` (#374151) and `text-secondary-dark` (#9CA3AF, 5.8:1 on
-  the dark panel) both clear 4.5:1. `text-floors.spec.ts` re-checks the fine print.
+- **Legibility.** The fine print's `text-secondary-light` (#374151) and `text-secondary-dark`
+  both clear 4.5:1. #1606 raises the dark value from #9CA3AF to #D1D5DB.
+  `text-floors.spec.ts` re-checks the fine print.
 - **Type.** The fine print is 12px running copy (`text-xs`), not `data-xs`, so the exact caps in
   `dataXsAllowlist.spec.ts` don't move.
 - **Same-PR refresh.** `DESIGN.md`'s Calculation Provenance Rule, `.impeccable/design.json`
@@ -384,23 +399,48 @@ There is almost nothing to key, so there is no key beside every mark:
 | Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The fine print goes on the Metrics header row. |
 | Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The footer names marked letters only. |
 
-### 2.6 Reconciling with the sibling reports
+### 2.6 Reconciling with the sibling plans
 
-No sibling report exists yet. On 2026-10-24, `docs/mpa-improvements/` held none on any remote
-branch: 42 checked at 20:05 UTC and 21:10 UTC, 44 at 22:18 UTC. So nothing conflicts today. For
-when they land:
-- This report owns notation semantics: which notes mark a figure, the words, the glyph, size and
-  ink, and the vocabulary.
-- The charts plan owns marker geometry and placement, and uses `figure-note-mark` and the marking
-  rule (§2.1).
-- The table plan owns cell layout and density. It uses the compact mark and the sentence above the
-  table.
-- The analysis plan owns narrative wording and the source list. Its chips mark through the same
-  rule.
+This report owns notation semantics: which notes mark a figure, the words, the glyph, size and ink,
+and the vocabulary. The sibling plans own their surfaces' geometry. On 2026-10-25 both siblings
+exist in code.
 
-A sibling proposal that marks routine figures, recolours a mark or brings back a strip of counts is
-resolved in favour of §2, unless it brings blind-test evidence as strong as §2.8's. Merge order
-(§6) puts the notation first, so each sibling builds on it rather than beside it.
+**The table plan, `neilmac91/EarningsNerd#1606`** (open, marked ready). Its number system makes
+every mark one footnote type: 11px figure face and zero line-height, in its own ink, hung in a
+one-mark gutter in the table. It also adds the `note` ink and raises dark secondary text to
+#D1D5DB. It keeps the dagger, set as a staircase below the letter, and review letters in
+`warning.data-dark`. The quiet scheme keeps #1606's type, gutter and ink. It removes:
+- the dagger from figures, and with it the staircase step;
+- the warning ink from letters, so a marked letter takes `note`.
+
+WP1 stacks on #1606: they share 21 files (§6).
+
+**The charts plan.**
+- **Merged:** steps 1–3, the spec engine and the PNG's font (`neilmac91/EarningsNerd#1602`); today's
+  charts on the engine's axes (`#1603`); labelled charts that widen (`#1607`).
+- **Open:** step 4, the spec renderer behind `NEXT_PUBLIC_CHARTS_V2` (`#1609`).
+- **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
+  the plot and puts them in a band under the period axis: a letter for every note on a plotted
+  value (unavailable notes included, so "every missing point has a letter"), † for a partly
+  calculated series, and review letters in review ink.
+
+Under the approved scheme the band follows the marking rule:
+- A cell shows only the letters of notes that question the number, in the mark's neutral ink.
+- No † glyph. The spec's own footnote lines 2 and 3 already say in words which series are
+  calculated, which is the sentence the quiet scheme uses.
+- A missing value is the gap the spec already draws, with its chart-specific sentence (for
+  example "Long-term debt isn't in this dataset for this window (not shown as $0)"). It gets no
+  letter.
+- Footnote line 1 lists only the marked letters. The fine print under the table carries every
+  note, as everywhere else.
+
+The rule lives in one helper (§2.1), which WP1 adds to `lib/dataNotes.ts`. The band can call it,
+so the renderer needs no copy of the rule.
+
+**The analysis plan.** It has no PR. Its chips mark through the same helper.
+
+A sibling change that marks routine figures, recolours a mark or brings back a strip of counts is
+resolved in favour of §2, unless it brings blind-test evidence as strong as §2.8's.
 
 ### 2.7 What the prototype changes and breaks
 
@@ -492,13 +532,13 @@ A read-only agent searched the repository for everything the quiet scheme contra
 findings, with file, line and exact words, are in
 [verification/notation-variant-test.md](verification/notation-variant-test.md#the-rules-check-one-agent-read-only-over-the-whole-repository).
 
-**Needs the founder first.** The founder's "never hide a note" is recorded in
+**Approved by the founder on 2026-10-25.** The founder's "never hide a note" is recorded in
 `tasks/analysis-redesign-2026-10/astra-prompt.md:74` and `review-2026-10-10.md:36`. A P0 review
 enforced it for exactly the case the scheme stops marking: a `legacy_calculation` figure.
-- **The decision.** A one-line confirmation narrowing it to "every note stays in the evidence
-  dialog and the data notes; only a note that questions the number keeps a mark beside the figure".
-  It is recorded as a decision row in `docs/brand/decisions-log.md`, with both task files pointing
-  at it.
+- **The decision.** The founder approved narrowing it to "every note stays in the evidence dialog
+  and the data notes; only a note that questions the number keeps a mark beside the figure"
+  ("approved, narrow the rule"). WP1 records it as a decision row in `docs/brand/decisions-log.md`,
+  with both task files pointing at it.
 - **What still holds.** The rule's other two clauses: never mark a legacy record validated, and
   never say "verified".
 - **What is out of scope.** Reclassifying `legacy_calculation` in the backend changes what counts
@@ -811,57 +851,58 @@ follows the page. Keep that, and say so in the export menu ("Image matches your 
 
 ## 6. Sequencing by measured overlap
 
-Live branches are measured: `git diff --name-only` against each branch's merge base. This plan's
-work packages list the files each edits. The sibling scopes list the files each area owns, because
-no sibling branch exists yet. The computation is reproducible from the
-[methods appendix](methods.md).
+Re-measured on 2026-10-25. Each open branch is measured with `git diff --name-only` against its
+merge base. Each work package lists the files it edits.
+- **Measured:** the table plan (#1606) and the charts plan's step 4 (#1609).
+- **Scopes:** the charts plan's later steps and the analysis plan have no branch, so their rows
+  stay scopes.
+- **Dropped:** #1597, #1600, #1602, #1603 and #1607 have merged, and the section-nav branch is gone.
 
-| | WP0 | WP1 | WP2 | WP3 | WP4 | WP5 | charts | analysis | table | #1601 | #1597 | section-nav | #1583 | #1600 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **WP0 lineage backfill** (10) | — | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 1 |
-| **WP1 quiet notation** (29) | · | — | 4 | · | 6 | 2 | 3 | 2 | 5 | · | 3 | 2 | · | · |
-| **WP2 data-notes words** (10) | · | 4 | — | 1 | · | 3 | · | · | · | · | · | · | · | · |
-| **WP3 exports** (9) | · | · | 1 | — | · | · | 2 | 1 | 1 | 3 | · | · | · | · |
-| **WP4 surfaces + results header** (8) | · | 6 | · | · | — | · | 1 | · | 1 | · | 2 | 2 | · | · |
-| **WP5 restatement note** (7) | · | 2 | 3 | · | · | — | · | · | · | · | · | · | · | · |
-| **charts plan (scope)** (7) | · | 3 | · | 2 | 1 | · | — | · | 1 | · | 1 | 1 | · | · |
-| **analysis plan (scope)** (7) | · | 2 | · | 1 | · | · | · | — | · | 1 | · | · | · | · |
-| **table plan (scope)** (7) | · | 5 | · | 1 | 1 | · | 1 | · | — | · | 1 | 1 | · | · |
-| **#1601 export-source** (6) | · | · | · | 3 | · | · | · | 1 | · | — | 1 | · | · | · |
-| **#1597 status-line** (19) | 1 | 3 | · | · | 2 | · | 1 | · | 1 | 1 | — | 3 | 2 | 1 |
-| **section-nav (no PR)** (9) | 1 | 2 | · | · | 2 | · | 1 | · | 1 | · | 3 | — | 1 | 1 |
-| **#1583 per-filing-currency** (9) | 1 | · | · | · | · | · | · | · | · | · | 2 | 1 | — | 1 |
-| **#1600 waitlist-source** (5) | 1 | · | · | · | · | · | · | · | · | · | 1 | 1 | 1 | — |
+The computation is in the [methods appendix](methods.md).
+
+| | WP0 | WP1 | WP2 | WP3 | WP4 | WP5 | charts | analysis | #1606 | #1609 | #1601 | #1583 | #1608 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **WP0 lineage backfill** (10) | — | · | · | · | · | · | · | · | · | 1 | 1 | 1 | 2 |
+| **WP1 quiet notation** (29) | · | — | 4 | · | 6 | 2 | 3 | 2 | 21 | 3 | · | · | · |
+| **WP2 data-notes words** (10) | · | 4 | — | 1 | · | 3 | · | · | 3 | 1 | · | · | · |
+| **WP3 exports** (9) | · | · | 1 | — | · | · | 2 | 1 | 1 | 1 | 3 | · | · |
+| **WP4 surfaces + results header** (8) | · | 6 | · | · | — | · | 1 | · | 5 | 1 | · | · | · |
+| **WP5 restatement note** (7) | · | 2 | 3 | · | · | — | · | · | 2 | · | · | · | · |
+| **charts steps 5-7 (scope)** (8) | · | 3 | · | 2 | 1 | · | — | · | 3 | 5 | · | · | · |
+| **analysis plan (scope)** (7) | · | 2 | · | 1 | · | · | · | — | 2 | · | 1 | · | · |
+| **#1606 table plan** (125) | · | 21 | 3 | 1 | 5 | 2 | 3 | 2 | — | 5 | · | 1 | · |
+| **#1609 charts renderer** (26) | 1 | 3 | 1 | 1 | 1 | · | 5 | · | 5 | — | 1 | 1 | 2 |
+| **#1601 export-source** (12) | 1 | · | · | 3 | · | · | · | 1 | · | 1 | — | 1 | 1 |
+| **#1583 per-filing-currency** (11) | 1 | · | · | · | · | · | · | · | 1 | 1 | 1 | — | 2 |
+| **#1608 admin units** (12) | 2 | · | · | · | · | · | · | · | · | 2 | 1 | 2 | — |
 
 Every shared file by pair is listed under the matrix in
-[verification/file-overlap.md](verification/file-overlap.md). Three points are worth naming:
-- `DESIGN.md` and `DESIGN_SYSTEM.md` (WP1, WP4, #1597, section-nav). The edit sites are disjoint:
-  #1597 edits DESIGN.md line 343 and DESIGN_SYSTEM.md 907 and 2191–2203. Section-nav edits 482
-  and 1210–1241. WP1 edits DESIGN.md's frontmatter components and line 498, and DESIGN_SYSTEM.md
-  492–500, 564, 645–661 and 2083–2095. Git merges them, but `designSnapshotParity` reads the whole
-  file, so rebase and rerun it after each.
-- The quiet WP1 is wider than the ring version: 29 files against 18 (re-measured 22:18 UTC). It
-  shares four files with WP2 and six with WP4, so the three land strictly in sequence. It also
-  takes `NarrativePane.tsx` from the analysis plan's scope and `tableFormat.ts` from the table
-  plan's, which is one more reason the siblings follow it.
-- `export_service.py` (WP3, #1601, analysis). #1601 edits the summary export at lines 87–90 and
-  187. WP3 edits the analysis PDF at 306–500. Disjoint, but both edit `test_export_service.py`.
+[verification/file-overlap.md](verification/file-overlap.md). Four points are worth naming:
+- **WP1 and the table plan share 21 files.** These include the mark, the table, the KPI strip, the
+  data notes, the narrative, the landing demo, the design docs and the browser gate. #1606 is
+  marked ready and merges first, so WP1 is built on its branch and lands after it.
+- **WP1, WP2 and WP4 land strictly in sequence.** WP1 shares four files with WP2 and six with
+  WP4.
+- **`chartExport.ts` is shared by WP3, #1606 and #1609.** WP3's PNG part follows #1609.
+- **`export_service.py` is shared by WP3, #1601 and the analysis plan.** #1601 edits the summary
+  export, and WP3 edits the analysis PDF, so their lines are disjoint. Both edit
+  `test_export_service.py` and `test_export_voice.py`, so WP3's PDF part follows #1601.
 
 **Order and merge points.** Each step ships something a subscriber can see, and none waits on an
 unresolved conflict.
 
 | Step | Lands | After | Visible result |
 |---|---|---|---|
-| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | #1583's deploy is verified (one unverified backend deploy at a time; its only shared file is `tasks/todo.md`) | Up to 77 of 82 latest-year "needs review" flags disappear in production. REGN's 11 if the dry run matches the local check |
-| 2 | **WP1** quiet notation: routine tier, after the founder's decision (§2.9) | #1597 merges (it shares the design docs and the text-floor gate). The section-nav branch rebases on whichever lands first | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
+| 1 | **WP0** lineage backfill: high tier; the apply needs the founder's approval | One unverified backend deploy at a time. Its shared files are `tasks/todo.md` and, with #1608, `test_migration_lock_safety.py` | Up to 77 of 82 latest-year "needs review" notes leave the fine print in production. REGN's 11 go if the dry run matches the local check |
+| 2 | **WP1** quiet notation: routine tier | #1606, which it is built on | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
 | 3 | **WP2** data-notes words and **WP5** restatement note, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue gains a "restated in a later filing" letter, with both filings in the dialog |
-| 4a | **charts plan**, then **WP3-png** (`chartExport.ts`) | WP1 | Chart marks only for notes in question; the PNG states its period range |
-| 4b | **table plan**, then **WP3-xlsx** (`excel_export_service.py`) | WP1 | The sentence above the table. A letter in the workbook grid for figures in question |
-| 4c | **#1601**, then the **analysis plan**, then **WP3-pdf** (`export_service.py`) | WP1, #1601 | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
-| 5 | **WP4** surfaces and results header | 4a–4c (it moves every module) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
+| 4a | **WP3-png** (`chartExport.ts`) | #1609 | Chart marks only for notes in question; the PNG states its period range |
+| 4b | **WP3-xlsx** (`excel_export_service.py`) | WP1 | A letter in the workbook grid for figures in question |
+| 4c | **WP3-pdf** (`export_service.py`) | #1601, WP1 | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
+| 5 | **WP4** surfaces and results header | WP1 and #1606 (it moves the KPI strip, under #1606's heading rail) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
 
-4a, 4b and 4c can run in parallel: their only shared file is `DESIGN_SYSTEM.md`, in sections that
-don't overlap. Step 1 shares no file with steps 2–5 except `tasks/todo.md`, so it can start today.
+4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
+so it can start today.
 
 ## 7. Findings for the other plans
 

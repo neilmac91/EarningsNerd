@@ -987,7 +987,7 @@ return { results, rules }
 
 Live branches are measured (git diff --name-only against their merge base with origin/main).
 Work packages list the files the change edits. Sibling scopes list the files their areas own,
-because no sibling branch exists yet (checked 2026-10-24 20:05, 21:10 and 22:18 UTC).
+because no sibling branch exists yet (checked 2026-10-24 20:05 and 21:10 UTC).
 """
 import itertools
 import subprocess
@@ -1039,27 +1039,23 @@ PLAN = {
     ],
 }
 SIBLINGS = {
-    "charts plan (scope)": [
-        A + "components/TrendCharts.tsx", A + "lib/chartExport.ts", A + "lib/chartNoteLayout.ts", A + "lib/periodAxis.tsx",
-        "frontend/tests/unit/trend-charts-annotation.spec.tsx", "frontend/tests/unit/chart-export.spec.ts", "frontend/DESIGN_SYSTEM.md",
+    "charts steps 5-7 (scope)": [
+        A + "components/TrendCharts.tsx", A + "components/TrendChartsV2.tsx", A + "lib/chartExport.ts",
+        A + "lib/charts/model.ts", A + "lib/charts/layout.ts", "frontend/tests/unit/trend-charts-annotation.spec.tsx",
+        "frontend/tests/unit/chart-export.spec.ts", "frontend/DESIGN_SYSTEM.md",
     ],
     "analysis plan (scope)": [
         A + "components/NarrativePane.tsx", A + "lib/narrativeDisplay.ts", A + "lib/narrativePresentation.ts",
         "backend/app/services/trend_analysis/narrative.py", "backend/app/services/trend_analysis/narrative_display.py",
         "backend/app/services/export_service.py", "frontend/tests/unit/narrative-pane.spec.tsx",
     ],
-    "table plan (scope)": [
-        A + "components/MetricsTable.tsx", A + "lib/tableFormat.ts", A + "lib/reportPresentation.ts",
-        "backend/app/services/excel_export_service.py", "frontend/tests/unit/metrics-table.spec.tsx",
-        "frontend/tests/unit/analysis-table-format.spec.ts", "frontend/DESIGN_SYSTEM.md",
-    ],
 }
 LIVE = {
+    "#1606 table plan": "proto/kpi-table-number-system",
+    "#1609 charts renderer": "claude/charts-v2-renderer",
     "#1601 export-source": "claude/brave-bohr-hai5vi-export-source",
-    "#1597 status-line": "design/generating-card-status-line",
-    "section-nav (no PR)": "claude/brave-bohr-hai5vi-section-nav",
     "#1583 per-filing-currency": "claude/implementation-launch-prompt-ofvuc1-per-filing-currency",
-    "#1600 waitlist-source": "claude/brave-bohr-hai5vi-waitlist-source",
+    "#1608 admin units": "claude/brave-edison-rvsfqz",
 }
 
 
