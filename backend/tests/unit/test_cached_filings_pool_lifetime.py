@@ -13,11 +13,14 @@ One rule, two halves in this one module:
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
-  submit, the usage and subscription-status reads, Stripe checkout and the billing portal, and the
-  company lookup, search and trending list (eight racers for one new company's row included) must
-  answer an eight-request burst with no checkout on the loop and nothing left for the finalizer; and
-  the join, the contact form and the feedback submit must send their mails, the analysis exports
-  render, and Stripe checkout and the portal make their Stripe calls, with no connection out.
+  submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
+  company lookup, search and trending list (eight racers for one new company's row included), the
+  saved-summary routes, the upcoming calendar, and the account routes (the profile edit, the alert
+  preferences, the bell, the data export and the account deletion) must answer an eight-request burst
+  with no checkout on the loop and nothing left for the finalizer; and the join, the contact form and
+  the feedback submit must send their mails, the analysis exports render, Stripe checkout and the
+  portal make their Stripe calls, and the account deletion its Stripe cancellation and PostHog flush,
+  with no connection out.
 - Structure: an AST ratchet over every ``async def`` under ``app/routers/`` that receives a session
   fails, above that route's ceiling, a session call on the loop in the route's own body, the session
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
@@ -2386,6 +2389,180 @@ async def test_account_routes_release_their_connection_off_the_loop(monkeypatch,
         engine.dispose()
 
 
+def _account_records_fixture(monkeypatch, tmp_path):
+    """A four-slot pool with eight owners, each with a Stripe customer, the data export and the account deletion
+    wired to it, and the deletion's Stripe cancellation and PostHog client faked as blocking 0.05 s calls, as
+    the synchronous SDKs are. Returns the engine, a session factory, the request sessions as they open, what ran
+    on the loop (checkouts, statements, checkins), and each third-party call with the connections checked out
+    while it ran, whether it ran on the loop, and the account it named."""
+    from app.models import User
+    from app.routers import auth, users
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'account-records.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        db.add_all(User(email=f"account-owner-{i}@example.com", is_active=True, stripe_customer_id=f"cus_{i}")
+                   for i in range(8))
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    # A release on the loop runs its rollback and checkin there, and neither is a checkout or a statement.
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    third_party_calls: list[tuple[str, int, bool, str]] = []
+
+    def blocking(name: str, account: str) -> None:
+        third_party_calls.append((name, engine.pool.checkedout(), threading.get_ident() == loop_thread, account))
+        time.sleep(0.05)
+
+    def cancel(stripe_customer_id: str, _user_id: int) -> None:
+        blocking("Stripe cancellation", stripe_customer_id)
+
+    class Posthog:
+        """The surface of PostHog 7.71's client the deletion uses."""
+
+        def capture(self, event: str, **kwargs: Any) -> None:
+            assert event == "$delete"
+            blocking("PostHog capture", kwargs["distinct_id"])
+
+        def flush(self, timeout_seconds: float = 10) -> None:
+            blocking("PostHog flush", "")
+
+    monkeypatch.setattr(users, "_cancel_billable_subscriptions", cancel)
+    monkeypatch.setattr(users, "posthog_client", Posthog())
+    monkeypatch.setattr(users, "POSTHOG_AVAILABLE", True)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    return engine, sessions, request_sessions, on_loop, third_party_calls
+
+
+async def _account_record_request(transport: httpx.ASGITransport, method: str, i: int) -> httpx.Response:
+    """Owner ``i``'s data export (GET) or account deletion (DELETE)."""
+    from app.routers import auth
+
+    token = auth.create_access_token({"sub": f"account-owner-{i}@example.com"})
+    async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                 headers={"Authorization": f"Bearer {token}"}) as client:
+        return await client.request(method, "/api/users/export" if method == "GET" else "/api/users/me")
+
+
+# Each failing case's service call, made to raise after its first query: the export's unit releases the connection
+# in its finally, and the deletion's rollback returns it before the unit's release, so the route answers its 500
+# with nothing left for the finalizer.
+_ACCOUNT_RECORD_FAILS = {
+    "export_fails": ("app.services.user_data_export_service", "build_user_data_export"),
+    "delete_fails": ("app.services.user_account_service", "delete_user"),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method,case", [
+    ("GET", "export"), ("DELETE", "delete"), ("GET", "export_fails"), ("DELETE", "delete_fails"),
+])
+async def test_account_export_and_deletion_release_their_connection_off_the_loop(monkeypatch, tmp_path, method, case):
+    """Eight owners on four slots, exporting or deleting, a failing unit per route included: every checkout,
+    statement and release runs off the loop and nothing is left for the finalizer, and each deletion makes its
+    Stripe cancellation and PostHog calls off the loop, the eight naming each owner's Stripe customer and account
+    once between them. The single deletion below shows those calls hold no connection, and
+    test_account_deletion_api.py that a failed delete rolls back before the release."""
+    import importlib
+
+    from app.models import AuditLog, User
+
+    engine, sessions, request_sessions, on_loop, third_party_calls = _account_records_fixture(monkeypatch, tmp_path)
+    if case in _ACCOUNT_RECORD_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        module, name = _ACCOUNT_RECORD_FAILS[case]
+        monkeypatch.setattr(importlib.import_module(module), name, fails_after_its_first_query)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    try:
+        responses = await asyncio.gather(*[_account_record_request(transport, method, i) for i in range(8)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open.
+        assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
+        assert [response.status_code for response in responses] == [500 if case in _ACCOUNT_RECORD_FAILS else 200] * 8
+        payloads = [response.json() for response in responses]
+        if case == "export":
+            assert [(payload["profile"]["user_id"], payload["profile"]["email"]) for payload in payloads] == [
+                (i + 1, f"account-owner-{i}@example.com") for i in range(8)]
+        elif case == "delete":
+            assert [{key: payload["third_party_deletions"][key] for key in ("stripe", "posthog")}
+                    for payload in payloads] == [{"stripe": "subscriptions_cancelled", "posthog": "deletion_requested"}] * 8
+        else:
+            detail = ("We could not export your data. Try again in a moment." if method == "GET"
+                      else "We could not delete your account. Contact support.")
+            assert payloads == [{"detail": detail}] * 8
+        # The deletions' third-party calls all run off the loop and name each owner's customer and account once
+        # between them (the single deletion pins one request to its own); a failing unit's rollback undoes none.
+        assert [on for _, _, on, _ in third_party_calls] == [False] * (24 if method == "DELETE" else 0)
+        assert sorted(account for name, _, _, account in third_party_calls if name != "PostHog flush") == (
+            sorted([f"cus_{i}" for i in range(8)] + [str(i + 1) for i in range(8)]) if method == "DELETE" else [])
+        with sessions() as db:
+            accounts = db.query(User.id).count()
+            audit = [action for (action,) in db.query(AuditLog.action)]
+        # The export's audit row follows its payload, and the deletion's precedes the account's deletion, so a
+        # failed delete keeps its row (pre-existing; test_account_deletion_api.py pins it over HTTP).
+        assert accounts == (0 if case == "delete" else 8)
+        assert audit == {"export": ["data_exported"] * 8, "delete": ["user_deleted"] * 8,
+                         "export_fails": [], "delete_fails": ["user_deleted"] * 8}[case]
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_account_deletion_holds_no_connection_while_stripe_and_posthog_answer(monkeypatch, tmp_path):
+    """One deletion: its Stripe cancellation, on the Stripe threads, and PostHog's capture and flush, in a
+    worker thread, run with no connection checked out and none of them on the loop; then the account is gone."""
+    from app.models import User
+
+    engine, sessions, _, _, third_party_calls = _account_records_fixture(monkeypatch, tmp_path)
+    try:
+        response = await _account_record_request(httpx.ASGITransport(app=app, raise_app_exceptions=False), "DELETE", 0)
+        assert response.status_code == 200, response.text
+        assert third_party_calls == [("Stripe cancellation", 0, False, "cus_0"), ("PostHog capture", 0, False, "1"),
+                                     ("PostHog flush", 0, False, "")]
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            assert db.query(User.id).filter(User.email == "account-owner-0@example.com").first() is None
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize("error", [
     OperationalError("ROLLBACK", {}, Exception("server closed the connection unexpectedly")),
     IllegalStateChangeError("Method 'close()' can't be called here; another method is in progress"),
@@ -2583,10 +2760,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/summaries.py", "export_summary_pdf"): 2,
 
     ("app/routers/summaries.py", "generate_summary_stream"): 7,
-
-    ("app/routers/users.py", "delete_user_account"): 3,
-
-    ("app/routers/users.py", "export_user_data"): 2,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.
