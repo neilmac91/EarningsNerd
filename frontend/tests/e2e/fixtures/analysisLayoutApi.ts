@@ -5,6 +5,7 @@ import { expect, type Page } from '@playwright/test'
 import type { AnalysisCompletion, AnalysisCoverage, AnalysisDataset } from '../../../features/analysis/api/analysis-api'
 import type { DataNotesDataset, DataNoteQuality } from '../../../features/analysis/lib/dataNotes'
 import type { FactProvenance } from '../../../features/analysis/lib/provenance'
+import { legalReady } from './legalReady'
 
 /**
  * Approved redesign VISUAL fixtures (reference commit and source hashes in the JSON).
@@ -215,6 +216,7 @@ export async function answerAnalysisApi(page: Page, baseURL: string, fixture: Fi
     if (url.hostname.endsWith('.sentry.io')) return route.abort()
     if (endpoint.startsWith('/api/') || endpoint.startsWith('/internal/')) {
       if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (request.method() === 'GET' && endpoint === '/api/legal/readiness') return json(legalReady)
       switch (endpoint) {
         case '/api/auth/me': return json({ id: 1, email: 'layout@example.com', full_name: 'Layout fixture', is_pro: true, is_beta: false, is_admin: false, email_verified: true })
         case '/api/subscriptions/subscription': return json({ is_pro: true, stripe_customer_id: 'cus_fixture', stripe_subscription_id: 'sub_fixture', subscription_status: 'active', plan: 'pro', status: 'active', trial_end: null, current_period_end: null, cancel_at_period_end: false })
