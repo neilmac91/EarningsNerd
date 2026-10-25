@@ -33,7 +33,7 @@ back an already-loaded object unchanged), not an attribute loaded before it
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
 handlers (2026-10: the summary read and its polled progress had been missed and answered 4x500 in
 the same burst; each is now one unit in the thread pool). The gate is
-`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in two halves. Its parameterized
+`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in three parts. Its parameterized
 full-app eight-request, four-slot burst also checks that the dependency's finalizer never finds a
 transaction still open and that no listed route makes a checkout on the loop; it covers only the
 routes it lists. The peers ranking and the waitlist status and stats reads
@@ -250,8 +250,8 @@ write commits; the same gate races it, its control redeeming the revoked invite 
 still left for the finalizer, as a 403's is (2026-10-25, E171).
 The summaries router's two exports (`export_summary_pdf`, `export_summary_csv`) ran their plan check (the
 reader's subscription read) and their summary and filing reads on the loop, on the connection the auth lookup
-had checked out, the PDF reading its company there too, and every export, refusal and 404 left its transaction
-for the finalizer: an export kept its connection through its build and render. Under eight readers on four
+had checked out, and each build read its company there too; every export, refusal and 404 left its transaction
+for the finalizer, and an export kept its connection through its build and render. Under eight readers on four
 slots, through the real auth dependency, eight exports ran 32 of their 40 statements on the loop, eight Free
 readers' refusals (403) 8 of 16, and eight 404s for a missing summary or a missing filing 16 of 24 and 24 of
 32. With the real WeasyPrint, one PDF export of a full summary held its connection 649 to 1,035 ms (ten
@@ -259,9 +259,25 @@ exports), the length of its render, so four at once held each of an instance's f
 long. The plan check, both reads and the release are now one thread-pool unit the two routes share
 (`_summary_and_filing_for_export`); its rows come back detached with the filing's content cache and company
 loaded, and its 403 and 404s leave it after the release. The same PDF export holds its connection 2.5 to 6.4
-ms. The CSV's build (about 1 ms for that summary) and the PDF's HTML stay on the loop, with no connection out.
-Its burst case holds every checkout, statement and release off the loop and each answer, and its render case
-holds no connection while the PDF renders or the CSV builds (2026-10-25, E171).
+ms. The builds ran on the loop as well: projecting the filing's text takes about 1 ms for a one-sentence
+excerpt, 12 to 17 ms for a real 10-K's text (588,000 characters) and 1.2 to 1.8 s for a cache holding only
+that filing's raw HTML (4.3 million characters), so the CSV and the PDF's HTML now build in worker threads, as
+the render does (`asyncio.to_thread`; `test_default_executor_allowlist.py` names both). An anonymous request's
+401 answers before the unit; one whose token names an inactive or deleted account answers there too, after the
+lookup, so it still leaves the lookup's transaction for the finalizer. Its burst case holds every checkout,
+statement and release off the loop and each answer, each reader's plan given by its Subscription row against
+its `is_pro` mirror (a plan check on the detached user falls back to the mirror and answers wrong), and its
+render case holds no connection while either export builds or renders, and neither on the loop (2026-10-25,
+E171).
+Every unit runs on one of anyio's default thread tokens (40 a process), and an auth lookup blocked on the pool
+holds one while it waits; the dependency's finalizer had a one-token limiter of FastAPI's own
+(`contextmanager_in_threadpool`). So an instance with more requests in flight than tokens can have every token
+held by lookups waiting for connections whose holders need a token to give them back, and nothing moves until
+the pool times out, which the optional lookup reads as anonymous. In the exports' review, sixty PDF exports on
+40 tokens and four slots answered 20 or 36 of 60 (the rest 401), where the base answered all 60, and sixty
+change reports, one unit since #1286, 32 (the rest 500); forty answered all 40. Cloud Run's `--concurrency=40`
+keeps an instance at the token count, and the pool-lifetime file holds it there; raising it needs the units on
+a limiter of their own (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the

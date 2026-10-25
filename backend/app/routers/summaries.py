@@ -824,7 +824,8 @@ async def export_summary_csv(
     )
 
     try:
-        csv_content = export_service.generate_csv(summary, filing)
+        # Off the loop: projecting the filing's text takes over a second on a cache holding only raw HTML.
+        csv_content = await asyncio.to_thread(export_service.generate_csv, summary, filing)
         return Response(
             content=csv_content,
             media_type="text/csv",

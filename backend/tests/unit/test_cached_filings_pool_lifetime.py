@@ -1,7 +1,7 @@
 """Gate for lessons/ops-release-cached-filing-reads-before-yield.md: a request's pooled connection
 goes back to the pool before its async route yields to the dependency's finalizer.
 
-One rule, two halves in this one module:
+One rule, three parts in this one module:
 
 - Behaviour: an eight-request burst against a four-slot pool, per listed route, must answer every
   request without a pool timeout, with no transaction left for the finalizer and no checkout on the
@@ -31,6 +31,8 @@ One rule, two halves in this one module:
   handed to a call there, a ``with`` it enters there, or a call there of a nested unit that uses it,
   so a route the burst does not list cannot add one unseen in a form the ratchet counts. Its gaps are
   under its section below.
+- Deploy: the API service's Cloud Run concurrency stays at or under anyio's default thread tokens, on which
+  the units release their sessions.
 """
 
 import ast
@@ -2720,10 +2722,13 @@ async def test_copilot_ask_releases_its_connection_off_the_loop_before_it_stream
 
 def _summary_export_fixture(tmp_path, name: str, *, pro: bool):
     """A four-slot pool over one 10-K with its content cache and summary, a summary whose filing 998 is gone
-    (SQLite leaves the key unenforced), and eight readers (Pro or Free)."""
+    (SQLite leaves the key unenforced), and eight readers, Pro or Free by their Subscription row: an active
+    one, or a trial that has ended. Each reader's ``is_pro`` mirror says the opposite, so a plan check that
+    misses the row, as one on the detached user does (it falls back to the mirror), answers wrong."""
     from datetime import datetime, timezone
 
     from app.models import User
+    from app.models.subscription import Subscription
 
     engine = create_engine(
         f"sqlite:///{tmp_path / name}",
@@ -2749,7 +2754,11 @@ def _summary_export_fixture(tmp_path, name: str, *, pro: bool):
             "executive_snapshot": {"headline": "Revenue rose 10%.", "key_points": ["Volumes grew"]}}}))
         db.add(Summary(filing_id=998, business_overview="Orphaned"))
         for i in range(8):
-            db.add(User(email=f"export-reader-{i}@example.com", is_active=True, is_pro=pro))
+            reader = User(email=f"export-reader-{i}@example.com", is_active=True, is_pro=not pro)
+            db.add(reader)
+            db.flush()
+            db.add(Subscription(user_id=reader.id, plan="pro", status="active") if pro else Subscription(
+                user_id=reader.id, plan="pro", status="trialing", trial_end=utcnow() - timedelta(days=1)))
         db.commit()
     return engine, sessions
 
@@ -2782,10 +2791,11 @@ _EXPORT_STATUS = {"export": 200, "free": 403, "no_summary": 404, "no_filing": 40
 async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch, tmp_path, export, case):
     """Each summary export runs its plan check (the reader's subscription read), its summary and filing reads and
     the release in one thread-pool unit, its refusals included, so eight readers on four slots (Free for the plan's
-    403) make no checkout, statement or release on the loop and leave nothing for the finalizer. The export is
-    built from the detached rows, which carry the filing's content cache and company. On the loop, the plan check
-    and both reads ran there, the PDF's company read after them, and every case left its transaction, the auth
-    lookup's, for the finalizer, the export keeping it through its build and render."""
+    403, each plan given by the Subscription row against its ``is_pro`` mirror) make no checkout, statement or
+    release on the loop and leave nothing for the finalizer. The export is built from the detached rows, which carry
+    the filing's content cache and company. On the loop, the plan check, both reads and each build's company read
+    ran there, and every case left its transaction, the auth lookup's, for the finalizer, the export keeping it
+    through its build and render."""
     from app.routers import auth
 
     engine, _ = _summary_export_fixture(tmp_path, "summary-exports.db", pro=case != "free")
@@ -2862,25 +2872,33 @@ async def test_summary_exports_release_their_connection_off_the_loop(monkeypatch
 @pytest.mark.asyncio
 @pytest.mark.parametrize("export", ["pdf", "csv"])
 async def test_summary_exports_hold_no_connection_while_they_render(monkeypatch, tmp_path, export):
-    """The summary exports finish their plan check and reads and release the session before they render: no
-    pool slot waits on the PDF's render or the CSV's build."""
+    """The summary exports finish their plan check and reads and release the session before they build, and
+    build in worker threads: no pool slot waits on the PDF's HTML or render or on the CSV's build, before or
+    after it, and none of them runs on the loop, where projecting a cache of raw HTML only takes over a second."""
     from app.routers import auth
     from app.services.export_service import ExportService
 
     engine, _ = _summary_export_fixture(tmp_path, "summary-export-render.db", pro=True)
-    held: dict[str, int] = {}
+    loop_thread = threading.get_ident()
+    # Each step: the connections out as it starts and as it ends, and whether it ran on the loop's thread.
+    held: dict[str, tuple[int, int, bool]] = {}
+
+    def recorded(step: str, build: Callable) -> Callable:
+        def run(self, summary, filing):
+            before = engine.pool.checkedout()
+            built = build(self, summary, filing)
+            held[step] = (before, engine.pool.checkedout(), threading.get_ident() == loop_thread)
+            return built
+
+        return run
 
     def render(_markup: str) -> None:
-        held["pdf"] = engine.pool.checkedout()
-
-    build_csv = ExportService.generate_csv
-
-    def generate_csv(self, summary, filing) -> str:
-        held["csv"] = engine.pool.checkedout()
-        return build_csv(self, summary, filing)
+        out = engine.pool.checkedout()
+        held["pdf_render"] = (out, out, threading.get_ident() == loop_thread)
 
     _fake_weasyprint(monkeypatch, render)
-    monkeypatch.setattr(ExportService, "generate_csv", generate_csv)
+    monkeypatch.setattr(ExportService, "generate_pdf_html", recorded("pdf_html", ExportService.generate_pdf_html))
+    monkeypatch.setattr(ExportService, "generate_csv", recorded("csv", ExportService.generate_csv))
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(auth, "sentry_sdk", None)
@@ -2892,11 +2910,36 @@ async def test_summary_exports_hold_no_connection_while_they_render(monkeypatch,
         ) as client:
             response = await client.get(f"/api/summaries/filing/1/export/{export}")
         assert response.status_code == 200
-        # The render ran with no connection out: the route's unit had released the session.
-        assert held == {export: 0}
+        # Each step ran with no connection out, the route's unit having released the session, and off the loop.
+        assert held == (
+            {"pdf_html": (0, 0, False), "pdf_render": (0, 0, False)} if export == "pdf" else {"csv": (0, 0, False)})
         assert engine.pool.checkedout() == 0
     finally:
         engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_instance_takes_no_more_requests_than_the_thread_tokens_its_units_release_on():
+    """Every unit releases its session on one of anyio's default thread tokens, and an auth lookup blocked on the
+    pool holds one while it waits; the dependency's finalizer had a one-token limiter of FastAPI's own. With more
+    requests in flight than tokens, lookups waiting for connections can hold every token their holders need to
+    give the connections back, and nothing moves until the pool times out: sixty PDF exports on 40 tokens and four
+    slots answered 20 of 60, the rest 401, where the base answered all 60 (E171's export review). So the API
+    service's Cloud Run concurrency stays at or under the token count; raising it needs the units on a limiter of
+    their own (``lessons/ops-release-cached-filing-reads-before-yield.md``)."""
+    import re
+
+    import anyio.to_thread
+    import yaml
+
+    workflow = yaml.load((BACKEND_DIR.parent / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    step = next(step for step in workflow["jobs"]["deploy-backend"]["steps"]
+                if step.get("name") == "Deploy Cloud Run service")
+    deploy = "\n".join(line for line in step["run"].splitlines() if not line.lstrip().startswith("#"))
+    assert "gcloud run deploy earningsnerd-backend" in deploy
+    concurrency = [int(value) for value in re.findall(r"--concurrency=(\d+)", deploy)]
+    tokens = anyio.to_thread.current_default_thread_limiter().total_tokens
+    assert concurrency and max(concurrency) <= tokens, (concurrency, tokens)
 
 
 @pytest.mark.asyncio
