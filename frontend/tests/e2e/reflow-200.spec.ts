@@ -2742,6 +2742,8 @@ test.describe('summary coverage disclosure', () => {
         test(`${tier} coverage in the ${demo ? 'example' : 'ordinary'} view, ${theme}, stays readable and opens by keyboard and touch at 200%`, async ({ page, baseURL }, testInfo) => {
           await page.addInitScript(chosen => {
             localStorage.setItem('theme', chosen)
+            // The independent first-use coachmark must not cover the disclosure capture.
+            localStorage.setItem('en:copilot-coachmark-v1', '1')
             localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
             localStorage.setItem('en_session_active', '1')
           }, theme)
