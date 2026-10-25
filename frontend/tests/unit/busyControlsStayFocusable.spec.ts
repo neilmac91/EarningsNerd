@@ -1230,10 +1230,14 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '18: reload',
     ])
     expect(retrySites([
-      'const media = useQuery({ queryKey, queryFn, retry: false })',
-      'const download = () => downloadBlob(media.data)',
-      '<Button onClick={download}>Download</Button>',
-      '<Button onClick={() => media.refetch()}>Try again</Button>',
+      'function Viewer() {',
+      '  const media = useQuery({ queryKey, queryFn, retry: false })',
+      '  const download = () => downloadBlob(media.data)',
+      '  return <>',
+      '    <Button onClick={download}>Download</Button>',
+      '    <Button onClick={() => media.refetch()}>Try again</Button>',
+      '  </>',
+      '}',
     ].join('\n'), 'fixture.tsx').map((site) => site.expr)).toEqual(['() => media.refetch()'])
   })
 
