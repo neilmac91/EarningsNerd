@@ -79,6 +79,10 @@ const axisWidth = (axis: EngineAxis, min: number) => {
  *  finds it wider than the axis, which drew "CHF 20B" as "CHF" over "20B"; it never breaks at a no-break space. */
 const tickLabel = (axis: EngineAxis) => (value: number) => axis.format.tick(value).replace(/ /g, '\u00a0')
 
+const CHART_MARGIN = { top: 24, right: 16, left: 8, bottom: 0 }
+/** Every quarterly period keeps this much of the plot's width on a phone, where the chart viewport scrolls instead. */
+const QUARTER_SLOT = 28
+
 /** A tooltip prints the axis's own formats: amounts at the panel's 3 significant figures, percents at 1 dp. */
 const tooltipValue = (axis: EngineAxis, value: number) => (axis.format.kind === 'money' ? axis.format.value(value) : axis.format.value(value, 1))
 
@@ -394,6 +398,8 @@ function PanelCard({
   const growthAxis = valueAxis(numbersIn(data, ['growth']), panel.caps.right ?? AXIS_CAPS.growth, 'growth')
   const rightAxis = dualAxis && rightEntry ? valueAxis(numbersIn(data, [rightEntry.concept]), panel.caps.right ?? panel.caps.left, panel.kind, currency.currency) : null
   const axisOf = (dataKey: string) => (dataKey === 'growth' ? growthAxis : rightAxis && dataKey === rightEntry?.concept ? rightAxis : leftAxis)
+  const leftWidth = axisWidth(leftAxis, 64)
+  const rightWidth = barSeries ? axisWidth(growthAxis, 48) : rightAxis ? axisWidth(rightAxis, 64) : 0
   if (currency.mixed) {
     // No one scale can carry two currencies, and no amount is ever printed as dollars by default.
     return (
@@ -534,9 +540,12 @@ function PanelCard({
       <div
         ref={plotRef}
         data-analysis-chart={panel.title}
-        // Keep every quarterly tick readable on touch screens. The minimum follows the number
-        // of periods plus the two axes; only the chart viewport scrolls, never the page.
-        style={dataset.mode === 'quarterly' ? { minWidth: dataset.periods.length * 28 + 144 } : undefined}
+        // Keep every quarterly tick readable on touch screens. The minimum follows the number of periods plus the
+        // axes and margins, never under the 144 px it reserved before the axes fitted their labels; only the chart
+        // viewport scrolls, never the page.
+        style={dataset.mode === 'quarterly'
+          ? { minWidth: dataset.periods.length * QUARTER_SLOT + Math.max(144, leftWidth + rightWidth + CHART_MARGIN.left + CHART_MARGIN.right) }
+          : undefined}
         className={cx(
           'w-full transition-[height] duration-base ease-standard motion-reduce:transition-none',
           expanded ? 'h-96' : 'h-56'
@@ -544,7 +553,7 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <ComposedChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={CHART_MARGIN}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -557,13 +566,13 @@ function PanelCard({
                 tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
                 label={periodAxisLabel(dataset.mode, dark)}
               />
-              <YAxis yAxisId="value" {...yAxisProps(dark)} width={axisWidth(leftAxis, 64)}
+              <YAxis yAxisId="value" {...yAxisProps(dark)} width={leftWidth}
                 domain={leftAxis.domain} ticks={leftAxis.ticks} interval={0} tickFormatter={tickLabel(leftAxis)} />
               <YAxis
                 yAxisId="growth"
                 orientation="right"
                 {...yAxisProps(dark)}
-                width={axisWidth(growthAxis, 48)}
+                width={rightWidth}
                 domain={growthAxis.domain}
                 ticks={growthAxis.ticks}
                 interval={0}
@@ -606,7 +615,7 @@ function PanelCard({
             </ComposedChart>
           ) : (
             // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
-            <LineChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={{ top: 24, right: 16, left: 8, bottom: 0 }}>
+            <LineChart accessibilityLayer aria-label={keyboardLabel} data={data} margin={CHART_MARGIN}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -622,7 +631,7 @@ function PanelCard({
               <YAxis
                 yAxisId="left"
                 {...yAxisProps(dark)}
-                width={axisWidth(leftAxis, 64)}
+                width={leftWidth}
                 domain={leftAxis.domain}
                 ticks={leftAxis.ticks}
                 interval={0}
@@ -633,7 +642,7 @@ function PanelCard({
                   yAxisId="right"
                   orientation="right"
                   {...yAxisProps(dark)}
-                  width={axisWidth(rightAxis, 64)}
+                  width={rightWidth}
                   domain={rightAxis.domain}
                   ticks={rightAxis.ticks}
                   interval={0}

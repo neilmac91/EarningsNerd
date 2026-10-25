@@ -171,6 +171,24 @@ describe('the cases step 2 changes', () => {
     for (const axis of axes) for (const label of axis.labels) expect(axis.width, label).toBeGreaterThanOrEqual(labelRoom(axis, label))
   })
 
+  // A quarterly plot's minimum width is 28 px a period plus its axes and its 8 + 16 px margins (and at least 144).
+  it.each(DATASETS.filter((name) => FIXTURE.datasets[name].dataset.mode === 'quarterly'))('%s in Swiss francs: every quarter keeps 28 px however wide the axes', (name) => {
+    const ds = dataset(name)
+    for (const series of ds.series) if (!series.percent) {
+      series.unit = 'CHF'
+      for (const point of series.points) point.unit = 'CHF'
+    }
+    const { container, unmount } = render(<TrendCharts dataset={ds} />)
+    const plots = [...container.querySelectorAll<HTMLElement>('[data-analysis-chart]')]
+    expect(plots.length).toBeGreaterThan(0)
+    for (const plot of plots) {
+      const axes = [...plot.querySelectorAll<SVGGElement>('[data-y-axis]')].reduce((sum, axis) => sum + Number(axis.dataset.width), 0)
+      const reserved = parseFloat(plot.style.minWidth) - ds.periods.length * 28
+      expect(reserved, plot.dataset.analysisChart).toBe(Math.max(144, axes + 24))
+    }
+    unmount()
+  })
+
   it('a tick label has no space Recharts could break it at', () => {
     const ds = dataset('BYND_annual')
     for (const series of ds.series) if (!series.percent) {
