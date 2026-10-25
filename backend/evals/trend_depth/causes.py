@@ -25,8 +25,8 @@ from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
 from evals.trend_depth.gold import pack_with_extras
 from evals.trend_depth.judge import JUDGE_ORDER, _family
-from evals.trend_depth.providers import ARMS, call, labels_by_number, parse_json_object
-from evals.trend_depth.records import excerpt, output_sha256, read_same_output, text_sha256, unsettled
+from evals.trend_depth.providers import ARMS, call, parse_json_object
+from evals.trend_depth.records import excerpt, labelled, output_sha256, read_same_output, text_sha256, unsettled, write_json
 
 SYSTEM = """You audit financial analysis for faithfulness to its sources. For each numbered claim you get the
 sentence and the full text of the 10-K passages it cites. Decide whether the passages state the cause the
@@ -49,7 +49,7 @@ class NoLabels(ValueError):
 
 
 def labels_or_raise(result: Any, entries: Any, expected: int) -> dict[int, dict[str, Any]]:
-    labels = labels_by_number(entries)
+    labels = labelled(entries, expected)
     if expected and not labels:
         raise NoLabels(f"the auditor's reply labelled none of {expected} items (${result.cost_usd:.4f} spent): {result.text[:160]!r}")
     return labels
@@ -74,11 +74,13 @@ def reuse_audit(label: str, kind: str, system: str, ticker: str, auditor: Option
         return
     if target.exists():
         held = json.loads(target.read_text())
-        if "error" not in held:
-            return
-        record["prior_cost_usd"] = round(record.get("prior_cost_usd", 0) + held.get("cost_usd", 0) + held.get("prior_cost_usd", 0), 6)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(record, indent=1))
+        if "error" not in held and read_same_output(held, "output_sha256", sha):
+            return  # already a finished audit of this output
+        if "error" in held:  # a failed call of its own: its cost is carried onto the copy
+            record["prior_cost_usd"] = round(record.get("prior_cost_usd", 0) + held.get("cost_usd", 0) + held.get("prior_cost_usd", 0), 6)
+        # A finished audit of an earlier output is a copy of the one the source replaced, whose cost the source
+        # already carries, so it is replaced without adding it again.
+    write_json(target, record)
 
 
 def earlier_audit(out_path: Any, sha: str) -> tuple[Optional[dict[str, Any]], float]:
@@ -98,8 +100,7 @@ def write_failed(record: dict[str, Any], result: Any, exc: Exception, out_path: 
     record.update({"error": f"{type(exc).__name__}: {exc}"[:400], "raw": excerpt(result.text), "cost_usd": result.cost_usd,
                    "backend": result.backend, "input_tokens": result.input_tokens,
                    "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens})
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(record, indent=1))
+    write_json(out_path, record)
 
 
 async def audit_call(auditor: str, system_prompt: str, user: str, tag: str, record: dict[str, Any], out_path: Any,
@@ -114,8 +115,7 @@ async def audit_call(auditor: str, system_prompt: str, user: str, tag: str, reco
         raise
     if result.meta.get("stop_reason") == "refusal":
         record.update({"refused": True, "cost_usd": result.cost_usd, "backend": result.backend})  # recorded once
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(json.dumps(record, indent=1))
+        write_json(out_path, record)
         return None
     try:
         labels = labels_or_raise(result, (parse_json_object(result.text) or {}).get(key), expected)
@@ -164,8 +164,7 @@ async def audit(system: str, ticker: str, sentences: list[dict[str, Any]], pack:
                            for n, item in enumerate(items, start=1)]
         record.update({"cost_usd": result.cost_usd, "backend": result.backend, "input_tokens": result.input_tokens,
                        "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens})
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(record, indent=1))
+    write_json(out_path, record)
     counts = {k: sum(1 for i in record.get("items", []) if i["label"] == k) for k in ("supported", "partial", "unsupported")}
     print(f"causes {system:20} {ticker:5} {counts} auditor={record.get('auditor')}", flush=True)
     return record

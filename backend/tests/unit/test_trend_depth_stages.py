@@ -196,7 +196,7 @@ def _stub_generate(harness: Any, monkeypatch: pytest.MonkeyPatch, snapshot: str)
         events.append("repair")
         record.pop("repair_error")
 
-    async def regenerate(arm_name: str, ticker: str, tag: str = "") -> dict[str, Any]:
+    async def regenerate(arm_name: str, ticker: str, tag: str = "", checkpoint: Any = None) -> dict[str, Any]:
         events.append("generate")
         return {"ticker": ticker, "arm": arm_name, "generation_ok": True, "attempts": [{"attempt": 0, "cost_usd": 0.1}], "cost_usd": 0.1}
 
@@ -243,6 +243,327 @@ def test_the_report_leaves_out_refused_and_stale_audits_and_verdicts(harness: An
     matrix = harness.report.judge_matrix(LABEL, ["deepseek-flash", "claude-sonnet-5-5"], [TICKER])
     assert matrix["stale_verdicts"] == 1 and matrix["judged_pairs"] == 0
     assert output_sha256(record) != "an earlier output"
+
+
+def test_an_interrupted_judge_keeps_the_order_it_paid_for(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
+    bought: list = []
+    interrupt = [True]
+
+    async def one_order(judge: str, pack: Any, text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+        bought.append(text_a)
+        if len(bought) == 2 and interrupt.pop():
+            raise KeyboardInterrupt  # Ctrl-C while order 2 streams, once
+        return _usable(0.1)
+
+    monkeypatch.setattr(harness.judge, "_one_order", one_order)
+    pair = (LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b")
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(harness.judge.judge_pair(*pair, asyncio.Semaphore(1)))
+    path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
+    kept = json.loads(path.read_text())
+    assert kept["error"].startswith("interrupted") and [o["position"] for o in kept["orders"]] == [1]
+    bought.clear()
+    record = asyncio.run(harness.judge.judge_pair(*pair, asyncio.Semaphore(1)))
+    assert bought == ["claude-sonnet-5-5"] and "result" in record  # only order 2 was bought again
+
+
+def test_a_judge_reply_missing_a_criterion_is_not_a_verdict(harness: Any) -> None:
+    from evals.trend_depth.judge import CRITERIA
+
+    whole = {"verdict": {"overall": "A", "criteria": {c: "B" for c in CRITERIA}}}
+    assert harness.judge.usable(whole)
+    assert harness.judge.usable({"verdict": {"overall": "tie", "criteria": {c: "Tie" for c in CRITERIA}}})
+    assert not harness.judge.usable({"verdict": {"overall": "A", "criteria": {}}})
+    assert not harness.judge.usable({"verdict": {"overall": "A", "criteria": {**whole["verdict"]["criteria"], CRITERIA[0]: "Draft A"}}})
+    assert not harness.judge.usable({"verdict": {"overall": "", "criteria": whole["verdict"]["criteria"]}})
+
+
+def test_an_audit_reply_with_no_usable_label_is_a_failed_audit(harness: Any) -> None:
+    result = _result("{}", 0.2)
+    for entries in ([{"n": 1, "verdict": "supported"}], [{"n": 0, "label": "supported"}], [{"n": 1, "label": "  "}]):
+        with pytest.raises(harness.causes.NoLabels):
+            harness.causes.labels_or_raise(result, entries, 1)
+    assert harness.causes.labels_or_raise(result, [{"n": "1.", "label": "partial"}], 1)[1]["label"] == "partial"
+    assert harness.causes.labels_or_raise(result, [], 0) == {}  # nothing to label, nothing asked
+
+
+def test_a_first_pass_is_kept_while_its_repair_is_in_flight(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    generate = harness.generate
+    monkeypatch.setattr(generate, "load_pack", lambda ticker: {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
+    monkeypatch.setattr(generate, "system_prompt", lambda: "the prompt")
+    monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
+    monkeypatch.setattr(generate, "validate", lambda parsed: [])
+    monkeypatch.setattr(generate, "word_count", lambda parsed: 1)
+    monkeypatch.setattr(generate, "sentences_of", lambda parsed: [])
+    monkeypatch.setattr(generate.factcheck, "check", lambda sentences, pack: {
+        "passed": False, "claims": 1, "verified": 0, "failed_claims": 1, "failures": [{"section": "s", "failure": "f", "sentence": "x"}]})
+    calls: list = []
+
+    async def provider(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        calls.append(user)
+        if len(calls) == 2:
+            raise KeyboardInterrupt  # Ctrl-C while the repair streams
+        return _result('{"sections": []}', 0.3)
+
+    monkeypatch.setattr(generate, "call", provider)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    kept = json.loads((generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    assert kept["repair_error"].startswith("interrupted") and kept["cost_usd"] == 0.3  # the paid first pass stands
+    assert kept["prompt_sha256"] == hashlib.sha256(b"the prompt").hexdigest() and kept["snapshot_id"] == "s1"
+
+
+def test_a_stale_audit_in_the_target_folder_is_replaced_by_a_copy(harness: Any) -> None:
+    record = _generation(harness, "deepseek-flash")
+    runs = harness.generate.RUNS / LABEL
+    default = runs / "causes" / "deepseek-flash" / f"{TICKER}.json"
+    same = runs / "causes-by-claude-opus-5-5" / "deepseek-flash" / f"{TICKER}.json"
+    # The audit of v1 (0.3) was copied to the same-auditor folder; v2's audit (0.5) carries v1's cost already.
+    _write(same, {"auditor": "claude-opus-5-5", "output_sha256": "the v1 output", "items": [], "cost_usd": 0.3})
+    _write(default, {"auditor": "claude-opus-5-5", "output_sha256": output_sha256(record), "items": [], "cost_usd": 0.5,
+                     "prior_cost_usd": 0.3})
+    harness.causes.reuse_audit(LABEL, "causes", "deepseek-flash", TICKER, "claude-opus-5-5", output_sha256(record))
+    copy = json.loads(same.read_text())
+    assert copy["output_sha256"] == output_sha256(record) and copy["prior_cost_usd"] == pytest.approx(0.3)  # not 0.6
+    _write(same, {"auditor": "claude-opus-5-5", "output_sha256": output_sha256(record), "error": "NoLabels", "cost_usd": 0.2})
+    harness.causes.reuse_audit(LABEL, "causes", "deepseek-flash", TICKER, "claude-opus-5-5", output_sha256(record))
+    assert json.loads(same.read_text())["prior_cost_usd"] == pytest.approx(0.5)  # a failed call of its own is added
+
+
+def test_the_report_counts_provider_errors_and_unjudged_pairs_apart(harness: Any) -> None:
+    errored = {"ticker": TICKER, "arm": "claude-sonnet-5-5", "generation_ok": False, "error": "GenerationError: BudgetExceeded",
+               "attempts": [], "cost_usd": 0.0}
+    refused = {"ticker": TICKER, "arm": "claude-sonnet-5-5", "generation_ok": False, "attempts": [], "cost_usd": 0.0}
+    stats = harness.report.arm_stats([errored, refused])
+    assert stats["provider_errors"] == 1 and stats["generated"] == 0
+    rx, ry = _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
+    _write(harness.generate.RUNS / LABEL / "judge" / "claude-opus-5-5" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json",
+           {"ticker": TICKER, "x": "deepseek-flash", "y": "claude-sonnet-5-5", "judge": "claude-opus-5-5",
+            "x_sha256": output_sha256(rx), "y_sha256": output_sha256(ry), "error": "NoVerdict", "orders": []})
+    matrix = harness.report.judge_matrix(LABEL, ["deepseek-flash", "claude-sonnet-5-5"], [TICKER])
+    assert matrix["unjudged_pairs"] == 1 and matrix["incomplete_panels"] == 0
+
+
+def _real_generate(harness: Any, monkeypatch: pytest.MonkeyPatch, replies: list, gates: list) -> list:
+    """Run generate's own code over stubbed evidence: each call takes the next of ``replies`` (a result, or an
+    exception to raise), each gate check the next of ``gates``. Returns the user messages the calls were sent."""
+    generate = harness.generate
+    monkeypatch.setattr(generate, "load_pack", lambda ticker: {"split": "dev", "profile": "p", "window": "w", "snapshot_id": "s1"})
+    monkeypatch.setattr(generate, "system_prompt", lambda: "the prompt")
+    monkeypatch.setattr(generate, "user_message", lambda pack: "the pack")
+    monkeypatch.setattr(generate, "validate", lambda parsed: [] if parsed else ["not JSON"])
+    monkeypatch.setattr(generate, "word_count", lambda parsed: 1)
+    monkeypatch.setattr(generate, "sentences_of", lambda parsed: [])
+    failure = {"section": "s", "failure": "f", "sentence": "x"}
+    monkeypatch.setattr(generate.factcheck, "check", lambda sentences, pack: {
+        "passed": gates.pop(0), "claims": 1, "verified": 0, "failed_claims": 1, "failures": [failure]})
+    sent: list = []
+
+    async def provider(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        sent.append(user)
+        reply = replies.pop(0)
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(generate, "call", provider)
+    return sent
+
+
+def _first_pass(harness: Any, **fields: Any) -> None:
+    _generation(harness, "deepseek-flash", repair_error="APIConnectionError", snapshot_id="s1",
+                prompt_sha256=hashlib.sha256(b"the prompt").hexdigest(), gate={"passed": False, "claims": 1, "verified": 0,
+                "failed_claims": 1, "failures": [{"section": "s", "failure": "f", "sentence": "x"}]},
+                attempts=[{"attempt": 0, "cost_usd": 0.2}], usage={"input_tokens": 1, "cached_input_tokens": 0,
+                "output_tokens": 1, "reasoning_tokens": 0}, latency_s=1.0, cost_usd=0.2, **fields)
+
+
+def _incomplete(cost: float) -> Exception:
+    from evals.trend_depth.providers import IncompleteReply
+
+    return IncompleteReply("the reply stopped at max_tokens", _result("{", cost))
+
+
+@pytest.mark.parametrize("reply, settled, attempts", [
+    (_result('{"sections": ["repaired"]}', 0.3), True, 2),  # the retried repair returns: settled, one repair added
+    (RuntimeError("overloaded"), False, 1),  # it fails again: the first pass stands, still owed its repair
+    (_incomplete(0.4), False, 2),  # it stops at its cap: paid for, so its attempt is kept
+])
+def test_a_retried_repair_runs_the_real_repair(harness: Any, monkeypatch: pytest.MonkeyPatch, reply: Any, settled: bool,
+                                               attempts: int) -> None:
+    sent = _real_generate(harness, monkeypatch, [reply], [True])
+    _first_pass(harness)
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    assert len(sent) == 1 and "Your analysis was checked" in sent[0]  # the repair message, never a new first pass
+    assert ("repair_error" not in record) is settled and len(record["attempts"]) == attempts
+    assert record["output"] == ({"sections": ["repaired"]} if settled else {"sections": [{"text": "deepseek-flash"}]})
+
+
+def test_the_first_attempt_is_on_disk_before_the_json_retry_is_sent(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json"
+    seen: list = []
+
+    class Killed(BaseException):
+        pass
+
+    def retry_sent() -> Any:
+        seen.append(json.loads(path.read_text()))  # what a kill now would leave
+        raise Killed
+
+    sent = _real_generate(harness, monkeypatch, [], [])
+    replies = [_result("not JSON", 0.3)]  # fails validation, so a JSON retry follows
+
+    async def provider(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        sent.append(user)
+        return replies.pop(0) if replies else retry_sent()
+
+    monkeypatch.setattr(harness.generate, "call", provider)
+    with pytest.raises(Killed):
+        asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    assert seen[0]["error"].startswith("interrupted") and seen[0]["cost_usd"] == 0.3 and len(seen[0]["attempts"]) == 1
+
+
+def test_judge_order_one_is_on_disk_before_order_two_is_sent(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
+    path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
+    seen: list = []
+
+    async def one_order(judge: str, pack: Any, text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+        if text_a == "claude-sonnet-5-5":  # order 2: what a kill now would leave
+            seen.append(json.loads(path.read_text()))
+        return _usable(0.1)
+
+    monkeypatch.setattr(harness.judge, "_one_order", one_order)
+    asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b", asyncio.Semaphore(1)))
+    assert [o["position"] for o in seen[0]["orders"]] == [1] and seen[0]["error"].startswith("interrupted")
+    assert "error" not in json.loads(path.read_text())  # replaced once order 2 returned
+
+
+def test_the_report_shows_unjudged_pairs_when_none_was_judged(harness: Any) -> None:
+    empty = {"judged_pairs": 0, "incomplete_panels": 0, "unjudged_pairs": 2, "stale_verdicts": 1}
+    summary = {"splits": {split: {"companies": 1, "arms": {}, "causes": {}, "semantics": {}, "judge": empty}
+                          for split in ("dev", "holdout", "all")}}
+    text = harness.report.render(LABEL, ["deepseek-flash"], summary)
+    assert "pairs with no verdict yet (each judge call failed or was refused): 2" in text
+    assert "has changed since: 1" in text
+
+
+def test_a_first_pass_from_another_prompt_is_regenerated_not_repaired(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _real_generate(harness, monkeypatch, [_result('{"sections": []}', 0.1)], [True])
+    _first_pass(harness)
+    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    _write(harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json", {**record, "prompt_sha256": "another prompt"})
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    assert sent == ["the pack"] and record["prior_attempts"] == [{"attempt": 0, "cost_usd": 0.2}] and "repair_error" not in record
+
+
+def test_a_models_own_failure_is_kept_not_bought_again(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    sent = _real_generate(harness, monkeypatch, [], [])
+    _generation(harness, "deepseek-flash", generation_ok=False, gate={"passed": False}, attempts=[{"attempt": 0, "cost_usd": 0.1}])
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    assert sent == []
+
+
+def test_a_first_pass_cut_at_its_cap_keeps_its_cost(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _real_generate(harness, monkeypatch, [_incomplete(0.5)], [])
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    assert "IncompleteReply" in record["error"] and record["cost_usd"] == 0.5 and len(record["attempts"]) == 1
+
+
+def test_a_finished_verdict_on_a_changed_draft_is_redone(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    record, bought = _judge(harness, monkeypatch, {"x_sha256": "an earlier draft", "result": {"overall": {"final": "tie"}},
+                                                   "orders": [{**_usable(0.5), "position": 1}, {**_usable(0.5), "position": 2}]})
+    assert bought == ["deepseek-flash", "claude-sonnet-5-5"] and len(record["superseded"]) == 2
+    assert record["cost_usd"] == pytest.approx(1.2)
+
+
+def _judge_calls(harness: Any, monkeypatch: pytest.MonkeyPatch, replies: list) -> tuple[Any, list]:
+    """judge_pair over the real _one_order, with each judge call taking the next of ``replies``."""
+    _generation(harness, "deepseek-flash"), _generation(harness, "claude-sonnet-5-5")
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker: {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
+    monkeypatch.setattr(harness.judge, "_user", lambda pack, a, b: a)
+    sent: list = []
+
+    async def judge_call(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
+        sent.append(user)
+        reply = replies.pop(0)
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(harness.judge, "call", judge_call)
+    pair = (LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b")
+    return (lambda: asyncio.run(harness.judge.judge_pair(*pair, asyncio.Semaphore(1)))), sent
+
+
+@pytest.mark.parametrize("reply, cost", [(_result('{"overall": ""}', 0.1), 0.1), (_incomplete(0.2), 0.2)])
+def test_a_judge_reply_with_no_verdict_keeps_its_cost(harness: Any, monkeypatch: pytest.MonkeyPatch, reply: Any, cost: float) -> None:
+    judge_pair, _ = _judge_calls(harness, monkeypatch, [reply])
+    record = judge_pair()
+    assert "error" in record and record["orders"][0]["unusable"] and record["cost_usd"] == pytest.approx(cost)
+
+
+def test_a_refused_pair_is_recorded_once(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    refusal = CallResult("", 1000, 0, 5, 0, 1.0, 0.05, "anthropic", "m", {"stop_reason": "refusal"})
+    judge_pair, sent = _judge_calls(harness, monkeypatch, [refusal])
+    record = judge_pair()
+    assert record["refused"] == "gemma-4-31b" and "error" not in record
+    assert judge_pair() == record and len(sent) == 1  # never bought again
+
+
+def test_semantics_audits_are_tied_to_their_output_and_left_out_when_not(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    _auditable(harness, monkeypatch)
+    replies = [_result('{"items": [{"n": 0, "label": "consistent"}]}', 0.2), _result('{"items": [{"n": 1, "label": "consistent"}]}', 0.3)]
+
+    async def auditor(*args: Any, **kwargs: Any) -> CallResult:
+        return replies.pop(0)
+
+    monkeypatch.setattr(harness.causes, "call", auditor)
+    record = _generation(harness, "deepseek-flash")
+    out = harness.generate.RUNS / LABEL / "semantics" / "deepseek-flash" / f"{TICKER}.json"
+    asyncio.run(harness.semantics.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    assert "error" in json.loads(out.read_text())  # numbered from 0: labelled nothing asked about
+    assert harness.report.semantic_support(LABEL, ["deepseek-flash"], [TICKER])["deepseek-flash"]["left_out"] == {"pending": 1}
+    asyncio.run(harness.semantics.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    audit = json.loads(out.read_text())
+    assert audit["output_sha256"] == output_sha256(record) and audit["prior_cost_usd"] == pytest.approx(0.2)
+    support = harness.report.semantic_support(LABEL, ["deepseek-flash"], [TICKER])["deepseek-flash"]
+    assert support["analyses"] == 1 and support["counts"] == {"consistent": 1}
+    _generation(harness, "deepseek-flash", output={"sections": [{"text": "changed"}]})
+    assert harness.report.semantic_support(LABEL, ["deepseek-flash"], [TICKER])["deepseek-flash"]["left_out"] == {"pending": 1}
+    _write(out, {**audit, "output_sha256": output_sha256(json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())),
+                 "refused": True})
+    assert harness.report.semantic_support(LABEL, ["deepseek-flash"], [TICKER])["deepseek-flash"]["left_out"] == {"refused": 1}
+
+
+def test_the_report_prices_every_paid_call_and_counts_each_failure_once(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    from evals.trend_depth.providers import ARMS, list_cost
+
+    monkeypatch.setattr(harness.report, "load_pack", lambda ticker: {})
+    monkeypatch.setattr(harness.report, "factcheck", types.SimpleNamespace(check=lambda sentences, pack: {"passed": True}))
+    one = {"attempt": 0, "backend": "openai_compat", "input_tokens": 1000, "cached_input_tokens": 0, "output_tokens": 100, "cost_usd": 0.0}
+    gate = {"passed": True, "claims": 1, "failed_claims": 0, "failures": [], "detail": []}
+    settled = {"ticker": "A", "arm": "deepseek-flash", "generation_ok": True, "attempts": [one], "prior_attempts": [one],
+               "output": {"sections": [{"sentences": [{"type": "fact", "text": "x"}]}]}, "gate": gate, "words": 10,
+               "usage": {"input_tokens": 1000, "output_tokens": 100}, "latency_s": 1.0}
+    failed = {"ticker": "B", "arm": "deepseek-flash", "generation_ok": False, "attempts": [one], "gate": {"passed": False}}
+    errored = {"ticker": "C", "arm": "deepseek-flash", "generation_ok": False, "error": "BudgetExceeded", "attempts": [],
+               "prior_attempts": [one]}
+    pending = {**settled, "ticker": "D", "repair_error": "APIConnectionError", "prior_attempts": []}
+    stats = harness.report.arm_stats([settled, failed, errored, pending])
+    call_cost = list_cost(ARMS["deepseek-flash"], 1000, 0, 100)
+    assert (stats["generated"], stats["failed_generations"], stats["provider_errors"], stats["pending_repairs"]) == (1, 1, 1, 1)
+    assert stats["cost_mean"] == pytest.approx(5 * call_cost / 4)  # five paid calls over four generations
+    assert stats["failed_generation_cost"] == pytest.approx(3 * call_cost)  # the failure, the error, the replaced one
 
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:

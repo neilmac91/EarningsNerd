@@ -21,7 +21,7 @@ from evals.trend_depth import factcheck
 from evals.trend_depth.causes import _auditor, audit_call, earlier_audit, reuse_audit
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
-from evals.trend_depth.records import output_sha256, unsettled
+from evals.trend_depth.records import output_sha256, unsettled, write_json
 
 SYSTEM = """You check that each number in a financial analysis is said about the right thing. For each numbered
 item you get a sentence, one number from it, and what that number was matched to in the evidence (the
@@ -104,8 +104,7 @@ async def audit(system: str, ticker: str, record: dict[str, Any], label: str, au
             "items": [{**item, "label": (labels.get(n) or {}).get("label", "missing"), "reason": (labels.get(n) or {}).get("reason", "")}
                       for n, item in enumerate(items, start=1)],
         })
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(record_out, indent=1))
+    write_json(out, record_out)
     counts = {k: sum(1 for i in record_out["items"] if i["label"] == k) for k in ("consistent", "mismatch", "missing")}
     print(f"semantics {system:20} {ticker:5} {counts} auditor={auditor}", flush=True)
 

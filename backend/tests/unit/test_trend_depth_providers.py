@@ -10,6 +10,8 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import types
+from typing import Any, Optional
 
 import pytest
 
@@ -117,11 +119,17 @@ def test_worst_case_counts_a_token_for_every_prompt_byte_and_every_allowed_outpu
     assert worst_case_usd(sonnet, "x" * 2000, "é" * 500, 500) == pytest.approx(list_cost(sonnet, 2000 + 1000 + 64, 0, 500))
 
 
-def test_a_call_in_flight_holds_its_worst_case_against_the_ceiling(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def _paid(tmp_path) -> list[dict]:
+    """The ledger's rows for paid attempts, without the reservations and their releases."""
+    rows = [json.loads(line) for line in (tmp_path / "spend.jsonl").read_text().splitlines()]
+    return [row for row in rows if not str(row.get("estimated", "")).startswith(("reserved", "released"))]
+
+
+@pytest.mark.parametrize("cap", [16000, 64000])  # a judge's cap, and a generation's
+def test_a_call_in_flight_holds_its_worst_case_in_the_ledger(monkeypatch: pytest.MonkeyPatch, tmp_path, cap: int) -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setattr(providers, "_in_flight_usd", 0.0)
-    one = worst_case_usd(sonnet, "s", "u", 16000)
+    one = worst_case_usd(sonnet, "s", "u", cap)
     monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(one * 1.5))  # room for one worst case, not two
 
     async def scenario() -> None:
@@ -134,15 +142,16 @@ def test_a_call_in_flight_holds_its_worst_case_against_the_ceiling(monkeypatch: 
             return CallResult("{}", 100, 0, 10, 0, 0.1, 0.01, "anthropic", arm.model, {"stop_reason": "end_turn"})
 
         monkeypatch.setattr(providers, "_call_anthropic", slow)
-        first = asyncio.create_task(call(sonnet, "s", "u"))
+        first = asyncio.create_task(call(sonnet, "s", "u", max_tokens=cap))
         await asyncio.sleep(0)
-        assert providers._in_flight_usd == pytest.approx(one)
+        # On disk before the attempt returns, so a process killed now leaves the worst case counted.
+        assert providers.anthropic_spend() == pytest.approx(one)
         with pytest.raises(BudgetExceeded):
-            await call(sonnet, "s", "u")
+            await call(sonnet, "s", "u", max_tokens=cap)
         assert len(sent) == 1  # the second call was refused before it was sent
         gate.set()
         await first
-        assert providers._in_flight_usd == pytest.approx(0.0, abs=1e-9)  # released once the call is logged
+        assert providers.anthropic_spend() == pytest.approx(0.01)  # released once the attempt's cost is logged
 
     asyncio.run(scenario())
 
@@ -172,21 +181,48 @@ def _cut(cost: float) -> CallResult:
 
 def test_a_cut_attempt_is_logged_at_its_worst_case_before_the_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setattr(providers, "_in_flight_usd", 0.0)
     sent, waits = _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(0.3), True)])
     result = asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", tag="t"))
     assert len(sent) == 2 and waits == [10.0]
     assert result.meta["retries"] == 1 and result.meta["cut_attempts"] == 1
     rows = [json.loads(line) for line in (tmp_path / "spend.jsonl").read_text().splitlines()]
-    assert [row["cost_usd"] for row in rows] == [0.3, 0.01]
-    assert "estimated" in rows[0] and "estimated" not in rows[1]
-    assert providers._in_flight_usd == pytest.approx(0.0, abs=1e-9)
+    kinds = [str(row.get("estimated", "paid"))[:8] for row in rows]
+    # Each attempt's worst case is reserved before it is sent and released only after its own cost is logged.
+    assert kinds == ["reserved", "worst ca", "released", "reserved", "paid", "released"]
+    assert [row["cost_usd"] for row in _paid(tmp_path)] == [0.3, 0.01]
+    assert providers.anthropic_spend() == pytest.approx(0.31)
+
+
+def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    sonnet = ARMS["claude-sonnet-5-5"]
+    _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
+    one = worst_case_usd(sonnet, "s", "u", 16000)
+    monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(one * 1.5))
+    sent, _ = _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(one), True)])
+
+    async def scenario() -> None:
+        backing_off, resume = asyncio.Event(), asyncio.Event()
+
+        async def gated(seconds: float) -> None:
+            backing_off.set()
+            await resume.wait()
+
+        monkeypatch.setattr(providers, "_sleep", gated)
+        first = asyncio.create_task(call(sonnet, "s", "u"))
+        await backing_off.wait()
+        with pytest.raises(BudgetExceeded):  # the cut's worst case is already counted while the first waits
+            await call(sonnet, "s", "u")
+        assert len(sent) == 1
+        resume.set()
+        with pytest.raises(BudgetExceeded):
+            await first
+
+    asyncio.run(scenario())
 
 
 def test_each_retry_is_admitted_against_the_ceiling_again(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setattr(providers, "_in_flight_usd", 0.0)
     one = worst_case_usd(sonnet, "s", "u", 16000)
     monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(one * 1.5))
     sent, _ = _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(one), True)])
@@ -207,28 +243,36 @@ def test_a_call_whose_worst_case_does_not_fit_is_refused(monkeypatch: pytest.Mon
 
 def test_a_failure_the_api_calls_permanent_is_raised_without_a_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setattr(providers, "_in_flight_usd", 0.0)
     sent, waits = _flaky(monkeypatch, [providers._AttemptFailed(ValueError("invalid request"), None, False)])
     with pytest.raises(ValueError, match="invalid request"):
         asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u"))
     assert len(sent) == 1 and waits == []
-    assert providers.anthropic_spend() == 0.0  # it never started, so nothing was billed or logged
-    assert providers._in_flight_usd == pytest.approx(0.0, abs=1e-9)  # and its reservation was released
+    assert _paid(tmp_path) == []  # it never started, so nothing was billed or logged
+    assert providers.anthropic_spend() == pytest.approx(0.0, abs=1e-9)  # and its reservation was released
 
 
 @pytest.mark.parametrize("interruption", [asyncio.CancelledError, KeyboardInterrupt])
-def test_an_interrupted_attempt_releases_its_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path, interruption) -> None:
+def test_an_interruption_whose_cost_is_unknown_keeps_its_worst_case(monkeypatch: pytest.MonkeyPatch, tmp_path, interruption) -> None:
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setattr(providers, "_in_flight_usd", 0.0)
     _flaky(monkeypatch, [interruption()])
     with pytest.raises(interruption):
         asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u"))
-    assert providers._in_flight_usd == pytest.approx(0.0, abs=1e-9)
-    monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000) * 1.5))
-    sent = _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
-    monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000) * 1.5))
-    asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u"))  # room for one worst case: sent only if none leaked
-    assert sent == [16000]
+    assert _paid(tmp_path) == []  # nothing says what it cost, so its reservation is not released
+    assert providers.anthropic_spend() == pytest.approx(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000))
+
+
+def test_an_interruption_before_the_cost_row_is_written_keeps_the_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
+    real_log = providers._log_spend
+
+    def interrupted(arm, result, tag, estimated=""):
+        raise KeyboardInterrupt  # a second Ctrl-C after the attempt returned, before its row is on disk
+
+    monkeypatch.setattr(providers, "_log_spend", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u"))
+    monkeypatch.setattr(providers, "_log_spend", real_log)
+    assert providers.anthropic_spend() == pytest.approx(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 16000))
 
 
 def test_a_second_process_on_the_key_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -280,3 +324,174 @@ def test_thinking_off_arm_refuses_the_cli(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(RuntimeError, match="needs the Claude API"):
         asyncio.run(call(ARMS["claude-haiku-5-5-nothink"], "s", "u"))
+
+
+class _FakeStream:
+    """The SDK's message stream as _call_anthropic uses it: a context manager, the final message, the snapshot."""
+
+    def __init__(self, started: bool, final: Any = None, error: Optional[Exception] = None,
+                 snapshot_stop: Optional[str] = None) -> None:
+        self.started, self.final, self.error, self.snapshot_stop = started, final, error, snapshot_stop
+
+    async def __aenter__(self) -> "_FakeStream":
+        return self
+
+    async def __aexit__(self, *exc_info: Any) -> bool:
+        return False
+
+    async def get_final_message(self) -> Any:
+        if self.error is not None:
+            raise self.error
+        return self.final
+
+    @property
+    def current_message_snapshot(self) -> Any:
+        assert self.started, "no message_start yet"
+        return _message(self.snapshot_stop)
+
+
+def _message(stop_reason: Optional[str]) -> Any:
+    usage = types.SimpleNamespace(input_tokens=50000, output_tokens=1, cache_read_input_tokens=0, cache_creation_input_tokens=0)
+    return types.SimpleNamespace(stop_reason=stop_reason, content=[types.SimpleNamespace(type="text", text="{")], usage=usage,
+                                 model="claude-sonnet-5-5")
+
+
+def _fake_sdk(monkeypatch: pytest.MonkeyPatch, stream: _FakeStream) -> Any:
+    sdk = types.ModuleType("anthropic")
+    sdk.APIConnectionError = type("APIConnectionError", (Exception,), {})
+    sdk.APIStatusError = type("APIStatusError", (Exception,), {})
+    sdk.AsyncAnthropic = lambda **options: types.SimpleNamespace(messages=types.SimpleNamespace(stream=lambda **request: stream))
+    monkeypatch.setitem(sys.modules, "anthropic", sdk)
+    return sdk
+
+
+def _attempt_failure(arm: str = "claude-sonnet-5-5") -> Any:
+    with pytest.raises(providers._AttemptFailed) as caught:
+        asyncio.run(providers._call_anthropic(ARMS[arm], "s", "u", 64000, 60.0))
+    return caught.value
+
+
+def test_a_stream_that_ends_before_the_message_does_is_a_cut_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The SDK hands back the partial message, with no stop_reason and one output token, when a stream closes early.
+    _fake_sdk(monkeypatch, _FakeStream(started=True, final=_message(None)))
+    failure = _attempt_failure()
+    assert failure.retryable and failure.cut is not None
+    assert (failure.cut.input_tokens, failure.cut.output_tokens) == (50000, 64000)  # its worst case, not 1 token
+    assert failure.cut.cost_usd == pytest.approx(list_cost(ARMS["claude-sonnet-5-5"], 50000, 0, 64000))
+
+
+def test_a_stream_that_fails_after_it_starts_carries_its_worst_case(monkeypatch: pytest.MonkeyPatch) -> None:
+    stream = _FakeStream(started=True)
+    sdk = _fake_sdk(monkeypatch, stream)
+    stream.error = sdk.APIConnectionError("connection reset mid-stream")
+    failure = _attempt_failure()
+    assert failure.retryable and failure.cut is not None and failure.cut.output_tokens == 64000
+
+
+def test_a_finished_reply_whose_connection_then_failed_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    stream = _FakeStream(started=True, snapshot_stop="end_turn")  # message_delta arrived before the failure
+    sdk = _fake_sdk(monkeypatch, stream)
+    stream.error = sdk.APIConnectionError("peer closed connection after the message")
+    result = asyncio.run(providers._call_anthropic(ARMS["claude-sonnet-5-5"], "s", "u", 64000, 60.0))
+    assert result.meta["stop_reason"] == "end_turn" and result.output_tokens == 1  # its own usage, not a worst case
+
+
+def test_an_attempt_interrupted_mid_stream_is_logged_at_its_worst_case(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    _api(monkeypatch, tmp_path, 0.0, {})
+    monkeypatch.setattr(providers, "_call_anthropic", _REAL_ATTEMPT)
+    _fake_sdk(monkeypatch, _FakeStream(started=True, error=asyncio.CancelledError()))
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", max_tokens=64000, tag="t"))
+    rows = _paid(tmp_path)
+    assert [row["tag"] for row in rows] == ["t (interrupted)"] and rows[0]["output_tokens"] == 64000
+    assert providers.anthropic_spend() == pytest.approx(list_cost(ARMS["claude-sonnet-5-5"], 50000, 0, 64000))
+
+
+def test_an_attempt_interrupted_before_it_started_keeps_its_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    _api(monkeypatch, tmp_path, 0.0, {})
+    monkeypatch.setattr(providers, "_call_anthropic", _REAL_ATTEMPT)
+    _fake_sdk(monkeypatch, _FakeStream(started=False, error=asyncio.CancelledError()))
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", max_tokens=64000))
+    assert _paid(tmp_path) == []
+    assert providers.anthropic_spend() == pytest.approx(worst_case_usd(ARMS["claude-sonnet-5-5"], "s", "u", 64000))
+
+
+def test_a_request_that_never_started_costs_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    _fake_sdk(monkeypatch, _FakeStream(started=False, error=ValueError("invalid request")))
+    failure = _attempt_failure()
+    assert not failure.retryable and failure.cut is None
+
+
+# The real SDK over a mock transport (no network), where it is installed: the harness's venv has it, CI does not.
+_SSE_START = {"type": "message_start", "message": {
+    "id": "m", "type": "message", "role": "assistant", "model": "claude-sonnet-5-5", "content": [], "stop_reason": None,
+    "stop_sequence": None, "usage": {"input_tokens": 50000, "output_tokens": 1, "cache_read_input_tokens": 0,
+                                     "cache_creation_input_tokens": 0}}}
+_SSE_BODY = [{"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+             {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "{}"}}]
+_SSE_DELTA = [{"type": "content_block_stop", "index": 0},
+              {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 3000}}]
+_SSE_STOP = [{"type": "message_stop"}]
+
+
+def _sse(events: list) -> bytes:
+    return "".join(f"event: {e['type']}\ndata: {json.dumps(e)}\n\n" for e in events).encode()
+
+
+@pytest.mark.parametrize("first, cut, sent", [
+    ("overloaded", False, 2),  # a 529 before the stream: retried, nothing billed
+    ("error event", True, 2),  # an error event after message_start: logged at its worst case, retried
+    ("reset", True, 2),  # the connection reset mid-stream
+    ("ends early", True, 2),  # the stream closed cleanly before message_delta
+    ("reset after the end", False, 1),  # message_delta arrived, then the connection failed: the reply is kept
+])
+def test_the_real_sdk_path_logs_what_each_failure_may_cost(monkeypatch: pytest.MonkeyPatch, tmp_path, first: str, cut: bool, sent: int) -> None:
+    anthropic = pytest.importorskip("anthropic")
+    httpx = pytest.importorskip("httpx2")
+    requests: list = []
+
+    class Dropping(httpx.AsyncByteStream):
+        def __init__(self, body: bytes) -> None:
+            self.body = body
+
+        async def __aiter__(self):
+            yield self.body
+            raise httpx.RemoteProtocolError("peer closed connection without sending complete message body")
+
+    def handler(request):
+        requests.append(request)
+        stream = {"content-type": "text/event-stream"}
+        if len(requests) > 1:
+            return httpx.Response(200, headers=stream, content=_sse([_SSE_START, *_SSE_BODY, *_SSE_DELTA, *_SSE_STOP]))
+        if first == "overloaded":
+            return httpx.Response(529, json={"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}},
+                                  headers={"retry-after": "0"})
+        if first == "error event":
+            error = {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}
+            return httpx.Response(200, headers=stream, content=_sse([_SSE_START, *_SSE_BODY, error]))
+        if first == "reset":
+            return httpx.Response(200, headers=stream, stream=Dropping(_sse([_SSE_START, *_SSE_BODY])))
+        if first == "ends early":
+            return httpx.Response(200, headers=stream, content=_sse([_SSE_START, *_SSE_BODY]))
+        return httpx.Response(200, headers=stream, stream=Dropping(_sse([_SSE_START, *_SSE_BODY, *_SSE_DELTA])))
+
+    real = anthropic.AsyncAnthropic
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", lambda **options: real(
+        api_key="test-key-not-real", http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)), **options))
+    _api(monkeypatch, tmp_path, 0.0, {})
+    monkeypatch.setattr(providers, "_call_anthropic", _REAL_ATTEMPT)
+
+    async def no_wait(seconds: float) -> None:
+        pass
+
+    monkeypatch.setattr(providers, "_sleep", no_wait)
+    result = asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", max_tokens=64000, tag="t"))
+    assert len(requests) == sent and result.meta["stop_reason"] == "end_turn" and result.text == "{}"
+    estimated = [row for row in _paid(tmp_path) if row.get("estimated")]
+    assert len(estimated) == int(cut)
+    if cut:
+        assert (estimated[0]["input_tokens"], estimated[0]["output_tokens"]) == (50000, 64000)
+
+
+_REAL_ATTEMPT = providers._call_anthropic  # kept before any test replaces it

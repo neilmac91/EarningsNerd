@@ -5,14 +5,16 @@ read, and how the report prices a company's first analysis from the recorded cal
 """
 from __future__ import annotations
 
+import json
 import sys
 from typing import Any
 
 import pytest
 
 from evals.trend_depth.providers import ARMS, list_cost
+from evals.trend_depth import records
 from evals.trend_depth.records import (
-    api_cost, excerpt, first_request_cache, output_sha256, read_same_output, unsettled,
+    api_cost, excerpt, first_request_cache, labelled, output_sha256, read_same_output, unsettled, write_json,
 )
 
 
@@ -57,8 +59,8 @@ def test_a_first_request_reads_only_the_shared_prefix_and_a_repair_keeps_its_hit
 
 def test_claude_cli_calls_read_nothing_from_cache_and_api_calls_are_priced_as_billed() -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
-    cli = {"arm": "claude-sonnet-5-5", "attempts": [_attempt(0, "claude_cli", 60000, 50000, 8000, write=10000)]}
-    assert api_cost(cli) == pytest.approx(list_cost(sonnet, 60000, 0, 8000))
+    cli = {"arm": "claude-sonnet-5-5", "attempts": [_attempt("repair", "claude_cli", 60000, 50000, 8000, write=10000)]}
+    assert api_cost(cli, shared_cache=50000) == pytest.approx(list_cost(sonnet, 60000, 0, 8000))  # even a repair
     api = {"arm": "claude-sonnet-5-5", "attempts": [_attempt(0, "anthropic", 60000, 0, 8000, write=60000)]}
     assert api_cost(api) == pytest.approx(list_cost(sonnet, 60000, 0, 8000, 60000))
     assert first_request_cache([api]) == 0  # only an OpenAI-compatible first request sets the shared prefix
@@ -70,6 +72,30 @@ def test_a_failed_generation_a_record_replaced_still_counts() -> None:
               "attempts": [_attempt(0, "anthropic", 60000, 0, 8000)]}
     assert api_cost(record) == pytest.approx(list_cost(sonnet, 60000, 0, 64000) + list_cost(sonnet, 60000, 0, 8000))
     assert api_cost({"arm": "current", "cost_usd": 0.0002}) == 0.0002  # production records carry their own cost
+
+
+def test_only_a_label_for_an_item_asked_about_counts() -> None:
+    assert labelled([{"n": 1, "verdict": "supported"}], 1) == {}  # a wrong field name labels nothing
+    assert labelled([{"n": 0, "label": "supported"}, {"n": 2, "label": "partial"}], 1) == {}  # numbered from 0
+    assert labelled([{"n": 1, "label": " "}, {"n": "2.", "label": "partial"}], 2) == {2: {"n": "2.", "label": "partial"}}
+    # Numbered from 0 for three items: accepting n=1 and n=2 would put each label on the wrong item.
+    assert labelled([{"n": 0, "label": "supported"}, {"n": 1, "label": "unsupported"}, {"n": 2, "label": "partial"}], 3) == {}
+    assert labelled([{"n": 1, "label": "supported"}, {"n": 4, "label": "partial"}], 3) == {}  # an item never asked about
+
+
+def test_a_record_is_written_whole_or_not_at_all(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    path = tmp_path / "runs" / "T.json"
+    write_json(path, {"cost_usd": 0.1})
+    assert json.loads(path.read_text()) == {"cost_usd": 0.1}
+
+    def killed(source: str, target: str) -> None:
+        raise KeyboardInterrupt  # the process stops between writing and renaming
+
+    monkeypatch.setattr(records.os, "replace", killed)
+    with pytest.raises(KeyboardInterrupt):
+        write_json(path, {"cost_usd": 0.2})
+    assert json.loads(path.read_text()) == {"cost_usd": 0.1}  # the earlier record, whole
+    assert [p.name for p in path.parent.iterdir()] == ["T.json"]  # and no temporary file left behind
 
 
 def test_these_tests_never_load_the_harness_bootstrap() -> None:

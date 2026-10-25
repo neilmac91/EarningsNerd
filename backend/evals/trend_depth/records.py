@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
+from pathlib import Path
 from typing import Any, Optional
 
-from evals.trend_depth.providers import ARMS, list_cost
+from evals.trend_depth.providers import ARMS, labels_by_number, list_cost
 
 READ_KEYS = ("output", "narrative", "citations")  # what an auditor or a judge reads of a generation record
 
@@ -44,6 +47,34 @@ def read_same_output(saved: dict[str, Any], key: str, sha: str) -> bool:
     ``copy_systems`` copies audits and verdicts only beside a byte-identical record."""
     stored = saved.get(key)
     return stored is None or stored == sha
+
+
+def write_text(path: Path, text: str) -> None:
+    """Write a file whole or not at all: a kill mid-write leaves the previous file (or none), never a torn one
+    that every later run would fail to read."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w") as out:
+            out.write(text)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
+
+
+def write_json(path: Path, record: Any) -> None:
+    write_text(path, json.dumps(record, indent=1, default=str))
+
+
+def labelled(entries: Any, expected: int) -> dict[int, dict[str, Any]]:
+    """An auditor's labels for items 1..``expected``: the entries that carry a non-empty label. A reply that numbers
+    any entry outside that range (from 0, say, which would shift every label onto the wrong item) is malformed
+    and labelled nothing, as is one with no label under the expected field name."""
+    numbered = labels_by_number(entries)
+    if any(not 1 <= n <= expected for n in numbered):
+        return {}
+    return {n: entry for n, entry in numbered.items() if isinstance(entry.get("label"), str) and entry["label"].strip()}
 
 
 def excerpt(text: str, keep: int = 4000) -> str:

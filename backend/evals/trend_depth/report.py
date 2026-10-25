@@ -67,8 +67,9 @@ def load(label: str, system: str, tickers: list[str]) -> list[dict[str, Any]]:
 def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
     n = len(records)
     pending = [r for r in records if "repair_error" in r]  # a first pass whose repair generate still owes
+    errored = [r for r in records if "error" in r]  # a provider failure generate retries, not the model's own
     ok = [r for r in records if r.get("generation_ok") and not unsettled(r)]
-    stats: dict[str, Any] = {"n": n, "generated": len(ok), "pending_repairs": len(pending)}
+    stats: dict[str, Any] = {"n": n, "generated": len(ok), "pending_repairs": len(pending), "provider_errors": len(errored)}
     if not ok:
         return stats
     if ok[0]["arm"] == "current":
@@ -121,8 +122,8 @@ def arm_stats(records: list[dict[str, Any]]) -> dict[str, Any]:
         "cost_mean": statistics.mean(costs) if costs else None,
         "cost_recorded_mean": statistics.mean((r.get("cost_usd") or 0) + (r.get("prior_cost_usd") or 0) for r in paid) if paid else None,
         "first_request_cache_tokens": shared,
-        "failed_generations": n - len(ok) - len(pending),
-        # A failed generation's calls, and those of the failed generations a record replaced.
+        "failed_generations": n - len(ok) - len(pending) - len(errored),  # the model's own failures
+        # The calls of every failed generation, the model's or the provider's, and of those a record replaced.
         "failed_generation_cost": round(sum((api_cost(r, shared) or 0) if not r.get("generation_ok")
                                             else (api_cost({"arm": r["arm"], "attempts": r.get("prior_attempts", [])}, shared) or 0)
                                             for r in paid), 6),
@@ -257,7 +258,7 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
     between_judges: list[bool] = []
     panel_kinds: Counter[str] = Counter()
     judged_by: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
-    judged = incomplete = 0
+    judged = incomplete = unjudged = 0
     for (_, x, y), records in panels.items():
         key = (x, y)
         forfeit = next((r for r in records if "forfeit" in r), None)
@@ -265,6 +266,9 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
             wins[key][y if forfeit["forfeit"] == x else x if forfeit["forfeit"] == y else "tie"] += 1
             continue
         results = [r for r in records if r.get("result")]
+        if not results:  # every judge call for this pair failed or was refused: no verdict yet, not a panel
+            unjudged += 1
+            continue
         for r in results:
             agreement[r["judge"]].append(r["result"]["overall"]["agreed"])
             by_judge[f"{x}|{y}"][r["judge"]][r["result"]["overall"]["final"]] += 1
@@ -287,6 +291,7 @@ def judge_matrix(label: str, systems: list[str], tickers: list[str]) -> dict[str
     return {
         "judged_pairs": judged,
         "incomplete_panels": incomplete,
+        "unjudged_pairs": unjudged,
         "stale_verdicts": stale,
         "panels": dict(panel_kinds),
         "wins": {f"{x}|{y}": dict(c) for (x, y), c in wins.items()},
@@ -314,7 +319,9 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                 lines.append(f"| current (production) | production code | {s.get('generated')}/{s['n']} | by construction | — | — | — | 0 | 0 | "
                              f"{s.get('words_mean', 0):.0f} | ${s.get('cost_mean') or 0:.5f} | {s.get('latency_p50', 0):.1f} / {s.get('latency_p90', 0):.1f} |")
                 continue
-            generated = f"{s.get('generated')}/{s['n']}" + (f", {s['pending_repairs']} awaiting a repair" if s.get("pending_repairs") else "")
+            generated = (f"{s.get('generated')}/{s['n']}"
+                         + (f", {s['pending_repairs']} awaiting a repair" if s.get("pending_repairs") else "")
+                         + (f", {s['provider_errors']} awaiting generate (provider error)" if s.get("provider_errors") else ""))
             lines.append(
                 f"| {system} | {', '.join(s.get('backends', []))} | {generated} | {s.get('first_pass_gate', 0)} · {s.get('first_pass_gate_now', 0)} of {s.get('generated', 0)} | "
                 f"{s.get('final_gate', 0)} · {s.get('final_gate_now', 0)} of {s.get('generated', 0)} | {s.get('first_pass_failed_claims', 0)} of {s.get('first_pass_claims', 0)} | "
@@ -400,9 +407,12 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                 lines.append(f"- between the judges of a two-judge panel: {rate * 100:.0f}% of {n} pairs")
             if matrix["incomplete_panels"]:
                 lines.append(f"- incomplete consensus panels left out: {matrix['incomplete_panels']}")
-            if matrix["stale_verdicts"]:
-                lines.append(f"- verdicts left out because an output is not final or has changed since: {matrix['stale_verdicts']}")
             lines.append("")
+        left_out = [(label, matrix[key]) for key, label in (
+            ("unjudged_pairs", "pairs with no verdict yet (each judge call failed or was refused)"),
+            ("stale_verdicts", "verdicts left out because an output is not final or has changed since")) if matrix.get(key)]
+        if left_out:  # shown even when no pair was judged, which is when it matters most
+            lines += [f"- {label}: {n}" for label, n in left_out] + [""]
     lines += ["## Cost at volume (fresh generations per month, API list prices)", "",
               "| System | Per run | 1,000 runs | 10,000 runs |", "|---|---|---|---|"]
     for system in systems:

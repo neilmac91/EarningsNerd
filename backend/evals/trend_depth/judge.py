@@ -30,7 +30,7 @@ from evals.trend_depth import readable
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack
 from evals.trend_depth.providers import ARMS, call, canonical_pair, parse_json_object
-from evals.trend_depth.records import excerpt, output_sha256, read_same_output, unsettled
+from evals.trend_depth.records import excerpt, output_sha256, read_same_output, unsettled, write_json
 from evals.trend_depth.render import fmt
 
 JUDGE_ORDER = ("claude-opus-5-5", "deepseek-v4-pro", "gemini-3.8-flash", "gemma-4-31b")  # V4 Pro: ADR-0008 addendum
@@ -133,9 +133,13 @@ def _order(result: Any, verdict: dict[str, Any]) -> dict[str, Any]:
 
 
 def usable(order: Optional[dict[str, Any]]) -> bool:
+    """A verdict on the overall question and on every criterion, each A, B or tie; anything less is retried, so a
+    criterion the judge never gave is not counted as a tie."""
     verdict = (order or {}).get("verdict") or {}
-    return (str(verdict.get("overall", "")).strip().upper() in ("A", "B", "TIE")
-            and isinstance(verdict.get("criteria"), dict))
+    criteria = verdict.get("criteria")
+    return (isinstance(criteria, dict)
+            and all(str(value).strip().upper() in ("A", "B", "TIE")
+                    for value in (verdict.get("overall", ""), *(criteria.get(key, "") for key in CRITERIA))))
 
 
 async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
@@ -196,11 +200,17 @@ async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaph
         tag = f"{label}/judge/{judge}/{ticker}/{x}__{y}"
         # Unusable orders from earlier runs stay on the record, so its cost is the pair's whole cost.
         first, second, failed = paid_first, None, [o for o in reuse if o is not paid_first and not usable(o)]
+        interrupted: Optional[BaseException] = None
         async with semaphore:
             try:
                 if first is None:
                     first = await _one_order(judge, pack, tx, ty, tag)
                     first["position"] = 1
+                    # On disk before order 2 is sent, so a run stopped during order 2 never buys order 1 again.
+                    held = [first, *failed]
+                    write_json(out_path, {**record, "orders": held, "error": "interrupted: order 2 had not returned",
+                                          **({"superseded": superseded} if superseded else {}),
+                                          "cost_usd": round(sum(o["cost_usd"] for o in [*held, *superseded]), 6)})
                 if not first.get("refused"):
                     second = await _one_order(judge, pack, ty, tx, tag)
                     second["position"] = 2
@@ -212,12 +222,16 @@ async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaph
                 record["error"] = f"{type(exc).__name__}: {exc}"[:400]
                 if isinstance(exc, NoVerdict):
                     failed.append({**exc.order, "position": 2 if first else 1, "unusable": True})
+            except BaseException as exc:  # Ctrl-C or a cancelled task: the orders already paid for are kept, then it stops
+                record["error"] = f"interrupted: {type(exc).__name__}"
+                interrupted = exc
         record["orders"] = [o for o in (first, second) if o] + failed
     if superseded:
         record["superseded"] = superseded
     record["cost_usd"] = round(sum(o["cost_usd"] for o in [*record.get("orders", []), *superseded]), 6)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(record, indent=1))
+    write_json(out_path, record)
+    if interrupted is not None:
+        raise interrupted
     overall = (record.get("result") or {}).get("overall", {})
     print(f"judge {judge:18} {ticker:5} {x} vs {y}: {overall.get('order1')} / {overall.get('order2')} -> "
           f"{overall.get('final')} {record.get('forfeit', '')}{record.get('error', '')}", flush=True)

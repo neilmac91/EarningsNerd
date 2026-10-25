@@ -457,13 +457,14 @@ calls, each priced as a company's first analysis would bill (`records.api_cost`)
     from the development runs sending the same packs again, which a company's first analysis would not
     repeat. The table keeps two kinds of hit. A first request keeps the system prompt every company shares
     (1,920 tokens). A repair keeps the prefix it re-sends seconds after its own first pass, as a fresh
-    analysis would. On the held-out half, which no development run touched, this rule gives exactly what
-    DeepSeek billed: $0.0070.
+    analysis would. On the held-out half, which no development run touched, this rule gives exactly what the
+    recorded calls cost at list price: $0.0070.
   - Claude reads nothing from cache: the harness's API request sets no cache breakpoint. Claude ran through
     `claude -p`, not the API (§11), and the CLI billed $0.28 a Sonnet analysis, because it writes a one-hour
     cache that a one-shot call never reads back.
-  - An earlier draft priced every cache read at the cache rate, which put Sonnet at $0.18. A later one priced
-    none, which put DeepSeek at $0.009.
+  - The first draft priced every cache read at the cache rate, which put Sonnet at $0.18. A later draft
+    priced Claude's CLI cache reads as ordinary input ($0.21) and kept every DeepSeek hit ($0.0056). With no
+    cache at all, DeepSeek would cost $0.009.
 - **Volume.** Analyses are cached per company, window and dataset fingerprint, so a fresh generation happens
   only on a company's first view in a window, after a new filing changes its facts, after a prompt version
   change, or on a forced regeneration (capped at 100 a user a month). The production analytics needed to
@@ -600,16 +601,20 @@ changed.
   through `claude -p` on the logged-in subscription (the repository's judge pattern). Costs are list prices for
   the measured tokens. Latency includes the CLI's start-up, and `--effort` stands in for the API's thinking
   settings.
-  - **The API path is built and checked.** It was verified offline against the real SDK through a mock
-    transport, including streams that fail after they start. It was then reviewed independently, three times,
-    for request validity, cost accounting and spend safety. It is pinned by
-    `backend/tests/unit/test_trend_depth_{providers,records,stages}.py`.
-  - **Spend is capped.** Every paid attempt goes to a spend ledger (`runs/spend.jsonl`). A stream that fails
-    after it starts is logged at its worst case, so the ledger can overstate spend but not understate it.
-    Each attempt is sent only if its worst case fits under `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75),
-    counting the attempts already in flight. One harness process at a time may spend on the key. A session in
-    another checkout keeps a ledger of its own, so a spend limit on the key in the Anthropic Console is the
-    stop that covers every session.
+  - **The API path is built and checked.** It was verified offline against the real SDK (`anthropic` 2.3.0)
+    through a mock transport, including streams that fail after they start, then reviewed independently four
+    times for request validity, cost accounting and spend safety. It is pinned by
+    `backend/tests/unit/test_trend_depth_{providers,records,stages}.py`. The tests that drive the real SDK run
+    wherever it is installed, as in the harness's environment; CI does not install it and skips them.
+  - **Spend is capped.** Every Claude API attempt goes to a spend ledger (`runs/spend.jsonl`); calls on other
+    backends are logged when they return, and the production pipeline's (`current`) are not. Each attempt
+    reserves its worst case there before it is sent, and is sent only if that fits under
+    `TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75). A stream that fails after it starts is logged at its
+    worst case (a reply whose `message_delta` had arrived is whole and is kept at its own cost), and an attempt
+    stopped before its cost is on disk leaves its reservation counted, so the ledger can overstate spend but
+    not understate it. One harness process at a time may spend on the key. A session in another
+    checkout keeps a ledger of its own, so a spend limit on the key in the Anthropic Console is the stop that
+    covers every session.
   - **The run starts when the key is set.** It needs `ANTHROPIC_API_KEY` in the environment.
 - **Gemini partly missing.** The Gemini key is on the free tier: Pro and Gemini 4 Argon have no quota, and
   Gemini 3.8 Flash allows 20 requests a day. The Gemini 3.8 Flash arm generated only REGN, in a development

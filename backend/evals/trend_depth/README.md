@@ -3,7 +3,8 @@
 An offline research harness for the "AI trend analysis" section. It builds evidence packs from SEC
 filings, generates analyses with a proposed prompt on several models, checks every number with a
 deterministic gate, judges outputs pairwise with a model from neither output's family, audits causes and
-number attribution, and writes a report. None of it runs in production or CI; its unit tests do (`tests/unit/test_trend_depth_factcheck.py`).
+number attribution, and writes a report. None of it runs in production or CI; its unit tests do
+(`tests/unit/test_trend_depth_{factcheck,providers,records,stages}.py`).
 The findings and recommendation are in `tasks/analysis-depth-2026-10/REPORT.md`.
 
 ## Re-run after a prompt change
@@ -49,21 +50,28 @@ costs about USD 25. `tasks/analysis-depth-2026-10/REPORT.md` §8 has the per-ana
 ## Claude through the API (`eval-v2-api`)
 
 `eval-v1` ran every Claude call through `claude -p`. With `ANTHROPIC_API_KEY` set, every Claude call goes to the
-Messages API instead, the Opus judge and auditors included. Install the SDK with `pip install anthropic` (the app
-does not depend on it). The API makes two more arms possible, which the CLI cannot express:
+Messages API instead, the Opus judge and auditors included. Install the SDK with `pip install anthropic==2.3.0`,
+the version its tests and this path were checked against (the app does not depend on it). The API makes two more arms possible, which the CLI cannot express:
 
 - `claude-haiku-5-5-nothink`: thinking `disabled`;
 - `claude-sonnet-5-5-nothink`: `between_tools`, Sonnet 5.5's lowest thinking setting.
 
-Every paid call, on any backend, is appended to `tasks/analysis-depth-2026-10/runs/spend.jsonl`. The ceiling,
-`TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75), is checked before each Claude API attempt, retries included.
-An attempt is refused, with nothing sent, when the ledger's Anthropic total, plus the worst case of the attempts
-still in flight, plus its own worst case would pass the ceiling. The worst case is the prompt at one token per
-byte, plus a full `max_tokens` of output, at list price.
+Every Claude API attempt is in `tasks/analysis-depth-2026-10/runs/spend.jsonl`: its reservation, its own cost
+or its worst case, and its release. A call on another backend is logged when it returns, so one that fails or
+is interrupted is not; nor are the calls of `current`, whose production pipeline calls DeepSeek through the
+app's own AI layer. The ceiling,
+`TREND_DEPTH_ANTHROPIC_CEILING_USD` (default 75), is checked before each Claude API attempt, retries included. The
+worst case is the prompt at one token per byte, plus a full `max_tokens` of output, at list price.
 
+- **Reservations.** Before an attempt is sent, its worst case is appended as a reservation row, and the
+  attempt is refused, with nothing sent, if the ledger's Anthropic total would then pass the ceiling. When the
+  attempt settles, its own cost is logged, and only then is a row of the opposite sign (`released`) appended.
+  An attempt stopped before its cost is on disk (a kill, an interruption before `message_start` or before its
+  row is written) leaves the reservation counted.
 - **A stream that fails after it starts** may be billed, but usage reports output only at the end. So it is
-  logged at its worst case, marked `estimated`, before any retry. The ledger can overstate what the key spent,
-  never understate it.
+  logged at its worst case, marked `estimated`, before any retry. A reply that was whole before its connection
+  failed is kept and logged at its own cost. The ledger can overstate what the key spent, never understate
+  it.
 - **One process at a time.** A process holds a lock on the ledger while it spends on the key, so a second one
   (two steps run at once) is refused. Run the Claude API steps one after another.
 - **Other sessions.** A session in another checkout keeps a ledger of its own. So also set a spend limit on the
@@ -71,7 +79,9 @@ byte, plus a full `max_tokens` of output, at list price.
 - **A torn ledger row.** A crash can leave a row whose cost was cut off. Such a row stops every Claude call
   until it is repaired by hand: give it the cost the Console shows, or delete it if it was not a Claude call.
 
-Commit the ledger after a run: it is the record of what each run spent.
+Commit the ledger after a run: it is the record of what each run spent. Reservation and release rows net to
+zero. A reservation with no release marks an attempt that a crash or an interruption stopped before its cost was
+known; its own cost row may or may not follow it.
 
 The plan reuses `eval-v1`'s `current` and `deepseek-flash` outputs, their audits and the verdict between them.
 Costs are on the Anthropic key at list price, estimated from `eval-v1`'s measured tokens.
@@ -115,9 +125,13 @@ Several safeguards keep the spend to these figures and the results honest (`reco
   skipped by the audits and the judge and counted apart by the report. It is never recorded as a forfeit.
 - **Changed outputs.** Each audit and verdict stores the hash of the output it read. One left beside an output
   that has since changed is redone, its cost carried forward, and the report leaves it out until then.
-- **Failed calls.** A reply with no verdict or no labels, or one that stops at its token cap, is recorded as an
-  error with its cost and its reply's head and tail. The next run retries it and carries the cost forward. A
-  judge retry reuses an order already paid for on the same drafts.
+- **Failed calls.** A reply with no verdict on every criterion, or no label for any item asked about, or one
+  that stops at its token cap, is recorded as an error with its cost and its reply's head and tail. The next
+  run retries it and carries the cost forward. A judge retry reuses an order already paid for on the same
+  drafts.
+- **Interruptions.** Ctrl-C keeps what was already paid for. A judge order that returned is written to the
+  record before the run stops. A first pass is written, marked as owed its repair, before the repair is sent,
+  so a run killed during the repair retries only the repair. Records are written whole or not at all.
 - **Replaced generations.** A generation replaced after a provider error keeps the replaced one's calls as
   `prior_attempts`, and the report's cost counts them.
 - **Refusals.** A refusal is the model's own outcome and is not retried.

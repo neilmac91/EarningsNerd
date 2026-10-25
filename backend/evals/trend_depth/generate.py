@@ -22,12 +22,13 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from evals.trend_depth import bootstrap
 from evals.trend_depth import factcheck, render
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.providers import ARMS, call, max_tokens_for, parse_json_object
+from evals.trend_depth.records import unsettled, write_json, write_text
 
 # TREND_DEPTH_PROMPT points a run at a draft prompt without touching the checked-in one mid-run.
 PROMPT_PATH = Path(os.environ.get("TREND_DEPTH_PROMPT") or bootstrap.BACKEND / "prompts" / "trends-depth-analyst-agent.md")
@@ -118,7 +119,12 @@ class GenerationError(RuntimeError):
         self.attempts = attempts
 
 
-async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag: str = "") -> dict[str, Any]:
+async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag: str = "",
+                            checkpoint: Optional[Callable[[dict[str, Any]], None]] = None) -> dict[str, Any]:
+    """One analysis: up to two attempts at valid JSON, then the gate, then one repair if it failed. ``checkpoint``
+    is handed what is already paid for before each further call is sent, so a run stopped mid-call (Ctrl-C, a
+    kill) loses nothing paid: the first attempt, as an interrupted generation, before the JSON retry; the first
+    pass, marked as owed its repair, before the repair, so the next run retries only the repair."""
     arm = ARMS[arm_name]
     pack = load_pack(ticker)
     system, user = system_prompt(), user_message(pack)
@@ -127,6 +133,10 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
     problems: list[str] = []
     message = user
     for attempt in range(2):
+        if checkpoint and attempts:  # before the JSON retry is sent, the attempt already paid for is on disk
+            checkpoint({"ticker": ticker, "arm": arm_name, "generation_ok": False, "attempts": list(attempts),
+                        "error": "interrupted: the JSON retry had not returned",
+                        "cost_usd": round(sum(a["cost_usd"] for a in attempts), 6)})
         try:
             result = await call(arm, system, message, max_tokens=max_tokens_for(arm), tag=tag)
         except Exception as exc:  # noqa: BLE001 - re-raised with the paid attempts attached
@@ -165,6 +175,8 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
     record["words"] = word_count(parsed)
     record["gate"] = factcheck.check(sentences, pack)
     if repair and not record["gate"]["passed"]:
+        if checkpoint:
+            checkpoint({**record, "repair_error": "interrupted: the repair had not returned"})
         await repair_or_mark(arm, system, user, record, pack, tag)
     return record
 
@@ -257,8 +269,8 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
     async def one(arm_name: str, ticker: str) -> None:
         path = out_root / arm_name / f"{ticker}.json"
         existing = json.loads(path.read_text()) if path.exists() else None
-        if existing and "error" not in existing and "repair_error" not in existing:
-            return  # a model's own outcome is kept; a provider error (quota, outage) is retried
+        if existing and not unsettled(existing):
+            return  # a model's own outcome is kept, a failure included; a provider error (quota, outage) is retried
         if existing and "repair_error" in existing:
             pack = load_pack(ticker)
             if (existing.get("prompt_sha256") == hashlib.sha256(system_prompt().encode()).hexdigest()
@@ -266,26 +278,29 @@ async def run(label: str, arm_names: list[str], tickers: list[str], concurrency:
                 async with semaphores[arm_name]:  # the first pass was paid for and stands: retry only its repair
                     await repair_or_mark(ARMS[arm_name], system_prompt(), user_message(pack), existing, pack,
                                          f"{label}/repair/{arm_name}/{ticker}")
-                path.write_text(json.dumps(existing, indent=1, default=str))
+                write_json(path, existing)
                 gate = existing.get("gate") or {}
                 print(f"{label} {arm_name:24} {ticker:5} repair retried: gate={gate.get('passed')} "
                       f"{existing.get('repair_error', '')}", flush=True)
                 return
             # The prompt or the evidence pack changed since the first pass, so it is regenerated, below.
+        prior = [*(existing or {}).get("prior_attempts", []), *(existing or {}).get("attempts", [])]
+
+        def save(record: dict[str, Any]) -> None:
+            if prior:  # the failed generation this one replaces was paid for: its calls stay on the record
+                record = {**record, "prior_attempts": prior, "prior_cost_usd": round(sum(a["cost_usd"] for a in prior), 6)}
+            write_json(path, record)
+
         async with semaphores[arm_name]:
             try:
                 record = await (generate_current(ticker) if arm_name == "current"
-                                else generate_proposed(arm_name, ticker, tag=f"{label}/generate/{arm_name}/{ticker}"))
+                                else generate_proposed(arm_name, ticker, tag=f"{label}/generate/{arm_name}/{ticker}",
+                                                       checkpoint=save))
             except Exception as exc:  # noqa: BLE001 - a provider failure is recorded, with what it already cost, and retried
                 attempts = getattr(exc, "attempts", [])
                 record = {"ticker": ticker, "arm": arm_name, "generation_ok": False, "error": f"{type(exc).__name__}: {exc}"[:500],
                           "attempts": attempts, "cost_usd": round(sum(a["cost_usd"] for a in attempts), 6)}
-        prior = [*(existing or {}).get("prior_attempts", []), *(existing or {}).get("attempts", [])]
-        if prior:  # the failed generation this one replaces was paid for: its calls stay on the record
-            record["prior_attempts"] = prior
-            record["prior_cost_usd"] = round(sum(a["cost_usd"] for a in prior), 6)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(record, indent=1, default=str))
+        save(record)
         gate = record.get("gate") or {}
         pending = record.get("error") or (f"repair_error, re-run generate: {record['repair_error']}" if "repair_error" in record else "")
         print(f"{label} {arm_name:24} {ticker:5} ok={record.get('generation_ok')} gate={gate.get('passed')} "
@@ -333,8 +348,7 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
         record_rel = Path(system) / f"{ticker}.json"
         target = dst / record_rel
         if not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text((src / record_rel).read_text())
+            write_text(target, (src / record_rel).read_text())
             copied += 1
         elif target.read_text() != (src / record_rel).read_text():
             print(f"keep {label}/{record_rel}: it differs from {source}'s, so its audits and verdicts are not copied")
@@ -344,15 +358,13 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
             audit = folder / system / f"{ticker}.json"
             audit_target = dst / audit.relative_to(src)
             if audit.exists() and not audit_target.exists():
-                audit_target.parent.mkdir(parents=True, exist_ok=True)
-                audit_target.write_text(audit.read_text())
+                write_text(audit_target, audit.read_text())
                 copied += 1
     for verdict in src.glob("judge/*/*.json"):
         ticker, x, y = verdict.stem.split("__")
         target = dst / verdict.relative_to(src)
         if (x, ticker) in same and (y, ticker) in same and not target.exists():
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(verdict.read_text())
+            write_text(target, verdict.read_text())
             copied += 1
     return copied
 
