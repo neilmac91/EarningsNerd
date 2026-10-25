@@ -125,34 +125,33 @@ async def test_worker_authenticates_before_work_and_acknowledges_only_finished_w
 
 
 SENTINELS = {
-    "TASKS_PROJECT_ID": "sentinel-project-7c1", "TASKS_LOCATION": "us-west1", "TASKS_QUEUE": "sentinel-queue-7c1",
+    "TASKS_PROJECT_ID": "sentinel-project-7c1", "TASKS_LOCATION": "sentinel-loc-7c1", "TASKS_QUEUE": "sentinel-queue-7c1",
     "TASKS_WORKER_URL": "https://sentinel-worker-7c1-uw.a.run.app",
     "TASKS_INVOKER_EMAIL": "sentinel-invoker@sentinel-project-7c1.iam.gserviceaccount.com",
 }
 
 
-def _keys(request: httpx.Request) -> httpx.Response:
-    return httpx.Response(200, json={"keys": []}, request=request)
-
-
-def _keys_unreachable(request: httpx.Request) -> httpx.Response:
-    raise httpx.ConnectError("connection refused", request=request)
-
-
-def _keys_unavailable(request: httpx.Request) -> httpx.Response:
-    return httpx.Response(503, request=request)
+def _key_reader(mode: str, jwk: dict):
+    """Google's key endpoint, answered in memory: the key list, no connection, or a 503."""
+    def answer(request: httpx.Request) -> httpx.Response:
+        if mode == "unreachable":
+            raise httpx.ConnectError("connection refused", request=request)
+        if mode == "unavailable":
+            return httpx.Response(503, request=request)
+        return httpx.Response(200, json={"keys": [jwk]}, request=request)
+    return answer
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled, keys, status, detail, line, raised", [
-    (False, _keys, 503, "Task worker is not configured",
+    (False, "served", 503, "Task worker is not configured",
      "Task identity unavailable: the worker is not configured", transport.TaskUnavailable),
-    (True, _keys_unreachable, 503, "Task identity verification unavailable",
+    (True, "unreachable", 503, "Task identity verification unavailable",
      "Task identity unavailable: Google's signing keys could not be read", httpx.ConnectError),
-    (True, _keys_unavailable, 503, "Task identity verification unavailable",
+    (True, "unavailable", 503, "Task identity verification unavailable",
      "Task identity unavailable: Google's signing keys could not be read", httpx.HTTPStatusError),
-    (True, _keys, 401, "Invalid task identity", None, None),
-], ids=["not-configured", "keys-unreachable", "keys-unavailable", "refused-token"])
+    (True, "served", 401, "Invalid task identity", None, jwt.InvalidAudienceError),
+], ids=["not-configured", "keys-unreachable", "keys-unavailable", "wrong-audience"])
 async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_not(
     monkeypatch, caplog, enabled, keys, status, detail, line, raised,
 ):
@@ -163,10 +162,29 @@ async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_
 
     for key, value in {**SENTINELS, "DURABLE_TASKS_ENABLED": enabled}.items():
         monkeypatch.setattr(settings, key, value)
+    signing_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = {**json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(signing_key.public_key())), "kid": "sentinel-key"}
+    # Signed by a served key with every claim right but the audience, so jwt.decode itself refuses it.
+    token = jwt.encode({"iss": "https://accounts.google.com", "aud": "https://unrelated.example", "sub": "1234",
+                        "email": SENTINELS["TASKS_INVOKER_EMAIL"], "email_verified": True,
+                        "exp": int(utcnow().timestamp()) + 600},
+                       signing_key, algorithm="RS256", headers={"kid": "sentinel-key"})
     monkeypatch.setattr(oauth_verify, "_google_jwks_cache", None)
     monkeypatch.setattr(oauth_verify, "_google_jwks_cache_expires", 0.0)
-    keyed = SimpleNamespace(AsyncClient=lambda **kwargs: httpx.AsyncClient(transport=httpx.MockTransport(keys), **kwargs))
-    monkeypatch.setattr(oauth_verify, "httpx", keyed)
+    reader = httpx.MockTransport(_key_reader(keys, jwk))
+    monkeypatch.setattr(oauth_verify, "httpx", SimpleNamespace(
+        AsyncClient=lambda **kwargs: httpx.AsyncClient(transport=reader, **kwargs)))
+    seen = []
+    verify = tasks.verify_task_identity
+
+    async def recorded(bearer: str) -> None:
+        try:
+            await verify(bearer)
+        except Exception as error:
+            seen.append(error)
+            raise
+
+    monkeypatch.setattr(tasks, "verify_task_identity", recorded)
     app = FastAPI()
     app.include_router(tasks.router, prefix="/internal")
     work = AsyncMock()
@@ -174,17 +192,17 @@ async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_
     body = {"kind": "companyfacts", "payload": {"company_id": 7}}
     with caplog.at_level(logging.INFO, logger="app.routers.tasks"):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/internal/tasks/execute", json=body,
-                                         headers={"Authorization": "Bearer signed-token-fixture"})
+            response = await client.post("/internal/tasks/execute", json=body, headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == status and response.json()["detail"] == detail
+    assert [type(error) for error in seen] == [raised]  # each case reaches its branch for the reason it names
     work.assert_not_awaited()
     records = [record for record in caplog.records if record.name == "app.routers.tasks"]
     if line is None:
         assert records == []
     else:
         assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, line)]
-        assert isinstance(records[0].exc_info[1], raised)
-    for secret in ("signed-token-fixture", *(value for value in SENTINELS.values() if value != "us-west1")):
+        assert records[0].exc_info[1] is seen[0]
+    for secret in (token, *SENTINELS.values()):
         assert secret not in caplog.text
 
 
