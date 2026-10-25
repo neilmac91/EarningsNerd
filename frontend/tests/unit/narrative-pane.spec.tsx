@@ -278,7 +278,7 @@ describe('NarrativePane readable evidence', () => {
     expect(source).not.toHaveTextContent('Calculated figure')
     expect(source).not.toHaveTextContent('Calculated from filing figures')
     expect(source).not.toHaveTextContent('Calculated from recorded inputs')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('This saved calculation predates the current source checks. Its inputs need review.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.')
   })
 })
 
@@ -294,7 +294,7 @@ describe('NarrativePane citation chips', () => {
     const note = document.getElementById('analysis-data-note-a')!
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('Not yet matched to the filing')
     expect(screen.getByText('Sources · filed and calculated figures')).toBeInTheDocument()
     rerender(<NarrativePane state={doneState()} />)
     expect(document.querySelector('[data-note-kind="review"]')).not.toBeInTheDocument()
@@ -314,9 +314,9 @@ describe('NarrativePane citation chips', () => {
     const state = doneState({ completion: doneCompletion({ citations: [{ ...citation, reconciled: false }] }) })
     const { rerender } = render(<DataNotesProvider dataset={dataset}><DataNotes dataset={dataset} /><NarrativePane state={state} /></DataNotesProvider>)
     const reportSummary = document.querySelector('[data-analysis-data-notes] summary')!
-    expect(reportSummary).toHaveTextContent('Revenue FY2024: The source inputs use different units or currencies')
+    expect(reportSummary).toHaveTextContent('Revenue FY2024: questioned by an automated check')
     // The citation-only concern stays the narrative's: the report's line names one note.
-    expect(reportSummary).not.toHaveTextContent('A source check remains unresolved')
+    expect(reportSummary).not.toHaveTextContent('not yet matched to the filing')
     expect(reportSummary.querySelectorAll('[data-note-letter]')).toHaveLength(1)
     expect(screen.getByRole('button', { name: /Citation 1:.*data note b/ })).toBeInTheDocument()
     expect(document.querySelectorAll('#analysis-data-note-a')).toHaveLength(1)
@@ -325,7 +325,7 @@ describe('NarrativePane citation chips', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Review data notes b' }))
     expect(note.closest('details')).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('A source check remains unresolved')
+    expect(note).toHaveTextContent('Not yet matched to the filing')
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('The source inputs use different units or currencies')
     const passed = structuredClone(dataset)
     passed.series[0].points[0].provenance!.validation = 'passed'
@@ -333,7 +333,7 @@ describe('NarrativePane citation chips', () => {
     rerender(<DataNotesProvider dataset={passed}><DataNotes dataset={passed} /><NarrativePane state={state} /></DataNotesProvider>)
     expect(screen.getByText(/No figures need review · 1 checked/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Citation 1:.*data note a/ }).querySelector('[data-note-kind="review"]')).toHaveTextContent('a')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('A source check remains unresolved')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not yet matched to the filing')
   })
 
   beforeEach(() => {

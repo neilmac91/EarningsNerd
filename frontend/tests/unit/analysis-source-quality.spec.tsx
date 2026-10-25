@@ -59,8 +59,9 @@ describe('Financial origin and source checks', () => {
     const view = (input: AnalysisDataset) => <DataNotesProvider dataset={input}><KpiStrip dataset={input} /><DataNotes dataset={input} /><MetricsTable dataset={input} /></DataNotesProvider>
     const { container, rerender } = render(view(report))
     const note = document.getElementById('analysis-data-note-a')!
-    // The detail counts the note's growth figures; it no longer says where on the page each appears.
-    expect(note).toHaveTextContent('1 QoQ comparison · 13 YoY comparisons.')
+    // The detail counts the note's growth figures (here it has no figures of its own); it no longer says where on the
+    // page each appears.
+    expect(note).toHaveTextContent('14 growth figures.')
     expect(note).not.toHaveTextContent(/carry this note|headline cards|growth chart shows|table shows|Exports carry/)
     const headlines = [...container.querySelectorAll('[data-analysis-kpi]')]
     expect(headlines).toHaveLength(4)
@@ -72,8 +73,10 @@ describe('Financial origin and source checks', () => {
     // A note only on growth figures is named by them: the first three metrics, then a count of the rest.
     const topLine = bank ? 'Net interest income' : 'Revenue'
     expect(summary.querySelector('[data-note-letter="a"]')).not.toBeNull()
-    expect(summary).toHaveTextContent(`${topLine} YoY Q1 2024, Q2 2024, Q3 2024, Q4 2024, Q1 2025, Q2 2025, Q3 2025, Q4 2025; ${topLine} QoQ Q4 2025; Net income YoY Q4 2025 and 3 more: Available sources disagree on this figure`)
-    expect(summary).toHaveTextContent('1 not in our data, shown as a dash')
+    expect(summary).toHaveTextContent(`${topLine} YoY Q1 2024, Q2 2024, Q3 2024, Q4 2024, Q1 2025, Q2 2025, Q3 2025, Q4 2025; ${topLine} QoQ Q4 2025; Net income YoY Q4 2025 and 3 more: the filings report different values; we show the most recent`)
+    // The table's dash itself, a screen reader hearing "a dash" in its place.
+    expect(summary).toHaveTextContent('1 not in our data, shown as —')
+    expect(within(summary as HTMLElement).getByText('a dash')).toHaveClass('sr-only')
     // b is free cash flow's gap, which marks nothing.
     expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Table window' })).not.toBeInTheDocument()
@@ -84,8 +87,13 @@ describe('Financial origin and source checks', () => {
   it('keeps citation-only and illustrative note lists free of invented report surface claims', () => {
     const report = locatorDataset()
     const { rerender, container } = render(<DataNotesList notes={groupDataNotes(report).notes} />)
-    expect(container).toHaveTextContent('13 YoY comparisons')
+    expect(container).toHaveTextContent('14 growth figures.')
     expect(container).not.toHaveTextContent(/headline|growth chart|table shows|Exports carry/)
+    // A note on figures counts the growth figures that carry it apart from them, as built on them (#1610 §3.2).
+    const [first] = groupDataNotes(report).notes
+    const ref = { concept: 'revenue', label: 'Revenue', period: '2024Q1' }
+    rerender(<DataNotesList notes={[{ ...first, values: [ref], comparisons: [{ ...ref, basis: 'yoy' }, { ...ref, period: '2024Q2', basis: 'yoy' }] }]} />)
+    expect(container).toHaveTextContent('1 figure; 2 growth figures built on it.')
     rerender(<DataNotes dataset={report} sample />)
     expect(container).not.toHaveTextContent(/headline|growth chart|table shows|Exports carry/)
   })
@@ -127,7 +135,7 @@ describe('Financial origin and source checks', () => {
     render(<DataNotesProvider dataset={report}><DataNotes dataset={report} /><MetricsTable dataset={report} /></DataNotesProvider>)
     const note = document.getElementById('analysis-data-note-a')!
     expect(note).toHaveTextContent('Revenue CAGR (FY2020–FY2025)')
-    expect(note).toHaveTextContent('1 CAGR comparison · 1 window percentage-point comparison.')
+    expect(note).toHaveTextContent('2 growth figures.')
     expect(note).not.toHaveTextContent('years shown')
     expect(screen.getAllByRole('columnheader')).toHaveLength(report.periods.length + 2)
     expect(screen.getByRole('columnheader', { name: 'FY2018–FY2025 CAGR' })).toBeInTheDocument()
@@ -175,8 +183,9 @@ describe('Financial origin and source checks', () => {
     const { container } = render(withProvider ? <DataNotesProvider dataset={admitted}>{children}</DataNotesProvider> : children)
     expect(screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note z/ })).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-z')).toHaveTextContent('The server retained the original currency concern.')
-    // The summary takes the server's words, up to the first clause.
-    expect(container.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('Revenue QoQ Q4 2023: The server retained the original currency concern')
+    // The summary takes the note's summary words, the ones the backend's note_summary writes for its reasons (a unit
+    // mismatch has no clause of its own); the detail above keeps the server's message.
+    expect(container.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('Revenue QoQ Q4 2023: questioned by an automated check')
     expect(screen.getByText(/No figures need review · 2 checked/)).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-a')).not.toBeInTheDocument()
   })
@@ -278,7 +287,7 @@ describe('Financial origin and source checks', () => {
     expect(dialog).toHaveTextContent(`As stored: ${exact}`)
     expect(dialog).toHaveTextContent('Needs review')
     expect(dialog).not.toHaveTextContent('Automated checks passed')
-    expect(dialog).toHaveTextContent('Its inputs need review.')
+    expect(dialog).toHaveTextContent('shown as stored, with its inputs not linked.')
   })
 
   it('substitutes margin operands by concept rather than input order, and retains real source links', async () => {
@@ -295,7 +304,7 @@ describe('Financial origin and source checks', () => {
     rerender(<SourceValue point={{ period: '2026Q2', value: 27, unit: 'pure', provenance: { ...provenance, validation: 'needs_review', reasons: ['source_conflict'] } }} label="Net margin" concept="net_margin">27.0%</SourceValue>)
     expect(dialog).toHaveTextContent('Recorded inputs: 15,848,000,000 ÷ 60,801,000,000 × 100')
     expect(dialog).not.toHaveTextContent('× 100 = 27%')
-    expect(dialog).toHaveTextContent('Available sources disagree on this figure.')
+    expect(dialog).toHaveTextContent('The company’s filings report different values for this figure. We show the most recent filing’s value; select it to compare.')
   })
 
   it('substitutes current-ratio operands by concept when their input order is reversed', async () => {
@@ -351,7 +360,7 @@ describe('Financial origin and source checks', () => {
     flagged.series[0].points[1].qoq_provenance = { ...calculated, validation: 'needs_review', reasons: ['unit_mismatch'] }
     render(<DataNotesProvider dataset={flagged}><DataNotes dataset={flagged} /><MetricsTable dataset={flagged} /></DataNotesProvider>)
     const summary = document.querySelector('[data-analysis-data-notes] summary')!
-    expect(summary).toHaveTextContent('Revenue QoQ Q4 2023: The source inputs use different units or currencies')
+    expect(summary).toHaveTextContent('Revenue QoQ Q4 2023: questioned by an automated check')
     expect(summary).toHaveTextContent('No figures need review · 2 checked')
     expect(screen.getByText(/Comparisons: Revenue QoQ \(Q4 2023\)/)).toBeInTheDocument()
     const figure = screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note a/ })
@@ -368,14 +377,14 @@ describe('Financial origin and source checks', () => {
     const missing = structuredClone(dataset)
     missing.series[0].points.pop()
     render(<DataNotesProvider dataset={missing}><DataNotes dataset={missing} /><MetricsTable dataset={missing} /></DataNotesProvider>)
-    expect(screen.getByText(/1 not in our data, shown as a dash/)).toBeInTheDocument()
+    expect(document.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('1 not in our data, shown as —')
     // The gap shows its dash; its note is counted and listed, and marks nothing (D-061).
     const value = screen.getByRole('button', { name: /^Revenue, Q4 2023: unavailable\. View source/ })
     expect(value.querySelector('[data-note-kind]')).toBeNull()
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not available in this dataset.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not in our data for these periods; shown as a dash, never as zero.')
     await userEvent.click(value)
     const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
-    expect(within(dialog).getByText(/Not available in this dataset/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Not in our data for these periods/)).toBeInTheDocument()
     expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
   })
 
@@ -391,7 +400,7 @@ describe('Financial origin and source checks', () => {
     expect(summary).not.toHaveTextContent('No figures need review')
     expect(summary.querySelector('[data-note-letter]')).toBeNull()
     const note = document.getElementById('analysis-data-note-a')!
-    expect(note).toHaveTextContent('This saved calculation predates the current source checks.')
+    expect(note).toHaveTextContent('Calculated before 10 October 2026')
     expect(note).toHaveTextContent('Revenue (Q4 2023)')
     expect(note).toHaveTextContent('1 figure.')
     await userEvent.click(figure)
@@ -401,7 +410,7 @@ describe('Financial origin and source checks', () => {
     expect(within(checks).getByText('Needs review')).not.toHaveClass('text-warning-light')
     expect(checks).not.toHaveTextContent('Automated checks passed')
     expect(checks).not.toHaveTextContent('Note a')
-    expect(checks).toHaveTextContent('This saved calculation predates the current source checks. Its inputs need review.')
+    expect(checks).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.')
   })
 
   it('opens and focuses the report note from its keyboard-activated note control', async () => {
@@ -415,7 +424,7 @@ describe('Financial origin and source checks', () => {
     await userEvent.keyboard('{Enter}')
     expect(disclosure).toHaveAttribute('open')
     expect(note).toHaveFocus()
-    expect(note).toHaveTextContent('1 QoQ comparison')
+    expect(note).toHaveTextContent('1 growth figure.')
     expect(note).toHaveTextContent('Comparisons: Revenue QoQ (Q4 2023)')
     expect(note).toHaveTextContent('The source inputs use different units or currencies')
   })

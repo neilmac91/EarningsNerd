@@ -1,9 +1,10 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
+import { MissingValue } from '@/components/ui/MissingValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { noteMarksFigure, RECORD_ONLY_REASONS, type DataNote } from '@/features/analysis/lib/dataNotes'
-import { FCF_DEFINITION, reasonText } from '@/features/analysis/lib/provenance'
+import { noteMarksFigure, noteSummary, type DataNote } from '@/features/analysis/lib/dataNotes'
+import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
 import { formatInstant, formatLocalDate } from '@/lib/format'
@@ -33,18 +34,6 @@ function summaryPlaces(note: DataNote): string {
   return places.length > SUMMARY_PLACES ? `${shown} and ${places.length - SUMMARY_PLACES} more` : shown
 }
 
-/** A note's message up to its first clause: the summary's words, from the one copy the note carries. A mixed note marks
- *  for its other reason, so a record-only sentence it opens with is passed over. */
-function headline(note: DataNote): string {
-  let message = note.message
-  for (const reason of note.reasons) {
-    const text = RECORD_ONLY_REASONS.has(reason) ? reasonText(reason) : ''
-    if (text && message.startsWith(`${text} `)) message = message.slice(text.length + 1)
-  }
-  const end = message.search(/: |\. /)
-  return (end < 0 ? message : message.slice(0, end)).replace(/\.$/, '')
-}
-
 /** Every note, the ones that mark a figure first (their letters are the ones the page shows). Citation supplements and
  *  the sample's notes list here too; none of them makes a claim about where on the page a note appears. */
 export function DataNotesList({ notes }: { notes: DataNote[] }) {
@@ -52,7 +41,8 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
   return (
     <ul className="space-y-3">
       {ordered.map((note) => {
-        const comparisons = Object.entries(note.counts).filter(([, count]) => count > 0)
+        const figures = note.values.length
+        const growth = note.comparisons.length
         const comparisonPlaces = placesOf(note.comparisons.map((comparison) => ({ ...comparison, label: `${comparison.label} ${comparisonLabel(comparison.basis)}${comparison.basis === 'window_pp' ? ' change' : ''}` })))
         // A note that marks nothing has no letter on the page, so none here; its id stays, so a link to it still lands.
         return <li id={note.id} key={note.key} tabIndex={-1} className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
@@ -60,10 +50,11 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
           <div className="min-w-0 space-y-1">
             <p>{note.message}</p>
             {note.values.length > 0 && <p>{placesOf(note.values).map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.</p>}
-            {(note.values.length > 0 || comparisons.length > 0) && <p className="font-data text-xs">{[
-              ...(note.values.length ? [`${note.values.length} ${note.values.length === 1 ? 'figure' : 'figures'}`] : []),
-              ...comparisons.map(([basis, count]) => `${count} ${comparisonLabel(basis)} ${count === 1 ? 'comparison' : 'comparisons'}`),
-            ].join(' · ')}.</p>}
+            {/* Its counts: the figures, and apart from them the growth figures that carry the note (#1610 §3.2). */}
+            {(figures > 0 || growth > 0) && <p className="font-data text-xs">{[
+              ...(figures ? [`${figures} ${figures === 1 ? 'figure' : 'figures'}`] : []),
+              ...(growth ? [`${growth} ${growth === 1 ? 'growth figure' : 'growth figures'}${figures ? ` built on ${figures === 1 ? 'it' : 'them'}` : ''}`] : []),
+            ].join('; ')}.</p>}
             {comparisonPlaces.length > 0 && <p>Comparisons: {comparisonPlaces.map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.</p>}
           </div>
         </li>
@@ -73,8 +64,9 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
 }
 
 /** The data notes: one line of fine print under the metrics table, the detail one click away (D-061). The summary names
- *  each note that marks a figure, with its places and words, and counts the gaps, the figures with no check recorded
- *  and the calculated figures; the open detail lists every note. Nothing here is in warning ink. */
+ *  each note that marks a figure, with its places and its summary words (noteSummary, the backend's note_summary), and
+ *  counts the gaps, the figures with no check recorded and the calculated figures; the open detail lists every note
+ *  with its message and counts. Nothing here is in warning ink. */
 export default function DataNotes({ dataset, sample = false }: { dataset: AnalysisDataset; sample?: boolean }) {
   const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
@@ -102,8 +94,9 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
           <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Data notes</span>
           {/* The same words NarrativePane's sample labels use for the one payload (D-046). */}
           {sample && <span> · sample data (one saved run)</span>}
-          {marked.map((note) => <span key={note.key} className="relative"> · <span className="sr-only">Note {note.letter}: </span><DataNoteMark note={note} /> {summaryPlaces(note)}: {headline(note)}</span>)}
-          {totals.unavailable > 0 && <span> · {totals.unavailable} not in our data, shown as a dash</span>}
+          {marked.map((note) => <span key={note.key} className="relative"> · <span className="sr-only">Note {note.letter}: </span><DataNoteMark note={note} /> {summaryPlaces(note)}: {noteSummary(note.reasons)}</span>)}
+          {/* The table's dash itself, as the one sanctioned token in an element of its own; a screen reader hears "a dash". */}
+          {totals.unavailable > 0 && <span> · {totals.unavailable} not in our data, shown as <MissingValue label="a dash" /></span>}
           {totals.unknown > 0 && <span> · {plural(totals.unknown, 'figure', 'figures')} with no check recorded</span>}
           {unknownComparisons > 0 && <span> · {plural(unknownComparisons, 'growth figure', 'growth figures')} with no check recorded</span>}
           {totals.calculated > 0 && <span> · {totals.calculated} calculated from filed figures</span>}

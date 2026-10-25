@@ -896,7 +896,7 @@ async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, cha
     from app.routers import analysis as router
     from app.services import entitlements
     from app.services.export_service import export_service
-    from app.services.trend_analysis.data_notes import resolve_data_notes
+    from app.services.trend_analysis.data_notes import DATA_NOTES_VERSION, resolve_data_notes
     from app.services.trend_analysis.presentation import NARRATIVE_FORMAT_VERSION
 
     record = TestAnalysisPdfHtml()._analysis()
@@ -907,7 +907,7 @@ async def test_analysis_pdf_refuses_stale_or_replaced_snapshots(monkeypatch, cha
     record.dataset_json["data_notes"] = resolve_data_notes(record.dataset_json)
     record.dataset_json["narrative_presentation"] = {
         "format_version": NARRATIVE_FORMAT_VERSION, "snapshot_id": record.dataset_fingerprint,
-        "data_notes_version": 1, "notes": record.dataset_json["data_notes"],
+        "data_notes_version": DATA_NOTES_VERSION, "notes": record.dataset_json["data_notes"],
         "offset_encoding": "utf-16", "evidence": [],
     }
     record.prompt_version = router.trend_analysis_service.PROMPT_VERSION

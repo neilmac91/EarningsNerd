@@ -66,7 +66,7 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  *    a chart's "Data note x" mark), named (a control's or chip's accessible name, a chart tooltip's "· note x", the
  *    fold's "figures carry notes x"), set in the fine print's summary or in a chart's PNG footer (chartDataNotes) is one
  *    of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
- *    record-only a, the unknown d or the gap's e.
+ *    record-only c, the unknown d or the gap's e (marked notes take the first letters, data notes version 2).
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
  *    supplement); the record-only note's entry keeps its words and counts; the summary never says "No figures need
  *    review" beside it, and the legacy figure's dialog says "Needs review", never that checks passed. Filtering the
@@ -111,7 +111,7 @@ const report: AnalysisDataset = {
     ...series, unit: series.percent ? 'pure' : 'USD', cagr: series.cagr ?? null, points: series.points.map((point) => ({ ...point })),
   })) as AnalysisDataset['series'],
 }
-// The case's two citations (the record-only note a, and the mixed supplement f), then a figure with no check recorded
+// The case's two citations (the record-only note c, and the mixed supplement f), then a figure with no check recorded
 // (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters.
 const cited = ['operating_margin', 'free_cash_flow', 'net_income', 'net_income'] as const
 const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] } }]
@@ -167,7 +167,7 @@ describe('every surface marks and names only the notes that question the number 
 
     const stray = [...seen].filter(([letter]) => !example.marked_letters.includes(letter)).map(([letter, where]) => `${letter}: ${[...where].join(', ')}`)
     expect(stray, 'a letter shown or named for a note that marks nothing').toEqual([])
-    // The fixture's marked letters all show: b on the KPI card, the table and the cash chart, c on the table and the
+    // The fixture's marked letters all show: a on the KPI card, the table and the cash chart, b on the table and the
     // balance sheet, f on its citation chip.
     expect([...seen.keys()].sort()).toEqual([...example.marked_letters].sort())
     for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
@@ -187,7 +187,7 @@ describe('every surface marks and names only the notes that question the number 
     }
     const legacy = example.expected.notes.find((note) => note.reasons.every((reason) => RECORD_ONLY_REASONS.has(reason)))!
     expect(document.getElementById(legacy.id)).toHaveTextContent('Operating margin (FY2023, FY2024)')
-    expect(document.getElementById(legacy.id)).toHaveTextContent('2 figures · 1 YoY comparison.')
+    expect(document.getElementById(legacy.id)).toHaveTextContent('2 figures; 1 growth figure built on them.')
     // Every populated figure that is not legacy, missing its record or the conflict passed: still never "No figures
     // need review" while the record-only note stands.
     expect(fine.querySelector('summary')).not.toHaveTextContent('No figures need review')

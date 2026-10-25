@@ -216,9 +216,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: A source check remains unresolved.")
-    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: A source check remains unresolved.")
+    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
+    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
@@ -379,7 +379,8 @@ def test_pdf_retains_value_and_citation_quality():
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
     assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
     assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
-    assert html.count("A source check remains unresolved. Review the original filing before use.") == 1
+    assert html.count("Not yet matched to the filing: our automated check could not confirm this figure against "
+                      "the company’s filed data. Select it to compare with the filing.") == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 

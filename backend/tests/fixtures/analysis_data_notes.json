@@ -1,6 +1,58 @@
 {
   "version": 1,
-  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Known messages copied from the Phase1 reason vocabulary. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
+  "description": "Shared notes presentation golden. Synthetic minimal quality cases; no financial source claim. Expected memberships/order/totals are explicitly authored. Messages are the data notes version 2 reason words (data_notes.REASONS and provenance.ts REASONS, equal), and marked notes take the first letters. record_only_reasons and summaries pin the marking rule's list and the fine print's summary words on both sides. Canonical keys use compact ASCII JSON and UTF-16 code-unit reason ordering.",
+  "record_only_reasons": [
+    "legacy_calculation"
+  ],
+  "summaries": {
+    "clauses": {
+      "source_check_needed": "not yet matched to the filing",
+      "source_conflict": "the filings report different values; we show the most recent",
+      "calculation_mismatch": "the calculation does not match its filed inputs",
+      "missing_calculation_inputs": "the calculation\u2019s filed inputs were not found"
+    },
+    "fallback": "questioned by an automated check",
+    "joined": [
+      {
+        "reasons": [
+          "source_check_needed"
+        ],
+        "summary": "not yet matched to the filing"
+      },
+      {
+        "reasons": [
+          "legacy_calculation",
+          "source_conflict"
+        ],
+        "summary": "the filings report different values; we show the most recent"
+      },
+      {
+        "reasons": [
+          "calculation_mismatch",
+          "missing_calculation_inputs"
+        ],
+        "summary": "the calculation does not match its filed inputs; the calculation\u2019s filed inputs were not found"
+      },
+      {
+        "reasons": [
+          "source_check_needed",
+          "unit_mismatch"
+        ],
+        "summary": "not yet matched to the filing; questioned by an automated check"
+      },
+      {
+        "reasons": [
+          "future_a",
+          "future_b"
+        ],
+        "summary": "questioned by an automated check"
+      },
+      {
+        "reasons": [],
+        "summary": "questioned by an automated check"
+      }
+    ]
+  },
   "cases": [
     {
       "name": "mixed_quarterly_quality_and_gaps",
@@ -219,18 +271,18 @@
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "source_conflict",
               "unit_mismatch"
             ],
-            "message": "Available sources disagree on this figure. The source inputs use different units or currencies.",
+            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare. The source inputs use different units or currencies.",
             "values": [
               {
                 "concept": "revenue",
@@ -254,14 +306,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_check_needed\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
             "kind": "review",
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
             "values": [
               {
                 "concept": "legacy",
@@ -278,14 +330,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "review",
             "reasons": [
               "source_conflict"
             ],
-            "message": "Available sources disagree on this figure.",
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
             "values": [],
             "comparisons": [
               {
@@ -303,14 +355,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "review",
             "reasons": [
               "future_a",
               "future_b"
             ],
+            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [
@@ -329,13 +381,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "unknown",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -370,13 +422,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"missing_provenance\"]]",
-            "id": "analysis-data-note-f",
-            "letter": "f",
             "kind": "unknown",
             "reasons": [
               "missing_provenance"
             ],
+            "key": "[\"unknown\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
             "message": "Detailed source information is unavailable for this figure.",
             "values": [
               {
@@ -394,14 +446,14 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-g",
-            "letter": "g",
             "kind": "unavailable",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -423,13 +475,13 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
-            "id": "analysis-data-note-h",
-            "letter": "h",
             "kind": "unavailable",
             "reasons": [
               "unsupported_eps_calculation"
             ],
+            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
             "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
             "values": [
               {
@@ -527,18 +579,18 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "source_conflict",
               "unit_mismatch"
             ],
-            "message": "Available sources disagree on this figure. The source inputs use different units or currencies.",
+            "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare. The source inputs use different units or currencies.",
             "values": [
               {
                 "concept": "revenue",
@@ -562,14 +614,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_check_needed\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
             "kind": "review",
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
             "values": [
               {
                 "concept": "legacy",
@@ -586,14 +638,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "review",
             "reasons": [
               "source_conflict"
             ],
-            "message": "Available sources disagree on this figure.",
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
             "values": [],
             "comparisons": [
               {
@@ -611,14 +663,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "review",
             "reasons": [
               "future_a",
               "future_b"
             ],
+            "key": "[\"review\",[\"future_a\",\"future_b\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [
@@ -637,13 +689,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "unknown",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -678,13 +730,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"missing_provenance\"]]",
-            "id": "analysis-data-note-f",
-            "letter": "f",
             "kind": "unknown",
             "reasons": [
               "missing_provenance"
             ],
+            "key": "[\"unknown\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
             "message": "Detailed source information is unavailable for this figure.",
             "values": [
               {
@@ -702,14 +754,14 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-g",
-            "letter": "g",
             "kind": "unavailable",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -731,13 +783,13 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
-            "id": "analysis-data-note-h",
-            "letter": "h",
             "kind": "unavailable",
             "reasons": [
               "unsupported_eps_calculation"
             ],
+            "key": "[\"unavailable\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
             "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
             "values": [
               {
@@ -755,13 +807,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"future_a\"]]",
-            "id": "analysis-data-note-i",
-            "letter": "i",
             "kind": "review",
             "reasons": [
               "future_a"
             ],
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [],
@@ -921,17 +973,17 @@
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"source_check_needed\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
             "values": [],
             "comparisons": [
               {
@@ -955,13 +1007,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"unit_mismatch\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
             "kind": "review",
             "reasons": [
               "unit_mismatch"
             ],
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
             "message": "The source inputs use different units or currencies.",
             "values": [],
             "comparisons": [
@@ -980,13 +1032,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"period_mismatch\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "review",
             "reasons": [
               "period_mismatch"
             ],
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
             "message": "The source inputs cover incompatible reporting periods.",
             "values": [],
             "comparisons": [
@@ -1005,13 +1057,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"missing_source\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "unknown",
             "reasons": [
               "missing_source"
             ],
+            "key": "[\"unknown\",[\"missing_source\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "The original source could not be established.",
             "values": [],
             "comparisons": [
@@ -1126,12 +1178,9 @@
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "quote\"\\\n",
@@ -1141,6 +1190,9 @@
               "\ud83d\ude00",
               "\ue000"
             ],
+            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
             "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
             "values": [
               {
@@ -1163,13 +1215,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"future_a\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
             "kind": "review",
             "reasons": [
               "future_a"
             ],
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [
@@ -1218,12 +1270,9 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "quote\"\\\n",
@@ -1233,6 +1282,9 @@
               "\ud83d\ude00",
               "\ue000"
             ],
+            "key": "[\"review\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
             "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
             "values": [
               {
@@ -1255,13 +1307,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"future_a\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
             "kind": "review",
             "reasons": [
               "future_a"
             ],
+            "key": "[\"review\",[\"future_a\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [
@@ -1280,9 +1332,6 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "unknown",
             "reasons": [
               "quote\"\\\n",
@@ -1292,6 +1341,9 @@
               "\ud83d\ude00",
               "\ue000"
             ],
+            "key": "[\"unknown\",[\"quote\\\"\\\\\\n\",\"\\u007f\",\"\\u00e9\",\"\\ud800\",\"\\ud83d\\ude00\",\"\\ue000\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
             "message": "The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing. The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [],
@@ -1922,21 +1974,65 @@
                 }
               }
             ]
+          },
+          {
+            "concept": "reason_27",
+            "label": "reason_27",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 27,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "calculation_mismatch"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "reason_28",
+            "label": "reason_28",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "2024Q1",
+                "value": 28,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "missing_calculation_inputs"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
           }
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"review\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -1953,38 +2049,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
-            "kind": "review",
-            "reasons": [
-              "legacy_calculation"
-            ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
-            "values": [
-              {
-                "concept": "reason_1",
-                "label": "reason_1",
-                "period": "2024Q1"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"review\",[\"source_check_needed\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "review",
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2001,13 +2073,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "review",
             "reasons": [
               "unsupported_eps_calculation"
             ],
+            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
             "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
             "values": [
               {
@@ -2025,13 +2097,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "review",
             "reasons": [
               "legacy_calculation_not_supported"
             ],
+            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
             "values": [
               {
@@ -2049,13 +2121,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"repair_rolled_back\"]]",
-            "id": "analysis-data-note-f",
-            "letter": "f",
             "kind": "review",
             "reasons": [
               "repair_rolled_back"
             ],
+            "key": "[\"review\",[\"repair_rolled_back\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
             "message": "This figure was withdrawn during a data correction and is unavailable.",
             "values": [
               {
@@ -2073,13 +2145,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"incompatible_vintages\"]]",
-            "id": "analysis-data-note-g",
-            "letter": "g",
             "kind": "review",
             "reasons": [
               "incompatible_vintages"
             ],
+            "key": "[\"review\",[\"incompatible_vintages\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
             "message": "The inputs come from incompatible versions of the company\u2019s filings.",
             "values": [
               {
@@ -2097,13 +2169,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_compatible_operand\"]]",
-            "id": "analysis-data-note-h",
-            "letter": "h",
             "kind": "review",
             "reasons": [
               "missing_compatible_operand"
             ],
+            "key": "[\"review\",[\"missing_compatible_operand\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
             "message": "A compatible earlier year-to-date figure is unavailable for this calculation.",
             "values": [
               {
@@ -2121,13 +2193,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"negative_calculated_value\"]]",
-            "id": "analysis-data-note-i",
-            "letter": "i",
             "kind": "review",
             "reasons": [
               "negative_calculated_value"
             ],
+            "key": "[\"review\",[\"negative_calculated_value\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
             "message": "The calculation produced an invalid negative amount and was withheld.",
             "values": [
               {
@@ -2145,13 +2217,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_inputs\"]]",
-            "id": "analysis-data-note-j",
-            "letter": "j",
             "kind": "review",
             "reasons": [
               "missing_inputs"
             ],
+            "key": "[\"review\",[\"missing_inputs\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
             "message": "The source inputs needed for this calculation are unavailable.",
             "values": [
               {
@@ -2169,13 +2241,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_input\"]]",
-            "id": "analysis-data-note-k",
-            "letter": "k",
             "kind": "review",
             "reasons": [
               "missing_input"
             ],
+            "key": "[\"review\",[\"missing_input\"]]",
+            "id": "analysis-data-note-j",
+            "letter": "j",
             "message": "A source input needed for this calculation is unavailable.",
             "values": [
               {
@@ -2193,13 +2265,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_source\"]]",
-            "id": "analysis-data-note-l",
-            "letter": "l",
             "kind": "review",
             "reasons": [
               "missing_source"
             ],
+            "key": "[\"review\",[\"missing_source\"]]",
+            "id": "analysis-data-note-k",
+            "letter": "k",
             "message": "The original source could not be established.",
             "values": [
               {
@@ -2217,13 +2289,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_provenance\"]]",
-            "id": "analysis-data-note-m",
-            "letter": "m",
             "kind": "review",
             "reasons": [
               "missing_provenance"
             ],
+            "key": "[\"review\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-l",
+            "letter": "l",
             "message": "Detailed source information is unavailable for this figure.",
             "values": [
               {
@@ -2241,13 +2313,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unverified\"]]",
-            "id": "analysis-data-note-n",
-            "letter": "n",
             "kind": "review",
             "reasons": [
               "legacy_unverified"
             ],
+            "key": "[\"review\",[\"legacy_unverified\"]]",
+            "id": "analysis-data-note-m",
+            "letter": "m",
             "message": "This saved figure needs a source check before use.",
             "values": [
               {
@@ -2265,13 +2337,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unreconciled\"]]",
-            "id": "analysis-data-note-o",
-            "letter": "o",
             "kind": "review",
             "reasons": [
               "legacy_unreconciled"
             ],
+            "key": "[\"review\",[\"legacy_unreconciled\"]]",
+            "id": "analysis-data-note-n",
+            "letter": "n",
             "message": "This saved figure needs a source check before use.",
             "values": [
               {
@@ -2289,13 +2361,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-p",
-            "letter": "p",
             "kind": "review",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"review\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-o",
+            "letter": "o",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -2313,13 +2385,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
-            "id": "analysis-data-note-q",
-            "letter": "q",
             "kind": "review",
             "reasons": [
               "legacy_provenance_unavailable"
             ],
+            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
+            "id": "analysis-data-note-p",
+            "letter": "p",
             "message": "Detailed source information is unavailable for this saved figure.",
             "values": [
               {
@@ -2337,13 +2409,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"incompatible_inputs\"]]",
-            "id": "analysis-data-note-r",
-            "letter": "r",
             "kind": "review",
             "reasons": [
               "incompatible_inputs"
             ],
+            "key": "[\"review\",[\"incompatible_inputs\"]]",
+            "id": "analysis-data-note-q",
+            "letter": "q",
             "message": "The source inputs do not have a compatible reporting basis.",
             "values": [
               {
@@ -2361,13 +2433,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"mixed_vintage\"]]",
-            "id": "analysis-data-note-s",
-            "letter": "s",
             "kind": "review",
             "reasons": [
               "mixed_vintage"
             ],
+            "key": "[\"review\",[\"mixed_vintage\"]]",
+            "id": "analysis-data-note-r",
+            "letter": "r",
             "message": "The calculation combines figures from different filing versions.",
             "values": [
               {
@@ -2385,13 +2457,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"mixed_vintages\"]]",
-            "id": "analysis-data-note-t",
-            "letter": "t",
             "kind": "review",
             "reasons": [
               "mixed_vintages"
             ],
+            "key": "[\"review\",[\"mixed_vintages\"]]",
+            "id": "analysis-data-note-s",
+            "letter": "s",
             "message": "The calculation combines figures from different filing versions.",
             "values": [
               {
@@ -2409,13 +2481,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"unit_mismatch\"]]",
-            "id": "analysis-data-note-u",
-            "letter": "u",
             "kind": "review",
             "reasons": [
               "unit_mismatch"
             ],
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-t",
+            "letter": "t",
             "message": "The source inputs use different units or currencies.",
             "values": [
               {
@@ -2433,13 +2505,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"period_mismatch\"]]",
-            "id": "analysis-data-note-v",
-            "letter": "v",
             "kind": "review",
             "reasons": [
               "period_mismatch"
             ],
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-u",
+            "letter": "u",
             "message": "The source inputs cover incompatible reporting periods.",
             "values": [
               {
@@ -2457,13 +2529,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_adjacent_period\"]]",
-            "id": "analysis-data-note-w",
-            "letter": "w",
             "kind": "review",
             "reasons": [
               "missing_adjacent_period"
             ],
+            "key": "[\"review\",[\"missing_adjacent_period\"]]",
+            "id": "analysis-data-note-v",
+            "letter": "v",
             "message": "The immediately preceding period is unavailable.",
             "values": [
               {
@@ -2481,13 +2553,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"eps_not_additive\"]]",
-            "id": "analysis-data-note-x",
-            "letter": "x",
             "kind": "review",
             "reasons": [
               "eps_not_additive"
             ],
+            "key": "[\"review\",[\"eps_not_additive\"]]",
+            "id": "analysis-data-note-w",
+            "letter": "w",
             "message": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
             "values": [
               {
@@ -2505,13 +2577,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
-            "id": "analysis-data-note-y",
-            "letter": "y",
             "kind": "review",
             "reasons": [
               "eps_requires_reported_quarter"
             ],
+            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
+            "id": "analysis-data-note-x",
+            "letter": "x",
             "message": "A reported quarterly earnings-per-share figure is unavailable.",
             "values": [
               {
@@ -2529,13 +2601,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"rounded_share_count\"]]",
-            "id": "analysis-data-note-z",
-            "letter": "z",
             "kind": "review",
             "reasons": [
               "rounded_share_count"
             ],
+            "key": "[\"review\",[\"rounded_share_count\"]]",
+            "id": "analysis-data-note-y",
+            "letter": "y",
             "message": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
             "values": [
               {
@@ -2553,14 +2625,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-aa",
-            "letter": "aa",
             "kind": "review",
             "reasons": [
               "source_conflict"
             ],
-            "message": "Available sources disagree on this figure.",
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-z",
+            "letter": "z",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
             "values": [
               {
                 "concept": "reason_26",
@@ -2575,16 +2647,88 @@
               "cagr": 0,
               "window_pp": 0
             }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "calculation_mismatch"
+            ],
+            "key": "[\"review\",[\"calculation_mismatch\"]]",
+            "id": "analysis-data-note-aa",
+            "letter": "aa",
+            "message": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
+            "values": [
+              {
+                "concept": "reason_27",
+                "label": "reason_27",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "missing_calculation_inputs"
+            ],
+            "key": "[\"review\",[\"missing_calculation_inputs\"]]",
+            "id": "analysis-data-note-ab",
+            "letter": "ab",
+            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_28",
+                "label": "reason_28",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-ac",
+            "letter": "ac",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "values": [
+              {
+                "concept": "reason_1",
+                "label": "reason_1",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
           }
         ],
         "totals": {
-          "reviewValues": 27,
+          "reviewValues": 29,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 27
+          "total": 29
         }
       },
       "citations": [
@@ -2620,17 +2764,17 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-a",
-            "letter": "a",
             "kind": "review",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"review\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -2647,38 +2791,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
-            "kind": "review",
-            "reasons": [
-              "legacy_calculation"
-            ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
-            "values": [
-              {
-                "concept": "reason_1",
-                "label": "reason_1",
-                "period": "2024Q1"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"review\",[\"source_check_needed\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
             "kind": "review",
             "reasons": [
               "source_check_needed"
             ],
-            "message": "A source check remains unresolved. Review the original filing before use.",
+            "key": "[\"review\",[\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2695,13 +2815,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "review",
             "reasons": [
               "unsupported_eps_calculation"
             ],
+            "key": "[\"review\",[\"unsupported_eps_calculation\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
             "message": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
             "values": [
               {
@@ -2719,13 +2839,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "review",
             "reasons": [
               "legacy_calculation_not_supported"
             ],
+            "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
             "values": [
               {
@@ -2743,13 +2863,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"repair_rolled_back\"]]",
-            "id": "analysis-data-note-f",
-            "letter": "f",
             "kind": "review",
             "reasons": [
               "repair_rolled_back"
             ],
+            "key": "[\"review\",[\"repair_rolled_back\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
             "message": "This figure was withdrawn during a data correction and is unavailable.",
             "values": [
               {
@@ -2767,13 +2887,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"incompatible_vintages\"]]",
-            "id": "analysis-data-note-g",
-            "letter": "g",
             "kind": "review",
             "reasons": [
               "incompatible_vintages"
             ],
+            "key": "[\"review\",[\"incompatible_vintages\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
             "message": "The inputs come from incompatible versions of the company\u2019s filings.",
             "values": [
               {
@@ -2791,13 +2911,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_compatible_operand\"]]",
-            "id": "analysis-data-note-h",
-            "letter": "h",
             "kind": "review",
             "reasons": [
               "missing_compatible_operand"
             ],
+            "key": "[\"review\",[\"missing_compatible_operand\"]]",
+            "id": "analysis-data-note-g",
+            "letter": "g",
             "message": "A compatible earlier year-to-date figure is unavailable for this calculation.",
             "values": [
               {
@@ -2815,13 +2935,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"negative_calculated_value\"]]",
-            "id": "analysis-data-note-i",
-            "letter": "i",
             "kind": "review",
             "reasons": [
               "negative_calculated_value"
             ],
+            "key": "[\"review\",[\"negative_calculated_value\"]]",
+            "id": "analysis-data-note-h",
+            "letter": "h",
             "message": "The calculation produced an invalid negative amount and was withheld.",
             "values": [
               {
@@ -2839,13 +2959,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_inputs\"]]",
-            "id": "analysis-data-note-j",
-            "letter": "j",
             "kind": "review",
             "reasons": [
               "missing_inputs"
             ],
+            "key": "[\"review\",[\"missing_inputs\"]]",
+            "id": "analysis-data-note-i",
+            "letter": "i",
             "message": "The source inputs needed for this calculation are unavailable.",
             "values": [
               {
@@ -2863,13 +2983,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_input\"]]",
-            "id": "analysis-data-note-k",
-            "letter": "k",
             "kind": "review",
             "reasons": [
               "missing_input"
             ],
+            "key": "[\"review\",[\"missing_input\"]]",
+            "id": "analysis-data-note-j",
+            "letter": "j",
             "message": "A source input needed for this calculation is unavailable.",
             "values": [
               {
@@ -2887,13 +3007,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_source\"]]",
-            "id": "analysis-data-note-l",
-            "letter": "l",
             "kind": "review",
             "reasons": [
               "missing_source"
             ],
+            "key": "[\"review\",[\"missing_source\"]]",
+            "id": "analysis-data-note-k",
+            "letter": "k",
             "message": "The original source could not be established.",
             "values": [
               {
@@ -2911,13 +3031,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_provenance\"]]",
-            "id": "analysis-data-note-m",
-            "letter": "m",
             "kind": "review",
             "reasons": [
               "missing_provenance"
             ],
+            "key": "[\"review\",[\"missing_provenance\"]]",
+            "id": "analysis-data-note-l",
+            "letter": "l",
             "message": "Detailed source information is unavailable for this figure.",
             "values": [
               {
@@ -2935,13 +3055,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unverified\"]]",
-            "id": "analysis-data-note-n",
-            "letter": "n",
             "kind": "review",
             "reasons": [
               "legacy_unverified"
             ],
+            "key": "[\"review\",[\"legacy_unverified\"]]",
+            "id": "analysis-data-note-m",
+            "letter": "m",
             "message": "This saved figure needs a source check before use.",
             "values": [
               {
@@ -2959,13 +3079,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unreconciled\"]]",
-            "id": "analysis-data-note-o",
-            "letter": "o",
             "kind": "review",
             "reasons": [
               "legacy_unreconciled"
             ],
+            "key": "[\"review\",[\"legacy_unreconciled\"]]",
+            "id": "analysis-data-note-n",
+            "letter": "n",
             "message": "This saved figure needs a source check before use.",
             "values": [
               {
@@ -2983,13 +3103,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-p",
-            "letter": "p",
             "kind": "review",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"review\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-o",
+            "letter": "o",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -3007,13 +3127,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
-            "id": "analysis-data-note-q",
-            "letter": "q",
             "kind": "review",
             "reasons": [
               "legacy_provenance_unavailable"
             ],
+            "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
+            "id": "analysis-data-note-p",
+            "letter": "p",
             "message": "Detailed source information is unavailable for this saved figure.",
             "values": [
               {
@@ -3031,13 +3151,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"incompatible_inputs\"]]",
-            "id": "analysis-data-note-r",
-            "letter": "r",
             "kind": "review",
             "reasons": [
               "incompatible_inputs"
             ],
+            "key": "[\"review\",[\"incompatible_inputs\"]]",
+            "id": "analysis-data-note-q",
+            "letter": "q",
             "message": "The source inputs do not have a compatible reporting basis.",
             "values": [
               {
@@ -3055,13 +3175,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"mixed_vintage\"]]",
-            "id": "analysis-data-note-s",
-            "letter": "s",
             "kind": "review",
             "reasons": [
               "mixed_vintage"
             ],
+            "key": "[\"review\",[\"mixed_vintage\"]]",
+            "id": "analysis-data-note-r",
+            "letter": "r",
             "message": "The calculation combines figures from different filing versions.",
             "values": [
               {
@@ -3079,13 +3199,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"mixed_vintages\"]]",
-            "id": "analysis-data-note-t",
-            "letter": "t",
             "kind": "review",
             "reasons": [
               "mixed_vintages"
             ],
+            "key": "[\"review\",[\"mixed_vintages\"]]",
+            "id": "analysis-data-note-s",
+            "letter": "s",
             "message": "The calculation combines figures from different filing versions.",
             "values": [
               {
@@ -3103,13 +3223,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"unit_mismatch\"]]",
-            "id": "analysis-data-note-u",
-            "letter": "u",
             "kind": "review",
             "reasons": [
               "unit_mismatch"
             ],
+            "key": "[\"review\",[\"unit_mismatch\"]]",
+            "id": "analysis-data-note-t",
+            "letter": "t",
             "message": "The source inputs use different units or currencies.",
             "values": [
               {
@@ -3127,13 +3247,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"period_mismatch\"]]",
-            "id": "analysis-data-note-v",
-            "letter": "v",
             "kind": "review",
             "reasons": [
               "period_mismatch"
             ],
+            "key": "[\"review\",[\"period_mismatch\"]]",
+            "id": "analysis-data-note-u",
+            "letter": "u",
             "message": "The source inputs cover incompatible reporting periods.",
             "values": [
               {
@@ -3151,13 +3271,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"missing_adjacent_period\"]]",
-            "id": "analysis-data-note-w",
-            "letter": "w",
             "kind": "review",
             "reasons": [
               "missing_adjacent_period"
             ],
+            "key": "[\"review\",[\"missing_adjacent_period\"]]",
+            "id": "analysis-data-note-v",
+            "letter": "v",
             "message": "The immediately preceding period is unavailable.",
             "values": [
               {
@@ -3175,13 +3295,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"eps_not_additive\"]]",
-            "id": "analysis-data-note-x",
-            "letter": "x",
             "kind": "review",
             "reasons": [
               "eps_not_additive"
             ],
+            "key": "[\"review\",[\"eps_not_additive\"]]",
+            "id": "analysis-data-note-w",
+            "letter": "w",
             "message": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
             "values": [
               {
@@ -3199,13 +3319,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
-            "id": "analysis-data-note-y",
-            "letter": "y",
             "kind": "review",
             "reasons": [
               "eps_requires_reported_quarter"
             ],
+            "key": "[\"review\",[\"eps_requires_reported_quarter\"]]",
+            "id": "analysis-data-note-x",
+            "letter": "x",
             "message": "A reported quarterly earnings-per-share figure is unavailable.",
             "values": [
               {
@@ -3223,13 +3343,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"rounded_share_count\"]]",
-            "id": "analysis-data-note-z",
-            "letter": "z",
             "kind": "review",
             "reasons": [
               "rounded_share_count"
             ],
+            "key": "[\"review\",[\"rounded_share_count\"]]",
+            "id": "analysis-data-note-y",
+            "letter": "y",
             "message": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
             "values": [
               {
@@ -3247,14 +3367,14 @@
             }
           },
           {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-aa",
-            "letter": "aa",
             "kind": "review",
             "reasons": [
               "source_conflict"
             ],
-            "message": "Available sources disagree on this figure.",
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-z",
+            "letter": "z",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
             "values": [
               {
                 "concept": "reason_26",
@@ -3271,13 +3391,85 @@
             }
           },
           {
-            "key": "[\"review\",[\"new_citation_reason\"]]",
+            "kind": "review",
+            "reasons": [
+              "calculation_mismatch"
+            ],
+            "key": "[\"review\",[\"calculation_mismatch\"]]",
+            "id": "analysis-data-note-aa",
+            "letter": "aa",
+            "message": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
+            "values": [
+              {
+                "concept": "reason_27",
+                "label": "reason_27",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "missing_calculation_inputs"
+            ],
+            "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
+            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "reason_28",
+                "label": "reason_28",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-ac",
+            "letter": "ac",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "values": [
+              {
+                "concept": "reason_1",
+                "label": "reason_1",
+                "period": "2024Q1"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
             "kind": "review",
             "reasons": [
               "new_citation_reason"
             ],
+            "key": "[\"review\",[\"new_citation_reason\"]]",
+            "id": "analysis-data-note-ad",
+            "letter": "ad",
             "message": "The source or calculation basis needs review. Check the original filing.",
             "values": [],
             "comparisons": [],
@@ -3289,13 +3481,13 @@
             }
           },
           {
-            "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-ac",
-            "letter": "ac",
             "kind": "unknown",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-ae",
+            "letter": "ae",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [],
             "comparisons": [],
@@ -3307,14 +3499,14 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-ad",
-            "letter": "ad",
             "kind": "unavailable",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-af",
+            "letter": "af",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [],
             "comparisons": [],
             "counts": {
@@ -3326,17 +3518,18 @@
           }
         ],
         "totals": {
-          "reviewValues": 27,
+          "reviewValues": 29,
           "reviewComparisons": 0,
           "unavailable": 0,
           "passed": 0,
           "unknown": 0,
           "calculated": 0,
-          "total": 27
+          "total": 29
         }
       },
       "marked_letters": [
         "a",
+        "b",
         "c",
         "d",
         "e",
@@ -3362,7 +3555,8 @@
         "y",
         "z",
         "aa",
-        "ab"
+        "ab",
+        "ad"
       ]
     },
     {
@@ -3421,7 +3615,7 @@
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [],
         "totals": {
           "reviewValues": 0,
@@ -3588,17 +3782,66 @@
         ]
       },
       "expected": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation",
+              "source_check_needed"
+            ],
+            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "free_cash_flow",
+                "label": "Free cash flow",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
             "kind": "review",
             "reasons": [
               "legacy_calculation"
             ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",
@@ -3627,62 +3870,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
-            "kind": "review",
-            "reasons": [
-              "legacy_calculation",
-              "source_check_needed"
-            ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review. A source check remains unresolved. Review the original filing before use.",
-            "values": [
-              {
-                "concept": "free_cash_flow",
-                "label": "Free cash flow",
-                "period": "FY2024"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
-            "kind": "review",
-            "reasons": [
-              "source_conflict"
-            ],
-            "message": "Available sources disagree on this figure.",
-            "values": [
-              {
-                "concept": "long_term_debt",
-                "label": "Long-term debt",
-                "period": "FY2024"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "unknown",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -3700,14 +3894,14 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "unavailable",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -3762,17 +3956,66 @@
         }
       ],
       "expected_citation_notes": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
-            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation",
+              "source_check_needed"
+            ],
+            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "values": [
+              {
+                "concept": "free_cash_flow",
+                "label": "Free cash flow",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
             "kind": "review",
             "reasons": [
               "legacy_calculation"
             ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",
@@ -3801,62 +4044,13 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
-            "id": "analysis-data-note-b",
-            "letter": "b",
-            "kind": "review",
-            "reasons": [
-              "legacy_calculation",
-              "source_check_needed"
-            ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review. A source check remains unresolved. Review the original filing before use.",
-            "values": [
-              {
-                "concept": "free_cash_flow",
-                "label": "Free cash flow",
-                "period": "FY2024"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"review\",[\"source_conflict\"]]",
-            "id": "analysis-data-note-c",
-            "letter": "c",
-            "kind": "review",
-            "reasons": [
-              "source_conflict"
-            ],
-            "message": "Available sources disagree on this figure.",
-            "values": [
-              {
-                "concept": "long_term_debt",
-                "label": "Long-term debt",
-                "period": "FY2024"
-              }
-            ],
-            "comparisons": [],
-            "counts": {
-              "qoq": 0,
-              "yoy": 0,
-              "cagr": 0,
-              "window_pp": 0
-            }
-          },
-          {
-            "key": "[\"unknown\",[\"legacy_unknown\"]]",
-            "id": "analysis-data-note-d",
-            "letter": "d",
             "kind": "unknown",
             "reasons": [
               "legacy_unknown"
             ],
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
             "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
             "values": [
               {
@@ -3874,14 +4068,14 @@
             }
           },
           {
-            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
-            "id": "analysis-data-note-e",
-            "letter": "e",
             "kind": "unavailable",
             "reasons": [
               "not_in_dataset"
             ],
-            "message": "Not available in this dataset.",
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "message": "Not in our data for these periods; shown as a dash, never as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -3898,15 +4092,15 @@
             }
           },
           {
-            "key": "[\"review\",[\"legacy_calculation\",\"unit_mismatch\"]]",
-            "id": "analysis-data-note-f",
-            "letter": "f",
             "kind": "review",
             "reasons": [
               "legacy_calculation",
               "unit_mismatch"
             ],
-            "message": "This saved calculation predates the current source checks. Its inputs need review. The source inputs use different units or currencies.",
+            "key": "[\"review\",[\"legacy_calculation\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. The source inputs use different units or currencies.",
             "values": [],
             "comparisons": [],
             "counts": {
@@ -3928,8 +4122,8 @@
         }
       },
       "marked_letters": [
+        "a",
         "b",
-        "c",
         "f"
       ]
     }

@@ -6,15 +6,17 @@ from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
 
-DATA_NOTES_VERSION = 1
+# Version 2: the reasons' words below and the marked notes lettered first. The envelope's shape is version 1's, so the
+# frontend reads both; a saved presentation of version 1 regenerates once (presentation_is_current).
+DATA_NOTES_VERSION = 2
 _MISSING = object()
 _KINDS = {"review": 0, "unknown": 1, "unavailable": 2}
 _BASES = ("qoq", "yoy", "cagr", "window_pp")
 _FALLBACK_MESSAGE = "The source or calculation basis needs review. Check the original filing."
 REASONS = {
-    "not_in_dataset": "Not available in this dataset.",
-    "legacy_calculation": "This saved calculation predates the current source checks. Its inputs need review.",
-    "source_check_needed": "A source check remains unresolved. Review the original filing before use.",
+    "not_in_dataset": "Not in our data for these periods; shown as a dash, never as zero.",
+    "legacy_calculation": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
+    "source_check_needed": "Not yet matched to the filing: our automated check could not confirm this figure against the company’s filed data. Select it to compare with the filing.",
     "unsupported_eps_calculation": "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.",
     "legacy_calculation_not_supported": "This saved calculation could not be reproduced from compatible source inputs and is unavailable.",
     "repair_rolled_back": "This figure was withdrawn during a data correction and is unavailable.",
@@ -38,8 +40,23 @@ REASONS = {
     "eps_not_additive": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
     "eps_requires_reported_quarter": "A reported quarterly earnings-per-share figure is unavailable.",
     "rounded_share_count": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
-    "source_conflict": "Available sources disagree on this figure.",
+    "calculation_mismatch": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
+    "missing_calculation_inputs": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+    "source_conflict": "The company’s filings report different values for this figure. We show the most recent filing’s value; select it to compare.",
 }
+# Reasons that describe a figure's record, not its value (D-061): their notes put no mark beside the figure. Closed: any
+# other reason marks, so a new reason shows until it is classified here. lib/dataNotes.ts holds the same list, and the
+# shared notes fixture's record_only_reasons pins both.
+RECORD_ONLY_REASONS = frozenset({"legacy_calculation"})
+# The fine print's words for a note that marks its figure ("Revenue FY2024: not yet matched to the filing"), the same
+# on every surface that prints the line. provenance.ts holds the same clauses; the fixture's summaries pins both.
+SUMMARIES = {
+    "source_check_needed": "not yet matched to the filing",
+    "source_conflict": "the filings report different values; we show the most recent",
+    "calculation_mismatch": "the calculation does not match its filed inputs",
+    "missing_calculation_inputs": "the calculation’s filed inputs were not found",
+}
+SUMMARY_FALLBACK = "questioned by an automated check"
 
 
 def _issue(value: Mapping[str, Any]) -> dict | None:
@@ -93,9 +110,22 @@ def _add(groups: dict, value: Mapping[str, Any]) -> dict | None:
     })
 
 
+def marks_figure(note: Mapping[str, Any]) -> bool:
+    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061)."""
+    reasons = note["reasons"]
+    return note["kind"] == "review" and (not reasons or any(reason not in RECORD_ONLY_REASONS for reason in reasons))
+
+
+def note_summary(reasons: Iterable[str]) -> str:
+    """A marked note's words in the fine print: each questioning reason's clause, once, in reason order."""
+    clauses = [SUMMARIES.get(reason, SUMMARY_FALLBACK) for reason in reasons if reason not in RECORD_ONLY_REASONS]
+    return "; ".join(dict.fromkeys(clauses or [SUMMARY_FALLBACK]))
+
+
 def _finish(groups: dict) -> list[dict]:
-    # Python's stable sort preserves first report appearance within each kind.
-    notes = sorted(groups.values(), key=lambda note: _KINDS[note["kind"]])
+    # Marked notes take the first letters, so a page's first visible letter is "a"; then review, unknown and
+    # unavailable notes. Python's stable sort preserves first report appearance within each.
+    notes = sorted(groups.values(), key=lambda note: (not marks_figure(note), _KINDS[note["kind"]]))
     for index, note in enumerate(notes):
         note["letter"] = _letter(index)
         note["id"] = f"analysis-data-note-{note['letter']}"

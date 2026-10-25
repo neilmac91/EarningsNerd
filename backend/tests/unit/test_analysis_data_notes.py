@@ -8,10 +8,16 @@ from pathlib import Path
 import pytest
 
 from app.services.trend_analysis.data_notes import (
+    DATA_NOTES_VERSION,
     REASONS,
+    RECORD_ONLY_REASONS,
+    SUMMARIES,
+    SUMMARY_FALLBACK,
     citation_data_notes,
     data_notes,
+    marks_figure,
     note_for_quality,
+    note_summary,
     quality_key,
     resolve_data_notes,
 )
@@ -58,8 +64,39 @@ def test_every_known_reason_has_a_pinned_message_and_supplements_continue_after_
     case = CASES[3]
     assert {note["reasons"][0] for note in case["expected"]["notes"]} == set(REASONS)
     result = citation_data_notes(case["citations"], data_notes(case["dataset"]))
-    assert [note["letter"] for note in result["notes"][-4:]] == ["aa", "ab", "ac", "ad"]
+    # 29 reasons: the 28 that mark take a..ab, the record-only legacy_calculation ac, and the supplements follow.
+    assert [note["letter"] for note in result["notes"][-4:]] == ["ac", "ad", "ae", "af"]
+    assert result["notes"][-4]["reasons"] == ["legacy_calculation"]
     assert all(not note["values"] and not note["comparisons"] for note in result["notes"][-3:])
+
+
+def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
+    """The fixture pins the frontend's copies too (data-notes.spec.ts, dataNoteMarking.spec.tsx): one record-only
+    list, one rule and one set of summary words on both sides."""
+    assert GOLDEN["record_only_reasons"] == sorted(RECORD_ONLY_REASONS)
+    assert GOLDEN["summaries"]["clauses"] == SUMMARIES
+    assert GOLDEN["summaries"]["fallback"] == SUMMARY_FALLBACK
+    for example in GOLDEN["summaries"]["joined"]:
+        assert note_summary(example["reasons"]) == example["summary"]
+    # A summary clause is for a reason that marks, and every clause has a message.
+    assert not set(SUMMARIES) & RECORD_ONLY_REASONS and set(SUMMARIES) <= set(REASONS)
+    for case in CASES:
+        notes = case.get("expected_citation_notes", case["expected"])["notes"]
+        assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])
+def test_marked_notes_take_the_first_letters(case):
+    """Read from each case's marked_letters, not the producer: within the report, and within its supplements,
+    every marked note is lettered before every unmarked one."""
+    def number(letter):
+        return sum((ord(char) - 96) * 26 ** power for power, char in enumerate(reversed(letter)))
+
+    report = case["expected"]["notes"]
+    combined = case.get("expected_citation_notes", case["expected"])["notes"]
+    for notes in (report, combined[len(report):]):
+        marks = [note["letter"] in case["marked_letters"] for note in sorted(notes, key=lambda note: number(note["letter"]))]
+        assert marks == sorted(marks, reverse=True)
 
 
 def test_saved_supported_notes_are_authoritative_and_detached():
@@ -75,7 +112,11 @@ def test_saved_supported_notes_are_authoritative_and_detached():
     assert saved["totals"]["total"] == 12
 
 
-@pytest.mark.parametrize("present", [None, {}, {"version": True}, {"version": 2}, {"version": 1, "notes": None, "totals": {}}])
+@pytest.mark.parametrize("present", [
+    None, {}, {"version": True}, {"version": 2}, {"version": 2, "notes": None, "totals": {}},
+    # A well-formed envelope of another version: version 1's words and letters are not this server's.
+    {"version": 1, "notes": [], "totals": {}}, {"version": 3, "notes": [], "totals": {}},
+])
 def test_present_unusable_notes_never_silently_fall_back(present):
     dataset = {**CASES[0]["dataset"], "data_notes": present}
     with pytest.raises(ValueError, match="Unsupported or malformed"):
@@ -133,7 +174,7 @@ def test_built_dataset_carries_notes_for_values_and_inherited_comparisons():
         db.flush()
         dataset = build_dataset(db, company, "annual", "FY2023", "FY2024")
         notes = dataset["data_notes"]
-        assert notes["version"] == 1
+        assert notes["version"] == DATA_NOTES_VERSION == 2
         concern = next(note for note in notes["notes"] if note["reasons"] == ["source_conflict"])
         assert {ref["concept"] for ref in concern["values"]} == {"revenue"}
         assert {ref["basis"] for ref in concern["comparisons"]} == {"yoy", "cagr"}

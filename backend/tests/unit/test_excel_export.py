@@ -233,7 +233,7 @@ class TestMetricsSheet:
         })
         alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
         assert alternative.value == 0.5 and alternative.number_format == "0.0%"
-        assert alternative.comment.text.startswith("Data note a: Available sources disagree on this figure.")
+        assert alternative.comment.text.startswith("Data note a: The company’s filings report different values for this figure.")
 
     def test_quarterly_dataset_omits_window_columns(self):
         quarterly = _dataset()

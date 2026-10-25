@@ -140,7 +140,7 @@
       }
     ],
     "data_notes": {
-      "version": 1,
+      "version": 2,
       "notes": [
         {
           "kind": "review",
@@ -150,7 +150,7 @@
           "key": "[\"review\",[\"legacy_calculation\"]]",
           "id": "analysis-data-note-a",
           "letter": "a",
-          "message": "This saved calculation predates the current source checks. Its inputs need review.",
+          "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
           "values": [
             {
               "concept": "operating_margin",
@@ -306,10 +306,10 @@
     "narrative_presentation": {
       "format_version": "analysis-narrative-v1",
       "snapshot_id": "f9fe330f6228e913ca33b751acd9a0d4a200c5b4000fa3486f4dd40a099585a1",
-      "data_notes_version": 1,
+      "data_notes_version": 2,
       "offset_encoding": "utf-16",
       "notes": {
-        "version": 1,
+        "version": 2,
         "notes": [
           {
             "kind": "review",
@@ -319,7 +319,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",

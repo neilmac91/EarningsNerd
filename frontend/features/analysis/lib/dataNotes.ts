@@ -1,5 +1,5 @@
 import type { AnalysisDataset, AnalysisSeries, GrowthValue } from '@/features/analysis/api/analysis-api'
-import { reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
+import { REASON_SUMMARIES, reasonText, SUMMARY_FALLBACK, type FactProvenance } from '@/features/analysis/lib/provenance'
 
 export type DataNoteKind = 'review' | 'unknown' | 'unavailable'
 export type DataNoteBasis = 'qoq' | 'yoy' | 'cagr' | 'window_pp'
@@ -60,7 +60,8 @@ export interface DataNote {
 }
 
 /** Reasons that describe a figure's record, not its value (D-061). The list is closed: any other reason marks, so a new
- *  reason shows until someone classifies it here (the shared notes fixture's marked_letters pins the rule). */
+ *  reason shows until someone classifies it here. The backend's data_notes.RECORD_ONLY_REASONS holds the same list:
+ *  the shared notes fixture's record_only_reasons pins both, and its marked_letters the rule. */
 export const RECORD_ONLY_REASONS: ReadonlySet<string> = new Set(['legacy_calculation'])
 
 /** Whether a note puts a mark beside its figure: a review note with at least one reason that questions the number.
@@ -70,6 +71,14 @@ export const RECORD_ONLY_REASONS: ReadonlySet<string> = new Set(['legacy_calcula
 export function noteMarksFigure(note: Pick<DataNote, 'kind' | 'reasons'> | null | undefined): boolean {
   return note?.kind === 'review'
     && (note.reasons.length === 0 || note.reasons.some((reason) => !RECORD_ONLY_REASONS.has(reason)))
+}
+
+/** A marked note's words in the fine print, as the backend's data_notes.note_summary writes them: each questioning
+ *  reason's clause (REASON_SUMMARIES, or SUMMARY_FALLBACK), once, in reason order, joined by "; ". */
+export function noteSummary(reasons: readonly string[]): string {
+  const clauses = reasons.filter((reason) => !RECORD_ONLY_REASONS.has(reason))
+    .map((reason) => Object.hasOwn(REASON_SUMMARIES, reason) ? REASON_SUMMARIES[reason] : SUMMARY_FALLBACK)
+  return [...new Set(clauses.length ? clauses : [SUMMARY_FALLBACK])].join('; ')
 }
 
 /** The note when it marks its figure, else null: the form DataNoteMark and the chart lookups take. */
@@ -88,8 +97,9 @@ export interface DataNotesTotals {
   total: number
 }
 
-/** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1 (only the server's
- *  copy and letter order differ), and the local grouper still writes 1. */
+/** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1: only the reasons'
+ *  words and the letter order (marked notes first) differ, and the local grouper writes 2. A saved version 1 envelope
+ *  (the landing sample, a tab opened before the server moved) still decodes with its stored words and letters. */
 export interface DataNotesWire {
   version: 1 | 2
   notes: DataNote[]
@@ -154,8 +164,11 @@ function createGroups() {
     return note
   }
   function finish(): QualityNotesModel {
+    // Marked notes take the first letters, so a page's first visible letter is "a"; then review, unknown and
+    // unavailable notes. The sort is stable, so report order holds within each.
     const order: Record<DataNoteKind, number> = { review: 0, unknown: 1, unavailable: 2 }
-    const notes = [...groups.values()].sort((a, b) => order[a.kind] - order[b.kind])
+    const notes = [...groups.values()].sort((a, b) =>
+      Number(!noteMarksFigure(a)) - Number(!noteMarksFigure(b)) || order[a.kind] - order[b.kind])
     notes.forEach((note, index) => {
       note.letter = letterFor(index)
       note.id = `analysis-data-note-${note.letter}`
@@ -297,5 +310,5 @@ export function groupDataNotes(dataset: DataNotesDataset): DataNotesModel {
     }
   }
 
-  return dataNotesModelFromWire({ version: 1, notes: groups.finish().notes, totals }, dataset.mode)
+  return dataNotesModelFromWire({ version: 2, notes: groups.finish().notes, totals }, dataset.mode)
 }

@@ -244,7 +244,7 @@ async def test_fresh_cached_and_saved_presentation_are_identical(narrative_compa
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("obsolete", ["absent", "format", "notes", "snapshot"])
+@pytest.mark.parametrize("obsolete", ["absent", "format", "notes", "notes_version_1", "snapshot"])
 async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrative_company, monkeypatch, obsolete):
     from app.models import TrendAnalysis
 
@@ -259,6 +259,11 @@ async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrati
             saved["narrative_presentation"]["format_version"] = "retired"
         elif obsolete == "notes":
             saved["narrative_presentation"]["data_notes_version"] = 0
+        elif obsolete == "notes_version_1":
+            # A row saved before data notes version 2: its words and letters are version 1's, so the page's check of the
+            # saved notes against the rebuilt dataset's would refuse it. It regenerates once, unmetered.
+            saved["data_notes"]["version"] = saved["narrative_presentation"]["notes"]["version"] = 1
+            saved["narrative_presentation"]["data_notes_version"] = 1
         else:
             saved["narrative_presentation"]["snapshot_id"] = "0" * 64
         row.dataset_json = saved

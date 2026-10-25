@@ -130,7 +130,7 @@ describe('TrendCharts legends', () => {
     expect(within(panel).getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
     fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
     expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
-      header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('Note a: A source check remains unresolved')]) }),
+      header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('Note a: Not yet matched to the filing')]) }),
     }))
     rerender(<TrendCharts dataset={dataset} />)
     expect(within(panel).queryByRole('button', { name: /^Review data notes/ })).not.toBeInTheDocument()

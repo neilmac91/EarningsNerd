@@ -453,13 +453,15 @@ async function stableAnalysisOutsideTable(page: Page) {
 async function assertNotes(page: Page, state: AnalysisState) {
   const expected = EXPECTED_NOTES[state]
   const summary = page.locator(`${NOTES} > details > summary`)
-  // One line of fine print under the table (D-061): the gaps and the calculated figures counted in words, never "—".
-  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as a dash`)
+  // One line of fine print under the table (D-061): the gaps counted beside the table's dash itself, which a screen
+  // reader hears as "a dash" (MissingValue), and the calculated figures counted in words.
+  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as —`)
+  await expect(summary.locator('.sr-only', { hasText: 'a dash' })).toHaveCount(1)
   await expect(summary).toContainText(`${expected.calculated} calculated from filed figures`)
   if (state === 'discrepancy') {
-    // A note that questions the number is named by its letter, places and words.
+    // A note that questions the number is named by its letter, places and summary words (data notes version 2).
     await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
-    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: Available sources disagree on this figure')
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values; we show the most recent')
   } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
   if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
   // Never while a note needs review, the legacy state's record-only note included.

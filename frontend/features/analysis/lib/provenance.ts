@@ -38,10 +38,12 @@ export function validationLabel(value: QualityValue): string {
   return 'Validation unavailable'
 }
 
-const REASONS: Record<string, string> = {
-  not_in_dataset: 'Not available in this dataset.',
-  legacy_calculation: 'This saved calculation predates the current source checks. Its inputs need review.',
-  source_check_needed: 'A source check remains unresolved. Review the original filing before use.',
+/** Each reason's words, the same strings as the backend's data_notes.REASONS: the shared notes fixture
+ *  (backend/tests/fixtures/analysis_data_notes.json) pins the two maps equal. */
+export const REASONS: Readonly<Record<string, string>> = {
+  not_in_dataset: 'Not in our data for these periods; shown as a dash, never as zero.',
+  legacy_calculation: 'Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.',
+  source_check_needed: 'Not yet matched to the filing: our automated check could not confirm this figure against the company’s filed data. Select it to compare with the filing.',
   unsupported_eps_calculation: 'This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.',
   legacy_calculation_not_supported: 'This saved calculation could not be reproduced from compatible source inputs and is unavailable.',
   repair_rolled_back: 'This figure was withdrawn during a data correction and is unavailable.',
@@ -65,11 +67,23 @@ const REASONS: Record<string, string> = {
   eps_not_additive: 'Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.',
   eps_requires_reported_quarter: 'A reported quarterly earnings-per-share figure is unavailable.',
   rounded_share_count: 'Rounded weighted-average share counts do not establish an exact quarterly EPS figure.',
-  source_conflict: 'Available sources disagree on this figure.',
+  calculation_mismatch: 'Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.',
+  missing_calculation_inputs: 'The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.',
+  source_conflict: 'The company’s filings report different values for this figure. We show the most recent filing’s value; select it to compare.',
 }
 
+/** The fine print's words for a note that marks its figure, the same strings as the backend's data_notes.SUMMARIES
+ *  (the fixture's summaries pins both); any other questioning reason reads SUMMARY_FALLBACK. */
+export const REASON_SUMMARIES: Readonly<Record<string, string>> = {
+  source_check_needed: 'not yet matched to the filing',
+  source_conflict: 'the filings report different values; we show the most recent',
+  calculation_mismatch: 'the calculation does not match its filed inputs',
+  missing_calculation_inputs: 'the calculation’s filed inputs were not found',
+}
+export const SUMMARY_FALLBACK = 'questioned by an automated check'
+
 export function reasonText(reason: string): string {
-  return REASONS[reason] ?? 'The source or calculation basis needs review. Check the original filing.'
+  return Object.hasOwn(REASONS, reason) ? REASONS[reason] : 'The source or calculation basis needs review. Check the original filing.'
 }
 
 export function qualityReasons(value: QualityValue): string[] {
