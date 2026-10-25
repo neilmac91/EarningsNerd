@@ -786,6 +786,12 @@ print({k: v for k, v in collections.Counter(r["result"] for r in rows).items()})
 
 ## Detection SQL parity script
 
+It drops and recreates every table, so it runs against a scratch database of its own (`parity`), never
+the reproduction's: `DATABASE_URL=postgresql://postgres@localhost:5433/parity` for the app, and the same
+database for `psql`. The review of 2026-10-25 added the cases for a withheld cell (no YoY on either side,
+no dagger) and an empty `raw_tag`; the SQL before that fix fails them (`AssertionError: ('6', 4)` on the
+YoY count).
+
 ```python
 """Parity: ops/detection/mpa_notation_frequency.sql classifies cells as provenance_for_fact does.
 
@@ -825,6 +831,9 @@ cases = [
     ("net_margin", 2023, "derived", None, False,
      v1("calculated", "needs_review", ["mixed_vintage", "unit_mismatch"])),
     ("net_income", 2023, "companyfacts", "us-gaap:NetIncomeLoss", True, {"version": 0}),  # unknown version
+    ("eps_diluted", 2022, "companyfacts", "us-gaap:EarningsPerShareDiluted", True, v1("reported", "passed", [])),
+    ("gross_margin", 2023, "edgar_xbrl", "", True, None),  # empty raw_tag: a legacy calculation, as in Python
+    ("free_cash_flow", 2024, "derived", None, True, v1("calculated", "unavailable", ["legacy_calculation_not_supported"])),
 ]
 rows = []
 for concept, fy, source, raw_tag, reconciled, provenance in cases:
@@ -836,26 +845,31 @@ for concept, fy, source, raw_tag, reconciled, provenance in cases:
     rows.append(row)
 db.commit()
 
+from app.services.fact_provenance import published_value  # noqa: E402
 expected_review = expected_withheld = expected_calc = 0
+published = {(r.concept, r.fiscal_year): published_value(r) is not None for r in rows}
+expected_yoy = sum(1 for (c, fy), ok in published.items() if ok and published.get((c, fy - 1)))
 expected_reasons: dict[str, int] = {}
 for row in rows:
     pv = provenance_for_fact(row)
     expected_review += pv["validation"] == "needs_review"
     expected_withheld += pv["validation"] == "unavailable"
-    expected_calc += pv["method"] == "calculated"
+    expected_calc += pv["method"] == "calculated" and published_value(row) is not None
     key = "+".join(sorted(pv["reasons"])) or "none"
     expected_reasons[key] = expected_reasons.get(key, 0) + 1
 
 out = subprocess.run(
-    ["psql", "postgresql://postgres@localhost:5433/earningsnerd", "-X", "-A", "-F", "|", "-v", "ON_ERROR_STOP=1",
+    ["psql", "postgresql://postgres@localhost:5433/parity", "-X", "-A", "-F", "|", "-v", "ON_ERROR_STOP=1",
      "-f", "/home/user/EarningsNerd/ops/detection/mpa_notation_frequency.sql"],
     capture_output=True, text=True, check=True).stdout
 got_reasons = {}
 for line in out.splitlines():
     parts = line.split("|")
     if parts[0] == "all":
-        _, _, companies, cells, _, review, withheld, _, calc_review, _, _, _ = parts
-        print("SQL all:", "cells", cells, "review", review, "withheld", withheld)
+        _, _, companies, cells, _, review, withheld, calc_pct, calc_review, _, yoy, _ = parts
+        print("SQL all:", "cells", cells, "review", review, "withheld", withheld, "calc_pct", calc_pct, "yoy", yoy)
+        assert int(yoy) == expected_yoy, (yoy, expected_yoy)
+        assert abs(float(calc_pct) - round(100.0 * expected_calc / len(rows), 1)) < 0.05, (calc_pct, expected_calc)
         assert int(cells) == len(rows), (cells, len(rows))
         assert int(review) == expected_review, (review, expected_review)
         assert int(withheld) == expected_withheld, (withheld, expected_withheld)

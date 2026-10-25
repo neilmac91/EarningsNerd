@@ -1,7 +1,7 @@
 -- Detection: how often the Multi-Period Analysis notation fires, over every company and fiscal year
 -- (docs/mpa-improvements/coherence.md §1). It names no company and changes nothing.
--- Retire: the records PR that closes the notation-frequency item in tasks/todo.md deletes this file,
--- after the detection-sql run that sizes the lineage backfill and the run that confirms it.
+-- Retire: the records PR that reports this query's run after the lineage backfill's apply deletes this
+-- file (docs/mpa-improvements/coherence.md §1.7 names the two runs: one before the backfill, one after).
 --
 -- Population: one cell per (company, concept, fiscal year), the current FY row an annual analysis
 -- reads (trend_analysis/dataset.py `_index_facts`: is_latest, fiscal_period FY, newest period_end per
@@ -12,8 +12,10 @@
 -- only when reconciled ("source_check_needed" otherwise); a derived EPS row is withheld.
 -- Notation: needs_review is the review letter ("a" on REGN), unavailable is withheld and joins the
 -- unavailable letter ("b" on REGN, with cells that have no row at all, which this file does not count),
--- method calculated is the dagger. YoY: a cell with a cell for the year before; the comparison carries
--- the review note when either side needs review (data_notes inherits operand validation).
+-- method calculated is the dagger, counted only on a cell that publishes a value (a withheld cell shows
+-- none, as data_notes and the exports count it). YoY: a cell with a cell for the year before, neither of
+-- them withheld (dataset_quality.add_comparisons skips a missing value on either side); the comparison
+-- carries the review note when either side needs review (data_notes inherits operand validation).
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so both sets share one snapshot. Each
 -- statement gets 120 s and waits at most 10 s for a lock. Cost: each set scans the current FY rows of
@@ -60,7 +62,7 @@ WITH params AS (
            c.source = 'derived' OR (
                c.concept IN ('net_margin', 'operating_margin', 'gross_margin', 'free_cash_flow',
                              'working_capital', 'current_ratio')
-               AND (c.raw_tag IS NULL OR c.raw_tag = c.concept)) AS legacy_calculated
+               AND (NULLIF(c.raw_tag, '') IS NULL OR c.raw_tag = c.concept)) AS legacy_calculated
     FROM cells c
 ), classified AS (
     SELECT l.company_id, l.concept, l.fiscal_year, l.owner, l.stored,
@@ -84,7 +86,8 @@ WITH params AS (
     FROM lineage l
 ), compared AS (
     SELECT k.*,
-           lag(k.fiscal_year) OVER w = k.fiscal_year - 1 AS has_yoy,
+           lag(k.fiscal_year) OVER w = k.fiscal_year - 1
+               AND k.validation <> 'unavailable' AND lag(k.validation) OVER w <> 'unavailable' AS has_yoy,
            lag(k.validation) OVER w AS prior_validation
     FROM classified k
     WINDOW w AS (PARTITION BY k.company_id, k.concept ORDER BY k.fiscal_year)
@@ -105,7 +108,8 @@ SELECT CASE WHEN GROUPING(concept) = 0 THEN 'concept'
        round(100.0 * count(*) FILTER (WHERE validation = 'needs_review') / count(*), 1) AS review_pct,
        count(*) FILTER (WHERE validation = 'needs_review') AS review,
        count(*) FILTER (WHERE validation = 'unavailable') AS withheld,
-       round(100.0 * count(*) FILTER (WHERE method = 'calculated') / count(*), 1) AS calc_pct,
+       round(100.0 * count(*) FILTER (WHERE method = 'calculated' AND validation <> 'unavailable') / count(*), 1)
+             AS calc_pct,
        count(*) FILTER (WHERE method = 'calculated' AND validation = 'needs_review') AS calc_review,
        round(100.0 * count(*) FILTER (WHERE NOT stored) / count(*), 1) AS legacy_pct,
        count(*) FILTER (WHERE has_yoy) AS yoy,
@@ -116,8 +120,8 @@ GROUP BY GROUPING SETS ((), (concept), (fiscal_year), (sic_division), (owner), (
 ORDER BY dimension, key;
 
 \echo '2. Exposure per company in its newest ten fiscal years (the picker''s "Last 10"): how many'
-\echo '   companies show 0, 1-5, 6-10, 11-20 or more than 20 cells with the review letter, and the'
-\echo '   median review share of a company''s cells.'
+\echo '   companies show 0, 1-5, 6-10, 11-20 or more than 20 cells with the review letter, and, within'
+\echo '   each bucket, the median review share of its companies'' cells.'
 WITH params AS (
     SELECT '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard
 ), cells AS MATERIALIZED (
@@ -147,7 +151,7 @@ WITH params AS (
                 ELSE c.source = 'derived' OR c.reconciled IS NOT TRUE OR (
                     c.concept IN ('net_margin', 'operating_margin', 'gross_margin', 'free_cash_flow',
                                   'working_capital', 'current_ratio')
-                    AND (c.raw_tag IS NULL OR c.raw_tag = c.concept)) END AS review
+                    AND (NULLIF(c.raw_tag, '') IS NULL OR c.raw_tag = c.concept)) END AS review
     FROM cells c
 ), windowed AS (
     SELECT k.*, dense_rank() OVER (PARTITION BY k.company_id ORDER BY k.fiscal_year DESC) AS recency
