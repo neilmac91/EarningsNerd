@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { describe, expect, it, vi } from 'vitest'
 import { render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -67,7 +68,9 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  *    a chart's "Data note x" mark), named (a control's or chip's accessible name, a chart tooltip's "· note x", the
  *    fold's "figures carry notes x"), set in the fine print's summary or in a chart's PNG footer (chartDataNotes) is one
  *    of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
- *    record-only a, the unknown d or the gap's e.
+ *    record-only a, the unknown d or the gap's e. The same render holds the notation's two other clauses at their full
+ *    width: no † anywhere in an annual report (a † marks only a period: the Q4 header, the period picker), the fold's
+ *    derived row included, and no drawn, listed or charted letter in warning ink.
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
  *    supplement); the record-only note's entry keeps its words and counts; the summary never says "No figures need
  *    review" beside it, even where it sits on a growth figure alone and every value passed, and the legacy figure's
@@ -84,6 +87,7 @@ interface GoldenCase {
   marked_letters: string[]
 }
 const golden: { cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
+const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string>; chart: { review: Record<string, string> } } } } }).theme.extend.colors
 const notesOf = (example: GoldenCase) => (example.expected_citation_notes ?? example.expected).notes
 const allNotes = golden.cases.flatMap(notesOf)
 
@@ -114,14 +118,15 @@ const report: AnalysisDataset = {
   })) as AnalysisDataset['series'],
 }
 // The case's two citations (the record-only note a, and the mixed supplement f), then a figure with no check recorded
-// (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters.
+// (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters. The third is
+// derived, a calculated figure in the fold and the sources list, where a dagger once stood beside it.
 const cited = ['operating_margin', 'free_cash_flow', 'net_income', 'net_income'] as const
 const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] } }]
   .map((quality, index) => ({
     ...quality, n: index + 1, marker: `F${index + 1}`, concept: cited[index], period: 'FY2024', value: 100 + index, unit: 'USD',
-    excerpt: `${cited[index]} = ${100 + index} (FY2024)`, section_ref: `XBRL · ${cited[index]}`, verified: true, fragment_url: null, derived: false,
+    excerpt: `${cited[index]} = ${100 + index} (FY2024)`, section_ref: `XBRL · ${cited[index]}`, verified: true, fragment_url: null, derived: index === 2,
   } as AnalysisCitation))
-const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]`).join('; ')}.`
+const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]${citation.derived ? ' (derived Q4)' : ''}`).join('; ')}.`
 
 function renderReport() {
   tooltips.contents = []
@@ -134,6 +139,17 @@ function renderReport() {
       <DataNotes dataset={report} />
     </DataNotesProvider>,
   )
+}
+
+/** Every chart tooltip's text, at every period, over every series it can name. */
+function tooltipTexts(): string[] {
+  const payload = report.series.map((series) => ({ dataKey: series.concept, name: series.label, value: 1 }))
+  return tooltips.contents.flatMap((content) => report.periods.map(({ key }) => {
+    const tip = render(<>{content({ active: true, label: key, payload })}</>)
+    const text = tip.container.textContent ?? ''
+    tip.unmount()
+    return text
+  }))
 }
 
 describe('every surface marks and names only the notes that question the number (D-061)', () => {
@@ -152,16 +168,8 @@ describe('every surface marks and names only the notes that question the number 
       (/figures carry notes? ([a-z, ]+)$/.exec(summary.textContent ?? '')?.[1] ?? '').split(', ').filter(Boolean)))
     const fine = container.querySelector('[data-analysis-data-notes] > details > summary')!
     saw('the data notes summary', [...(fine.textContent ?? '').matchAll(/Note ([a-z]+):/g)].map((match) => match[1]))
-    // Every chart tooltip, at every period, over every series it can name.
-    const payload = report.series.map((series) => ({ dataKey: series.concept, name: series.label, value: 1 }))
     expect(tooltips.contents.length, 'the charts drew their tooltips').toBeGreaterThan(0)
-    for (const content of tooltips.contents) {
-      for (const { key } of report.periods) {
-        const tip = render(<>{content({ active: true, label: key, payload })}</>)
-        saw('a chart tooltip', [...(tip.container.textContent ?? '').matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
-        tip.unmount()
-      }
-    }
+    for (const text of tooltipTexts()) saw('a chart tooltip', [...text.matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
     // A chart's PNG footer and its chip read chartDataNotes; the footer is drawn only on export, so read it here.
     const panel = chartDataNotes(report, report.series, resolveDataNotes(report), true)
     saw('a chart panel', panel.panelNotes.map((note) => note.letter))
@@ -175,6 +183,36 @@ describe('every surface marks and names only the notes that question the number 
     for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
       expect([...seen.values()].some((places) => places.has(where)), `no ${where} was read: the scan went blind`).toBe(true)
     }
+  })
+
+  it('sets no dagger beside a figure and no letter in warning ink', () => {
+    const { container } = renderReport()
+    // No dagger, by the rule's width: the whole report's text, its accessible names and titles, every chart tooltip and
+    // the PNG footer. A † marks only a period (the Q4 header and the period picker), and an annual report has neither.
+    const texts = [
+      container.textContent ?? '',
+      ...[...container.querySelectorAll('[aria-label], [title]')].flatMap((element) => [element.getAttribute('aria-label') ?? '', element.getAttribute('title') ?? '']),
+      ...tooltipTexts(),
+      ...chartDataNotes(report, report.series, resolveDataNotes(report), true).exportNotes,
+    ]
+    expect(texts.filter((text) => text.includes('†')), 'a dagger in the report').toEqual([])
+    // The scan reaches the calculated figures: the KPI cards, the table and the fold's derived row each say so in words.
+    const fold = container.querySelector('.markdown-body details ul')!
+    expect([...fold.querySelectorAll('li')].filter((row) => /, calculated/.test(row.textContent ?? '')), 'the fold\'s derived row').toHaveLength(1)
+    expect(within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getAllByRole('button', { name: /, calculated\. View source/ }).length).toBeGreaterThan(0)
+
+    // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
+    // sources), a chart's letters, by a class on the letter or around it, or by an SVG fill.
+    const warningInks = new Set([colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair)).map((hex) => hex.toUpperCase()))
+    const letters = {
+      drawn: [...container.querySelectorAll('[data-note-letter]')],
+      listed: [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')].filter((letter) => letter.textContent),
+      charted: [...container.querySelectorAll('g[aria-label^="Data note "] text')],
+    }
+    for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
+    const inWarning = Object.values(letters).flat().filter((letter) =>
+      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || warningInks.has((letter.getAttribute('fill') ?? '').toUpperCase()))
+    expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 
   it('keeps every note in the data notes and the record-only figure\'s note in its dialog', async () => {
