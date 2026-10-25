@@ -6,7 +6,7 @@ import { FileXlsIcon } from '@/lib/icons'
 import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
-import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatTableGrowth, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
 import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
@@ -97,13 +97,12 @@ export default function MetricsTable({
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
         const note = notes.noteFor(point)
-        const calculated = point.provenance?.method === 'calculated' || (!point.provenance && point.derived)
         const growthNote = notes.noteForComparison(point, growthBasis)
-        const compactGrowth = formatTableGrowth(growth, row.series.percent, tableTokenBudget(false, growthNote?.letter))
+        const compactGrowth = tableComparisonText(growth, row.series.percent, growthNote?.letter)
         return (
           <div className={FIGURE_CELL}>
             <span className="block">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, point, row.series, note?.letter)}</span></SourceValue>
             </span>
             {growthText && (
               <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>

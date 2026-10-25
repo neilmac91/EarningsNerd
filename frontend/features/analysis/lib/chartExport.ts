@@ -258,9 +258,9 @@ export const EXPORT_TEXT = {
 } as const
 
 /** The two inks the header and notes paint: the company in `primary`, the subtitle, legend names and notes in
- *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer, whose dark
- *  secondary text is chart.tick's, the legend names' ink of spec §3.8, #B8BEC7 at APCA Lc −63.6 on the dark card);
- *  otherwise the export takes EXPORT_TEXT for its theme. */
+ *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer passes its
+ *  legend values' and legend names' inks, spec §3.8, which equal these since E194); otherwise the export takes
+ *  EXPORT_TEXT for its theme. */
 export interface ExportInk {
   primary: string
   secondary: string
