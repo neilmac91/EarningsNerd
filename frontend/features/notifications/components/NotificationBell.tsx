@@ -7,6 +7,9 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { BellIcon } from '@/lib/icons'
 import { formatLocalDate } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
+import { Notice } from '@/components/ui'
+import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 import {
   getNotifications,
   markNotificationsSeen,
@@ -41,19 +44,26 @@ export default function NotificationBell({
     [heldOpen, onOpenChange],
   )
   const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const titleRef = useRef<HTMLParagraphElement>(null)
   const queryClient = useQueryClient()
 
-  const { data } = useQuery({
+  const notificationsQuery = useQuery({
     queryKey: queryKeys.notifications(),
     queryFn: getNotifications,
     retry: false,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
+  const failure = useRetainedFailure(notificationsQuery, queryKeys.notifications())
+  const { data } = notificationsQuery
 
   const seen = useMutation({
     mutationFn: markNotificationsSeen,
-    onSuccess: (fresh: NotificationList) => {
+    onMutate: () => ({ generation: getSessionGeneration() }),
+    onSuccess: (fresh: NotificationList, _variables, context) => {
+      // Account reset removes this family. A late receipt must not recreate the old reader's list.
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       queryClient.setQueryData(queryKeys.notifications(), fresh)
     },
   })
@@ -70,7 +80,14 @@ export default function NotificationBell({
       }
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        // A modal owns Escape while it is open; otherwise only return focus we still hold.
+        const modal = document.querySelector('dialog[open], [aria-modal="true"]')
+        if (modal && !modal.contains(containerRef.current)) return
+        const ownsFocus = containerRef.current?.contains(document.activeElement)
+        setOpen(false)
+        if (ownsFocus) triggerRef.current?.focus()
+      }
     }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
@@ -92,6 +109,7 @@ export default function NotificationBell({
   return (
     <div ref={containerRef} className="relative max-lg:static">
       <button
+        ref={triggerRef}
         type="button"
         onClick={toggle}
         aria-haspopup="true"
@@ -129,56 +147,71 @@ export default function NotificationBell({
           className="absolute right-0 z-header mt-2 flex max-h-[calc(100dvh_-_var(--site-header-h,4rem)_-_0.5rem)] w-80 origin-top-right flex-col overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none max-lg:inset-x-4 max-lg:w-auto max-lg:origin-top sm:max-lg:inset-x-6"
         >
           <div className="shrink-0 border-b border-border-light dark:border-white/10 px-3 py-2.5">
-            <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>
+            <p ref={titleRef} tabIndex={-1} className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark outline-none">Notifications</p>
           </div>
 
-          {items.length === 0 ? (
-            <div className="px-3 py-cap-6 text-center">
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">No filing alerts yet</p>
-              <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                We&apos;ll notify you when a company on your watchlist files.
+          <div className="min-h-0 max-h-96 overflow-y-auto">
+            {failure.failed && (
+              <Notice
+                variant="error"
+                className="m-3"
+                title={data ? 'Could not refresh filing alerts.' : 'Could not load filing alerts.'}
+                description={data ? 'Showing the last loaded alerts.' : undefined}
+                action={<RetryButton failures={[failure]} focusTarget={titleRef} size="sm" />}
+              />
+            )}
+            {notificationsQuery.isPending && !failure.failed ? (
+              <p role="status" className="px-3 py-cap-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                Loading filing alerts…
               </p>
-            </div>
-          ) : (
-            <ul className="max-h-96 overflow-y-auto p-1">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={`/filing/${item.filing_id}`}
-                    role="menuitem"
-                    onClick={() => setOpen(false)}
-                    className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                        item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-strong-dark'
-                      }`}
-                    />
-                    {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at
-                        390px under 200% text a truncated line cut the date from every alert, the company name ending at
-                        "·…" (E176; tests/e2e/reflow-200.spec.ts). The date holds one line, so a wrap comes before it,
-                        never inside it ("· Oct", then "20, 2026"; chief design on #1576, comment 6382172889). */}
-                    <span className="min-w-0">
-                      <span className="block text-sm text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
-                        New <span className="font-data">{item.filing_type}</span> from{' '}
-                        <span className="font-data font-semibold">{item.ticker}</span>
+            ) : data && items.length === 0 && !failure.failed ? (
+              <div className="px-3 py-cap-6 text-center">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">No filing alerts yet</p>
+                <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  We&apos;ll notify you when a company on your watchlist files.
+                </p>
+              </div>
+            ) : items.length > 0 ? (
+              <ul className="p-1">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <Link
+                      href={`/filing/${item.filing_id}`}
+                      role="menuitem"
+                      onClick={() => setOpen(false)}
+                      className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                          item.read ? 'bg-transparent' : 'bg-brand-strong dark:bg-brand-strong-dark'
+                        }`}
+                      />
+                      {/* An alert's lines wrap, breaking a long token inside the row, never truncate: in the phone panel at
+                          390px under 200% text a truncated line cut the date from every alert, the company name ending at
+                          "·…" (E176; tests/e2e/reflow-200.spec.ts). The date holds one line, so a wrap comes before it,
+                          never inside it ("· Oct", then "20, 2026"; chief design on #1576, comment 6382172889). */}
+                      <span className="min-w-0">
+                        <span className="block text-sm text-text-primary-light [overflow-wrap:anywhere] dark:text-text-primary-dark">
+                          New <span className="font-data">{item.filing_type}</span> from{' '}
+                          <span className="font-data font-semibold">{item.ticker}</span>
+                        </span>
+                        <span className="block text-xs text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
+                          {formatCompanyName(item.company_name)}
+                          {item.filing_date ? (
+                            <>
+                              {' · '}
+                              <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
+                            </>
+                          ) : null}
+                        </span>
                       </span>
-                      <span className="block text-xs text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
-                        {formatCompanyName(item.company_name)}
-                        {item.filing_date ? (
-                          <>
-                            {' · '}
-                            <span className="whitespace-nowrap">{formatLocalDate(item.filing_date, 'MMM d, yyyy')}</span>
-                          </>
-                        ) : null}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
 
           <div className="shrink-0 border-t border-border-light dark:border-white/10 p-1">
             <Link
