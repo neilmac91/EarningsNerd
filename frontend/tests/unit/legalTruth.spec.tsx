@@ -3931,6 +3931,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are cryptographic keys. Each key works only once.</li>', true],
       ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are access keys. Each access key works only once.</li>', true],
       ['<li>Refresh tokens rotate. Each key works only once.</li>', true],
+      // ... and a token stays the token under any name before it, as its own subject (CREDENTIAL).
+      ['<li>Unlike passwords, email session tokens are single-use.</li>', true],
       // ... while a noun that names a credential itself keeps its excuse (SELF_NAMED).
       ['<li>Unlike refresh tokens, passwords cannot be reused.</li>', false],
       // ... and the token's aliases above under a credential's name no token answers to, which only the page's reading
@@ -3942,9 +3944,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Refresh tokens rotate. They are backup codes. Each backup code works only once.</li>', true],
       ['<li>Refresh tokens rotate, but we call them backup codes. Each backup code works only once.</li>', true],
       ['<li>Each renewal issues a new refresh token. Such backup codes are single-use.</li>', true],
-      ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use backup codes.</li>', true],
-      ['<li>Refresh tokens are backup codes. Each backup code is a reset link. Each reset link works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use reset links.</li>', true],
+      ['<li>Refresh tokens are backup codes. Each backup code is a recovery key. Each recovery key works only once.</li>', true],
       ['<li>Recovery codes rotate, unlike refresh tokens. The latter are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use backup codes.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, "single-use" before a credential's noun outside an "unlike"
       // phrase is read as said of its clause's subject, a noun beside the token in its "unlike" phrase stands for it
       // beside the credential the phrase sets apart, and a bare key after "unlike" names no other credential, so these
