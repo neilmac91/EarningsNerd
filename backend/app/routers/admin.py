@@ -786,11 +786,12 @@ REFRESH_STALE_TIMEOUT_SECONDS = 570.0
 # worker threads with no timeout of its own (request_work.RequestWork.drain), so a generation can outlast it.
 _REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS = PIPELINE_TIMEOUT_SECONDS + 60.0
 # A run starts no generation later than this after its route begins, so the last one it starts has its allowance, and
-# half a minute is left for the auth lookup before the route, and the last stamp re-read and the audit row after the
-# batch (each pool wait at most DB_POOL_TIMEOUT's 10 s). What it does not start, it reports deferred. A generation that
-# outlasts its allowance takes the run past the timeout: it answers 504, and that generation's tail, its re-read and
-# the audit row finish after the response; the budget has passed, so no other generation starts.
-_REFRESH_STALE_START_BY_SECONDS = REFRESH_STALE_TIMEOUT_SECONDS - _REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS - 30.0
+# 40 s are left for the work outside it: the auth lookup before the route, and the last stamp re-read and the audit row
+# after the batch, three pool waits of at most DB_POOL_TIMEOUT's 10 s, and ten seconds for their queries. What it does
+# not start, it reports deferred. A generation started near this bound that outlasts its allowance can take the run
+# past the timeout: it answers 504, and that generation's tail, its re-read and the audit row finish after the
+# response; the budget has passed, so no other generation starts.
+_REFRESH_STALE_START_BY_SECONDS = REFRESH_STALE_TIMEOUT_SECONDS - _REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS - 40.0
 
 
 @router.post("/summaries/refresh-stale")
@@ -815,15 +816,15 @@ async def refresh_stale_summaries(
     with ``--cpu-throttling`` while durable tasks are on, and could be cut short). ``main.py``'s
     request-timeout table gives this path ``REFRESH_STALE_TIMEOUT_SECONDS`` (570 s, inside the
     service's 600 s), and a run starts no generation more than ``_REFRESH_STALE_START_BY_SECONDS``
-    (360 s) after the route begins. That leaves the last one it starts its allowance (the pipeline's
-    120 s backstop, and a minute for its setup and cleanup) and half a minute for the work around the
-    batch. The candidates it does not start are reported ``deferred``: still stale, and a later call
-    may select them. The allowance is not a bound, since a generation's cleanup waits for its worker
-    threads: one that outlasts it takes the run past the timeout, which then answers 504, and that
-    generation's tail, its stamp re-read and the audit row finish after the response, under that
-    throttling, with only the audit row's counts kept. It is NOT a whole-corpus backfill. Drain a
-    large backlog by calling repeatedly (the op is idempotent + keep-better-gated) or with the
-    job-side drain (``scripts/refresh_stale_summaries.py``).
+    (350 s) after the route begins. That leaves the last one it starts its allowance (the pipeline's
+    120 s backstop, and a minute for its setup and cleanup) and 40 s for the work around the batch.
+    The candidates it does not start are reported ``deferred``: still stale, and a later call may
+    select them. The allowance is not a bound, since while durable tasks are on a generation's
+    cleanup waits for its worker threads: one started near the bound that outlasts it can take the
+    run past the timeout, which then answers 504, and that generation's tail, its stamp re-read and
+    the audit row finish after the response, under that throttling, with only the audit row's counts
+    kept. It is NOT a whole-corpus backfill. Drain a large backlog by calling repeatedly (the op is
+    idempotent + keep-better-gated) or with the job-side drain (``scripts/refresh_stale_summaries.py``).
 
     ``dry_run`` (default) reports the full ``stale_total`` without regenerating — the admin staleness
     count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are sampled at
@@ -871,6 +872,7 @@ async def refresh_stale_summaries(
             schema_version_lt=schema_version_lt,
             stale_total=stale_total,
             start_by=start_by,
+            clock=time.monotonic,  # the clock its deadline was set on
         )
         logger.info(
             "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d, deferred %d of %d stale (filing_type=%s)",

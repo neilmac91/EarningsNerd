@@ -330,6 +330,34 @@ def test_a_run_reports_the_candidates_its_time_budget_left_unstarted_as_deferred
 
 
 @pytest.mark.requires_db
+def test_a_runs_budget_starts_before_its_candidate_read(client, as_admin, monkeypatch):
+    # The route sets its deadline when it begins, so the candidate read is inside the budget: a read that takes the
+    # route's clock past the deadline leaves every candidate deferred. A deadline set after the read would start the
+    # whole budget over, leaving the margin after the last generation one pool wait short.
+    from app.routers import admin
+    from app.services import admin_summary_service
+
+    ft = f"READ-{uuid.uuid4().hex[:6]}"
+    _seed(ft, stamps=[(None, None), (None, None)])
+    now = [1000.0]
+    monkeypatch.setattr(admin, "time", SimpleNamespace(monotonic=lambda: now[0]))
+    select = admin_summary_service.select_stale_candidates
+
+    def slow_select(*args, **kwargs):
+        now[0] += admin._REFRESH_STALE_START_BY_SECONDS + 1.0
+        return select(*args, **kwargs)
+
+    monkeypatch.setattr(admin_summary_service, "select_stale_candidates", slow_select)
+    spy = AsyncMock()
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", spy)
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    spy.assert_not_called()
+    assert body["deferred_filing_ids"] == body["candidate_filing_ids"] and body["deferred_count"] == 2
+
+
+@pytest.mark.requires_db
 @pytest.mark.asyncio
 async def test_a_run_starts_no_generation_past_its_time_budget(monkeypatch):
     # The run starts a generation only while its clock has not passed start_by, as the job-side drain starts none past
