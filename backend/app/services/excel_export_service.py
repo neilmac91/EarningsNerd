@@ -24,8 +24,8 @@ Conventions (also stated on the Overview sheet, where users see them):
 - The file names itself (title, subject, EarningsNerd as creator, the export instant as created, English)
   and every sheet prints with the brand footer and a page count: the Overview portrait, the grids and panels
   landscape. Each prints one page wide but Sources, whose 17 audit columns printed at 2.9pt on one page: it
-  prints four pages wide (8.1pt in LibreOffice), repeating its header row and its Metric and Period columns.
-  Metrics repeats its header row and label column.
+  prints four pages wide (about 8pt in LibreOffice), across then down, repeating its header row and its Metric and
+  Period columns. Metrics repeats its header row and label column.
 """
 from __future__ import annotations
 
@@ -148,9 +148,12 @@ def _print_setup(
     ws: Worksheet, *, landscape: bool, pages_wide: int = 1, title_rows: str | None = None, title_cols: str | None = None,
 ) -> None:
     """``pages_wide`` pages wide (as many pages tall as it takes), the brand footer and a page count, and a
-    grid's header row and label columns repeated on every page it prints across."""
+    grid's header row and label columns repeated on every page it prints across. A sheet more than a page wide prints
+    across, then down, so each run of rows prints its pages side by side."""
     ws.page_setup.orientation = "landscape" if landscape else "portrait"
     ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = pages_wide, 0
+    if pages_wide > 1:
+        ws.page_setup.pageOrder = "overThenDown"
     ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
     ws.print_title_rows, ws.print_title_cols = title_rows, title_cols
     ws.oddFooter.left.text, ws.oddFooter.right.text = "EarningsNerd · earningsnerd.io", "Page &P of &N"
@@ -505,8 +508,10 @@ def build_analysis_workbook(
     _print_setup(metrics, landscape=True, title_rows="1:1", title_cols="A:A")
     sources = workbook.create_sheet("Sources & methods")
     _build_sources(sources, dataset, indexed)
-    # Its 17 audit columns printed at 2.9pt on one landscape page (LibreOffice); four pages wide, each
-    # repeating Metric and Period, print at 8.1pt.
+    # Its 17 audit columns printed at 2.9pt on one landscape page (LibreOffice); four pages wide, each repeating
+    # Metric and Period, print at about 8pt (REGN's ten years 8.1pt, twelve quarters 7.9pt; three wide was 6.8pt).
+    # Metric and Period name no single row (REGN's 1,006 rows share 216 pairs), so a run of rows prints its four
+    # pages in a row, not 47 pages apart.
     _print_setup(sources, landscape=True, pages_wide=4, title_rows="1:1", title_cols="A:B")
     _add_top_line_sheet(workbook, dataset, indexed)
     _add_line_panel_sheets(workbook, dataset, indexed)

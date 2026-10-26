@@ -1024,6 +1024,16 @@ PLANTED_STYLES = """
 """
 
 
+def test_a_runaway_reduction_fails_rather_than_stalls():
+    """The reducer tries every mix of each position's substitutes before it rejects a cluster, so a long wrong one
+    grows as their product: Geist Mono's ">>>>>" (23 substitutes a place) ran past 20 s. It fails at
+    _REDUCE_STATES instead, naming the cluster, in well under a second."""
+    _, cmap, closure, ligatures = vendored_glyphs(VENDORED_FONT_DIR / "GeistMono-latin.woff2")
+    runaway = tuple(cmap[ord(char)] for char in ">>>>>")
+    with pytest.raises(AssertionError, match=rf"reducing \('greater', .*\) to \.notdef passed {_REDUCE_STATES} states"):
+        _reduces_to(runaway, ".notdef", closure, ligatures)
+
+
 def test_the_checks_read_what_they_claim():
     """Planted forms: each reader names the forms its rule can take and passes the look-alikes."""
     assert round(contrast("#6B7280", TOKENS["brand-weak"]), 2) == 4.26  # the old tertiary on the tint

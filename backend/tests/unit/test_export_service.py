@@ -895,8 +895,9 @@ class TestAnalysisPdfHtml:
 
     def test_the_meta_line_breaks_between_clauses_never_inside_an_instant(self):
         """Chief design on f7593b13: page 1's meta line broke inside the export instant ("Exported October 25,
-        2026, 14:17" / "UTC"). A real WeasyPrint layout of the meta line at every width from 120pt to 500pt:
-        the "Generated …", "Exported …" and "Source data as of …" clauses each sit whole on one line."""
+        2026, 14:17" / "UTC"). A real WeasyPrint layout of the meta line, with the PDF's stylesheet, every 10pt
+        from 120pt to 500pt: the "Generated …", "Exported …" and "Source data as of …" clauses each sit whole on
+        one line, and from 210pt, wider than the widest clause, every line fits the line's box."""
         weasyprint = pytest.importorskip("weasyprint")
         from datetime import datetime
 
@@ -909,20 +910,28 @@ class TestAnalysisPdfHtml:
         clauses = re.findall(r"(?:Generated|Exported|Source data as of) [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC",
                              re.sub(r"<[^>]+>", "", html))
         assert len(clauses) == 3, clauses
-        broken = {}
+        # The meta line alone, in the PDF's own head: the layout under test, without laying out the whole report.
+        html = re.sub(r'(<div class="meta">.*?</div>).*(</body>)', r"\1\2", html, count=1, flags=re.S)
+        try:
+            weasyprint.HTML(string=html).render()
+        except Exception as exc:  # missing system libs in odd envs: not what this test reads
+            pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+        broken, overflowing = {}, {}
         for width in range(120, 501, 10):
             narrowed = html.replace("</head>", f"<style>.meta {{ width: {width}pt; }}</style></head>", 1)
-            try:
-                page = weasyprint.HTML(string=narrowed).render().pages[0]
-            except Exception as exc:  # missing system libs in odd envs: not what this test reads
-                pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+            page = weasyprint.HTML(string=narrowed).render().pages[0]
             meta = next(box for box in page._page_box.descendants()
                         if box.element is not None and box.element.get("class") == "meta" and isinstance(box, boxes.BlockBox))
-            lines = ["".join(text.text for text in line.descendants() if isinstance(text, boxes.TextBox))
-                     for line in meta.descendants() if isinstance(line, boxes.LineBox)]
-            assert len(lines) >= 3, (width, lines)
-            broken[width] = [clause for clause in clauses if not any(clause in line for line in lines)]
+            lines = [line for line in meta.descendants() if isinstance(line, boxes.LineBox)]
+            texts = ["".join(text.text for text in line.descendants() if isinstance(text, boxes.TextBox)) for line in lines]
+            assert len(lines) >= 3, (width, texts)
+            broken[width] = [clause for clause in clauses if not any(clause in text for text in texts)]
+            if width >= 210:  # 1pt is 4/3 CSS px; a line's content is its children's extent
+                overflowing[width] = [text for line, text in zip(lines, texts)
+                                      if max(child.position_x + child.margin_width() for child in line.children)
+                                      - meta.content_box_x() > width * 4 / 3 + 0.5]
         assert {width: split for width, split in broken.items() if split} == {}
+        assert {width: wide for width, wide in overflowing.items() if wide} == {}
 
     def test_display_instant_reads_an_instant_as_words_with_its_zone(self):
         from datetime import datetime, timedelta, timezone

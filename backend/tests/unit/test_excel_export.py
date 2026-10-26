@@ -239,6 +239,9 @@ class TestFileAndPrintSetup:
         # Written "1:1" and "A:A"; the file's defined name reads back absolute.
         assert (metrics.print_title_rows, metrics.print_title_cols) == ("$1:$1", "$A:$A")
         assert (sources.print_title_rows, sources.print_title_cols) == ("$1:$1", "$A:$B")
+        # Across, then down: a run of rows prints its four pages side by side, not a band of pages apart.
+        assert sources.page_setup.pageOrder == "overThenDown"
+        assert {sheet.page_setup.pageOrder for sheet in workbook.worksheets if sheet is not sources} == {None}
         assert [sources.cell(1, column).value for column in (1, 2)] == ["Metric", "Period"]
         assert workbook["Overview"].print_title_rows is None
         assert metrics["B2"].value == "revenue"  # the machine column keeps the raw concept key

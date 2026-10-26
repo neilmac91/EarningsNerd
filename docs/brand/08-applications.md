@@ -479,8 +479,8 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   workbook names itself in its properties (title, subject, EarningsNerd as creator) and prints each sheet
   with the brand footer and a page count, the Overview portrait and the rest landscape: one page wide,
   Metrics repeating its header row and label column, except "Sources & methods", whose 17 columns printed
-  at 2.9pt on one page, so it prints four pages wide (8.1pt in LibreOffice), repeating its header row and
-  its Metric and Period columns. The analysis PDF's meta line breaks between its clauses, never inside an
+  at 2.9pt on one page, so it prints four pages wide (about 8pt in LibreOffice), across then down, repeating
+  its header row and its Metric and Period columns. The analysis PDF's meta line breaks between its clauses, never inside an
   instant. The workbook's header rows rest in the ink on the
   neutral ground and its labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
   "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
