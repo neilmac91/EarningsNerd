@@ -14,7 +14,8 @@ the stall's error; and a clear landing after the commit, before the answer read 
 expired, answered 500 too (``ObjectDeletedError``). Each race here runs the other write, committed in a
 session of its own, just before the poll's UPDATE or, for the last, just before its first read after it.
 The service's clock is pinned, so a row's age is exact, and a seeded row starts 600 s before its last write,
-so a check of the start instead of the last write shows.
+so a check of the start instead of the last write shows. Beside each case's filing is a neighbour with a stalled
+row that comes first in the table, so a mark or a read that loses its filing's filter shows too.
 ``tests/integration/test_summary_progress_transactions.py`` runs the first two races, and a write or a clear
 that holds the row while the mark waits, on PostgreSQL.
 """
@@ -84,15 +85,36 @@ def _session(engine):
     return sessionmaker(**{**SessionLocal.kw, "bind": engine})()
 
 
+def _filing(company_id: int, number: int) -> Filing:
+    return Filing(company_id=company_id, accession_number=f"0000000215-26-00000{number}", filing_type="10-K",
+                  filing_date=NOW, sec_url=f"https://example.test/filing-{number}/",
+                  document_url=f"https://example.test/filing-{number}.htm")
+
+
+# Another filing's row in every case that marks: stalled too, and never touched by this filing's poll or mark.
+NEIGHBOUR = {"stage": "analyzing", "error": None}
+
+
 @pytest.fixture
-def filing_id(engine) -> int:
+def neighbour_id(engine) -> int:
+    """Another filing's stalled row, made before this case's filing so that it comes first in the table: a mark or a
+    read that loses its filing's filter reaches it."""
     with _session(engine) as db:
         company = Company(cik="0000000215", ticker="STLL", name="Stalled Progress")
         db.add(company)
         db.flush()
-        filing = Filing(company_id=company.id, accession_number="0000000215-26-000001", filing_type="10-K",
-                        filing_date=NOW, sec_url="https://example.test/filing/",
-                        document_url="https://example.test/filing.htm")
+        neighbour = _filing(company.id, 0)
+        db.add(neighbour)
+        db.flush()
+        db.add(_progress(NEIGHBOUR["stage"], STALLED, neighbour.id))
+        db.commit()
+        return neighbour.id
+
+
+@pytest.fixture
+def filing_id(engine, neighbour_id) -> int:
+    with _session(engine) as db:
+        filing = _filing(db.query(Company).one().id, 1)
         db.add(filing)
         db.commit()
         return filing.id
@@ -179,11 +201,12 @@ def _clear(other, filing_id):
         SummaryGenerationProgress.filing_id == filing_id).delete(synchronize_session=False)
 
 
-def test_the_poll_marks_a_stalled_row_and_answers_the_error(engine, filing_id):
+def test_the_poll_marks_a_stalled_row_and_answers_the_error(engine, filing_id, neighbour_id):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
     answer = _poll(engine, filing_id)
     assert (answer["stage"], answer["error"]) == ("error", STALLED_ERROR)
     assert _row(engine, filing_id) == {"stage": "error", "error": STALLED_ERROR}
+    assert _row(engine, neighbour_id) == NEIGHBOUR
 
 
 def test_the_poll_answers_a_live_row_without_writing(engine, filing_id):
@@ -196,26 +219,29 @@ def test_the_poll_answers_a_live_row_without_writing(engine, filing_id):
 
 @pytest.mark.parametrize("stage", ["analyzing", "completed", "error", "partial"])
 @pytest.mark.parametrize("age_seconds", [STALE_PROGRESS_SECONDS, STALE_PROGRESS_SECONDS + 1])
-def test_the_mark_matches_the_rows_the_check_calls_stalled(engine, filing_id, stage, age_seconds):
-    """The UPDATE's criteria are the check's, at the cutoff and on each terminal stage."""
+def test_the_mark_matches_the_rows_the_check_calls_stalled(engine, filing_id, neighbour_id, stage, age_seconds):
+    """The UPDATE's criteria are the check's, at the cutoff and on each terminal stage, and its filing's row is the
+    only one it marks."""
     _seed(engine, filing_id, stage=stage, age_seconds=age_seconds)
     stalled = progress_is_stalled(_progress(stage, age_seconds))
     with _session(engine) as db:
         assert mark_stale_progress_as_error(db, filing_id) is stalled
         db.commit()
     assert _row(engine, filing_id)["stage"] == ("error" if stalled else stage)
+    assert _row(engine, neighbour_id) == NEIGHBOUR
 
 
-def test_a_clear_just_before_the_mark_answers_pending(engine, filing_id):
+def test_a_clear_just_before_the_mark_answers_pending(engine, filing_id, neighbour_id):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
     with _just_before_the_mark(engine, lambda other: _clear(other, filing_id)) as ran:
         answer = _poll(engine, filing_id)
     assert ran, "the clear did not run before the mark"
     assert answer == {"stage": "pending", "elapsedSeconds": 0}
     assert _row(engine, filing_id) is None
+    assert _row(engine, neighbour_id) == NEIGHBOUR
 
 
-def test_a_clear_just_after_the_marks_commit_answers_pending(engine, filing_id):
+def test_a_clear_just_after_the_marks_commit_answers_pending(engine, filing_id, neighbour_id):
     """Before E215 the answer read the row the commit had expired, and a clear in between raised
     ``ObjectDeletedError``: the poll answered 500."""
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
@@ -224,13 +250,14 @@ def test_a_clear_just_after_the_marks_commit_answers_pending(engine, filing_id):
     assert ran, "the clear did not run after the mark"
     assert answer == {"stage": "pending", "elapsedSeconds": 0}
     assert _row(engine, filing_id) is None
+    assert _row(engine, neighbour_id) == NEIGHBOUR
 
 
 @pytest.mark.parametrize(("stage", "error"), [
     ("fetching", None),  # a new run's first write
     ("error", "Pipeline timeout"),  # the run's own last write
 ])
-def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, stage, error):
+def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, neighbour_id, stage, error):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
 
     def write(other):
@@ -241,3 +268,4 @@ def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, st
     assert ran, "the write did not run before the mark"
     assert (answer["stage"], answer["error"]) == (stage, error)
     assert _row(engine, filing_id) == {"stage": stage, "error": error}
+    assert _row(engine, neighbour_id) == NEIGHBOUR
