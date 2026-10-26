@@ -40,7 +40,7 @@ No model was called and no repository file was changed to write this.
   - Pack additions: an operating cash flow / net income median and low, net-debt wording, and suppressing net cash that is built on broken debt.
   - A few prompt lines in the cached system prompt.
   - **Expected cost and latency:** about the same or lower ($0.006–0.007 per analysis). p50 stays at about 9–10 s. p90 should fall from 16 s to about 10–13 s, because fewer and shorter repairs are needed.
-- **Proof:** measure on the development half first and then the held-out half, with two generated runs per configuration. Deterministic metrics come first, then the Opus auditor and judge. Expected spend is about $2.4–2.8 of DeepSeek (at most about $4.6) and $30–43 of Opus (§3).
+- **Proof:** measure on the development half first and then the held-out half, with two generated runs per configuration. Deterministic metrics come first, then the Opus auditor and judge. Expected spend is about $2.1–2.5 of DeepSeek (at most about $4.3) and $30–43 of Opus (§3).
 
 ---
 
@@ -222,7 +222,7 @@ The auditor is shown "ID = label, period" and never the signed value (`semantics
 |---|---|---|---|
 | Judgement sentences, all | 4 of 590 (0.7%) | 68 of 587 (11.6%) | 50 of 565 (8.8%) |
 | Judgement, excluding the watch list | 4 of 530 (0.8%) | 20 of 527 (3.8%) | 31 of 506 (6.1%) |
-| Evaluative words ("structural", "cushion", "pressure", …) in fact or comparison sentences, excluding arc and watch | 18 of 330 (5.5%) by hand; the lexicon (`calibration.py`, §3's measure) finds 19 (5.8%) | 7 of 312 (2.2%) | — |
+| Evaluative words ("structural", "cushion", "pressure", …) in fact or comparison sentences, excluding arc and watch | 18 of 330 (5.5%) by hand; the lexicon (`calibration.py`, §3's measure) finds 20 (6.1%), DE's "slightly understated" among them | 7 of 312 (2.2%) | — |
 | Watch items with forecast or consequence wording ("would keep", "will likely remain") | 11 of 60 (about 7 real) | 1 of 60 | 1 of 59 |
 
 Opus scored calibration for Sonnet over DeepSeek on 19 of 20 companies.
@@ -365,7 +365,7 @@ Latency is about 3.2 ms per output token.
 | 3 | Operating cash flow / net income window median and low | Pack (`derived._window_figures`, new IDs appended) | 5 mislabelled sentences (CVX, DE, PG, TGT, CAT), the DUK range, and 2 first-try failures (TGT, NVDA dev-v4) | About 100 input tokens, about $0.00002 | Low to medium |
 | 4 | Net-debt wording and sign handling | Pack text, red-flag wording, one prompt line | 7 DeepSeek sentences (CAT ×2, TGT, DUK, NEE ×2, ORCL), Sonnet's ORCL flag, Haiku and Gemini cases | About 100–300 input tokens, about $0.00005 | Medium |
 | 5 | Sentence-type handling for "cause" | Repair loop (code) and prompt | First-try failures: MSFT (eval-v1), COST (dev-v4). Catches NVDA-style escapes. | $0; about 60 cached prompt tokens | Low to medium |
-| 6 | Calibration: restore the judgement slot, put meaning in judgements, no forecasts in watch items | Prompt | Judgement share outside watch from 0.8% to about 5–9%. Evaluative words in data sentences from 5.8% (the lexicon's count; 5.5% by hand) to 3% or less. About 7 watch forecasts down to about 1. | About 80 cached tokens; output about ±100 tokens (±$0.00006, ±0.3 s) | Medium |
+| 6 | Calibration: restore the judgement slot, put meaning in judgements, no forecasts in watch items | Prompt | Judgement share outside watch from 0.8% to about 5–9%. Evaluative words in data sentences from 6.1% (the lexicon's count; 5.5% by hand) to 3% or less. About 7 watch forecasts down to about 1. | About 80 cached tokens; output about ±100 tokens (±$0.00006, ±0.3 s) | Medium |
 | 7 | Narrow fixes to gate artefacts | Gate (`factcheck.py`) | DeepSeek CVX 9.2% (AMD with a narrowed rule). Sonnet USB, ORCL, JPM, VRTX, COP. Stops repairs that make correct sentences worse. | $0 | Medium: looser year binding |
 | 8 | Do not compute net cash on broken debt; add a data check | Pack data (`derived.py`, debt components; `evidence.py` data checks) | KO and CVX broken net cash stated as fact, DE "deleveraging", DE's three auditor flags, broken 100th-percentile ranks, for every model | $0 at run time | Medium: peer ranks change, gold examples need remapping |
 | 9 | Net-versus-operating margin within one year | Prompt, pack (same-year derived value), gate check R3 | DE 6.5pp | About 30 tokens | Low |
@@ -723,7 +723,7 @@ Ten development companies, two independent generated runs per arm. All arms use 
 | P | Fixed | Frozen | Deterministic measures only |
 | Q | Current | Fixed | Deterministic measures only |
 | C (candidate) | Fixed | Fixed | Everything K0 gets, plus the Opus judge C against K0 in both orders |
-| S, T (optional) | Fixed | Fixed; S writes "text" before "type", T runs at temperature 0 | Deterministic measures only |
+| S, T (not built) | Fixed | Fixed; S would write "text" before "type", T would run at temperature 0 | Left out of this experiment: `providers.py` has no such arm (§2, "Tested separately") |
 
 - P and Q show which half of the candidate moved each measure, and catch interactions: for example, judgements crowding out causes.
 - K0 is also scored under the old gate, for continuity with eval-v1.
@@ -752,7 +752,7 @@ All measures are reported per split (development, held out) and per run, as a ra
 | Mislabels per 1,000 verified claims, probes alone | Distinct sentences with a probe hit R1, R2a, R2c or R3, over every output. This is the basis every arm shares, as P and Q have no Opus audit. A sentence stating broken net cash is counted there instead | 8.2 (12 sentences in 1,459 claims) | 0.0 (0 in 1,458) | — (read beside the next row) |
 | Real mislabels per 1,000 verified claims | Distinct sentences, over the outputs Opus read (K0 and C): probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand; a flag on a figure cited beside what the pack computes it from counts as on the figure alone (§2, "As built", fix 14). A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash. These are view-1 audits; step 0 gives view 2's | About 0.7 (1 after reading; 5 before, 3.4) | 3.5 or less in each run |
 | Judgement share, outside watch | Sentence types | 0.8% (4 of 530) | 3.8% (20 of 527) | 3–12% |
-| Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.8% (19 of 330) | 2.2% (7 of 312) | 3% or less |
+| Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 6.1% (20 of 330) | 2.2% (7 of 312) | 3% or less |
 | Watch items with forecast wording | Lexicon, read by hand | 11 of 60 by the lexicon; about 7 after reading (§1.3) | 1 of 60 | 2 or fewer per 60 |
 | Unsigned falls | U1 | 1 | 0 | 0 (guard) |
 | Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction`, the sign check on a same-year margin gap, cited or as two margins' difference, in any wording that places one margin against the other (the passive and a move of two levels aside; §2, "As built", fix 12). The gate leaves that gap unsigned, so a sign error on it lands in this row for every arm | 2 (COST); 0 | 0; 0 | — |
@@ -760,7 +760,7 @@ All measures are reported per split (development, held out) and per run, as a ra
 | Sentences stating a broken figure | The same, each sentence that states one without disclosing the break in that sentence, whatever the analysis says elsewhere | 13 | 6 | 0 |
 | Version-1 peer ranks on a peer's broken year | `peer_break`: only an arm reading `packs/` can cite one, so informational | 7 sentences in 7 analyses | 7 in 7 | — |
 | Cause support | Opus causes audit | 76% / 23% / 1% | 76% / 22% / 1% | Guard: at least 72% supported, at most 2% unsupported, at least 6 cause sentences per analysis |
-| Judge, C against K0 | Opus, both orders must agree. The report prints each criterion, and the pairs whose grounding and calibration a side each won or tied, per run and summed | Against Sonnet, for reference: grounding won or tied in 17 of 20, calibration in 18, both in the same pair in 16; depth lost in 1 | Against DeepSeek: both in 20 of 20; depth lost in 2 | C wins or ties both grounding and calibration in the same pair on at least 12 of 20 per split (the joint reading; each criterion apart is printed beside it); loses depth on no more than 5 |
+| Judge, C against K0 | Opus, both orders must agree. The report prints each criterion, and the pairs whose grounding and calibration a side each won or tied, per run and summed | Against Sonnet under Opus, for reference: grounding won or tied in 2 of 20, calibration in 1, both in the same pair in 1; depth lost in 5. (eval-v1's panel, Opus and V4 Pro counted only where they agree with Gemma on 5 pairs, printed 17, 18 and 16, depth lost 1; its ties are mostly the two judges disagreeing, so it is not this row's basis) | Against DeepSeek under Opus: grounding 19, calibration 20, both 19; depth lost in 2 (the panel: both in 20 of 20) | C wins or ties both grounding and calibration in the same pair on at least 12 of 20 per split (the joint reading; each criterion apart is printed beside it); loses depth on no more than 5 |
 | Form | Words, sentences, sections | 618 words average (735 max); 29.5 sentences (31 max); all 7 sections in 20 of 20 | 612 (656); 29.4 (32); 20 of 20 | 700 words or fewer, 30 sentences or fewer, all 7 sections |
 | Cost and latency | `records.api_cost` and latency. A first request reads its prompt's shared prefix from cache: what most first requests of that prompt read over every label in `runs/` (1,920 tokens for the frozen prompt). So a warm repeat is priced cold, and warm first attempts are counted. Latency quantiles are linear between the two nearest ranks (`records.quantile`) | $0.0068 (5 of 20 first attempts warm); 9.7 s p50; 16.1 s p90 | $0.2073; 55.6 s p50; 66.1 s p90 | At most $0.0075 off-peak; p50 at most 10.5 s; p90 at most 13 s. Also measure one run at peak hours (step 3's `eval-v2-peak`) |
 
@@ -819,14 +819,14 @@ an audit grew with its input instead, step 0 would cost about $7.2.
 |---|---|---|
 | Step 0: re-audit eval-v1 DeepSeek and Sonnet with the fixed auditor view (40 outputs), for a like-for-like baseline | — | About $6.0: $5.40 recorded under view 1, plus about $0.6 for view 2's longer input |
 | Step 1, patch-repair replay (21 cases, 42 repairs, 42–84 calls) | About $0.26–0.56 off-peak; at most $2.38 (the dry run's ceiling) | — |
-| Step 2: 4 arms × 2 runs × 10 companies, plus optional S and T (about 120 analyses) | About $0.85 | — |
+| Step 2: 4 arms × 2 runs × 10 companies (80 analyses) | About $0.57 | — |
 | Step 2: audits of K0 and C (40 outputs) and the judge, C against K0 (20 pairs) | — | $7.8 + $5.1 |
 | Optional second development round (20 analyses, audits, judge) | $0.15 | $8.9 |
 | Step 3: K0 and C × 2 runs × 10 held-out (40 analyses) | $0.30 | — |
 | Step 3: audits (30–40 outputs), judge (20 pairs), optional C against Sonnet (10 pairs) | — | $5.9–7.8 + $5.1 + $2.5 |
 | Step 3: C at peak hours, one held-out run for latency (10 analyses) | About $0.14 (peak price) | — |
 | V4 Pro second auditor, all audited outputs | About $0.8 | — |
-| **Total** | **About $2.4–2.8**: $2.35 without the optional round, $2.80 with it and step 1 at its high estimate; at most about $4.6 with step 1 at the dry run's ceiling. Every row but the peak run is off-peak, and a row run at peak doubles | **About $30–43**: $29.9 without the optional items and with step 3's fewest audits, $43.2 with all of them |
+| **Total** | **About $2.1–2.5**: $2.07 without the optional round, $2.52 with it and step 1 at its high estimate; at most about $4.3 with step 1 at the dry run's ceiling. Every row but the peak run is off-peak, and a row run at peak doubles | **About $30–43**: $29.9 without the optional items and with step 3's fewest audits, $43.2 with all of them |
 
 ---
 
@@ -858,6 +858,12 @@ an audit grew with its input instead, step 0 would cost about $7.2.
   - The model may change silently under the same alias.
   - Peak hours double the price (about $0.014 per analysis).
   - Latency varies with load: measure p90 at production hours before launch.
+- **Limits recorded at the final review (review 10), not fixed before the experiment.** None changes a verdict on a recorded output or a prescribed form.
+  - Two margin-gap wordings are read by magnitude only, beside the passive and a move of two levels: the outpacing form with the other margin's figure after it ("operating margin of 16.5% exceeded net margin of 13.1% by 3.4pp").
+  - "has not been reported" does not disclose a break, while "was/is not reported" does; P and C would pay a repair for it.
+  - Some rules have no test that pins them: the level-gap reading's "margin named last", a few wave-6 subject and verb alternatives of the gate's certain forms, several wave-6 disclosure words, and `classify_flag`'s guards (unit, exact operand set, inputs in the pack, tagged keys, cited only).
+  - `report` scores the first try under the gate at b3ed8ef, so it needs that commit in the local git history.
+  - The committed `runs/eval-v1/REPORT.md` and `summary.json` were written by older report code (nearest-rank latencies, rows since renamed); `report --label eval-v1 --out <folder>` prints today's.
 - **Outside the deterministic net.** Thin or stale red flags (TGT's burn-coverage flag refers to FY2022) and errors only a careful reader finds remain partly unmeasured. Keep a hand-read sample of Opus judge rationales in each round.
 
 ---

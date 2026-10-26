@@ -35,6 +35,10 @@ def _s(text: str, section: str = "red_flags", kind: str = "comparison") -> dict:
     ("The 2.4-year burn coverage flag [R4] is stale: it refers to the FY2022 free cash flow deficit of $1.5 billion, and free "
      "cash flow has been positive in every year since [F92].", ["stale"]),
     ("The revenue basis break is material: FY2018 and FY2019 in the table are recasts [X1][X2].", ["material"]),
+    ("The FY2017 SG&A figure was later restated to $3,098.0 million from $3,066.6 million [R8][X34]; the pack uses the "
+     "first-reported value, so FY2017 cost ratios are slightly understated.", ["understated"]),
+    # ... and the candidate prompt's own example of a verdict on the data, which belongs in a judgement sentence.
+    ("Net cash of $4.0 billion is overstated, as long-term debt is not reported after FY2021 [D351].", ["overstated"]),
     # ... and Sonnet's.
     ("The FY2024 revenue decline of 3.4% looks benign, as FY2025 revenue of $67.6 billion exceeded FY2023's $67.1 billion "
      "[D316][F10][F8].", ["benign"]),
@@ -124,8 +128,9 @@ def _recorded(system: str) -> list[dict]:
 
 
 @pytest.mark.parametrize("system, judgement, evaluative, forecasts", [
-    # DEEPSEEK-ERRORS.md §1.3 counted 4 of 530, 18 of 330 and 11 of 60 for DeepSeek; 20 of 527, 7 of 312 and 1 of 60 for Sonnet.
-    ("deepseek-flash", (4, 530), (19, 330), (11, 60)),
+    # DEEPSEEK-ERRORS.md §1.3 counted 4 of 530, 18 of 330 and 11 of 60 for DeepSeek by hand (the lexicon also finds DE's
+    # "slightly understated"); 20 of 527, 7 of 312 and 1 of 60 for Sonnet.
+    ("deepseek-flash", (4, 530), (20, 330), (11, 60)),
     ("claude-sonnet-5-5", (20, 527), (7, 312), (1, 60)),
 ])
 def test_the_measures_reproduce_the_eval_v1_counts_they_were_checked_against(system: str, judgement: tuple, evaluative: tuple,

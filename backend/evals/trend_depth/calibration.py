@@ -14,9 +14,9 @@ The two lexicons are proxies, so every hit is listed for hand reading (``report.
 words of the same kinds in the recorded outputs: durability (persistent, cyclical, one-off, short-lived), buffer
 and strain (headroom, little room, thin, strain, squeeze), risk and health (risk, robust, healthy, benign, worth
 watching), inference (signals, suggests, implies), dependence (leans on, depends on) and verdicts on the data
-(material, stale, distorted, unreliable, understates). Data words that only look evaluative are left out: "raw
-material", "material costs", "risk-weighted", "basis points to". On eval-v1 it finds 19 of DeepSeek's 330 fact and
-comparison sentences outside the arc and watch (5.8%; §1.3 counted 18, 5.5%) and 7 of Sonnet's 312 (2.2%, as
+(material, stale, distorted, unreliable, overstated, understates). Data words that only look evaluative are left out: "raw
+material", "material costs", "risk-weighted", "basis points to". On eval-v1 it finds 20 of DeepSeek's 330 fact and
+comparison sentences outside the arc and watch (6.1%; §1.3 counted 18, 5.5%, by hand) and 7 of Sonnet's 312 (2.2%, as
 counted), and on eval-v1's development half DeepSeek's 6.2% of §1.3. ``FORECAST`` takes fix 6's "would keep" and
 "will likely" and their kin: "will remain under", "it stays below ... if", "keeps pressure", and a consequence
 after "would" (restore, ease, pressure, deepen the, move further) other than the confirm-or-reverse verbs and
@@ -46,7 +46,7 @@ EVALUATIVE = re.compile(
     r"(?:un)?likely|a\s+sign\s+of|signals?|suggests?|indicates?|implies|(?<!basis\s)(?<!percentage\s)points?\s+to|"
     r"underscores?|"
     r"leans?\s+on|depends?\s+on|relies\s+on|reliant|"
-    r"stale|distorted|unreliable|understates?|overstates?)\b"
+    r"stale|distorted|unreliable|(?:over|under)stat(?:e|es|ed|ing))\b"
     r"|(?<!raw\s)\bmaterial(?:ly)?\b(?!\s+(?:and|or|costs?|inflation|prices?)\b)",
     re.I,
 )
