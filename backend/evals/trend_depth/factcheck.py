@@ -448,39 +448,6 @@ def _said_otherwise(cand: Candidate, said: dict[tuple[str, tuple[str, ...]], Opt
     return sign is not None and _contradicts(cand, sign, evaluative and (cand.how, cand.ids) not in said, values)
 
 
-# A cost line's effect on operating margin: positive when the line's share of revenue fell. Said through the line's own
-# move ("Cost of revenue fell 1.1pp to 45.0% of revenue", "lower SG&A adding 2.0pp"), its sign is the inverse of the
-# direction word's (dev-v5: P's SNAP; dev-v3 Sonnet REGN; eval-v1 Haiku-low ORCL).
-_EFFECT_LABEL = re.compile(r"^Operating-margin effect of (?P<line>.+?) \(pp\)$")
-_LINE_MOVED = (r"(?:rose|risen|rising|rises|grew|increased|climbed|jumped|fell|fallen|falling|falls|declined|decreased|"
-               r"dropped|slipped|shrank|eased)")
-_LINE_SAID = r"(?:lower|higher|reduced|increased|falling|rising)"
-# The figure's clause: what follows the last of these before it, as ``_words_before`` reads it ("Cost of revenue fell to
-# 45.0%, and operating margin rose 1.1pp": the rise is the margin's).
-_CLAUSE_BEFORE = re.compile(r"[;:,.]\s|\bwhile\b|\bwhereas\b|\bbut\b|\band\b")
-
-
-def line_moved(text: str, claim: Claim, cand: Candidate, values: dict[str, Any]) -> bool:
-    """Whether the direction word before a cited operating-margin effect is said of its cost line, not of the margin:
-    the line is the word's subject ("Cost of revenue fell 1.1pp", "R&D has fallen 0.4pp") or the word qualifies it
-    ("lower SG&A adding 2.0pp", "higher R&D took 4.7pp"), in the figure's clause. "Operating margin fell 1.1pp on cost
-    of revenue" says the margin's move, so the effect's own sign reads it."""
-    if cand.how != "cited" or cand.ids[0] not in values:
-        return False
-    found = _EFFECT_LABEL.match(values[cand.ids[0]]["label"])
-    if not found:
-        return False
-    line = re.escape(found.group("line")).replace(r"\ ", r"[\s-]+")
-    window = _CLAUSE_BEFORE.split(text[max(0, claim.start - 70):claim.start])[-1]
-    return bool(re.search(rf"\b{line}\s+(?:has\s+|have\s+)?{_LINE_MOVED}\b", window, re.I)
-                or re.search(rf"\b{_LINE_SAID}\s+{line}\b", window, re.I))
-
-
-def _read(text: str, claim: Claim, cand: Candidate, direction: Optional[int], values: dict[str, Any]) -> Optional[int]:
-    """The direction the words before ``claim`` give ``cand``: the inverse where they say its cost line's move."""
-    return -direction if direction is not None and line_moved(text, claim, cand, values) else direction
-
-
 def lower_is_better(cand: Candidate, values: dict[str, Any]) -> bool:
     """Every pack value the candidate was computed from is a metric where lower is better."""
     labels = [values[i]["label"] for i in cand.ids if i in values]
@@ -966,10 +933,9 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             # (the same quantity, "pp D373-D358") cannot settle a sign the clause gives the other way (review 9: the
             # candidate prompt's comparison with both growths added).
             certain = [c for c in ranked if said.get((c.how, c.ids)) is not None]
-            best = next((c for c in certain or ranked
-                         if not _said_otherwise(c, said, _read(text, claim, c, direction, values), evaluative, values)),
+            best = next((c for c in certain or ranked if not _said_otherwise(c, said, direction, evaluative, values)),
                         (certain or ranked)[0])
-            if _said_otherwise(best, said, _read(text, claim, best, direction, values), evaluative, values) and claim.value >= 0:
+            if _said_otherwise(best, said, direction, evaluative, values) and claim.value >= 0:
                 record["status"] = "direction_mismatch"
                 record["matched"] = best.how
                 result.failures.append(f"'{claim.text}' matches {best.how} = {best.value:.4g} but the sentence says it went the other way")
