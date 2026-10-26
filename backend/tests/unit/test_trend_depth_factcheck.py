@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -151,15 +152,19 @@ TGT_GAP = _pack(("D439", "Revenue growth minus operating-cost growth", "FY2025",
                 ("D416", "Revenue growth", "FY2025", -1.6760, "pct"))
 # The same label where the recorded outputs state it with standing verbs: costs outgrew sales (PG, MSFT), revenue's
 # growth trailed by 4.4pp (REGN, with its revenue growth).
-PG_GAP = _pack(("D482", "Revenue growth minus operating-cost growth", "FY2026", -2.1459, "pp"))
+PG_GAP = _pack(("D482", "Revenue growth minus operating-cost growth", "FY2026", -2.1459, "pp"),
+               ("D457", "Revenue growth", "FY2026", 3.2604, "pct"),
+               ("F10", "Revenue", "FY2026", 87_032_000_000.0, "usd"), ("F9", "Revenue", "FY2025", 84_284_000_000.0, "usd"))
 REGN_GAP = _pack(("D464", "Revenue growth minus operating-cost growth", "FY2025", -4.4303, "pp"),
                  ("D440", "Revenue growth", "FY2025", 0.9921, "pct"),
                  ("F10", "Revenue", "FY2025", 14_342_900_000.0, "usd"), ("F9", "Revenue", "FY2024", 14_202_000_000.0, "usd"))
 MSFT_GAP = _pack(("D499", "Revenue growth minus operating-cost growth", "FY2026", 10.3489, "pp"))
 # A gap's inputs, as derived records them: the year's revenue and the year before's, first. CVX's two lines fell in
-# FY2025 (revenue -4.6%, costs -3.4%); REGN's rose (revenue +1.0%, costs +5.4%). ORCL's and the rest name none here.
+# FY2025 (revenue -4.6%, costs -3.4%); REGN's and PG's rose (revenue +1.0% and +3.3%, costs +5.4% each). ORCL's and the
+# rest name none here.
 CVX_GAP["values"]["D379"]["inputs"] = ["F10", "F9", None, None]
 REGN_GAP["values"]["D464"]["inputs"] = ["F10", "F9", "F20", "F19"]
+PG_GAP["values"]["D482"]["inputs"] = ["F10", "F9", "F20", "F19"]
 # packs-v2's same-year net margin minus operating margin (CAT: net margin is 3.4pp below operating margin; TGT 1.3pp).
 CAT_MARGIN_GAP = _pack(("D1168", "Net margin minus operating margin (pp, same year)", "FY2025", -3.3541, "pp"))
 TGT_MARGIN_GAP = _pack(("D629", "Net margin minus operating margin (pp, same year)", "FY2025", -1.3476, "pp"))
@@ -360,10 +365,45 @@ CERTAIN = [
     (REGN_GAP, "Revenue was 4.4pp higher than operating costs in FY2025 [D464].", "other way", None),
     (REGN_GAP, "Operating costs trailed top-line growth by 4.4pp in FY2025 [D464].", "other way", None),
     (REGN_GAP, "Operating costs outpaced revenue by 4.4pp in FY2025 [D464].", None, "reversed D464"),
-    # ... and "outgrew", which says grew more, whatever the side is called (DeepSeek PG, Sonnet MSFT and CAT).
+    # ... and "outgrew", which says grew more, whatever the side is called (DeepSeek PG, Sonnet MSFT and CAT), in a year
+    # both lines fell too (CVX).
     (REGN_GAP, "Revenue outgrew operating costs by 4.4pp in FY2025 [D464].", "other way", None),
     (MSFT_GAP, "Operating costs outgrew revenue by 10.3pp in FY2026 [D499].", "other way", None),
     (PG_GAP, "In FY2026 costs outgrew sales by 2.1pp [D482].", None, "reversed D482"),
+    (CVX_GAP, "Operating costs outgrew revenue by 1.2pp in FY2025 [D379].", None, "reversed D379"),
+    (CVX_GAP, "Revenue outgrew operating costs by 1.2pp in FY2025 [D379].", "other way", None),
+    # The side's year or its own figure in brackets between it and its verb, which only date or quantify the subject
+    # (review 9 gate-and-probes [4]: e505700 read these, 09a5b1a read them by magnitude; PG's lines both rose) ...
+    (PG_GAP, "Revenue growth in FY2026 outpaced operating-cost growth by 2.1pp [D482].", "other way", None),
+    (PG_GAP, "Revenue growth in FY2026 trailed operating-cost growth by 2.1pp [D482].", None, "cited"),
+    (PG_GAP, "Sales in FY2026 outgrew operating costs by 2.1pp [D482].", "other way", None),
+    (PG_GAP, "Operating costs in FY2026 outgrew sales by 2.1pp [D482].", None, "reversed D482"),
+    (PG_GAP, "Sales for FY2026 trailed operating costs by 2.1pp [D482].", None, "cited"),
+    (PG_GAP, "Sales for FY2026 exceeded operating costs by 2.1pp [D482].", "other way", None),
+    (PG_GAP, "Operating costs in FY2026 grew 2.1pp slower than revenue [D482].", "other way", None),
+    (PG_GAP, "Operating costs in FY2026 grew 2.1pp faster than revenue [D482].", None, "reversed D482"),
+    (PG_GAP, "Revenue growth (3.3%) outpaced operating-cost growth by 2.1pp in FY2026 [D457][D482].", "other way", None),
+    (PG_GAP, "Revenue growth (3.3%) trailed operating-cost growth by 2.1pp in FY2026 [D457][D482].", None, "cited"),
+    # ... a standing with no verb ("with revenue growth 2.1pp ahead of", which places the side as "was"), and a move
+    # after "has" or "have" ...
+    (PG_GAP, "Operating leverage was positive in FY2026, with revenue growth 2.1pp ahead of operating-cost growth [D482].",
+     "other way", None),
+    (PG_GAP, "Operating leverage was negative in FY2026, with revenue growth 2.1pp behind operating-cost growth [D482].", None,
+     "cited"),
+    (PG_GAP, "In FY2026, with operating-cost growth 2.1pp less than revenue growth, margins rose [D482].", "other way", None),
+    (PG_GAP, "Operating costs have grown 2.1pp faster than revenue in FY2026 [D482].", None, "reversed D482"),
+    (PG_GAP, "Operating costs have grown 2.1pp slower than revenue in FY2026 [D482].", "other way", None),
+    (CVX_GAP, "Operating costs have fallen 1.2pp less than revenue in FY2025 [D379].", None, "reversed D379"),
+    (CVX_GAP, "Operating costs have fallen 1.2pp more than revenue in FY2025 [D379].", "other way", None),
+    # ... and the candidate prompt's drivers comparison with both growths added: the clause compares the gap's sides, so
+    # the unsigned difference of the two growths cited beside it no longer settles a sign it gives the other way
+    # (review 9: before, the mirror passed on every pack whose gap is cited with both growths).
+    (CVX_GAP, "Operating costs fell 1.2pp less than revenue in FY2025, 3.4% against 4.6% [D379][D373][D358].", None,
+     "reversed D379"),
+    (CVX_GAP, "Operating costs fell 1.2pp more than revenue in FY2025, 3.4% against 4.6% [D379][D373][D358].", "other way", None),
+    (DE_GAP, "Operating costs fell 4.4pp less than revenue in FY2025, 7.3% against 11.7% [D431][D425][D412].", None,
+     "reversed D431"),
+    (DE_GAP, "Operating costs fell 4.4pp more than revenue in FY2025, 7.3% against 11.7% [D431][D425][D412].", "other way", None),
 ]
 
 
@@ -449,6 +489,155 @@ def test_a_compared_gap_is_read_by_magnitude_in_every_other_form(pack: dict, tex
     fell = factcheck.both_fell(value, pack["values"])
     assert factcheck.compared_sides(clean, gap.claim, sides["a"], sides["b"], fell) is None
     assert (result.failures, gap.status, gap.best.how) == ([], "verified", "cited")
+
+
+# Every word of every certain form, each with its false mirror (review 9 tests-and-gates [2]). A true sentence passes
+# whether its form is read with certainty or by magnitude, so only a mirror (or a match "reversed") pins a word: each
+# word below is the test's own, so a word dropped from its pattern lets its mirror pass, and a word added to a pattern
+# without one here fails the coverage test after these.
+MORE_WORDS = ["faster", "quicker", "further", "deeper", "steeper", "more", "more steeply", "more sharply", "more quickly",
+              "more rapidly", "more strongly"]
+LESS_WORDS = ["slower", "more slowly", "less", "less steeply", "less sharply", "less quickly", "less rapidly", "less strongly"]
+RISE_WORDS = ["rose", "rise", "rises", "risen", "rising", "grew", "grow", "grows", "grown", "growing", "increase", "increased",
+              "increases", "increasing", "climb", "climbs", "climbed", "climbing", "jump", "jumps", "jumped", "jumping", "expand",
+              "expands", "expanded", "expanding", "gain", "gains", "gained", "gaining"]
+FALL_WORDS = ["fell", "fall", "falls", "fallen", "falling", "decline", "declined", "declines", "declining", "decrease",
+              "decreased", "decreases", "decreasing", "drop", "drops", "dropped", "dropping", "shrank", "shrunk", "shrink",
+              "shrinks", "shrinking", "contract", "contracts", "contracted", "contracting", "slid", "slide", "slides", "sliding",
+              "slip", "slips", "slipped", "slipping", "dip", "dips", "dipped", "dipping"]
+ABOVE_WORDS = ["above", "over", "higher", "ahead of"]
+BELOW_WORDS = ["below", "under", "lower", "behind", "short of"]
+UP_VERBS = ["beat", "beats", "beating", "exceed", "exceeds", "exceeded", "exceeding", "outpace", "outpaces", "outpaced",
+            "outpacing", "outgrew", "outgrow", "outgrows", "outgrown", "outgrowing", "tops", "topped", "topping", "outran",
+            "outrun", "outruns", "outrunning"]
+DOWN_VERBS = ["trail", "trails", "trailed", "trailing", "lag", "lags", "lagged", "lagging", "fell short of", "falls short of",
+              "fall short of", "falling short of"]
+PLACED_WORDS = ["was", "were", "is", "are", "has been", "have been", "had been", "ran", "run", "runs", "running", "stood",
+                "stand", "stands", "standing", "sat", "sit", "sits", "sitting", "came", "came in", "come", "comes", "comes in",
+                "coming", "coming in", "ends", "ended", "remains", "remained", "stays", "stayed", "lands", "landed", "held",
+                "hold", "holds", "finishes", "finished", "settles", "settled"]
+ADVERBS = ["also", "only", "still", "just", "again"]
+FALL_NOUNS = ["decline", "declines", "drop", "drops", "fall", "falls", "reduction", "reductions", "cut", "cuts", "contraction",
+              "contractions", "shrinkage", "decrease", "decreases"]
+_PARTICIPLES = ("risen", "grown", "fallen", "shrunk")  # a move verb that needs "have" ("operating costs have risen")
+
+
+def _verb(word: str) -> str:
+    return f"have {word}" if word in _PARTICIPLES else word
+
+
+def _pos(word: str) -> str:
+    return f"{word} than" if word in ("higher", "lower") else word
+
+
+WORD_MIRRORS = [
+    # (pack, true sentence, its match, false mirror): each word in a form read with certainty on a gap's real value.
+    # A move of more (CVX: both fell, costs fell 1.2pp less than revenue) ...
+    *[(CVX_GAP, f"Revenue fell 1.2pp {w} than operating costs in FY2025 [D379].", "cited",
+       f"Operating costs fell 1.2pp {w} than revenue in FY2025 [D379].") for w in MORE_WORDS],
+    *[(CVX_GAP, f"Operating costs fell 1.2pp {w} than revenue in FY2025 [D379].", "reversed D379",
+       f"Revenue fell 1.2pp {w} than operating costs in FY2025 [D379].") for w in LESS_WORDS],
+    # ... each rise verb (ORCL: costs grew 0.35pp faster) and each fall verb (CVX) ...
+    *[(ORCL_GAP, f"Operating costs {_verb(w)} 0.3pp faster than revenue in FY2026 [D443].", "reversed D443",
+       f"Revenue {_verb(w)} 0.3pp faster than operating costs in FY2026 [D443].") for w in RISE_WORDS],
+    *[(CVX_GAP, f"Operating costs {_verb(w)} 1.2pp less than revenue in FY2025 [D379].", "reversed D379",
+       f"Operating costs {_verb(w)} 1.2pp more than revenue in FY2025 [D379].") for w in FALL_WORDS],
+    # ... each adverb between a side and its verb ...
+    *[(ORCL_GAP, f"Operating costs {w} grew 0.3pp faster than revenue in FY2026 [D443].", "reversed D443",
+       f"Revenue {w} grew 0.3pp faster than operating costs in FY2026 [D443].") for w in ADVERBS],
+    # ... each position (REGN: revenue growth ran 4.4pp behind cost growth) ...
+    *[(REGN_GAP, f"Operating-cost growth ran 4.4pp {_pos(w)} revenue growth in FY2025 [D464].", "reversed D464",
+       f"Revenue growth ran 4.4pp {_pos(w)} operating-cost growth in FY2025 [D464].") for w in ABOVE_WORDS],
+    *[(REGN_GAP, f"Revenue growth ran 4.4pp {_pos(w)} operating-cost growth in FY2025 [D464].", "cited",
+       f"Operating-cost growth ran 4.4pp {_pos(w)} revenue growth in FY2025 [D464].") for w in BELOW_WORDS],
+    # ... each verb that only places, and each outpacing verb ...
+    *[(REGN_GAP, f"Revenue growth {w} 4.4pp behind operating-cost growth in FY2025 [D464].", "cited",
+       f"Revenue growth {w} 4.4pp ahead of operating-cost growth in FY2025 [D464].") for w in PLACED_WORDS],
+    *[(REGN_GAP, f"Operating-cost growth {'has ' if w == 'outgrown' else ''}{w} revenue growth by 4.4pp in FY2025 [D464].",
+       "reversed D464", f"Revenue growth {'has ' if w == 'outgrown' else ''}{w} operating-cost growth by 4.4pp in FY2025 [D464].")
+      for w in UP_VERBS],
+    *[(REGN_GAP, f"Revenue growth {w} operating-cost growth by 4.4pp in FY2025 [D464].", "cited",
+       f"Operating-cost growth {w} revenue growth by 4.4pp in FY2025 [D464].") for w in DOWN_VERBS],
+    # ... and the other side named as its fall after a fall verb (CVX).
+    *[(CVX_GAP, f"Operating costs fell 1.2pp less than the revenue {w} in FY2025 [D379].", "reversed D379",
+       f"Operating costs fell 1.2pp more than the revenue {w} in FY2025 [D379].") for w in FALL_NOUNS],
+]
+
+
+@pytest.mark.parametrize("pack, text, matched, mirror", WORD_MIRRORS)
+def test_every_certain_form_word_has_its_mirror_fail(pack: dict, text: str, matched: str, mirror: str) -> None:
+    result = factcheck.check_sentence({"text": text, "type": "comparison"}, pack)
+    gap = next(c for c in result.claims if c["unit"] == "pp")
+    assert (result.failures, gap["status"], gap["matched"]) == ([], "verified", matched)
+    failures = factcheck.check_sentence({"text": mirror, "type": "comparison"}, pack).failures
+    assert any("other way" in f for f in failures), failures
+
+
+@pytest.mark.parametrize("noun", FALL_NOUNS)
+def test_a_fall_noun_after_a_rise_verb_is_read_by_magnitude(noun: str) -> None:
+    # A side named as its fall after a rise verb ("costs rose 1.2pp more than the revenue decline") may compare a rise
+    # with the size of a fall: each noun keeps the reading off (the word dropped, it reads as costs ahead of revenue).
+    text = f"Costs rose 1.2pp more than the revenue {noun} in FY2025."
+    claim = next(c for c in factcheck.parse_claims(text) if c.unit == "pp")
+    assert factcheck.compared_sides(text, claim, "Revenue growth", "operating-cost growth", True) is None
+
+
+def _alternatives(pattern: str) -> list[str]:
+    """A pattern's top-level alternatives (split at "|" outside brackets)."""
+    out, depth, start = [], 0, 0
+    for i, char in enumerate(pattern):
+        depth += char == "(" and (i == 0 or pattern[i - 1] != "\\")
+        depth -= char == ")" and (i == 0 or pattern[i - 1] != "\\")
+        if char == "|" and depth == 0:
+            out.append(pattern[start:i])
+            start = i + 1
+    return out + [pattern[start:]]
+
+
+@pytest.mark.parametrize("pattern, words", [
+    (factcheck._MORE, MORE_WORDS), (factcheck._LESS, LESS_WORDS), (factcheck._RISE, RISE_WORDS), (factcheck._FALL, FALL_WORDS),
+    (factcheck.ABOVE, ABOVE_WORDS), (factcheck.BELOW, BELOW_WORDS), (factcheck._OUTPACE_UP, UP_VERBS),
+    (factcheck._OUTPACE_DOWN, DOWN_VERBS), (factcheck._PLACED, PLACED_WORDS), (factcheck._ADVERBS, ADVERBS),
+    (factcheck._FALL_NOUNS, FALL_NOUNS),
+])
+def test_every_word_of_a_certain_form_has_a_mirror_above(pattern: str, words: list[str]) -> None:
+    # Each alternative of the pattern is some word of its list above, and each word of the list is the pattern's: a
+    # word added to a form without a mirror, or a list word the form no longer reads, fails here.
+    assert all(re.fullmatch(pattern, w, re.I) for w in words), [w for w in words if not re.fullmatch(pattern, w, re.I)]
+    missing = [alt for alt in _alternatives(pattern) if not any(re.fullmatch(alt, w, re.I) for w in words)]
+    assert missing == []
+
+
+# A gap of two levels of one year (net margin minus operating margin) is where one level stands against the other, which
+# no both-fell reading touches: the margin named last before the position or the outpacing verb is the one placed, in
+# any wording (review 9: e505700 read these and 09a5b1a did not, so their mirrors passed), the passive and a move aside.
+@pytest.mark.parametrize("text, reading", [
+    ("Below the line, other income held net margin at 31.4%, 6.5pp above the 24.9% operating margin.", (1, 1)),
+    ("Net margin was 31.4%, 6.5pp above the 24.9% operating margin.", (1, 1)),
+    ("Other income left net margin 6.5pp over operating margin in FY2025.", (1, 1)),
+    ("Net margin of 31.4% in FY2025 sat 6.5pp above the 24.9% operating margin.", (1, 1)),
+    ("Net margin in FY2025 was 6.5pp above operating margin.", (1, 1)),
+    ("In FY2025 net margin, at 31.4%, sat 6.5pp below operating margin.", (1, -1)),
+    ("Net margin 5.2pp below operating margin in FY2025 reflected the tax rate.", (1, -1)),
+    ("Other income lifted FY2025 net margin to 31.4%, 6.5pp more than operating margin.", (1, 1)),
+    ("Operating margin of 24.9% sat 6.5pp below net margin.", (-1, -1)),
+    ("Net margin, helped by other income, beat operating margin by 6.5pp.", (1, 1)),
+    ("Net margin of 13.1% trailed operating margin by 3.4pp.", (1, -1)),
+    ("Net margin, below operating margin since FY2019, sat 3.4pp under operating margin in FY2025.", (1, -1)),
+    # Not read: the passive, whose subject is the margin outpaced; a move of two levels; the other margin unnamed; one
+    # margin against itself.
+    ("Net margin was exceeded by operating margin by 6.5pp.", None),
+    ("Operating margin was narrowly beaten by net margin by 6.5pp.", None),
+    ("Net margin fell 6.5pp more than operating margin.", None),
+    ("Net margin has risen 6.5pp less than operating margin.", None),
+    ("Operating margin of 24.9% left net margin 6.5pp above it.", None),
+    ("Net margin sat 6.5pp below the operating margin decline.", None),
+    ("Tax and interest trailed operating margin by 6.5pp.", None),
+    ("In FY2025 net margin stood 6.5pp above the net margin window low.", None),
+])
+def test_a_gap_of_two_levels_is_read_wherever_one_level_is_placed(text: str, reading: tuple | None) -> None:
+    claim = next(c for c in factcheck.parse_claims(text) if c.unit == "pp")
+    assert factcheck.compared_sides(text, claim, "Net margin", "operating margin") == reading
 
 
 def test_both_lines_fell_by_each_committed_gap_s_own_revenue_inputs() -> None:
