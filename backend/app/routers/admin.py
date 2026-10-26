@@ -787,7 +787,8 @@ REFRESH_STALE_TIMEOUT_SECONDS = 570.0
 _REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS = PIPELINE_TIMEOUT_SECONDS + 60.0
 # A run starts no generation later than this after its route begins, so the last one it starts has its allowance, and
 # 40 s are left for the work outside it: the auth lookup before the route, and the last stamp re-read and the audit row
-# after the batch, three pool waits of at most DB_POOL_TIMEOUT's 10 s, and ten seconds for their queries. What it does
+# after the batch, three checkouts that each wait at most DB_POOL_TIMEOUT's 10 s, and ten seconds for their queries. An
+# estimate, as the allowance is: a checkout that must also connect (DB_CONNECT_TIMEOUT) can take longer. What it does
 # not start, it reports deferred. A generation started near this bound that outlasts its allowance can take the run
 # past the timeout: it answers 504, and that generation's tail, its re-read and the audit row finish after the
 # response; the budget has passed, so no other generation starts.

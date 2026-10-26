@@ -333,7 +333,7 @@ def test_a_run_reports_the_candidates_its_time_budget_left_unstarted_as_deferred
 def test_a_runs_budget_starts_before_its_candidate_read(client, as_admin, monkeypatch):
     # The route sets its deadline when it begins, so the candidate read is inside the budget: a read that takes the
     # route's clock past the deadline leaves every candidate deferred. A deadline set after the read would start the
-    # whole budget over, leaving the margin after the last generation one pool wait short.
+    # whole budget over after it, leaving the read's queries outside the budget.
     from app.routers import admin
     from app.services import admin_summary_service
 
