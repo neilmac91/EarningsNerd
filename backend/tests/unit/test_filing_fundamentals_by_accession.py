@@ -572,6 +572,25 @@ def test_a_foreign_reports_line_it_was_never_read_from_counts_only_in_its_own_cu
     assert chart["total_assets"] == _own(native, "Assets")
 
 
+def test_a_report_with_no_annual_row_of_its_own_ranks_its_stand_ins_without_presence(db):
+    """When the per-filing writer stored no annual row for a report, its stand-ins rank their own
+    currency. An older 20-F's revenue line then holds its oldest year in CNY and its own year in USD,
+    one period end each: the tie goes to CNY, never to the currency present at the report's own year
+    (the USD translation only it gave), and the oldest year alone falls short of the period end."""
+    company = _company(db)
+    (n23, u23), (n24, u24) = _foreign(company, 2023, "20-F"), _foreign(company, 2024, "20-F")
+    n23, n24 = {REV: n23[REV]}, {REV: n24[REV]}  # revenue alone, so no other line breaks the tie
+    older, _newer = _filing(db, company, n23), _filing(db, company, n24)
+    _early_usd_sync(db, company, "20-F", (2023, u23), (2024, u24))
+    _sync(db, company, n23, u23, n24, u24)
+    facts_service.process_filing_facts(db, older, standardized={})
+
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=older.accession_number).all()
+    assert sorted((row.period_end, row.unit, row.filing_id) for row in rows) == [
+        (date(2021, 3, 31), "CNY", None), (date(2023, 3, 31), "USD", None)]
+    assert _chart(db, older) == {}
+
+
 def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
     """Hello Group, Vipshop and JOYY each reported years in USD alone, then switched to CNY with each
     year again in USD. USD then holds periods CNY lacks, so the sync reads the USD list
