@@ -42,6 +42,17 @@ def test_the_table_reaches_every_part_of_the_rule():
     assert display_company_name("REGENERON PHARMACEUTICALS, INC.") == "Regeneron Pharmaceuticals, Inc."
 
 
+def test_the_space_class_is_javascripts():
+    """_SPACE is JavaScript's \\s and trim() set, every member pinned: its WhiteSpace (tab, vertical tab, form feed,
+    the byte-order mark and every Zs space separator) and its LineTerminator (line feed, carriage return, the line
+    and paragraph separators). Zs is read from unicodedata; it is the same 17 code points under Python 3.11's
+    Unicode 14 and 3.13's Unicode 15.1."""
+    zs = {code for code in range(0x110000) if unicodedata.category(chr(code)) == "Zs"}
+    assert len(zs) == 17 and {0x20, 0xA0, 0x1680, 0x202F, 0x205F, 0x3000} | set(range(0x2000, 0x200B)) == zs
+    matched = {code for code in range(0x110000) if re.fullmatch(company_names._SPACE, chr(code))}
+    assert matched == {0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x2028, 0x2029, 0xFEFF} | zs
+
+
 def test_the_module_writes_no_invisible_character():
     """The whitespace class is written as escapes: a raw U+2028 split its source line for str.splitlines(), and
     a raw space or format character reads as nothing in review."""
