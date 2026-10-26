@@ -1,0 +1,3029 @@
+{
+ "ticker": "REGN",
+ "arm": "deepseek-flash-p",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "453122e96b992763b4d3b1abd459811e96113c140230b6080a8f6e40224234ef",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "packs": "packs-v2",
+ "pack_sha256": "dc16ee8de66cd4fbf41bc99a653e333754f31ae896f505cf9444e035db8c8a18",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 40673,
+   "cached_input_tokens": 1920,
+   "output_tokens": 1872,
+   "reasoning_tokens": 0,
+   "latency_s": 12.386,
+   "cost_usd": 0.006942,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 42545
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 12.8% a year from $4.86 billion in FY2016 to $14.3 billion in FY2025 [F1][F10][F198].\"},\n    {\"type\": \"comparison\", \"text\": \"The path was not smooth: FY2021 revenue jumped 89.1% to $16.1 billion, then fell 24.3% in FY2022 to $12.2 billion [F6][F7][D241][D292].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2022 reversal followed REGEN-COV sales to zero, a 36.3pp drag, as new SARS-CoV-2 variants were not susceptible to the treatment [S49][D585][P7].\"},\n    {\"type\": \"comparison\", \"text\": \"Since then growth has slowed to 5.6% a year over FY2022..FY2025, with FY2025 up only 1.0% [D767][D440].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The mix has inverted: net product sales fell to 44.0% of revenue in FY2025 from 75.4% in FY2021, while collaboration revenue reached 51.1% [D505][D493][D521].\"},\n    {\"type\": \"cause\", \"text\": \"Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion in FY2025, adding 9.3pp of growth, on higher Dupixent sales [S52][D591][D592][P9].\"},\n    {\"type\": \"cause\", \"text\": \"U.S. EYLEA sales fell 42.4% to $2.75 billion, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition [S43][D577][D578][P10].\"},\n    {\"type\": \"cause\", \"text\": \"EYLEA HD partly offset that, rising 36.3% to $1.64 billion and adding 3.1pp, on higher volumes [S64][D613][D614][P11].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating income fell 10.3% in FY2025 against 1.0% revenue growth, so there was no operating leverage [F20][D441][D440].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 24.9% in FY2025 is the window low, against a 34.6% median and a 55.7% FY2021 high [F30][D749][D751][D750].\"},\n    {\"type\": \"comparison\", \"text\": \"It has fallen four straight years, from 55.7% in FY2021, a 30.7pp decline [F26][F30][R1].\"},\n    {\"type\": \"comparison\", \"text\": \"In FY2025 R&D took 4.7pp of margin as it rose 14.0% to $5.85 billion, while SG&A added 2.0pp as it fell 8.6% [D465][X34][D455][D466][D456].\"},\n    {\"type\": \"cause\", \"text\": \"The SG&A decline was primarily lower charitable contributions to the Good Days patient assistance fund [P5].\"},\n    {\"type\": \"comparison\", \"text\": \"Net margin held at 31.4%, 6.5pp above operating margin, helped by other income of $1.65 billion and a 13.9% tax rate [F50][D797][X117][D427].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $4.98 billion was 1.11x net income, in line with the 1.10x window median [F80][F40][D428][D787].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow of $4.08 billion was 0.91x net income and a 28.4% margin, above the 26.4% median [F100][F40][D429][D425][D757].\"},\n    {\"type\": \"comparison\", \"text\": \"Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A [F90][D447][D424][D430].\"},\n    {\"type\": \"comparison\", \"text\": \"Stock-based compensation of $994 million absorbed 20.0% of operating cash flow [X77][D431].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Net cash reached $16.9 billion, 117.7% of revenue, the 100th percentile of eight biopharma peers against a -50.7% median [D434][D435][D780][D781].\"},\n    {\"type\": \"comparison\", \"text\": \"Debt is a flat $1.99 billion and the current ratio is 4.13x, above the 3.97x median [F187][F180][D766].\"},\n    {\"type\": \"fact\", \"text\": \"Buybacks of $3.44 billion plus a first dividend of $370 million used 93.3% of free cash flow [X137][X140][D437].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted shares fell 5.6%, so diluted EPS grew 8.2% against 2.1% net income growth [D459][D444][D442].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The four-year, 30.7pp operating-margin slide is the main concern, driven by R&D intensity and EYLEA erosion [R1][F26][F30].\"},\n    {\"type\": \"comparison\", \"text\": \"R&D at 40.8% of revenue is the 100th percentile of eight peers against a 20.1% median, so margin recovery depends on that spend paying off [D420][D778][D779].\"},\n    {\"type\": \"comparison\", \"text\": \"Data quality: FY2018 and FY2019 revenue in the table is a later recast ($5.15 billion and $6.56 billion) versus $6.71 billion and $7.86 billion first reported, so growth spanning those years mixes presentations [F3][X3][F4][X4][R2].\"},\n    {\"type\": \"comparison\", \"text\": \"Return on average equity fell to 14.9%, the 25th percentile of eight peers against a 38.7% median [D439][D784][D785].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Whether operating margin holds at the 24.9% FY2025 low or falls further, reported in the FY2026 10-K [F30][D749].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether U.S. EYLEA sales stabilize above $2.75 billion or keep declining toward the EYLEA HD offset [S43][S64].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether R&D as a share of revenue falls back toward the 34.6% median from 40.8% [D420][D760].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 42718,
+   "cached_input_tokens": 40576,
+   "output_tokens": 103,
+   "reasoning_tokens": 0,
+   "latency_s": 2.142,
+   "cost_usd": 0.000505,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 42821
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"arc\", \"original\": \"The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582].\", \"type\": \"comparison\", \"text\": \"REGEN-COV U.S. sales of $5.83 billion contributed 66.4pp of FY2021's growth [S48][D582].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 83391,
+  "cached_input_tokens": 42496,
+  "output_tokens": 1975,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 14.528,
+ "cost_usd": 0.007447,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "898755827472",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 12.8% a year from $4.86 billion in FY2016 to $14.3 billion in FY2025 [F1][F10][F198]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: FY2021 revenue jumped 89.1% to $16.1 billion, then fell 24.3% in FY2022 to $12.2 billion [F6][F7][D241][D292]."
+     },
+     {
+      "type": "comparison",
+      "text": "REGEN-COV U.S. sales of $5.83 billion contributed 66.4pp of FY2021's growth [S48][D582]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 reversal followed REGEN-COV sales to zero, a 36.3pp drag, as new SARS-CoV-2 variants were not susceptible to the treatment [S49][D585][P7]."
+     },
+     {
+      "type": "comparison",
+      "text": "Since then growth has slowed to 5.6% a year over FY2022..FY2025, with FY2025 up only 1.0% [D767][D440]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The mix has inverted: net product sales fell to 44.0% of revenue in FY2025 from 75.4% in FY2021, while collaboration revenue reached 51.1% [D505][D493][D521]."
+     },
+     {
+      "type": "cause",
+      "text": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion in FY2025, adding 9.3pp of growth, on higher Dupixent sales [S52][D591][D592][P9]."
+     },
+     {
+      "type": "cause",
+      "text": "U.S. EYLEA sales fell 42.4% to $2.75 billion, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition [S43][D577][D578][P10]."
+     },
+     {
+      "type": "cause",
+      "text": "EYLEA HD partly offset that, rising 36.3% to $1.64 billion and adding 3.1pp, on higher volumes [S64][D613][D614][P11]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income fell 10.3% in FY2025 against 1.0% revenue growth, so there was no operating leverage [F20][D441][D440]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 24.9% in FY2025 is the window low, against a 34.6% median and a 55.7% FY2021 high [F30][D749][D751][D750]."
+     },
+     {
+      "type": "comparison",
+      "text": "It has fallen four straight years, from 55.7% in FY2021, a 30.7pp decline [F26][F30][R1]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2025 R&D took 4.7pp of margin as it rose 14.0% to $5.85 billion, while SG&A added 2.0pp as it fell 8.6% [D465][X34][D455][D466][D456]."
+     },
+     {
+      "type": "cause",
+      "text": "The SG&A decline was primarily lower charitable contributions to the Good Days patient assistance fund [P5]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin held at 31.4%, 6.5pp above operating margin, helped by other income of $1.65 billion and a 13.9% tax rate [F50][D797][X117][D427]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $4.98 billion was 1.11x net income, in line with the 1.10x window median [F80][F40][D428][D787]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow of $4.08 billion was 0.91x net income and a 28.4% margin, above the 26.4% median [F100][F40][D429][D425][D757]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A [F90][D447][D424][D430]."
+     },
+     {
+      "type": "comparison",
+      "text": "Stock-based compensation of $994 million absorbed 20.0% of operating cash flow [X77][D431]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash reached $16.9 billion, 117.7% of revenue, the 100th percentile of eight biopharma peers against a -50.7% median [D434][D435][D780][D781]."
+     },
+     {
+      "type": "comparison",
+      "text": "Debt is a flat $1.99 billion and the current ratio is 4.13x, above the 3.97x median [F187][F180][D766]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks of $3.44 billion plus a first dividend of $370 million used 93.3% of free cash flow [X137][X140][D437]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted shares fell 5.6%, so diluted EPS grew 8.2% against 2.1% net income growth [D459][D444][D442]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The four-year, 30.7pp operating-margin slide is the main concern, driven by R&D intensity and EYLEA erosion [R1][F26][F30]."
+     },
+     {
+      "type": "comparison",
+      "text": "R&D at 40.8% of revenue is the 100th percentile of eight peers against a 20.1% median, so margin recovery depends on that spend paying off [D420][D778][D779]."
+     },
+     {
+      "type": "comparison",
+      "text": "Data quality: FY2018 and FY2019 revenue in the table is a later recast ($5.15 billion and $6.56 billion) versus $6.71 billion and $7.86 billion first reported, so growth spanning those years mixes presentations [F3][X3][F4][X4][R2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity fell to 14.9%, the 25th percentile of eight peers against a 38.7% median [D439][D784][D785]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether operating margin holds at the 24.9% FY2025 low or falls further, reported in the FY2026 10-K [F30][D749]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether U.S. EYLEA sales stabilize above $2.75 billion or keep declining toward the EYLEA HD offset [S43][S64]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether R&D as a share of revenue falls back toward the 34.6% median from 40.8% [D420][D760]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 564,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 22,
+   "cause": 6
+  },
+  "claims": 81,
+  "verified": 81,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "arc",
+    "sentence": "The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582].",
+    "type": "cause",
+    "failure": "cause sentence cites no filing passage"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 12.8% a year from $4.86 billion in FY2016 to $14.3 billion in FY2025 [F1][F10][F198].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F198"
+    ],
+    "claims": [
+     {
+      "claim": "12.8%",
+      "value": 12.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F198"
+      ]
+     },
+     {
+      "claim": "$4.86 billion",
+      "value": 4.86,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: FY2021 revenue jumped 89.1% to $16.1 billion, then fell 24.3% in FY2022 to $12.2 billion [F6][F7][D241][D292].",
+    "type": "comparison",
+    "citations": [
+     "F6",
+     "F7",
+     "D241",
+     "D292"
+    ],
+    "claims": [
+     {
+      "claim": "89.1%",
+      "value": 89.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "$16.1 billion",
+      "value": 16.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F6"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D292"
+      ]
+     },
+     {
+      "claim": "$12.2 billion",
+      "value": 12.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582].",
+    "type": "cause",
+    "citations": [
+     "S48",
+     "D582"
+    ],
+    "claims": [
+     {
+      "claim": "$5.83 billion",
+      "value": 5.83,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S48"
+      ]
+     },
+     {
+      "claim": "66.4pp",
+      "value": 66.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D582"
+      ]
+     }
+    ],
+    "failures": [
+     "cause sentence cites no filing passage"
+    ]
+   },
+   {
+    "section": "arc",
+    "text": "The FY2022 reversal followed REGEN-COV sales to zero, a 36.3pp drag, as new SARS-CoV-2 variants were not susceptible to the treatment [S49][D585][P7].",
+    "type": "cause",
+    "citations": [
+     "S49",
+     "D585",
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "36.3pp",
+      "value": 36.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D585"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Since then growth has slowed to 5.6% a year over FY2022..FY2025, with FY2025 up only 1.0% [D767][D440].",
+    "type": "comparison",
+    "citations": [
+     "D767",
+     "D440"
+    ],
+    "claims": [
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D767"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The mix has inverted: net product sales fell to 44.0% of revenue in FY2025 from 75.4% in FY2021, while collaboration revenue reached 51.1% [D505][D493][D521].",
+    "type": "comparison",
+    "citations": [
+     "D505",
+     "D493",
+     "D521"
+    ],
+    "claims": [
+     {
+      "claim": "44.0%",
+      "value": 44.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D505"
+      ]
+     },
+     {
+      "claim": "75.4%",
+      "value": 75.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D493"
+      ]
+     },
+     {
+      "claim": "51.1%",
+      "value": 51.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D521"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion in FY2025, adding 9.3pp of growth, on higher Dupixent sales [S52][D591][D592][P9].",
+    "type": "cause",
+    "citations": [
+     "S52",
+     "D591",
+     "D592",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "33.6%",
+      "value": 33.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D591"
+      ]
+     },
+     {
+      "claim": "$5.24 billion",
+      "value": 5.24,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S52"
+      ]
+     },
+     {
+      "claim": "9.3pp",
+      "value": 9.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D592"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "U.S. EYLEA sales fell 42.4% to $2.75 billion, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition [S43][D577][D578][P10].",
+    "type": "cause",
+    "citations": [
+     "S43",
+     "D577",
+     "D578",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "42.4%",
+      "value": 42.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D577"
+      ]
+     },
+     {
+      "claim": "$2.75 billion",
+      "value": 2.75,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S43"
+      ]
+     },
+     {
+      "claim": "14.2pp",
+      "value": 14.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D578"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "EYLEA HD partly offset that, rising 36.3% to $1.64 billion and adding 3.1pp, on higher volumes [S64][D613][D614][P11].",
+    "type": "cause",
+    "citations": [
+     "S64",
+     "D613",
+     "D614",
+     "P11"
+    ],
+    "claims": [
+     {
+      "claim": "36.3%",
+      "value": 36.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D613"
+      ]
+     },
+     {
+      "claim": "$1.64 billion",
+      "value": 1.64,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S64"
+      ]
+     },
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D614"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income fell 10.3% in FY2025 against 1.0% revenue growth, so there was no operating leverage [F20][D441][D440].",
+    "type": "comparison",
+    "citations": [
+     "F20",
+     "D441",
+     "D440"
+    ],
+    "claims": [
+     {
+      "claim": "10.3%",
+      "value": 10.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 24.9% in FY2025 is the window low, against a 34.6% median and a 55.7% FY2021 high [F30][D749][D751][D750].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D749",
+     "D751",
+     "D750"
+    ],
+    "claims": [
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "34.6%",
+      "value": 34.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D751"
+      ]
+     },
+     {
+      "claim": "55.7%",
+      "value": 55.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D750"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "It has fallen four straight years, from 55.7% in FY2021, a 30.7pp decline [F26][F30][R1].",
+    "type": "comparison",
+    "citations": [
+     "F26",
+     "F30",
+     "R1"
+    ],
+    "claims": [
+     {
+      "claim": "55.7%",
+      "value": 55.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F26"
+      ]
+     },
+     {
+      "claim": "30.7pp",
+      "value": 30.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2025 R&D took 4.7pp of margin as it rose 14.0% to $5.85 billion, while SG&A added 2.0pp as it fell 8.6% [D465][X34][D455][D466][D456].",
+    "type": "comparison",
+    "citations": [
+     "D465",
+     "X34",
+     "D455",
+     "D466",
+     "D456"
+    ],
+    "claims": [
+     {
+      "claim": "4.7pp",
+      "value": 4.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D465"
+      ]
+     },
+     {
+      "claim": "14.0%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D455"
+      ]
+     },
+     {
+      "claim": "$5.85 billion",
+      "value": 5.85,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X34"
+      ]
+     },
+     {
+      "claim": "2.0pp",
+      "value": 2.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D466"
+      ]
+     },
+     {
+      "claim": "8.6%",
+      "value": 8.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D456"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The SG&A decline was primarily lower charitable contributions to the Good Days patient assistance fund [P5].",
+    "type": "cause",
+    "citations": [
+     "P5"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin held at 31.4%, 6.5pp above operating margin, helped by other income of $1.65 billion and a 13.9% tax rate [F50][D797][X117][D427].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "D797",
+     "X117",
+     "D427"
+    ],
+    "claims": [
+     {
+      "claim": "31.4%",
+      "value": 31.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "6.5pp",
+      "value": 6.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D797"
+      ]
+     },
+     {
+      "claim": "$1.65 billion",
+      "value": 1.65,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X117"
+      ]
+     },
+     {
+      "claim": "13.9%",
+      "value": 13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $4.98 billion was 1.11x net income, in line with the 1.10x window median [F80][F40][D428][D787].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "F40",
+     "D428",
+     "D787"
+    ],
+    "claims": [
+     {
+      "claim": "$4.98 billion",
+      "value": 4.98,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "1.11x",
+      "value": 1.11,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "1.10x",
+      "value": 1.1,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D787"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow of $4.08 billion was 0.91x net income and a 28.4% margin, above the 26.4% median [F100][F40][D429][D425][D757].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "F40",
+     "D429",
+     "D425",
+     "D757"
+    ],
+    "claims": [
+     {
+      "claim": "$4.08 billion",
+      "value": 4.08,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.91x",
+      "value": 0.91,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     },
+     {
+      "claim": "28.4%",
+      "value": 28.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "26.4%",
+      "value": 26.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D757"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A [F90][D447][D424][D430].",
+    "type": "comparison",
+    "citations": [
+     "F90",
+     "D447",
+     "D424",
+     "D430"
+    ],
+    "claims": [
+     {
+      "claim": "18.9%",
+      "value": 18.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "$898 million",
+      "value": 898.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "6.3%",
+      "value": 6.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D424"
+      ]
+     },
+     {
+      "claim": "1.65x",
+      "value": 1.65,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Stock-based compensation of $994 million absorbed 20.0% of operating cash flow [X77][D431].",
+    "type": "comparison",
+    "citations": [
+     "X77",
+     "D431"
+    ],
+    "claims": [
+     {
+      "claim": "$994 million",
+      "value": 994.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X77"
+      ]
+     },
+     {
+      "claim": "20.0%",
+      "value": 20.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash reached $16.9 billion, 117.7% of revenue, the 100th percentile of eight biopharma peers against a -50.7% median [D434][D435][D780][D781].",
+    "type": "comparison",
+    "citations": [
+     "D434",
+     "D435",
+     "D780",
+     "D781"
+    ],
+    "claims": [
+     {
+      "claim": "$16.9 billion",
+      "value": 16.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     },
+     {
+      "claim": "117.7%",
+      "value": 117.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D780"
+      ]
+     },
+     {
+      "claim": "-50.7%",
+      "value": -50.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D781"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Debt is a flat $1.99 billion and the current ratio is 4.13x, above the 3.97x median [F187][F180][D766].",
+    "type": "comparison",
+    "citations": [
+     "F187",
+     "F180",
+     "D766"
+    ],
+    "claims": [
+     {
+      "claim": "$1.99 billion",
+      "value": 1.99,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F187"
+      ]
+     },
+     {
+      "claim": "4.13x",
+      "value": 4.13,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "3.97x",
+      "value": 3.97,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D766"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks of $3.44 billion plus a first dividend of $370 million used 93.3% of free cash flow [X137][X140][D437].",
+    "type": "fact",
+    "citations": [
+     "X137",
+     "X140",
+     "D437"
+    ],
+    "claims": [
+     {
+      "claim": "$3.44 billion",
+      "value": 3.44,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     },
+     {
+      "claim": "$370 million",
+      "value": 370.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X140"
+      ]
+     },
+     {
+      "claim": "93.3%",
+      "value": 93.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D437"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Diluted shares fell 5.6%, so diluted EPS grew 8.2% against 2.1% net income growth [D459][D444][D442].",
+    "type": "comparison",
+    "citations": [
+     "D459",
+     "D444",
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D459"
+      ]
+     },
+     {
+      "claim": "8.2%",
+      "value": 8.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The four-year, 30.7pp operating-margin slide is the main concern, driven by R&D intensity and EYLEA erosion [R1][F26][F30].",
+    "type": "comparison",
+    "citations": [
+     "R1",
+     "F26",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "30.7pp",
+      "value": 30.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "R&D at 40.8% of revenue is the 100th percentile of eight peers against a 20.1% median, so margin recovery depends on that spend paying off [D420][D778][D779].",
+    "type": "comparison",
+    "citations": [
+     "D420",
+     "D778",
+     "D779"
+    ],
+    "claims": [
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D420"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D778"
+      ]
+     },
+     {
+      "claim": "20.1%",
+      "value": 20.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D779"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Data quality: FY2018 and FY2019 revenue in the table is a later recast ($5.15 billion and $6.56 billion) versus $6.71 billion and $7.86 billion first reported, so growth spanning those years mixes presentations [F3][X3][F4][X4][R2].",
+    "type": "comparison",
+    "citations": [
+     "F3",
+     "X3",
+     "F4",
+     "X4",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "$5.15 billion",
+      "value": 5.15,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F3"
+      ]
+     },
+     {
+      "claim": "$6.56 billion",
+      "value": 6.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F4"
+      ]
+     },
+     {
+      "claim": "$6.71 billion",
+      "value": 6.71,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X3"
+      ]
+     },
+     {
+      "claim": "$7.86 billion",
+      "value": 7.86,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Return on average equity fell to 14.9%, the 25th percentile of eight peers against a 38.7% median [D439][D784][D785].",
+    "type": "comparison",
+    "citations": [
+     "D439",
+     "D784",
+     "D785"
+    ],
+    "claims": [
+     {
+      "claim": "14.9%",
+      "value": 14.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D439"
+      ]
+     },
+     {
+      "claim": "25th percentile",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D784"
+      ]
+     },
+     {
+      "claim": "38.7%",
+      "value": 38.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D785"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether operating margin holds at the 24.9% FY2025 low or falls further, reported in the FY2026 10-K [F30][D749].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D749"
+    ],
+    "claims": [
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether U.S. EYLEA sales stabilize above $2.75 billion or keep declining toward the EYLEA HD offset [S43][S64].",
+    "type": "comparison",
+    "citations": [
+     "S43",
+     "S64"
+    ],
+    "claims": [
+     {
+      "claim": "$2.75 billion",
+      "value": 2.75,
+      "unit": "usd",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S43"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether R&D as a share of revenue falls back toward the 34.6% median from 40.8% [D420][D760].",
+    "type": "comparison",
+    "citations": [
+     "D420",
+     "D760"
+    ],
+    "claims": [
+     {
+      "claim": "34.6%",
+      "value": 34.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D760"
+      ]
+     },
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D420"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 23,
+   "cause": 5
+  },
+  "claims": 81,
+  "verified": 81,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 12.8% a year from $4.86 billion in FY2016 to $14.3 billion in FY2025 [F1][F10][F198].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F198"
+    ],
+    "claims": [
+     {
+      "claim": "12.8%",
+      "value": 12.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F198"
+      ]
+     },
+     {
+      "claim": "$4.86 billion",
+      "value": 4.86,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: FY2021 revenue jumped 89.1% to $16.1 billion, then fell 24.3% in FY2022 to $12.2 billion [F6][F7][D241][D292].",
+    "type": "comparison",
+    "citations": [
+     "F6",
+     "F7",
+     "D241",
+     "D292"
+    ],
+    "claims": [
+     {
+      "claim": "89.1%",
+      "value": 89.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "$16.1 billion",
+      "value": 16.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F6"
+      ]
+     },
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D292"
+      ]
+     },
+     {
+      "claim": "$12.2 billion",
+      "value": 12.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "REGEN-COV U.S. sales of $5.83 billion contributed 66.4pp of FY2021's growth [S48][D582].",
+    "type": "comparison",
+    "citations": [
+     "S48",
+     "D582"
+    ],
+    "claims": [
+     {
+      "claim": "$5.83 billion",
+      "value": 5.83,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S48"
+      ]
+     },
+     {
+      "claim": "66.4pp",
+      "value": 66.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D582"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2022 reversal followed REGEN-COV sales to zero, a 36.3pp drag, as new SARS-CoV-2 variants were not susceptible to the treatment [S49][D585][P7].",
+    "type": "cause",
+    "citations": [
+     "S49",
+     "D585",
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "36.3pp",
+      "value": 36.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D585"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Since then growth has slowed to 5.6% a year over FY2022..FY2025, with FY2025 up only 1.0% [D767][D440].",
+    "type": "comparison",
+    "citations": [
+     "D767",
+     "D440"
+    ],
+    "claims": [
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D767"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The mix has inverted: net product sales fell to 44.0% of revenue in FY2025 from 75.4% in FY2021, while collaboration revenue reached 51.1% [D505][D493][D521].",
+    "type": "comparison",
+    "citations": [
+     "D505",
+     "D493",
+     "D521"
+    ],
+    "claims": [
+     {
+      "claim": "44.0%",
+      "value": 44.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D505"
+      ]
+     },
+     {
+      "claim": "75.4%",
+      "value": 75.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D493"
+      ]
+     },
+     {
+      "claim": "51.1%",
+      "value": 51.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D521"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion in FY2025, adding 9.3pp of growth, on higher Dupixent sales [S52][D591][D592][P9].",
+    "type": "cause",
+    "citations": [
+     "S52",
+     "D591",
+     "D592",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "33.6%",
+      "value": 33.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D591"
+      ]
+     },
+     {
+      "claim": "$5.24 billion",
+      "value": 5.24,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S52"
+      ]
+     },
+     {
+      "claim": "9.3pp",
+      "value": 9.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D592"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "U.S. EYLEA sales fell 42.4% to $2.75 billion, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition [S43][D577][D578][P10].",
+    "type": "cause",
+    "citations": [
+     "S43",
+     "D577",
+     "D578",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "42.4%",
+      "value": 42.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D577"
+      ]
+     },
+     {
+      "claim": "$2.75 billion",
+      "value": 2.75,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S43"
+      ]
+     },
+     {
+      "claim": "14.2pp",
+      "value": 14.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D578"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "EYLEA HD partly offset that, rising 36.3% to $1.64 billion and adding 3.1pp, on higher volumes [S64][D613][D614][P11].",
+    "type": "cause",
+    "citations": [
+     "S64",
+     "D613",
+     "D614",
+     "P11"
+    ],
+    "claims": [
+     {
+      "claim": "36.3%",
+      "value": 36.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D613"
+      ]
+     },
+     {
+      "claim": "$1.64 billion",
+      "value": 1.64,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S64"
+      ]
+     },
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D614"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income fell 10.3% in FY2025 against 1.0% revenue growth, so there was no operating leverage [F20][D441][D440].",
+    "type": "comparison",
+    "citations": [
+     "F20",
+     "D441",
+     "D440"
+    ],
+    "claims": [
+     {
+      "claim": "10.3%",
+      "value": 10.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D440"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 24.9% in FY2025 is the window low, against a 34.6% median and a 55.7% FY2021 high [F30][D749][D751][D750].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D749",
+     "D751",
+     "D750"
+    ],
+    "claims": [
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "34.6%",
+      "value": 34.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D751"
+      ]
+     },
+     {
+      "claim": "55.7%",
+      "value": 55.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D750"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "It has fallen four straight years, from 55.7% in FY2021, a 30.7pp decline [F26][F30][R1].",
+    "type": "comparison",
+    "citations": [
+     "F26",
+     "F30",
+     "R1"
+    ],
+    "claims": [
+     {
+      "claim": "55.7%",
+      "value": 55.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F26"
+      ]
+     },
+     {
+      "claim": "30.7pp",
+      "value": 30.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2025 R&D took 4.7pp of margin as it rose 14.0% to $5.85 billion, while SG&A added 2.0pp as it fell 8.6% [D465][X34][D455][D466][D456].",
+    "type": "comparison",
+    "citations": [
+     "D465",
+     "X34",
+     "D455",
+     "D466",
+     "D456"
+    ],
+    "claims": [
+     {
+      "claim": "4.7pp",
+      "value": 4.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D465"
+      ]
+     },
+     {
+      "claim": "14.0%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D455"
+      ]
+     },
+     {
+      "claim": "$5.85 billion",
+      "value": 5.85,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X34"
+      ]
+     },
+     {
+      "claim": "2.0pp",
+      "value": 2.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D466"
+      ]
+     },
+     {
+      "claim": "8.6%",
+      "value": 8.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D456"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The SG&A decline was primarily lower charitable contributions to the Good Days patient assistance fund [P5].",
+    "type": "cause",
+    "citations": [
+     "P5"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin held at 31.4%, 6.5pp above operating margin, helped by other income of $1.65 billion and a 13.9% tax rate [F50][D797][X117][D427].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "D797",
+     "X117",
+     "D427"
+    ],
+    "claims": [
+     {
+      "claim": "31.4%",
+      "value": 31.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "6.5pp",
+      "value": 6.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D797"
+      ]
+     },
+     {
+      "claim": "$1.65 billion",
+      "value": 1.65,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X117"
+      ]
+     },
+     {
+      "claim": "13.9%",
+      "value": 13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $4.98 billion was 1.11x net income, in line with the 1.10x window median [F80][F40][D428][D787].",
+    "type": "comparison",
+    "citations": [
+     "F80",
+     "F40",
+     "D428",
+     "D787"
+    ],
+    "claims": [
+     {
+      "claim": "$4.98 billion",
+      "value": 4.98,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F80"
+      ]
+     },
+     {
+      "claim": "1.11x",
+      "value": 1.11,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "1.10x",
+      "value": 1.1,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D787"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow of $4.08 billion was 0.91x net income and a 28.4% margin, above the 26.4% median [F100][F40][D429][D425][D757].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "F40",
+     "D429",
+     "D425",
+     "D757"
+    ],
+    "claims": [
+     {
+      "claim": "$4.08 billion",
+      "value": 4.08,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.91x",
+      "value": 0.91,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     },
+     {
+      "claim": "28.4%",
+      "value": 28.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D425"
+      ]
+     },
+     {
+      "claim": "26.4%",
+      "value": 26.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D757"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A [F90][D447][D424][D430].",
+    "type": "comparison",
+    "citations": [
+     "F90",
+     "D447",
+     "D424",
+     "D430"
+    ],
+    "claims": [
+     {
+      "claim": "18.9%",
+      "value": 18.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "$898 million",
+      "value": 898.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "6.3%",
+      "value": 6.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D424"
+      ]
+     },
+     {
+      "claim": "1.65x",
+      "value": 1.65,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Stock-based compensation of $994 million absorbed 20.0% of operating cash flow [X77][D431].",
+    "type": "comparison",
+    "citations": [
+     "X77",
+     "D431"
+    ],
+    "claims": [
+     {
+      "claim": "$994 million",
+      "value": 994.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X77"
+      ]
+     },
+     {
+      "claim": "20.0%",
+      "value": 20.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash reached $16.9 billion, 117.7% of revenue, the 100th percentile of eight biopharma peers against a -50.7% median [D434][D435][D780][D781].",
+    "type": "comparison",
+    "citations": [
+     "D434",
+     "D435",
+     "D780",
+     "D781"
+    ],
+    "claims": [
+     {
+      "claim": "$16.9 billion",
+      "value": 16.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     },
+     {
+      "claim": "117.7%",
+      "value": 117.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D780"
+      ]
+     },
+     {
+      "claim": "-50.7%",
+      "value": -50.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D781"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Debt is a flat $1.99 billion and the current ratio is 4.13x, above the 3.97x median [F187][F180][D766].",
+    "type": "comparison",
+    "citations": [
+     "F187",
+     "F180",
+     "D766"
+    ],
+    "claims": [
+     {
+      "claim": "$1.99 billion",
+      "value": 1.99,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F187"
+      ]
+     },
+     {
+      "claim": "4.13x",
+      "value": 4.13,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "3.97x",
+      "value": 3.97,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D766"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks of $3.44 billion plus a first dividend of $370 million used 93.3% of free cash flow [X137][X140][D437].",
+    "type": "fact",
+    "citations": [
+     "X137",
+     "X140",
+     "D437"
+    ],
+    "claims": [
+     {
+      "claim": "$3.44 billion",
+      "value": 3.44,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X137"
+      ]
+     },
+     {
+      "claim": "$370 million",
+      "value": 370.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X140"
+      ]
+     },
+     {
+      "claim": "93.3%",
+      "value": 93.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D437"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Diluted shares fell 5.6%, so diluted EPS grew 8.2% against 2.1% net income growth [D459][D444][D442].",
+    "type": "comparison",
+    "citations": [
+     "D459",
+     "D444",
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D459"
+      ]
+     },
+     {
+      "claim": "8.2%",
+      "value": 8.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The four-year, 30.7pp operating-margin slide is the main concern, driven by R&D intensity and EYLEA erosion [R1][F26][F30].",
+    "type": "comparison",
+    "citations": [
+     "R1",
+     "F26",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "30.7pp",
+      "value": 30.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R1",
+      "ids": [
+       "R1"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "R&D at 40.8% of revenue is the 100th percentile of eight peers against a 20.1% median, so margin recovery depends on that spend paying off [D420][D778][D779].",
+    "type": "comparison",
+    "citations": [
+     "D420",
+     "D778",
+     "D779"
+    ],
+    "claims": [
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D420"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D778"
+      ]
+     },
+     {
+      "claim": "20.1%",
+      "value": 20.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D779"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Data quality: FY2018 and FY2019 revenue in the table is a later recast ($5.15 billion and $6.56 billion) versus $6.71 billion and $7.86 billion first reported, so growth spanning those years mixes presentations [F3][X3][F4][X4][R2].",
+    "type": "comparison",
+    "citations": [
+     "F3",
+     "X3",
+     "F4",
+     "X4",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "$5.15 billion",
+      "value": 5.15,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F3"
+      ]
+     },
+     {
+      "claim": "$6.56 billion",
+      "value": 6.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F4"
+      ]
+     },
+     {
+      "claim": "$6.71 billion",
+      "value": 6.71,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X3"
+      ]
+     },
+     {
+      "claim": "$7.86 billion",
+      "value": 7.86,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X4"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Return on average equity fell to 14.9%, the 25th percentile of eight peers against a 38.7% median [D439][D784][D785].",
+    "type": "comparison",
+    "citations": [
+     "D439",
+     "D784",
+     "D785"
+    ],
+    "claims": [
+     {
+      "claim": "14.9%",
+      "value": 14.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D439"
+      ]
+     },
+     {
+      "claim": "25th percentile",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D784"
+      ]
+     },
+     {
+      "claim": "38.7%",
+      "value": 38.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D785"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether operating margin holds at the 24.9% FY2025 low or falls further, reported in the FY2026 10-K [F30][D749].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D749"
+    ],
+    "claims": [
+     {
+      "claim": "24.9%",
+      "value": 24.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether U.S. EYLEA sales stabilize above $2.75 billion or keep declining toward the EYLEA HD offset [S43][S64].",
+    "type": "comparison",
+    "citations": [
+     "S43",
+     "S64"
+    ],
+    "claims": [
+     {
+      "claim": "$2.75 billion",
+      "value": 2.75,
+      "unit": "usd",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S43"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether R&D as a share of revenue falls back toward the 34.6% median from 40.8% [D420][D760].",
+    "type": "comparison",
+    "citations": [
+     "D420",
+     "D760"
+    ],
+    "claims": [
+     {
+      "claim": "34.6%",
+      "value": 34.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D760"
+      ]
+     },
+     {
+      "claim": "40.8%",
+      "value": 40.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D420"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 81,
+  "verified": 81,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "arc",
+    "sentence": "The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582].",
+    "type": "cause",
+    "failure": "cause sentence cites no filing passage"
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 12.8% a year from $4.86 billion in FY2016 to $14.3 billion in FY2025 [F1][F10][F198]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: FY2021 revenue jumped 89.1% to $16.1 billion, then fell 24.3% in FY2022 to $12.2 billion [F6][F7][D241][D292]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2021 spike was REGEN-COV, whose U.S. sales of $5.83 billion contributed 66.4pp of that year's growth [S48][D582]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 reversal followed REGEN-COV sales to zero, a 36.3pp drag, as new SARS-CoV-2 variants were not susceptible to the treatment [S49][D585][P7]."
+     },
+     {
+      "type": "comparison",
+      "text": "Since then growth has slowed to 5.6% a year over FY2022..FY2025, with FY2025 up only 1.0% [D767][D440]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The mix has inverted: net product sales fell to 44.0% of revenue in FY2025 from 75.4% in FY2021, while collaboration revenue reached 51.1% [D505][D493][D521]."
+     },
+     {
+      "type": "cause",
+      "text": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion in FY2025, adding 9.3pp of growth, on higher Dupixent sales [S52][D591][D592][P9]."
+     },
+     {
+      "type": "cause",
+      "text": "U.S. EYLEA sales fell 42.4% to $2.75 billion, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition [S43][D577][D578][P10]."
+     },
+     {
+      "type": "cause",
+      "text": "EYLEA HD partly offset that, rising 36.3% to $1.64 billion and adding 3.1pp, on higher volumes [S64][D613][D614][P11]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income fell 10.3% in FY2025 against 1.0% revenue growth, so there was no operating leverage [F20][D441][D440]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 24.9% in FY2025 is the window low, against a 34.6% median and a 55.7% FY2021 high [F30][D749][D751][D750]."
+     },
+     {
+      "type": "comparison",
+      "text": "It has fallen four straight years, from 55.7% in FY2021, a 30.7pp decline [F26][F30][R1]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2025 R&D took 4.7pp of margin as it rose 14.0% to $5.85 billion, while SG&A added 2.0pp as it fell 8.6% [D465][X34][D455][D466][D456]."
+     },
+     {
+      "type": "cause",
+      "text": "The SG&A decline was primarily lower charitable contributions to the Good Days patient assistance fund [P5]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin held at 31.4%, 6.5pp above operating margin, helped by other income of $1.65 billion and a 13.9% tax rate [F50][D797][X117][D427]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $4.98 billion was 1.11x net income, in line with the 1.10x window median [F80][F40][D428][D787]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow of $4.08 billion was 0.91x net income and a 28.4% margin, above the 26.4% median [F100][F40][D429][D425][D757]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A [F90][D447][D424][D430]."
+     },
+     {
+      "type": "comparison",
+      "text": "Stock-based compensation of $994 million absorbed 20.0% of operating cash flow [X77][D431]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash reached $16.9 billion, 117.7% of revenue, the 100th percentile of eight biopharma peers against a -50.7% median [D434][D435][D780][D781]."
+     },
+     {
+      "type": "comparison",
+      "text": "Debt is a flat $1.99 billion and the current ratio is 4.13x, above the 3.97x median [F187][F180][D766]."
+     },
+     {
+      "type": "fact",
+      "text": "Buybacks of $3.44 billion plus a first dividend of $370 million used 93.3% of free cash flow [X137][X140][D437]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted shares fell 5.6%, so diluted EPS grew 8.2% against 2.1% net income growth [D459][D444][D442]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The four-year, 30.7pp operating-margin slide is the main concern, driven by R&D intensity and EYLEA erosion [R1][F26][F30]."
+     },
+     {
+      "type": "comparison",
+      "text": "R&D at 40.8% of revenue is the 100th percentile of eight peers against a 20.1% median, so margin recovery depends on that spend paying off [D420][D778][D779]."
+     },
+     {
+      "type": "comparison",
+      "text": "Data quality: FY2018 and FY2019 revenue in the table is a later recast ($5.15 billion and $6.56 billion) versus $6.71 billion and $7.86 billion first reported, so growth spanning those years mixes presentations [F3][X3][F4][X4][R2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity fell to 14.9%, the 25th percentile of eight peers against a 38.7% median [D439][D784][D785]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether operating margin holds at the 24.9% FY2025 low or falls further, reported in the FY2026 10-K [F30][D749]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether U.S. EYLEA sales stabilize above $2.75 billion or keep declining toward the EYLEA HD offset [S43][S64]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether R&D as a share of revenue falls back toward the 34.6% median from 40.8% [D420][D760]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}

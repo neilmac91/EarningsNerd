@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "MSFT",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "57945a6ae0ac9175320dc98ef473ccad58d6d2eead0d88c1afaa629a1ee2bde6",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2026 was the sharpest step, revenue up 17.8% and operating income up 20.8%, driven by Microsoft Cloud and Azure .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue increased $50.1 billion or 18% driven by growth in Microsoft Cloud. Intelligent Cloud revenue increased driven by Azure. Productivity and Business Processes revenue increased driven by Microsoft 365 Commercial cloud. More Personal Computing revenue decreased driven by XBOX (formerly Gaming), offset in part by growth in Search advertising."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports Microsoft Cloud driving revenue, but not Azure specifically or operating income."
+  },
+  {
+   "sentence": "FY2023 was the soft year, revenue growth of 6.9% as More Personal Computing declined on Windows and Devices .",
+   "passages": [
+    {
+     "id": "P39",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue increased $13.6 billion or 7% driven by growth in Intelligent Cloud and Productivity and Business Processes, offset in part by a decline in More Personal Computing. Intelligent Cloud revenue increased driven by Azure and other cloud services. Productivity and Business Processes revenue increased driven by Office 365 Commercial and LinkedIn. More Personal Computing revenue decreased driven by Windows  and Devices."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increased 7% driven by Intelligent Cloud and Productivity, offset by More Personal Computing decline."
+  },
+  {
+   "sentence": "Server products and cloud services rose 31.5% to $129.4 billion, 39.0% of revenue, on Azure demand across all workloads .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Server products and cloud services revenue increased $31.0 billion or 31% driven by Azure and other cloud services. Azure and other cloud services revenue grew 41% driven by demand for services across the platform with continued growth across all workloads. Server products revenue increased 1% primarily driven by higher purchases of licenses running in multi-cloud environments, offset in part by continued customer shift to cloud."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states server products and cloud services revenue increased 31% driven by Azure and other cloud services."
+  },
+  {
+   "sentence": "Microsoft 365 Commercial products and cloud services added $14.2 billion, up 16.2%, on Copilot and E5 revenue per user .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Microsoft 365 Commercial products and cloud services revenue increased $14.2 billion or 16%. Microsoft 365 Commercial cloud revenue grew 17% with growth in revenue per user driven by Microsoft 365 Copilot and Microsoft 365 E5. Microsoft 365 Commercial seats grew 6% driven by small and medium businesses and frontline worker offerings. Microsoft 365 Commercial products revenue grew 13% driven by growth in the Windows Commercial on-premises components of Microsoft 365 suite sales, as well as an increase in Office 2024 transactional purchasing."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states Microsoft 365 Commercial products and cloud services revenue increased $14.2 billion or 16%, driven by Copilot and E5 revenue per user."
+  },
+  {
+   "sentence": "The FY2026 net margin jump of 4.2pp to 40.3% came largely from $10.7 billion of other income, including OpenAI dilution gains .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income (expense), net included $6.5 billion of net gains and $4.8 billion of net losses for fiscal years 2026 and 2025, respectively, from investments in OpenAI, primarily net recognized gains (losses) on our equity method investment reflected in Other, net. The net gains recorded for fiscal year 2026 primarily relate to the dilution gain from the OpenAI Recapitalization."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports other income gains from OpenAI, but not net margin jump or total other income amount."
+  },
+  {
+   "sentence": "The capex step-up reflects AI infrastructure build-out, with investing outflow of $139.5 billion including $51.4 billion more property additions .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash from operations increased $46.8 billion to $182.9 billion for fiscal year 2026, primarily due to an increase in cash received from customers and a decrease in cash used to pay income taxes, offset in part by an increase in cash paid to suppliers. Cash used in financing increased $847 million to $52.5 billion for fiscal year 2026, primarily due to a $6.0 billion decrease in cash used for repayments of debt, offset in part by a $3.9 billion increase in common stock repurchases and a $2.4 billion increase in dividends paid. Cash used in investing increased $66.9 billion to $139.5 billion for fiscal year 2026, primarily due to a $51.4 billion increase in additions to property and equipment and a $22.2 billion increase in cash used in other investing primarily to facilitate the purchase of components, offset in part by a $4.2 billion decrease in cash used in the acquisition of companies, net of cash acquired and divestitures, and purchases of intangible and other assets and a $2.4 billion decrease in cash used in net investment purchases, sales, and maturities."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports investing outflow and property additions increase, but not AI infrastructure build-out as cause."
+  }
+ ],
+ "cost_usd": 0.001328,
+ "backend": "openai_compat",
+ "input_tokens": 1178,
+ "cached_input_tokens": 0,
+ "output_tokens": 278
+}

@@ -1,0 +1,106 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "415ac8e6d3280f4f7a47e3e2020f10697c5a8ccf500b0ab8a438ab4774e527a2",
+ "y_sha256": "3496d5fbf2955e0b8b829b4a568366ddc01e4369341c53c4e368adab5a9ab80b",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both drafts present a segment-level FY2023 passage as firmwide and add 'downgrades and new commitments', which the truncated quote does not show. A wrongly ties the nine-year EPS/net-income CAGR gap to one year's buyback. B has more errors: it says costs grew slower than revenue when 4.2% exceeds 2.8%, miscalculates the 21.2pp gap and garbles the buyback sentence. A explains the rate cycle, Visa gain and mix shift; B discloses the restatement better."
+   },
+   "cost_usd": 0.135224,
+   "latency_s": 16.026,
+   "backend": "claude_cli",
+   "input_tokens": 13699,
+   "cached_input_tokens": 0,
+   "output_tokens": 1282,
+   "reasoning_tokens": 1038,
+   "meta": {
+    "duration_api_ms": 11633,
+    "cache_creation_input_tokens": 13697,
+    "list_cost_usd": 0.080436
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Both drafts present a segment-level FY2023 passage as firmwide and add 'downgrades and new commitments', which the truncated quote does not show. A wrongly ties the nine-year EPS/net-income CAGR gap to one year's buyback. B has more errors: it says costs grew slower than revenue when 4.2% exceeds 2.8%, miscalculates the 21.2pp gap and garbles the buyback sentence. A explains the rate cycle, Visa gain and mix shift; B discloses the restatement better.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A says operating costs grew slower than revenue, but 4.2% outpaced 2.8%. Its net-margin and prior-year buyback claims are also muddled or unsourced. B has flaws: it pins the ten-year EPS/net-income gap on one year's buyback and stretches the Payments passage across segments. Still, B adds the Visa-gain driver and the mix shift toward net interest income, and labels its judgements. Both cite the Treasury/CIO passage for the firmwide FY2023 jump."
+   },
+   "cost_usd": 0.120809,
+   "latency_s": 13.631,
+   "backend": "claude_cli",
+   "input_tokens": 13701,
+   "cached_input_tokens": 727,
+   "output_tokens": 844,
+   "reasoning_tokens": 605,
+   "meta": {
+    "duration_api_ms": 8246,
+    "cache_creation_input_tokens": 12972,
+    "list_cost_usd": 0.068921
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A says operating costs grew slower than revenue, but 4.2% outpaced 2.8%. Its net-margin and prior-year buyback claims are also muddled or unsourced. B has flaws: it pins the ten-year EPS/net-income gap on one year's buyback and stretches the Payments passage across segments. Still, B adds the Visa-gain driver and the mix shift toward net interest income, and labels its judgements. Both cite the Treasury/CIO passage for the firmwide FY2023 jump.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.256033
+}

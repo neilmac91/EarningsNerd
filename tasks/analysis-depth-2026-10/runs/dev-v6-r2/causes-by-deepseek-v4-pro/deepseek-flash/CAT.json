@@ -1,0 +1,92 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "CAT",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "4dd145dd347adf2393b40828fe8cc019bf0f3f2aa640f4a0869d5d2a6fad950a",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2020 decline came from lower end-user demand and dealer inventory reductions across all three primary segments , and the FY2021 rebound from higher end-user demand and favorable dealer inventory changes .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2020 were $41.748 billion, a decrease of $12.052 billion, or 22 percent, compared with $53.800 billion in 2019. The decline was due to lower sales volume driven by lower end-user demand for equipment and services and the impact from changes in dealer inventories across the three primary segments. Sales were lower across all regions and in the three primary segments. Profit per share was $5.46 in 2020, compared with profit per share of $10.74 in 2019. Profit was $2.998 billion in 2020, compared with $6.093 billion in 2019. The decrease was primarily due to lower sales volume, unfavorable price realization, lower profit from Financial Products and higher restructuring costs, partially offset by lower selling, general and administrative (SG&A) and research and development (R&D) expenses and favorable manufacturing costs."
+    },
+    {
+     "id": "P50",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2021 were $50.971 billion, an increase of $9.223 billion, or 22 percent, compared with $41.748 billion in 2020. The increase was primarily due to higher sales volume, driven by higher end-user demand for equipment and services and the impact from changes in dealer inventories, along with favorable price realization. Profit per share was $11.83 in 2021, compared with profit per share of $5.46 in 2020. Profit was $6.489 billion in 2021, compared with $2.998 billion in 2020. The increase was primarily due to higher sales volume and favorable price realization. Mark-to-market gains for remeasurement of pension and other postemployment benefit (OPEB) plans, a lower effective tax rate, favorable impacts from foreign currency exchange (gains) losses and lower restructuring expenses were mostly offset by unfavorable manufacturing costs and higher selling, general and administrative (SG&A) and research and development (R&D) expenses."
+    }
+   ],
+   "label": "supported",
+   "reason": "Both passages state the exact causes for FY2020 decline and FY2021 rebound."
+  },
+  {
+   "sentence": "FY2023 was the margin peak, with operating margin up 6.0pp to 19.3% , driven by favorable price realization, higher volume and the absence of the 2022 Rail goodwill impairment .",
+   "passages": [
+    {
+     "id": "P31",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $12.966 billion in 2023, an increase of $5.062 billion, or 64 percent, compared with $7.904 billion in 2022. The increase was primarily due to favorable price realization, higher sales volume and the absence of a 2022 goodwill impairment charge related to the Rail division, partially offset by higher SG&A/R&D expenses, unfavorable manufacturing costs and the impact of the divestiture of the company's Longwall business. The increase in SG&A/R&D expenses was primarily driven by investments aligned with strategic initiatives, higher short-term incentive compensation expense and an unfavorable change in fair value adjustments related to deferred compensation plans. Unfavorable manufacturing costs reflected lower freight being more than offset by higher material costs, increased period manufacturing costs, the impact of manufacturing inefficiencies and unfavorable cost absorption. Cost absorption was unfavorable as inventory increased more during 2022 than during 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states favorable price realization, higher volume, and absence of goodwill impairment drove increase."
+  },
+  {
+   "sentence": "Power Generation sales rose 32.5% to $10.3 billion , while Construction Industries fell 1.6% on $1.136 billion of unfavorable price realization .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Construction Industries\u2019 total sales were $25.060 billion in 2025, a decrease of $395 million, or 2 percent, compared with $25.455 billion in 2024. The decrease was primarily due to unfavorable price realization of $1.136 billion, partially offset by higher sales volume of $568 million. The increase in sales volume was mainly driven by higher sales of equipment to end users, partially offset by the impact from changes in dealer inventories. Dealer inventory decreased during 2025, compared with an increase in 2024."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports Construction Industries decline and price realization, but not Power Generation sales."
+  },
+  {
+   "sentence": "The 3.7pp margin decline  came mostly from cost of revenue, a -4.2pp effect , as operating profit fell on $2.148 billion of unfavorable manufacturing costs largely from higher tariffs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $11.151 billion in 2025, a decrease of $1.921 billion, or 15 percent, compared with $13.072 billion in 2024. The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion and unfavorable price realization of $817 million, partially offset by the profit impact of higher sales volume of $1.218 billion. Unfavorable manufacturing costs largely reflected the impact of higher tariffs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states unfavorable manufacturing costs largely from higher tariffs caused operating profit decrease."
+  },
+  {
+   "sentence": "Capex rose 41.9% to $2.8 billion , lifting capex to 4.2% of revenue and 1.25x D&A , which the filing attributes partly to an increase in capital expenditures .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used by investing activities in 2025 was $2.870 billion, compared with net cash provided of $133 million in 2024. The change was primarily due to lower proceeds from maturities and sale of securities, primarily due to time deposit maturities in 2024; increased activity related to intercompany lending with Financial Products; and an increase in capital expenditures."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage mentions increase in capital expenditures but not capex ratio or D&A multiple."
+  },
+  {
+   "sentence": "Machinery operating cash flow still rose on lower working capital requirements and lower cash taxes, partly offset by inventories and receivables .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $12.278 billion in 2025, compared with $11.437 billion in 2024. The increase was primarily due to lower working capital requirements and lower cash taxes paid. These were partially offset by lower profit before taxes, adjusted for non-cash items. Within working capital, changes in customer advances, accounts payable, and accrued wages, salaries, and employee benefits favorably impacted cash flow, partially offset by changes in inventories and  receivables."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states lower working capital and lower cash taxes, partially offset by inventories and receivables."
+  }
+ ],
+ "cost_usd": 0.001525,
+ "backend": "openai_compat",
+ "input_tokens": 1560,
+ "cached_input_tokens": 0,
+ "output_tokens": 250
+}

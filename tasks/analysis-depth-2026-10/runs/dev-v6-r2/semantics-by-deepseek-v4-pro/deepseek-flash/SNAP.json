@@ -1,0 +1,533 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "SNAP",
+ "split": "dev",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue compounded at 34.8% a year from $404.5 million in FY2016 to $5,931.4 million in FY2025 .",
+   "claim": "34.8%",
+   "match": "cited: F196 = Revenue CAGR, FY2016..FY2025, 34.77%",
+   "label": "consistent",
+   "reason": "CAGR 34.8% matches 34.77%"
+  },
+  {
+   "sentence": "Revenue compounded at 34.8% a year from $404.5 million in FY2016 to $5,931.4 million in FY2025 .",
+   "claim": "$404.5 million",
+   "match": "cited: F1 = Revenue, FY2016, $404.48 million; same value as X1 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2016 revenue $404.5M matches $404.48M"
+  },
+  {
+   "sentence": "Revenue compounded at 34.8% a year from $404.5 million in FY2016 to $5,931.4 million in FY2025 .",
+   "claim": "$5,931.4 million",
+   "match": "cited: F10 = Revenue, FY2025, $5.93 billion; same value as S48 = Reportable Segment (segment), X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2025 revenue $5,931.4M matches $5.93B"
+  },
+  {
+   "sentence": "Growth was front-loaded: revenue rose 104.0% in FY2017 and 64.2% in FY2021, then slowed to 0.1% in FY2023 before recovering to 16.4% in FY2024 and 10.6% in FY2025 .",
+   "claim": "104.0%",
+   "match": "cited: D36 = Revenue growth, FY2017, 103.95%",
+   "label": "consistent",
+   "reason": "FY2017 growth 104.0% matches 103.95%"
+  },
+  {
+   "sentence": "Growth was front-loaded: revenue rose 104.0% in FY2017 and 64.2% in FY2021, then slowed to 0.1% in FY2023 before recovering to 16.4% in FY2024 and 10.6% in FY2025 .",
+   "claim": "64.2%",
+   "match": "cited: D218 = Revenue growth, FY2021, 64.25%",
+   "label": "consistent",
+   "reason": "FY2021 growth 64.2% matches 64.25%"
+  },
+  {
+   "sentence": "Growth was front-loaded: revenue rose 104.0% in FY2017 and 64.2% in FY2021, then slowed to 0.1% in FY2023 before recovering to 16.4% in FY2024 and 10.6% in FY2025 .",
+   "claim": "0.1%",
+   "match": "cited: D311 = Revenue growth, FY2023, 0.09%",
+   "label": "consistent",
+   "reason": "FY2023 growth 0.1% matches 0.09%"
+  },
+  {
+   "sentence": "Growth was front-loaded: revenue rose 104.0% in FY2017 and 64.2% in FY2021, then slowed to 0.1% in FY2023 before recovering to 16.4% in FY2024 and 10.6% in FY2025 .",
+   "claim": "16.4%",
+   "match": "cited: D358 = Revenue growth, FY2024, 16.40%; same value as D548 = Reportable Segment (segment) growth",
+   "label": "consistent",
+   "reason": "FY2024 growth 16.4% matches 16.40%"
+  },
+  {
+   "sentence": "Growth was front-loaded: revenue rose 104.0% in FY2017 and 64.2% in FY2021, then slowed to 0.1% in FY2023 before recovering to 16.4% in FY2024 and 10.6% in FY2025 .",
+   "claim": "10.6%",
+   "match": "cited: D406 = Revenue growth, FY2025, 10.63%; same value as D551 = Reportable Segment (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 growth 10.6% matches 10.63%"
+  },
+  {
+   "sentence": "The FY2017 operating loss of $3,485.6 million reflected a $2.6 billion increase in stock-based compensation tied to the CEO award and IPO-related RSUs .",
+   "claim": "$3,485.6 million",
+   "match": "cited: F12 = Operating income, FY2017, -$3.49 billion",
+   "label": "consistent",
+   "reason": "FY2017 operating loss $3,485.6M matches -$3.49B"
+  },
+  {
+   "sentence": "The FY2017 operating loss of $3,485.6 million reflected a $2.6 billion increase in stock-based compensation tied to the CEO award and IPO-related RSUs .",
+   "claim": "$2.6 billion",
+   "match": "passage P74: P74 = a figure in the FY2018 10-K, Item 7. Management's Discussion and Analysis: \"The increase in net loss for the period was driven by a $2.6 billion increase in stock-based compensation expense primarily related to the CEO award and the recognition of expense related to RSUs with a performance condition satisfied on the effectiveness of the registration statement for our IPO in March 2017.\"",
+   "label": "consistent",
+   "reason": "Passage states $2.6B increase in SBC"
+  },
+  {
+   "sentence": "The FY2022 loss widened to $1,395.3 million as cost of revenue and operating expenses rose faster than revenue .",
+   "claim": "$1,395.3 million",
+   "match": "cited: F17 = Operating income, FY2022, -$1.40 billion",
+   "label": "consistent",
+   "reason": "FY2022 operating loss $1,395.3M matches -$1.40B"
+  },
+  {
+   "sentence": "The operating margin improved from -30.3% in FY2022 to -9.0% in FY2025, the window high .",
+   "claim": "-30.3%",
+   "match": "cited: F27 = Operating margin, FY2022, -30.32%",
+   "label": "consistent",
+   "reason": "FY2022 operating margin -30.3% matches -30.32%"
+  },
+  {
+   "sentence": "The operating margin improved from -30.3% in FY2022 to -9.0% in FY2025, the window high .",
+   "claim": "-9.0%",
+   "match": "cited: F30 = Operating margin, FY2025, -8.97%",
+   "label": "consistent",
+   "reason": "FY2025 operating margin -9.0% matches -8.97%"
+  },
+  {
+   "sentence": "North America remains the largest market at 58.6% of FY2025 revenue but contributed only 4.4pp of the 10.6% growth, while Rest of world added 3.7pp .",
+   "claim": "58.6%",
+   "match": "cited: D456 = North America (geography) share of revenue, FY2025, 58.56%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "NA share 58.6% matches 58.56%"
+  },
+  {
+   "sentence": "North America remains the largest market at 58.6% of FY2025 revenue but contributed only 4.4pp of the 10.6% growth, while Rest of world added 3.7pp .",
+   "claim": "4.4pp",
+   "match": "cited: D458 = North America (geography) contribution to revenue growth (pp), FY2025, +4.42pp",
+   "label": "consistent",
+   "reason": "NA contribution 4.4pp matches +4.42pp"
+  },
+  {
+   "sentence": "North America remains the largest market at 58.6% of FY2025 revenue but contributed only 4.4pp of the 10.6% growth, while Rest of world added 3.7pp .",
+   "claim": "10.6%",
+   "match": "cited: D406 = Revenue growth, FY2025, 10.63%; same value as D551 = Reportable Segment (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 growth 10.6% matches 10.63%"
+  },
+  {
+   "sentence": "North America remains the largest market at 58.6% of FY2025 revenue but contributed only 4.4pp of the 10.6% growth, while Rest of world added 3.7pp .",
+   "claim": "3.7pp",
+   "match": "cited: D499 = Rest of world (geography) contribution to revenue growth (pp), FY2025, +3.69pp",
+   "label": "consistent",
+   "reason": "RoW contribution 3.7pp matches +3.69pp"
+  },
+  {
+   "sentence": "Other revenue contributed 5.4pp of FY2025 growth, nearly matching advertising's 5.3pp, and rose to 12.6% of revenue from 4.3% in FY2023 .",
+   "claim": "5.4pp",
+   "match": "cited: D545 = Other Revenue (product) contribution to revenue growth (pp), FY2025, +5.37pp",
+   "label": "consistent",
+   "reason": "Other revenue contribution 5.4pp matches +5.37pp"
+  },
+  {
+   "sentence": "Other revenue contributed 5.4pp of FY2025 growth, nearly matching advertising's 5.3pp, and rose to 12.6% of revenue from 4.3% in FY2023 .",
+   "claim": "5.3pp",
+   "match": "cited: D538 = Advertising Revenue (product) contribution to revenue growth (pp), FY2025, +5.27pp",
+   "label": "consistent",
+   "reason": "Advertising contribution 5.3pp matches +5.27pp"
+  },
+  {
+   "sentence": "Other revenue contributed 5.4pp of FY2025 growth, nearly matching advertising's 5.3pp, and rose to 12.6% of revenue from 4.3% in FY2023 .",
+   "claim": "12.6%",
+   "match": "cited: D543 = Other Revenue (product) share of revenue, FY2025, 12.57%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Other revenue share 12.6% matches 12.57%"
+  },
+  {
+   "sentence": "Other revenue contributed 5.4pp of FY2025 growth, nearly matching advertising's 5.3pp, and rose to 12.6% of revenue from 4.3% in FY2023 .",
+   "claim": "4.3%",
+   "match": "cited: D539 = Other Revenue (product) share of revenue, FY2023, 4.29%; its input X8 = Total revenues as reported has the same value as F8 = Revenue, S46 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Other revenue share FY2023 4.3% matches 4.29%"
+  },
+  {
+   "sentence": "Advertising revenue grew on a roughly 17% increase in impressions, partly offset by a roughly 10% lower cost per impression, while other revenue rose on subscription growth .",
+   "claim": "17%",
+   "match": "passage P24: P24 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight.\"",
+   "label": "consistent",
+   "reason": "Passage states ~17% increase in impressions"
+  },
+  {
+   "sentence": "Advertising revenue grew on a roughly 17% increase in impressions, partly offset by a roughly 10% lower cost per impression, while other revenue rose on subscription growth .",
+   "claim": "10%",
+   "match": "passage P24: P24 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery.\"",
+   "label": "consistent",
+   "reason": "Passage states ~10% decrease in cost per impression"
+  },
+  {
+   "sentence": "Operating costs grew 5.1% against 10.6% revenue growth in FY2025, an incremental operating margin of 44.8% .",
+   "claim": "5.1%",
+   "match": "cited: D423 = Operating expenses growth, FY2025, 5.12%",
+   "label": "consistent",
+   "reason": "Operating expenses growth 5.1% matches 5.12%"
+  },
+  {
+   "sentence": "Operating costs grew 5.1% against 10.6% revenue growth in FY2025, an incremental operating margin of 44.8% .",
+   "claim": "10.6%",
+   "match": "cited: D406 = Revenue growth, FY2025, 10.63%; same value as D551 = Reportable Segment (segment) growth",
+   "label": "consistent",
+   "reason": "Revenue growth 10.6% matches 10.63%"
+  },
+  {
+   "sentence": "Operating costs grew 5.1% against 10.6% revenue growth in FY2025, an incremental operating margin of 44.8% .",
+   "claim": "44.8%",
+   "match": "cited: D429 = Incremental operating margin (change in operating income / change in revenue), FY2025, 44.76%",
+   "label": "consistent",
+   "reason": "Incremental operating margin 44.8% matches 44.76%"
+  },
+  {
+   "sentence": "The diluted share count rose 2.1% in FY2025, so the 35.7% smaller loss per share trailed the 34.0% smaller net loss .",
+   "claim": "2.1%",
+   "match": "cited: D425 = Diluted share count change, FY2025, 2.14%",
+   "label": "consistent",
+   "reason": "Diluted share count change 2.1% matches 2.14%"
+  },
+  {
+   "sentence": "The diluted share count rose 2.1% in FY2025, so the 35.7% smaller loss per share trailed the 34.0% smaller net loss .",
+   "claim": "35.7%",
+   "match": "cited: D409 = EPS (basic): change in size of loss, FY2025, -35.71%; same value as D410 = EPS (diluted): change in size of loss",
+   "label": "consistent",
+   "reason": "EPS loss reduction 35.7% matches -35.71%"
+  },
+  {
+   "sentence": "The diluted share count rose 2.1% in FY2025, so the 35.7% smaller loss per share trailed the 34.0% smaller net loss .",
+   "claim": "34.0%",
+   "match": "cited: D408 = Net income: change in size of loss, FY2025, -34.01%",
+   "label": "consistent",
+   "reason": "Net loss reduction 34.0% matches -34.01%"
+  },
+  {
+   "sentence": "The FY2025 operating margin of -9.0% is far above the window median of -32.4% and the FY2017 low of -422.5% .",
+   "claim": "-9.0%",
+   "match": "cited: F30 = Operating margin, FY2025, -8.97%",
+   "label": "consistent",
+   "reason": "FY2025 operating margin -9.0% matches -8.97%"
+  },
+  {
+   "sentence": "The FY2025 operating margin of -9.0% is far above the window median of -32.4% and the FY2017 low of -422.5% .",
+   "claim": "-32.4%",
+   "match": "cited: D555 = Operating margin window median, FY2016..FY2025, -32.38%",
+   "label": "consistent",
+   "reason": "Window median -32.4% matches -32.38%"
+  },
+  {
+   "sentence": "The FY2025 operating margin of -9.0% is far above the window median of -32.4% and the FY2017 low of -422.5% .",
+   "claim": "-422.5%",
+   "match": "cited: D553 = Operating margin window low (FY2017), FY2016..FY2025, -422.52%",
+   "label": "consistent",
+   "reason": "FY2017 low -422.5% matches -422.52%"
+  },
+  {
+   "sentence": "Cost of revenue fell to 45.0% of revenue from 46.1%, adding 1.1pp to margin, while R&D at 30.2% added 1.3pp .",
+   "claim": "45.0%",
+   "match": "cited: D386 = Cost of revenue % of revenue, FY2025, 45.01%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Cost of revenue % 45.0% matches 45.01%"
+  },
+  {
+   "sentence": "Cost of revenue fell to 45.0% of revenue from 46.1%, adding 1.1pp to margin, while R&D at 30.2% added 1.3pp .",
+   "claim": "46.1%",
+   "match": "cited: D338 = Cost of revenue % of revenue, FY2024, 46.15%; its input X9 = Total revenues as reported has the same value as F9 = Revenue, S47 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Cost of revenue % FY2024 46.1% matches 46.15%"
+  },
+  {
+   "sentence": "Cost of revenue fell to 45.0% of revenue from 46.1%, adding 1.1pp to margin, while R&D at 30.2% added 1.3pp .",
+   "claim": "1.1pp",
+   "match": "cited: D431 = Operating-margin effect of cost of revenue (pp), FY2025, +1.14pp",
+   "label": "consistent",
+   "reason": "Margin effect 1.1pp matches +1.14pp"
+  },
+  {
+   "sentence": "Cost of revenue fell to 45.0% of revenue from 46.1%, adding 1.1pp to margin, while R&D at 30.2% added 1.3pp .",
+   "claim": "30.2%",
+   "match": "cited: D387 = R&D % of revenue, FY2025, 30.24%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "R&D % 30.2% matches 30.24%"
+  },
+  {
+   "sentence": "Cost of revenue fell to 45.0% of revenue from 46.1%, adding 1.1pp to margin, while R&D at 30.2% added 1.3pp .",
+   "claim": "1.3pp",
+   "match": "cited: D432 = Operating-margin effect of R&D (pp), FY2025, +1.31pp",
+   "label": "consistent",
+   "reason": "Margin effect 1.3pp matches +1.31pp"
+  },
+  {
+   "sentence": "Sales and marketing fell $42.4 million on the timing of marketing events and lower advertising, and R&D rose $101.9 million on product development headcount .",
+   "claim": "$42.4 million",
+   "match": "passage P22: P22 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Sales and marketing expenses for the year ended December\u00a031, 2025 decreased $42.4 million compared to the same period in 2024.\"",
+   "label": "consistent",
+   "reason": "Passage states S&M decreased $42.4M"
+  },
+  {
+   "sentence": "Sales and marketing fell $42.4 million on the timing of marketing events and lower advertising, and R&D rose $101.9 million on product development headcount .",
+   "claim": "$101.9 million",
+   "match": "passage P23: P23 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Research and development expenses for the year ended December\u00a031, 2025 increased $101.9 million compared to the same period in 2024.\"",
+   "label": "consistent",
+   "reason": "Passage states R&D increased $101.9M"
+  },
+  {
+   "sentence": "Net margin of -7.8% beat operating margin by 1.2pp, helped by $96.7 million of debt-extinguishment gains in other income .",
+   "claim": "-7.8%",
+   "match": "cited: F50 = Net margin, FY2025, -7.76%",
+   "label": "consistent",
+   "reason": "Net margin -7.8% matches -7.76%"
+  },
+  {
+   "sentence": "Net margin of -7.8% beat operating margin by 1.2pp, helped by $96.7 million of debt-extinguishment gains in other income .",
+   "claim": "1.2pp",
+   "match": "pp F50-F30 = +1.21pp: F50 = Net margin, FY2025, -7.76% | F30 = Operating margin, FY2025, -8.97%",
+   "label": "consistent",
+   "reason": "Difference 1.2pp matches +1.21pp"
+  },
+  {
+   "sentence": "Net margin of -7.8% beat operating margin by 1.2pp, helped by $96.7 million of debt-extinguishment gains in other income .",
+   "claim": "$96.7 million",
+   "match": "passage P18: P18 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Other income, net for the current year was primarily driven by $96.7 million in gains on extinguishment associated with the repurchases of certain outstanding convertible notes, which is discussed within Note 7 to our consolidated financial statements included elsewhere in this Annual Report on Form 10-K, partially offset by $12.6 million in net losses on strategic investments.\"",
+   "label": "consistent",
+   "reason": "Passage states $96.7M gains on extinguishment"
+  },
+  {
+   "sentence": "Interest expense rose $100.4 million on the 2033 and 2034 Notes issued in FY2025 .",
+   "claim": "$100.4 million",
+   "match": "passage P19: P19 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Interest expense for the year ended December\u00a031, 2025 increased $100.4 million compared to the same period in 2024.\"",
+   "label": "consistent",
+   "reason": "Passage states interest expense increased $100.4M"
+  },
+  {
+   "sentence": "Operating cash flow of $656.2 million exceeded the $460.5 million net loss in FY2025, and free cash flow reached $437.2 million, a 7.4% margin and the window high .",
+   "claim": "$656.2 million",
+   "match": "cited: F80 = Operating cash flow, FY2025, $656.17 million",
+   "label": "consistent",
+   "reason": "Operating cash flow $656.2M matches $656.17M"
+  },
+  {
+   "sentence": "Operating cash flow of $656.2 million exceeded the $460.5 million net loss in FY2025, and free cash flow reached $437.2 million, a 7.4% margin and the window high .",
+   "claim": "$460.5 million",
+   "match": "cited: F40 = Net income, FY2025, -$460.49 million; same value as S45 = Reportable Segment (segment, NetIncomeLoss), X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "Net loss $460.5M matches -$460.49M"
+  },
+  {
+   "sentence": "Operating cash flow of $656.2 million exceeded the $460.5 million net loss in FY2025, and free cash flow reached $437.2 million, a 7.4% margin and the window high .",
+   "claim": "$437.2 million",
+   "match": "cited: F100 = Free cash flow, FY2025, $437.19 million",
+   "label": "consistent",
+   "reason": "Free cash flow $437.2M matches $437.19M"
+  },
+  {
+   "sentence": "Operating cash flow of $656.2 million exceeded the $460.5 million net loss in FY2025, and free cash flow reached $437.2 million, a 7.4% margin and the window high .",
+   "claim": "7.4%",
+   "match": "cited: D393 = Free cash flow margin, FY2025, 7.37%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "FCF margin 7.4% matches 7.37%"
+  },
+  {
+   "sentence": "Operating cash flow was lifted by $1.0 billion of stock-based compensation and $163.6 million of D&A, both non-cash .",
+   "claim": "$1.0 billion",
+   "match": "passage P13: P13 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"\u2026as $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million.\" (cut to 400 characters around the figure)",
+   "label": "consistent",
+   "reason": "Passage states SBC $1.0B"
+  },
+  {
+   "sentence": "Operating cash flow was lifted by $1.0 billion of stock-based compensation and $163.6 million of D&A, both non-cash .",
+   "claim": "$163.6 million",
+   "match": "passage P13: P13 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"\u2026as $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million.\" (cut to 400 characters around the figure)",
+   "label": "consistent",
+   "reason": "Passage states D&A $163.6M"
+  },
+  {
+   "sentence": "Capex of $219.0 million was 3.7% of revenue and 1.34x D&A, up from 1.23x in FY2024 .",
+   "claim": "$219.0 million",
+   "match": "cited: F90 = Capital expenditures, FY2025, $218.98 million",
+   "label": "consistent",
+   "reason": "Capex $219.0M matches $218.98M"
+  },
+  {
+   "sentence": "Capex of $219.0 million was 3.7% of revenue and 1.34x D&A, up from 1.23x in FY2024 .",
+   "claim": "3.7%",
+   "match": "cited: D392 = Capex % of revenue, FY2025, 3.69%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Capex % 3.7% matches 3.69%"
+  },
+  {
+   "sentence": "Capex of $219.0 million was 3.7% of revenue and 1.34x D&A, up from 1.23x in FY2024 .",
+   "claim": "1.34x",
+   "match": "cited: D395 = Capex / D&A, FY2025, 1.34x",
+   "label": "consistent",
+   "reason": "Capex/D&A 1.34x matches 1.34x"
+  },
+  {
+   "sentence": "Capex of $219.0 million was 3.7% of revenue and 1.34x D&A, up from 1.23x in FY2024 .",
+   "claim": "1.23x",
+   "match": "cited: D347 = Capex / D&A, FY2024, 1.23x",
+   "label": "consistent",
+   "reason": "Capex/D&A FY2024 1.23x matches 1.23x"
+  },
+  {
+   "sentence": "Net cash swung from $1,439.8 million in FY2021 to net debt of $596.3 million in FY2025, or -10.1% of revenue .",
+   "claim": "$1,439.8 million",
+   "match": "cited: D211 = Net cash (cash and investments less debt), FY2021, $1.44 billion; its input D210 = Total debt has the same value as F181 = Long-term debt, X181 = Long-term debt (noncurrent)",
+   "label": "consistent",
+   "reason": "Net cash FY2021 $1,439.8M matches $1.44B"
+  },
+  {
+   "sentence": "Net cash swung from $1,439.8 million in FY2021 to net debt of $596.3 million in FY2025, or -10.1% of revenue .",
+   "claim": "$596.3 million",
+   "match": "cited: D399 = Net cash (cash and investments less debt), FY2025, -$596.26 million",
+   "label": "consistent",
+   "reason": "Net debt $596.3M matches -$596.26M"
+  },
+  {
+   "sentence": "Net cash swung from $1,439.8 million in FY2021 to net debt of $596.3 million in FY2025, or -10.1% of revenue .",
+   "claim": "-10.1%",
+   "match": "cited: D400 = Net cash % of revenue, FY2025, -10.05%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Net cash % -10.1% matches -10.05%"
+  },
+  {
+   "sentence": "That ranks at the 0th percentile against internet peers, whose median net cash is 45.0% of revenue (n=5) .",
+   "claim": "0th percentile",
+   "match": "cited: D578 = Net cash % of revenue: percentile vs internet peers (n=5), FY2025, 0.00 (percentile)",
+   "label": "consistent",
+   "reason": "Percentile 0th matches 0.00"
+  },
+  {
+   "sentence": "That ranks at the 0th percentile against internet peers, whose median net cash is 45.0% of revenue (n=5) .",
+   "claim": "45.0%",
+   "match": "cited: D579 = Net cash % of revenue: internet peer median (n=5), FY2025, 44.99%",
+   "label": "consistent",
+   "reason": "Peer median 45.0% matches 44.99%"
+  },
+  {
+   "sentence": "In February 2025 Snap repurchased $1.4 billion of notes and issued $1.50 billion of 2033 Notes, leaving long-term debt at $3,489.9 million .",
+   "claim": "$1.4 billion",
+   "match": "passage P1: P1 = a figure in the FY2025 10-K, Note 7. Debt: \"The total cash repurchase price was $ 1.4 billion, which was $ 190.1 million below the carrying value of the repurchased notes.\"",
+   "label": "consistent",
+   "reason": "Passage states repurchase price $1.4B"
+  },
+  {
+   "sentence": "In February 2025 Snap repurchased $1.4 billion of notes and issued $1.50 billion of 2033 Notes, leaving long-term debt at $3,489.9 million .",
+   "claim": "$1.50 billion",
+   "match": "passage P2: P2 = a figure in the FY2025 10-K, Note 7. Debt: \"In February 2025, we entered into a purchase agreement with certain counterparties for the sale of $ 1.50 billion principal amount of senior notes due in 2033 (the \u201c2033 Notes\u201d and collectively with the 2034 Notes, the \u201cSenior Notes\u201d) in a private offering to qualified institutional buyers pursuant to Rule 144A under the Securities Act, and outside the United States to non-U.S. persons pursuant to\u2026\" (cut to 400 characters around the figure)",
+   "label": "consistent",
+   "reason": "Passage states $1.50B 2033 Notes"
+  },
+  {
+   "sentence": "In February 2025 Snap repurchased $1.4 billion of notes and issued $1.50 billion of 2033 Notes, leaving long-term debt at $3,489.9 million .",
+   "claim": "$3,489.9 million",
+   "match": "cited: F185 = Long-term debt, FY2025, $3.49 billion; same value as X185 = Long-term debt (noncurrent)",
+   "label": "consistent",
+   "reason": "Long-term debt $3,489.9M matches $3.49B"
+  },
+  {
+   "sentence": "Buybacks of $750.9 million were 171.7% of free cash flow, and the current ratio fell to 3.56x, the window low .",
+   "claim": "$750.9 million",
+   "match": "cited: X156 = Share repurchases (cash), FY2025, $750.87 million; same value as D401 = Buybacks plus dividends",
+   "label": "consistent",
+   "reason": "Buybacks $750.9M matches $750.87M"
+  },
+  {
+   "sentence": "Buybacks of $750.9 million were 171.7% of free cash flow, and the current ratio fell to 3.56x, the window low .",
+   "claim": "171.7%",
+   "match": "cited: D402 = Buybacks plus dividends % of free cash flow, FY2025, 171.75%; its input D401 = Buybacks plus dividends has the same value as X156 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Buybacks % FCF 171.7% matches 171.75%"
+  },
+  {
+   "sentence": "Buybacks of $750.9 million were 171.7% of free cash flow, and the current ratio fell to 3.56x, the window low .",
+   "claim": "3.56x",
+   "match": "cited: F180 = Current ratio, FY2025, 3.56x",
+   "label": "consistent",
+   "reason": "Current ratio 3.56x matches 3.56x"
+  },
+  {
+   "sentence": "Snap has posted a net loss in each of the last ten years, from $514.6 million in FY2016 to $460.5 million in FY2025 .",
+   "claim": "$514.6 million",
+   "match": "cited: F31 = Net income, FY2016, -$514.64 million; same value as X11 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "Net loss FY2016 $514.6M matches -$514.64M"
+  },
+  {
+   "sentence": "Snap has posted a net loss in each of the last ten years, from $514.6 million in FY2016 to $460.5 million in FY2025 .",
+   "claim": "$460.5 million",
+   "match": "cited: F40 = Net income, FY2025, -$460.49 million; same value as S45 = Reportable Segment (segment, NetIncomeLoss), X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "Net loss FY2025 $460.5M matches -$460.49M"
+  },
+  {
+   "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years .",
+   "claim": "17.1%",
+   "match": "cited: D390 = Stock-based compensation % of revenue, FY2025, 17.14%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "SBC % 17.1% matches 17.14%"
+  },
+  {
+   "sentence": "Stock-based compensation was 17.1% of revenue in FY2025 and at least 10% in each of the last nine years .",
+   "claim": "10%",
+   "match": "cited: D390 = Stock-based compensation % of revenue, FY2025, 17.14%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment) (a bound: the sentence says the value is at least this number, and the matched value is)",
+   "label": "consistent",
+   "reason": "Bound: at least 10% satisfied by 17.14%"
+  },
+  {
+   "sentence": "Whether the operating margin holds above the FY2025 level of -9.0% or slips back toward the -32.4% median, reported in the FY2026 10-K .",
+   "claim": "-9.0%",
+   "match": "cited: F30 = Operating margin, FY2025, -8.97%",
+   "label": "consistent",
+   "reason": "FY2025 operating margin -9.0% matches -8.97%"
+  },
+  {
+   "sentence": "Whether the operating margin holds above the FY2025 level of -9.0% or slips back toward the -32.4% median, reported in the FY2026 10-K .",
+   "claim": "-32.4%",
+   "match": "cited: D555 = Operating margin window median, FY2016..FY2025, -32.38%",
+   "label": "consistent",
+   "reason": "Window median -32.4% matches -32.38%"
+  },
+  {
+   "sentence": "Whether free cash flow stays above the FY2025 $437.2 million as capex runs at 3.7% of revenue .",
+   "claim": "$437.2 million",
+   "match": "cited: F100 = Free cash flow, FY2025, $437.19 million",
+   "label": "consistent",
+   "reason": "FCF $437.2M matches $437.19M"
+  },
+  {
+   "sentence": "Whether free cash flow stays above the FY2025 $437.2 million as capex runs at 3.7% of revenue .",
+   "claim": "3.7%",
+   "match": "cited: D392 = Capex % of revenue, FY2025, 3.69%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S48 = Reportable Segment (segment)",
+   "label": "consistent",
+   "reason": "Capex % 3.7% matches 3.69%"
+  },
+  {
+   "sentence": "Whether net cash returns above the FY2025 net debt of $596.3 million, given buybacks at 171.7% of free cash flow .",
+   "claim": "$596.3 million",
+   "match": "cited: D399 = Net cash (cash and investments less debt), FY2025, -$596.26 million",
+   "label": "consistent",
+   "reason": "Net debt $596.3M matches -$596.26M"
+  },
+  {
+   "sentence": "Whether net cash returns above the FY2025 net debt of $596.3 million, given buybacks at 171.7% of free cash flow .",
+   "claim": "171.7%",
+   "match": "cited: D402 = Buybacks plus dividends % of free cash flow, FY2025, 171.75%; its input D401 = Buybacks plus dividends has the same value as X156 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Buybacks % FCF 171.7% matches 171.75%"
+  }
+ ],
+ "output_sha256": "e3da7e01698862b9f305563d286315a8435a790da10f2981a9280b8a0add870f",
+ "view": 2,
+ "cost_usd": 0.009399,
+ "backend": "openai_compat",
+ "input_tokens": 7937,
+ "cached_input_tokens": 896,
+ "output_tokens": 2390
+}

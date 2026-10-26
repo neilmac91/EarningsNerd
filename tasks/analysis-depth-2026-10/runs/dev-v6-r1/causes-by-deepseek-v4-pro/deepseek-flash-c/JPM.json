@@ -1,0 +1,75 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 5,
+ "output_sha256": "3496d5fbf2955e0b8b829b4a568366ddc01e4369341c53c4e368adab5a9ab80b",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2023 jump of 22.9% was driven by higher net interest income due to higher rates, partially offset by lower average deposit balances .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net revenue was $8.0 billion, compared with $80 million in the prior year, predominantly driven by higher net interest income due to higher rates, partially offset by the impact of lower Firmwide average deposit balances."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher net interest income due to higher rates, partially offset by lower average deposit balances."
+  },
+  {
+   "sentence": "Net interest income of $95.4 billion rose 3%, driven by higher Markets net interest income, higher revolving balances in Card Services and higher wholesale deposit balances, largely offset by deposit margin compression .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers and offsetting factors."
+  },
+  {
+   "sentence": "Noninterest expense of $95.6 billion rose 4%, driven by higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing investment, partly offset by FDIC special assessment releases .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers and offsetting FDIC releases."
+  },
+  {
+   "sentence": "The outflow resulted from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers and offsetting factors."
+  },
+  {
+   "sentence": "Loans increased $121.1 billion, predominantly from higher CIB Markets loans and securities-based lending in AWM on higher client demand .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states higher CIB Markets loans and securities-based lending in AWM on higher client demand."
+  }
+ ],
+ "cost_usd": 0.000966,
+ "backend": "openai_compat",
+ "input_tokens": 875,
+ "cached_input_tokens": 0,
+ "output_tokens": 196
+}

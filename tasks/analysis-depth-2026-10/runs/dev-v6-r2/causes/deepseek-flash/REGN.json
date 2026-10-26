@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "72eaa103a151ea2ffa462fccf9b06a0be907dd439e6fd40eee7cb3247ad5355b",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 reversal followed as REGEN-COV sales went to zero, a 36.3pp drag, after new SARS-CoV-2 variants proved unsusceptible to the treatment .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Under the terms of the Roche collaboration, Roche distributed and recorded net product sales of Ronapreve\u2122 outside the United States, and the parties shared gross profits from sales based on a pre-specified formula. In 2023, total Roche collaboration revenue was $211.0 million. Net product sales of Ronapreve outside the United States declined as a result of new variants of the SARS-CoV-2 virus emerging that are not susceptible to the treatment."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage attributes the 2023 decline in ex-US Ronapreve sales to non-susceptible variants, not FY2022 US REGEN-COV sales falling to zero."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits contributed 9.3pp of FY2025 growth, driven by higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the 2025 increase in Sanofi profit share to higher Dupixent sales."
+  },
+  {
+   "sentence": "US EYLEA sales fell 42.4% in FY2025, a 14.2pp drag, on competitive pressure, compounded bevacizumab and the EYLEA HD transition .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 cites competitive pressures, compounded bevacizumab and the EYLEA HD transition; it also cites lower net selling price."
+  },
+  {
+   "sentence": "EYLEA HD partly offset that, adding 3.1pp as volumes rose, and Libtayo added 1.7pp .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA HD increased in 2025 compared to 2024, due to higher sales volumes, partly offset by a lower net selling price. EYLEA HD was approved by the FDA in August 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "P11 attributes the EYLEA HD increase to higher volumes; the sentence gives no cause for Libtayo."
+  },
+  {
+   "sentence": "SG&A added 2.0pp back, falling 8.6% on lower charitable contributions to Good Days .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the SG&A decrease primarily to lower charitable contributions to Good Days."
+  },
+  {
+   "sentence": "Gross margin on net product sales also narrowed on manufacturing investment, inventory write-offs and higher Libtayo amortization .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin on net product sales decreased in 2025, compared to 2024, partly due to ongoing investments to support our manufacturing operations and higher inventory write-offs and reserves. In addition, gross margin on net product sales decreased due to higher amortization expense associated with our Libtayo intangible asset as each quarter we record additions to the intangible asset related to royalties due to Sanofi."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 cites manufacturing investments, inventory write-offs and reserves, and higher Libtayo amortization."
+  }
+ ],
+ "cost_usd": 0.034196,
+ "backend": "claude_cli",
+ "input_tokens": 2813,
+ "cached_input_tokens": 0,
+ "output_tokens": 585
+}
