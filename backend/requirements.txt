@@ -221,7 +221,7 @@ pytest==9.1.1
     #   pytest-asyncio
 pytest-asyncio==1.4.0
     # via -r requirements.in
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
     # via
     #   -r requirements.in
     #   pandas
@@ -308,6 +308,8 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2026.5
+    # via python-dateutil
 unidecode==1.4.0
     # via edgartools
 urllib3==2.8.0
