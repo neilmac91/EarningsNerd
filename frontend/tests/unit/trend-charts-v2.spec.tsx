@@ -539,10 +539,9 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     // The unicode-range next/font emits for Geist Mono's latin face, the one file app/fonts.ts preloads.
     const latin = parseUnicodeRange('U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD')
     const inLatin = (glyph: string) => latin.some(([start, end]) => glyph.codePointAt(0)! >= start && glyph.codePointAt(0)! <= end)
-    const notInGeistMono = new Set(['₩', '₫']) // in latin-ext's range, in no subset's file: they paint in the fallback (E203)
     const printable = ['†', ...Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])]
     expect([...text].some(inLatin), 'the sample names the latin face').toBe(true)
-    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !notInGeistMono.has(glyph) && !text.includes(glyph))).toEqual([])
+    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !text.includes(glyph))).toEqual([])
   })
 })
 

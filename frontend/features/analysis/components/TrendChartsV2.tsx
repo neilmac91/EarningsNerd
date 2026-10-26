@@ -16,8 +16,8 @@ const CHART_FACE = '11px "Geist Mono"'
 /** The text the wait loads and checks the face for. The Font Loading API picks a family's faces by their
  *  unicode-range, and with no text it takes a space, so the latin face alone; no route preloads latin-ext (app/fonts.ts,
  *  spec §0.5). So the sample names the latin face ("0") and every glyph past it that the plot can print and Geist Mono
- *  draws, all in latin-ext: † (G2) and the ₹, ₪ and ₱ that moneyPrefix prints. ₩ and ₫ are in no Geist Mono subset
- *  (E203), so no wait helps them, and ₫ would fetch the vietnamese face for nothing. */
+ *  draws, all in latin-ext: † (G2) and the ₹, ₪ and ₱ that moneyPrefix prints. Geist Mono has no ₩ or ₫, so
+ *  moneyPrefix prints KRW's and VND's codes instead (E203). */
 const CHART_TEXT = '0†₹₪₱'
 const FONT_WAIT_MS = 1500
 
