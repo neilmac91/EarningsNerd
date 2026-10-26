@@ -110,8 +110,7 @@ async function renderReport() {
  *  raised by stepping the chart's values stop from Home to End, the value text the stop speaks there, and the footnote
  *  lines under the plot (the lines its PNG prints). */
 function readCharts(container: HTMLElement) {
-  const tooltips: HTMLElement[] = []
-  const spoken: string[] = []
+  const periods: Array<{ tooltip: HTMLElement | null; spoken: string }> = []
   const stops = [...container.querySelectorAll<HTMLElement>('[role="slider"][data-chart-values]')]
   for (const stop of stops) {
     const card = stop.closest('section[data-trend-chart]')!
@@ -121,15 +120,17 @@ function readCharts(container: HTMLElement) {
     for (let period = 0; period <= Number(stop.getAttribute('aria-valuemax')); period++) {
       if (period) fireEvent.keyDown(stop, { key: 'ArrowRight' })
       const tooltip = card.querySelector<HTMLElement>('[data-chart-tooltip]')
-      if (tooltip) tooltips.push(tooltip.cloneNode(true) as HTMLElement)
-      spoken.push(stop.getAttribute('aria-valuetext') ?? '')
+      periods.push({ tooltip: tooltip && (tooltip.cloneNode(true) as HTMLElement), spoken: stop.getAttribute('aria-valuetext') ?? '' })
     }
     act(() => stop.blur())
   }
   const footnotes = [...container.querySelectorAll('section[data-trend-chart] [data-chart-text="footnote"]')].map((line) => ({
     mark: line.querySelector('span')?.textContent ?? '', text: line.textContent ?? '',
   }))
-  return { stops: stops.length, tooltips, spoken, footnotes }
+  return {
+    stops: stops.length, periods, footnotes,
+    tooltips: periods.flatMap(({ tooltip }) => (tooltip ? [tooltip] : [])), spoken: periods.map(({ spoken }) => spoken),
+  }
 }
 
 describe('every surface marks and names only the notes that question the number (D-061)', () => {
@@ -155,9 +156,11 @@ describe('every surface marks and names only the notes that question the number 
     saw('a chart chip', [...container.querySelectorAll('section[data-trend-chart] [aria-label^="Review data notes "]')]
       .flatMap((chip) => chip.getAttribute('aria-label')!.slice('Review data notes '.length).split(', ')))
     const charts = readCharts(container)
-    // Blind to no chart and no period: every drawn chart has its values stop, and every period it steps to its tooltip.
+    // Blind to no chart and no period: every drawn chart has its values stop, and every period it steps to raises its own
+    // tooltip, headed with the period the stop speaks.
     expect(charts.stops, 'a drawn chart without its values stop').toBe(container.querySelectorAll('[data-analysis-chart] > svg').length)
-    expect(charts.tooltips, 'a period that raised no tooltip').toHaveLength(charts.spoken.length)
+    expect(charts.periods.filter(({ tooltip, spoken }) => !spoken.startsWith(`${tooltip?.querySelector('p')?.textContent?.split(' · ')[0]}`))
+      .map(({ spoken }) => spoken), 'a period whose tooltip is missing or another period’s').toEqual([])
     saw('a chart tooltip', charts.tooltips.flatMap((tooltip) => [...(tooltip.textContent ?? '').matchAll(/\(([a-z]+)\)/g)].map((match) => match[1])))
     saw('a chart value text', charts.spoken.flatMap((text) => [...text.matchAll(/data note ([a-z]+)/g)].map((match) => match[1])))
     saw('a chart footnote', charts.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark)))
@@ -192,8 +195,9 @@ describe('every surface marks and names only the notes that question the number 
     expect(within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getAllByRole('button', { name: /, calculated\. View source/ }).length).toBeGreaterThan(0)
 
     // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
-    // sources), a chart's band letters and its tooltip's, by a class, an SVG fill or an inline colour (the tooltip's,
-    // which the browser reads back as rgb()) on the letter or on anything around it it could inherit the ink from.
+    // sources), a chart's band letters, its tooltip's and its footnotes', by a class, an SVG paint or colour attribute or an
+    // inline style (which the browser reads back as rgb()) on the letter or on anything around it it could inherit the
+    // ink from. Out of reach: ink a stylesheet rule sets by another selector, since the unit tests load no stylesheet.
     const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
     const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
     const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
@@ -202,13 +206,14 @@ describe('every surface marks and names only the notes that question the number 
       listed: [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')].filter((letter) => letter.textContent),
       charted: [...container.querySelectorAll('[data-analysis-chart] svg [data-text="note"]')],
       tooltip: charts.tooltips.flatMap((tooltip) => [...tooltip.querySelectorAll<HTMLElement>('span')].filter((span) => /^ \([a-z]+\)$/.test(span.textContent ?? ''))),
+      footnote: [...container.querySelectorAll('section[data-trend-chart] [data-chart-text="footnote"] > span')].filter((mark) => /^[a-z]+$/.test(mark.textContent ?? '')),
     }
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
-    const inked = (element: Element) => warningInks.has((element.getAttribute('fill') ?? '').toUpperCase())
-      || warningInks.has((element as HTMLElement).style?.color ?? '')
+    const inked = (element: Element) => ['fill', 'stroke', 'color'].some((ink) => warningInks.has((element.getAttribute(ink) ?? '').toUpperCase())
+      || warningInks.has((element as HTMLElement).style?.getPropertyValue(ink) ?? ''))
     const around = (letter: Element) => { const chain: Element[] = []; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
     const inWarning = Object.values(letters).flat().filter((letter) =>
-      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || around(letter).some(inked))
+      letter.closest(['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')) || around(letter).some(inked))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 
