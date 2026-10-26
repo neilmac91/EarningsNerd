@@ -92,6 +92,9 @@ const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: 
 const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]${citation.derived ? ' (derived Q4)' : ''}`).join('; ')}.`
 
 async function renderReport() {
+  // This gate reads notation after the real chart chunk loads. Await its module before mounting so a cold
+  // transform cannot consume waitFor's rendering deadline; the separate chunk spec covers loading and failure.
+  await import('@/features/analysis/components/TrendChartsV2')
   const view = render(
     <DataNotesProvider dataset={report}>
       <KpiStrip dataset={report} />
