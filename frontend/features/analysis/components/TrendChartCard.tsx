@@ -1,6 +1,6 @@
 'use client'
 /**
- * One trend chart's card under the spec renderer (CHARTS_V2; steps 4 and 5 of the migration, E192, E193): today's Card
+ * One trend chart's card under the spec renderer (steps 4 to 7 of the migration, E192, E193, E195): the app's Card
  * shell and controls around the chart engine's model and plan. The plan is laid out at the card's measured width, and
  * the expanded view at its own width, never a CSS scale (spec §3.10). A chart that does not apply keeps the card's
  * height and says why (§3.4). The card's HTML text takes the theme's chart inks (§3.8) inline, from the same source as
@@ -87,7 +87,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
   // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
-  // never disagree: an n/m comparison's note letters here too, which today's Recharts (chartDataNotes) never draws.
+  // never disagree: an n/m comparison's note letters here too.
   const panelNotes = useMemo(() => {
     const lettered = new Set(model.footnotes.map((footnote) => footnote.mark))
     return notes.notes.filter((note) => lettered.has(note.letter))

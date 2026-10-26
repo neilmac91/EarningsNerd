@@ -4,7 +4,7 @@
 
 - Python **3.11**
 - git **2.43** or later (`.claude/hooks/secret_scan_guard.py` holds `attr.tree` for its scan, a setting an older git ignores, so the hook refuses its scans there; outside CI, its suite skips the cases that build a scratch project)
-- Node.js **22.23.2** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and every `.github/workflows/*.yml` / `*.yaml` Node pin in lockstep)
+- Node.js **22.23.4** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and every `.github/workflows/*.yml` / `*.yaml` Node pin in lockstep)
 - Docker + Docker Compose (optional, for local Postgres/Redis)
 
 ## Local setup
@@ -77,8 +77,8 @@ python3 ../ops/dev/verify.py -- npm run build    # production build
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
 `backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
-`frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright), `e2e-charts-v2` (the
-same build with `NEXT_PUBLIC_CHARTS_V2` set, and the trend charts' browser gates), `lighthouse` and
+`frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
+charts and gallery), `lighthouse` and
 `secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
 pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).

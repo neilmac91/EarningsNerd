@@ -570,8 +570,9 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   2026-10-25: step 4, the spec renderer behind `NEXT_PUBLIC_CHARTS_V2` (`#1609`, `0009fb90`), and
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
-- **Open:** step 7 (E195), after the founder's switch (F66). Step 6's remainder, the notes band
-  on this report's rule (below), landed with E194 on 2026-10-26.
+- **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
+  chart, and its CI job and token fold remain as E195's follow-ups. Step 6's remainder, the notes
+  band on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
   value (unavailable notes included, so "every missing point has a letter"), † for a partly
@@ -1163,10 +1164,10 @@ These came out of this evaluation but sit in the sibling areas.
 - **Charts:**
   - Fixed on main by #1603 (`a7d4ea2a`): cash generation has one axis, so FY2025 FCF ($4.1B) no
     longer plots above net income ($4.5B) (Y-F6, Z-F7), and every value axis takes the engine's
-    round ticks, with "$0" at zero. The balance sheet keeps equity's right axis on today's charts;
-    the spec renderer draws equity as its own panel.
-  - Still open on today's charts: year ticks run together on phones. The spec renderer (#1609,
-    merged) replaces them; production waits on the founder's switch (F66).
+    round ticks, with "$0" at zero. The Recharts charts kept equity's right axis; the
+    spec renderer, in production since E195, draws equity as its own panel.
+  - Closed by the switch (E195, D-064): on phones the Recharts charts' year ticks ran together;
+    the spec renderer that replaced them keeps a minimum slot per period (A7) and scrolls.
 - **Analysis:**
   - Red flags and "What to watch" assert conclusions from flagged figures with no caveat (X-F12,
     Y-F2).

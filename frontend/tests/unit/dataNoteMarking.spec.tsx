@@ -1,46 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { describe, expect, it, vi } from 'vitest'
-import { render, within } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-
-const tooltips = vi.hoisted(() => ({ contents: [] as Array<(props: Record<string, unknown>) => React.ReactNode> }))
-
-// Recharts measures the DOM, which jsdom cannot do: the trend-charts specs' stub, drawing each Line's dots and each
-// Bar's shapes from the chart's rows, so every chart mark renders through TrendCharts' own note lookup.
-vi.mock('recharts', async () => {
-  const { createContext, useContext } = await import('react')
-  type Row = Record<string, number | string | null>
-  const Data = createContext<Row[]>([])
-  const Chart = ({ children, data }: { children: React.ReactNode; data: Row[] }) => <Data.Provider value={data}><svg>{children}</svg></Data.Provider>
-  return {
-    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-    ComposedChart: Chart,
-    LineChart: Chart,
-    Rectangle: (props: React.SVGProps<SVGRectElement>) => <rect {...props} />,
-    usePlotArea: () => ({ x: 0, y: 0, width: 300, height: 160 }),
-    useXAxisScale: () => {
-      const rows = useContext(Data)
-      return (period: string) => rows.findIndex((row) => row.period === period) * 20
-    },
-    useYAxisScale: () => (value: number) => 100 - value,
-    Bar: ({ dataKey, shape }: { dataKey: string; shape: (props: unknown) => React.ReactNode }) => {
-      const rows = useContext(Data)
-      return <g>{rows.map((row, index) => <g key={index}>{row[dataKey] == null ? null : shape({ x: index * 20, y: 10, width: 15, height: 20, payload: row })}</g>)}</g>
-    },
-    Line: ({ dataKey, dot }: { dataKey: string; dot: (props: unknown) => React.ReactNode }) => {
-      const rows = useContext(Data)
-      return <g>{rows.map((row, index) => <g key={index}>{dot({ cx: index * 20, cy: 50, value: row[dataKey], payload: row })}</g>)}</g>
-    },
-    XAxis: () => null,
-    YAxis: () => null,
-    CartesianGrid: () => null,
-    Tooltip: ({ content }: { content: (props: Record<string, unknown>) => React.ReactNode }) => {
-      tooltips.contents.push(content)
-      return null
-    },
-  }
-})
 
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
@@ -48,9 +10,10 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
 import NarrativePane from '@/features/analysis/components/NarrativePane'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
+// Load the real renderer before the test clock starts: this gate checks notation, while the chunk spec checks loading.
+import '@/features/analysis/components/TrendChartsV2'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { chartDataNotes } from '@/features/analysis/lib/chartExport'
-import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, resolveDataNotes, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
 
@@ -65,9 +28,10 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  *    every known reason (test_analysis_data_notes.py), so a new reason has to be classified here to pass.
  * 2. Every place a letter renders or is named. The whole report (KPI cards, trend charts, narrative, metrics table and
  *    the data notes) renders the fixture's record_only_and_mixed_marking case; every letter drawn (data-note-letter,
- *    a chart's "Data note x" mark), named (a control's or chip's accessible name, a chart tooltip's "· note x", the
- *    fold's "figures carry notes x"), set in the fine print's summary, the open lists' letter column or a chart's PNG
- *    footer (chartDataNotes) is one of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
+ *    a chart's notes band), named (a control's or chip's accessible name, a chart card's Notes chip, a chart's tooltip,
+ *    raised at every period by its values stop, or that stop's spoken "data note x", the fold's "figures carry notes x"), set in the fine print's summary, the open
+ *    lists' letter column or a chart's footnotes (which its PNG prints) is one of its marked letters, and each marked
+ *    letter shows somewhere. A site that bypasses the helper shows the
  *    record-only c, the unknown d or the gap's e (marked notes take the first letters, data notes version 2). The same
  *    render holds the notation's two other clauses at their full
  *    width: no † anywhere in an annual report (a † marks only a period: the Q4 header, the period picker), the fold's
@@ -130,9 +94,8 @@ const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: 
   } as AnalysisCitation))
 const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]${citation.derived ? ' (derived Q4)' : ''}`).join('; ')}.`
 
-function renderReport() {
-  tooltips.contents = []
-  return render(
+async function renderReport() {
+  const view = render(
     <DataNotesProvider dataset={report}>
       <KpiStrip dataset={report} />
       <TrendCharts dataset={report} />
@@ -141,28 +104,47 @@ function renderReport() {
       <DataNotes dataset={report} />
     </DataNotesProvider>,
   )
+  // The trend charts load as their own chunk (TrendCharts' next/dynamic): the scans wait for the plots.
+  await waitFor(() => expect(view.container.querySelectorAll('[data-analysis-chart] > svg').length).toBeGreaterThan(0))
+  return view
 }
 
-/** Every chart tooltip's text, at every period, over every series it can name. */
-function tooltipTexts(): string[] {
-  const payload = report.series.map((series) => ({ dataKey: series.concept, name: series.label, value: 1 }))
-  return tooltips.contents.flatMap((content) => report.periods.map(({ key }) => {
-    const tip = render(<>{content({ active: true, label: key, payload })}</>)
-    const text = tip.container.textContent ?? ''
-    tip.unmount()
-    return text
+/** What each drawn chart shows and says beyond its plot, read from the page as a reader meets it: every period's tooltip,
+ *  raised by stepping the chart's values stop from Home to End, the value text the stop speaks there, and the footnote
+ *  lines under the plot (the lines its PNG prints). */
+function readCharts(container: HTMLElement) {
+  const periods: Array<{ tooltip: HTMLElement | null; spoken: string }> = []
+  const stops = [...container.querySelectorAll<HTMLElement>('[role="slider"][data-chart-values]')]
+  for (const stop of stops) {
+    const card = stop.closest('section[data-trend-chart]')!
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab' })
+    act(() => stop.focus())
+    fireEvent.keyDown(stop, { key: 'Home' })
+    for (let period = 0; period <= Number(stop.getAttribute('aria-valuemax')); period++) {
+      if (period) fireEvent.keyDown(stop, { key: 'ArrowRight' })
+      const tooltip = card.querySelector<HTMLElement>('[data-chart-tooltip]')
+      periods.push({ tooltip: tooltip && (tooltip.cloneNode(true) as HTMLElement), spoken: stop.getAttribute('aria-valuetext') ?? '' })
+    }
+    act(() => stop.blur())
+  }
+  const footnotes = [...container.querySelectorAll('section[data-trend-chart] [data-chart-text="footnote"]')].map((line) => ({
+    mark: line.querySelector('span')?.textContent ?? '', text: line.textContent ?? '',
   }))
+  return {
+    stops: stops.length, periods, footnotes,
+    tooltips: periods.flatMap(({ tooltip }) => (tooltip ? [tooltip] : [])), spoken: periods.map(({ spoken }) => spoken),
+  }
 }
 
 describe('every surface marks and names only the notes that question the number (D-061)', () => {
-  it('draws, names and summarises only marked letters, and shows each of them', () => {
-    const { container } = renderReport()
+  it('draws, names and summarises only marked letters, and shows each of them', async () => {
+    const { container } = await renderReport()
     const seen = new Map<string, Set<string>>()
     const saw = (where: string, letters: Iterable<string>) => {
       for (const letter of letters) seen.set(letter, (seen.get(letter) ?? new Set()).add(where))
     }
     saw('a drawn letter', [...container.querySelectorAll('[data-note-letter]')].map((mark) => mark.getAttribute('data-note-letter')!))
-    saw('a chart mark', [...container.querySelectorAll('g[aria-label^="Data note "]')].map((mark) => mark.getAttribute('aria-label')!.slice('Data note '.length)))
+    saw('a chart band letter', [...container.querySelectorAll('[data-analysis-chart] svg [data-text="note"]')].map((letter) => letter.textContent!))
     const names = [...container.querySelectorAll('[aria-label]')].map((element) => element.getAttribute('aria-label')!)
     saw('a Notes chip', names.filter((name) => name.startsWith('Review data notes ')).flatMap((name) => name.slice('Review data notes '.length).split(', ')))
     saw('an accessible name', names.flatMap((name) => [...name.matchAll(/data note ([a-z]+)/g)].map((match) => match[1])))
@@ -173,32 +155,41 @@ describe('every surface marks and names only the notes that question the number 
     // The open lists' letter column, under the table and under the narrative's sources.
     saw('the open data notes', [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')]
       .flatMap((cell) => /([a-z]+)\.$/.exec(cell.textContent ?? '')?.[1] ?? []))
-    expect(tooltips.contents.length, 'the charts drew their tooltips').toBeGreaterThan(0)
-    for (const text of tooltipTexts()) saw('a chart tooltip', [...text.matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
-    // A chart's PNG footer and its chip read chartDataNotes; the footer is drawn only on export, so read it here.
-    const panel = chartDataNotes(report, report.series, resolveDataNotes(report), true)
-    saw('a chart panel', panel.panelNotes.map((note) => note.letter))
-    saw('a PNG footer', panel.exportNotes.flatMap((line) => [...line.matchAll(/^Note ([a-z]+):/g)].map((match) => match[1])))
+    // A chart card's own chip, every period's tooltip and spoken value (raised by its values stop) and its footnotes.
+    saw('a chart chip', [...container.querySelectorAll('section[data-trend-chart] [aria-label^="Review data notes "]')]
+      .flatMap((chip) => chip.getAttribute('aria-label')!.slice('Review data notes '.length).split(', ')))
+    const charts = readCharts(container)
+    // Blind to no chart and no period: every drawn chart has its values stop, and every period it steps to raises its own
+    // tooltip, headed with the period the stop speaks.
+    expect(charts.stops, 'a drawn chart without its values stop').toBe(container.querySelectorAll('[data-analysis-chart] > svg').length)
+    expect(charts.periods.filter(({ tooltip, spoken }) => !spoken.startsWith(`${tooltip?.querySelector('p')?.textContent?.split(' · ')[0]}`))
+      .map(({ spoken }) => spoken), 'a period whose tooltip is missing or another period’s').toEqual([])
+    saw('a chart tooltip', charts.tooltips.flatMap((tooltip) => [...(tooltip.textContent ?? '').matchAll(/\(([a-z]+)\)/g)].map((match) => match[1])))
+    saw('a chart value text', charts.spoken.flatMap((text) => [...text.matchAll(/data note ([a-z]+)/g)].map((match) => match[1])))
+    saw('a chart footnote', charts.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark)))
 
     const stray = [...seen].filter(([letter]) => !example.marked_letters.includes(letter)).map(([letter, where]) => `${letter}: ${[...where].join(', ')}`)
     expect(stray, 'a letter shown or named for a note that marks nothing').toEqual([])
     // The fixture's marked letters all show: a on the KPI card, the table and the cash chart, b on the table and the
     // balance sheet, f on its citation chip.
     expect([...seen.keys()].sort()).toEqual([...example.marked_letters].sort())
-    for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'the open data notes', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
+    for (const where of ['a drawn letter', 'a chart band letter', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'the open data notes', 'a chart chip', 'a chart tooltip', 'a chart value text', 'a chart footnote']) {
       expect([...seen.values()].some((places) => places.has(where)), `no ${where} was read: the scan went blind`).toBe(true)
     }
   })
 
-  it('sets no dagger beside a figure and no letter in warning ink', () => {
-    const { container } = renderReport()
-    // No dagger, by the rule's width: the whole report's text, its accessible names and titles, every chart tooltip and
-    // the PNG footer. A † marks only a period (the Q4 header and the period picker), and an annual report has neither.
+  it('sets no dagger beside a figure and no letter in warning ink', async () => {
+    const { container } = await renderReport()
+    // No dagger, by the rule's width: the whole report's text (the charts' footnotes, the lines their PNG prints,
+    // included), its accessible names, value texts and titles, and every chart's tooltip at every period. A † marks only
+    // a period (the Q4 header and the period picker), and an annual report has neither.
+    const charts = readCharts(container)
     const texts = [
       container.textContent ?? '',
-      ...[...container.querySelectorAll('[aria-label], [title]')].flatMap((element) => [element.getAttribute('aria-label') ?? '', element.getAttribute('title') ?? '']),
-      ...tooltipTexts(),
-      ...chartDataNotes(report, report.series, resolveDataNotes(report), true).exportNotes,
+      ...[...container.querySelectorAll('[aria-label], [aria-valuetext], [title]')].flatMap((element) =>
+        ['aria-label', 'aria-valuetext', 'title'].map((name) => element.getAttribute(name) ?? '')),
+      ...charts.tooltips.map((tooltip) => tooltip.textContent ?? ''),
+      ...charts.spoken,
     ]
     expect(texts.filter((text) => text.includes('†')), 'a dagger in the report').toEqual([])
     // The scan reaches the calculated figures: the KPI cards, the table and the fold's derived row each say so in words.
@@ -207,21 +198,31 @@ describe('every surface marks and names only the notes that question the number 
     expect(within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getAllByRole('button', { name: /, calculated\. View source/ }).length).toBeGreaterThan(0)
 
     // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
-    // sources), a chart's letters, by a class on the letter or around it, or by an SVG fill.
-    const warningInks = new Set([colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair)).map((hex) => hex.toUpperCase()))
+    // sources), a chart's band letters, its tooltip's and its footnotes', by a class, an SVG paint or colour attribute or an
+    // inline style (which the browser reads back as rgb()) on the letter, on anything around it it could inherit the ink
+    // from, or on anything inside it that could draw its glyph. Out of reach: ink a stylesheet rule sets by another
+    // selector, since the unit tests load no stylesheet.
+    const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
+    const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
+    const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
     const letters = {
       drawn: [...container.querySelectorAll('[data-note-letter]')],
       listed: [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')].filter((letter) => letter.textContent),
-      charted: [...container.querySelectorAll('g[aria-label^="Data note "] text')],
+      charted: [...container.querySelectorAll('[data-analysis-chart] svg [data-text="note"]')],
+      tooltip: charts.tooltips.flatMap((tooltip) => [...tooltip.querySelectorAll<HTMLElement>('span')].filter((span) => /^ \([a-z]+\)$/.test(span.textContent ?? ''))),
+      footnote: [...container.querySelectorAll('section[data-trend-chart] [data-chart-text="footnote"] > span')].filter((mark) => /^[a-z]+$/.test(mark.textContent ?? '')),
     }
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
-    const inWarning = Object.values(letters).flat().filter((letter) =>
-      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || warningInks.has((letter.getAttribute('fill') ?? '').toUpperCase()))
+    const inked = (element: Element) => ['fill', 'stroke', 'color'].some((ink) => warningInks.has((element.getAttribute(ink) ?? '').toUpperCase())
+      || warningInks.has((element as HTMLElement).style?.getPropertyValue(ink) ?? ''))
+    const warningClass = ['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')
+    const sources = (letter: Element) => { const chain = [...letter.querySelectorAll('*')]; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
+    const inWarning = Object.values(letters).flat().filter((letter) => sources(letter).some((element) => element.matches(warningClass) || inked(element)))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 
   it('keeps every note in the data notes and the record-only figure\'s note in its dialog', async () => {
-    const { container } = renderReport()
+    const { container } = await renderReport()
     const fine = container.querySelector<HTMLElement>('[data-analysis-data-notes]')!
     for (const note of notesOf(example)) {
       const entry = document.getElementById(note.id)

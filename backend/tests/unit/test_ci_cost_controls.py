@@ -287,7 +287,7 @@ def test_unknown_empty_manual_and_mismatched_inputs_never_skip(history, tmp_path
 
 def test_browser_checks_report_records_and_reject_failed_or_missing_scope(tmp_path):
     jobs = workflow()["jobs"]
-    for name in ("e2e-tests", "e2e-charts-v2", "lighthouse"):
+    for name in ("e2e-tests", "lighthouse"):
         job = jobs[name]
         assert job["needs"] == ["ci-scope"]
         assert job["if"] == "${{ always() && !cancelled() }}"
@@ -329,39 +329,18 @@ def test_e2e_tests_keeps_the_founders_35_minute_limit():
     assert workflow()["jobs"]["e2e-tests"]["timeout-minutes"] == "35"
 
 
-def test_e2e_charts_v2_keeps_room_for_the_layout_spec():
-    # Since E194 the job runs analysis-layout.spec.ts on the renderer: about 14 minutes on CI (2026-10-25), from about
-    # 3. It is a required check on main, so a run cancelled at its limit blocks merging until it is re-run.
-    assert workflow()["jobs"]["e2e-charts-v2"]["timeout-minutes"] == "30"
-
-
-def test_charts_v2_job_is_the_e2e_build_with_its_flag_set():
-    # NEXT_PUBLIC_ values are inlined at build time (E192): the charts-v2 job builds, serves and tests with the flag, on
-    # e2e-tests' own build settings, so the two builds differ in that flag alone.
+def test_charts_run_in_the_standard_e2e_job_without_a_flag():
+    # E195 retires the separate chart build once F67 removes its required check. The standard job already collects
+    # every browser spec, including the gallery and D13; neither spec may retain the flag that used to skip it here.
     jobs = workflow()["jobs"]
-
-    def step(job, name):
-        return next(each for each in jobs[job]["steps"] if each.get("name", "").startswith(name))
-
-    flag = {"NEXT_PUBLIC_CHARTS_V2": "true"}
-    for name in ("Build frontend", "Start frontend server"):
-        assert step("e2e-charts-v2", name)["env"] == {**step("e2e-tests", name)["env"], **flag}
-        assert "NEXT_PUBLIC_CHARTS_V2" not in step("e2e-tests", name)["env"]
-    run = step("e2e-charts-v2", "Run the charts")
-    assert run["env"]["NEXT_PUBLIC_CHARTS_V2"] == "true"
-    for spec in ("charts-v2", "charts-v2-gallery", "analysis-layout", "chart-export-fidelity", "analysis-teaser-window"):
-        assert f"tests/e2e/{spec}.spec.ts" in run["run"], spec
-    assert "tests/e2e/text-floors.spec.ts -g 'analysis: muted ink'" in run["run"]
-    # Every spec that reads the flag runs here: one that skips without it (the gallery) runs nowhere else, and one that
-    # reads either renderer (analysis-layout) runs on the flag-off build in e2e-tests too.
+    assert "e2e-charts-v2" not in jobs
+    run = next(each for each in jobs["e2e-tests"]["steps"] if each.get("name") == "Run E2E tests")
+    assert run["run"] == "npx playwright test"
+    assert run["working-directory"] == "frontend"
+    assert run["env"] == {"PLAYWRIGHT_BASE_URL": "http://localhost:3000"}
+    assert "NEXT_PUBLIC_CHARTS_V2" not in (ROOT / ".github/workflows/ci.yml").read_text()
     flagged = sorted(path.name for path in (ROOT / "frontend/tests/e2e").glob("*.spec.ts") if "CHARTS_V2" in path.read_text())
-    assert flagged, "no spec reads the flag"
-    assert [name for name in flagged if f"tests/e2e/{name}" not in run["run"]] == []
-    # A failing first run never hides the second: each records its status, and the step exits with either's failure.
-    lines = [line.strip() for line in run["run"].strip().splitlines()]
-    assert lines[0] == "status=0" and lines[-1] == "exit $status"
-    assert all(line.endswith("|| status=1") for line in lines[1:-1]) and len(lines) == 4
-    assert "continue-on-error" not in jobs["e2e-charts-v2"]
+    assert flagged == [], f"browser specs still read the retired chart flag: {flagged}"
 
 
 def test_documented_required_checks_are_jobs_a_workflow_runs():
@@ -374,7 +353,7 @@ def test_documented_required_checks_are_jobs_a_workflow_runs():
     jobs = set()
     for path in (ROOT / ".github/workflows").glob("*.yml"):
         jobs |= set((yaml.load(path.read_text(), Loader=yaml.BaseLoader) or {}).get("jobs", {}))
-    assert len(listed) == len(set(listed)) == 8
+    assert len(listed) == len(set(listed)) == 7
     assert set(listed) <= jobs, set(listed) - jobs
     contributing = (ROOT / "CONTRIBUTING.md").read_text()
     ci = contributing[contributing.index("## CI"):]
