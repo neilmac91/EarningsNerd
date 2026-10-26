@@ -57,6 +57,11 @@ class Arm:
     # (empty: FROZEN_PROMPT), ``packs`` a directory under tasks/analysis-depth-2026-10 (empty: DEFAULT_PACKS).
     prompt: str = ""
     packs: str = ""
+    # The OpenAI-compatible client's own retries inside one call (a timeout, a dropped connection, a 408, 409, 429 or
+    # 5xx). A request dropped after the provider finished it may be billed, and the client sends it again unseen, so
+    # repair_replay, whose dry run bounds what a run can bill, sets 0: such a call fails as a provider error, which
+    # the next run retries.
+    max_retries: int = 2
 
 
 _DEEPSEEK_FLASH = Arm(
@@ -321,7 +326,7 @@ async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int,
     key = os.environ.get(arm.key_env, "")
     if not key:
         raise RuntimeError(f"{arm.name}: {arm.key_env} is not set")
-    client = AsyncOpenAI(api_key=key, base_url=arm.base_url, timeout=timeout_s, max_retries=2)
+    client = AsyncOpenAI(api_key=key, base_url=arm.base_url, timeout=timeout_s, max_retries=arm.max_retries)
     kwargs: dict[str, Any] = {
         "model": arm.model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],

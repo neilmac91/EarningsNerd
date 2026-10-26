@@ -292,5 +292,39 @@ def test_the_withheld_list_is_read_in_either_form(semantics: Any) -> None:
     assert semantics._withheld({}) == set()
 
 
+# --- Flag classes (review 8 measures [0]) ------------------------------------------------------------------------------
+
+def _flag_class(semantics: Any, text: str, claim: str, pack: dict[str, Any]) -> str:
+    item = {"sentence": factcheck.CITATION_RE.sub("", text).strip(), "claim": claim, "label": "mismatch"}
+    return semantics.classify_flag(item, [{"section": "margins", "type": "comparison", "text": text}], pack, 2)
+
+
+@pytest.mark.parametrize("wording", ["sat 4.3pp above the 22.7% operating margin", "exceeded the 22.7% operating margin by 4.3pp"])
+def test_a_cited_gap_and_its_two_margins_are_one_quantity(semantics: Any, wording: str) -> None:
+    # PG FY2026 on packs-v2: D693 is net margin F50 (18.44%) less operating margin F30 (22.69%), -4.25pp, which the gate
+    # also builds from the two margins ("pp F50-F30"). C's prompt asks for all three IDs, K0's packs/ offers the two.
+    new, old = _load("packs-v2", "PG"), _load("packs", "PG")
+    assert new["values"]["D693"]["inputs"] == ["F50", "F30"]
+    text = f"In FY2026 net margin of 18.4% {wording}"
+    assert [_flag_class(semantics, f"{text} {ids}.", "4.3pp", pack)
+            for ids, pack in (("[F50][F30][D693]", new), ("[F50][F30]", new), ("[F50][F30]", old))] == ["substantive"] * 3
+
+
+@pytest.mark.parametrize("gap, inputs, expected", [
+    (5.0, ["F1", "F2"], "substantive"),  # the difference of its two inputs: one quantity
+    (5.04, ["F1", "F2"], "ambiguous"),   # the same inputs, another value: two quantities that both print as 5.0pp
+    (5.0, ["F1", "F3"], "ambiguous"),    # the same value, other inputs: not the calculation the gate built
+])
+def test_only_a_derived_value_equal_to_the_calculation_of_its_inputs_merges(semantics: Any, gap: float, inputs: list[str],
+                                                                          expected: str) -> None:
+    values = {"F1": ("Net margin", "pct", 10.0), "F2": ("Operating margin", "pct", 5.0), "F3": ("Gross margin", "pct", 5.0),
+              "D1": ("Net margin minus operating margin (pp, same year)", "pp", gap)}
+    pack = {"values": {vid: {"id": vid, "label": label, "period": "FY2025", "unit": unit, "value": value}
+                       for vid, (label, unit, value) in values.items()}, "passages": [], "red_flags": []}
+    pack["values"]["D1"]["inputs"] = inputs
+    assert _flag_class(semantics, "Net margin of 10.0% was 5.0pp above the 5.0% operating margin [F1][F2][D1].", "5.0pp",
+                       pack) == expected
+
+
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:
     assert "evals.trend_depth.bootstrap" not in sys.modules

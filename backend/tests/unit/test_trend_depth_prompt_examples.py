@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth import autocite, factcheck
+from evals.trend_depth import factcheck, retype
 from evals.trend_depth.factcheck import Claim
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -65,7 +65,7 @@ def examples(paragraph: str) -> tuple[list[Claim], list[str]]:
     for quoted in _EXAMPLE.finditer(paragraph):
         example = " ".join((quoted.group(1) if quoted.group(1) is not None else quoted.group(2)).split())
         figures += [c for c in factcheck.parse_claims(example) if c.unit not in ("plain", "count", "multiple")]
-        ids += autocite.citations(example)
+        ids += retype.citations(example)
     return figures, ids
 
 

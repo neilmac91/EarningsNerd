@@ -23,8 +23,11 @@ record awaiting its repair counts as an analysis that did not pass without one (
 Every arm is also scored on the measures of DEEPSEEK-ERRORS.md §3 (``arm_measures``, in ``summary.json`` under each
 split's ``measures``), beside §3's target for the candidate, and every item they count is listed for hand reading.
 A record made with ``generate --pipeline v2`` (``pipeline: "v2"``) adds the repair area's fields: the gate on the
-model's own first output (``raw_first_pass_gate``), the IDs the code added (``autocite``), the sentences it retyped
-(``retyped``) and the repair's kind (``repair_kind``). A record without them is version 1 (eval-v1 and earlier).
+model's own first output (``raw_first_pass_gate``), the sentences the code retyped (``retyped``) and the repair's kind
+(``repair_kind``). A record without them is version 1 (eval-v1 and earlier). A version-2 record made before
+auto-citation was removed also carries ``autocite``, which no measure reads: a figure stated without its own ID is a
+first-try gate error of the model's own output, whatever the code then did with it. Its build is another
+("v2 with auto-citation", ``records.pipeline_of``), so pooling it with the version 2 of now is warned.
 Every measure is on one basis for every record and arm, and reads the pack the arm read but where stated:
 
 - passes without a model repair count what each arm's own pipeline did: a failed generation, and a record whose
@@ -69,8 +72,8 @@ from evals.trend_depth.generate import RUNS, SECTION_KEYS, load_pack, sentences_
 from evals.trend_depth.judge import CRITERIA, _family
 from evals.trend_depth.providers import ARMS, packs_dir, parse_json_object
 from evals.trend_depth.records import (
-    api_cost, awaiting_repair, first_reads, first_request_cache, output_sha256, pack_sha256, prefix_key, quantile,
-    read_same_output, shared_prefixes, text_sha256, unsettled, warm_first_attempts,
+    api_cost, awaiting_repair, first_reads, first_request_cache, output_sha256, pack_sha256, pipeline_of, prefix_key,
+    quantile, read_same_output, shared_prefixes, text_sha256, unsettled, warm_first_attempts,
 )
 from evals.trend_depth.semantics import classify_flag
 
@@ -323,8 +326,8 @@ def broken_debt_repair(record: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def first_output(record: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """The model's first output, before any code fix or repair. A version-1 record's is its first pass (its output
-    when no repair ran). A version-2 record's first pass carries the code's fixes, so its first valid reply is read
+    """The model's first output, before the code's retyping or any repair. A version-1 record's is its first pass (its
+    output when no repair ran). A version-2 record's first pass carries the retyping, so its first valid reply is read
     from its attempts instead; None if none parses."""
     if record.get("pipeline") != "v2":
         first = record.get("first_pass_output")
@@ -414,7 +417,7 @@ def build(record: dict[str, Any], pack: Optional[dict[str, Any]]) -> str:
         state = "" if record["pack_sha256"] == pack_sha256(pack) else " (an earlier build)"
     else:  # eval-v1 and dev-v4, held to the dataset's snapshot (records.same_inputs)
         state = " (no pack hash)" if record.get("snapshot_id") == pack.get("snapshot_id") else " (another snapshot)"
-    return f"{record.get('pipeline', 'v1')} · prompt {str(record.get('prompt_sha256') or 'unhashed')[:8]} · {folder}{state}"
+    return f"{pipeline_of(record)} · prompt {str(record.get('prompt_sha256') or 'unhashed')[:8]} · {folder}{state}"
 
 
 def _reference_pack(ticker: str) -> Optional[dict[str, Any]]:
@@ -455,8 +458,8 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
 
     - A failed generation (the model's own outcome: invalid replies, or a refusal) is an analysis that did not pass.
     - A record awaiting its repair (``records.awaiting_repair``) did not pass either: generate repairs only a first
-      pass that failed the gate. Its first output is final, so the first-output measures (first-try errors, own-ID
-      omissions, retypes, the old gate's first try) score it; its final output is not, so the final-output measures
+      pass that failed the gate. Its first output is final, so the first-output measures (first-try errors, retypes,
+      the old gate's first try) score it; its final output is not, so the final-output measures
       (mislabels, calibration, broken net cash, form, audits) wait for it. Left out, a provider outage during the
       repairs removed exactly the failing analyses: eval-v1's DeepSeek read 13 of 13 instead of 13 of 20.
     - A provider error (``error``) has no output yet: it is left out until generate makes it, and counted.
@@ -584,7 +587,6 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
     # Two bases, each the same for every arm: the probes alone over every output (P and Q have no Opus audit), and
     # the probes with Opus's flags over the outputs Opus read (§3's target), never one beside the other in one row.
     audited = {key for key in sentences if key[0] in opus_read}
-    autocite = [r.get("autocite") or {} for r in v2]
     in_scope = [d for d in debt if d["state"] is not None]
     n = len(ok)
     return {
@@ -601,9 +603,6 @@ def arm_measures(label: str, system: str, records: list[dict[str, Any]], stats: 
                                  and not (r.get("raw_first_pass_gate") or {}).get("passed", True)),
         "first_try_scored": first_scored, "first_try_errors": len(first_gate), "first_try_failures": first_gate,
         "first_try_backstops": len(first_backstops), "first_try_backstop_hits": first_backstops, "first_try_as_run": as_run,
-        "own_id_omissions": sum(len(a.get("added", [])) for a in autocite),
-        "autocite_rejected": sum(int(a.get("rejected") or 0) for a in autocite),
-        "autocite_added": [{"ticker": r["ticker"], **added} for r in v2 for added in (r.get("autocite") or {}).get("added", [])],
         "retyped": [{"ticker": r["ticker"], **change} for r in v2 for change in r.get("retyped") or []],
         "verified_claims": sum(verified.values()), "mislabels": len(sentences), "mislabel_claims": len(mislabels),
         "probe_mislabels": len(by_source["probe"]), "opus_mislabels": len(by_source[OPUS]),
@@ -1001,7 +1000,7 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
           "failed the gate; re-run generate)", "0", owed, f"{owed} of {tried}")
     count("Generations awaiting generate (a provider error: no output yet, so in no row until generate makes it)", "0",
           errors, str(errors))
-    ratio("of which passed after the code's fixes (version 2 records)", "—", m["code_fixed_passes"], n2, 100,
+    ratio("of which passed after the code's retyping (version 2 records)", "—", m["code_fixed_passes"], n2, 100,
           lambda v: f"{m['code_fixed_passes']} of {n2}", _percent)
     alone, sent = len(m.get("repairs_for_broken_debt_alone", [])), m.get("repairs_sent_or_owed", 0)
     count("Repairs sent for broken net cash alone (the gate's broken_debt backstop reads the arm's own pack's breaks, and "
@@ -1012,9 +1011,6 @@ def measure_rows(m: dict[str, Any]) -> list[Row]:
           "(subtract gate artefacts by hand)", "0.15 or less", e, scored, 1, lambda v: f"{v:.2f} ({e} in {scored} first outputs)", _two)
     ratio("First-try backstop hits per analysis: claims the backstops fail beyond the gate's (broken net cash apart)",
           "— (each a repair under --pipeline v2)", b, scored, 1, lambda v: f"{v:.2f} ({b} in {scored} first outputs)", _two)
-    a = m["own_id_omissions"]
-    ratio("Own-ID omissions per analysis (IDs the code added)", "— (counted before auto-citation)", a, n2, 1,
-          lambda v: f"{v:.2f} ({a} in {n2}; {m['autocite_rejected']} rejected)", _two)
     probe, claims = m["probe_mislabels"], m["verified_claims"]
     ratio("Mislabelled sentences per 1,000 verified claims, probes R1, R2a, R2c and R3 alone, every output (a sentence "
           "stating broken net cash is counted there instead)", "— (the basis every arm shares: P and Q have no Opus audit)",
@@ -1168,8 +1164,6 @@ def hand_reading(system: str, m: dict[str, Any]) -> list[str]:
         ("First-try backstop hits (beyond the gate's failures; broken net cash apart)",
          [f"{h['ticker']} [{h.get('section', '')}] {' + '.join(h['kinds'])} '{h['claim']}': {_quote(h['sentence'])} "
           f"({'; '.join(h['detail'])})" for h in m["first_try_backstop_hits"]]),
-        ("IDs the code added (own-ID omissions)", [f"{a['ticker']} [{a.get('section', '')}] {a.get('claim', '')} -> {a.get('id', '')}: "
-                                                    f"{_quote(a.get('sentence', ''))}" for a in m["autocite_added"]]),
         ("Sentences the code retyped", [f"{r['ticker']} [{r.get('section', '')}] {r.get('from', '')} -> {r.get('to', '')}: "
                                         f"{_quote(r.get('sentence', ''))}" for r in m["retyped"]]),
         ("Mislabels, each claim (probes R1, R2a, R2c, R3 and Opus substantive flags; a sentence counts once)",

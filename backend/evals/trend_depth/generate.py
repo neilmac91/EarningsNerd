@@ -17,14 +17,15 @@ second failure is recorded as a failed generation, never repaired by hand.
 ``--pipeline`` picks what happens between the first pass and the gate's verdict. ``v1`` (the default) is eval-v1's
 procedure, the gate and then one full repair if it failed, under the gate as it is now: fix 7's narrowings changed
 some verdicts, so a v1 run does not repeat eval-v1's repair decisions (``replay.py`` and the report's old gate give
-eval-v1's own verdicts). ``v2`` (DEEPSEEK-ERRORS.md fixes 1, 2, 5 and 13):
+eval-v1's own verdicts). ``v2`` (DEEPSEEK-ERRORS.md fixes 2, 5 and 13; fix 1, auto-citation, was removed, as
+``retype.py`` says why):
 
 - the user message opens with a short nonce of the analysis (``analysis_nonce``: label, arm, ticker), recorded as
   ``nonce``, so no first request reads an earlier run's pack from DeepSeek's prompt cache, as a company's first
   analysis in production would not; its repair repeats the message, nonce included;
 - the gate on the model's own output is kept as ``raw_first_pass_gate``; code retypes figures-only ``cause``
-  sentences that cite no passage (``retyped``) and appends a figure's missing ID where exactly one fits
-  (``autocite``, both in ``autocite.py``); the gate with its backstops then decides;
+  sentences that cite no passage (``retyped``), and the gate with its backstops then decides (``retype.first_pass``).
+  No code adds an ID: a figure stated without its own one fails the gate and goes to the repair;
 - a repair, only if failures remain, asks for patches to the failed sentences alone, says what each cited ID
   holds, and never asks for "the cited value"; code applies the patches, keyed on each sentence's text, so every
   other sentence stays byte for byte. A patch list that is invalid or does not apply falls back to the full repair
@@ -54,10 +55,12 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from evals.trend_depth import bootstrap
-from evals.trend_depth import autocite, factcheck, render
+from evals.trend_depth import factcheck, render, retype
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.providers import ARMS, call, max_tokens_for, packs_dir, parse_json_object, prompt_path
-from evals.trend_depth.records import pack_sha256, read_same_output, same_inputs, unsettled, write_json, write_text
+from evals.trend_depth.records import (
+    pack_sha256, pipeline_of, read_same_output, same_inputs, unsettled, write_json, write_text,
+)
 
 # TREND_DEPTH_PROMPT points the candidate arms at a draft without touching the checked-in candidate mid-run; an arm
 # pinned to the frozen prompt ignores it (providers.prompt_path).
@@ -166,7 +169,7 @@ class GenerationError(RuntimeError):
 async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag: str = "",
                             checkpoint: Optional[Callable[[dict[str, Any]], None]] = None,
                             pipeline: str = "v1", label: str = "") -> dict[str, Any]:
-    """One analysis: up to two attempts at valid JSON, then the gate (under ``v2``, after the code fixes), then one
+    """One analysis: up to two attempts at valid JSON, then the gate (under ``v2``, after the code's retyping), then one
     repair if it failed. ``checkpoint`` is handed what is already paid for before each further call is sent, so a
     run stopped mid-call (Ctrl-C, a kill) loses nothing paid: the first attempt, as an interrupted generation,
     before the JSON retry; the first pass, marked as owed its repair, before the repair (and again before a
@@ -236,15 +239,15 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
 
 
 def fix_first_pass(record: dict[str, Any], pack: dict[str, Any]) -> None:
-    """Version 2 before any repair: the gate on the model's own output (``raw_first_pass_gate``), fix 5's retyping
-    and fix 1's auto-citation by code, then the gate with its backstops on what they leave."""
+    """Version 2 before any repair: the gate on the model's own output (``raw_first_pass_gate``), then fix 5's
+    retyping by code and the gate with its backstops on what it leaves (``retype.first_pass``, the function the
+    code-only replay runs). A record made before fix 1 was removed also carries ``autocite``, which marks it as
+    another build (``records.pipeline_of``); none made now does."""
     parsed = record["output"]
     record["raw_first_pass_gate"] = factcheck.check(sentences_of(parsed), pack, backstops=True)
-    fixed, record["retyped"] = autocite.retype(parsed, pack)
-    fixed, record["autocite"] = autocite.autocite(fixed, pack)
+    fixed, record["retyped"], record["gate"] = retype.first_pass(parsed, pack)
     record["output"] = fixed
     record["words"] = word_count(fixed)
-    record["gate"] = factcheck.check(sentences_of(fixed), pack, backstops=True)
 
 
 async def repair_or_mark(arm: Any, system: str, user: str, record: dict[str, Any], pack: dict[str, Any], tag: str,
@@ -315,7 +318,7 @@ def failure_listing(failures: list[dict[str, Any]], pack: dict[str, Any]) -> str
     for (section, sentence), found in grouped.items():
         lines = [f"- [{section}] {sentence}", *(f"  Failed: {f}" for f in found)]
         if any("matches nothing" in f for f in found):
-            ids = dict.fromkeys(autocite.citations(sentence))
+            ids = dict.fromkeys(retype.citations(sentence))
             lines.append("  The IDs it cites: " + ("; ".join(_cited(i, pack) for i in ids) if ids else "none"))
             lines.append("  If the number you meant is not in the pack, delete it; never replace it with a cited value "
                          "of a different metric or year.")
@@ -451,11 +454,11 @@ def retype_escapes(failures: list[dict[str, Any]], replaced: dict[tuple[str, str
         if failure["failure"] != NO_PASSAGE:
             continue
         for sentence in replaced.get((failure["section"], failure["sentence"].strip()), []):
-            word = autocite.explanatory(sentence["text"])
+            word = retype.explanatory(sentence["text"])
             escape = {"section": failure["section"], "sentence": sentence["text"], "type": sentence.get("type"),
                       "failure": f"retyped from cause without a passage but keeps its explanatory '{word}' clause"}
             if (sentence.get("type") in ("fact", "comparison") and word and escape not in out
-                    and not any(i in passages for i in autocite.citations(sentence["text"]))):
+                    and not any(i in passages for i in retype.citations(sentence["text"]))):
                 out.append(escape)
     return out
 
@@ -563,7 +566,7 @@ def label_conflicts(label: str, arm_names: list[str], pipeline: str) -> list[str
             record = json.loads(path.read_text())
             if "prompt_sha256" not in record or "error" in record:
                 continue
-            where, made_with = f"{label}/{arm_name}/{path.stem}", record.get("pipeline", "v1")
+            where, made_with = f"{label}/{arm_name}/{path.stem}", pipeline_of(record)
             if made_with != pipeline:
                 out.append(f"{where} was made with pipeline {made_with}, not {pipeline}")
             if record["prompt_sha256"] != prompt_sha:
@@ -657,8 +660,8 @@ def copy_systems(source: str, label: str, systems: list[str], tickers: list[str]
                     raise SystemExit(f"{record_path}: window {record.get('window')} is not the pack's {pack['window']}")
             elif not same_inputs(record, prompt_sha, pack):
                 raise SystemExit(f"{record_path} was generated from another prompt or evidence pack; generate it instead")
-            elif record.get("pipeline", "v1") != pipeline:
-                raise SystemExit(f"{record_path} was made with pipeline {record.get('pipeline', 'v1')}, not {pipeline}; "
+            elif pipeline_of(record) != pipeline:
+                raise SystemExit(f"{record_path} was made with pipeline {pipeline_of(record)}, not {pipeline}; "
                                  "generate it instead")
             units.append((system, ticker))
     same: set[tuple[str, str]] = set()
@@ -698,7 +701,7 @@ def main() -> None:
     parser.add_argument("--copy-from", default="", help="copy these arms' outputs, audits and mutual verdicts from "
                                                        "another label instead of generating them")
     parser.add_argument("--pipeline", default="v1", choices=PIPELINES,
-                        help="v1: the gate, then one full repair (eval-v1); v2: code fixes, the gate with backstops, a patch repair")
+                        help="v1: the gate, then one full repair (eval-v1); v2: retyping, the gate with backstops, a patch repair")
     args = parser.parse_args()
     tickers = args.tickers.split(",") if args.tickers else [
         c.ticker for c in eval_companies(None if args.split == "all" else args.split)
