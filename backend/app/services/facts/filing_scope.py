@@ -57,10 +57,13 @@ def _series_units(rows: list[FinancialFact]) -> dict[str, set[str]]:
 
 
 def _lines_reaching(rows: list[FinancialFact], period_end: date | datetime | None) -> set[str]:
-    """The concepts whose line has a row at the filing's own period end, within a 52/53-week calendar's
-    drift (``fiscal_naming.DRIFT_DAYS``): ``Filing.period_end_date`` is the period of report EDGAR's
-    submissions index gives (``reportDate``), not a date read from the XBRL contexts the rows came from.
-    A filing with no period end on record has no line known to reach it."""
+    """The concepts whose line has a row at the filing's own period end. ``Filing.period_end_date`` is the
+    period of report EDGAR's submissions index gives (``reportDate``), not a date read from the XBRL
+    contexts the rows came from. The two name the same day in nearly every report; the year-end slack
+    ``fiscal_naming.DRIFT_DAYS`` absorbs the odd one a day off and stays well inside the quarter between
+    a 10-Q's period end and the prior year-end balance it holds. Counted in days, never calendar years:
+    a year ending by September and its first quarter end in one calendar year. A filing with no period
+    end on record has no line known to reach it."""
     if period_end is None:
         return set()
     end = period_end.date() if isinstance(period_end, datetime) else period_end

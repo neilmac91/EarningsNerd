@@ -361,17 +361,25 @@ def test_a_line_short_of_the_reports_own_year_charts_only_the_reports_own_rows(d
 
 
 @pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
-def test_an_interim_report_charts_no_annual_line(db, sync_first):
+@pytest.mark.parametrize("year_end,quarter,filed", [
+    ("12-31", ("2025-01-01", "2025-03-31"), ("2025-02-15", "2025-05-01")),
+    ("09-28", ("2024-09-29", "2024-12-28"), ("2024-11-01", "2025-01-31")),
+], ids=["december-year", "september-year"])
+def test_an_interim_report_charts_no_annual_line(db, sync_first, year_end, quarter, filed):
     """A 10-Q's comparative balance is the prior year-end's. The sync labels that instant FY and stores
     it under the 10-Q's accession while the 10-Q filed it last; the per-filing writer stores no FY row
     for an interim report, so that row holds none of its cells, and its line ends a quarter before the
-    10-Q's own period: the 10-Q's page shows no annual chart."""
+    10-Q's own period: the 10-Q's page shows no annual chart. For a year ending by September (Apple's
+    first quarter ends in the December after it) both dates fall in one calendar year: only the
+    distance in days keeps the line short of the 10-Q's period."""
     company = _company(db)
-    annual = _calendar(company)[2024]
-    common = {"accn": _accession(company, 2025, 40), "fy": 2025, "fp": "Q1", "form": "10-Q", "filed": "2025-05-01",
+    prior = f"2024-{year_end}"  # the year end the 10-K reports and the 10-Q compares with
+    annual = _report(_accession(company, 2025), 2024, year_end=year_end, filed=filed[0], **{
+        REV: {2022: 2200.0, 2023: 2300.0, 2024: 2400.0}, "Assets": {2023: 23000.0, 2024: 24000.0}})
+    common = {"accn": _accession(company, 2025, 40), "fy": 2025, "fp": "Q1", "form": "10-Q", "filed": filed[1],
               "unit": "USD"}
-    interim = {REV: [{**common, "val": 330.0, "start": "2025-01-01", "end": "2025-03-31"}],
-               "Assets": [{**common, "val": 24000.0, "end": "2024-12-31"}, {**common, "val": 24100.0, "end": "2025-03-31"}]}
+    interim = {REV: [{**common, "val": 330.0, "start": quarter[0], "end": quarter[1]}],
+               "Assets": [{**common, "val": 24000.0, "end": prior}, {**common, "val": 24100.0, "end": quarter[1]}]}
     _filing(db, company, annual)
     filing = _filing(db, company, interim)
     steps = [lambda: _sync(db, company, annual, interim), lambda: _process(db, filing, interim)]
@@ -380,7 +388,7 @@ def test_an_interim_report_charts_no_annual_line(db, sync_first):
 
     [held] = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
                                                fiscal_period="FY").all()
-    assert (held.concept, held.period_end, held.filing_id) == ("total_assets", date(2024, 12, 31), None)
+    assert (held.concept, held.period_end, held.filing_id) == ("total_assets", date.fromisoformat(prior), None)
     assert _chart(db, filing) == {}
 
 
@@ -402,21 +410,27 @@ def test_a_report_with_no_period_end_on_record_charts_only_its_own_rows(db):
     assert chart["total_assets"] == _own(reports[2023], "Assets")[1:]
 
 
-def test_a_line_reaches_a_period_of_report_a_52_week_calendar_names_by_its_month_end(db):
-    """The period of report comes from EDGAR's submissions index, not from the XBRL contexts the rows
-    were read from, so for a 52/53-week filer the two can name different days of one year end: here
-    31 December for a year to Saturday 28 December."""
+@pytest.mark.parametrize("reported,reaches", [("2025-01-01", True), ("2025-02-15", False)],
+                         ids=["a-day-after", "the-filing-date"])
+def test_a_line_reaches_a_period_of_report_a_day_off_its_year_end(db, reported, reaches):
+    """The period of report is EDGAR's submissions ``reportDate``, not a date read from the XBRL contexts
+    the rows came from. The two name the same day in nearly every annual report, 52/53-week calendars
+    included. The odd one is a day apart, which still reaches, across a calendar year too: here
+    1 January for a year to 31 December. A filer that gave its filing date instead, weeks later, is
+    beyond any tolerance that keeps a 10-Q's prior year-end out: the report keeps its own rows only, as
+    before this reader (the newest report owns none)."""
     company = _company(db)
-    reports = _calendar(company, year_end="12-28")
+    reports = _calendar(company)
     filing = _filing(db, company, reports[2024])
-    filing.period_end_date = datetime(2024, 12, 31, tzinfo=timezone.utc)
+    filing.period_end_date = datetime.fromisoformat(reported).replace(tzinfo=timezone.utc)
     db.commit()
     _sync(db, company, *reports.values())
     _process(db, filing, reports[2024])
 
     chart = _chart(db, filing)
-    assert chart["revenue"] == _own(reports[2024], REV)
-    assert chart["total_assets"] == _own(reports[2024], "Assets")
+    assert chart == ({"revenue": _own(reports[2024], REV), "net_income": _own(reports[2024], "NetIncomeLoss"),
+                      "net_margin": _margins(filing, (2022, 2023, 2024), 10.0),
+                      "total_assets": _own(reports[2024], "Assets")} if reaches else {})
 
 
 def test_another_companys_rows_under_the_same_accession_stay_out(db):
