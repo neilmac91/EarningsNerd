@@ -1,48 +1,204 @@
-"""Tests for orphaned/stalled summary-generation progress handling (roadmap Q7).
+"""Orphaned or stalled summary-generation progress (roadmap Q7, E215).
 
-Covers mark_stale_progress_as_error: a stuck non-terminal progress row is flipped to a
-retryable 'error' state, while recent and terminal rows are left untouched.
+Fire-and-forget background generation can die without writing a terminal stage. The progress poll,
+``summary_generation_service.progress_poll_answer`` (``GET /api/summaries/filing/{id}/progress``), marks a
+row whose stage is not terminal and whose last write is older than ``STALE_PROGRESS_SECONDS`` a retryable
+error, so the reader is not left waiting on a run that will not finish. ``progress_is_stalled`` checks the
+row the poll read, and ``mark_stale_progress_as_error`` marks it in one UPDATE by filing on the same
+criteria.
+
+Before E215 the poll flipped the row it had read in memory and committed. A clear landing between the read
+and the commit (an admin reset, say) left that UPDATE matching no row, and the poll answered 500
+(``StaleDataError``); a write landing there (a new run's first, or the run's own last) was overwritten with
+the stall's error. Each race here runs the other write, committed in a session of its own, just before the
+poll's UPDATE. The service's clock is pinned, so a row's age is exact, and a seeded row starts 600 s before
+its last write, so a check of the start instead of the last write shows.
+``tests/integration/test_summary_progress_transactions.py`` runs the races, and a write that holds the row
+while the mark waits, on PostgreSQL.
 """
-from datetime import timedelta
+import re
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
 
-from app.models import SummaryGenerationProgress
+from app.database import Base, SessionLocal
+from app.models import Company, Filing, SummaryGenerationProgress
+from app.services import summary_generation_service
 from app.services.summary_generation_service import (
     STALE_PROGRESS_SECONDS,
+    STALLED_ERROR,
     mark_stale_progress_as_error,
+    progress_is_stalled,
+    progress_poll_answer,
 )
-from app.utils.datetimes import utcnow
+
+# The poll's one write: the stale mark's UPDATE.
+MARK = re.compile(r"\s*UPDATE summary_generation_progress\b")
+# The service's clock in every case, pinned so a row's age is exact.
+NOW = datetime(2026, 10, 26, 6, 0, tzinfo=timezone.utc)
+STALLED = STALE_PROGRESS_SECONDS + 3600
 
 
-def _progress(stage: str, age_seconds: float) -> SummaryGenerationProgress:
-    ts = utcnow() - timedelta(seconds=age_seconds)
-    return SummaryGenerationProgress(
-        filing_id=1,
-        stage=stage,
-        started_at=ts,
-        updated_at=ts,
-        elapsed_seconds=age_seconds,
-    )
+@pytest.fixture(autouse=True)
+def pinned_clock(monkeypatch):
+    monkeypatch.setattr(summary_generation_service, "utcnow", lambda: NOW)
 
 
-def test_stale_non_terminal_row_is_flipped_to_error():
-    progress = _progress("fetching", STALE_PROGRESS_SECONDS + 60)
-    changed = mark_stale_progress_as_error(progress)
-    assert changed is True
-    assert progress.stage == "error"
-    assert "retry" in (progress.error or "").lower()
+def _progress(stage: str, age_seconds: float, filing_id: int = 1) -> SummaryGenerationProgress:
+    last_write = NOW - timedelta(seconds=age_seconds)
+    return SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=last_write - timedelta(seconds=600),
+                                     updated_at=last_write, elapsed_seconds=600.0)
 
 
-def test_recent_non_terminal_row_is_left_alone():
-    progress = _progress("analyzing", 5)
-    changed = mark_stale_progress_as_error(progress)
-    assert changed is False
-    assert progress.stage == "analyzing"
+def test_a_non_terminal_row_past_the_cutoff_is_stalled():
+    assert progress_is_stalled(_progress("fetching", STALE_PROGRESS_SECONDS + 1)) is True
+
+
+def test_a_row_written_within_the_cutoff_is_not_stalled():
+    # Its start is past the cutoff, its last write is not.
+    assert progress_is_stalled(_progress("analyzing", STALE_PROGRESS_SECONDS)) is False
 
 
 @pytest.mark.parametrize("terminal_stage", ["completed", "error", "partial"])
-def test_terminal_rows_are_never_touched(terminal_stage):
-    progress = _progress(terminal_stage, STALE_PROGRESS_SECONDS + 600)
-    assert mark_stale_progress_as_error(progress) is False
-    assert progress.stage == terminal_stage
+def test_a_terminal_row_is_never_stalled(terminal_stage):
+    assert progress_is_stalled(_progress(terminal_stage, STALLED)) is False
+
+
+@pytest.fixture
+def engine(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'progress.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
+def _session(engine):
+    """A session with production's settings (``SessionLocal``'s) on this case's engine."""
+    return sessionmaker(**{**SessionLocal.kw, "bind": engine})()
+
+
+@pytest.fixture
+def filing_id(engine) -> int:
+    with _session(engine) as db:
+        company = Company(cik="0000000215", ticker="STLL", name="Stalled Progress")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000215-26-000001", filing_type="10-K",
+                        filing_date=NOW, sec_url="https://example.test/filing/",
+                        document_url="https://example.test/filing.htm")
+        db.add(filing)
+        db.commit()
+        return filing.id
+
+
+def _seed(engine, filing_id, *, stage, age_seconds):
+    with _session(engine) as db:
+        db.add(_progress(stage, age_seconds, filing_id))
+        db.commit()
+
+
+def _row(engine, filing_id):
+    with _session(engine) as db:
+        row = db.get(SummaryGenerationProgress, filing_id)
+        return None if row is None else {"stage": row.stage, "error": row.error}
+
+
+def _poll(engine, filing_id):
+    with _session(engine) as db:
+        return progress_poll_answer(db, filing_id)
+
+
+@contextmanager
+def _statements(engine):
+    """Yield the statements the engine runs inside the block."""
+    ran: list[str] = []
+
+    def before(conn, cursor, statement, parameters, context, executemany):
+        ran.append(statement)
+
+    event.listen(engine, "before_cursor_execute", before)
+    try:
+        yield ran
+    finally:
+        event.remove(engine, "before_cursor_execute", before)
+
+
+@contextmanager
+def _just_before_the_mark(engine, other_write):
+    """Run ``other_write`` once, committed in a session of its own, just before the mark's UPDATE; yields the
+    statements it ran before, so a case can check that it ran."""
+    ran: list[str] = []
+
+    def before(conn, cursor, statement, parameters, context, executemany):
+        if not ran and MARK.match(statement):
+            ran.append(statement)
+            with _session(engine) as other:
+                other_write(other)
+                other.commit()
+
+    event.listen(engine, "before_cursor_execute", before)
+    try:
+        yield ran
+    finally:
+        event.remove(engine, "before_cursor_execute", before)
+
+
+def test_the_poll_marks_a_stalled_row_and_answers_the_error(engine, filing_id):
+    _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
+    answer = _poll(engine, filing_id)
+    assert (answer["stage"], answer["error"]) == ("error", STALLED_ERROR)
+    assert _row(engine, filing_id) == {"stage": "error", "error": STALLED_ERROR}
+
+
+def test_the_poll_answers_a_live_row_without_writing(engine, filing_id):
+    _seed(engine, filing_id, stage="analyzing", age_seconds=5)
+    with _statements(engine) as ran:
+        answer = _poll(engine, filing_id)
+    assert (answer["stage"], answer["error"]) == ("analyzing", None)
+    assert not [statement for statement in ran if MARK.match(statement)]
+
+
+@pytest.mark.parametrize("stage", ["analyzing", "completed", "error", "partial"])
+@pytest.mark.parametrize("age_seconds", [STALE_PROGRESS_SECONDS, STALE_PROGRESS_SECONDS + 1])
+def test_the_mark_matches_the_rows_the_check_calls_stalled(engine, filing_id, stage, age_seconds):
+    """The UPDATE's criteria are the check's, at the cutoff and on each terminal stage."""
+    _seed(engine, filing_id, stage=stage, age_seconds=age_seconds)
+    stalled = progress_is_stalled(_progress(stage, age_seconds))
+    with _session(engine) as db:
+        assert mark_stale_progress_as_error(db, filing_id) is stalled
+        db.commit()
+    assert _row(engine, filing_id)["stage"] == ("error" if stalled else stage)
+
+
+def test_a_clear_just_before_the_mark_answers_pending(engine, filing_id):
+    _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
+
+    def clear(other):
+        other.query(SummaryGenerationProgress).filter(
+            SummaryGenerationProgress.filing_id == filing_id).delete(synchronize_session=False)
+
+    with _just_before_the_mark(engine, clear) as ran:
+        answer = _poll(engine, filing_id)
+    assert ran, "the clear did not run before the mark"
+    assert answer == {"stage": "pending", "elapsedSeconds": 0}
+    assert _row(engine, filing_id) is None
+
+
+@pytest.mark.parametrize(("stage", "error"), [
+    ("fetching", None),  # a new run's first write
+    ("error", "Pipeline timeout"),  # the run's own last write
+])
+def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, stage, error):
+    _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
+
+    def write(other):
+        summary_generation_service.record_progress(other, filing_id, stage, error=error)
+
+    with _just_before_the_mark(engine, write) as ran:
+        answer = _poll(engine, filing_id)
+    assert ran, "the write did not run before the mark"
+    assert (answer["stage"], answer["error"]) == (stage, error)
+    assert _row(engine, filing_id) == {"stage": stage, "error": error}
