@@ -65,8 +65,9 @@ A change of more than one kind below takes the widest reading. Any of them adds
   - the recipe of each existing component or surface the change uses or edits, whatever its list.
     A recipe's name need not be its component's, so search §4's recipe block for the component's
     name: `<NarrativePane>` is under Analysis reading, `<PeriodPicker>` under Analysis periods,
-    `<SourceValue>` under Analysis evidence, `<ResultsHeader>` and the analysis page's results
-    column under Analysis results, `<SourceTrace>` under Provenance chip and
+    `<SourceValue>` under Analysis evidence, `<ResultsHeader>`, the analysis page's results
+    column and the Free teaser's preview (`<AnalysisTeaser>`, its module gaps) under Analysis
+    results, `<SourceTrace>` under Provenance chip and
     `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
     read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Analysis results,
     Callout, Chat composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example,

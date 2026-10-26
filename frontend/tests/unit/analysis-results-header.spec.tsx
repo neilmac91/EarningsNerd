@@ -188,4 +188,10 @@ describe('the sample surfaces', () => {
     expect(outsideNotes).not.toMatch(/as of/i)
     expect(notes).toHaveTextContent('sample data (one saved run)')
   })
+
+  it("the Free teaser's preview stands its modules as the page does: 16px apart on a phone, 24px from sm", () => {
+    const { container } = render(<AnalysisTeaser />)
+    const strip = container.querySelector('[data-analysis-kpi]')!.closest('[data-launcher-keep-clear]')!
+    expect(strip.parentElement).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
+  })
 })

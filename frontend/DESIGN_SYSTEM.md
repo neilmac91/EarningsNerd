@@ -523,8 +523,9 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
                  <Card elevation="none"> is the control level: the fill and the hairline with no shadow in either
                  theme, for an input area that is not content, today the analysis page's company and period form
-                 (§6; Analysis results). Set it through the prop, never a shadow-none class on top: cx does no
-                 tailwind-merge, so two shadow classes win by stylesheet order.
+                 (§6; Analysis results). Set it through the prop, never a shadow class on top: cx does no
+                 tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
+                 eslint.config.mjs fails a shadow class in a Card's className; designRules.spec.ts plants it).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -867,11 +868,12 @@ Analysis reflow  The page title and selected-company rows wrap. Narrative cards 
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
-Analysis results <ResultsHeader> and AnalysisPageClient's results column (MPA WP4b; coherence §4.4). Four
-                 levels: the ground (`background`) holds the page title, the results header and the disclaimer; the
-                 control level is the company and period form, <Card elevation="none"> (Card / panel, §6); the
-                 content level is one card per module (each KPI tile, each chart, the commentary, the metrics
-                 table), panel, hairline and shadow-e2 in light; overlays are the evidence Modal and the popovers.
+Analysis results <ResultsHeader>, AnalysisPageClient's results column and AnalysisTeaser's preview (MPA WP4b;
+                 coherence §4.4). Four levels: the ground (`background`) holds the page title, the results header and
+                 the disclaimer; the control level is the company and period form, <Card elevation="none"> (Card /
+                 panel, §6); the content level is one card per module (each KPI tile, each chart, the commentary,
+                 the metrics table), panel, hairline and shadow-e2 in light; overlays are the evidence Modal and the
+                 popovers.
                  The results are one <section aria-labelledby> named by the header, a p and not a heading, so each
                  module's heading stays an h2 under the page h1 (§5) and no level is renumbered. The header is one
                  line on the ground, no box, text-sm in the secondary ink: the company's display name

@@ -23,7 +23,8 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
  *       the focus an Escape close returns shows it); blur steps it aside again;
  *   (d) at rest right after Run it follows the same rule: as openAnalysis leaves the page, and with the results landing
  *       under it when the reader scrolled the form before Run, where only the page's growth (no scroll) reports it: a
- *       60px scroll lands the header there, its text where the launcher rested opaque before the header was marked;
+ *       60px scroll lands the header there, the strip more than 8px below, the header's text where the launcher rested
+ *       opaque before the header was marked;
  *   (e) the header's last line at the launcher's foot, the strip more than 8px below it: the launcher steps aside for
  *       the header alone, and the header's text takes the pointer where the launcher sits.
  * The strip and the header are found by their structure and their own attribute, never by the mark, so a region that
@@ -216,9 +217,12 @@ for (const theme of ['light', 'dark'] as const) {
       expect(traffic.unexpectedApi).toEqual([])
       expect(await page.evaluate(() => window.scrollY), 'no scroll after Run').toBe(60)
 
-      expect(meets(await boxOf(launcher(page)), await boxOf(header(page))), 'the header landed under the launcher').toBe(true)
+      const atRest = await boxOf(launcher(page))
+      expect(meets(atRest, await boxOf(header(page))), 'the header landed under the launcher').toBe(true)
+      // The strip lies outside the launcher's 8px, so the header's mark alone decides the yield.
+      expect(meets(atRest, await boxOf(strip(page))), 'the strip lies clear of the launcher').toBe(false)
       const covered = await expectStepsAside(page, 'the results mounted under the launcher')
-      expect(covered.figures + covered.text, 'the launcher covered a figure or the header\'s text').toBeGreaterThanOrEqual(1)
+      expect(covered.text, 'the launcher covered the header\'s text').toBeGreaterThanOrEqual(1)
     })
   })
 }
