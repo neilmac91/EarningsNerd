@@ -169,8 +169,8 @@ async def test_release_failure_in_cleanup_is_logged_and_the_lease_row_survives(c
 async def test_timeout_handler_survives_a_failing_error_progress_write(caplog):
     """A follower whose wait budget is exhausted takes the pipeline-timeout path: when the ``error``
     progress write raises, the ERROR is logged with a traceback, the timeout message is still the
-    only terminal, the funnel records STARTED then TIMED_OUT, and the active leader keeps its slot
-    and, since the write lands on its row, its clock (``starts_run=False``, E217)."""
+    only terminal, the funnel records STARTED then TIMED_OUT, and the active leader keeps its slot;
+    a follower's write keeps the row's clock (``starts_run=False``, E217)."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     leader = summary_pipeline._claim_inflight(filing_id)

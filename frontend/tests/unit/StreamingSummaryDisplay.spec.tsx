@@ -278,7 +278,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
     expect(screen.getByText('This filing could not be found.')).toBeInTheDocument()
-    expect(screen.queryByText(/\u2014/)).toBeNull()
+    expect(screen.queryByText('Filing not found')).toBeNull()
   })
 
   // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card

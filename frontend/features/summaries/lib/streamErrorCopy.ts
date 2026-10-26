@@ -5,8 +5,8 @@
  * services/ai/summary_finalize.py for the payload messages generation.py and finalize.py stream). They took the
  * product's words with E217's functional change there (F35, D-046, E92), so their lines map each sentence to
  * itself. Two keep the words the matchers below route on, the free monthly limit and Pro's fair-use pause, until
- * the error-code field lands (E31; E122 rewrites the pause), and the page maps each of them here, as it maps the
- * stream endpoint's own answers, instead of printing it. Only what the reader sees changes: the raw message is
+ * the error-code field lands (E31), and the page maps each of them here, as it maps the stream endpoint's own
+ * answers, instead of printing it. Only what the reader sees changes: the raw message is
  * still what decides the card (isPaywallStreamError) and the retry, automatic or offered
  * (isNonRetryableStreamError), so no matcher reads this map.
  *

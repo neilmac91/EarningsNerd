@@ -167,9 +167,10 @@ class GenerationRun:
     def error_starts_clock(self) -> bool:
         """Whether this run's error progress write starts the row's clock (E217): only a leader's, the run holding the
         filing's claim, before its fetch stage's write has returned, since the error is then the run's first write. A
-        follower's error goes to the row its live leader owns, and a run that failed before its claim (in ``load_filing``,
-        which runs before the in-flight registry is read) cannot tell whether a live leader in its own process owns the
-        row: both keep the clock, as does a leader whose fetch stage has written."""
+        follower's error goes to the row its live leader owns. A run that fails in ``load_filing``, before the in-flight
+        registry is read, cannot tell whether a live leader in its own process owns the row, and a run whose claim itself
+        raises holds no claim, which the rule goes by: all of them keep the clock, as does a leader whose fetch stage
+        has written."""
         return self.inflight_event is not None and not self.progress_clock_started
 
     # Metering point: a held admission lease becomes a counted unit when the provider request

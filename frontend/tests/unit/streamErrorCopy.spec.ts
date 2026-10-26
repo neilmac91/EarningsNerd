@@ -52,10 +52,10 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
  *     key's only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
- *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file's raw text for the character, so a dash
- *     spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
- *     radix, a const or arithmetic resolved to its value), an escape (`'\u2014'`, `` `\u{2014}` ``) or a
- *     JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX text or an attribute string). App source (every
+ *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads each literal's text, escapes decoded, for the character,
+ *     so a dash spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
+ *     radix, a const or arithmetic resolved to its value) or a JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX
+ *     text or an attribute string). This case reads escapes too (`'\u2014'`, `` `\u{2014}` ``). App source (every
  *     tracked script under app, components, features, hooks and lib) spells it no such way: streamErrorCopy.ts
  *     did, by char code, for the backend's em-dash keys, until the backend took the voice (E92). Out of reach: a
  *     code computed at run time from a value the file does not state.
@@ -598,11 +598,11 @@ describe('the summary stream error sentences the filing page maps', () => {
     // backend wrote it (the account check's since E45), so its own words are held here, read from the Python.
     const offVoice = endpointErrors()
       .map((answer) => ({ answer, shown: streamErrorCopy(answer.text) }))
-      .filter(({ shown }) => shown.includes(EM_DASH) || shown.includes('!') || !/^[A-Z].*[.…]$/.test(shown))
+      .filter(({ shown }) => shown.includes(EM_DASH) || shown.includes('!') || /\bplease\b/i.test(shown) || !/^[A-Z].*[.…]$/.test(shown))
       .map(({ answer, shown }) => `${answer.file}:${answer.line} ${answer.status} "${shown}"`)
     expect(
       offVoice,
-      'what the card prints for an endpoint answer reads as a sentence, with no em-dash and no exclamation mark: ' +
+      'what the card prints for an endpoint answer reads as a sentence, with no em-dash, no exclamation mark and no "please": ' +
         'reword the backend detail, or map it in STREAM_ERROR_COPY',
     ).toEqual([])
   })
@@ -612,7 +612,7 @@ describe('the summary stream error sentences the filing page maps', () => {
       .split('\n')
       .filter((rel) => /\.(?:[cm]?js|jsx|ts|tsx)$/.test(rel) && !/\.d\.ts$/.test(rel))
     expect(users.length, 'the walk found the app').toBeGreaterThan(300)
-    // By file and spelling, not line: the one allowed site may move within its file.
+    // By file and spelling, not line, so a failure names each site wherever it moves.
     const found = users.flatMap((rel) => hiddenDashes(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel)).map((site) => site.replace(/:\d+ /, ' '))
     expect(found, 'spell no displayed em-dash any way but the character; no-em-dash-copy.spec.ts cannot see the others').toEqual([])
     // Each spelling, planted; a code computed from a value the file does not state is out of reach.
@@ -645,6 +645,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     for (const [key, shown] of Object.entries(STREAM_ERROR_COPY)) {
       expect(shown, 'no em-dash in what the page shows').not.toContain(EM_DASH)
       expect(shown).not.toContain('!')
+      expect(shown, 'no "please" in what the page shows').not.toMatch(/\bplease\b/i)
       expect(shown).toMatch(/^[A-Z].*[.…]$/)
       expect(key, 'a key field is a bare {name}: a format spec or an expression never matches at runtime').not.toMatch(/\{(?!\w+\})/)
     }

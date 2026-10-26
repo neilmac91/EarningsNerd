@@ -5,10 +5,10 @@ run that failed before that write wrote only its error (``failure.timed_out``, `
 of the row an earlier run left: a leader that timed out waiting for a generation slot left the watchlist reading
 7,200 s beside its error on a two-hour-old row. ``GenerationRun.error_starts_clock`` now asks the writer to start the
 clock for a leader, the run holding the filing's claim, whose fetch stage's write has not returned. A follower's error
-goes to the row its live leader owns, and a run that failed before its claim (in ``load_filing``, which runs before the
-in-flight registry is read) cannot tell whether a live leader in its own process owns the row, so both keep the clock,
-as does a leader whose fetch stage has written. The error still marks a live leader's row as before; only the clock is
-this change's.
+goes to the row its live leader owns. A run that fails in ``load_filing``, before the in-flight registry is read, cannot
+tell whether a live leader in its own process owns the row, and a run whose claim itself raises holds no claim, which
+the rule goes by: all of them keep the clock, as does a leader whose fetch stage has written. The error still marks a
+live leader's row as before; only the clock is this change's.
 
 Each case drives the one orchestrator offline (``stream_boundaries``) with the real writer and reads the row after. The
 service's clock is pinned, so each elapsed time is exact; SQLite's date functions keep milliseconds, which the tolerance
@@ -24,7 +24,7 @@ import pytest
 
 from app import database
 from app.database import Base, SessionLocal, engine
-from app.models import SummaryGenerationProgress
+from app.models import FilingContentCache, SummaryGenerationProgress
 from app.services import summary_generation_service, summary_pipeline
 from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
 
@@ -56,6 +56,14 @@ def _seed(filing_id, *, stage, started_at, error=None):
         db.add(SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=started_at,
                                          updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0,
                                          error=error))
+        db.commit()
+
+
+def _seed_fresh_cache(filing_id):
+    """A content cache admission trusts (created now, so under its 24 hours), which the fetch stage reads instead of
+    fetching the filing."""
+    with SessionLocal() as db:
+        db.add(FilingContentCache(filing_id=filing_id, critical_excerpt="EXCERPT"))
         db.commit()
 
 
@@ -135,14 +143,18 @@ async def test_a_followers_error_keeps_the_live_leaders_clock(clock):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["provider_raises", "backstop_in_generation", "backstop_in_sec_fetch"])
+@pytest.mark.parametrize(
+    "failure", ["provider_raises", "provider_raises_from_cache", "backstop_in_generation", "backstop_in_sec_fetch"])
 async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, monkeypatch, failure):
     """A leader that fails 5 s after its fetch stage started the clock counts its error from that start: when its
-    provider raises (``failure.failed``), and when the backstop fires (``failure.timed_out``) as it waits for the
-    provider, or for SEC EDGAR's document between its fetch stage's write and its parsing stage's."""
+    provider raises (``failure.failed``), whether it fetched the filing from SEC EDGAR or read a fresh content cache
+    and fetched nothing, and when the backstop fires (``failure.timed_out``) as it waits for the provider, or for SEC
+    EDGAR's document between its fetch stage's write and its parsing stage's."""
     filing_id = seed_company_filing()
     _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
-    fire_backstop = None if failure == "provider_raises" else _backstop(monkeypatch)
+    if failure == "provider_raises_from_cache":
+        _seed_fresh_cache(filing_id)
+    fire_backstop = _backstop(monkeypatch) if failure.startswith("backstop") else None
 
     async def five_seconds_on(*args, **kwargs):
         clock.now = NOW + timedelta(seconds=5)
@@ -152,14 +164,16 @@ async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, 
         await asyncio.Event().wait()  # the run's release cancels this wait once the backstop has fired
 
     with stream_boundaries() as summarize:
+        sec_fetch = summary_pipeline.sec_edgar_service.get_filing_document
         if failure == "backstop_in_sec_fetch":
-            summary_pipeline.sec_edgar_service.get_filing_document.side_effect = five_seconds_on
+            sec_fetch.side_effect = five_seconds_on
         else:
             summarize.side_effect = five_seconds_on
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
+    assert sec_fetch.call_count == (0 if failure == "provider_raises_from_cache" else 1)
     assert summarize.call_count == (0 if failure == "backstop_in_sec_fetch" else 1)
-    expected = "provider down" if failure == "provider_raises" else "Pipeline timeout"
+    expected = "Pipeline timeout" if failure.startswith("backstop") else "provider down"
     assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), expected)
 
 

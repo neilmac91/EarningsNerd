@@ -285,13 +285,13 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings took the product's
   words with E217's functional change there (F35, D-046, E92), and the map holds each of them as itself. It
   still maps the stream endpoint's own answers and the two sentences the matchers route on, the free monthly
-  limit and Pro's fair-use pause, which keep their words until the error-code field (E31; E122 rewrites the
-  pause). The raw sentence still decides the paywall card and the retry, and
+  limit and Pro's fair-use pause, which keep their words until the error-code field (E31, D-065). The raw
+  sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,
-  `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, a dropped or closed
-  stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
+  `features/summaries/hooks/useSummaryGeneration.ts`: a status with no detail, an error frame with no
+  message of its own, a dropped or closed stream, the idle timeout, a failed summary read) are sentences in the voice, never the browser's
   or the API client's transport text, pinned path by path in `tests/unit/summaryStreamFallbacks.spec.tsx`.
   The error card offers its Retry only for a failure a retry can help (`isNonRetryableStreamError`,
   which also stops the stream's automatic retry): Pro's fair-use pause, a sign-in or a permission error
