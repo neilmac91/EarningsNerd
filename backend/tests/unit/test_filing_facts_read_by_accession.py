@@ -24,10 +24,14 @@ class, kind), holding the counts equal to ``ALLOWED``. A mention is:
   ``getattr(<model>, "filing_id")``, ``<model>.__table__.c["filing_id"]`` and ``.c.get("filing_id")``,
   and, in a module that names the model, a ``filing_id`` keyword to ``filter_by`` (spelled out or in a
   ``**{...}`` literal) and ``filing_id`` in a string handed to ``text``, ``column`` or ``literal_column``;
-* ``implicit_join``: in a module that names the model, a join with no onclause whose target is the
-  model or ``Filing`` (``join``/``outerjoin`` of one target, ``join_from``/``outerjoin_from`` of two,
-  each reached as above or through ``aliased(...)``). Without an onclause SQLAlchemy infers one from the
-  foreign keys, and ``filing_id`` is the model's one key to ``filings``: ``query(FinancialFact)
+* ``implicit_join``: in a module that names the model, a join with no onclause (none given, or
+  ``None``) among whose tables is the model or ``Filing``, each reached as above, through
+  ``aliased(...)`` or as its ``__table__``: the methods ``join``/``outerjoin`` (one table, by position or
+  as ``target``) and ``join_from``/``outerjoin_from`` (two); the functions ``join``/``outerjoin`` of
+  ``sqlalchemy`` or ``sqlalchemy.orm`` (two, by position or as ``left``/``right``), called by a bare
+  name or through an imported module; and a table's own ``.join``
+  (``FinancialFact.__table__.join(Filing.__table__)``). Without an onclause SQLAlchemy infers one from
+  the foreign keys, and ``filing_id`` is the model's one key to ``filings``: ``query(FinancialFact)
   .join(Filing)`` reads ``ON filings.id = financial_fact.filing_id`` with the column never named. A join
   that would infer another key is counted too; naming its onclause keeps it out;
 * ``relationship``: a ``relationship(...)`` declared on the model, or one whose target is the model
@@ -40,7 +44,9 @@ Named gaps, review-checked: a comparison of a loaded row's attribute (``row.fili
 read another way) or of a copied state's key (``state["filing_id"]``, the audited repairs' snapshots); a
 name built at run time (``getattr(FinancialFact, name)``, a ``**`` mapping that is not a literal); the
 model reached through a call (``type(row)``, ``inspect(FinancialFact)``, a ``relationship`` target given
-as a callable) or a name bound by anything but a plain assignment; and SQL outside Python
+as a callable) or a name bound by anything but a plain assignment; a join's tables or onclause passed
+by unpacking (``join(*tables)``), or a table reached through a name bound to it
+(``t = FinancialFact.__table__``) or a call (``table("financial_fact")``); and SQL outside Python
 (``ops/detection`` tests ownership only). ``test_the_scan_scores_every_planted_form`` scores the scan on
 planted forms and look-alikes.
 """
@@ -58,7 +64,10 @@ PARENT = "Filing"
 COLUMN = "filing_id"
 _SQL_CALLS = frozenset({"text", "column", "literal_column"})
 _NONE_TESTS = frozenset({"is_", "isnot", "is_not"})
-_JOINS = {"join": 1, "outerjoin": 1, "join_from": 2, "outerjoin_from": 2}  # call -> positional targets
+# call -> the tables its method form names before the onclause. The function form (``sqlalchemy.join``,
+# ``sqlalchemy.orm.outerjoin``) names one more first, the left table; a table's own ``.join`` is called on it.
+_JOINS = {"join": 1, "outerjoin": 1, "join_from": 2, "outerjoin_from": 2}
+_JOIN_TABLE_KEYWORDS = frozenset({"target", "left", "right", "from_"})
 _COLUMN_WORD = re.compile(rf"\b{COLUMN}\b")
 
 # (path from backend/, enclosing scope, kind) -> how many times. Each says why it selects no filing.
@@ -80,6 +89,18 @@ def _call_name(node: ast.Call) -> str | None:
 def _unaliased(node: ast.AST) -> ast.AST:
     """``aliased(<x>, ...)`` reads as ``<x>``."""
     return node.args[0] if isinstance(node, ast.Call) and _call_name(node) == "aliased" and node.args else node
+
+
+def _table(node: ast.AST) -> ast.AST:
+    """A join's table as the model it names: ``aliased(<x>, ...)`` and ``<x>.__table__`` read as ``<x>``."""
+    node = _unaliased(node)
+    return node.value if isinstance(node, ast.Attribute) and node.attr == "__table__" else node
+
+
+def _imported_names(tree: ast.AST) -> set[str]:
+    """The names a module binds by import: ``sa`` for ``import sqlalchemy as sa``, ``orm``, ``join``."""
+    return {(alias.asname or alias.name).split(".")[0] for node in ast.walk(tree)
+            if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
 
 
 def _model_names(tree: ast.AST, model: str = MODEL) -> set[str]:
@@ -124,6 +145,7 @@ class _Finder(ast.NodeVisitor):
     def __init__(self, tree: ast.AST) -> None:
         self.names = _model_names(tree)
         self.parents = _model_names(tree, PARENT)
+        self.modules = _imported_names(tree) - self.names - self.parents
         self.names_model = any(_is_model(node, self.names) for node in ast.walk(tree)
                                if isinstance(node, (ast.Name, ast.Attribute))) or any(
             isinstance(node, ast.ImportFrom) and any(alias.name == MODEL for alias in node.names)
@@ -135,6 +157,23 @@ class _Finder(ast.NodeVisitor):
     def _is_column(self, node: ast.AST) -> bool:
         return isinstance(node, ast.Attribute) and node.attr == COLUMN and (
             _is_model(node.value, self.names) or _is_column_collection(node.value, self.names))
+
+    def _implicit_join(self, node: ast.Call, name: str) -> bool:
+        """A join that names no onclause (none, or ``None``) with the model or ``Filing`` among its
+        tables: the positional ones before the onclause, those passed by keyword, and a table receiver."""
+        receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
+        root = receiver
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        function_form = receiver is None or isinstance(root, ast.Name) and root.id in self.modules
+        before_onclause = _JOINS[name] + int(function_form and name in {"join", "outerjoin"})
+        tables = [*node.args[:before_onclause], *(kw.value for kw in node.keywords if kw.arg in _JOIN_TABLE_KEYWORDS)]
+        if receiver is not None and not function_form:
+            tables.append(receiver)  # a table's own ``.join``; a query or select is no table
+        onclauses = [*node.args[before_onclause:before_onclause + 1],
+                     *(kw.value for kw in node.keywords if kw.arg == "onclause")]
+        return all(_is_none(onclause) for onclause in onclauses) and any(
+            _is_model(_table(table), self.names) or _is_model(_table(table), self.parents, PARENT) for table in tables)
 
     def _ownership(self, column: ast.AST) -> None:
         self._owned.add(id(column))
@@ -195,10 +234,7 @@ class _Finder(ast.NodeVisitor):
                 isinstance(arg, ast.Constant) and isinstance(arg.value, str) and _COLUMN_WORD.search(arg.value)
                 for arg in node.args):
             self._count("by_name")
-        elif (self.names_model and name in _JOINS and len(node.args) == _JOINS[name]
-              and not any(kw.arg == "onclause" for kw in node.keywords)
-              and any(_is_model(_unaliased(arg), self.names) or _is_model(_unaliased(arg), self.parents, PARENT)
-                      for arg in node.args)):
+        elif self.names_model and name in _JOINS and self._implicit_join(node, name):
             self._count("implicit_join")
         elif name == "relationship" and (self._stack[-1:] == [MODEL] or node.args and (
                 _is_model(node.args[0], self.names)
@@ -249,10 +285,13 @@ def test_the_scan_scores_every_planted_form():
     planted = mentions(
         '"""FinancialFact.filing_id in a docstring is prose."""\n'
         "from app.models import Company, Filing, FinancialFact, Summary\n"
-        "from app.models import FinancialFact as Fact\n"
+        "from app.models import FinancialFact as Fact, Filing as Report\n"
         "from app import models\n"
+        "import os, sqlalchemy as sa\n"
+        "from sqlalchemy import join, orm\n"
         "from sqlalchemy.orm import aliased\n"
         "Alias = Fact\n"
+        "Parent = aliased(Report)\n"
         "Twice = Alias\n"
         "Other: type = aliased(FinancialFact, name='f2')\n"
         "def direct(db, fid):\n"
@@ -285,12 +324,21 @@ def test_the_scan_scores_every_planted_form():
         "    db.query(FinancialFact).join(Filing).filter(Filing.id == fid)\n"
         "    db.query(Filing).join(Fact, isouter=True)\n"
         "    db.query(FinancialFact).outerjoin(aliased(models.Filing))\n"
+        "    db.query(FinancialFact).join(Report), db.query(Fact).join(Parent)\n"
+        "    select(FinancialFact).select_from(join(FinancialFact, Filing))\n"
+        "    select(Fact).select_from(sa.outerjoin(Filing, Fact)), orm.join(FinancialFact, Filing, None)\n"
+        "    select(Fact).select_from(sa.join(left=Fact, right=Filing))\n"
+        "    db.query(FinancialFact).join(Filing.__table__), FinancialFact.__table__.join(Filing.__table__)\n"
+        "    db.query(FinancialFact).join(target=Filing), db.query(FinancialFact).join(Filing, None)\n"
         "    return select(FinancialFact).join_from(FinancialFact, Filing)\n"
         "def look_alikes(db, row, state, fid, name, mapping):\n"
         "    db.query(Summary).filter(Summary.filing_id == fid)\n"
         "    getattr(FinancialFact, name)\n"
         "    db.query(FinancialFact).join(Filing, FinancialFact.accession == Filing.accession_number)\n"
         "    db.query(Filing).join(FinancialFact, onclause=FinancialFact.accession == Filing.accession_number)\n"
+        "    join(FinancialFact, Filing, FinancialFact.accession == Filing.accession_number)\n"
+        "    FinancialFact.__table__.join(Filing.__table__, FinancialFact.accession == Filing.accession_number)\n"
+        "    os.path.join(name, 'Filing'), sa.join(Summary, Company)\n"
         "    db.query(Summary).join(Company), ', '.join(name), db.query(FinancialFact).filter_by(**mapping)\n"
         "    return row.filing_id == fid, state['filing_id'], {'filing_id': fid}, 'filing_id'\n"
     )
@@ -298,7 +346,7 @@ def test_the_scan_scores_every_planted_form():
         ("direct", "column"): 1, ("through_aliases", "column"): 3, ("module_attribute", "column"): 1,
         ("table_columns", "column"): 2, ("table_columns", "by_name"): 1, ("by_name", "by_name"): 4,
         ("more_by_name", "by_name"): 2, ("owned", "ownership"): 1, ("ownership", "ownership"): 4,
-        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 4,
+        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 14,
     })
     # A relationship on the model, or one to it, loads rows over the same inferred key.
     assert mentions(
