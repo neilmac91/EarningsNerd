@@ -2061,12 +2061,13 @@ const nestedIn = (tokens: Token[], phrase: NounPhrase | null): Array<[number, nu
     m.kind === 'preposition' ? nestedIn(tokens, m.object) : m.kind !== 'relative' || hasItsOwnVerb(tokens, m) ? [[m.start, m.end]] : [],
   )
 /** A gerund's object (E162 stage 4b): the noun phrase after an -ing word no closed class holds, the lexicon's verb or
-    not ("resetting"), that opens its phrase, which the reader reads as a relative clause on the gerund ("Changing your
-    password ends every session." reads "your password ends every session" as one). null where none stands there. */
+    not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it ("Changing
+    your password ends every session." reads "your password ends every session" as one). null where none stands there,
+    or a verb group does. */
 const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase | null => {
   const first = phrase.postmodifiers[0]
   const gerund = phrase.head === tokens[at] && /^[a-z]+ing$/.test(phrase.head.lower) && knowsVerb(phrase.head, /./)
-  return gerund && first?.kind === 'relative' && first.start === at + 1 ? nounPhraseAt(tokens, at + 1) : null
+  return gerund && (!first || (first.kind === 'relative' && first.start === at + 1)) && !startsVerbGroup(tokens, at + 1) ? nounPhraseAt(tokens, at + 1) : null
 }
 /** A clause's subject at a token, as a clause read alone reads it (E162 stage 4b): the reader's noun phrase, or a
     gerund with its object (gerundAt); where it ends and the spans it nests (nestedIn). */
@@ -2087,11 +2088,12 @@ const readAlone = (reading: Reading, from: number, to: number) => {
   return [...kept, spanText(reading, at, to)].join(' ').replace(/\s+/g, ' ').trim()
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
-    verb group: the reader's subordinating words, and "before", "after" and "once" before a determiner ("once a logout
-    ends ..."), which it takes for prepositions and an adverb, read at the word, since a subject the reader runs on may
-    take one in ("Changing your password is not slow because it ..."). "If", "unless", "as long as", "provided that" and
-    "so that" only suppose their clause or aim at it, and "until" and "till" only bound a wait ("Logging out does not
-    wait until every session ends."). */
+    verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
+    "after" and "once" before a determiner ("once a logout ends ..."), which it takes for prepositions and an adverb,
+    read at the word, since a subject the reader runs on may take one in ("Changing your password is not slow because it
+    ..."), but not inside a clause's subject, where it is a preposition ("No session after a logout ends ..."). "If",
+    "unless", "as long as", "provided that" and "so that" only suppose their clause or aim at it, and "until" and "till"
+    only bound a wait ("Logging out does not wait until every session ends."). */
 const HAPPENS = /^(?:because|although|though|whereas|while|when|whenever|once|since|before|after)$/i
 /** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings read
     the sentence as before, and each clause in it alone too, so a negation in another clause, or nested in a clause's
@@ -2132,9 +2134,11 @@ const clauseByClause = (sentence: string): string[] => {
     const fromOutside = !!complement && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, group) !== deniesItsClause(clause.subject)
     if (complement && !fromOutside) texts.add(readAlone(reading, complement.that + 1, endAfter(complement.that + 1)))
   })
+  const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
   tokens.forEach((token, k) => {
     const opens = HAPPENS.test(token.lower) || (token.lower === 'as' && tokens[k - 1]?.lower === 'soon' && tokens[k - 2]?.lower === 'as')
-    if (opens && holdsAClause(k + 1, endAfter(k + 1))) texts.add(readAlone(reading, k + 1, endAfter(k + 1)))
+    const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
+    if (opens && !inASubject(k) && (gerund || holdsAClause(k + 1, endAfter(k + 1)))) texts.add(readAlone(reading, k + 1, endAfter(k + 1)))
   })
   return [...texts].filter(Boolean)
 }
@@ -4128,11 +4132,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out does not take long before it ends every session.</li>', true],
       ['<li>Logging out of a device you do not own ends every session within 30 minutes.</li>', true],
       ['<li>Nobody doubts that logging out ends every session.</li>', true],
+      ['<li>Logging out does not take long before ending every session.</li>', true],
+      ['<li>Changing your password is not slow because it revokes your session tokens.</li>', true],
       ['<li>Nobody stays signed in since logging out ends every session.</li>', true],
       ['<li>Nothing remains once a logout ends every session.</li>', true],
       ['<li>Nothing is stored after logging out ends every session.</li>', true],
       ['<li>Nothing remains as soon as logging out ends every session.</li>', true],
       ['<li>Every session that you do not keep open ends within 30 minutes of logging out.</li>', true],
+      ['<li>After a logout, every session that you do not keep open ends within 30 minutes.</li>', true],
       ['<li>A logout made on a device you do not own ends every session.</li>', true],
       ['<li>Logging out, which you do not need to confirm, revokes your session tokens.</li>', true],
       ['<li>Passwords are hashed, and a logout on a device you do not own ends every session.</li>', true],
@@ -4143,10 +4150,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Nobody doubts that changing your password ends every session.</li>', true],
       ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
       ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
-      // ... while what governs a clause from outside still denies it: "until" bounds a wait and "as long as" supposes its
-      // clause, a denied verb that asserts the clause after "that" governs it (ASSERTS), "or" and "nor" say neither
-      // clause, and a clause the reader opens without "that" is not read alone.
+      // ... while what governs a clause from outside still denies it: "until" bounds a wait, "after" in a subject is its
+      // preposition, "as long as" supposes its clause, a denied verb that asserts the clause after "that" governs it
+      // (ASSERTS), "or" and "nor" say neither clause, and a clause the reader opens without "that" is not read alone.
       ['<li>Logging out does not wait until every session ends.</li>', false],
+      ['<li>No session after a logout ends within 30 minutes.</li>', false],
       ['<li>Nothing is stored as long as logging out ends every session.</li>', false],
       ['<li>Nothing guarantees that logging out ends every session.</li>', false],
       ['<li>Neither logging out nor a password change ends every session.</li>', false],
