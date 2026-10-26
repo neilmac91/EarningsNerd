@@ -109,6 +109,56 @@ describe('the watchlist card states each summary status', () => {
   })
 })
 
+// The progress the server sends beside a summary being written or a failed run (watchlist.py, progress_as_dict):
+// the stage key and the elapsed seconds the row stores.
+const withProgress = (summary_status: string, stage: string, elapsedSeconds: number): WatchlistInsight => {
+  const base = insight(summary_status, summary_status === 'error')
+  return { ...base, latest_filing: { ...base.latest_filing!, progress: { stage, elapsedSeconds } } }
+}
+
+describe("the card's Summary freshness tile (E219)", () => {
+  const freshnessTile = async () => {
+    const card = (await screen.findByRole('heading', { level: 2, name: 'Apple Inc.' })).closest('div.p-cap-6') as HTMLElement
+    return within(card).getByText('Summary freshness').parentElement as HTMLElement
+  }
+
+  it('reads a failed run as the stored failure, not as work under way, with no elapsed count', async () => {
+    api.getWatchlistInsights.mockResolvedValue([withProgress('error', 'error', 7200)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    expect(within(tile).getByText('This summary did not finish')).toBeInTheDocument()
+    expect(within(tile).queryByText(/in progress/i)).toBeNull()
+    expect(within(tile).queryByText(/Elapsed/)).toBeNull()
+  })
+
+  // The tile reads the status the chip and the next step read, not the stage key: a failed status whose row still
+  // names a stage (a stalled run, as E43 may report one) reads as a failure beside its Error chip.
+  it('follows the failed status, not the stage key its progress row still holds', async () => {
+    api.getWatchlistInsights.mockResolvedValue([withProgress('error', 'summarizing', 95)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    expect(within(tile).getByText('This summary did not finish')).toBeInTheDocument()
+    expect(within(tile).queryByText(/in progress/i)).toBeNull()
+  })
+
+  it.each([
+    ['fetching', 'Fetching in progress'],
+    ['summarizing', 'Summarizing in progress'],
+  ])('reads a run under way at its %s stage in sentence case, with its elapsed count', async (stage, line) => {
+    api.getWatchlistInsights.mockResolvedValue([withProgress(`generating:${stage}`, stage, 12)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    // The casing is the text's own: `capitalize` on the line or on anything around it would paint
+    // "Fetching In Progress" over the same text.
+    expect(within(tile).getByText(line).closest('.capitalize')).toBeNull()
+    expect(within(tile).getByText('Elapsed 12s')).toBeInTheDocument()
+    expect(within(tile).queryByText('This summary did not finish')).toBeNull()
+  })
+})
+
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((yes) => { resolve = yes })
