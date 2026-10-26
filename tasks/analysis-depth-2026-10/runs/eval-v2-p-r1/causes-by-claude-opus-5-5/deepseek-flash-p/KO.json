@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "404a39882f10ff3da8bac60f29a718b32e3fbeb75de12f1dddd45061e1be6d6b",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2017 decline came with refranchising of bottling operations, which cut operating cash flow by 20% .",
+   "passages": [
+    {
+     "id": "P75",
+     "filing": "FY2017 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities decreased $1,801 million, or 20 percent, in 2017 compared to 2016. This decrease was primarily driven by the refranchising of certain bottling operations, the unfavorable impact of foreign currency exchange rate fluctuations, one less day in the current year, and increased payments related to income taxes and restructuring. Net cash provided by operating activities in 2018 will be impacted by a tax payment of $370 million related to the one-time transition tax resulting from the Tax Reform Act. Refer to the heading \"Operations Review - Net Operating Revenues\" above for additional information on the impact of foreign currency fluctuations. Refer to Note 14 of Notes to Consolidated Financial Statements for additional information on the tax payments."
+    }
+   ],
+   "label": "partial",
+   "reason": "Refranchising is one stated driver, but the 20% decline also reflects FX, one less day, and higher tax and restructuring payments."
+  },
+  {
+   "sentence": "That FY2025 jump was driven by lower other operating charges after the prior-year fairlife contingent consideration remeasurement, plus concentrate volume growth and pricing .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 attributes the increase to lower other operating charges after the fairlife remeasurement, 1% concentrate volume growth, and pricing."
+  },
+  {
+   "sentence": "Worldwide concentrate sales volume grew 1% in FY2025 while unit case volume was even .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, worldwide concentrate sales volume grew 1% and unit case volume was even compared to 2024. The difference between concentrate sales volume and unit case volume growth rates for our Latin America operating segment was primarily due to the timing of concentrate shipments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16 states concentrate sales volume grew 1% and unit case volume was even in 2025."
+  },
+  {
+   "sentence": "The gross margin gain came from favorable pricing and prior-year refranchising, partly offset by currency and higher commodity costs .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross profit margin increased to 61.6% in 2025 from 61.1% in 2024. This increase was primarily due to the impact of favorable pricing initiatives and the impact of the prior year refranchising of our bottling operations in the Philippines, Bangladesh and certain territories in India, partially offset by the unfavorable impact of foreign currency exchange rate fluctuations and higher commodity costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 cites favorable pricing and prior-year refranchising, offset by currency and higher commodity costs."
+  },
+  {
+   "sentence": "SG&A fell 0.4% on lower Foundation contributions and incentive expense, partly offset by severance and higher advertising .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses were $14,521 million in 2025, compared to $14,582 million in 2024, a decrease of $61 million. This decrease was primarily due to lower contributions to The Coca-Cola Foundation and lower annual incentive expense, partially offset by higher severance costs in 2025 associated with ongoing initiatives to optimize our organization, higher advertising expenses and an asset impairment charge related to certain prototypes in the prior year. Advertising expenses for 2025 and 2024 were $5.4 billion and $5.1 billion, respectively. Refer to Note\u00a017 of Notes to Consolidated Financial Statements for more information on the impairment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 cites lower Foundation contributions and incentive expense, partly offset by severance and higher advertising."
+  },
+  {
+   "sentence": "FY2025 operating cash flow rose 9% on strong cash operating results, lower tax payments and working-capital timing .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 cites strong cash operating results, lower tax payments, and working-capital timing among the primary drivers."
+  }
+ ],
+ "cost_usd": 0.0375,
+ "backend": "claude_cli",
+ "input_tokens": 3176,
+ "cached_input_tokens": 0,
+ "output_tokens": 605
+}
