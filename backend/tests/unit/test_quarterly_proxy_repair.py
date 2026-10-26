@@ -437,15 +437,50 @@ def _reconfirmed_with_its_margin(db, monkeypatch, ticker="LRC"):
     return company, payload, filing
 
 
-def _reconfirmed_where_a_later_proxy_quotes_the_10k(db, monkeypatch, ticker="RCL"):
-    """QQQ's shape, then a later proxy that quotes FY2025 exactly, stored by a sync before the fix: the
-    reconfirmed row's new figure, the 10-K's, is also a stored proxy row's, so set 5 still lists it."""
-    company, payload, filing = _confirmed(db, monkeypatch, ticker)
+def _replaced_with_its_margin(db, monkeypatch, ticker="RPM"):
+    """Merck's shape with a proxy 1.4% under the 10-K's FY2025 figure, which replaced the parse of a filing
+    that also carries revenue and the margin over both: the margin, annotated against the proxy's figure,
+    reads calculation_mismatch. The proxy tags no revenue."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    for item in _items(payload):
+        if item["form"] == "DEF 14A" and item["end"] == "2025-12-31":
+            item["val"] = 18_000e6
+    _old_sync(db, monkeypatch, company, payload)
+    filing = _filing(db, company, "K25X", "2025-12-31", "2026-02-25")
+    start = "2025-01-01"
+    _file(db, monkeypatch, filing, {"net_income": (start, 18_254e6), "revenue": (start, 64_900e6),
+                                    "net_margin": (start, 18_254e6 / 64_900e6 * 100)}, authority_from=payload)
+    return company, payload, filing
+
+
+def _later_proxy_quotes_the_10k(db, monkeypatch, company, payload):
+    """``payload`` plus a later proxy that quotes FY2025 exactly, stored by a sync before the fix."""
     later = copy.deepcopy(payload)
     _items(later).append(_item(18_254e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "P27"), fy=2026,
                                form="DEF 14A", filed="2027-04-08"))
     _old_sync(db, monkeypatch, company, later)
-    return company, later, filing
+    return later
+
+
+def _reconfirmed_where_a_later_proxy_quotes_the_10k(db, monkeypatch, ticker="RCL"):
+    """QQQ's shape, then a later proxy that quotes FY2025 exactly: the reconfirmed row's new figure, the
+    10-K's, is also a stored proxy row's, so set 5 still lists it."""
+    company, payload, filing = _confirmed(db, monkeypatch, ticker)
+    return company, _later_proxy_quotes_the_10k(db, monkeypatch, company, payload), filing
+
+
+def _restored_where_a_later_proxy_quotes_the_10k(db, monkeypatch, ticker="RSW"):
+    """A proxy 6.9% under the 10-K's FY2025 figure replaced the 10-K's parse on its own row (the winner's
+    identity), then a later proxy quoted the 10-K exactly: the restored row's new figure, the 10-K's, is
+    also a stored proxy row's, so set 5 lists it after the apply."""
+    payload = _mrk_payload()
+    for item in _items(payload):
+        if item["form"] == "DEF 14A" and item["end"] == "2025-12-31":
+            item["val"] = 17_000e6
+    company, payload, filing = _cross_checked(db, monkeypatch, ticker, payload, 18_254e6,
+                                              period=("2025-12-31", "2025-01-01", "2026-02-25"))
+    return company, _later_proxy_quotes_the_10k(db, monkeypatch, company, payload), filing
 
 
 def _scaled_parse_with_no_proxy(db, monkeypatch, ticker="NPF"):
@@ -814,15 +849,16 @@ def test_after_the_apply_no_current_row_comes_from_or_is_built_on_a_proxy(db, mo
                                    period=("2025-12-31", "2025-01-01", "2026-02-25"))[:2]  # replaced by the 10-K's
     shapes["NPF"] = _scaled_parse_with_no_proxy(db, monkeypatch)[:2]
     shapes["RCL"] = _reconfirmed_where_a_later_proxy_quotes_the_10k(db, monkeypatch)[:2]
+    shapes["RSW"] = _restored_where_a_later_proxy_quotes_the_10k(db, monkeypatch)[:2]
     payloads = {ticker: payload for ticker, (_company, payload) in shapes.items()}
     before = {number: dict(Counter(ticker for ticker, _ in entries))
               for number, entries in _detection(db, payloads).items()}
     assert before == {  # not vacuous: every set lists the planted rows
         2: {"AAA": 6, "BBB": 6, "CCC": 1, "III": 1, "EEE": 3, "DDD": 5, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5,
-            "QQQ": 5, "XQT": 6, "FBK": 5, "KEP": 6, "RCL": 5},
+            "QQQ": 5, "XQT": 6, "FBK": 5, "KEP": 6, "RCL": 5, "RSW": 5},
         3: {"AAA": 5, "CCC": 5, "III": 5, "EEE": 3, "DDD": 4, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5, "QQQ": 5,
-            "XQT": 5, "KEP": 5, "RCL": 5},
-        4: {"DDD": 1, "MMM": 1, "KKK": 1, "OOO": 1, "KEP": 1, "NPF": 1},
+            "XQT": 5, "KEP": 5, "RCL": 5, "RSW": 5},
+        4: {"DDD": 1, "MMM": 1, "KKK": 1, "OOO": 1, "KEP": 1, "NPF": 1, "RSW": 1},
         5: {"QQQ": 1, "XQT": 1, "FBK": 1, "RCL": 1},
     }
     named, verdicts = set(), {}
@@ -839,7 +875,7 @@ def test_after_the_apply_no_current_row_comes_from_or_is_built_on_a_proxy(db, mo
     assert {(ticker, fact_id, number) for number in (4, 5) for ticker, fact_id in after[number]} == named
     assert verdicts == {("XQT", 5): "kept_confirmed_by_10k", ("FBK", 5): "kept_confirmed_by_10k",
                         ("KEP", 4): "kept_agrees_with_authority", ("NPF", 4): "no_proxy_figure",
-                        ("RCL", 5): "reconfirmed"}
+                        ("RCL", 5): "reconfirmed", ("RSW", 5): "restored"}
     for ticker, (company, payload) in shapes.items():  # a second apply journals nothing
         again = _apply(db, company, payload, run_id="apply-2")
         kept = {entry["fact_id"] for entry in again["proxy"]["detection_listed"] if entry["verdict"].startswith("kept_")}
@@ -1264,16 +1300,61 @@ def test_a_reconfirm_alone_reannotates_its_filings_calculations(db, monkeypatch)
     assert (margin.provenance["validation"], margin.reconciled) == ("passed", True)
 
 
+def _with_revenue_withheld(db, filing):
+    """The filing's revenue made a companyfacts row a correction retired with the filing's labels, so it
+    stays in the margin's scope and its record reads unavailable (planted as a row)."""
+    revenue = _filing_row(db, filing, "revenue")
+    retired = repair._quarantine(repair.snapshot(revenue), "legacy_period_label_mismatch")
+    revenue.filing_id, revenue.source, revenue.is_latest = None, "companyfacts", False
+    revenue.reconciled, revenue.provenance = False, retired["provenance"]
+    db.commit()
+
+
+def test_a_restore_that_clears_a_margins_mismatch_reannotates_it(db, monkeypatch):
+    # Re-annotation's usual result: the margin, annotated against the proxy's net income, read
+    # calculation_mismatch; with the 10-K's figure restored it passes. A change of validation is no hold:
+    # the hold is for a record that would withhold a figure readers see today, nothing else.
+    company, payload, filing = _replaced_with_its_margin(db, monkeypatch)
+    assert (_filing_row(db, filing).source, float(_filing_row(db, filing).value)) == ("companyfacts", 18_000e6)
+    margin = _filing_row(db, filing, "net_margin")
+    assert (margin.provenance["validation"], margin.provenance["reasons"]) == ("needs_review", ["calculation_mismatch"])
+    plan = _preview(db, company, payload)
+    assert {name: plan["proxy"][name] for name in ("filing_rows_restored", "filing_calculations_reannotated",
+                                                   "filing_calculations_held")} == {
+        "filing_rows_restored": 1, "filing_calculations_reannotated": 1, "filing_calculations_held": 0}
+    _apply(db, company, payload)
+    margin = _filing_row(db, filing, "net_margin")
+    assert (margin.provenance["validation"], margin.provenance["reasons"], margin.reconciled) == ("passed", [], True)
+    assert {i["concept"]: i["value"] for i in margin.provenance["inputs"]} == {
+        "net_income": 18_254e6, "revenue": 64_900e6}
+
+
+def test_a_calculation_already_withheld_is_reannotated_not_held(db, monkeypatch):
+    # The hold keeps a figure readers see today. A margin whose record already reads unavailable shows no
+    # figure, so it is re-annotated like any other: its operand record names the 10-K's figure, and it stays
+    # withheld.
+    company, payload, filing = _reconfirmed_with_its_margin(db, monkeypatch, "LRU")
+    _with_revenue_withheld(db, filing)
+    margin = _filing_row(db, filing, "net_margin")
+    margin.provenance = {**margin.provenance, "validation": "unavailable", "reasons": ["legacy_period_label_mismatch"]}
+    margin.reconciled = False  # planted as a row: annotated once revenue was withheld
+    db.commit()
+    plan = _preview(db, company, payload)
+    assert {name: plan["proxy"][name] for name in ("filing_rows_reconfirmed", "filing_calculations_reannotated",
+                                                   "filing_calculations_held")} == {
+        "filing_rows_reconfirmed": 1, "filing_calculations_reannotated": 1, "filing_calculations_held": 0}
+    _apply(db, company, payload)
+    margin = _filing_row(db, filing, "net_margin")
+    assert (margin.provenance["validation"], margin.reconciled) == ("unavailable", False)
+    assert _margin_operand_check(margin)["authoritative_value"] == 18_254e6
+
+
 def test_a_reannotation_that_would_withhold_a_shown_figure_is_held(db, monkeypatch):
     # The lineage backfill's operand_withheld hold: revenue, in the margin's scope, is a companyfacts row a
     # correction retired with the filing's labels, so a recomputed margin would read unavailable and leave
     # the public pages. The margin keeps its record, and the preview names it.
     company, payload, filing = _reconfirmed_with_its_margin(db, monkeypatch, "LRW")
-    revenue = _filing_row(db, filing, "revenue")
-    retired = repair._quarantine(repair.snapshot(revenue), "legacy_period_label_mismatch")
-    revenue.filing_id, revenue.source, revenue.is_latest = None, "companyfacts", False  # planted as a row
-    revenue.reconciled, revenue.provenance = False, retired["provenance"]
-    db.commit()
+    _with_revenue_withheld(db, filing)
     margin = _filing_row(db, filing, "net_margin")
     stored = repair.snapshot(margin)
     assert stored["provenance"]["validation"] == "passed"
@@ -1286,6 +1367,10 @@ def test_a_reannotation_that_would_withhold_a_shown_figure_is_held(db, monkeypat
     assert held["reasons"] == ["legacy_period_label_mismatch"]
     assert margin.id not in [change["fact_id"] for change in plan["changes"]]
     _apply(db, company, payload)
+    assert repair.snapshot(db.get(FinancialFact, margin.id)) == stored
+    # Nothing names it again: the next run leaves its operand as the apply wrote it, and so leaves it too.
+    again = _apply(db, company, payload, run_id="apply-2")
+    assert (again["revisions"], again["proxy"]["filing_calculations_held"]) == (0, 0)
     assert repair.snapshot(db.get(FinancialFact, margin.id)) == stored
 
 
@@ -1400,15 +1485,22 @@ def test_detection_listed_reads_sets_4_and_5_as_the_file_does():
                           provenance={"checks": {"authoritative": {"original_value": 4_092e6}}})),  # 1/1,000,000
         (10, _listed_state(value=13_049e6, period_end=date(2024, 12, 31), provenance={"checks": {"authoritative": {
             "outcome": "confirmed", "authoritative_value": 500.0}}})),
-        (11, _listed_state(filing_id=None, source="companyfacts", form=None, accession="X24",  # no form: neither
-                           value=500.0, period_end=date(2024, 12, 31))),  # a proxy's witness nor a report row
+        (11, _listed_state(filing_id=None, source="companyfacts", form=None, accession="X24",  # no form: no
+                           value=500.0, period_end=date(2024, 12, 31))),  # proxy's witness, so 10 is not listed
+        (12, _listed_state(filing_id=None, form="DEF 14A", accession="P26", value=700.0,  # a proxy row, so 13 is
+                           period_end=date(2020, 12, 31))),  # listed: 14, of no form, is no report row to back it
+        (13, _listed_state(value=13_049e6, period_end=date(2020, 12, 31), provenance={"checks": {"authoritative": {
+            "outcome": "confirmed", "authoritative_value": 700.0}}})),
+        (14, _listed_state(filing_id=None, source="companyfacts", form=None, accession="X20", value=700.0,
+                           period_end=date(2020, 12, 31))),
     ]
-    verdicts = {2: "kept_agrees_with_authority", 5: "kept_confirmed_by_10k", 9: "no_proxy_figure"}
+    verdicts = {2: "kept_agrees_with_authority", 5: "kept_confirmed_by_10k", 9: "no_proxy_figure", 13: "reconfirmed"}
     assert proxy.detection_listed(rows, verdicts) == [
         {"fact_id": 2, "set": 4, "verdict": "kept_agrees_with_authority"},
         {"fact_id": 3, "set": 4, "verdict": "unclassified"},
         {"fact_id": 5, "set": 5, "verdict": "kept_confirmed_by_10k"},
         {"fact_id": 9, "set": 4, "verdict": "no_proxy_figure"},
+        {"fact_id": 13, "set": 5, "verdict": "reconfirmed"},
     ]
     scaled_up = {"checks": {"authoritative": {"original_value": 12_345.0}}}  # the authority scaled a units parse
     assert proxy.detection_listed([(1, proxy_row), (2, _listed_state(source="companyfacts", value=12_345e6,
