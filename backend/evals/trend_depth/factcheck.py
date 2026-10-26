@@ -387,10 +387,41 @@ def matches(claim: Claim, cand: Candidate) -> bool:
     return abs(value - target) <= tol
 
 
+# A figure's own movement noun after it, at most two words on ("a 14.7% operating-income decline", "a 14.7% fall in
+# operating income"), after "a" or "an" before it (dev-v5: C's CAT "Rising debt alongside a 14.7% operating-income
+# decline", where the rise is debt's).
+_NOUN_STOP = r"(?:to|in|of|from|on|for|by|at|after|before|against|despite|with|than|and|or|while|as|alongside|amid)"
+_NOUN_UP = r"rises?|gains?|increases?|jumps?|rebounds?|recover(?:y|ies)|expansions?|surges?|climbs?"
+_NOUN_DOWN = r"declines?|drops?|falls?|decreases?|slumps?|collapses?|contractions?|plunges?|reductions?|dips?|slides?"
+_OWN_NOUN = re.compile(rf"^\s*(?:(?!{_NOUN_STOP}\b)[a-z&-]+\s+){{0,2}}(?:({_NOUN_UP})|({_NOUN_DOWN}))\b", re.I)
+_ARTICLE_BEFORE = re.compile(r"\b(?:a|an)\s+(?:further\s+|combined\s+|cumulative\s+)?$", re.I)
+# Only a percentage's noun is read: a pp figure may be a cost line's share move cited as its margin effect or as the
+# margin's change, whose sign is the inverse of the noun's ("Operating margin widened with a 0.6pp drop in the
+# cost-of-revenue share", KO's FY2025 +0.6pp).
+_NOUN_UNITS = ("pct",)
+
+
 def _direction(text: str, claim: Claim) -> tuple[Optional[int], bool]:
     """(+1 / -1 if a direction word governs the claim, else None; whether every such word is evaluative, so a
     lower-is-better metric reads it inverted): the six words before the number, within its clause (a
-    direction word further back usually belongs to another figure)."""
+    direction word further back usually belongs to another figure). Where such a word stands before it, the
+    figure's own movement noun after it, after "a" or "an" ("Rising debt alongside a 14.7% operating-income
+    decline", "a 14.7% fall in operating income"), overrides that word, which belongs to another noun. With no
+    word before, the noun is not read: "a 1.6pp gain" may be a gain in a lower-is-better ratio (eval-v1 Haiku
+    CVX's cost-of-revenue share), so its sign is left to the magnitude. Only a percentage's noun is read
+    (``_NOUN_UNITS``)."""
+    found, evaluative = _words_before(text, claim)
+    if (found is not None and claim.unit in _NOUN_UNITS
+            and _ARTICLE_BEFORE.search(text[max(0, claim.start - 20):claim.start])):
+        end = claim.start + len(claim.text)
+        noun = _OWN_NOUN.match(CITATION_RE.sub(" ", text[end:end + 80]))
+        if noun:
+            return (1 if noun.group(1) else -1), False
+    return found, evaluative
+
+
+def _words_before(text: str, claim: Claim) -> tuple[Optional[int], bool]:
+    """``_direction``'s reading of the words before the number."""
     window = text[max(0, claim.start - 70):claim.start]
     window = re.split(r"[;:,.]\s|\bwhile\b|\bwhereas\b|\bbut\b|\band\b", window)[-1]
     window = re.split(r"\d", window)[-1]  # a word before an earlier figure belongs to that figure

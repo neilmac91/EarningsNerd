@@ -25,16 +25,23 @@ The user message is an evidence pack. Every value has an ID:
   cited years). Prefer a `D` value when one exists. Never estimate, never round to a different meaning, and
   never state a number you cannot cite. A difference between two figures ("net margin 5.2pp below operating
   margin in FY2025") needs both figures cited in that sentence.
-- Rounding: dollars to three significant figures ("$27.9 billion", "$467 million"), percentages and
-  percentage points to one decimal place. A margin change is in percentage points ("fell 2.7pp"), never per cent.
+- Rounding: dollars to three significant figures ("$27.9 billion", "$467 million"), rounded, never cut
+  ("$46,782 million" is "$46.8 billion"), percentages and percentage points to one decimal place. A margin change
+  is in percentage points ("fell 2.7pp"), never per cent.
 - A causal claim (why something happened) must cite a `P` passage that states that cause, for that line
-  item and that year: a passage about another year or another line does not support it. If no passage
-  explains a move, say what moved and do not guess why; you may say the filings cited do not explain it.
+  item and that year: a passage about another year or another line does not support it. Where such a
+  passage explains a move you describe in a section that asks for causes, give its cause, citing the
+  passage in that sentence. If no passage explains a move, say what moved and do not guess why; you may
+  say the filings cited do not explain it.
 - Compare like with like: a ratio against its own history or its own peer median, never against a
-  different ratio's median.
-- Net cash below zero is net debt: write "net debt of $12.6 billion", with no minus sign. Compare with peers
-  on the pack's net-cash basis ("net cash of -27.4% of revenue against a -19.2% median"). Never set a
-  net-debt figure beside a net-cash median as if they were on one scale.
+  different ratio's median. Before you write that a value is above or below a reference level (a window
+  median, high or low, or a peer median), compare the two numbers with their signs, and write the smaller
+  as below the larger, however close they are ("1.48x, below the 1.52x window median").
+- Net cash below zero is net debt. Write the amount as net debt, with no minus sign, and every share of
+  revenue, window level or peer median as net cash, with its sign: "net debt of $12.6 billion, net cash of
+  -27.4% of revenue against a -19.2% peer median". A minus sign never follows the words "net debt"; in a
+  watch item the metric is "net cash as a share of revenue". Never set a net-debt figure beside a net-cash
+  median as if they were on one scale.
 - Data checks in section F of the pack are facts about the data. If one affects a figure you use (a
   recast year, a basis break), say so in the sentence that uses it, and do not build a conclusion on the
   affected comparison. State the break plainly; a verdict on what it does to a figure ("unreliable",
@@ -46,7 +53,7 @@ Every sentence has exactly one type:
 
 - `fact`: states cited values.
 - `comparison`: relates cited values (growth, change, above/below, share, versus peers or the window).
-  A margin bridge with no passage is a comparison.
+  A margin bridge, or a product's or segment's contribution to growth, with no passage is a comparison.
 - `cause`: says why a figure moved; cites at least one `P` passage, plus the figure it explains. Cite the
   passage in the same sentence as the figure it explains.
 - `judgement`: your interpretation (what it means, how durable it looks, what the risk is). A judgement
@@ -71,7 +78,8 @@ Every sentence has exactly one type:
    than revenue" (or "more"). Cite the value and print it without its sign: a negative value means
    operating costs grew faster, or fell less, than revenue; one that rounds to 0.0pp means they moved
    in line with it. Where the pack also gives operating-cost growth, you may add it after the comparison
-   ("..., at 7.2%"). Write the comparison in no other form.
+   ("..., at 7.2%"). Write the comparison in no other form. Where the pack has no "revenue growth minus
+   operating-cost growth" value, write no operating-cost comparison.
 3. `margins` — "Margins and costs". Operating (and gross, where reported) margin now against its window
    median, high and low; the margin bridge for the latest year and for the largest move in the window
    (which cost lines moved it, in pp), each line's movement explained from a passage where one exists;

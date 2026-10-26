@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import math
 import re
 from collections import defaultdict
 from functools import lru_cache
@@ -28,7 +29,7 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth import factcheck, retype
+from evals.trend_depth import factcheck, probes, retype
 from evals.trend_depth.factcheck import Claim
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -309,3 +310,99 @@ def test_the_drivers_comparison_reaches_every_pack_with_a_gap() -> None:
 def test_examples_are_read_from_quotes_and_code(paragraph: str, figures: list[str], ids: list[str]) -> None:
     found, cited = examples(paragraph)
     assert [f.text for f in found] == figures and cited == ids
+
+
+# --- The net-debt line: one combined form, read on every committed pack ----------------------------------------------
+#
+# dev-v5: 38 of the 116 first-try failures, 13 of C's 23, were one sentence: the candidate's two net-debt examples
+# merged into "net debt of $X, or -Y% of revenue", a minus sign under "net debt" (backstop R2a). The candidate now
+# prescribes one combined form: the amount as net debt with no sign, every share or reference as net cash with its sign,
+# and "net cash as a share of revenue" as a watch item's metric. On every committed pack with a latest net cash it does
+# not withhold (JPM and USB have none; packs-v2 withholds TGT's), the form and the watch item pass the gate with and
+# without the backstops, and on every pack in net debt the merged form fails on R2a.
+_NET_DEBT_FORM = re.compile(r'"net debt of \$(\d+\.\d) billion, net cash of (-\d+\.\d)% of revenue against a '
+                            r'(-\d+\.\d)% peer median"')
+_WATCH_METRIC = re.compile(r'in a watch item the metric is "net cash as a share of revenue"')
+
+
+def _money(value: float) -> str:
+    """Dollars at three significant figures, as the prompt's rounding line asks."""
+    amount = abs(value)
+    scale, word = (1e9, "billion") if amount >= 1e9 else (1e6, "million")
+    figure = amount / scale
+    return f"${figure:.{max(0, 2 - math.floor(math.log10(figure)))}f} {word}"
+
+
+def _shown(pack: dict[str, Any], series: str) -> list[tuple[str, str]]:
+    """(period, ID) of every value of ``series`` the pack does not withhold, oldest first."""
+    withheld = set(pack.get("withheld") or [])
+    return sorted((pack["values"][vid]["period"], vid) for vid, key in probes.series_by_id(pack).items()
+                  if key == series and vid not in withheld)
+
+
+def net_cash_sentences(pack: dict[str, Any]) -> dict[str, str]:
+    """On the pack's latest net cash: the candidate's net-debt form (or its net-cash counterpart), the merged mirror
+    where the company is in net debt, and the watch item; {} where the pack shows no latest net cash."""
+    cash, share = _shown(pack, "net_cash"), _shown(pack, "net_cash_to_revenue")
+    if not cash or not share or cash[-1][0] != share[-1][0]:
+        return {}
+    (year, cash_id), share_id = cash[-1], share[-1][1]
+    net, ratio = pack["values"][cash_id]["value"], pack["values"][share_id]["value"]
+    medians = [vid for period, vid in _shown(pack, "peer_median:net_cash_to_revenue") if period == year]
+    against = f" against a {pack['values'][medians[-1]]['value']:.1f}% peer median" if medians else ""
+    cited = f"[{cash_id}][{share_id}]" + (f"[{medians[-1]}]" if medians else "")
+    found = {}
+    if net < 0:
+        found["form"] = f"Net debt was {_money(net)} in {year}, net cash of {ratio:.1f}% of revenue{against} {cited}."
+        found["merged"] = f"Net debt was {_money(net)} in {year}, or {ratio:.1f}% of revenue [{cash_id}][{share_id}]."
+    else:
+        found["form"] = f"Net cash was {_money(net)} in {year}, or {ratio:.1f}% of revenue{against} {cited}."
+    if len(share) > 1:
+        before, before_id = share[-2]
+        found["watch"] = (f"Whether net cash as a share of revenue moves back toward the "
+                          f"{pack['values'][before_id]['value']:.1f}% {before} level from {ratio:.1f}% in {year}, in the "
+                          f"FY{int(year[2:]) + 1} 10-K [{before_id}][{share_id}].")
+    return found
+
+
+def test_the_net_debt_line_prescribes_one_combined_form() -> None:
+    text = " ".join(CANDIDATE.read_text().split())
+    assert _NET_DEBT_FORM.search(text) and _WATCH_METRIC.search(text)
+    # dev-v5's line gave the amount and the peer comparison as two examples, which the model merged: no form there.
+    old = ('Net cash below zero is net debt: write "net debt of $12.6 billion", with no minus sign. Compare with peers on '
+           'the pack\'s net-cash basis ("net cash of -27.4% of revenue against a -19.2% median").')
+    assert not _NET_DEBT_FORM.search(old) and not _WATCH_METRIC.search(old)
+
+
+def test_the_net_debt_form_s_figures_are_no_pack_s_net_cash() -> None:
+    amount, share, median = _NET_DEBT_FORM.search(" ".join(CANDIDATE.read_text().split())).groups()
+    for name, pack in committed_packs():
+        for vid, key in probes.series_by_id(pack).items():
+            value = pack["values"][vid]["value"]
+            if key == "net_cash":
+                assert value >= 0 or _money(value) != f"${amount} billion", (name, vid)
+            elif key in ("net_cash_to_revenue", "peer_median:net_cash_to_revenue"):
+                assert f"{value:.1f}" not in (share, median), (name, vid)
+
+
+@pytest.mark.parametrize("name", [name for name, _ in committed_packs()])
+def test_the_net_debt_form_passes_and_the_merged_form_fails_on_every_pack(name: str) -> None:
+    pack = dict(committed_packs())[name]
+    for kind, text in net_cash_sentences(pack).items():
+        section = "watch" if kind == "watch" else "balance_sheet"
+        for backstops in (False, True):
+            failures = factcheck.check([{"section": section, "type": "comparison", "text": text}], pack,
+                                       backstops=backstops)["failures"]
+            if kind != "merged":
+                assert not failures, (name, text, failures)
+            elif backstops:  # the merged form's figures reconcile; only the backstop reads the sign under "net debt"
+                assert any(f["failure"].startswith("backstop R2a:") for f in failures), (name, text, failures)
+
+
+def test_the_net_debt_form_reaches_every_pack_with_a_net_cash() -> None:
+    found = {name: net_cash_sentences(pack) for name, pack in committed_packs()}
+    assert {name for name, forms in found.items() if not forms} == {
+        "packs/JPM", "packs/USB", "packs-v2/JPM", "packs-v2/USB", "packs-v2/TGT"}
+    assert all("watch" in forms for forms in found.values() if forms)
+    in_debt = [name.split("/")[0] for name, forms in found.items() if "merged" in forms]
+    assert (in_debt.count("packs"), in_debt.count("packs-v2")) == (8, 10)
