@@ -29,11 +29,13 @@ class, kind), holding the counts equal to ``ALLOWED``. A mention is:
   ``aliased(...)`` or as its ``__table__``: the methods ``join``/``outerjoin`` (one table, by position or
   as ``target``) and ``join_from``/``outerjoin_from`` (two); the functions ``join``/``outerjoin`` of
   ``sqlalchemy`` or ``sqlalchemy.orm`` (two, by position or as ``left``/``right``), called by a bare
-  name or through an imported module; and a table's own ``.join``
-  (``FinancialFact.__table__.join(Filing.__table__)``). Without an onclause SQLAlchemy infers one from
-  the foreign keys, and ``filing_id`` is the model's one key to ``filings``: ``query(FinancialFact)
-  .join(Filing)`` reads ``ON filings.id = financial_fact.filing_id`` with the column never named. A join
-  that would infer another key is counted too; naming its onclause keeps it out;
+  name, an import alias (``join as sql_join``) or through a module (any ``import``, or a name imported
+  from ``sqlalchemy``); and a table's own ``.join`` (``FinancialFact.__table__.join(Filing.__table__)``,
+  ``models.FinancialFact.__table__``), whose positional onclause keeps it out like a method's. Without
+  an onclause SQLAlchemy infers one from the foreign keys, and ``filing_id`` is the model's one key to
+  ``filings``: ``query(FinancialFact).join(Filing)`` reads ``ON filings.id = financial_fact.filing_id``
+  with the column never named. A join that would infer another key is counted too; naming its
+  onclause keeps it out;
 * ``relationship``: a ``relationship(...)`` declared on the model, or one whose target is the model
   (by name or reference): an attribute that loads rows over the same inferred key.
 
@@ -45,8 +47,10 @@ read another way) or of a copied state's key (``state["filing_id"]``, the audite
 name built at run time (``getattr(FinancialFact, name)``, a ``**`` mapping that is not a literal); the
 model reached through a call (``type(row)``, ``inspect(FinancialFact)``, a ``relationship`` target given
 as a callable) or a name bound by anything but a plain assignment; a join's tables or onclause passed
-by unpacking (``join(*tables)``), or a table reached through a name bound to it
-(``t = FinancialFact.__table__``) or a call (``table("financial_fact")``); and SQL outside Python
+by unpacking (``join(*tables)``), a table reached through a name bound to it
+(``t = FinancialFact.__table__``) or a call (``table("financial_fact")``), and a join function reached
+through a SQLAlchemy module re-exported from another (``from app.database import sa``); mentions in
+``backend/tests``; and SQL outside Python
 (``ops/detection`` tests ownership only). ``test_the_scan_scores_every_planted_form`` scores the scan on
 planted forms and look-alikes.
 """
@@ -97,10 +101,21 @@ def _table(node: ast.AST) -> ast.AST:
     return node.value if isinstance(node, ast.Attribute) and node.attr == "__table__" else node
 
 
-def _imported_names(tree: ast.AST) -> set[str]:
-    """The names a module binds by import: ``sa`` for ``import sqlalchemy as sa``, ``orm``, ``join``."""
+def _modules(tree: ast.AST) -> set[str]:
+    """The names a module binds to a module: every ``import`` (``sa`` for ``import sqlalchemy as sa``,
+    ``sqlalchemy`` for ``import sqlalchemy.orm``) and a name from ``sqlalchemy`` (``orm``). A name
+    from anywhere else may be a class or a table, whose ``.join`` is no function."""
     return {(alias.asname or alias.name).split(".")[0] for node in ast.walk(tree)
-            if isinstance(node, (ast.Import, ast.ImportFrom)) for alias in node.names}
+            if isinstance(node, ast.Import)
+            or isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "sqlalchemy"
+            for alias in node.names}
+
+
+def _join_aliases(tree: ast.AST) -> dict[str, str]:
+    """The names a module imports a join function under: ``sql_join`` for ``from sqlalchemy import join
+    as sql_join``."""
+    return {alias.asname: alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+            for alias in node.names if alias.name in _JOINS and alias.asname}
 
 
 def _model_names(tree: ast.AST, model: str = MODEL) -> set[str]:
@@ -145,7 +160,8 @@ class _Finder(ast.NodeVisitor):
     def __init__(self, tree: ast.AST) -> None:
         self.names = _model_names(tree)
         self.parents = _model_names(tree, PARENT)
-        self.modules = _imported_names(tree) - self.names - self.parents
+        self.modules = _modules(tree) - self.names - self.parents
+        self.join_aliases = _join_aliases(tree)
         self.names_model = any(_is_model(node, self.names) for node in ast.walk(tree)
                                if isinstance(node, (ast.Name, ast.Attribute))) or any(
             isinstance(node, ast.ImportFrom) and any(alias.name == MODEL for alias in node.names)
@@ -163,7 +179,7 @@ class _Finder(ast.NodeVisitor):
         tables: the positional ones before the onclause, those passed by keyword, and a table receiver."""
         receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
         root = receiver
-        while isinstance(root, ast.Attribute):
+        while isinstance(root, ast.Attribute) and root.attr != "__table__":
             root = root.value
         function_form = receiver is None or isinstance(root, ast.Name) and root.id in self.modules
         before_onclause = _JOINS[name] + int(function_form and name in {"join", "outerjoin"})
@@ -217,6 +233,8 @@ class _Finder(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         name = _call_name(node)
         func = node.func
+        if isinstance(func, ast.Name):
+            name = self.join_aliases.get(name, name)
         if (name in _NONE_TESTS and isinstance(func, ast.Attribute) and self._is_column(func.value)
                 and len(node.args) == 1 and _is_none(node.args[0])):
             self._ownership(func.value)
@@ -287,8 +305,8 @@ def test_the_scan_scores_every_planted_form():
         "from app.models import Company, Filing, FinancialFact, Summary\n"
         "from app.models import FinancialFact as Fact, Filing as Report\n"
         "from app import models\n"
-        "import os, sqlalchemy as sa\n"
-        "from sqlalchemy import join, orm\n"
+        "import os, sqlalchemy as sa, sqlalchemy.orm\n"
+        "from sqlalchemy import join, join as sql_join, orm\n"
         "from sqlalchemy.orm import aliased\n"
         "Alias = Fact\n"
         "Parent = aliased(Report)\n"
@@ -329,7 +347,8 @@ def test_the_scan_scores_every_planted_form():
         "    select(Fact).select_from(sa.outerjoin(Filing, Fact)), orm.join(FinancialFact, Filing, None)\n"
         "    select(Fact).select_from(sa.join(left=Fact, right=Filing))\n"
         "    db.query(FinancialFact).join(Filing.__table__), FinancialFact.__table__.join(Filing.__table__)\n"
-        "    Fact.__table__.join(Company.__table__)\n"
+        "    Fact.__table__.join(Company.__table__), models.FinancialFact.__table__.join(Company.__table__)\n"
+        "    sql_join(FinancialFact, Filing), sqlalchemy.orm.outerjoin(FinancialFact, Filing, None)\n"
         "    db.query(FinancialFact).join(target=Filing), db.query(FinancialFact).join(Filing, None)\n"
         "    return select(FinancialFact).join_from(FinancialFact, Filing)\n"
         "def look_alikes(db, row, state, fid, name, mapping):\n"
@@ -340,6 +359,8 @@ def test_the_scan_scores_every_planted_form():
         "    join(FinancialFact, Filing, FinancialFact.accession == Filing.accession_number)\n"
         "    FinancialFact.__table__.join(Filing.__table__, FinancialFact.accession == Filing.accession_number)\n"
         "    os.path.join(name, 'Filing'), sa.join(Summary, Company)\n"
+        "    Company.__table__.join(Fact.__table__, Company.__table__.c.id == Fact.__table__.c.company_id)\n"
+        "    models.Company.__table__.join(Filing.__table__, models.Company.id == Filing.company_id)\n"
         "    db.query(Summary).join(Company), ', '.join(name), db.query(FinancialFact).filter_by(**mapping)\n"
         "    return row.filing_id == fid, state['filing_id'], {'filing_id': fid}, 'filing_id'\n"
     )
@@ -347,7 +368,7 @@ def test_the_scan_scores_every_planted_form():
         ("direct", "column"): 1, ("through_aliases", "column"): 3, ("module_attribute", "column"): 1,
         ("table_columns", "column"): 2, ("table_columns", "by_name"): 1, ("by_name", "by_name"): 4,
         ("more_by_name", "by_name"): 2, ("owned", "ownership"): 1, ("ownership", "ownership"): 4,
-        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 15,
+        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 18,
     })
     # A relationship on the model, or one to it, loads rows over the same inferred key.
     assert mentions(
