@@ -73,6 +73,11 @@ export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: Fe
           <span id={messageId} className="block truncate">{feedback.message}</span>
           <span className="mt-1 block text-xs underline underline-offset-2">View details</span>
         </button>
+        {!!feedback.attachment_count && (
+          <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            {feedback.attachment_count} {feedback.attachment_count === 1 ? 'screenshot' : 'screenshots'}
+          </p>
+        )}
       </td>
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {feedback.page_url ? (
@@ -81,7 +86,7 @@ export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: Fe
           </span>
         ) : (
           // Feedback sent from no page carries none: the words say so rather than "unavailable".
-          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-secondary-dark" />
+          <MissingValue label="no page" className="text-text-tertiary-light dark:text-text-tertiary-dark" />
         )}
       </td>
       {/* The reporter's address is never cut: it keeps its own width up to 14rem and wraps inside that beyond it, so
@@ -91,7 +96,7 @@ export default function FeedbackRow({ feedback, detailsOpen, onViewDetails }: Fe
       <td className="px-4 py-3 align-top text-sm text-text-secondary-light dark:text-text-secondary-dark">
         <span className="block w-max max-w-[14rem] [overflow-wrap:anywhere]">
           {feedback.user_email ?? (
-            <span className="text-text-tertiary-light dark:text-text-secondary-dark">Anonymous</span>
+            <span className="text-text-tertiary-light dark:text-text-tertiary-dark">Anonymous</span>
           )}
         </span>
       </td>

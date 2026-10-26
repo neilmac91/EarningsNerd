@@ -163,7 +163,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
                   ? 'font-medium text-text-primary-light dark:text-text-primary-dark'
                   : status === 'complete'
                     ? 'text-text-secondary-light dark:text-text-secondary-dark'
-                    : 'text-text-tertiary-light dark:text-text-secondary-dark'
+                    : 'text-text-tertiary-light dark:text-text-tertiary-dark'
               }`}
             >
               {step.label}
@@ -362,7 +362,7 @@ export default function StreamingSummaryDisplay({
                 {pctLabel}
               </span>
               {isGenerating && (
-                <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                   Usually 30–60s
                 </span>
               )}

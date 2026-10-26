@@ -72,8 +72,8 @@ def create_password_account(
     """Create and commit an unverified password account; None when no account may result.
 
     ``invite`` is the closed-beta invite the register handler already validated (None in public
-    mode). None covers a lost redemption race and a lost concurrent-create race for the same email;
-    the caller answers both with its opaque response.
+    mode). None covers a refused redemption (the invite redeemed or revoked since it validated) and
+    a lost concurrent-create race for the same email; the caller answers both with its opaque response.
     """
     require_collection_available()
     agreement = require_current_agreement(agreement)
@@ -89,8 +89,9 @@ def create_password_account(
         stage_account_agreement(db, user, agreement, source="password")
         # Closed beta: consume the (already-validated) single-use invite in the SAME transaction as
         # the insert and tag the user beta-eligible, so the 100%-off promo applies at checkout. A
-        # lost redemption race rolls the account back too (the invite's single-use invariant holds),
-        # and a failed insert never burns an invite.
+        # refused redemption (the invite redeemed or revoked since it validated) rolls the account
+        # back too, so an invite admits one account at most and none once revoked, and a failed
+        # insert never burns an invite.
         if invite is not None:
             if not invite_service.redeem_invite(db, invite, user, commit=False):
                 db.rollback()

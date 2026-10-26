@@ -201,7 +201,7 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
         </ExampleCtaLink>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-          <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-secondary-dark">
+          <div className="text-xs uppercase tracking-eyebrow text-text-tertiary-light dark:text-text-tertiary-dark">
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

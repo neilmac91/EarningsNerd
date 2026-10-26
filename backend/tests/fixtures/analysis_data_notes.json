@@ -782,7 +782,14 @@
           "calculated": 2,
           "total": 12
         }
-      }
+      },
+      "marked_letters": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "i"
+      ]
     },
     {
       "name": "annual_windows_and_comparison_only_issues",
@@ -1032,7 +1039,12 @@
           "calculated": 0,
           "total": 4
         }
-      }
+      },
+      "marked_letters": [
+        "a",
+        "b",
+        "c"
+      ]
     },
     {
       "name": "portable_reason_identity_utf16_ascii",
@@ -1300,7 +1312,11 @@
           "calculated": 0,
           "total": 2
         }
-      }
+      },
+      "marked_letters": [
+        "a",
+        "b"
+      ]
     },
     {
       "name": "all_known_reason_messages_and_supplements_after_z",
@@ -3318,7 +3334,36 @@
           "calculated": 0,
           "total": 27
         }
-      }
+      },
+      "marked_letters": [
+        "a",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+        "aa",
+        "ab"
+      ]
     },
     {
       "name": "explicit_passed_and_calculated_are_independent",
@@ -3387,7 +3432,506 @@
           "calculated": 1,
           "total": 2
         }
-      }
+      },
+      "marked_letters": []
+    },
+    {
+      "name": "record_only_and_mixed_marking",
+      "dataset": {
+        "mode": "annual",
+        "period_key": "FY2023..FY2024",
+        "periods": [
+          {
+            "key": "FY2023"
+          },
+          {
+            "key": "FY2024"
+          }
+        ],
+        "series": [
+          {
+            "concept": "operating_margin",
+            "label": "Operating margin",
+            "percent": true,
+            "cagr": null,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": 30.0,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2024",
+                "value": 31.4,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": 1.4,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "window_pp": null
+          },
+          {
+            "concept": "free_cash_flow",
+            "label": "Free cash flow",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": 3900,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2024",
+                "value": 4100,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "legacy_calculation",
+                    "source_check_needed"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "window_pp": null
+          },
+          {
+            "concept": "net_income",
+            "label": "Net income",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": 100
+              },
+              {
+                "period": "FY2024",
+                "value": 120,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "window_pp": null
+          },
+          {
+            "concept": "long_term_debt",
+            "label": "Long-term debt",
+            "percent": false,
+            "cagr": null,
+            "points": [
+              {
+                "period": "FY2023",
+                "value": null
+              },
+              {
+                "period": "FY2024",
+                "value": 2000,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ],
+            "window_pp": null
+          }
+        ]
+      },
+      "expected": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "values": [
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2023"
+              },
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2024",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation",
+              "source_check_needed"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review. A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "free_cash_flow",
+                "label": "Free cash flow",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "unknown",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "net_income",
+                "label": "Net income",
+                "period": "FY2023"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "unavailable",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2023"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 4,
+          "reviewComparisons": 1,
+          "unavailable": 1,
+          "passed": 2,
+          "unknown": 1,
+          "calculated": 4,
+          "total": 8
+        }
+      },
+      "citations": [
+        {
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        },
+        {
+          "provenance": {
+            "version": 1,
+            "method": "calculated",
+            "validation": "needs_review",
+            "reasons": [
+              "unit_mismatch",
+              "legacy_calculation"
+            ],
+            "formula": null,
+            "inputs": []
+          }
+        }
+      ],
+      "expected_citation_notes": {
+        "version": 1,
+        "notes": [
+          {
+            "key": "[\"review\",[\"legacy_calculation\"]]",
+            "id": "analysis-data-note-a",
+            "letter": "a",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review.",
+            "values": [
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2023"
+              },
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [
+              {
+                "concept": "operating_margin",
+                "label": "Operating margin",
+                "period": "FY2024",
+                "basis": "yoy"
+              }
+            ],
+            "counts": {
+              "qoq": 0,
+              "yoy": 1,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
+            "id": "analysis-data-note-b",
+            "letter": "b",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation",
+              "source_check_needed"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review. A source check remains unresolved. Review the original filing before use.",
+            "values": [
+              {
+                "concept": "free_cash_flow",
+                "label": "Free cash flow",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"source_conflict\"]]",
+            "id": "analysis-data-note-c",
+            "letter": "c",
+            "kind": "review",
+            "reasons": [
+              "source_conflict"
+            ],
+            "message": "Available sources disagree on this figure.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2024"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unknown\",[\"legacy_unknown\"]]",
+            "id": "analysis-data-note-d",
+            "letter": "d",
+            "kind": "unknown",
+            "reasons": [
+              "legacy_unknown"
+            ],
+            "message": "Validation details are unavailable for this saved figure. No verification claim is made.",
+            "values": [
+              {
+                "concept": "net_income",
+                "label": "Net income",
+                "period": "FY2023"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"unavailable\",[\"not_in_dataset\"]]",
+            "id": "analysis-data-note-e",
+            "letter": "e",
+            "kind": "unavailable",
+            "reasons": [
+              "not_in_dataset"
+            ],
+            "message": "Not available in this dataset.",
+            "values": [
+              {
+                "concept": "long_term_debt",
+                "label": "Long-term debt",
+                "period": "FY2023"
+              }
+            ],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          },
+          {
+            "key": "[\"review\",[\"legacy_calculation\",\"unit_mismatch\"]]",
+            "id": "analysis-data-note-f",
+            "letter": "f",
+            "kind": "review",
+            "reasons": [
+              "legacy_calculation",
+              "unit_mismatch"
+            ],
+            "message": "This saved calculation predates the current source checks. Its inputs need review. The source inputs use different units or currencies.",
+            "values": [],
+            "comparisons": [],
+            "counts": {
+              "qoq": 0,
+              "yoy": 0,
+              "cagr": 0,
+              "window_pp": 0
+            }
+          }
+        ],
+        "totals": {
+          "reviewValues": 4,
+          "reviewComparisons": 1,
+          "unavailable": 1,
+          "passed": 2,
+          "unknown": 1,
+          "calculated": 4,
+          "total": 8
+        }
+      },
+      "marked_letters": [
+        "b",
+        "c",
+        "f"
+      ]
     }
   ]
 }

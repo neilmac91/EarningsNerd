@@ -18,7 +18,9 @@ import {
   parseUnicodeRange,
   withPngResolution,
 } from '@/features/analysis/lib/chartExport'
+import { readFileSync } from 'node:fs'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import { buildChartModel, CHART_IDS } from '@/features/analysis/lib/charts/model'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import tailwindConfig from '../../tailwind.config.js'
@@ -187,7 +189,7 @@ describe('chartDataNotes', () => {
     series.points[0].provenance = passed
     series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     series.points[1].yoy = 0.2
-    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['unit_mismatch'] }
     series.points.push({ period: 'FY1999', value: 1, reconciled: false })
     const grouped = groupDataNotes(dataset)
     const panel = chartDataNotes(dataset, [series], grouped, true)
@@ -198,7 +200,25 @@ describe('chartDataNotes', () => {
     expect(chartDataNotes(dataset, [series], grouped, false).panelNotes.map((note) => note.letter)).toEqual(['a'])
   })
 
-  it('preserves gaps, legacy calculation labels and the cash-flow definition in standalone exports', () => {
+  it('leaves a note about the record, not the number, out of the panel and the PNG footer (D-061)', () => {
+    const dataset = structuredClone(quarterly)
+    const series = dataset.series[0]
+    const passed = { version: 1 as const, method: 'reported' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    series.points[0].provenance = passed
+    series.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
+    series.points[1].yoy = 0.2
+    series.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    const grouped = groupDataNotes(dataset)
+    // The legacy YoY is note b in the report: the page's fine print lists it, the plot and its PNG do not.
+    expect(grouped.notes.map((note) => [note.letter, note.reasons])).toEqual([['a', ['source_conflict']], ['b', ['legacy_calculation']]])
+    const panel = chartDataNotes(dataset, [series], grouped, true)
+    expect(panel.panelNotes.map((note) => note.letter)).toEqual(['a'])
+    expect(panel.exportNotes).toContain(`Note a: ${grouped.notes[0].message} Revenue, net (Q4 2024).`)
+    expect(panel.exportNotes.join(' ')).not.toContain('Note b')
+    expect(panel.exportNotes.join(' ')).not.toContain(grouped.notes[1].message)
+  })
+
+  it('preserves gaps, calculated figures and the cash-flow definition in standalone exports, a gap once and with no letter', () => {
     const dataset = structuredClone(quarterly)
     const series = dataset.series[0]
     series.concept = 'free_cash_flow'
@@ -208,7 +228,10 @@ describe('chartDataNotes', () => {
     expect(panel.unavailable).toEqual(['Free cash flow: unavailable for Q3 2024.'])
     expect(panel.exportNotes).toContain('Includes figures calculated by EarningsNerd.')
     expect(panel.exportNotes).toContain(FCF_DEFINITION)
-    expect(panel.exportNotes.some((note) => note.includes('Not available in this dataset.'))).toBe(true)
+    // A gap's note marks nothing, so the footer says it in words, once, with no letter.
+    expect(panel.panelNotes).toEqual([])
+    expect(panel.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')
+    expect(panel.exportNotes.some((note) => note.startsWith('Note '))).toBe(false)
     expect(panel.exportNotes.filter((note) => note.includes('Q3 2024'))).toHaveLength(1)
     const withoutRecordedNotes = chartDataNotes(dataset, [series], { ...groupDataNotes(dataset), noteFor: () => null }, false)
     expect(withoutRecordedNotes.exportNotes).toContain('Free cash flow: unavailable for Q3 2024.')
@@ -271,6 +294,25 @@ describe('layoutLegend', () => {
   it('places an over-wide single item on its own row rather than looping', () => {
     const rows = layoutLegend(measure, [{ label: 'a very long series label', color: '#111' }], 20)
     expect(rows).toHaveLength(1)
+  })
+
+  // M19 on the PNG (spec §6): the export draws each item with one fillText, so it can only wrap between items. Every
+  // fixture's legend, as the spec renderer's card sends it, at a phone's, a desktop card's and an expanded plot's width.
+  const FIXTURES = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')).datasets as Record<string, { dataset: AnalysisDataset }>
+  it.each(Object.keys(FIXTURES))('M19: %s’s legends wrap by whole items, in order, each row inside the strip', (name) => {
+    const ds = FIXTURES[name].dataset
+    for (const chart of CHART_IDS) {
+      const legend = buildChartModel(chart, ds).legend.flatMap((item) => (item.color == null ? [] : [{ label: item.label, color: '#111111' }]))
+      for (const width of [342, 502, 1030]) {
+        const maxWidth = width - 2 * HEADER_STAMP.padX
+        const rows = layoutLegend(measure, legend, maxWidth)
+        expect(rows.flat().map((item) => item.label), `${chart} at ${width}`).toEqual(legend.map((item) => item.label))
+        for (const row of rows) {
+          const used = row.reduce((sum, item, i) => sum + (i ? HEADER_STAMP.itemGap : 0) + HEADER_STAMP.swatch + HEADER_STAMP.swatchGap + item.width, 0)
+          if (row.length > 1) expect(used, `${chart} at ${width}: ${row.map((item) => item.label).join(', ')}`).toBeLessThanOrEqual(maxWidth)
+        }
+      }
+    }
   })
 })
 

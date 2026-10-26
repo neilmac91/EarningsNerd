@@ -66,7 +66,7 @@ export function EpsFigure({ ev, roomy = false, className }: { ev: CalendarEvent;
           {fmtCurrency(ev.eps_actual, { digits: 2, compact: false })} {beat ? '▲' : '▼'}
         </span>
         {roomy && (
-          <span className={cx(mono, 'mt-0.5 block text-data-xs text-text-tertiary-light dark:text-text-secondary-dark')}>
+          <span className={cx(mono, 'mt-0.5 block text-data-xs text-text-tertiary-light dark:text-text-tertiary-dark')}>
             vs {fmtCurrency(ev.eps_estimate, { digits: 2, compact: false })} est
           </span>
         )}
@@ -75,7 +75,7 @@ export function EpsFigure({ ev, roomy = false, className }: { ev: CalendarEvent;
   }
   if (ev.eps_estimate === null) return null
   return (
-    <span className={cx(mono, roomy ? 'text-xs' : 'text-data-xs', 'text-text-tertiary-light dark:text-text-secondary-dark', className)}>
+    <span className={cx(mono, roomy ? 'text-xs' : 'text-data-xs', 'text-text-tertiary-light dark:text-text-tertiary-dark', className)}>
       Est {fmtCurrency(ev.eps_estimate, { digits: 2, compact: false })}
     </span>
   )
@@ -86,7 +86,7 @@ export function EpsFigure({ ev, roomy = false, className }: { ev: CalendarEvent;
 function SlotNote({ ev, note, className }: { ev: CalendarEvent; note: string; className?: string }) {
   const Icon = LANE_ICON[laneOf(ev)]
   return (
-    <span className={cx('flex items-start gap-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark', className)}>
+    <span className={cx('flex items-start gap-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark', className)}>
       <Icon aria-hidden="true" className="mt-0.5 h-3 w-3 flex-none" />
       <span className="min-w-0 break-words">{note}</span>
     </span>
@@ -139,7 +139,7 @@ export function EventRow({
                 </span>
                 <StatusChip status={ev.status} />
               </span>
-              <span className="mt-0.5 block break-words text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              <span className="mt-0.5 block break-words text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                 {name}
               </span>
               {note && <SlotNote ev={ev} note={note} className="mt-0.5" />}
@@ -159,7 +159,7 @@ export function EventRow({
             <span className="mt-px flex flex-wrap items-baseline justify-end gap-x-1.5 pl-[calc(20px_+_0.375rem)]">
               {/* No narrower than its longest word unless the line is (max-w-full caps that floor): the EPS
                   wraps first, and a word breaks only when it is wider than the whole line. */}
-              <span className="max-w-full flex-[1_1_5rem] break-words text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              <span className="max-w-full flex-[1_1_5rem] break-words text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                 {name}
               </span>
               <EpsFigure ev={ev} />

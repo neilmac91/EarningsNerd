@@ -100,7 +100,7 @@ describe('StreamingSummaryDisplay step log', () => {
     expect(marker.className.split(/\s+/)).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-border-light', 'dark:border-border-dark']))
     expect(marker.childElementCount).toBe(0)
     // Whole class tokens: a translucent ink (`text-text-tertiary-light/40`) fades it as opacity-40 did.
-    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-secondary-dark']))
+    expect(pending.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light', 'dark:text-text-tertiary-dark']))
     expect(pending.className).not.toMatch(/text-text-(?:tertiary|secondary)-(?:light|dark)\//)
     for (let el: HTMLElement | null = pending; el; el = el.parentElement) expect(el.className).not.toMatch(/\bopacity-/)
     expect(screen.getByText('Fetching the 10-K from SEC.gov').className).toContain('font-medium')

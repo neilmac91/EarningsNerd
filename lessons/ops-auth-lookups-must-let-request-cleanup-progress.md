@@ -57,6 +57,7 @@ now holds the sync to its own threads and runs it against a one-slot pool whose 
 one-thread default executor, a case the draft fails at the pool timeout. Prose had not stopped it, so
 `backend/tests/unit/test_default_executor_allowlist.py` lists each such call under `app/` and in the
 backend's top-level modules, each with why its work never waits for a slot: bcrypt, the PDF
-and workbook renders, the Copilot's quotation check, and the startup connection check, which runs
+and workbook renders, the summary exports' CSV and HTML builds (E171), the Copilot's quotation check, and the
+startup connection check, which runs
 before the app serves a request. Its first scan also found a `SELECT 1` waiting there for a slot, in
 `metrics_service.get_health_summary`, which nothing had called since it was written; it is deleted.

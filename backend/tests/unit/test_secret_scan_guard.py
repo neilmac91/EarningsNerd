@@ -3926,7 +3926,7 @@ def test_a_session_start_outside_a_repository_does_nothing(tmp_path: Path) -> No
 def test_a_session_start_reads_git_in_english_whatever_the_session_s_language(tmp_path: Path) -> None:
     # git in the session's language: the start reads "not a git repository" in git's own words
     translated = _git_wrapper(tmp_path / "bin", '[ "${LC_ALL-}" = C ] && exec "$REAL" "$@"\n'
-                              'err=$(mktemp) || exit 1\n"$REAL" "$@" 2>"$err"; code=$?\n'
+                              'err=$(mktemp) || exit 1\nLC_ALL=C "$REAL" "$@" 2>"$err"; code=$?\n'
                               'sed "s/not a git repository/kein Git-Repository/" "$err" >&2; rm -f "$err"; exit $code')
     german = {**translated, "LC_ALL": "de_DE.UTF-8", "LANGUAGE": "de"}
     plain = _plain(tmp_path)

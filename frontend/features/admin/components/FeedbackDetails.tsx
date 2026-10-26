@@ -3,6 +3,7 @@
 import { Modal, ModalBody, ModalHeader } from '@/components/ui/Modal'
 import type { FeedbackRecord } from '@/features/admin/api/admin-api'
 import FeedbackMessage from '@/features/feedback/components/FeedbackMessage'
+import FeedbackScreenshots from '@/features/feedback/components/FeedbackScreenshots'
 
 interface FeedbackDetailsProps {
   feedback: FeedbackRecord
@@ -27,6 +28,7 @@ export default function FeedbackDetails({ feedback, open, onClose }: FeedbackDet
             <dd className="[overflow-wrap:anywhere] text-text-primary-light dark:text-text-primary-dark">{feedback.user_email ?? 'Anonymous'}</dd>
           </div>
         </dl>
+        {open && !!feedback.attachments?.length && <FeedbackScreenshots attachments={feedback.attachments} />}
       </ModalBody>
     </Modal>
   )

@@ -131,7 +131,7 @@ export default function EmailChipsInput({
       case 'invalid':
         return 'border-error-light/40 bg-error-light/10 text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark'
       case 'invited':
-        return 'border-border-light bg-black/[0.04] text-text-tertiary-light dark:border-white/10 dark:bg-white/5 dark:text-text-secondary-dark'
+        return 'border-border-light bg-black/[0.04] text-text-tertiary-light dark:border-white/10 dark:bg-white/5 dark:text-text-tertiary-dark'
       default:
         return 'border-brand-border bg-brand-strong/10 text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark'
     }
@@ -208,7 +208,7 @@ export default function EmailChipsInput({
         placeholder="alice@example.com, bob@example.com (paste or type, Enter to add)"
         className={clsx(inputClasses(), 'resize-y')}
       />
-      <p className="mt-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+      <p className="mt-1.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
         Separate addresses with commas, spaces, or new lines. Press Enter to add.
       </p>
     </div>

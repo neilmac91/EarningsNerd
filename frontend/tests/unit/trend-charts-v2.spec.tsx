@@ -2,13 +2,14 @@
    trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
-   fixture dataset and chart: the spec's DOM checks that need no layout engine (docs/design/analysis-trend-charts-spec-
-   2026-10.md §6: D4, D5, D7, D11, D12, D14), every printed string, and literal paint the PNG export can serialise. The
+   fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
+   trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
+   role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
    dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
-   boxes, collisions, the font (D1, D2, D8) and the reading contract's geometry need a browser:
-   tests/e2e/charts-v2.spec.ts.
+   boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
+   tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -50,10 +51,14 @@ vi.mock('sonner', async (importOriginal) => {
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
+import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
+import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
+import { plannedByRole } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
+import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
+import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
+import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -105,6 +110,20 @@ function drawnStrings(svg: SVGSVGElement): string[] {
 
 const num = (element: Element, name: string) => Number(element.getAttribute(name))
 
+/** A text's box as the plan sets it: Geist Mono's 0.6 em advance a character, its glyphs 8.8 px above the baseline and
+ *  2.2 below (§0.5), from its anchor; each tspan line below the first is its own row. */
+function plannedBoxes(text: Element) {
+  const lines = text.querySelector('tspan') ? [...text.querySelectorAll('tspan')] : [text]
+  const anchor = text.getAttribute('text-anchor')
+  let y = num(text, 'y')
+  return lines.map((line) => {
+    y += line === text ? 0 : Number(line.getAttribute('dy') ?? 0)
+    const width = [...(line.textContent ?? '')].length * ADVANCE
+    const x = num(line, 'x') - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0)
+    return { left: x, right: x + width, top: y - 8.8, bottom: y + 2.2 }
+  })
+}
+
 /** The plan's checks on one drawn SVG (spec §6). */
 function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLayout, tokens: ChartTokens) {
   expect([num(svg, 'width'), num(svg, 'height')], 'the SVG is the plan’s size').toEqual([layout.width, layout.height])
@@ -116,6 +135,9 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
   const groups = [...svg.querySelectorAll('g[data-panel]')]
   expect(groups.map((group) => [group.getAttribute('data-panel'), group.getAttribute('data-axis-step'), group.getAttribute('data-axis-domain')]))
     .toEqual(layout.panels.map((box) => [box.panel.id, String(box.panel.axis.step), box.panel.axis.domain.join(',')]))
+  // And its plot rect, which D3 reads in a browser.
+  const plots = layout.panels.map((box) => ({ id: box.panel.id, left: layout.plotLeft, right: layout.plotRight, top: box.top, bottom: box.top + box.height }))
+  expect(groups.map((group) => group.getAttribute('data-plot'))).toEqual(plots.map((plot) => `${plot.left} ${plot.top} ${plot.right - plot.left} ${plot.bottom - plot.top}`))
 
   layout.panels.forEach((box, p) => {
     const group = groups[p]
@@ -189,13 +211,36 @@ function expectDrawsPlan(svg: SVGSVGElement, model: ChartModel, layout: ChartLay
     layout.panels.reduce((sum, box) => sum + box.panel.axis.ticks.length + (box.offAbove ? 1 : 0) + (box.offBelow ? 1 : 0) + 2 * box.bars.filter((bar) => bar.clipped).length, 0))
 
   expect(drawnStrings(svg), 'every printed string is the plan’s, and only those').toEqual(plannedStrings(model, layout))
+
+  // Every text names its role and paints its role's ink (D6 on the plan), and each role prints the plan's strings.
+  const texts = [...svg.querySelectorAll('text')]
+  const drawn: Partial<Record<TextRole, string[]>> = {}
+  for (const text of texts) (drawn[text.getAttribute('data-text') as TextRole] ??= []).push(`${text.textContent}|${text.getAttribute('fill')}`)
+  for (const list of Object.values(drawn)) list.sort()
+  expect(drawn, 'each role’s strings and ink').toEqual(plannedByRole(model, layout, tokens))
+
+  // D3: inside a plot rect, only a bar label, an A13b label, or a gap's "—" or "n/m" on its zero rule.
+  const inside: string[] = []
+  for (const text of texts) for (const box of plannedBoxes(text)) for (const plot of plots) {
+    const across = Math.min(box.right, plot.right) - Math.max(box.left, plot.left)
+    const down = Math.min(box.bottom, plot.bottom) - Math.max(box.top, plot.top)
+    if (across > 0.01 && down > 0.01 && !['label', 'near-zero', 'gap'].includes(text.getAttribute('data-text')!)) inside.push(`${text.getAttribute('data-text')} "${text.textContent}" in ${plot.id}`)
+  }
+  expect(inside, 'D3: text inside a plot rect').toEqual([])
+  layout.panels.forEach((box, p) => {
+    for (const gap of groups[p].querySelectorAll('text[data-text="gap"]')) expect(num(gap, 'y'), 'a gap’s glyph sits on its zero rule').toBeCloseTo(box.y(0) - 3, 9)
+  })
 }
 
 describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
-  for (const view of ['card', 'expanded'] as ChartView[]) {
-    it(view, () => {
+  for (const view of ['card', 'expanded'] as ChartView[]) for (const theme of ['light', 'dark'] as const) {
+    it(`${view}, ${theme}`, () => {
       const ds = dataset(name)
-      const { container } = render(<TrendChartsV2 dataset={ds} />)
+      const { container } = render(
+        <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>
+          <TrendChartsV2 dataset={ds} />
+        </ThemeContext.Provider>
+      )
       const sections = cards(container)
       expect(sections, 'every chart keeps its card (§3.4)').toHaveLength(CHART_IDS.length)
       CHART_IDS.forEach((chart, i) => {
@@ -210,7 +255,7 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         if (view === 'expanded') fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
         const svg = card.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
         expect(svg.getAttribute('aria-label')).toBe(`${model.title} chart`)
-        expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS.light)
+        expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
       })
     })
   }
@@ -336,6 +381,42 @@ describe('the card around the plot', () => {
     expect(svg().getAttribute('height')).toBe('320')
   })
 
+  describe('a toggle runs the plot row to its new height (§3.10; E200)', () => {
+    // jsdom lays nothing out: the row reports the plot's height for the view its card is in.
+    const setup = () => {
+      const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} />)
+      const card = cards(container)[CHART_IDS.indexOf('margins')]
+      const row = card.querySelector('[data-analysis-chart-scroll]')!.parentElement!.parentElement!
+      vi.spyOn(row, 'getBoundingClientRect').mockImplementation(() => ({ height: card.classList.contains('md:col-span-2') ? 600 : 320 }) as DOMRect)
+      return { card, row }
+    }
+    afterEach(() => vi.restoreAllMocks())
+
+    it('from the height it had to the one it has, clipped while it runs, then sized by its content again', () => {
+      const { card, row } = setup()
+      expect(row).toHaveClass('transition-[height]', 'duration-base', 'ease-standard', 'motion-reduce:transition-none')
+      fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+      expect(row.style.height).toBe('600px')
+      expect(row.style.overflow).toBe('hidden')
+      fireEvent.transitionEnd(row, { propertyName: 'height' })
+      expect(row.style.height).toBe('')
+      expect(row.style.overflow).toBe('')
+      // Escape collapses through the same toggle, so it runs back down.
+      fireEvent.keyDown(within(card).getByRole('button', { name: 'Collapse chart' }), { key: 'Escape' })
+      expect(card).not.toHaveClass('md:col-span-2')
+      expect(row.style.height).toBe('320px')
+    })
+
+    it('not at all when the reader asks for less motion', () => {
+      vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => {}, removeEventListener: () => {} }) as unknown as MediaQueryList)
+      const { card, row } = setup()
+      fireEvent.click(within(card).getByRole('button', { name: 'Expand chart' }))
+      expect(card).toHaveClass('md:col-span-2')
+      expect(row.style.height).toBe('')
+      expect(row.style.overflow).toBe('')
+    })
+  })
+
   it('draws the dark theme’s tokens', () => {
     const ds = dataset('PLUG_annual')
     const { container } = render(
@@ -353,7 +434,7 @@ describe('the card around the plot', () => {
   })
 })
 
-describe('the plot waits for its font (G4)', () => {
+describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
   const plots = (container: HTMLElement) => container.querySelectorAll('[data-analysis-chart] > svg').length
   const withFonts = (fonts: Partial<FontFaceSet>) => Object.defineProperty(document, 'fonts', { configurable: true, value: fonts })
 
@@ -367,7 +448,7 @@ describe('the plot waits for its font (G4)', () => {
     const load = vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) }))
     withFonts({ check: () => false, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} exportEnabled />)
-    expect(load).toHaveBeenCalledWith('11px "Geist Mono"')
+    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('†'))
     expect(plots(container)).toBe(0)
     const box = container.querySelector<HTMLElement>('[data-analysis-chart]')!
     expect(box.style.height).toBe('320px')
@@ -375,6 +456,49 @@ describe('the plot waits for its font (G4)', () => {
     await act(async () => loaded())
     expect(plots(container)).toBe(CHART_IDS.length)
     for (const button of screen.getAllByRole('button', { name: 'Download chart as PNG' })) expect(button).toBeEnabled()
+  })
+
+  it('holds bones from its own plan and is busy until then, and the plot replaces them with a fade (§3.9 loading; E200)', async () => {
+    let loaded!: () => void
+    withFonts({ check: () => false, load: vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) })) })
+    const ds = dataset('REGN_annual')
+    const { container } = render(<TrendChartsV2 dataset={ds} />)
+    const notes = resolveDataNotes(ds)
+    CHART_IDS.forEach((chart, i) => {
+      const card = cards(container)[i]
+      const model = buildChartModel(chart, ds, notes)
+      if (model.unavailable) {
+        expect(card, `${chart}: a chart that does not apply waits for nothing`).not.toHaveAttribute('aria-busy')
+        return
+      }
+      expect(card).toHaveAttribute('aria-busy', 'true')
+      const bones = card.querySelector<HTMLElement>('[data-chart-bones]')!
+      expect(bones).toHaveAttribute('aria-hidden', 'true')
+      const plan = bonesPlan(layoutChart(model, DEFAULT_WIDTH, 'card'))
+      const boxes = [...bones.querySelectorAll<HTMLElement>(':scope > div > div')].map((bone) => ({
+        left: parseFloat(bone.style.left) * plan.width / 100,
+        right: (parseFloat(bone.style.left) + parseFloat(bone.style.width)) * plan.width / 100,
+        top: parseFloat(bone.style.top) * plan.height / 100,
+        height: parseFloat(bone.style.height) * plan.height / 100,
+        // jsdom lays nothing out, so the place must be the wrapper's own, never a class the bone's recipe overrides.
+        positioned: bone.classList.contains('absolute') && !bone.classList.contains('relative'),
+      }))
+      expect(boxes, `${chart}: four gridlines and a bar a slot, each panel`).toHaveLength(plan.panels.length * (4 + plan.slots))
+      for (const box of boxes) {
+        expect(box.positioned, `${chart}: placed on its own`).toBe(true)
+        expect(box.height, `${chart}: a bone with height`).toBeGreaterThan(0)
+        expect(box.right - box.left, `${chart}: a bone with width`).toBeGreaterThan(0)
+        expect(box.left, `${chart}: inside the plot rect`).toBeGreaterThanOrEqual(plan.plotLeft - 0.01)
+        expect(box.right, `${chart}: inside the plot rect`).toBeLessThanOrEqual(plan.plotRight + 0.01)
+        expect(plan.panels.some((panel) => box.top >= panel.top - 1.01 && box.top <= panel.top + panel.height), `${chart}: inside a panel`).toBe(true)
+      }
+    })
+    await act(async () => loaded())
+    for (const card of cards(container)) {
+      expect(card).not.toHaveAttribute('aria-busy')
+      expect(card.querySelector('[data-chart-bones]')).toBeNull()
+    }
+    expect(container.querySelector('[data-analysis-chart]')).toHaveClass('animate-content-in', 'motion-reduce:animate-none')
   })
 
   it('paints after 1,500 ms when the font never arrives', () => {
@@ -387,12 +511,37 @@ describe('the plot waits for its font (G4)', () => {
     expect(plots(container)).toBe(CHART_IDS.length)
   })
 
-  it('paints at once when the face is already loaded', () => {
+  it('paints at once when the face is already loaded, latin-ext included', () => {
     const load = vi.fn()
-    withFonts({ check: (face: string) => face === '11px "Geist Mono"', load })
+    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('†')), load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
     expect(plots(container)).toBe(CHART_IDS.length)
     expect(load).not.toHaveBeenCalled()
+    // The latch flips after mount, so the plot's first paint still fades in, the first data paint (§3.9 Motion).
+    expect(container.querySelector('[data-chart-bones]')).toBeNull()
+    expect(container.querySelector('[data-analysis-chart]')).toHaveClass('animate-content-in')
+  })
+
+  it('waits for latin-ext while the latin face alone is in (G3)', () => {
+    // A check with no text asks for a space, so the latin face alone; with † it asks for latin-ext too.
+    const load = vi.fn(() => new Promise<FontFace[]>(() => {}))
+    withFonts({ check: (_face: string, text?: string) => text === undefined, load })
+    const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
+    expect(plots(container)).toBe(0)
+    expect(load).toHaveBeenCalledTimes(1)
+  })
+
+  it('asks for the latin face and every glyph past it that the plot can print and Geist Mono draws (G3)', () => {
+    const load = vi.fn((_face: string, _text?: string) => new Promise<FontFace[]>(() => {}))
+    withFonts({ check: () => false, load })
+    render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
+    const text = load.mock.calls[0][1] ?? ' '
+    // The unicode-range next/font emits for Geist Mono's latin face, the one file app/fonts.ts preloads.
+    const latin = parseUnicodeRange('U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD')
+    const inLatin = (glyph: string) => latin.some(([start, end]) => glyph.codePointAt(0)! >= start && glyph.codePointAt(0)! <= end)
+    const printable = ['†', ...Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])]
+    expect([...text].some(inLatin), 'the sample names the latin face').toBe(true)
+    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !text.includes(glyph))).toEqual([])
   })
 })
 
@@ -439,7 +588,7 @@ describe('the PNG export', () => {
     await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })))
     const options = vi.mocked(exportPanelPng).mock.calls[0][2]
     expect(options?.dark).toBe(true)
-    // The secondary ink is chart.tick's on dark: the export's own (#9CA3AF) is under §3.8's floor of 60 there.
+    // The secondary ink is chart.tick's on dark, the card's legend names' ink (§3.8), not the export's own.
     expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
   })
@@ -448,6 +597,24 @@ describe('the PNG export', () => {
     const { container } = render(<TrendChartsV2 dataset={dataset('REGN_quarterly')} exportEnabled />)
     await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('margins')]).getByRole('button', { name: 'Download chart as PNG' })))
     expect(vi.mocked(exportPanelPng).mock.calls[0][2]?.header).toMatchObject({ period: 'Q3 2023–Q2 2026', periodShort: 'Q3 ’23–Q2 ’26' })
+  })
+
+  it('is busy while its PNG is drawn and refuses a second press, never natively disabled (§3.9 exporting; E200)', async () => {
+    let finish!: (downloaded: boolean) => void
+    vi.mocked(exportPanelPng).mockImplementationOnce(() => new Promise<boolean>((resolve) => { finish = resolve }))
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} exportEnabled />)
+    const card = cards(container)[CHART_IDS.indexOf('cash')]
+    const button = within(card).getByRole('button', { name: 'Download chart as PNG' })
+    await act(async () => fireEvent.click(button))
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    expect(button).toBeEnabled()
+    expect(button.querySelector('.animate-spin'), 'the spinner in the glyph’s place').not.toBeNull()
+    await act(async () => fireEvent.click(button))
+    expect(exportPanelPng).toHaveBeenCalledTimes(1)
+    await act(async () => finish(true))
+    expect(button).not.toHaveAttribute('aria-busy')
+    expect(button.querySelector('.animate-spin')).toBeNull()
+    expect(analytics.exportGenerated).toHaveBeenCalledTimes(1)
   })
 
   it('a chart without free cash flow leaves its definition out, and a failed export says so', async () => {
@@ -478,6 +645,28 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)
     expect(container.querySelector('[data-recharts]')).toBeNull()
+  })
+
+  it('the grid holds four cards of bones while the renderer’s chunk loads (§3.9 loading; E200)', () => {
+    const { container } = render(<TrendChartsSkeleton />)
+    const status = screen.getByRole('status', { name: 'Loading charts' })
+    expect(status, 'a busy live region may hold its words back').not.toHaveAttribute('aria-busy')
+    expect(status).toHaveClass('grid-cols-1', 'md:grid-cols-2')
+    expect(container.querySelectorAll('[data-chart-bones]')).toHaveLength(CHART_IDS.length)
+    for (const bones of container.querySelectorAll<HTMLElement>('[data-chart-bones]')) {
+      expect(bones).toHaveAttribute('aria-hidden', 'true')
+      expect(bones.parentElement!.style.height).toBe(`${CARD_HEIGHT}px`)
+      // The notes row under the plot, so the skeleton is about a first grid row's height (chief design, #1637).
+      const notes = bones.parentElement!.nextElementSibling!
+      expect(notes).toHaveAttribute('aria-hidden', 'true')
+      expect(notes.children).toHaveLength(3)
+    }
+    // A header bone sized in rem stays inside its card at 200% text on a 320 px phone (reflow-200's floor).
+    for (const bone of container.querySelectorAll<HTMLElement>('[aria-hidden="true"].mb-3 > div')) {
+      if (/(^|\s)w-\d+(\s|$)/.test(bone.className)) expect(bone, bone.className).toHaveClass('max-w-full')
+    }
+    // TrendChartBones keeps layout.ts out of the route's chunk, so its card plan names the height itself.
+    expect(CARD_BONES.height).toBe(CARD_HEIGHT)
   })
 
   it('off, today’s Recharts grid draws and the spec renderer is not loaded', () => {

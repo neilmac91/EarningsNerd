@@ -1,21 +1,16 @@
-import type { AnalysisDataset, AnalysisPoint } from '@/features/analysis/api/analysis-api'
-import type { DataNote, DataNoteBasis, DataNotesModel } from './dataNotes'
-import { chartCurrency, chartTopLine } from './charts/model'
-import { windowGrowth, windowRange } from './growth'
-
-export type TableWindow = 'all' | 'newest' | 'earliest'
+import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import type { DataNote, DataNotesModel } from './dataNotes'
+import { chartTopLine, fullyCalculated } from './charts/model'
+import { windowGrowth } from './growth'
 
 export const reportIdentity = (dataset: AnalysisDataset) =>
   JSON.stringify([dataset.ticker, dataset.mode, dataset.period_key, dataset.snapshot_id ?? null])
 
-export const tablePeriods = (dataset: AnalysisDataset, window: TableWindow) =>
-  window === 'newest' ? dataset.periods.slice(-6) : window === 'earliest' ? dataset.periods.slice(0, 6) : dataset.periods
-
-/** The top line the KPI strip, the notes' chart locators and the first chart share: revenue, else a bank's net
+/** The top line the KPI strip and the first chart share: revenue, else a bank's net
  *  interest income, else an insurer's premiums earned (spec D16), whichever has a value in the window. */
 export const topLineConcept = (dataset: AnalysisDataset) => chartTopLine(dataset)?.concept ?? 'revenue'
 
-/** The KPI renderer and note locators use the same four concepts and latest populated point. */
+/** The KPI renderer's four concepts and the latest populated point of each. */
 export function selectHeadlineFigures(dataset: AnalysisDataset) {
   const byConcept = Object.fromEntries(dataset.series.map(series => [series.concept, series]))
   return [topLineConcept(dataset), 'net_income', 'free_cash_flow', 'net_margin'].flatMap(concept => {
@@ -32,56 +27,45 @@ export function selectHeadlineFigures(dataset: AnalysisDataset) {
 export const tableComparisonBasis = (mode: AnalysisDataset['mode'], point: AnalysisPoint) =>
   mode === 'quarterly' && point.qoq != null ? 'qoq' as const : 'yoy' as const
 
-const comparisonId = (concept: string, period: string, basis: DataNoteBasis) => JSON.stringify([concept, period, basis])
-
-/** Actual rendered table membership, including gaps and the full annual window column. */
-export function tablePresentation(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
+/** Actual rendered table membership: every period, including gaps, and the full annual window column. The table's
+ *  Notes chip takes the notes that mark from these (DataNotesLink). */
+export function tablePresentation(dataset: AnalysisDataset, notes: DataNotesModel) {
   const letters = new Set<string>()
-  const comparisons = new Set<string>()
   const include = (note: DataNote | null) => { if (note) letters.add(note.key) }
   for (const series of dataset.series) {
-    for (const period of periods) {
+    for (const period of dataset.periods) {
       const point = series.points.find(point => point.period === period.key) ?? { period: period.key, value: null }
       include(notes.noteFor(point))
       if (point.value == null) continue
       const basis = tableComparisonBasis(dataset.mode, point)
       if (point[basis] == null) continue
       include(notes.noteForComparison(point, basis))
-      comparisons.add(comparisonId(series.concept, period.key, basis))
     }
-    if (dataset.mode === 'annual' && windowGrowth(series).value != null) {
-      include(notes.noteForWindow(series))
-      comparisons.add(comparisonId(series.concept, windowRange(series) ?? dataset.period_key, series.percent ? 'window_pp' : 'cagr'))
-    }
+    if (dataset.mode === 'annual' && windowGrowth(series).value != null) include(notes.noteForWindow(series))
   }
-  return { notes: notes.notes.filter(note => letters.has(note.key)), comparisons }
+  return { notes: notes.notes.filter(note => letters.has(note.key)) }
 }
 
-/** Count distinct concept/period/basis identities; a second appearance never adds a comparison. */
-export function comparisonLocations(dataset: AnalysisDataset, periods: AnalysisDataset['periods'], notes: DataNotesModel) {
-  const headline = new Set(selectHeadlineFigures(dataset).flatMap(({ series, point }) => {
-    const annual = dataset.mode === 'annual'
-    if ((annual ? windowGrowth(series).value : point.yoy) == null) return []
-    return [comparisonId(series.concept, annual ? windowRange(series) ?? dataset.period_key : point.period,
-      annual ? series.percent ? 'window_pp' : 'cagr' : 'yoy')]
-  }))
-  const topLine = chartTopLine(dataset)
-  // TrendCharts plots numeric YoY only; n/m is a table/card label, never a plotted point. A top line filed in two
-  // currencies draws no chart (it prints MIXED_CURRENCY), so it shows none of its comparisons.
-  const plotted = topLine && !chartCurrency(dataset, [topLine.concept]).mixed ? topLine : undefined
-  const chart = new Set(dataset.periods.flatMap(period => {
-    const point = plotted?.points.find(point => point.period === period.key)
-    return typeof point?.yoy === 'number' ? [comparisonId(plotted!.concept, period.key, 'yoy')] : []
-  }))
-  const table = tablePresentation(dataset, periods, notes).comparisons
-  const fullTable = tablePresentation(dataset, dataset.periods, notes).comparisons
-  return (note: DataNote) => (['qoq', 'yoy', 'cagr', 'window_pp'] as const).flatMap(basis => {
-    const identities = new Set(note.comparisons.filter(comparison => comparison.basis === basis)
-      .map(comparison => comparisonId(comparison.concept, comparison.period, basis)))
-    if (!identities.size) return []
-    const count = (surface: Set<string>) => [...identities].filter(identity => surface.has(identity)).length
-    return [{ basis, total: identities.size, headline: count(headline), chart: count(chart), table: count(table),
-      fullTable: count(fullTable), chartLabel: topLine?.label.toLowerCase() ?? 'top-line',
-      windowed: periods.length < dataset.periods.length, periods: periods.length, quarterly: dataset.mode === 'quarterly' }]
-  })
+/** A metric's label inside a sentence: its first letter lowercased, unless it opens an abbreviation ("EPS (diluted)");
+ *  a ratio takes its article ("the current ratio"). */
+const inSentence = (label: string) => {
+  const name = /^.[A-Z]/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1)
+  return / ratio$/.test(name) ? `the ${name}` : name
+}
+const isMargin = (series: AnalysisSeries) => /\bmargin$/i.test(series.label)
+
+/** The sentence above the metrics table. It names the metrics whose every value in the run is calculated, as the
+ *  dataset labels them, since the figures themselves carry no dagger (D-061); a run with none says nothing about
+ *  calculation. Two or more margins read as "margins" when every margin of the run is calculated, so a run with a
+ *  reported gross margin names its calculated margins one by one. A row calculated only in some periods is not named:
+ *  each such figure's control says "calculated", its dialog gives the method, and the quarterly legend explains the
+ *  derived fourth quarters. */
+export function calculatedMetricsSentence(dataset: AnalysisDataset): string {
+  const calculated = dataset.series.filter(series => fullyCalculated(series, dataset))
+  const margins = dataset.series.filter(isMargin)
+  const grouped = margins.length > 1 && margins.every(series => calculated.includes(series))
+  // "Margins" stands where the run's first margin would.
+  const names = calculated.flatMap(series => !grouped || !isMargin(series) ? [inSentence(series.label)] : series === margins[0] ? ['margins'] : [])
+  const list = names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  return `Figures are rounded for display${list ? `; ${list} ${names.length > 1 || grouped ? 'are' : 'is'} calculated from filed figures` : ''}. Select any value for its source and full precision.`
 }

@@ -2,7 +2,7 @@ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/an
 import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { formatInstant } from '@/lib/format'
-import type { DataNotesModel } from './dataNotes'
+import { markedNote, type DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
 import { FCF_DEFINITION } from './provenance'
 
@@ -21,7 +21,9 @@ export function exportSourceText(dataset: AnalysisDataset): { period: string; pe
   }
 }
 
-/** Notes for the plotted series only, with the report's stable letters and reason sentences. */
+/** Notes for the plotted series only, with the report's stable letters and reason sentences. Only a note that questions
+ *  the number marks the plot (D-061), so only those enter the panel's chip and the PNG footer; a gap whose note marks
+ *  nothing is a plain "unavailable for …" line, and the other notes stay in the page's data notes. */
 export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
   const references = new Map<string, Map<string, string[]>>()
   const addReference = (key: string, label: string, period: string) => {
@@ -37,14 +39,14 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     const missingWithoutNote: string[] = []
     for (const period of dataset.periods) {
       const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
-      const note = notes.noteFor(point)
+      const note = markedNote(notes.noteFor(point))
       if (note) addReference(note.key, series.label, period.key)
       if (point.value == null) {
         missing.push(formatAnalysisPeriod(period.key))
         if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
       } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
       if (includeYoY && typeof point.yoy === 'number') {
-        const comparison = notes.noteForComparison(point, 'yoy')
+        const comparison = markedNote(notes.noteForComparison(point, 'yoy'))
         if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
       }
     }
@@ -258,14 +260,14 @@ export const MARK_STAMP = {
  *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {
-  primary: { light: '#1A1A17', dark: '#D7DADC' },
-  secondary: { light: '#374151', dark: '#9CA3AF' },
+  primary: { light: '#1A1A17', dark: '#EAECEF' },
+  secondary: { light: '#374151', dark: '#D1D5DB' },
 } as const
 
 /** The two inks the header and notes paint: the company in `primary`, the subtitle, legend names and notes in
- *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer, whose dark
- *  secondary text is chart.tick's: the secondary ink measures APCA Lc −48.6 on the dark card, under its floor of 60);
- *  otherwise the export takes EXPORT_TEXT for its theme. */
+ *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer passes its
+ *  legend values' and legend names' inks, spec §3.8, which equal these since E194); otherwise the export takes
+ *  EXPORT_TEXT for its theme. */
 export interface ExportInk {
   primary: string
   secondary: string

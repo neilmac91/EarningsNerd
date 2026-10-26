@@ -102,10 +102,11 @@ def oauth_create_account(
 
     Returns ``(user, None)`` with the row flushed but not committed (``mint_oauth_refresh_token``
     commits it together with the provider link and the session), or ``(None, error_code)`` when the
-    gate refuses or (after rolling back) the invite's redemption race is lost. When invite-only mode
-    requires an invite it is consumed here, inside the same transaction, so a lost redemption race
-    never leaves an account behind. An insert that loses a concurrent first sign-in for the same
-    email is rolled back and raises :class:`OAuthSignInRefused` with ``lost_create_race`` set.
+    gate refuses or (after rolling back) the invite's redemption is refused, the invite redeemed or
+    revoked since it validated. When invite-only mode requires an invite it is consumed here, inside
+    the same transaction, so a refused redemption never leaves an account behind. An insert that
+    loses a concurrent first sign-in for the same email is rolled back and raises
+    :class:`OAuthSignInRefused` with ``lost_create_race`` set.
     """
     error_code, invite = oauth_new_account_gate(
         db, email=email, email_verified=email_verified, invite_code_hash=invite_code_hash, agreement=agreement,

@@ -38,6 +38,31 @@ PostHog, Sentry, Resend, Google Workspace and hosting logs/backups have separate
 
 `ContactSubmission` rows with `created_at` older than **365 days** qualify for scheduled cleanup. This says nothing about copies in correspondence inboxes or provider email records. No automated two-year support-email purge is established.
 
+### 2.6 Feedback screenshots
+
+The approved screenshot policy provides **180 days of availability**, ending sooner when the owner
+deletes their account. Every media read checks ownership or current admin access, expiry and deletion;
+account deletion revokes access in its database transaction. Existing feedback messages have a separate
+retention policy and can remain with a null owner reference.
+
+`feedback_media_cleanup_service.py` reconciles known object keys from durable attachment manifests.
+The hourly `feedback-media-cleanup` job targets removal from active object storage within **24 hours**
+of expiry or account deletion, retries provider failures, and reports overdue work. Unpublished upload
+attempts become eligible after **24 hours**; an account deletion preserves that grace for unpublished
+writes while access is already denied. An unsuccessful deletion preserves the object key and
+generation for retry. If a write has no generation receipt and its key is absent, its minimal
+`absent_unknown` manifest remains and is checked daily: a client timeout cannot exclude a later
+server commit. These checks are separate from deletion errors and prioritize newly due objects.
+Once a generation is found and conditionally removed, cleanup can finish. Completed manifests
+retain metadata, not image bytes.
+
+The dedicated private media bucket uses uniform bucket access, public-access prevention, versioning
+off and soft delete off. These settings apply only to this new bucket; screenshots are not included in
+the separate SQL-backup bucket. Disabling recovery means accidentally deleted screenshots cannot be
+restored from that bucket. A successful delete request is evidence of removal from active storage,
+not a promise of instantaneous physical erasure by the provider. Verify provisioning, scheduler runs,
+counter outcomes and alerting before enabling uploads; source code alone proves none of them.
+
 ## 3. Account deletion and export
 
 An authenticated `DELETE /api/users/me` request drives the following source behaviour:
@@ -50,7 +75,7 @@ An authenticated `DELETE /api/users/me` request drives the following source beha
 
 Stripe, audit, operational logs and backup copies can remain. The router success message and source comments now acknowledge retained billing, audit and provider records. No fixed tax deadline or jurisdiction is asserted. The endpoint test keeps the qualified success expectation separate from the failure message, “We could not delete your account. Contact support.” Its cookie, audit, rollback and Stripe assertions remain intact.
 
-The authenticated export route is `GET /api/users/export`. [user_data_export_service.py](../backend/app/services/user_data_export_service.py) builds the feature's export. It is not a complete export of every provider's logs, correspondence or backups. Users can use Account Settings or contact **privacy@earningsnerd.io** for help; no response commitment faster than two business days is added.
+The authenticated export route is `GET /api/users/export`. [user_data_export_service.py](../backend/app/services/user_data_export_service.py) builds the feature's export. It includes retained feedback and screenshot metadata with authenticated individual download paths while images remain available. Image bytes are not embedded in the JSON, and this is not a self-contained image archive or a complete export of every provider's logs, other correspondence or backups. Users can use Account Settings or contact **privacy@earningsnerd.io** for help; no response commitment faster than two business days is added.
 
 ## 4. Remaining verification and decisions
 

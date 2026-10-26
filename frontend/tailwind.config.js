@@ -25,6 +25,15 @@ const gain = {
   dark: '#34D399',  // emerald-400 — 9.7:1 on navy, text-safe
   soft: '#DCFCE7',
   softDark: 'rgba(52,211,153,0.14)',
+  // Change text on the analysis figure surfaces (the metrics table's well and the KPI cards), held to APCA
+  // |Lc| >= 75: green-800 is Lc 82.6 on the light well and 81.3 on panel (the 700 is 72.4 / 71.1). Dark matches
+  // loss.dataDark (rose-200, Lc -83.1 / -80.1) in lightness and chroma, so neither direction reads louder: Lc -83.5 on
+  // the dark well and -80.5 on panel, OKLCH chroma 0.056 against rose-200's 0.056 (emerald-300 #6EE7B7, at 0.130 and
+  // -78.5 / -75.5, outshouted the loss beside it; emerald-400 is -65.6 / -62.6). Level inks give colour-blind readers
+  // no lightness cue: under deuteranopia (Machado 2009, full severity) the pair is ΔE76 2.1 (emerald-300's was 7.2),
+  // protanopia 8.8. The sign carries direction for every reader (the drawn minus is as wide as the plus).
+  data: '#166534',
+  dataDark: '#B6E4CE',
 }
 const loss = {
   light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
@@ -32,6 +41,10 @@ const loss = {
   dark: '#FB7185',  // rose-400 — 7.0:1 on navy, text-safe
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
+  // Figure surfaces, APCA |Lc| >= 75: red-700 already holds Lc 78.4 / 77.2 in light; dark needs rose-200,
+  // Lc -83.1 on the dark well and -80.1 on panel (rose-400 is -49.7 / -46.7, the weakest ink on the table).
+  data: '#B91C1C',
+  dataDark: '#FECDD3',
 }
 const flat = {
   light: '#6B7280', // gray-500
@@ -96,6 +109,8 @@ module.exports = {
           dark: gain.dark,
           soft: gain.soft,
           'soft-dark': gain.softDark,
+          data: gain.data,
+          'data-dark': gain.dataDark,
         },
         loss: {
           DEFAULT: loss.light,
@@ -104,6 +119,8 @@ module.exports = {
           dark: loss.dark,
           soft: loss.soft,
           'soft-dark': loss.softDark,
+          data: loss.data,
+          'data-dark': loss.dataDark,
         },
         flat: {
           light: flat.light,
@@ -142,8 +159,8 @@ module.exports = {
           grid: { light: 'rgba(229,231,235,0.6)', dark: 'rgba(255,255,255,0.06)' }, // hairline @ 60% — quieter than the axis
           axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },               // = the hairline itself
           // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
-          // the card charts sit on; on bare cream use secondary). Dark = text.SECONDARY
-          // (tertiary-dark fails on navy — same rule as muted text).
+          // the card charts sit on; on bare cream use secondary). Dark = text.TERTIARY, gray-400 #9CA3AF
+          // (7.4:1 on navy), chrome that stays quieter than the secondary ink.
           label: { light: '#6B7280', dark: '#9CA3AF' },
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
@@ -159,29 +176,53 @@ module.exports = {
           s4: { light: '#CF7159', dark: '#E8927C' }, // = chart-4 · dark Lc −51.9
           s5: { light: '#6E7E9C', dark: '#97A6C2' }, // = chart-5 · dark Lc −50.1
           s6: { light: '#8B7BC0', dark: '#AFA2DE' }, // = chart-6 · dark Lc −52.8
-          tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (secondary-dark is −48.6)
-          value: { light: '#374151', dark: '#D7DADC' },    // = text.secondary · dark = text.primary.dark today, the plot's own after #1606
+          tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (tertiary-dark, gray-400, is −48.6)
+          value: { light: '#374151', dark: '#EAECEF' },    // = text.secondary · dark = text.primary, the figure ink (D-063)
           gridline: { light: '#DCD9D0', dark: '#525C6B' }, // Lc 16.8 / −15.0: visible, quieter than the zero rule
           review: { light: '#92400E', dark: '#FBBF24' },   // = warning · dark Lc −70.2 (warning-dark is −56.9)
         },
 
         // ---- Text ----
         text: {
-          primary: { light: '#1A1A17', dark: '#D7DADC' },
+          // primary.dark #EAECEF, the figure surfaces' ink (was #D7DADC, 1.05:1 from the gray-300 secondary): APCA Lc
+          // -94.8 on navy and -91.8 on panel, and 1.24:1 above secondary, so in dark body copy stands over its
+          // supporting text by ink as well as by size and weight (light's pair is 1.69:1).
+          primary: { light: '#1A1A17', dark: '#EAECEF' },
           // v2: ONE heading ink — same espresso as body (walnut #3A2E26 retired); hierarchy comes
           // from size + weight, never a second color.
-          heading: { light: '#1A1A17', dark: '#D7DADC' },
-          secondary: { light: '#374151', dark: '#9CA3AF' },
+          heading: { light: '#1A1A17', dark: '#EAECEF' },
+          // secondary.dark #D1D5DB (gray-300; was gray-400 #9CA3AF, APCA Lc -48.6 on panel for 12px copy): Lc -77.3 on
+          // panel, -80.3 on navy, so secondary reads in dark as it does in light (90.9 on panel). Secondary carries
+          // anything that must be read.
+          secondary: { light: '#374151', dark: '#D1D5DB' },
           // tertiary.light #636A77 (P-02, 2026-10 critique; was gray-500 #6B7280 = 4.35:1 on cream, an AA
-          // fail at 12px): 4.9:1 on cream, 5.2:1 on panel, 4.8:1 in the brand-weak tint. Secondary
-          // still carries anything that must be read. tertiary.dark stays banned as text (2.9:1 on navy).
-          tertiary: { light: '#636A77', dark: '#4B5563' },
+          // fail at 12px): 4.9:1 on cream, 5.2:1 on panel, 4.8:1 in the brand-weak tint. tertiary.dark is its
+          // dark twin, de-emphasised but readable: gray-400 #9CA3AF, the ink tertiary text has always shown in dark
+          // (5.8:1 on panel, 7.4:1 on navy; it was secondary.dark's value, and #4B5563 failed as text at 2.9:1).
+          tertiary: { light: '#636A77', dark: '#9CA3AF' },
         },
         // ---- Borders ----
         border: {
           light: '#E5E7EB', // gray-200
           dark: '#374151', // gray-700
         },
+
+        // ---- Analysis figure surfaces (the metrics table's sheet, the KPI cards' figures) ----
+        // Measured with APCA (apca-w3 0.1.9) against the actual ground; targets by role: figures and metric names
+        // |Lc| >= 90 (Bronze: non-body text no smaller than 12px), change lines and labels >= 75, marks >= 60, rules >= 15
+        // and a hovered row's rules >= 30. The table's heading row and metric column stay on panel (DataTable's well frame).
+        // well: the sheet the figures sit on inside the panel Card. Platinum white is cooler and brighter than the warm
+        // panel framing it; near-black is the navy ground itself, so the sheet reads as recessed in dark.
+        well: { light: '#FCFCFD', dark: '#0B1120' },
+        // rule: row hairlines and the sheet's outline, on the sheet and on the panel-coloured frame (border-light is Lc
+        // 10.0 on the sheet, 8.8 on panel): 16.5 / 15.3 light, -18.8 / -15.9 dark. strong: a hovered row's two rules, the
+        // hover that leaves every text pair unchanged: 35.8 / 34.5 light, -33.8 / -30.9 dark.
+        rule: { light: '#D9DCE1', dark: '#545E6D', 'strong-light': '#B5BAC2', 'strong-dark': '#768090' },
+        // figure: values and metric names. Espresso is Lc 102.5 on the sheet and 101.3 on panel; dark is -94.8 on the
+        // sheet and -91.8 on panel (gray-200 #E5E7EB is -88.7 on panel), the value text.primary.dark took app-wide.
+        figure: { light: '#1A1A17', dark: '#EAECEF' },
+        // note: flat changes, †, neutral letters and the missing-value token on the sheet: Lc 75.4 / -80.3.
+        note: { light: '#636A77', dark: '#D1D5DB' },
 
         // v3: the ONE modal/sheet scrim (brand navy @ 55%), both themes —
         // replaces the bg-slate-950/60 and bg-black/50 hand-rolls.
@@ -209,6 +250,10 @@ module.exports = {
         // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
         data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        // The data role for an analysis figure: Geist Mono, with a true minus. "EN Figure Minus" (app/globals.css) is a
+        // one-glyph face that draws Geist Mono's own U+2212 for U+002D, so the hyphen-minus the shared formatters write
+        // stays the DOM text (copy, the accessibility tree, the Excel export) and paints as a minus. The rest is `data`.
+        figure: ['"EN Figure Minus"', 'var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         // fontFamily.system / .grotesque were PURGED at the v2 cutover (zero usage, confirmed by
         // scan) — do not reintroduce. The v2.1 export resurrected them; #497 re-removed them.
       },

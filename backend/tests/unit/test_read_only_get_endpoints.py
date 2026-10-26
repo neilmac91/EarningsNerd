@@ -105,6 +105,10 @@ ALLOWED_MUTATING_GETS: dict[tuple[str, str], str] = {}
 # Read-through caches persist what they just fetched; OAuth GETs are GET by protocol; the progress
 # heartbeat self-heals an orphaned row. Anything new belongs on POST or needs a reason here.
 ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
+    ("app/routers/feedback.py", "feedback_attachment"): (
+        "private object read: launch and reap a hard-deadline storage child; both tasks are awaited "
+        "and settled before return/cancellation, never detached work or database writes"
+    ),
     ("app/routers/analysis.py", "get_coverage"): (
         "read-through: fires a fire-and-forget companyfacts ingest (asyncio.create_task, deduped, "
         "through the SEC limiter) when coverage is stale; the response itself is a read"
@@ -152,6 +156,10 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
 # with the kind and count of each one there. A write that moves (a router helper into a service)
 # moves its pin in the same PR; one more or one fewer changes its count.
 ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
+    ("app/routers/feedback.py", "feedback_attachment"): {
+        "app/services/feedback_storage_worker_service.py::run_feedback_storage_operation": {"create_task": 1},
+        "app/services/feedback_storage_worker_service.py::_finish_child": {"create_task": 1},
+    },
     ("app/routers/analysis.py", "get_coverage"): {
         "app/routers/analysis.py::get_coverage": {"create_task": 1},
         "app/services/facts/ingest.py::_persist_companyfacts_payload": {"commit": 1},

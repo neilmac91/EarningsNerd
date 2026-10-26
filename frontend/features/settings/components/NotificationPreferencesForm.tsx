@@ -54,7 +54,7 @@ function Toggle({
             </Link>
           )}
         </div>
-        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{description}</p>
+        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{description}</p>
       </div>
       {/* Busy fades only the track; the shared switch's focus ring remains opaque.
           Plan-locked switches retain native disabled because their own press cannot flip that state. */}
@@ -103,7 +103,7 @@ export default function NotificationPreferencesForm() {
     <Card className="p-cap-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-secondary-dark" />}
+        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -195,7 +195,7 @@ function PreferenceRows({
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 py-3">
         <div className="grow basis-40">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest</span>
-          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             Alerts that aren&apos;t real-time arrive in one email a day.
           </p>
         </div>

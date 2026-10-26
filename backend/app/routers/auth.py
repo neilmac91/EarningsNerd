@@ -653,7 +653,8 @@ async def register(
     except CollectionUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     if user is None:
-        # A lost invite-redemption race or a lost concurrent-create race: stay opaque (rolled back).
+        # A refused invite redemption (redeemed or revoked since it validated) or a lost concurrent-create
+        # race: stay opaque (rolled back).
         return _REGISTER_OPAQUE
     redeemed = invite is not None
 
