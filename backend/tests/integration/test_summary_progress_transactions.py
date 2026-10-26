@@ -16,6 +16,9 @@ E214: ``summary_generation_service.record_progress`` writes the row in one
 
 A seeded row's last write comes 10 s after its start, so a count from the last write, not from the start, shows.
 
+E216: a run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on a row an earlier run left;
+before E216 it kept that row's ``started_at``.
+
 E215: the progress poll (``progress_poll_answer``) marks a stalled row, one whose stage is not terminal and whose last
 write is older than ``STALE_PROGRESS_SECONDS``, a retryable error in one UPDATE by filing on those criteria, and reads
 the row after it.
@@ -236,6 +239,13 @@ def test_writers_of_a_filing_with_no_row_each_succeed_on_one_row(postgres_engine
         event.remove(postgres_engine, "before_cursor_execute", before)
     [row] = _rows(postgres_engine, filing_id)
     assert row["stage"] in stages and row["started_at"] == NOW
+
+
+def test_a_runs_first_write_restarts_the_clock_on_an_earlier_runs_row(postgres_engine, filing_id):
+    _seed(postgres_engine, filing_id, age_seconds=7200)
+    with _session(postgres_engine) as db:
+        summary_generation_service.record_progress(db, filing_id, "fetching", starts_run=True)
+    assert _rows(postgres_engine, filing_id) == [{"stage": "fetching", "started_at": NOW, "elapsed_seconds": 0.0}]
 
 
 # E215: the progress poll's stale mark.

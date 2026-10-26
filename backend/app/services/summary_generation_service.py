@@ -404,15 +404,17 @@ def record_progress(
     *,
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
+    starts_run: bool = False,
 ) -> None:
     """Write the filing's progress row in one statement, and commit (E214).
 
-    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write, a run's first
-    write onto an earlier run's row included, sets the stage, the error (``None`` clears it) and, when given, the
-    section coverage; it keeps the stored ``started_at`` and counts ``elapsed_seconds`` from it in SQL. With no read
-    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
-    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
-    fresh row, and after an insert it updates that row."""
+    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write sets the stage,
+    the error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
+    ``elapsed_seconds`` from it in SQL. A run's first write (``starts_run``, the pipeline's fetch stage) restarts the
+    clock instead, so a retry after an error, or the unready summary's regeneration, does not count from the run that
+    left the row (E216). With no read before the write, a clear or an insert landing just before it (a Pro force's
+    clear, an admin reset, another run of the filing on the API's other instance, the task worker or a job) cannot fail
+    the run: after a clear it inserts a fresh row, and after an insert it updates that row."""
     now = utcnow()
     dialect = db.get_bind().dialect.name
     insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
@@ -435,6 +437,9 @@ def record_progress(
                                "elapsed_seconds": elapsed, "error": statement.excluded.error}
     if section_coverage is not None:
         updates["section_coverage"] = statement.excluded.section_coverage
+    if starts_run:
+        updates["started_at"] = statement.excluded.started_at
+        updates["elapsed_seconds"] = statement.excluded.elapsed_seconds
     db.execute(statement.on_conflict_do_update(index_elements=[SummaryGenerationProgress.filing_id], set_=updates))
     db.commit()
 

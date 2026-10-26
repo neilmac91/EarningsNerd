@@ -14,6 +14,10 @@ date functions keep milliseconds, which the tolerance allows for. A seeded row's
 start, so a count from the last write, not from the start, shows. These cases run on SQLite;
 ``tests/integration/test_summary_progress_transactions.py`` runs the races, and a clear that holds the row while the
 write waits, on PostgreSQL.
+
+E216: a run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on a row an earlier run left.
+Nothing clears that row before a retry after an error or the unready summary's regeneration, so before E216 the new
+run's elapsed time counted from the earlier run's start (two hours, on a two-hour-old error row).
 """
 import re
 from contextlib import contextmanager
@@ -147,8 +151,9 @@ def test_an_insert_just_before_the_write_is_updated_with_its_start_kept(engine, 
     assert row["elapsed_seconds"] == pytest.approx(30.0, abs=1e-3)
 
 
-def test_the_first_write_inserts_the_row(engine, filing_id):
-    _write(engine, filing_id, "fetching")
+@pytest.mark.parametrize("starts_run", [False, True])
+def test_the_first_write_inserts_the_row(engine, filing_id, starts_run):
+    _write(engine, filing_id, "fetching", starts_run=starts_run)
     row = _row(engine, filing_id)
     assert row["stage"] == "fetching"
     assert row["started_at"] == row["updated_at"] == NOW
@@ -181,3 +186,15 @@ def test_a_write_records_its_error_and_replaces_the_coverage_it_names(engine, fi
     assert row["stage"] == "error"
     assert row["error"] == "Pipeline timeout"
     assert row["section_coverage"] == {"business": "partial"}
+
+
+def test_a_runs_first_write_restarts_the_clock_on_an_earlier_runs_row(engine, filing_id):
+    coverage = {"business": "full"}
+    _seed(engine, filing_id, age_seconds=7200, stage="error", error="Pipeline timeout", section_coverage=coverage)
+    _write(engine, filing_id, "fetching", starts_run=True)
+    row = _row(engine, filing_id)
+    assert row["stage"] == "fetching"
+    assert row["started_at"] == row["updated_at"] == NOW
+    assert row["elapsed_seconds"] == 0.0
+    assert row["error"] is None
+    assert row["section_coverage"] == coverage  # kept: this write names none

@@ -26,8 +26,8 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
     enrichment.start_enrichment_tasks(run)
 
     # Step 1: File Validation
-    # DB OP: Record progress
-    await run.run_sync_db(run.record_progress_sync, filing_id, "fetching")
+    # DB OP: Record progress; the run's first write starts its clock, whatever an earlier run's row held.
+    await run.run_sync_db(run.record_progress_sync, filing_id, "fetching", starts_run=True)
 
     logger.info(f"[stream:{filing_id}] Yielding fetching stage")
     yield {'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}

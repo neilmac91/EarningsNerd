@@ -169,7 +169,7 @@ async def test_empty_legacy_section_coverage_skips_the_coverage_progress_write()
 
     summary_id = _assert_complete(events)
     assert _progress_stages(record_progress) == [
-        (filing_id, "fetching", {}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
+        (filing_id, "fetching", {"starts_run": True}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
         (filing_id, "summarizing", {}), (filing_id, "completed", {}),
     ]
     with SessionLocal() as db:
@@ -400,7 +400,7 @@ async def test_enrichment_join_progress_events_and_record_progress_stages_for_a_
     ]
     assert events[start - 1] == FETCHED
     assert _progress_stages(record_progress) == [
-        (filing_id, "fetching", {}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
+        (filing_id, "fetching", {"starts_run": True}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
         (filing_id, "summarizing", {}),
         (filing_id, "summarizing", {"section_coverage": {"covered_count": 5, "total_count": 7}}),
         (filing_id, "completed", {}),
