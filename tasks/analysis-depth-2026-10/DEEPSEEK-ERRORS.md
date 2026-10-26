@@ -26,17 +26,18 @@ No model was called and no repository file was changed to write this.
 
 **Outcome (built 25–26 October, measured 26 October, §5).** The candidate C was frozen after two development
 rounds. It is pack version 2, the candidate prompt and the version-2 repair loop. It ran twice on the 10 held-out
-companies beside the frozen configuration (K0) and the version-1 procedure that the founder's decision priced (the
-production control), all off-peak on the same evening. P, the same build with the frozen prompt in place of the
-candidate, ran twice more on those companies afterwards.
+companies, beside the frozen configuration (K0, also twice) and one run of the version-1 procedure that the founder's
+decision priced (the production control), all off-peak on the same evening. P, the same build with the frozen prompt
+in place of the candidate, ran twice more on those companies afterwards.
 - **The error gap is not closed.** Read by hand, the final text states a verified number about the wrong metric,
   period or sign 3.4–5.1 times per 1,000 verified claims in every build: K0 3.4, C 3.6, P 5.1 and the control 4.1.
   Each rate rests on 3 to 7 sentences, so none can be told from the others. Sonnet scored 1.4 in eval-v1.
 - **The code and pack fixes (P) did what they were for, at the control's cost and a shorter wait:**
   - no broken net cash stated as fact, where K0 stated it in 8 of 12 analyses of companies with a data break;
   - no probe-detected mislabel left for a reader: each goes to repair, and an output that keeps one fails the gate;
-  - p50 10.9 s and p90 12.1 s, at $0.0066–0.0067 an analysis, against the control's 12.8 s, 17.8 s and $0.0071.
-    That is off-peak; the peak-hour run has not happened yet;
+  - p50 10.9 s and p90 12.1 s pooled, at $0.0066–0.0067 an analysis, against the control's 12.8 s, 17.8 s and
+    $0.0071. By run, P's p50 was 10.54 and 10.9 s, just over the 10.5 s target in both. That is off-peak; the
+    peak-hour run has not happened yet;
   - the cause count kept: 6.6 cause sentences per analysis over six runs, the same as K0.
 - **The candidate prompt (C) fixed calibration but cost depth.** Its judgement share was 11.6% (K0 1.0%), with no
   evaluative words in data sentences and no forecasts in watch items, and the judge preferred C to K0 overall in
@@ -1131,10 +1132,13 @@ between a run's generation rows and its judge rows. The first 40 rows are step 0
 
 ### 5.2 The held-out result
 
-The rows of §3's Measures table. Two rows are read by hand:
+The rows of §3's Measures table. Three rows are read by hand (P's by the third reading):
 - **the real first-try gate errors**, by the failure reading. They are the gate's failures on the model's own first
   output, less the gate's false positives;
-- **the real mislabels**, by the mislabel reading.
+- **the real mislabels**, by the mislabel reading;
+- **the logic slips**, each named in its run's report.
+
+The watch-forecast row is the lexicon's count. §3 asks for it to be read by hand, and this section did not do so.
 
 Every other value is printed by `runs/eval-v2-r1`, `runs/eval-v2-r2`, `runs/eval-v2-p-r1`, `runs/eval-v2-p-r2`,
 their pooled reports and `runs/eval-v2-v1control`. The pooled latencies come from the failure reading and P's reading,
@@ -1147,7 +1151,7 @@ as the pooled reports print none. P's hand-read rows are the third reading's.
 | Real first-try gate errors per analysis (failure reading) | 0.15 or less | 0.70 · 0.70 (0.70); printed 0.70 · 0.90 | **missed** | 1.00 · 0.70 (0.85); printed 1.30 · 0.70 | 0.50 · 0.60 (0.55); printed 0.50 · 0.80 | printed 0.60; not read by hand |
 | First-try backstop hits per analysis | — | 0.00 · 0.10 (0.05) | — | 0.20 · 0.70 (0.45) | 0.20 · 0.40 (0.30), all net-debt signs (R2a) | 0.40 |
 | Repairs sent for broken net cash alone | — | 0 of 4 · 0 of 7 | — | 0 of 8 · 0 of 6 | 0 of 5 · 0 of 7 | 0 of 5 |
-| Mislabels per 1,000 verified claims, probes alone | — | 0.0 · 0.0 | — | 0.0 · 0.0 | 0.0 · 0.0 | 4.1 (3 in 735) |
+| Mislabels per 1,000 verified claims, probes alone | — | 0.0 · 0.0 | — | 0.0 · 0.0 | 0.0 · 0.0 | 4.1 (3 in 735) before reading; 2.7 (2) after, as DUK's "-0.62x" is correctly labelled |
 | Real mislabels per 1,000 verified claims (mislabel reading) | 3.5 or less in each run | 5.9 · 1.4 (3.6: 5 in 1,405); printed 7.4 · 2.7 | **missed** in run 1 | 1.3 · 5.5 (3.4: 5 in 1,478); printed 4.0 · 5.5 | 5.7 · 4.5 (5.1: 7 in 1,364); printed 7.2 · 4.5 | 4.1 (3 in 735); printed 5.4 |
 | Judgement share outside the watch list | 3–12% | 12.0% · 11.2% (11.6%) | met | 1.1% · 0.8% (1.0%) | 1.5% · 1.5% (1.5%) | 0.8% |
 | Evaluative words in fact and comparison sentences | 3% or less | 0.0% · 0.0% | met | 5.6% · 3.5% (4.6%) | 3.3% · 2.2% (2.8%) | 5.4% |
@@ -1162,7 +1166,7 @@ as the pooled reports print none. P's hand-read rows are the third reading's.
 | Judge, C against K0: grounding and calibration each won or tied in the same pair | C on at least 12 of 20 | 7 · 9 of 10 (16 of 20) | met | 5 · 2 of 10 (7 of 20) | not judged | not judged |
 | Judge: pairs in which K0 won depth | no more than 5 of 20 | 4 · 5 (9 of 20) | **missed** | — | not judged | not judged |
 | Words per analysis, mean (max) | 700 or fewer | 589 (700) · 619 (689) | met | 626 (707) · 613 (762) | 595 (681) · 577 (690) | 634 (787) |
-| Sentences per analysis, mean (max) | 30 or fewer | 29.7 (30) · 29.8 (31) | met on the mean; two analyses have 31 (DUK and RIVN, run 2) | 29.1 (30) · 29.1 (30) | 29.9 (33) · 29.8 (31); four analyses over 30 (KO 33 and TGT 31 in run 1, DUK and RIVN 31 in run 2) | 29.2 (31) |
+| Sentences per analysis, mean (max) | 30 or fewer | 29.7 (30) · 29.8 (31) | met on the mean; two analyses have 31 (DUK and RIVN, run 2) | 29.1 (30) · 29.1 (30) | 29.9 (33) · 29.8 (31): met on the mean, as C's is; four analyses have more than 30 (KO 33 and TGT 31 in run 1, DUK and RIVN 31 in run 2) | 29.2 (31) |
 | Analyses with all 7 sections | all | 10 · 10 of 10 | met | 10 · 10 of 10 | 10 · 10 of 10 | 10 of 10 |
 | API list cost per analysis, off-peak | at most $0.0075 | $0.0065 · $0.0067 | met | $0.0068 · $0.0067 | $0.0066 · $0.0067 | $0.0071 |
 | Latency p50 (s) | at most 10.5 | 10.1 · 12.0 (11.2) | **missed** in run 2 | 12.3 · 11.3 (11.8) | 10.54 · 10.9 (10.9) | 12.8 |
@@ -1212,8 +1216,8 @@ as the pooled reports print none. P's hand-read rows are the third reading's.
   - **No unsigned fall** in any P or C run. Q wrote one in dev-v6-r1.
 - **P against C's targets.** Measured on held out after eval-v2's results were seen, P met the targets for broken net
   cash, cost and p90, and evaluative words in run 2 only (3.3% and 2.2%). It missed passes (40%), first-try errors
-  (0.55), mislabels in both runs (5.7 and 4.5), judgement share (1.5%), watch forecasts (10 per 60), sentences (four
-  analyses over 30) and p50 in both runs (10.54 and 10.9 s; run 1 by 0.04 s). It kept the cause-count and
+  (0.55), mislabels in both runs (5.7 and 4.5), judgement share (1.5%), watch forecasts (10 per 60) and p50 in both
+  runs (10.54 and 10.9 s; run 1 by 0.04 s). It kept the cause-count and
   unsigned-fall guards in
   every run; its cause support was 70% in run 1, under the 72% guard, as K0's was (70%). No judge read it.
 
@@ -1309,7 +1313,7 @@ The table prints the reports as committed.
 - **K0 improved too, with no change of its own.** Its passes went from 15% to 30% and its real mislabels from 6.0
   to 4.1. The round-2 replay flipped no K0 sentence (§2, "As built"). So part of C's improvement is run-to-run
   variation.
-- **Lines that did not hold** (from the two readings):
+- **Lines that did not hold** (from the first two readings):
   - "Above or below a reference, by its numbers": C still wrote COST's "1.71x … above the 1.75x window median" in
     dev-v6-r1, and NVDA's "60.4% … above the 62.4% window high" in dev-v6-r2.
   - "No operating-cost comparison without the gap value" (P2): C wrote one in all 6 analyses of the three companies
@@ -1528,7 +1532,8 @@ speed is the median over first attempts.
 | Production control (version 1) | 8.9 / 10.3 | 5.07 | 5 full | 7.0 / 7.8 | 12.8 / 17.8 |
 
 - **What drives latency.**
-  - A fit over 78 calls without a stall gives about 3.0 s plus 3.7 ms per output token (R² 0.96).
+  - A least-squares fit over the 78 eval-v2 and control generation calls without a stall gives about 1.8 s plus
+    4.1 ms per output token (R² 0.95). With P's 32 calls it is 1.7 s plus 4.2 ms (R² 0.96).
   - Input of 24,000–56,000 tokens, cached or not, adds nothing measurable. So the control's warm cache does not
     flatter its latency.
   - A patch repair costs at least about 2 s.
@@ -1539,8 +1544,9 @@ speed is the median over first attempts.
 - **Against the production control** (off-peak, the same evening), C is about 1.6 s faster at p50 pooled (11.25
   against 12.81 s: 2.7 s in run 1, 0.85 s in run 2) and about 5 s faster at p90 (12.5 against 17.8 s). P, run about
   an hour later, is about 1.9 s faster at p50 (10.91 s) and 5.7 s at p90 (12.09 s). Both are cheaper:
-  $0.0065–0.0067 an analysis against $0.0071 (K0 $0.0067–0.0068). At DeepSeek's peak price, every cost doubles. No
-  arm reaches the founder's "about 10 s" at p50 off-peak; C's run 1 came closest (10.1 s).
+  $0.0065–0.0067 an analysis against $0.0071 (K0 $0.0067–0.0068). At DeepSeek's peak price, every cost doubles.
+  Pooled, no arm reaches the founder's "about 10 s" at p50 off-peak (C 11.25, P 10.91, K0 11.75 s). Only C's run 1
+  did (10.1 s).
 - **The development runs were slower per token.**
   - Their first attempts ran at a median of 5.5–6.4 ms per output token (10.1–11.7 s), against 5.2–5.3 ms
     (9.3–9.7 s) in eval-v2. These figures are from the ledger: its generation calls with more than 1,000 output
@@ -1576,7 +1582,8 @@ prompt" is the candidate prompt, which only Q and C carry.
   not resolved (below).
 - **Probe-detectable mislabels reaching a reader.** The backstops send each one to the patch repair. An output that
   still holds one fails the gate, so production would show today's narrative instead.
-  - On held out, no version-2 final output holds one (K0, P and C). The control's hold 4.1 per 1,000.
+  - On held out, no version-2 final output holds one (K0, P and C). The control's hold 3 probe hits in 735 verified
+    claims (4.1 per 1,000), of which 2 are real after reading (2.7).
   - On development, K0 kept 3 after its repair (dev-v5 1.3 and dev-v6 0.7 per 1,000), P one and Q one. Each of
     those outputs fails the final gate.
 - **The repair's latency.**
@@ -1634,8 +1641,8 @@ prompt" is the candidate prompt, which only Q and C carry.
 - On held-out companies, DeepSeek's final text still states a verified number about the wrong metric, period or sign
   3–5 times per 1,000 verified claims, whatever the build: K0 3.4, C 3.6, P 5.1, the control 4.1. Sonnet scored 1.4
   in eval-v1.
-- Every build measured today is below eval-v1's 9.8, the control included. So that fall belongs to the day, not to
-  the fixes.
+- Every build measured today is below eval-v1's 9.8, the control included. So that fall is between days or runs,
+  not the fixes' doing, and the comparison is approximate (§5.2).
 - The fixes changed which errors occur, not how many.
 
 **What the fixes did achieve, at the founder's cost:**
@@ -1693,7 +1700,7 @@ overrule them:
      - The cost of that gap is measured. P's 6 backstop hits on held out were all net-debt signs, the prompt line's
        subject, in 4 analyses.
      - Two of those analyses (ORCL, both runs) needed a repair anyway, for a red flag's threshold. The other two
-       (DUK, both runs) were repaired for the hits alone, at about 2.4 s each. P's p50 was 10.54 and 10.9 s.
+       (DUK, both runs) were repaired for the hits alone, at 2.1 and 2.5 s. P's p50 was 10.54 and 10.9 s.
      - One of these repairs, ORCL's in run 2, removed the sign but left net cash's direction (§5.4).
    - *Evidence:* the step-1 replay (§5.1) and §5.7's latency. Under version 2, no probe-detected mislabel reaches a
      reader (§5.8).
@@ -1718,7 +1725,6 @@ misses §3's targets for:
 - real first-try gate errors (0.55 per analysis, against 0.15);
 - wrong-metric numbers (5.1 per 1,000 on held out, against the control's 4.1, within noise);
 - calibration: judgement share 1.5%, watch forecasts 10 per 60, and evaluative words in run 1 (3.3%; 2.8% pooled);
-- sentences: four analyses over 30;
 - p50 in both runs (10.54 and 10.9 s).
 
 The founder decides with that in view.
@@ -1731,7 +1737,7 @@ the founder's:
     repairs.
   - **What to change:** free the sentences that the closing judgements take (§5.6). Either write one closing
     judgement for the red-flag section instead of one per flag, or raise §3's form target to 32 sentences (about 90
-    more output tokens, about 0.3 s at §5.7's fit).
+    more output tokens, about 0.4 s at §5.7's fit).
   - **How to measure it:** on the development half, two runs, against P, the build it would join, with K0 for the
     guard. The cause guard is the bar, and the judge reads it against P.
   - **Cost:** about $0.27 of DeepSeek flash for its 40 analyses, plus about $0.42 if V4 Pro audits again as the

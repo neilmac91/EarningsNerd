@@ -56,8 +56,9 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
       procedure 4.1. Sonnet made 1.4 in eval-v1.
     - **The code and pack fixes did what they were for, at today's cost and a shorter wait.** P stated no
       broken net cash as fact, and no probe-detected mislabel reaches a reader. Its p50 was 10.9 s and its p90
-      12.1 s, at $0.0066–0.0067 an analysis, against the version-1 procedure's 12.8 s, 17.8 s and $0.0071. It
-      wrote as many cause sentences as the frozen prompt; no judge read it. Peak hours are not measured yet.
+      12.1 s pooled, at $0.0066–0.0067 an analysis, against the version-1 procedure's 12.8 s, 17.8 s and $0.0071.
+      By run, its p50 was 10.54 and 10.9 s, just over the plan's 10.5 s target in both. It wrote as many cause
+      sentences as the frozen prompt; no judge read it. Peak hours are not measured yet.
     - **The candidate prompt fixed calibration but cost depth.** It brought judgement share, evaluative words and
       watch forecasts within their targets, and the judge preferred it to the frozen prompt overall, 10 pairs
       to 5. It also wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on
@@ -594,6 +595,11 @@ Gate figures here use the current gate.
    Keeping the pack is a judgement. The plan's guard rule, read strictly, fires on it once: in one development round
    it wrote fewer cause sentences than the frozen prompt's pack in both runs, by amounts within that prompt's own
    spread from run to run. Over six runs the two match (`DEEPSEEK-ERRORS.md` §5.2).
+
+   The backstop checks (item 4) are a second judgement. They go on without the candidate's net-debt prompt line,
+   which the plan named among their conditions. Measured on P, the cost was two repairs in 20 analyses for
+   backstop hits alone, and one repair that removed a minus sign but left net cash's direction
+   (`DEEPSEEK-ERRORS.md` §5.10).
 
    **The candidate prompt is held back.** It is `backend/prompts/trends-depth-analyst-agent.md` (sha256
    `fc5b808c…`). It restores a judgement slot, words net debt without a minus sign and keeps the margin
