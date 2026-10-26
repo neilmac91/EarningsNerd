@@ -207,7 +207,7 @@ strip then matched production character for character. Details are in the
   ([`facts/upsert.py:280`](../../backend/app/services/facts/upsert.py),
   [`:343`](../../backend/app/services/facts/upsert.py));
 - the quarterly repair excludes filing-owned rows by design
-  ([`quarterly_fact_repair.py:301`](../../backend/app/services/quarterly_fact_repair.py)).
+  ([`quarterly_fact_repair.py:82`](../../backend/app/services/quarterly_fact_repair.py), `_loop_scope`).
 
 So 256 filing-owned calculations will carry "needs review" until something writes their lineage.
 

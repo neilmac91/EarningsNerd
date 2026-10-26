@@ -4,9 +4,10 @@ A filing-owned margin, free cash flow, working capital or current ratio stored b
 versioned provenance, so every reader projects it as ``legacy_calculation`` (``fact_provenance.
 provenance_for_fact``). Neither writer ever gives it lineage: ingestion skips an identity already
 stored (``facts/upsert.py``), and the quarterly repair leaves filing-owned rows alone
-(``quarterly_fact_repair.repair_company``), except its proxy step's promotion, restore, re-recorded
-check and re-annotation of a version-1 calculation (``proxy_fact_repair``), none of which reaches a
-row with no record. This backfill recomputes each such row from the operands
+(``quarterly_fact_repair.repair_company``), except its proxy step's narrow writes
+(``proxy_fact_repair``): it re-annotates only a calculation that has a version-1 record, and the one
+write that can reach a row with none is a promotion, which sets ``is_latest`` alone. This backfill
+recomputes each such row from the operands
 its own accession stores, through the per-filing writer's calculator
 (``facts/lineage.annotate_filing_calculations``), and records the result.
 

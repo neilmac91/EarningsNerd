@@ -28,8 +28,8 @@ from app.services.facts import currency
 from app.services.facts.concepts import HEADLINE_GAAP_TAGS
 from scripts import repair_quarterly_facts as cli
 from tests.unit.test_companyfacts_ingest import (
-    REV_TAG, _FDX_INCOME, _MRK_INCOME, _MRK_PROXY, _MRK_REVENUE, _cny_payload, _fdx_payload, _item,
-    _mrk_payload, _payload, _ten_ks,
+    REV_TAG, _FDX_INCOME, _FDX_REVENUE, _MRK_INCOME, _MRK_PROXY, _MRK_REVENUE, _cny_payload, _fdx_payload,
+    _item, _mrk_payload, _payload, _ten_ks,
 )
 
 NEVER = re.compile(r"(?!)")  # matches nothing
@@ -202,16 +202,20 @@ def _only_a_proxy_tags_2021(db, monkeypatch, ticker="EEE"):
     """FY2021 has the 10-K's revenue and no reported net income under any tag; FY2022's 10-K tags it
     ProfitLoss only; the proxy tags both years NetIncomeLoss, the first tag (#1622's payload)."""
     company = _company(db, ticker)
-    payload = _for(company, _payload({
+    payload = _for(company, _only_a_proxy_tags_payload())
+    _old_sync(db, monkeypatch, company, payload)
+    return company, payload
+
+
+def _only_a_proxy_tags_payload():
+    return _payload({
         REV_TAG: {"units": {"USD": _ten_ks({2021: 900e6, 2022: 1_000e6, 2023: 1_100e6})}},
         "NetIncomeLoss": {"units": {"USD": _ten_ks({2023: 130e6}) + [
             _item(value, f"{year}-12-31", start=f"{year}-01-01", accn="P24", fy=2023, form="DEF 14A",
                   filed="2024-04-20") for year, value in ((2021, 90e6), (2022, 100e6), (2023, 130e6))
         ]}},
         "ProfitLoss": {"units": {"USD": _ten_ks({2022: 110e6})}},
-    }))
-    _old_sync(db, monkeypatch, company, payload)
-    return company, payload
+    })
 
 
 def _without_proxy_items(payload):
@@ -230,6 +234,36 @@ def _payload_witness(db, monkeypatch, ticker="MMM"):
     svc._persist_companyfacts_payload(db, company, _without_proxy_items(payload))
     filing = _filing(db, company, "K25", "2025-05-31", "2025-07-20")
     _file(db, monkeypatch, filing, {"net_income": ("2024-06-01", 4_092e6)}, authority_from=payload)
+    return company, payload, filing
+
+
+def _confirmed_by_the_10ks_figure(db, monkeypatch, ticker="XQT"):
+    """The proxy quotes FY2025 exactly (CRM, META, NVDA and REGN's shape). After a sync before the fix,
+    the FY2025 10-K was listed and its parse confirmed against the proxy's figure, which is the 10-K's.
+    The filing row holds the winner's identity, so nothing else stores that figure."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    _old_sync(db, monkeypatch, company, payload)
+    filing = _filing(db, company, "K25", "2025-12-31", "2026-02-25")
+    _file(db, monkeypatch, filing, {"net_income": ("2025-01-01", 18_254e6)}, authority_from=payload)
+    return company, payload, filing
+
+
+def _without_accessions(db, monkeypatch, ticker="FBK"):
+    """The FY2025 10-K stored and cross-checked first; then a sync before the fix stored proxy items that
+    carry no accession, which facts/quarterly.py names "companyfacts", the name every cross-checked filing
+    row's check quotes as its method."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    for item in _items(payload):
+        if item["form"] == "DEF 14A":
+            del item["accn"]
+    filing = _filing(db, company, "K25", "2025-12-31", "2026-02-25")
+    svc.process_filing_facts(db, filing, authoritative=svc.extract_authoritative_values(payload),
+                             standardized={"net_income": {"series": [
+                                 {"period": "2025-12-31", "period_start": "2025-01-01", "value": 18_254e6,
+                                  "fiscal_period": "FY"}]}})
+    _old_sync(db, monkeypatch, company, payload)
     return company, payload, filing
 
 
@@ -315,6 +349,89 @@ def _restated_after_the_proxy(db, monkeypatch, ticker="RST"):
     _items(now).append(_item(18_800e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "KA26"), fy=2026,
                              form="10-K/A", filed="2027-06-15"))
     return company, now, filing
+
+
+def _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, ticker="ZAA", *, proxy_rows=False,
+                                                     parsed=85e6):
+    """FY2021's net income only a proxy tags (90 million), so today's payload has no 10-K figure there.
+    The FY2021 10-K's parse was cross-checked against the proxy's figure before the fix: replaced when
+    it differed, confirmed when it agreed. ``proxy_rows``: a sync before the fix also stored the proxy's
+    rows; otherwise the sync ran before the proxy was filed and only the payload holds its figure."""
+    company = _company(db, ticker)
+    payload = _for(company, _only_a_proxy_tags_payload())
+    if proxy_rows:
+        _old_sync(db, monkeypatch, company, payload)
+    else:
+        svc._persist_companyfacts_payload(db, company, _without_proxy_items(payload))
+    filing = _filing(db, company, "K21", "2021-12-31", "2022-02-25")
+    _file(db, monkeypatch, filing, {"net_income": ("2021-01-01", parsed)}, authority_from=payload)
+    return company, payload, filing
+
+
+def _replaced_with_operating_rows(db, monkeypatch, ticker="DDO"):
+    """DDD's shape, the filing also carrying operating income and its margin, whose record cannot rest
+    on net income."""
+    company = _company(db, ticker)
+    payload = _for(company, _fdx_payload())
+    _old_sync(db, monkeypatch, company, payload)
+    filing = _filing(db, company, "K25", "2025-05-31", "2025-07-20")
+    start = "2024-06-01"
+    _file(db, monkeypatch, filing, {
+        "net_income": (start, 4_092e6), "revenue": (start, 87_926e6),
+        "net_margin": (start, 4_092e6 / 87_926e6 * 100), "operating_income": (start, 5_200e6),
+        "operating_margin": (start, 5_200e6 / 87_926e6 * 100),
+    }, authority_from=payload)
+    return company, payload, filing
+
+
+def _replaced_where_the_10k_names_the_margin(db, monkeypatch, ticker="SCP"):
+    """Merck's shape with a proxy 1.4% under the 10-K's FY2025 figure: the FY2025 10-K's parse, the 10-K's
+    own figure, was replaced with the proxy's. The FY2025 10-K is revenue's winner too, so the
+    companyfacts margin shares the filing row's scope (company, accession, period, fiscal year)."""
+    payload = _mrk_payload()
+    for item in _items(payload):
+        if item["form"] == "DEF 14A" and item["end"] == "2025-12-31":
+            item["val"] = 18_000e6
+    return _cross_checked(db, monkeypatch, ticker, payload, 18_254e6,
+                          period=("2025-12-31", "2025-01-01", "2026-02-25"))
+
+
+def _with_proxy_revenue(fdx_revenue):
+    """FedEx's payload whose proxy also tags revenue, ``fdx_revenue`` (year -> value)."""
+    payload = _fdx_payload()
+    payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"] += [
+        _item(value, f"{year}-05-31", start=f"{year - 1}-06-01", accn="P26", fy=2026, form="DEF 14A",
+              filed="2026-08-17") for year, value in fdx_revenue.items()]
+    return payload
+
+
+def _replaced_and_confirmed_in_one_filing(db, monkeypatch, ticker="MIX", *, revenue_in_dollars=False):
+    """DDD's shape where the proxy also tags FY2025 revenue. Rounded (87,900 for 87,926 million), it
+    confirmed the filing's revenue; in dollars, it replaced it too."""
+    revenue = ({year: value / 1e6 for year, value in _FDX_REVENUE.items()} if revenue_in_dollars
+               else {2025: 87_900e6})
+    company = _company(db, ticker)
+    payload = _for(company, _with_proxy_revenue(revenue))
+    _old_sync(db, monkeypatch, company, payload)
+    filing = _filing(db, company, "K25", "2025-05-31", "2025-07-20")
+    _file(db, monkeypatch, filing, {
+        "net_income": ("2024-06-01", 4_092e6), "revenue": ("2024-06-01", 87_926e6),
+        "net_margin": ("2024-06-01", 4_092e6 / 87_926e6 * 100),
+    }, authority_from=payload)
+    return company, payload, filing
+
+
+def _twin_row(db, company, filing, concept="net_income", value="2957000000"):
+    """A legacy current row with no fiscal period at Q4 2025's period end, filed locally (planted as a
+    row: no writer stores one today)."""
+    twin = FinancialFact(company_id=company.id, filing_id=filing.id, concept=concept,
+                         raw_tag="us-gaap:NetIncomeLoss", unit="USD", period_start=date(2025, 10, 1),
+                         period_end=date(2025, 12, 31), fiscal_year=2025, fiscal_period=None,
+                         value=Decimal(value), form="10-K", accession=filing.accession_number,
+                         source="edgar_xbrl", reconciled=True, is_latest=True)
+    db.add(twin)
+    db.commit()
+    return twin
 
 
 def _assert_planted_proxy_rows(db, company, expected):
@@ -530,16 +647,21 @@ def test_the_journal_tags_the_proxy_repair_apart_from_other_corrections(db, monk
     company, payload = _unhealed(db, monkeypatch, payload=_with_operating_cash_flow(_mrk_payload()))
     _assert_planted_proxy_rows(db, company, _MRK_PROXY_ROWS)
     [stale] = _rows(db, company, concept="operating_cash_flow", fiscal_period="Q2", is_latest=True)
-    assert stale.source == "derived"
-    stale.value += 1  # an unrelated pending correction the same approval applies
+    [missing] = _rows(db, company, concept="operating_cash_flow", fiscal_period="Q3", is_latest=True)
+    assert stale.source == missing.source == "derived"
+    stale.value += 1  # unrelated pending corrections the same approval applies: a stale quarter,
+    db.delete(missing)  # and a calculated quarter no sync stored
     db.commit()
     plan = _preview(db, company, payload)
-    assert (plan["proxy"]["other_planned_updates"], plan["proxy"]["other_planned_inserts"]) == (1, 0)
+    assert (plan["proxy"]["other_planned_updates"], plan["proxy"]["other_planned_inserts"]) == (1, 1)
     assert plan["proxy"]["other_updates_by_kind"] == {**dict.fromkeys(proxy.OTHER_KINDS, 0), "value": 1}
+    assert plan["proxy"]["other_inserts_by_concept"] == {"operating_cash_flow Q3": 1}
     run = "tagged"
     _apply(db, company, payload, run_id=run)
     journal = {r.fact_id: r.calculation_version for r in db.query(FinancialFactRevision).filter_by(run_id=run)}
     assert journal.pop(stale.id) == "quarterly-v2"
+    [inserted] = _rows(db, company, concept="operating_cash_flow", fiscal_period="Q3", is_latest=True)
+    assert journal.pop(inserted.id) == "quarterly-v2"
     assert set(journal.values()) == {"proxy-repair-v1"}
     rows = {r.id: r for r in _rows(db, company)}
     assert {(rows[i].form, rows[i].concept) for i in journal} == {
@@ -586,6 +708,7 @@ def _detection(db, payloads):
     for company in db.query(Company):
         rows = _rows(db, company)
         proxies = [r for r in rows if is_proxy_form(r.form)]
+        accessions = {r.accession for r in proxies} - {"", "companyfacts"}  # set 3 skips the fallback name
         items = proxy.proxy_items(payloads[company.ticker])
 
         def witnessed(row, value, payload_too=True):
@@ -604,7 +727,7 @@ def _detection(db, payloads):
             if row.is_latest and is_proxy_form(row.form):
                 listed[2].add((company.ticker, row.id))
             if (row.is_latest and not is_proxy_form(row.form) and row.provenance is not None
-                    and any(f'"{r.accession}"' in json.dumps(row.provenance) for r in proxies)):
+                    and any(f'"{accession}"' in json.dumps(row.provenance) for accession in accessions)):
                 listed[3].add((company.ticker, row.id))
             if row.filing_id is not None and row.source == "companyfacts" and not report_backed(row, float(row.value)):
                 value, original = float(row.value), check.get("original_value")
@@ -633,19 +756,33 @@ def test_after_the_apply_no_current_row_comes_from_or_is_built_on_a_proxy(db, mo
     company, payload, filing = _holds_the_10k_figure(db, monkeypatch, "OOO")
     _with_null_provenance(db, filing)
     shapes["OOO"] = (company, payload)
+    shapes["XQT"] = _confirmed_by_the_10ks_figure(db, monkeypatch)[:2]
+    shapes["FBK"] = _without_accessions(db, monkeypatch)[:2]
     payloads = {ticker: payload for ticker, (_company, payload) in shapes.items()}
     before = {number: dict(Counter(ticker for ticker, _ in entries))
               for number, entries in _detection(db, payloads).items()}
     assert before == {  # not vacuous: every set lists the planted rows
         2: {"AAA": 6, "BBB": 6, "CCC": 1, "III": 1, "EEE": 3, "DDD": 5, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5,
-            "QQQ": 5},
-        3: {"AAA": 5, "CCC": 5, "III": 5, "EEE": 3, "DDD": 4, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5, "QQQ": 5},
+            "QQQ": 5, "XQT": 6, "FBK": 5},
+        3: {"AAA": 5, "CCC": 5, "III": 5, "EEE": 3, "DDD": 4, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5, "QQQ": 5,
+            "XQT": 5},
         4: {"DDD": 1, "MMM": 1, "KKK": 1, "OOO": 1},
-        5: {"QQQ": 1},
+        5: {"QQQ": 1, "XQT": 1, "FBK": 1},
     }
-    for company, payload in shapes.values():
-        _apply(db, company, payload)
-    assert _detection(db, payloads) == {2: [], 3: [], 4: [], 5: []}
+    named = set()
+    for ticker, (company, payload) in shapes.items():
+        listed = _apply(db, company, payload)["proxy"]["detection_listed"]
+        assert all(entry["verdict"] != "unclassified" for entry in listed)
+        named |= {(ticker, entry["fact_id"], entry["set"]) for entry in listed}
+    after = _detection(db, payloads)
+    assert (after[2], after[3]) == ([], [])
+    # Sets 4 and 5 read exactly the rows the apply reports name, each kept on purpose with its verdict.
+    assert {(ticker, fact_id, number) for number in (4, 5) for ticker, fact_id in after[number]} == named
+    assert {(ticker, number) for ticker, _fact_id, number in named} == {("XQT", 5), ("FBK", 5)}
+    for ticker, (company, payload) in shapes.items():  # a second apply journals nothing
+        again = _apply(db, company, payload, run_id="apply-2")
+        kept = {entry["fact_id"] for entry in again["proxy"]["detection_listed"]}
+        assert again["revisions"] == 0 and _counts(again["proxy"]) == ({"filing_rows_kept": len(kept)} if kept else {})
 
 
 def test_the_cli_preview_reports_proxy_totals(db, monkeypatch, tmp_path):
@@ -715,6 +852,10 @@ def test_proxy_items_reads_items_as_the_authority_does():
             _item(101.0, "2024-12-27", start="2023-12-30", form=form),  # a 52-week year
             _item(75.0, "2024-09-30", start="2024-01-01", form=form),  # nine months
             _item(25.0, "2024-06-30", start="2024-04-01", form=form),  # a quarter
+            _item(102.0, "2019-12-31", start="2019-01-30", form=form),  # 335 days: the band's lower edge
+            _item(103.0, "2018-12-31", start="2018-01-31", form=form),  # 334 days: just outside it
+            _item(104.0, "2017-12-31", start="2016-12-01", form=form),  # 395 days: the upper edge
+            _item(105.0, "2016-12-31", start="2015-11-30", form=form),  # 397 days: just outside it
             _item(99.0, "2023-12-31", form=form),  # no start
             _item("98", "2022-12-31", start="2022-01-01", form=form),  # a string
             _item(True, "2021-12-31", start="2021-01-01", form=form),  # a bool
@@ -726,6 +867,8 @@ def test_proxy_items_reads_items_as_the_authority_does():
         usgaap = {tag: {"units": {"USD": items(form), "EUR": items(form)}}
                   for tags in HEADLINE_GAAP_TAGS.values() for tag in tags}
         usgaap["Assets"]["units"]["USD"].append(_item(500.0, "2020-12-31", form=form))  # an instant
+        for tags in HEADLINE_GAAP_TAGS.values():  # a year only a concept's later tag has
+            usgaap[tags[-1]]["units"]["USD"].append(_item(106.0, "2015-12-31", start="2015-01-01", form=form))
         return _payload(usgaap)
 
     authority = svc.extract_authoritative_values(payload("10-K"))
@@ -737,17 +880,7 @@ def test_proxy_items_reads_items_as_the_authority_does():
 
 
 def test_a_proxy_item_without_an_accession_names_no_dependent(db, monkeypatch):
-    company = _company(db, "FBK")
-    payload = _for(company, _mrk_payload())
-    for item in _items(payload):
-        if item["form"] == "DEF 14A":
-            del item["accn"]  # facts/quarterly.py names such an item's row "companyfacts"
-    filing = _filing(db, company, "K25", "2025-12-31", "2026-02-25")
-    svc.process_filing_facts(db, filing, authoritative=svc.extract_authoritative_values(payload),
-                             standardized={"net_income": {"series": [
-                                 {"period": "2025-12-31", "period_start": "2025-01-01", "value": 18_254e6,
-                                  "fiscal_period": "FY"}]}})
-    _old_sync(db, monkeypatch, company, payload)
+    company, payload, filing = _without_accessions(db, monkeypatch)
     row = _filing_row(db, filing)
     assert row.is_latest and '"method": "companyfacts"' in json.dumps(row.provenance)
     assert {r.accession for r in _current_proxy_rows(db, company)} == {"companyfacts"}
@@ -905,3 +1038,179 @@ def test_a_proxy_confirmed_parse_the_10k_contradicts_refuses(db, monkeypatch):
         "edgar_xbrl", 4_092.0, "confirmed", 4_092.0)  # FedEx's proxy in dollars certified a parse in units
     _refuses(db, company, payload, rf"\(fact {row.id}\): the old cross-check confirmed this filing row against a "
                                    "proxy's figure, and the 10-K's figure disagrees with it by more than 1%")
+
+
+# --- Round 2: rows detection keeps listing, the authority-absent branches, re-annotation, the postcondition -----
+
+def test_a_filing_row_confirmed_against_the_10ks_own_figure_is_kept_and_named(db, monkeypatch):
+    # The proxy quotes the 10-K exactly, so the figure the old check confirmed the row against is the 10-K's:
+    # the row is right and stays as it is. Set 5 still lists it after the apply (it is the 10-K's winner, so
+    # no other stored report row holds the figure), and the report names it by fact id with its verdict.
+    company, payload, filing = _confirmed_by_the_10ks_figure(db, monkeypatch)
+    row = _filing_row(db, filing)
+    check = _check(row)
+    assert (row.source, row.is_latest, check["outcome"], check["authoritative_value"]) == (
+        "edgar_xbrl", False, "confirmed", 18_254e6)
+    stored = repair.snapshot(row)
+    listed = [{"fact_id": row.id, "set": 5, "verdict": "kept_confirmed_by_10k"}]
+    plan = _preview(db, company, payload)
+    assert plan["proxy"]["filing_rows_kept"] == 1 and plan["proxy"]["filing_rows_reconfirmed"] == 0
+    assert [e["action"] for e in plan["proxy"]["rows"] if e["fact_id"] == row.id] == ["kept_confirmed_by_10k"]
+    assert plan["proxy"]["detection_listed"] == listed
+    applied = _apply(db, company, payload)
+    assert repair.snapshot(_filing_row(db, filing)) == {**stored, "is_latest": True}  # promoted, nothing else
+    assert applied["proxy"]["detection_listed"] == listed
+    assert _detection(db, {company.ticker: payload})[5] == [(company.ticker, row.id)]
+
+
+@pytest.mark.parametrize("proxy_rows", [False, True], ids=["payload-witness", "stored-proxy-rows"])
+def test_a_replacement_where_the_payload_has_no_10k_figure_is_restored_to_the_parse(db, monkeypatch, proxy_rows):
+    # Only a proxy tags FY2021's net income, so today's backfill would keep the filing's parse: the restore
+    # writes the recorded original with the local verdict and no authoritative check. Where a sync also
+    # stored the proxy's rows, the restored row is then a report row at a key with no fresh winner.
+    company, payload, filing = _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, proxy_rows=proxy_rows)
+    row = _filing_row(db, filing)
+    assert (float(row.value), row.source, _check(row)["original_value"]) == (90e6, "companyfacts", 85e6)
+    if proxy_rows:
+        [retired] = [r for r in _current_proxy_rows(db, company) if r.period_end.year == 2021]
+        _refuses(db, company, payload, rf"\(fact {retired.id}\): a stored report row \(fact {row.id}\) has no "
+                                       "fresh winner to agree with")
+        return
+    plan = _preview(db, company, payload)
+    assert _counts(plan["proxy"]) == {"filing_rows_restored": 1}
+    _apply(db, company, payload)
+    row = _filing_row(db, filing)
+    assert (float(row.value), row.source, row.reconciled) == (85e6, "edgar_xbrl", True)
+    assert row.provenance["checks"] == {"local_reconciliation": {"reasons": []}}
+    assert row.provenance["validation"] == "passed"
+
+
+def test_a_proxy_confirmed_row_with_no_10k_figure_keeps_its_value_and_the_local_verdict(db, monkeypatch):
+    # The old check confirmed the parse against the proxy's figure; today's backfill, with no authority for
+    # the year, keeps the local verdict and records no authoritative check.
+    company, payload, filing = _only_a_proxy_tags_2021_and_the_10k_was_replaced(db, monkeypatch, parsed=90e6)
+    row = _filing_row(db, filing)
+    assert (row.source, _check(row)["outcome"], _check(row)["authoritative_value"]) == ("edgar_xbrl", "confirmed", 90e6)
+    stored = repair.snapshot(row)
+    plan = _preview(db, company, payload)
+    assert _counts(plan["proxy"]) == {"filing_rows_reconfirmed": 1}
+    _apply(db, company, payload)
+    row = _filing_row(db, filing)
+    assert (row.value, row.source, row.is_latest) == (Decimal(stored["value"]), "edgar_xbrl", stored["is_latest"])
+    assert row.reconciled and row.provenance["checks"] == {"local_reconciliation": {"reasons": []}}
+
+
+def test_a_proxy_confirmed_row_a_report_also_backs_is_left_alone(db, monkeypatch):
+    # The proxy's rounded figure is also an earnings release's, stored as a report row: the confirmation
+    # may have come from that report, so set 5 leaves the row, as set 4 leaves a report-backed one.
+    company, payload, filing = _confirmed(db, monkeypatch, "RBK")
+    release = FinancialFact(company_id=company.id, concept="net_income", raw_tag="us-gaap:NetIncomeLoss", unit="USD",
+                            period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025,
+                            fiscal_period="FY", value=Decimal("18250000000"), form="8-K",
+                            accession=_accn(company, "E26"), source="companyfacts", reconciled=True, is_latest=False)
+    db.add(release)  # planted as a row: a sync that read the release before the 10-K stored it
+    db.commit()
+    stored = repair.snapshot(_filing_row(db, filing))
+    plan = _preview(db, company, payload)
+    assert plan["proxy"]["filing_rows_reconfirmed"] == 0 and plan["proxy"]["filing_rows_kept"] == 0
+    _apply(db, company, payload)
+    assert repair.snapshot(_filing_row(db, filing)) == {**stored, "is_latest": True}  # promoted only
+
+
+@pytest.mark.parametrize("shape", ["legacy_margin", "other_calculation", "companyfacts_calculation"])
+def test_the_restore_reannotates_only_filing_calculations_of_a_rewritten_concept(db, monkeypatch, shape):
+    # Re-annotation writes provenance and reconciled only on a filing-owned calculation with a version-1
+    # record over a concept sets 4 and 5 rewrote, the lineage backfill's discipline: a calculation with no
+    # record is the backfill's (filing_lineage_repair.is_target), and any other record stays as it is.
+    if shape == "companyfacts_calculation":  # the companyfacts margin shares the restored row's scope
+        company, payload, filing = _replaced_where_the_10k_names_the_margin(db, monkeypatch)
+        [untouched] = [r for r in _rows(db, company, concept="net_margin", fiscal_period="FY",
+                                        period_end=date(2025, 12, 31))
+                       if r.accession == filing.accession_number and r.filing_id is None]
+        expected = 0
+    else:
+        company, payload, filing = _replaced_with_operating_rows(db, monkeypatch)
+        untouched = _filing_row(db, filing, "net_margin" if shape == "legacy_margin" else "operating_margin")
+        if shape == "legacy_margin":  # a calculation stored before #1191, with no record
+            untouched.provenance = None
+        else:  # a record a recompute over these operands would rewrite, on a calculation of other inputs
+            untouched.provenance = {**untouched.provenance, "reasons": ["recorded_before_this_repair"]}
+        db.commit()
+        expected = 0 if shape == "legacy_margin" else 1
+    assert _filing_row(db, filing).source == "companyfacts"  # the replacement the step restores
+    before = repair.snapshot(untouched)
+    plan = _preview(db, company, payload)
+    assert (plan["proxy"]["filing_rows_restored"], plan["proxy"]["filing_calculations_reannotated"]) == (1, expected)
+    assert untouched.id not in [e["fact_id"] for e in plan["proxy"]["rows"] if e["action"] == "reannotated"]
+    assert all(change["after"]["provenance"] == before["provenance"] for change in plan["changes"]
+               if change["fact_id"] == untouched.id and shape != "companyfacts_calculation")
+    _apply(db, company, payload)
+    if shape != "companyfacts_calculation":  # the loop recomputes the companyfacts margin on its own terms
+        assert repair.snapshot(db.get(FinancialFact, untouched.id)) == before
+
+
+@pytest.mark.parametrize("revenue_in_dollars", [False, True], ids=["restored-and-reconfirmed", "both-restored"])
+def test_a_filing_calculation_is_reannotated_once_after_both_passes(db, monkeypatch, revenue_in_dollars):
+    # Net income restored (set 4) and revenue re-recorded (set 5) or also restored, in one filing: the
+    # margin is re-annotated once, after both, so each operand's record in it is the operand's own now.
+    company, payload, filing = _replaced_and_confirmed_in_one_filing(db, monkeypatch,
+                                                                    revenue_in_dollars=revenue_in_dollars)
+    revenue = _filing_row(db, filing, "revenue")
+    assert (revenue.source, _check(revenue)["outcome"]) == (
+        ("companyfacts", "replaced") if revenue_in_dollars else ("edgar_xbrl", "confirmed"))
+    margin = _filing_row(db, filing, "net_margin")
+    plan = _preview(db, company, payload)
+    assert plan["proxy"]["filing_calculations_reannotated"] == 1
+    assert [e["fact_id"] for e in plan["proxy"]["rows"] if e["action"] == "reannotated"] == [margin.id]
+    _apply(db, company, payload)
+    operands = {i["concept"]: i for i in _filing_row(db, filing, "net_margin").provenance["inputs"]}
+    for concept, value in (("net_income", 4_092e6), ("revenue", 87_926e6)):
+        own = _filing_row(db, filing, concept).provenance
+        assert operands[concept]["value"] == value
+        assert operands[concept]["provenance"]["checks"]["authoritative"] == own["checks"]["authoritative"]
+        assert own["checks"]["authoritative"]["authoritative_value"] == value
+
+
+def test_a_promotion_beside_a_current_row_with_no_fiscal_period_refuses_at_the_preview(db, monkeypatch):
+    # A promoted (or corrected) row is made current in place: no upsert demotes a current row with no fiscal
+    # period at its quarter's period, so the plan sees the two current rows and refuses before any write.
+    company, payload = _demoted(db, monkeypatch)
+    _twin_row(db, company, _filing(db, company, "TWIN", "2025-12-31", "2026-03-01"))
+    planted = _snapshots(db, company)
+    with pytest.raises(ValueError, match=r"would leave rows for detection") as raised:
+        _preview(db, company, payload)
+    assert "['net_income', '2025-12-31', 'Q4', 'USD', 1, 1, 1]" in str(raised.value)
+    assert _snapshots(db, company) == planted
+
+
+def test_a_second_current_row_at_a_dependents_key_refuses(db, monkeypatch):
+    # A calculation left to the loop keeps its key, which must then hold it alone.
+    company, payload = _unhealed(db, monkeypatch, "DUP")
+    db.add(FinancialFact(company_id=company.id, concept="net_margin", raw_tag=None, unit="pure",
+                         period_start=date(2021, 1, 1), period_end=date(2021, 12, 31), fiscal_year=2021,
+                         fiscal_period="FY", value=Decimal("26.8"), form="10-K", accession=_accn(company, "X21"),
+                         source="companyfacts", reconciled=True, is_latest=True))  # planted: an anomaly
+    db.commit()
+    with pytest.raises(ValueError, match=r"would leave rows for detection") as raised:
+        _preview(db, company, payload)
+    assert "['net_margin', '2021-12-31', 'FY', 'pure', 2, 0, 1]" in str(raised.value)
+
+
+def test_two_proxy_rows_at_one_key_retire_together_and_admit_one_winner(db, monkeypatch):
+    company, payload = _unhealed(db, monkeypatch, "TWP")
+    [first] = [r for r in _current_proxy_rows(db, company) if (r.fiscal_period, r.period_end.year) == ("FY", 2021)]
+    second = FinancialFact(company_id=company.id, concept="net_income", raw_tag="us-gaap:NetIncomeLoss", unit="USD",
+                           period_start=date(2021, 1, 1), period_end=date(2021, 12, 31), fiscal_year=2021,
+                           fiscal_period="FY", value=Decimal("12345000000"), form="DEFA14A",
+                           accession=_accn(company, "PA26"), source="companyfacts", reconciled=True, is_latest=True)
+    db.add(second)  # planted as a row: an additional proxy's item, current beside the first
+    db.commit()
+    plan = _preview(db, company, payload)
+    assert _counts(plan["proxy"]) == {"retired": 7, "inserted": 6, "dependents_recomputed": 5}
+    _apply(db, company, payload)
+    for row_id in (first.id, second.id):
+        row = db.get(FinancialFact, row_id)
+        assert not row.is_latest and row.provenance["replacement"]["accession"] == _accn(company, "K23")
+    [winner] = _rows(db, company, concept="net_income", fiscal_period="FY", period_end=date(2021, 12, 31),
+                     is_latest=True)
+    assert winner.accession == _accn(company, "K23")

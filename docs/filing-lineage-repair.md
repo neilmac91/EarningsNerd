@@ -7,8 +7,9 @@ calculation (`fact_provenance.provenance_for_fact`): `validation: needs_review`,
 `legacy_calculation`, so Multi-Period Analysis notes it and its growth figures as needing review.
 Nothing gives these rows lineage later. Both writers skip an identity already stored
 (`facts/upsert.py`), and the quarterly repair leaves filing-owned rows alone, except its proxy step's
-promotion, restore, re-recorded check and re-annotation (`docs/quarterly-data-repair.md`,
-"Proxy-statement values (E211)"), which never gives a legacy calculation lineage.
+promotion (`is_latest` only), restore, re-recorded check and re-annotation of a calculation that has a
+version-1 record (`docs/quarterly-data-repair.md`, "Proxy-statement values (E211)"), which never gives
+a legacy calculation lineage.
 `backend/scripts/repair_filing_lineage.py` writes the record, through
 `backend/app/services/filing_lineage_repair.py`.
 

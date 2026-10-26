@@ -7,12 +7,13 @@ repair_company`` runs this step after its calendar relabels and before its same-
 four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 
 1. Set 4. A filing row the old cross-check replaced with a proxy's figure is restored to its recorded
-   ``original_value`` and passed through today's cross-check, as the backfill would store it now, and
-   that filing's calculations of it are re-annotated. A row that already holds the 10-K's figure is
-   kept; one with no recorded original, or whose original the 10-K contradicts, refuses the company.
+   ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
+   that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
+   10-K contradicts, refuses the company.
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
-   refused.
+   refused, and where the figure it was confirmed against is the 10-K's, it is kept.
+   The filing calculations over each row sets 4 and 5 changed are then re-annotated, once per scope.
 3. Set 2. Each current proxy-form row is retired with the quarantine provenance, and the fresh 10-K
    winner at its key is inserted, or the stored row at the winner's identity promoted.
 4. Set 3. A current calculation built on a proxy figure is left to the loop when the payload has a
@@ -21,8 +22,10 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 Pure planning: no session, no network. It reads the payload the repair fetched and normalized, and
 writes only into the repair's ``updates`` and its own inserts, so the repair's apply, journal
 (``proxy-repair-v1``) and audited rollback carry every change. A case it cannot settle on positive
-evidence refuses the whole company before any write, every reason in one error. Temporary: removed
-once the E211 cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
+evidence refuses the whole company before any write, every reason in one error. The report names, by
+fact id and with the step's verdict, each row the detection file's sets 4 and 5 will still list
+(``detection_listed``), so the apply's done criterion is a comparison. Temporary: removed once the E211
+cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
 """
 from __future__ import annotations
 
@@ -103,6 +106,14 @@ def _scale_up(value: float, original: float | None) -> bool:
     return abs(ratio / 1_000 - 1) <= 0.01 or abs(ratio / 1_000_000 - 1) <= 0.01
 
 
+def _scale_down(value: float, original: float | None) -> bool:
+    """``value`` is 1/1,000 or 1/1,000,000 of ``original`` (within 1%, same sign): set 4's "scale" listing."""
+    if not original or not value or (value > 0) != (original > 0):
+        return False
+    ratio = value / original
+    return abs(ratio * 1_000 - 1) <= 0.01 or abs(ratio * 1_000_000 - 1) <= 0.01
+
+
 def _key(state: State) -> tuple:
     return tuple(state[name] for name in _KEY)
 
@@ -181,10 +192,13 @@ def proxy_items(payload: Any) -> dict[tuple[str, str], list[float]]:
     return out
 
 
-def residual(states: list[State], accessions: set[str], keys: dict[tuple, int], *, twins: bool) -> dict[str, Any]:
+def residual(states: list[State], accessions: set[str], keys: dict[tuple, int], *,
+             twins_at: Iterable[tuple]) -> dict[str, Any]:
     """What detection sets 2 and 3 would still read, and each settled key whose current rows differ from
-    the plan's: ``[*key, held, twin, expected]``, where ``twin`` counts a current row with no fiscal
-    period at a quarter key's period (``twins`` only: the upsert's D1 rule, facts/upsert.py)."""
+    the plan's: ``[*key, held, twin, expected]``. ``twin`` counts, at the quarter keys of ``twins_at``, a
+    current row with no fiscal period at the key's period, which no upsert will demote there (the D1
+    rule, facts/upsert.py): one is too many beside the key's own row."""
+    twin_keys = set(twins_at)
     current: Counter = Counter()
     unlabelled: Counter = Counter()
     for state in states:
@@ -195,7 +209,7 @@ def residual(states: list[State], accessions: set[str], keys: dict[tuple, int], 
     unsettled = []
     for key, expected in keys.items():
         held = current[key]
-        twin = unlabelled[(key[0], key[1], key[3])] if twins and key[2] in qfr.QUARTERS else 0
+        twin = unlabelled[(key[0], key[1], key[3])] if key in twin_keys and key[2] in qfr.QUARTERS else 0
         if held != expected or held + twin > 1:
             unsettled.append([*key, held, twin, expected])
     return {
@@ -204,6 +218,37 @@ def residual(states: list[State], accessions: set[str], keys: dict[tuple, int], 
                                            and _quotes(s, accessions)),
         "keys_not_settled": unsettled,
     }
+
+
+def detection_listed(rows: list[tuple[int | None, State]], verdicts: dict[int, str]) -> list[dict[str, Any]]:
+    """Each filing row detection sets 4 and 5 (``ops/detection/proxy_form_winners.sql``) list over ``rows``,
+    ``(fact id or None, state)``, by the file's own rules: only a stored proxy-form row witnesses, and set 4
+    also lists a value 1/1,000 or 1/1,000,000 of its original that no proxy row holds. Each carries the
+    plan's verdict on the row. After an apply, the file reads exactly these fact ids for the company."""
+    near: dict[tuple, list[tuple[int | None, State]]] = {}
+    for row_id, state in rows:
+        near.setdefault((state["concept"], state["period_end"]), []).append((row_id, state))
+    listed = []
+    for row_id, state in rows:
+        if row_id is None or state["filing_id"] is None:
+            continue
+        period = near[(state["concept"], state["period_end"])]
+        witnesses = [float(other["value"]) for _other_id, other in period if is_proxy_form(other["form"])]
+        check = _authoritative_check(state)
+        if state["source"] == "companyfacts":  # set 4: why = proxy row, or why = scale
+            number, original = float(state["value"]), _number(check.get("original_value"))
+            witnessed = any(_same(number, witness) for witness in witnesses)
+            shown = not _scale_up(number, original) if witnessed else _scale_down(number, original)
+            in_set = 4 if shown else None
+        else:  # set 5: a confirmed check whose authoritative_value a proxy row holds
+            number = _number(check.get("authoritative_value"))
+            confirmed = check.get("outcome") == "confirmed" and number is not None
+            in_set = 5 if confirmed and any(_same(number, witness) for witness in witnesses) else None
+        if in_set is None or any(other_id != row_id and _is_report_row(other) and _same(float(other["value"]), number)
+                                 for other_id, other in period):
+            continue
+        listed.append({"fact_id": row_id, "set": in_set, "verdict": verdicts.get(row_id, "unclassified")})
+    return listed
 
 
 def other_kinds(before: dict[int, State], updates: dict[int, State], tagged: set[int]) -> dict[str, int]:
@@ -262,6 +307,8 @@ class ProxyPlan:
     keys: dict[tuple, int]  # each key the step settled -> the current rows it expects there (1, or 0)
     counts: dict[str, int]
     rows: list[dict[str, Any]]
+    stored_keys: set[tuple] = field(default_factory=set)  # settled in place: no upsert decides them
+    verdicts: dict[int, str] = field(default_factory=dict)  # the step's verdict on each set 4 and 5 candidate
     own: set[tuple] = field(init=False)  # the identities of the step's inserts
 
     def __post_init__(self) -> None:
@@ -280,8 +327,11 @@ class ProxyPlan:
             "rows": self.rows,
         }
 
-    def residual(self, states: list[State], *, twins: bool) -> dict[str, Any]:
-        return residual(states, self.accessions, self.keys, twins=twins)
+    def residual(self, states: list[State], *, twins_at: Iterable[tuple]) -> dict[str, Any]:
+        return residual(states, self.accessions, self.keys, twins_at=twins_at)
+
+    def detection_listed(self, rows: list[tuple[int | None, State]]) -> list[dict[str, Any]]:
+        return detection_listed(rows, self.verdicts)
 
     def journal_version(self, row_id: int, after: State, *, inserted: bool) -> str:
         """``proxy-repair-v1`` for the step's rows, so one query lists the proxy repair alone."""
@@ -316,6 +366,9 @@ class _Planner:
         self.accessions = proxy_accessions(before.values())
         self.inserts: dict[tuple, dict] = {}
         self.keys: dict[tuple, int] = {}
+        self.stored_keys: set[tuple] = set()
+        self.verdicts: dict[int, str] = {}
+        self.rechecked: dict[tuple, set[str]] = {}  # scope -> the concepts sets 4 and 5 rewrote there
         self.touched: set[int] = set()
         self.counts = dict.fromkeys(COUNTERS, 0)
         self.rows: list[dict[str, Any]] = []
@@ -361,6 +414,19 @@ class _Planner:
             "gap": None if gap is None else round(gap, 6), **extra,
         }
 
+    def _left(self, row_id: int, state: State, value: float) -> bool:
+        """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does."""
+        verdict = ("no_proxy_figure" if not self._witnessed(state, value)
+                   else "report_backed" if self._report_backed(row_id, state, value) else None)
+        if verdict is not None:
+            self.verdicts[row_id] = verdict
+        return verdict is not None
+
+    def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
+        self.write(row_id, state)
+        self.verdicts[row_id] = verdict
+        self.rechecked.setdefault(_scope(state), set()).add(state["concept"])
+
     def restore_filing_rows(self) -> None:
         """Set 4: a filing row the old cross-check replaced with a proxy's figure. Only that check writes
         source companyfacts on a filing's row. The first case that applies decides."""
@@ -368,14 +434,16 @@ class _Planner:
             if state["filing_id"] is None or state["source"] != "companyfacts":
                 continue
             value = float(state["value"])
-            if not self._witnessed(state, value) or self._report_backed(row_id, state, value):
-                continue  # no proxy figure behind it, or a report gives the figure
+            if self._left(row_id, state, value):
+                continue
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
             if _scale_up(value, original):
-                continue  # the authority scaled up a parse in units: the replacement the check is for
+                self.verdicts[row_id] = "scale_up"  # the authority scaled up a parse in units: the check's job
+                continue
             authority = self._authority(state)
             if authority is not None and _same(value, authority):
+                self.verdicts[row_id] = "kept_agrees_with_authority"
                 self.counts["filing_rows_kept"] += 1
                 self.rows.append(self._row(row_id, "kept_agrees_with_authority", state, None,
                                            authority=authority, original=original))
@@ -387,10 +455,9 @@ class _Planner:
             else:
                 restored = self._rechecked(state, original, qfr._json_value(Decimal(str(original))),
                                            authority, check, "edgar_xbrl")
-                self.write(row_id, restored)
+                self._rewrote(row_id, restored, "restored")
                 self.counts["filing_rows_restored"] += 1
                 self.rows.append(self._row(row_id, "restored", state, restored, authority=authority, original=original))
-                self.reannotate(row_id)
 
     def reconfirm_filing_rows(self) -> None:
         """Set 5: a filing row the old cross-check confirmed against a proxy's figure keeps its value."""
@@ -399,20 +466,22 @@ class _Planner:
                 continue
             check = _authoritative_check(state)
             witness = _number(check.get("authoritative_value"))
-            if check.get("outcome") != "confirmed" or witness is None:
-                continue
-            if not self._witnessed(state, witness) or self._report_backed(row_id, state, witness):
+            if check.get("outcome") != "confirmed" or witness is None or self._left(row_id, state, witness):
                 continue
             authority = self._authority(state)
-            if authority is not None and _same(witness, authority):
-                continue  # the figure it was confirmed against is the 10-K's
+            if authority is not None and _same(witness, authority):  # a proxy quoting the 10-K exactly
+                self.verdicts[row_id] = "kept_confirmed_by_10k"
+                self.counts["filing_rows_kept"] += 1
+                self.rows.append(self._row(row_id, "kept_confirmed_by_10k", state, None, authority=authority,
+                                           confirmed_against=witness))
+                continue
             if authority is not None and not _agrees(float(state["value"]), authority):
                 self.refuse(row_id, "the old cross-check confirmed this filing row against a proxy's figure, "
                                     "and the 10-K's figure disagrees with it by more than 1%")
                 continue
             confirmed = self._rechecked(state, float(state["value"]), state["value"], authority, check,
                                         state["source"])
-            self.write(row_id, confirmed)
+            self._rewrote(row_id, confirmed, "reconfirmed")
             self.counts["filing_rows_reconfirmed"] += 1
             self.rows.append(self._row(row_id, "reconfirmed", state, confirmed, authority=authority,
                                        confirmed_against=witness))
@@ -436,17 +505,21 @@ class _Planner:
         return {**state, "value": stored, "source": fact["source"], "reconciled": fact["reconciled"],
                 "provenance": fact["provenance"]}
 
-    def reannotate(self, restored_id: int) -> None:
-        """The restored row's filing calculations, recomputed over its scope as the lineage backfill does
-        (filing_lineage_repair.py): provenance and ``reconciled`` only, on a filing-owned version-1
-        calculation of the restored concept whose operands the calculator finds."""
-        anchor = self.state(restored_id)
-        members = [(row_id, self.state(row_id)) for row_id in self.by_scope[_scope(anchor)]]
+    def reannotate(self) -> None:
+        """The filing calculations over the rows sets 4 and 5 rewrote, recomputed once per scope after both
+        passes, so each operand's record in them is its own record now, as the lineage backfill recomputes
+        them (filing_lineage_repair.py): provenance and ``reconciled`` only, on a filing-owned version-1
+        calculation of a rewritten concept whose operands the calculator finds."""
+        for scope, concepts in self.rechecked.items():
+            self._reannotate(self.by_scope[scope], concepts)
+
+    def _reannotate(self, scope: list[int], concepts: set[str]) -> None:
+        members = [(row_id, self.state(row_id)) for row_id in scope]
         facts = [{**{name: state[name] for name in _FACT_FIELDS}, "value": float(state["value"])}
                  for _row_id, state in members]
         for (row_id, state), result in zip(members, annotate_filing_calculations(facts)):
             if (state["filing_id"] is None or state["concept"] not in METRIC_FORMULAS
-                    or anchor["concept"] not in METRIC_INPUTS[state["concept"]]
+                    or not concepts.intersection(METRIC_INPUTS[state["concept"]])
                     or _provenance(state).get("version") != PROVENANCE_VERSION
                     or not result["provenance"]["inputs"]):
                 continue
@@ -502,7 +575,7 @@ class _Planner:
         extra = {"winner_form": target["form"], "winner_filed": _provenance(target).get("filed_at")}
         twin = self._twin(key)
         if twin is not None:
-            extra["twin_fact_id"] = twin  # the upsert's D1 rule decides it at apply (facts/upsert.py)
+            extra["twin_fact_id"] = twin  # an insert's: the upsert's D1 rule decides it (facts/upsert.py)
         stored_id = self.identities.get(qfr._identity(target))
         if stored_id is None:
             self.inserts[qfr._identity(target)] = fresh[0]
@@ -547,6 +620,7 @@ class _Planner:
             winner, action = {**stored, "is_latest": True}, "promoted"
         self.write(stored_id, winner)
         self.keys[key] = 1
+        self.stored_keys.add(key)
         return _Admission(action, evidence, winner, extra)
 
     def _twin(self, key: tuple) -> int | None:
@@ -573,6 +647,7 @@ class _Planner:
             if qfr._identity(stored) in self.normalized:
                 self.counts["dependents_recomputed"] += 1  # the loop recomputes it from the fresh operands
                 self.keys.setdefault(_key(state), 1)
+                self.stored_keys.add(_key(state))
                 continue
             outcome = self.admit(_key(state), row_id, {row_id})
             self.write(row_id, self._retired(state, DEPENDENT, outcome))
@@ -587,6 +662,7 @@ def plan(before: dict[int, State], updates: dict[int, State], facts: list[dict],
     planner = _Planner(before, updates, facts, normalized, payload)
     planner.restore_filing_rows()
     planner.reconfirm_filing_rows()
+    planner.reannotate()
     planner.retire_proxy_rows()
     planner.settle_dependents()
     if planner.refusals:
@@ -595,4 +671,5 @@ def plan(before: dict[int, State], updates: dict[int, State], facts: list[dict],
     tagged = planner.touched | {row_id for row_id, state in before.items()
                                 if is_proxy_form(state["form"]) or _quotes(state, planner.accessions)}
     return ProxyPlan(inserts=list(planner.inserts.values()), tagged=tagged, accessions=planner.accessions,
-                     keys=planner.keys, counts=planner.counts, rows=planner.rows)
+                     keys=planner.keys, counts=planner.counts, rows=planner.rows,
+                     stored_keys=planner.stored_keys, verdicts=planner.verdicts)

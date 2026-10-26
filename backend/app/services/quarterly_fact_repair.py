@@ -5,7 +5,7 @@ companyfacts ingestion remains insert-only; this explicit maintenance path journ
 of already occupied identities without deleting facts. It rewrites no filing-owned record, except
 through its proxy step (``proxy_fact_repair``, E211), whose filing-owned writes are narrow: it
 promotes a row that agrees with the 10-K's winner, restores a figure the old cross-check replaced
-with a proxy's, re-records a proxy-confirmed check, and re-annotates a restored row's calculations.
+with a proxy's, re-records a proxy-confirmed check, and re-annotates the calculations over those rows.
 """
 from collections import Counter
 from datetime import date
@@ -410,9 +410,12 @@ def repair_company(
         ], "inserts": [_candidate_state(fact) for fact in inserts],
         "proxy": proxy.summary(before, updates, inserts),
     }
-    result["proxy"]["projected_residual"] = proxy.residual(projected + result["inserts"], twins=False)
+    # The plan sees a twin only where no upsert decides the key; the apply checks every key it settled.
+    result["proxy"]["projected_residual"] = proxy.residual(projected + result["inserts"], twins_at=proxy.stored_keys)
     if any(result["proxy"]["projected_residual"].values()):
         raise ValueError(f"Proxy repair would leave rows for detection: {result['proxy']['projected_residual']}")
+    result["proxy"]["detection_listed"] = proxy.detection_listed(
+        [*zip(before, projected), *((None, state) for state in result["inserts"])])
     if dry_run:
         result["projected_after"] = coverage(projected + result["inserts"])
         result["projection_note"] = "Insert latest-filed precedence is resolved during apply."
@@ -441,9 +444,10 @@ def repair_company(
     db.flush()
     result.update({"after": coverage(after_states), "revisions": revisions})
     # Only the apply sees where the upsert lands an insert (a newer twin keeps it non-current).
-    result["proxy"]["residual"] = proxy.residual(after_states, twins=True)
+    result["proxy"]["residual"] = proxy.residual(after_states, twins_at=proxy.keys)
     if any(result["proxy"]["residual"].values()):
         raise ValueError(f"Proxy repair left rows for detection: {result['proxy']['residual']}")
+    result["proxy"]["detection_listed"] = proxy.detection_listed([(row.id, s) for row, s in zip(after_rows, after_states)])
     return result
 
 

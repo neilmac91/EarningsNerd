@@ -15,8 +15,11 @@
 -- proxy step (backend/app/services/proxy_fact_repair.py, E211). It names companies and changes nothing.
 -- Retire: the session that applies that repair deletes this file, and the unit test that holds its
 -- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), in the
--- records PR that closes it, after a detection-sql run reads no rows in sets 2, 3, 4 and 5, and by
--- 2026-12-31 at the latest.
+-- records PR that closes it, by 2026-12-31 at the latest. It waits for a detection-sql run after the
+-- apply in which, for every company the apply repaired, sets 2 and 3 read no rows and sets 4 and 5
+-- read exactly the rows (fact_id) its report lists in proxy.detection_listed, each with the step's
+-- verdict (docs/quarterly-data-repair.md, "Proxy-statement values (E211)"), and for each company it
+-- refused, after that company's own follow-up.
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so the five sets share one snapshot. Tables:
 -- companies, financial_fact. Each statement gets 120 s and waits at most 10 s for a lock (SET LOCAL
@@ -144,7 +147,9 @@ LIMIT 200;
 \echo '3. Current rows of another form computed from a proxy row: a calculation whose recorded operands name'
 \echo '   the accession of a proxy or information statement row of its company, current or not. A margin'
 \echo '   from the proxy''s net income keeps revenue''s accession and form, so sets 1 and 2 cannot see it,'
-\echo '   and no sync recomputes it (its identity is already stored).'
+\echo '   and no sync recomputes it (its identity is already stored). Not the accession companyfacts, the'
+\echo '   name a sync gives an item that carries none, which every cross-checked filing row quotes as its'
+\echo '   check''s method; the repair skips it too (proxy_fact_repair.FALLBACK_ACCESSION).'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form
 ), proxy_accessions AS MATERIALIZED (
@@ -152,6 +157,7 @@ WITH params AS (
     FROM financial_fact ff
     CROSS JOIN params p
     WHERE upper(btrim(regexp_replace(ff.form, '\s+', ' ', 'g'))) ~ p.proxy_form
+      AND ff.accession NOT IN ('', 'companyfacts')
 ), dependents AS (
     SELECT ff.company_id, ff.concept, ff.fiscal_period, ff.fiscal_year
     FROM financial_fact ff
@@ -192,7 +198,9 @@ LIMIT 200;
 \echo '   sync stored the proxy''s item, so a non-scale proxy figure at a company no sync read after its'
 \echo '   proxy is not found. A row replaced before #1191 records no original: only a witness finds it, and'
 \echo '   the scale-up guard cannot apply. Scale also lists a parse that was itself 1,000 or 1,000,000 times'
-\echo '   too large.'
+\echo '   too large: no proxy figure is behind it, and the repair leaves it (verdict no_proxy_figure). The'
+\echo '   repair also keeps a row that already holds the 10-K''s figure (kept_agrees_with_authority); it stays'
+\echo '   listed while no other stored report row holds that figure.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
@@ -254,9 +262,9 @@ WITH params AS (
     FROM signals s
     WHERE NOT s.report_backed
 )
-SELECT c.ticker, l.company_id, l.concept, l.fiscal_period, l.fiscal_year, l.period_end, l.accession, l.form,
-       l.is_latest, l.value, l.original_value, l.outcome, l.why, l.proxy_witness, l.original_backed,
-       count(*) OVER () AS of_n
+SELECT c.ticker, l.company_id, l.id AS fact_id, l.concept, l.fiscal_period, l.fiscal_year, l.period_end,
+       l.accession, l.form, l.is_latest, l.value, l.original_value, l.outcome, l.why, l.proxy_witness,
+       l.original_backed, count(*) OVER () AS of_n
 FROM listed l
 JOIN companies c ON c.id = l.company_id
 WHERE l.why IS NOT NULL
@@ -271,8 +279,10 @@ LIMIT 200;
 \echo '   4). The row''s value is its own parse, which a proxy''s figure certified: FedEx''s proxy, in dollars,'
 \echo '   confirmed a parse that read millions as units; a rounded proxy figure confirmed a right one. Limits: a'
 \echo '   confirmation before #1191 records nothing, so it is not found; a witness exists only where a sync'
-\echo '   stored the proxy''s item; a row the repair re-records stays listed where the 10-K''s figure equals a'
-\echo '   proxy''s and no stored report row holds it.'
+\echo '   stored the proxy''s item. Where the proxy quotes the 10-K exactly, authoritative_value is the 10-K''s'
+\echo '   figure: the repair keeps that row as it is (verdict kept_confirmed_by_10k), and it stays listed while'
+\echo '   no other stored report row holds the figure, as when the 10-K''s winner is this filing row itself.'
+\echo '   A row the repair re-records stays listed where its new figure, the 10-K''s, is also a proxy row''s.'
 WITH params AS (
     SELECT '^[A-Z]+ ?14[AC][0-9A-Z]*(/A)?$'::text AS proxy_form,
            '\\u(0000|[dD][89a-fA-F][0-9a-fA-F]{2})'::text AS json_hazard,
@@ -313,8 +323,8 @@ WITH params AS (
     FROM confirmed k
     WHERE k.authoritative_value IS NOT NULL
 )
-SELECT c.ticker, s.company_id, s.concept, s.fiscal_period, s.fiscal_year, s.period_end, s.accession, s.form,
-       s.is_latest, s.value, s.authoritative_value, s.proxy_witness, count(*) OVER () AS of_n
+SELECT c.ticker, s.company_id, s.id AS fact_id, s.concept, s.fiscal_period, s.fiscal_year, s.period_end,
+       s.accession, s.form, s.is_latest, s.value, s.authoritative_value, s.proxy_witness, count(*) OVER () AS of_n
 FROM signals s
 JOIN companies c ON c.id = s.company_id
 WHERE s.proxy_witness IS NOT NULL AND NOT s.report_backed
