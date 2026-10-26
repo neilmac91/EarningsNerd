@@ -606,7 +606,7 @@ class TestRisksParity:
         # A row with no sections keeps its risks in the `risk_factors` column, which the page reads through
         # `_summary_raw_container` as the exports do: the page's tally of excerpts (verificationTally.ts, from
         # raw_summary) counts what the CSV prints.
-        body, exported, csv_rows, _html = self._served(service, raw_summary={"sections": {}}, risk_factors=self.RISKS)
+        body, exported, csv_rows, html = self._served(service, raw_summary={"sections": {}}, risk_factors=self.RISKS)
 
         assert body["raw_summary"] == exported
         counts = body["raw_summary"]["sections"][RISK_PROJECTION_KEY]
@@ -614,6 +614,7 @@ class TestRisksParity:
         assert any(row and row[0].startswith(self.NOTICE) for row in csv_rows)
         assert ["1", "Filing excerpt", self.LONG] in csv_rows
         assert not any(self.SHORT in cell for row in csv_rows for cell in row)
+        assert self.NOTICE in html and self.LONG in html and self.SHORT not in html
 
 
 class TestRenderSections:

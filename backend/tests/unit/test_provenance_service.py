@@ -249,7 +249,7 @@ class TestEnrichRawSummary:
 
 # Each takes the place of every space between an excerpt's words. A stored filing span carries line breaks, and every
 # read projects it again.
-_RISK_PADDINGS = [("two spaces", "  "), ("a line break", "\n  "), ("two tabs", "\t\t"), ("a no-break space", "  ")]
+_RISK_PADDINGS = [("two spaces", "  "), ("a line break", "\n  "), ("two tabs", "\t\t"), ("a no-break space", "\u00a0 ")]
 
 
 class TestRiskExcerptFloor:
