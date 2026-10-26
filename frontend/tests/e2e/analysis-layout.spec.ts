@@ -936,14 +936,18 @@ test.describe('analysis table periods / 816px at 200% text', () => {
   })
 })
 
-// At 360px the KPI strip carries a planted code-prefixed calculated value, "CA$968.0M" (E197: before D-061 its dagger
-// wrapped below it two up); the fixtures' dollar values fit there.
+// At 360px the KPI strip carries a planted code-prefixed value that a note questions, "CA$968.0M" and its letter
+// (138.2px), which two cards cannot hold there (E197); the fixtures' dollar values fit two up.
 for (const theme of THEMES) for (const width of [390, 360] as const) test.describe(`analysis phone marks / ${theme}${width === 360 ? ' / 360px' : ''}`, () => {
   test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['discrepancy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at ${width}px, in the figure face`, async ({ page, baseURL }) => {
     test.setTimeout(60_000)
-    await openAnalysis(page, baseURL!, state, theme, 1, false, width === 360 ? withCanadianFreeCashFlow : undefined)
-    if (width === 360) await expect(page.locator('[data-analysis-kpi] button').filter({ hasText: /^CA\$968\.0M/ })).toHaveCount(1)
+    await openAnalysis(page, baseURL!, state, theme, 1, false, width === 360 ? withQuestionedCanadianFreeCashFlow : undefined)
+    if (width === 360) {
+      const planted = page.locator('[data-analysis-kpi] button').filter({ hasText: /^CA\$968\.0M/ })
+      await expect(planted).toHaveCount(1)
+      await expect(planted.locator('[data-note-letter]'), 'the planted value carries its letter').not.toHaveCount(0)
+    }
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
     // The stylesheet the build emits (E199): the data face falls back to a monospace one, with no metric-matched Arial.
     const mono = await page.evaluate(() => ({
