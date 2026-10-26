@@ -347,7 +347,7 @@ const runStreamAttempt = async (
       onComplete(data.summary_id)
     } else if (data.type === 'error') {
       console.warn(`[summary] ${filingId} stream error: ${data.message}`)
-      streamErrorMessage = typeof data.message === 'string' ? data.message : 'Error generating summary'
+      streamErrorMessage = typeof data.message === 'string' ? data.message : 'We could not generate this summary. Try again shortly.'
     } else if (data.type === 'start') {
       const message = typeof data.message === 'string' ? data.message : ''
       recordStageTiming('start', message)

@@ -84,7 +84,7 @@ async def test_unknown_filing_yields_only_initializing_and_not_found_error(caplo
     evidence = _evidence(MISSING_FILING_ID)
     with stream_boundaries() as summarize:
         events = await _drain(MISSING_FILING_ID, request_evidence=evidence)
-    assert events == [INITIALIZING, {"type": "error", "message": "Filing not found"}]
+    assert events == [INITIALIZING, {"type": "error", "message": "This filing could not be found."}]
     assert (logging.WARNING, f"[stream:{MISSING_FILING_ID}] Filing not found during stream generation.") in _pipeline_logs(caplog)
     assert evidence.reason == "filing_not_found"
     assert evidence.summary_service_invoked is False

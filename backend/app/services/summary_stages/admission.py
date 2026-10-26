@@ -70,7 +70,7 @@ async def load_filing(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.reason = "filing_not_found"
         logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
-        yield {'type': 'error', 'message': 'Filing not found'}
+        yield {'type': 'error', 'message': 'This filing could not be found.'}
         return
 
     # A run admitted to replace an unready row serves the row once another run has made it ready.

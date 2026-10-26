@@ -399,7 +399,7 @@ async def test_a3_non_timeout_extraction_failure_error_envelope(filing_type, lab
     result = await service.summarize_filing("Selected filing text.", "Anchor Co", filing_type)
     assert result == {
         "status": "error",
-        "message": "We couldn't generate this summary just now. Please try again shortly.",
+        "message": "We could not generate this summary. Try again shortly.",
         "summary_title": f"Anchor Co {label} Filing Summary",
         "sections": [],
         "insights": {"sentiment": "Neutral", "growth_drivers": [], "risk_signals": []},

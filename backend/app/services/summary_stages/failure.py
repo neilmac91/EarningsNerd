@@ -47,7 +47,7 @@ async def timed_out(run: GenerationRun) -> dict:
         await run.run_sync_db(record_timeout_progress)
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
-    return {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
+    return {'type': 'error', 'message': 'The summary timed out before it finished. Try again.'}
 
 
 async def failed(run: GenerationRun, e: Exception) -> dict:

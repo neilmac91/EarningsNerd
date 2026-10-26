@@ -102,6 +102,12 @@ describe('the summary stream client prints its own fallbacks in the voice', () =
     inTheVoice(result.shown)
   })
 
+  it('an error frame with no message of its own', async () => {
+    const result = await failureOf(async () => stream([frame({ type: 'error' })]))
+    expect(result).toEqual({ shown: 'We could not generate this summary. Try again shortly.', requests: 2 })
+    inTheVoice(result.shown)
+  })
+
   it('a stream that closes before its terminal frame', async () => {
     const result = await failureOf(async () => stream([]))
     expect(result).toEqual({ shown: 'The connection closed before the summary finished. Try again.', requests: 2 })

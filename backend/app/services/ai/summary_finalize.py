@@ -135,7 +135,7 @@ def extraction_failure(extraction_error: Exception, company_name: str, filing_ty
     logger.error(f"Structured extraction error: {error_msg}")
     return {
         "status": "error",
-        "message": "We couldn't generate this summary just now. Please try again shortly.",
+        "message": "We could not generate this summary. Try again shortly.",
         "summary_title": f"{company_name} {filing_type_key} Filing Summary",
         "sections": [],
         "insights": {

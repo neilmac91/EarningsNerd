@@ -12,9 +12,9 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
 /**
  * The summary stream's error sentences are written in the backend pipeline (summary_stages, and the
  * payload messages services/ai/summary_finalize.py writes for generation.py and finalize.py to stream),
- * whose em-dash sentences took the product's words with E217's functional change there (F35, D-046, E92); the
- * filing page maps each sentence to the product's words (features/summaries/lib/streamErrorCopy.ts, brand sweep
- * filing/F48), a sentence already in them to itself.
+ * whose sentences took the product's words with E217's functional change there (F35, D-046, E92), all but the two
+ * the matchers route on; the filing page maps each sentence to the product's words
+ * (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48), a sentence already in them to itself.
  * This gate reads every module under summary_stages plus ai/summary_finalize.py, read only, and holds the
  * map to that Python source:
  *
@@ -651,9 +651,7 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(streamErrorCopy("You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries.")).toBe(
       "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.",
     )
-    expect(streamErrorCopy("We couldn't generate this summary just now. Please try again shortly.")).toBe(
-      'We could not generate this summary. Try again shortly.',
-    )
+    expect(streamErrorCopy('Filing not found')).toBe('This filing could not be found.')
     expect(streamErrorCopy('We could not generate this summary. Try again shortly.')).toBe(
       'We could not generate this summary. Try again shortly.',
     )

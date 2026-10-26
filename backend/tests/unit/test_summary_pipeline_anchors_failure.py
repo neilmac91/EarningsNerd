@@ -35,7 +35,7 @@ from tests.support.summary_stream_harness import (
 LOGGER = "app.services.summary_pipeline"
 INITIALIZING = {"type": "progress", "stage": "initializing", "message": "Initializing...", "percent": 0}
 GENERIC_FAILURE = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
-TIMED_OUT = {"type": "error", "message": "Summary generation timed out. Please try again."}
+TIMED_OUT = {"type": "error", "message": "The summary timed out before it finished. Try again."}
 
 
 @pytest.fixture(autouse=True)
