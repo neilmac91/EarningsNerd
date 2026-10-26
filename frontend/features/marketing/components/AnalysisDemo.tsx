@@ -37,10 +37,8 @@ export default function AnalysisDemo() {
 
       <DataNotesProvider dataset={SAMPLE_ANALYSIS_DATASET}>
         <div className="flex flex-col gap-3 p-4">
-          {/* KpiStrip lays out four columns at lg; the sample's three tiles need three. */}
-          <div className="lg:[&>div>dl]:grid-cols-3 [&>div>dl]:[@container(width<17em)]:grid-cols-1">
-            <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
-          </div>
+          {/* KpiStrip takes one column per tile from lg, so the sample's three tiles sit three across. */}
+          <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
           <RevenueBars points={REVENUE_POINTS} />
           {/* The table's fine print sits 8px under it, as on the analysis page. */}
           <div className="flex flex-col gap-2">

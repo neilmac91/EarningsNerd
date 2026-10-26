@@ -11,6 +11,8 @@ export function dataNoteDescription(note?: DataNote | null) {
 // raised as a superscript in the neutral note ink, and inline-block, so the KPI value's dotted underline stops at the
 // figure. Smaller, raised and differently inked, it cannot read as the figure's last glyph.
 const MARK = 'relative inline-block font-figure text-data-xs leading-[0] tracking-normal'
+/** The mark's classes, for KpiStrip's hidden probe of a mark's advance (a letter in them, with no data-note-letter). */
+export const NOTE_MARK = MARK
 
 /** The enclosing figure/control owns the accessible name; marks never add a Tab stop. A figure carries a letter only
  *  where its note questions the number (noteMarksFigure): unknown, unavailable and record-only notes draw nothing here,

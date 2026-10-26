@@ -359,13 +359,17 @@ lists every note, and the comparison locators are gone. §9's decisions stand; t
 
 ### 4.4 KPI strip
 
-- `<dl>` grid, `grid-cols-2 lg:grid-cols-4`; each card `grid-rows-subgrid` spanning three rows (label,
-  value, period + delta) so the three rows share heights across the strip and every value sits on the
-  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
+- `<dl>` grid, `grid-cols-2 lg:grid-cols-4` (columns superseded 2026-10-25 by E197; see the note that
+  ends this item); each card `grid-rows-subgrid` spanning three rows (label, value, period + delta) so
+  the three rows share heights across the strip and every value sits on the same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
   (decision 4). When the page container is narrower than 17 em of its own text size (a 390 px phone at
   200% text is 11 em; 320 px at 100% text is 20 em) the cards go one-up: a 48 px figure cannot share a
   173 px card, and the measured overflow at 390 / 320 with 200% text was 55 / 90 px before this rule and
-  0 after it (§9, amendment to decision 4).
+  0 after it (§9, amendment to decision 4). (2026-10-25: E197 keeps two-up at 320 px only where two cards
+  hold the strip's widest value on one line, every dollar value the fixtures carry included; a code-prefixed
+  value that two cannot hold, "CHF 22.8B" at 320 px or "CA$968.0M" with a note's letter at 360 px, takes one
+  card instead of leaving its card, and from lg the strip takes four cards only where four hold it.
+  `frontend/DESIGN_SYSTEM.md` §4, Analysis KPI, holds the current rule.)
 - Label: the metric name only, eyebrow style, allowed to wrap. Value: 24 px data face with the affix.
   Third row: "Q2 2026 · YoY +28.0%" as two inline items that wrap independently on narrow cards; when
   the card's period is older than the dataset's latest period, "· latest available" in secondary ink
@@ -1003,6 +1007,9 @@ without a second pressed selection state. Merge and deployment verification rema
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
    text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).
+   (2026-10-25: E197 narrows two-up to strips whose two cards hold the widest value on one line, every
+   dollar value the fixtures carry included; a code-prefixed value two cards cannot hold at 320 or 360 px
+   takes one card. §4.4 records the change.)
 6. Table figures are rounded to a glyph budget (#1202: fewer decimals, compact scale or scientific
    notation for a token that would not fit) with the stored value one click away. This is a
    presentation decision the brief did not take; it shipped. Recommended: keep it, with the rounding note
