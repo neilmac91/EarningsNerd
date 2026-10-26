@@ -1,0 +1,106 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "0d16ae3db953eb158253840d993d4971a8b4cc07e31a5d47a4610685095ae1b1",
+ "y_sha256": "30d0c3bf3bc8b2282b758b66a0dc09a26d8d4e3a0de2a7c78ca2bf5bc3ca3386",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A's causal claims match their cited passages, including the SG&A launch spending and the Alpine tax distortion. B claims more than its sources support: 'continued demand' extends a truncated quote, a working-capital passage is cited for the cash increase, and it asserts an uncited FY2019 'buyback restatement'. B covers more (geography, cash flow to net income, current ratio), but its operating-cost leverage line is mechanical and 'the pack' is jargon."
+   },
+   "cost_usd": 0.128577,
+   "latency_s": 13.873,
+   "backend": "claude_cli",
+   "input_tokens": 14317,
+   "cached_input_tokens": 727,
+   "output_tokens": 986,
+   "reasoning_tokens": 763,
+   "meta": {
+    "duration_api_ms": 9248,
+    "cache_creation_input_tokens": 13588,
+    "list_cost_usd": 0.074225
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A's causal claims match their cited passages, including the SG&A launch spending and the Alpine tax distortion. B claims more than its sources support: 'continued demand' extends a truncated quote, a working-capital passage is cited for the cash increase, and it asserts an uncited FY2019 'buyback restatement'. B covers more (geography, cash flow to net income, current ratio), but its operating-cost leverage line is mechanical and 'the pack' is jargon.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A misreads a source: it uses the working-capital passage [54] to explain the rise in cash and investments. It calls inventory 'the third straight year of increase' with only two cited years. It presents the -30.4% opex swing as operating leverage when it is an AIPR&D base effect, and leaks 'the pack' jargon. B grounds the SG&A drivers, the FY2024 cash decline and the tax distortion in quoted passages. It adds peer cash-conversion context and the TRIKAFTA growth-contribution collapse."
+   },
+   "cost_usd": 0.128933,
+   "latency_s": 14.182,
+   "backend": "claude_cli",
+   "input_tokens": 14319,
+   "cached_input_tokens": 727,
+   "output_tokens": 1003,
+   "reasoning_tokens": 758,
+   "meta": {
+    "duration_api_ms": 9615,
+    "cache_creation_input_tokens": 13590,
+    "list_cost_usd": 0.074573
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A misreads a source: it uses the working-capital passage [54] to explain the rise in cash and investments. It calls inventory 'the third straight year of increase' with only two cited years. It presents the -30.4% opex swing as operating leverage when it is an AIPR&D base effect, and leaks 'the pack' jargon. B grounds the SG&A drivers, the FY2024 cash decline and the tax distortion in quoted passages. It adds peer cash-conversion context and the TRIKAFTA growth-contribution collapse.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.25751
+}

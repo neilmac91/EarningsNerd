@@ -1,0 +1,87 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "1c1a333bbf7edfc88a3d97163f32b5cb08fc052ca73adebe95768e122b726406",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 decline reflected lower shipment volumes across equipment segments as rising grain stocks, lower commodity prices and elevated interest rates weighed on demand .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "partial",
+   "reason": "P17 ties grain stocks, commodity prices and rates only to agriculture volumes; construction declines had different causes, and inventory management is omitted."
+  },
+  {
+   "sentence": "Production & Precision Agriculture volumes fell 30% in the U.S. and Canada, partly offset by a 22% increase in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states a 30% US/Canada volume decline partially offset by a 22% increase in Brazil."
+  },
+  {
+   "sentence": "Small Agriculture & Turf operating profit fell on lower sales volumes and mix and higher tariffs, partly offset by price realization .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit decreased primarily due to lower sales volumes/ sales mix and higher tariffs, partially offset by price realization."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 attributes the profit decrease to lower volumes/mix and higher tariffs, partially offset by price realization."
+  },
+  {
+   "sentence": "Operating inflows were driven by net income adjusted for non-cash provisions and a decrease in sales receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 cites net income adjusted for non-cash provisions and lower sales receivables, partially offset by an OPEB contribution."
+  },
+  {
+   "sentence": "The allowance for credit losses rose on higher expected losses in agriculture and turf accounts amid elevated delinquencies and weaker market conditions .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, the allowance for credit losses increased, primarily due to higher expected losses on agriculture and turf customer accounts as a result of elevated delinquencies and a decline in market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the allowance increase to higher expected ag and turf losses from elevated delinquencies and weaker market conditions."
+  },
+  {
+   "sentence": "Management forecasts lower equipment-operations operating cash flow in 2026 on lower net income, partly offset by inventory reductions .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We closely monitor our cash requirements. Based on the available sources of liquidity, we expect to meet our funding needs in the short term (next 12 months) and long term (beyond 12 months). We are forecasting lower operating cash flows from equipment operations in 2026 compared with 2025, driven by a decrease in net income adjusted for non-cash provisions, partially offset by higher cash flows generated from inventory reductions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 forecasts lower 2026 equipment operating cash flow from lower adjusted net income, partially offset by inventory reductions."
+  }
+ ],
+ "cost_usd": 0.033392,
+ "backend": "claude_cli",
+ "input_tokens": 2685,
+ "cached_input_tokens": 0,
+ "output_tokens": 596
+}

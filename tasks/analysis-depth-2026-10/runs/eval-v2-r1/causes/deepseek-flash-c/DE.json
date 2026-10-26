@@ -1,0 +1,51 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 3,
+ "output_sha256": "ee7da18a1974447a43ddc2aac868ea34bb31df6d1651406b25fd894dfa46e891",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 decline came from lower shipment volumes across both equipment segments, driven by rising grain stocks, lower commodity prices and elevated interest rates .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "partial",
+   "reason": "P17 gives these causes only for agriculture. Construction's lower volumes came from housing starts, rental purchases and commercial construction."
+  },
+  {
+   "sentence": "U.S. and Canada sales volumes fell 30% in that segment, partly offset by a 22% volume increase in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states that the 30% U.S. and Canada volume decrease was partially offset by a 22% increase in Brazil."
+  },
+  {
+   "sentence": "The FY2025 inflow was driven by net income adjusted for non-cash provisions and a decrease in sales receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the inflow to net income adjusted for non-cash provisions and lower sales receivables, partially offset by an OPEB contribution."
+  }
+ ],
+ "cost_usd": 0.024184,
+ "backend": "claude_cli",
+ "input_tokens": 2169,
+ "cached_input_tokens": 0,
+ "output_tokens": 342
+}

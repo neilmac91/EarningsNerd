@@ -1,0 +1,97 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "TGT",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "4f7ae065596fb6cc3d697e218596a36232c0186f94447e6c9ce725d336321f1a",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2020 jump came from a 19.3% comparable sales increase, with digitally originated comparable sales up 146% in the second through fourth quarters .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in 2020 sales compared to 2019 is due to a 19.3 percent comparable sales increase and the contribution from new stores. The COVID-19 pandemic has affected the amount and mix of sales across channels and categories."
+    },
+    {
+     "id": "P53",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022During the second through fourth quarters, comparable sales increased 21.7 percent, reflecting store originated comparable sales growth of 9.1 percent, and an increase in digitally originated comparable sales of 146 percent. Comparable sales growth was strong across our multi-category portfolio, with slightly higher growth in lower-margin categories."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 attributes the increase to 19.3% comparable sales growth. P53 gives 146% digitally originated comparable growth for Q2\u2013Q4."
+  },
+  {
+   "sentence": "The FY2022 collapse, with operating margin down 4.9pp to 3.5%, reflected discretionary category sales decreases and the cost of clearing elevated inventory .",
+   "passages": [
+    {
+     "id": "P38",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2022, our comparable sales growth slowed significantly, reflecting sales decreases in our Discretionary categories (Apparel & Accessories, Hardlines, and Home Furnishings & Decor) that substantially offset growth in our Frequency categories (Beauty & Household Essentials and Food & Beverage). In response to this shift in demand, we took several actions to address our inventory position and create additional flexibility in a rapidly changing environment, including increasing promotional and clearance markdowns, removing excess inventory, and cancelling purchase orders. In addition, during the second half of 2022, port congestion, shipping container availability, and other supply chain pressures improved. This resulted in some inventory arriving earlier than anticipated, which resulted in increased costs of managing elevated inventory levels and an increased working capital investment. These factors, net of the impact of retail price increases taken to address merchandise and freight cost inflation, resulted in decreased profitability compared to the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 attributes lower profitability to discretionary sales decreases and the costs of managing and clearing elevated inventory."
+  },
+  {
+   "sentence": "Comparable sales fell 2.6% in FY2025 on a 2.2% traffic decrease and a 0.4% lower average transaction .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Comparable sales decreased 2.6 percent, driven by a 2.2 percent decrease in traffic and a 0.4 percent decrease in average transaction amount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states the decline was driven by a 2.2% traffic decrease and a 0.4% lower average transaction."
+  },
+  {
+   "sentence": "The gross margin rate slipped to 27.9% from 28.2%, and the SG&A rate held at 20.6% including a 0.6pp interchange settlement benefit .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross margin rate was 27.9\u00a0percent in 2025 and 28.2\u00a0percent in 2024. The decrease reflected the net impact of:"
+    },
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our SG&A expense rate was 20.6\u00a0percent in 2025, consistent with 2024. The 2025 rate included a 0.6 percentage point benefit from interchange fee settlements, partially offset by 0.2 percentage points of business transformation costs. Excluding these items, our Adjusted SG&A expense rate was 20.9 percent in 2025, compared with 20.6 percent in 2024, reflecting the deleveraging impact of lower Net Sales and the net impact of other costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P11 states the SG&A rate held at 20.6% and includes a 0.6pp interchange settlement benefit; the gross margin part makes no causal claim."
+  },
+  {
+   "sentence": "The decline from $7.37 billion in FY2024 reflected lower net earnings and lower accounts payable leverage .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash flows provided by operating activities were $6.6 billion in 2025 compared with $7.4 billion in 2024. The operating cash flow decrease reflects lower net earnings, as well as the net impact of lower accounts payable leverage and inventory purchases in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 attributes the operating cash flow decrease to lower net earnings and lower accounts payable leverage."
+  },
+  {
+   "sentence": "The capex increase primarily reflected more investment in new stores and remodels .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Capital expenditures in 2025 reflect continued investment in our strategic initiatives, including investments in both stores and in our supply chain, enhancing our capabilities and guest experience across stores and digital channels. The increase in capital expenditures in 2025 compared with 2024 primarily reflects an increased investment in both new stores and remodels."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 says the capex increase primarily reflects more investment in new stores and remodels."
+  }
+ ],
+ "cost_usd": 0.037212,
+ "backend": "claude_cli",
+ "input_tokens": 3120,
+ "cached_input_tokens": 0,
+ "output_tokens": 613
+}
