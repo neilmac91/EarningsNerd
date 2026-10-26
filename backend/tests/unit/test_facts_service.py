@@ -966,22 +966,23 @@ class TestGetFilingFundamentals:
         db.close()
 
     def test_excludes_non_annual_facts(self):
-        # The series must be annual-only: a quarterly fact (fiscal_period=None, as a 10-Q yields) must
-        # never surface next to the FY value for the same year under the chart's "Annual figures" label.
+        # The series must be annual-only: a quarterly fact (fiscal_period=None) stored under the
+        # filing's own accession must never surface next to the FY value for the same year under the
+        # chart's "Annual figures" label. The writers stamp a filing's rows with its own accession.
         from app.database import SessionLocal
 
         db = SessionLocal()
         acc = uuid.uuid4().hex[:8]
         _company, filing = self._company_and_filing(db, f"QTR-{acc}")
 
-        common = {"concept": "revenue", "unit": "USD", "form": "10-K",
+        common = {"concept": "revenue", "unit": "USD", "form": "10-K", "accession": filing.accession_number,
                   "company_id": _company.id, "filing_id": filing.id, "source": "edgar_xbrl"}
         svc.upsert_facts(db, [
             {**common, "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
-             "value": 400.0, "accession": f"FY-{acc}"},
+             "value": 400.0},
             # A Q3 point in the same fiscal_year — annual-only filter must drop it.
             {**common, "period_end": date(2024, 9, 30), "fiscal_year": 2024, "fiscal_period": None,
-             "form": "10-Q", "value": 100.0, "accession": f"Q3-{acc}"},
+             "value": 100.0},
         ])
 
         out = svc.get_filing_fundamentals(db, filing.id)

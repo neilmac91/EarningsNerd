@@ -359,13 +359,17 @@ lists every note, and the comparison locators are gone. §9's decisions stand; t
 
 ### 4.4 KPI strip
 
-- `<dl>` grid, `grid-cols-2 lg:grid-cols-4`; each card `grid-rows-subgrid` spanning three rows (label,
-  value, period + delta) so the three rows share heights across the strip and every value sits on the
-  same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
+- `<dl>` grid, `grid-cols-2 lg:grid-cols-4` (columns superseded 2026-10-25 by E197; see the note that
+  ends this item); each card `grid-rows-subgrid` spanning three rows (label, value, period + delta) so
+  the three rows share heights across the strip and every value sits on the same line. (Subgrid: Chrome 117, Safari 16, Firefox 71.) Two-up holds at 320 px and 100% text
   (decision 4). When the page container is narrower than 17 em of its own text size (a 390 px phone at
   200% text is 11 em; 320 px at 100% text is 20 em) the cards go one-up: a 48 px figure cannot share a
   173 px card, and the measured overflow at 390 / 320 with 200% text was 55 / 90 px before this rule and
-  0 after it (§9, amendment to decision 4).
+  0 after it (§9, amendment to decision 4). (2026-10-25: E197 keeps two-up at 320 px only where two cards
+  hold the strip's widest value on one line, every dollar value the fixtures carry included; a code-prefixed
+  value that two cannot hold, "CHF 22.8B" at 320 px or "CA$968.0M" with a note's letter at 360 px, takes one
+  card instead of leaving its card, and from lg the strip takes four cards only where four hold it.
+  `frontend/DESIGN_SYSTEM.md` §4, Analysis KPI, holds the current rule.)
 - Label: the metric name only, eyebrow style, allowed to wrap. Value: 24 px data face with the affix.
   Third row: "Q2 2026 · YoY +28.0%" as two inline items that wrap independently on narrow cards; when
   the card's period is older than the dataset's latest period, "· latest available" in secondary ink
@@ -506,30 +510,23 @@ returns to the figure (the `Modal` contract).
 
 ### 4.7 Charts
 
-Shipped in #1203 (chart notes with a placement pass, PNG notes). The rules, with the corrections of §11:
+Shipped in #1203 (chart notes with a placement pass, PNG notes) on the Recharts charts, with the corrections of
+§11. Since the trend charts' renderer replaced them (E195, D-064), `docs/design/analysis-trend-charts-spec-2026-10.md`
+governs the four trend charts' note marks (its §3.3 and §0.5) under D-061's rule (§4.10's note); the filled bars
+stay. The rules:
 
-When the trend charts' new renderer replaces today's charts, `docs/design/analysis-trend-charts-spec-2026-10.md`
-replaces the note marks and the "Notes a" chip below for those four charts (its §0.5); the filled bars stay. Until
-then these rules govern production.
-
-- An affected point is a hollow marker (panel fill, 2 px series-colour stroke, ≥ 3:1 on both grounds)
-  with the note letter above it; an affected bar keeps its fill and carries the letter above it (a
-  dashed or hollow bar reads as an estimate in a financial chart). A growth-line point's letter can
-  fall over a bar, so it carries a 3 px panel-colour halo (`paint-order: stroke`) and stays legible in
-  the label ink on either ground. Letters are 11 px data face in the
-  chart label ink, never warning ink: against the honey series the warning pair measures 1.6:1 in dark
-  and 2.1:1 in light, and a letter in the series colour reads as part of the series. Colours are SVG
-  attributes taken from the chart theme, never CSS classes or variables, because the PNG export
-  serializes the SVG in isolation.
-- The legend row ends with a "Notes a" provenance chip that opens the strip and moves focus to the note.
-  Gaps stay gaps.
-- The plot is a named scroll region that is a Tab stop only while it overflows. recharts'
-  `accessibilityLayer` adds a second, unnamed Tab stop inside it whose arrow keys move a tooltip: either
-  turn it off or name the surface and put the note letter in the tooltip.
-- PNG export notes carry the same sentences as the strip: "Note a: This saved calculation predates …
-  (Operating margin Q2 2025, Q2 2026 …)", the unavailability line once (the panel's own gap line is the
-  same note), the calculated line, the FCF definition, source date and disclosure, wrapped beneath the
-  plot as today, with periods formatted as "Q2 2026".
+- No note is drawn inside a plot. An observation whose note questions the number puts its letter in the notes band,
+  a 16 px row always reserved under the period axis, centred under its period, in the chart's note ink, never warning
+  ink: against the honey series the warning pair measures 1.6:1 in dark and 2.1:1 in light. An affected bar keeps its
+  fill (a dashed or hollow bar reads as an estimate in a financial chart). Colours are SVG attributes taken from the
+  chart theme, never CSS classes or variables, because the PNG export serializes the SVG in isolation.
+- The footnote lines under the plot explain each letter: its series, periods and reason. A gap's line names its
+  periods in words with no letter, and a calculated value carries no glyph, its periods named in a footnote line.
+- The legend row ends with a "Notes a" provenance chip that names exactly the footnotes' letters, opens the strip and
+  moves focus to the note. Gaps stay gaps.
+- The plot is a named scroll region that is a Tab stop only while it overflows. After it, the chart's values stop, a
+  slider over the periods, speaks each period's readout and its marked notes by letter ("data note a").
+- The PNG prints the card's footnote lines, the FCF definition, source date and disclosure, wrapped beneath the plot.
 
 ### 4.8 Narrative
 
@@ -617,8 +614,8 @@ corrections of §11:
 
 **Superseded (2026-10-25)** for the Web and PNG rows: the founder narrowed the marking rule on 2026-10-25 (`docs/brand/decisions-log.md` D-061). On the page a
 figure reads `26.1%` (no dagger) and carries `ᵃ` only where its note questions the number, a gap is `—`
-alone, and the summary is the fine print under the table; the PNG footer names the marked letters and
-states a gap in words. The PDF and Excel rows move with the exports' own change. §9's decisions stand.
+alone, and the summary is the fine print under the table; a chart's PNG prints its card's footnote lines, which
+name the marked letters and state a gap in words (§4.7, E195). The PDF and Excel rows move with the exports' own change. §9's decisions stand.
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
@@ -630,7 +627,8 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
 
 - Reading order: picker → headline cards (each a definition group: term, value button, period and
   delta) → Data notes (a disclosure; open, a list of notes) → chart panels (heading, legend, Notes chip,
-  controls, the plot as a named scrollable region while it overflows; arrow keys scroll it) → narrative
+  controls, the plot as a named scrollable region while it overflows, its arrow keys scrolling it, then its values
+  stop, a slider whose arrow keys step the periods) → narrative
   (headings, paragraphs with citation chips, evidence disclosures, Sources list) → table window control
   → table region → cells.
 - Table: the scroll container is `role="region"` named "Metrics by period, table of 12 quarters", a Tab
@@ -654,10 +652,11 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
   ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
   by swipe inside its region, never the page.
-- Colour: letters and `†` carry the meaning; tones carry direction, as today. Warning ink is 6.4:1 on
-  cream and inside its tint 5.2:1; amber-500 on navy in dark; the muted letter pair is 5.2:1 / 5.8:1 on
-  panel. Hollow markers keep a 2 px stroke of the series colour (≥ 3:1 on both grounds); chart letters
-  use the chart label ink.
+- Colour: letters carry the meaning; tones carry direction, as today. Since D-061 no figure carries a `†`
+  and no mark takes warning ink: a figure's letter is the note ink (5.2:1 / 10.0:1 on panel), and a chart's,
+  in its notes band, its tooltip and its footnotes, the chart's note ink (5.2:1 / 7.8:1 on panel; §4.7).
+  Warning ink (6.4:1 on cream, 5.2:1 inside its tint; amber-500 on navy in dark) stays for the evidence
+  dialog's status line on a note that questions the number, its letter included ("Needs review · Note b").
 - Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; the layout gate (#1206,
   `tests/e2e/analysis-layout.spec.ts`) asserts the region's role, name and Tab stop, the header counts and
   every figure control's name; still owed there, as follow-ups: the conditional Tab stop, a focused cell
@@ -1008,6 +1007,9 @@ without a second pressed selection state. Merge and deployment verification rema
 4 (amended). Decision 4 was measured at 100% text only. At 200% text a 390 px phone shows 55 px of
    card overflow two-up and 90 px at 320. Recommended and implemented: two-up stays at 320 px and 100%
    text; the cards go one-up when the page is narrower than 17 em of its own text size (§4.4).
+   (2026-10-25: E197 narrows two-up to strips whose two cards hold the widest value on one line, every
+   dollar value the fixtures carry included; a code-prefixed value two cards cannot hold at 320 or 360 px
+   takes one card. §4.4 records the change.)
 6. Table figures are rounded to a glyph budget (#1202: fewer decimals, compact scale or scientific
    notation for a token that would not fit) with the stored value one click away. This is a
    presentation decision the brief did not take; it shipped. Recommended: keep it, with the rounding note

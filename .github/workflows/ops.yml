@@ -282,7 +282,7 @@ jobs:
         if: steps.request.outputs.operation == 'feedback-media-verify-apply'
         uses: actions/setup-node@v7
         with:
-          node-version: '22.23.2'
+          node-version: '22.23.4'
 
       - name: Build the committed feedback verification frontend
         if: steps.request.outputs.operation == 'feedback-media-verify-apply'

@@ -1,9 +1,10 @@
 'use client'
 /**
- * The four trend charts under the spec renderer (CHARTS_V2; E192). Every chart keeps its card, a chart that does not
- * apply saying why at full height (spec §3.4), where today's Recharts grid drops it. Each card spans three of the grid's
- * rows as a subgrid (TrendChartCard, E193), so a row's plots start at one height. TrendCharts loads this module only
- * while the flag is on, inside the grid's ChartErrorBoundary, which it holds outside this chunk.
+ * The four trend charts under the spec renderer (E192; the analysis route's only renderer since E195). Every chart keeps
+ * its card, a chart that does not apply saying why at full height (spec §3.4), where the Recharts grid before it dropped
+ * the card. Each card spans three of the grid's rows as a subgrid (TrendChartCard, E193), so a row's plots start at one
+ * height. TrendCharts loads this module as its own chunk, inside the grid's ChartErrorBoundary, which it holds outside
+ * this chunk.
  */
 import { useEffect, useState } from 'react'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'

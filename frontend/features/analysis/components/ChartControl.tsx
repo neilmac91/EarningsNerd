@@ -5,7 +5,7 @@ import { Button } from '@/components/ui'
  *  area, 20px glyphs — the TSLA field test proved the ghost 28px/14px version read as unshipped
  *  (owner decision D3: keep icon-only, make the affordance visible at rest), and the AAPL
  *  follow-up sized the glyphs up from 16px, which still read tiny in production. Native `title`
- *  tooltips + aria semantics carry the labels. Shared by both trend-chart renderers. While its work runs the
+ *  tooltips + aria semantics carry the labels. Used by the trend charts' cards. While its work runs the
  *  control is busy (`loading`: Button's spinner in the glyph's place, aria-busy, activation refused), never
  *  natively disabled (DESIGN_SYSTEM.md §4). */
 export default function ChartControl({
