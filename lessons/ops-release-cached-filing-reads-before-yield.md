@@ -332,7 +332,7 @@ route's rate limit (its 429) answers before the unit, so, like a 422, it still l
 the finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built off
 the loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a Subscription
 row its `is_pro` mirror contradicts, and the progress row touched only by the Pro forces' DELETEs, one each; a
-case of its own holds the 429 before the unit (no read, no served body, no clear); and
+case of its own holds the 429 before the unit (no filing or summary read, no served body, no clear); and
 `test_summary_provider_lifecycle.py`'s route cases hold the request's release off the loop, before the response
 starts (2026-10-25, E171).
 A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
