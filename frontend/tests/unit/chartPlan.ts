@@ -4,10 +4,21 @@
  * chart-apca.spec.ts holds. Shared by the renderer's unit spec and the gallery (tests/e2e/charts-v2-gallery.spec.ts),
  * so the page and the plan are held to one list.
  */
+import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
 import { noteGlyphs, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import type { ChartModel } from '@/features/analysis/lib/charts/model'
 import type { ChartTokens } from '@/features/analysis/lib/charts/theme'
+
+/** A dataset whose record-only review notes (legacy_calculation, such as REGNPN's nine simulated flags) question the
+ *  number instead, so the band letters them (D-061): as stored they letter nothing. */
+export function questioned(dataset: AnalysisDataset): AnalysisDataset {
+  delete (dataset as { data_notes?: unknown }).data_notes
+  for (const series of dataset.series) for (const point of series.points) {
+    if (point.provenance?.reasons.includes('legacy_calculation')) point.provenance = { ...point.provenance, reasons: ['source_conflict'] }
+  }
+  return dataset
+}
 
 export function plannedByRole(model: ChartModel, layout: ChartLayout, tokens: ChartTokens): Partial<Record<TextRole, string[]>> {
   const planned: Partial<Record<TextRole, string[]>> = {}

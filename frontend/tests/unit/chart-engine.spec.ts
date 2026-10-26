@@ -20,6 +20,7 @@ import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
+import { questioned } from './chartPlan'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
@@ -326,12 +327,7 @@ describe('the cases the step-1 data required', () => {
     expect(recorded.notesBand).toBeNull()
     expect(recorded.footnotes.map((note) => note.mark)).toEqual([''])
     expect(recorded.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
-    const m = model('REGNPN_annual', 'margins', (ds) => {
-      delete (ds as { data_notes?: unknown }).data_notes
-      for (const series of ds.series) for (const point of series.points) {
-        if (point.provenance?.reasons.includes('legacy_calculation')) point.provenance = { ...point.provenance, reasons: ['source_conflict'] }
-      }
-    })
+    const m = model('REGNPN_annual', 'margins', questioned)
     expect(m.notesBand).toEqual({ FY2023: [{ text: 'a' }], FY2024: [{ text: 'a' }], FY2025: [{ text: 'a' }] })
     expect(m.footnotes[0].mark).toBe('a')
     expect(m.footnotes[0].text).toMatch(/^Operating margin and Net margin FY2023–FY2025: /)

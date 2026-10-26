@@ -53,7 +53,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import { plannedByRole } from './chartPlan'
+import { plannedByRole, questioned } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
 import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
@@ -257,6 +257,28 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         expect(svg.getAttribute('aria-label')).toBe(`${model.title} chart`)
         expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
       })
+    })
+  }
+})
+
+describe('a note that questions the number: the band draws its letter in the note ink (D-061)', () => {
+  // No fixture as stored has such a note (REGNPN's are record-only), so the plan checks above draw no band letter.
+  for (const theme of ['light', 'dark'] as const) {
+    it(theme, () => {
+      const ds = questioned(dataset('REGNPN_annual'))
+      const { container } = render(
+        <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>
+          <TrendChartsV2 dataset={ds} />
+        </ThemeContext.Provider>
+      )
+      CHART_IDS.forEach((chart, i) => {
+        const model = buildChartModel(chart, ds, resolveDataNotes(ds))
+        if (model.unavailable) return
+        expectDrawsPlan(cards(container)[i].querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!, model, layoutChart(model, DEFAULT_WIDTH, 'card'), CHART_TOKENS[theme])
+      })
+      const letters = [...container.querySelectorAll('[data-analysis-chart] > svg [data-text="note"]')]
+      expect(letters.length, 'the band draws letters').toBeGreaterThan(0)
+      expect(new Set(letters.map((letter) => letter.getAttribute('fill'))), 'no letter takes a status colour').toEqual(new Set([CHART_TOKENS[theme].note]))
     })
   }
 })
@@ -816,13 +838,9 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect(resolveDataNotes(recorded).notes.every((note) => !noteMarksFigure(note))).toBe(true)
     expect(fcfRow(recorded).textContent).toMatch(/· Calculated$/)
     // The same flags with a reason that questions the number letter it.
-    const ds = dataset('REGNPN_annual')
-    delete (ds as { data_notes?: unknown }).data_notes
-    for (const point of ds.series.find((series) => series.concept === 'free_cash_flow')!.points) {
-      if (point.provenance) point.provenance = { ...point.provenance, reasons: ['value_reason'] }
-    }
+    const ds = questioned(dataset('REGNPN_annual'))
     const row = fcfRow(ds)
-    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.reasons.includes('value_reason'))!
+    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.reasons.includes('source_conflict'))!
     expect(noteMarksFigure(note)).toBe(true)
     expect(row).toHaveTextContent(`· Calculated (${note.letter})`)
     const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ` (${note.letter})`)!

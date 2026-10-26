@@ -7,7 +7,7 @@ import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '../
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
 import { resolveDataNotes } from '../../features/analysis/lib/dataNotes'
 import { selectHeadlineFigures } from '../../features/analysis/lib/reportPresentation'
-import { plannedByRole } from '../unit/chartPlan'
+import { plannedByRole, questioned } from '../unit/chartPlan'
 import { datasetFixture, geometryDataset, openAnalysis, openDataset, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 
@@ -34,16 +34,6 @@ function inSwissFrancs(dataset: AnalysisDataset) {
   for (const series of dataset.series) if (!series.percent) {
     series.unit = 'CHF'
     for (const point of series.points) point.unit = 'CHF'
-  }
-  return dataset
-}
-
-/** REGNPN's nine simulated flags with a reason that questions the number, so the band letters them; as stored they
- *  are record-only (legacy_calculation) and letter nothing (D-061). */
-function questioned(dataset: AnalysisDataset) {
-  delete (dataset as { data_notes?: unknown }).data_notes
-  for (const series of dataset.series) for (const point of series.points) {
-    if (point.provenance?.reasons.includes('legacy_calculation')) point.provenance = { ...point.provenance, reasons: ['source_conflict'] }
   }
   return dataset
 }
