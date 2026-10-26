@@ -12,7 +12,8 @@ this change's.
 
 Each case drives the one orchestrator offline (``stream_boundaries``) with the real writer and reads the row after. The
 service's clock is pinned, so each elapsed time is exact; SQLite's date functions keep milliseconds, which the tolerance
-allows for. The case past the fetch stage moves the clock on when the provider is called.
+allows for. The cases past the fetch stage move the clock on when SEC EDGAR or the provider is called, and a timeout case
+fires the pipeline's backstop, a real deadline, at the moment it chooses.
 """
 import asyncio
 from datetime import datetime, timedelta, timezone
@@ -74,18 +75,24 @@ async def _drain(filing_id):
         telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False)]
 
 
-def _no_free_slot(monkeypatch):
-    """Every generation slot held, and the pipeline's backstop firing as the leader starts to wait for one: a real
-    deadline, armed at that moment rather than after a budget that would race the stages before it."""
+def _backstop(monkeypatch):
+    """The pipeline's backstop as a real deadline that fires when the case calls the function returned, rather than
+    after a budget that would race the stages before it."""
     deadline = asyncio.timeout(None)
+    monkeypatch.setattr(summary_pipeline, "asyncio", SimpleNamespace(
+        **{**vars(asyncio), "timeout": lambda _seconds: deadline}))
+    return lambda: deadline.reschedule(asyncio.get_running_loop().time())
+
+
+def _no_free_slot(monkeypatch):
+    """Every generation slot held, and the backstop firing as the leader starts to wait for one."""
+    fire_backstop = _backstop(monkeypatch)
 
     class NoFreeSlot(asyncio.Semaphore):
         async def acquire(self):
-            deadline.reschedule(asyncio.get_running_loop().time())
+            fire_backstop()
             return await super().acquire()
 
-    monkeypatch.setattr(summary_pipeline, "asyncio", SimpleNamespace(
-        **{**vars(asyncio), "timeout": lambda _seconds: deadline}))
     monkeypatch.setattr(summary_pipeline, "_get_generation_semaphore", lambda: NoFreeSlot(0))
 
 
@@ -128,21 +135,32 @@ async def test_a_followers_error_keeps_the_live_leaders_clock(clock):
 
 
 @pytest.mark.asyncio
-async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock):
-    """A leader whose provider fails 5 s after its fetch stage started the clock counts its error from that start."""
+@pytest.mark.parametrize("failure", ["provider_raises", "backstop_in_generation", "backstop_in_sec_fetch"])
+async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, monkeypatch, failure):
+    """A leader that fails 5 s after its fetch stage started the clock counts its error from that start: when its
+    provider raises (``failure.failed``), and when the backstop fires (``failure.timed_out``) as it waits for the
+    provider, or for SEC EDGAR's document between its fetch stage's write and its parsing stage's."""
     filing_id = seed_company_filing()
     _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
+    fire_backstop = None if failure == "provider_raises" else _backstop(monkeypatch)
 
-    def provider_down(*args, **kwargs):
+    async def five_seconds_on(*args, **kwargs):
         clock.now = NOW + timedelta(seconds=5)
-        raise RuntimeError("provider down")
+        if fire_backstop is None:
+            raise RuntimeError("provider down")
+        fire_backstop()
+        await asyncio.Event().wait()  # the run's release cancels this wait once the backstop has fired
 
     with stream_boundaries() as summarize:
-        summarize.side_effect = provider_down
+        if failure == "backstop_in_sec_fetch":
+            summary_pipeline.sec_edgar_service.get_filing_document.side_effect = five_seconds_on
+        else:
+            summarize.side_effect = five_seconds_on
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
-    summarize.assert_called_once()
-    assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), "provider down")
+    assert summarize.call_count == (0 if failure == "backstop_in_sec_fetch" else 1)
+    expected = "provider down" if failure == "provider_raises" else "Pipeline timeout"
+    assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), expected)
 
 
 @pytest.mark.asyncio
