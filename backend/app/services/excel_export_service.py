@@ -509,7 +509,8 @@ def build_analysis_workbook(
     sources = workbook.create_sheet("Sources & methods")
     _build_sources(sources, dataset, indexed)
     # Its 17 audit columns printed at 2.9pt on one landscape page (LibreOffice); four pages wide, each repeating
-    # Metric and Period, print at about 8pt (REGN's ten years 8.1pt, twelve quarters 7.9pt; three wide was 6.8pt).
+    # Metric and Period, print at about 8pt (REGN's ten years and twelve quarters 8.1pt, META's twelve quarters
+    # with 1,542 rows 7.9pt; three wide was 6.8pt).
     # Metric and Period name no single row (REGN's 1,006 rows share 216 pairs), so a run of rows prints its four
     # pages in a row, not 47 pages apart.
     _print_setup(sources, landscape=True, pages_wide=4, title_rows="1:1", title_cols="A:B")
