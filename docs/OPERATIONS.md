@@ -654,8 +654,8 @@ The check binds merges through the ruleset on `main` (id 23561253, created 2026-
 repos/neilmac91/EarningsNerd/rulesets/23561253` to read it): deletion and force-push of `main`
 blocked; a pull request required with **zero** approvals and squash as the only merge method;
 required status checks `backend-tests`, `frontend-tests`, `e2e-tests`, `migrations-postgres`,
-`lighthouse`, `review-gate`, `secret-scan` and, since 2026-10-25, `e2e-charts-v2` (the trend charts' spec
-renderer under `NEXT_PUBLIC_CHARTS_V2`; `tasks/todo.md` E195 takes it out again before that job is deleted),
+`lighthouse`, `review-gate`, `secret-scan` and, since 2026-10-25, `e2e-charts-v2` (the trend charts' renderer
+specs; `tasks/todo.md` F67 asks the founder to take it out again, so E195's follow-up can delete the job),
 each pinned to the GitHub Actions app; no bypass actors, so the rules
 bind the administrator too. A required status check needs no approver, so this does not lock a
 single-collaborator repository; requiring pull-request reviews would, because authors cannot approve
