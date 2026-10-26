@@ -41,7 +41,7 @@ const MIRRORS = [
   'app/layout.tsx',
 ]
 
-/** The trend-chart spec renderer's own pairs (tailwind.config.js), behind NEXT_PUBLIC_CHARTS_V2 until F66 (E194). */
+/** The trend-chart spec renderer's own pairs (tailwind.config.js, E194), its own until E195's token fold names them. */
 const RENDERER_PAIRS = ['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review']
 const RENDERER_MIRROR = 'features/analysis/lib/charts/theme.ts'
 
@@ -50,7 +50,7 @@ describe('JS color mirrors stay token-true', () => {
   // Plain white/black are legal literals (export canvas ground, on-fill ink).
   tokens.add('#ffffff')
   tokens.add('#000000')
-  // The hexes only the renderer's pairs hold: its new dark series and inks, which wait for the founder's F66 decision.
+  // The hexes only the renderer's pairs hold: its new dark series and inks, its own until the token fold (E195's follow-up).
   const { chart, ...others } = config.theme.extend.colors
   const elsewhere = collect(config.theme.extend.boxShadow, collect({ ...others, chart: Object.fromEntries(Object.entries(chart).filter(([key]) => !RENDERER_PAIRS.includes(key))) }, new Set<string>()))
   const rendererOnly = [...collect(RENDERER_PAIRS.map((key) => chart[key]), new Set<string>())].filter((hex) => !elsewhere.has(hex))
@@ -59,9 +59,9 @@ describe('JS color mirrors stay token-true', () => {
     it(`${file} uses only config token hexes`, () => {
       const hexes = [...new Set((stripComments(read(file)).match(HEX) ?? []).map((h) => h.toLowerCase()))]
       expect(hexes.filter((h) => !tokens.has(h))).toEqual([])
-      // Only the renderer's own mirror takes its pairs' new values: a production mirror that did (Chart.tsx's dark
-      // labels or series) would ship them before F66, and every hex would still be a token.
-      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, before F66 (E195 folds them in)').toEqual([])
+      // Only the renderer's own mirror takes its pairs' new values: another mirror that did (Chart.tsx's dark labels or
+      // series) would ship them outside /analysis before the token fold, and every hex would still be a token.
+      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, until the token fold (E195’s follow-up)').toEqual([])
     })
   }
 

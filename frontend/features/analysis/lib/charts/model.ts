@@ -121,7 +121,7 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 export const TOP_LINE_CONCEPTS = ['revenue', 'net_interest_income', 'premiums_earned'] as const
 
 /** The year's apostrophe is the typographic one (spec §0.4 row 27), as the subtitle and footnotes print
- *  periods ("Q1 ’25"). Today's Recharts ticks keep periodAxis's ASCII form until this renderer replaces them. */
+ *  periods ("Q1 ’25"); periodLabels' tick strings keep the ASCII one. */
 const typographic = (tick: string) => tick.replace("'", '’')
 
 function periodsOf(ds: AnalysisDataset): ChartPeriod[] {
@@ -182,12 +182,6 @@ function currencyOf(ds: AnalysisDataset, series: AnalysisSeries[]): { currency: 
   if (units.size > 1) return { currency: null, mixed: true }
   const [unit] = [...units]
   return { currency: unit && currencySymbol(unit) ? unit : null, mixed: false }
-}
-
-/** The currency the given concepts' amounts share in the window, for a renderer outside the engine (today's charts);
- *  `mixed` when they share none, and then the chart says MIXED_CURRENCY instead of drawing. */
-export function chartCurrency(ds: AnalysisDataset, concepts: string[]): { currency: string | null; mixed: boolean } {
-  return currencyOf(ds, ds.series.filter((series) => concepts.includes(series.concept)))
 }
 
 function valuesOf(ds: AnalysisDataset, series: AnalysisSeries | undefined): ModelPoint[] {

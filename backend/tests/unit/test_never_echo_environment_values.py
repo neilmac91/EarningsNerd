@@ -1704,9 +1704,11 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     from app.utils import telemetry_bootstrap
 
     # The capture reaches the structures the design checks of #1297 found the SDK builds under the API's options (not a
-    # subprocess span, errno mechanism data or a gauge); re-checked for 2.72.0, which adds keys inside user data only.
+    # subprocess span, errno mechanism data or a gauge). Re-checked against the 2.72.0 -> 2.73.0 SDK diff:
+    # the optional queue/LLM integrations are not installed here; nonfinite telemetry attributes now become
+    # strings inside user data. The API capture below still reaches exactly the same protocol paths.
     # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
-    assert sentry_sdk.VERSION == "2.72.0"
+    assert sentry_sdk.VERSION == "2.73.0"
 
     received = []
     value_scrubber = telemetry_bootstrap._value_scrubber

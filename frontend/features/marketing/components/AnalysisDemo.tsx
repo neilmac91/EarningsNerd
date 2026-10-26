@@ -3,15 +3,13 @@ import MetricsTable from '@/features/analysis/components/MetricsTable'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import RevenueBars, { type RevenuePoint } from '@/features/marketing/components/RevenueBars'
-import { formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
+import { ANALYSIS_MODE_LABEL, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 
-const MODE_LABEL = { annual: 'Annual', quarterly: 'Quarterly' } as const
-
 const { periods } = SAMPLE_ANALYSIS_DATASET
 const RANGE = formatAnalysisWindow(periods[0]?.key ?? '', periods[periods.length - 1]?.key ?? '')
-const TITLE = `${formatCompanyName(SAMPLE_ANALYSIS_DATASET.company_name)} · ${MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
+const TITLE = `${formatCompanyName(SAMPLE_ANALYSIS_DATASET.company_name)} · ${ANALYSIS_MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
 
 // The revenue series drives the one chart on the screen; a point with no value has no bar.
 const REVENUE_POINTS: RevenuePoint[] = (
@@ -24,7 +22,7 @@ const REVENUE_POINTS: RevenuePoint[] = (
  * the data notes as the table's fine print under it.
  * A server component: the dataset reaches the two client components through the RSC payload,
  * already narrowed to three series, instead of shipping the demo JSON module to the browser.
- * TrendCharts (recharts) is deliberately not rendered here: it would pull the charting library
+ * TrendCharts is deliberately not rendered here: it would pull the chart renderer
  * into the landing route's JS, which has a budget the marketing screens must respect.
  */
 export default function AnalysisDemo() {

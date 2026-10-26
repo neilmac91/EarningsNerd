@@ -377,6 +377,6 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
     if run.summary_status == "partial":
         yield {'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id}
     elif run.summary_status == "error":
-        yield {'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id}
+        yield {'type': 'error', 'message': summary_message or 'We could not generate this summary. Try again shortly.', 'summary_id': saved_summary_id}
     else:
         yield {'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100}

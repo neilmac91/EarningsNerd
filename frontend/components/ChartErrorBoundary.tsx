@@ -35,8 +35,8 @@ export class ChartErrorBoundary extends Component<Props, State> {
       }
       
       // Says only what failed. On the filing page the boundary wraps one chart with no table below
-      // it; on Multi-Period Analysis it wraps the whole grid of chart panels (TrendCharts passes
-      // noun="charts" when more than one is shown) and MetricsTable sits below, outside it.
+      // it; on Multi-Period Analysis it wraps the whole grid of trend charts (TrendCharts passes
+      // noun="charts") and MetricsTable sits below, outside it.
       return (
         <Card className="p-cap-6 text-center">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">

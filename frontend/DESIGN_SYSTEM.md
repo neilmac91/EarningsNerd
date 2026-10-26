@@ -29,7 +29,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer, behind a flag until F66, pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -521,6 +521,12 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
+                 <Card elevation="none"> is the control level: the fill and the hairline with no shadow in either
+                 theme, for an input area that is not content, today the analysis page's company and period form
+                 (§6; Analysis results). Set it through the prop, never a shadow class on top: cx does no
+                 tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
+                 eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
+                 className; designRules.spec.ts plants it).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -862,6 +868,39 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
+
+Analysis results <ResultsHeader>, AnalysisPageClient's results column and AnalysisTeaser's preview (MPA WP4b;
+                 coherence §4.4). Four levels: the ground (`background`) holds the page title, the results header and
+                 the disclaimer; the control level is the company and period form, <Card elevation="none"> (Card /
+                 panel, §6); the content level is one card per module (each KPI tile, each chart, the commentary,
+                 the metrics table), panel, hairline and shadow-e2 in light; overlays are the evidence Modal and the
+                 popovers.
+                 The results are one <section aria-labelledby> named by the header, a p and not a heading, so each
+                 module's heading stays an h2 under the page h1 (§5) and no level is renumbered. The header is one
+                 line on the ground, no box, text-sm in the secondary ink: the company's display name
+                 (formatCompanyName) at 600 in the primary ink, its ticker in the data face (tnum font-data, as the
+                 form's company row sets it), the mode and the run's range (ANALYSIS_MODE_LABEL with
+                 formatAnalysisPeriod of period_key, the chart PNG header's range: “Quarterly Q3 2023–Q2 2026”),
+                 then “data as of {MMMM d, yyyy}”, the day the data notes print (useSourceDate: the UTC day on the
+                 server and while hydrating, the reader's day after), or “source refresh time unavailable”. Every
+                 clause is read from the dataset on screen, never from the picker. The clauses join with “ · ”; each
+                 is an inline-block that carries its separator on a no-break space, so a phone breaks between
+                 clauses, never inside one unless it alone is wider than the line (Regeneron's name at 320px under
+                 200% text), and no line starts with “·”. Spacing: the header sits 12px over the KPI strip (gap-3),
+                 the two one block; the modules stand 16px apart below sm and 24px from sm (gap-4 sm:gap-6), in the
+                 Free teaser's preview too; the data notes stay 8px under the table (Data notes strip); a module's
+                 inset keeps its token (p-cap-5, p-4 sm:p-cap-6, the KPI tiles' p-3 sm:p-4); the chart grid keeps
+                 gap-4 between its cards, one module. Only the page renders the header: the Free teaser's caption
+                 and the landing demo's title bar name their sample, which has no live date to print.
+                 The header carries `data-launcher-keep-clear`, as the KPI strip does (Stacking): the launcher steps
+                 aside from the run's name as from its figures (tests/e2e/feedback-launcher-keep-clear.spec.ts).
+                 Gates: tests/unit/analysis-results-header.spec.tsx (the clauses and their separators, the
+                 region's name and its h2s, the control card's classes, Card's elevations, no header on the sample
+                 surfaces, the Free teaser's module gaps), tests/unit/analysis-source-date.spec.tsx (the source day on both surfaces) and
+                 tests/e2e/analysis-layout.spec.ts "analysis results header" (both themes, at 320, 390, 768 and
+                 1480px and under 200% text at 320 and 390px: 12px over the strip, the module gaps, every clause
+                 whole where the line holds it, no line opening on “·”, no sideways scroll, the control card's
+                 hairline with no box-shadow and a KPI card's lift in light).
 
 Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
                  Q2 2026, a window as one range), without changing link destinations, code or source
@@ -1656,8 +1695,11 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The feedback launcher never rests over a headline figure (N17: after Run on a 390px phone it sat
                  over the KPI strip, and "$14.3B" read "4.3B"). It steps aside without moving: while its box, 8px
                  around (lib/launcherKeepClear, LAUNCHER_KEEP_CLEAR_GAP), meets a region the page marks
-                 `data-launcher-keep-clear` (KpiStrip's root), it takes `opacity-0 pointer-events-none`, so a tap
-                 there reaches the figure. A region inside an `inert` or `aria-hidden="true"` subtree does not count:
+                 `data-launcher-keep-clear` (KpiStrip's root, and ResultsHeader, the line that names the run over
+                 it: at 390x844 a run made after a 60px scroll lands the header, not the strip, under the launcher,
+                 which rested opaque over "Quarterly" and "data as of"; MPA WP4b), it takes `opacity-0
+                 pointer-events-none`, so a tap there reaches the figure or the header's text. A region inside an
+                 `inert` or `aria-hidden="true"` subtree does not count:
                  PeekLocked's preview (the Free analysis teaser's strip) is both, blurred under its overlay, with
                  nothing a tap could reach; the landing's AnalysisDemo is neither, its figures readable, so the
                  launcher steps aside there too. `focus-visible:opacity-100 focus-visible:pointer-events-auto` bring
@@ -1679,7 +1721,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  pointer there, and a tap on the first opens its evidence; the launcher shows with the strip clear of
                  it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a figure,
                  and a bare key press (Shift) brings it back, as does the focus an Escape close returns; at rest after
-                 Run it follows the same rule, a strip mounted under it included).
+                 Run it follows the same rule, a header mounted under it included; the header's last line at the
+                 launcher's foot, the strip more than 8px below, steps it aside, the header's text taking the pointer).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
@@ -2201,6 +2244,13 @@ that no longer exists, fails too.
 `shadow-e*`; **brighten** on hover (`hover:bg-white`), never darken. In dark, separation is fill
 contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint color only.
 
+**The control level** (MPA WP4b, coherence §4.4): an input area is not content, so it does not lift
+over the results it controls. The analysis page's company and period form is `<Card elevation="none">`:
+the same lighter fill and hairline with no shadow, still apart from the cream by fill and hairline,
+never a tint. The content cards below it on the page keep `shadow-e2` in light. Gates:
+`tests/unit/analysis-results-header.spec.tsx` (the classes) and `tests/e2e/analysis-layout.spec.ts`
+"analysis results header" (the computed hairline and no box-shadow, in both themes).
+
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
@@ -2484,29 +2534,21 @@ peers retain their own source-check presentation. No mark takes warning ink. Leg
 until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
 missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
 Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
-never zero or a claim that the company did not report them. Only observations whose note questions
-the number get hollow series-colour markers with a 2px stroke and 11px note letters (TrendCharts'
-`noteAt` takes `markedNote`); affected bars keep their series fill. Note letters use the neutral chart label ink, a 3px panel-colour
-stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
-retained in PNG export. Value and YoY concerns are independent. PNG notes name the marked letters
-with the same grouped reason sentences beneath the plot (`chartDataNotes`) and state each gap once, in
-words, with no letter. The plot is a named keyboard
-region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
-Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
-tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
-replace. Each tooltip row names its marked value or YoY note independently; a clean row, or one
-whose note marks nothing, carries no letter. Formatting follows the original data key before adding the note to the display name, so
-growth remains a percentage. Inner Left/Right keys reveal the selected mark without competing
-native pixel scrolling. Tooltips update without positional animation, wrap to the measured viewport
-width and stay within its horizontal bounds. Pointer inspection clears keyboard ownership even
-when the SVG remains focused, and does not scroll the chart. The next keyboard arrow releases
-the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
-Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
-returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
+never zero or a claim that the company did not report them. The analysis trend charts draw no note
+inside a plot: an observation whose note questions the number puts its letter in the notes band under
+its period (`markedNote`; the renderer below), in the chart's note ink, and the footnote line under the
+plot names its series, periods and reason. A gap's line names its periods in words with no letter, and
+a calculated value carries no glyph, its periods named in a footnote line. Value and YoY concerns are
+independent: a tooltip row names its own marked value or YoY note, and a clean row, or one whose note
+marks nothing, carries no letter. The plot is a named keyboard region only while overflowing, measured
+by `useOverflowRegion` before paint and on resize, and its values stop (below) reads each period, the
+YoY growth the quarterly metrics table's QoQ column does not replace included; Tab leaves and Shift+Tab
+returns without a trap, and the viewport carries the brand focus ring for either keyboard stop.
+Time-series lines do not join missing points. The card's footnotes are the PNG's notes, which wrap
+beneath the plot and retain source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
 and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`);
 a subtitle wider than the strip (the image less its 16 px pads) takes the range's short form ("Q3 ’24–Q4 ’25", as
-the spec renderer's card subtitle prints it; today's Recharts card prints no range) where that fits, and otherwise
+the spec renderer's card subtitle prints it) where that fits, and otherwise
 the range takes a line of its own in the same size and ink (an annual range has no shorter form: "JPM · Net interest
 income & growth" / "FY2016–FY2025" on a phone); only a line that still does not fit is condensed. The file
 declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
@@ -2540,21 +2582,20 @@ category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `y
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
-one line (a no-break space, where Recharts would wrap "CHF 20B") and the axis as wide as its widest
-label as Recharts sets it; a tooltip prints each value in its own axis's format. Cash generation has
-one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
-own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
-edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
-axes", which reads either renderer, and the export gate's Swiss-franc case). The engine's formats round as the
-metrics table rounds, half away from zero on the decimal, for these tooltips and axes as for the spec renderer below;
-the spec's M15 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
+one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
+percent axis clips an extreme value and prints its true value at the plot edge (spec A3b; gates:
+`chart-engine.spec.ts`, "a clipped bar is an off-scale value", and `chart-readout.spec.ts`, "an off-scale value prints
+its true value"). Tick labels stay inside their axis on one line, and no chart scrolls at a desktop card's width (e2e
+`analysis-layout.spec.ts`, "analysis chart axes", its Swiss-franc cases included). The engine's
+formats round as the metrics table rounds, half away from zero on the decimal; the spec's M15
+(`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
-**The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
-`docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
+**The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
+since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
 both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review`
 pairs and the text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary`,
-`text-secondary` and `warning` (the gridline's is new), so no production chart takes the new dark values before F66.
+`text-secondary` and `warning` (the gridline's is new), so no other chart takes their dark halves until E195's token fold.
 The raw-colour lint rule exempts that file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config and
 keeps the pairs' own hexes out of every other mirror, `tests/unit/chart-theme.spec.ts` holds each field to the spec's
 table and its own token and keeps the pairs out of every class, and `tests/unit/chart-apca.spec.ts` holds each ink to
@@ -2571,8 +2612,7 @@ plots start at one height whatever its legends wrap to. While its font loads a p
 gridlines and bars, and its card is `aria-busy`, and while the renderer's chunk loads the grid holds four cards of bones
 under one `role="status"` (`TrendChartBones.tsx`); the export is `<Button loading>` while its PNG is drawn, and a
 toggle runs the plot's row to its new height (`duration-base`, `ease-standard`, none under reduced motion; E200). Its
-keyboard contract (E193) keeps the shape of the one
-above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
+keyboard contract (E193), on the engine's slots: the values stop is a slider over the periods, a transparent
 layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
 period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
 significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
@@ -2588,8 +2628,8 @@ is hoverable; a tap pins it until a second tap or a press outside, and a swipe p
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` on the renderer and CI's `e2e-charts-v2` job, a
-required check on `main`.
+themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
+unconditionally after E195 retires the separate chart job and its flag guards (F67).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

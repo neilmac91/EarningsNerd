@@ -72,7 +72,7 @@ function AccountFeedback({ readerId }: { readerId: number }) {
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const launcherRef = useRef<HTMLButtonElement>(null)
   // N17: the launcher never rests over a headline figure. While a region the page marks keep-clear (the analysis KPI
-  // strip) lies under its box (lib/launcherKeepClear), it steps aside without moving: it fades and lets the pointer
+  // strip and the results header over it) lies under its box (lib/launcherKeepClear), it steps aside without moving: it fades and lets the pointer
   // through to the figure, keyboard focus brings it back, and it never yields while its own dialog is open.
   const [yielding, setYielding] = useState(false)
   const close = () => setOpen(false)

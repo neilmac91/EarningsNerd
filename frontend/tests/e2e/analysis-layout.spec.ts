@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
-import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
+import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -14,10 +14,9 @@ import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTextOutsideS
  * AND the configured viewport. Off-screen sr-only text still counts in that check.
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
  *
- * The trend charts are read through fixtures/trendChartDom.ts, from whichever renderer the build draws: today's
- * Recharts charts in the e2e-tests job, the spec renderer's (NEXT_PUBLIC_CHARTS_V2) in e2e-charts-v2, which runs this
- * file too (step 6 of the trend-chart migration, E194). Recharts' keyboard and notes case runs on Recharts alone;
- * charts-v2.spec.ts holds the renderer's, and step 7 (E195) retires it.
+ * The trend charts are read through fixtures/trendChartDom.ts, on the spec renderer, the only one since step 7 of the
+ * trend-chart migration (E195). CI's e2e-tests job runs this file and charts-v2.spec.ts, which holds the renderer's
+ * keyboard and notes cases.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
@@ -446,7 +445,7 @@ async function stableAnalysisOutsideTable(page: Page) {
   return {
     kpis: await page.locator('[data-analysis-kpi]').allTextContents(),
     notes: await page.locator(`${NOTES} > details > summary`).innerText(),
-    charts: await page.locator('[data-analysis-chart]').evaluateAll(readTicksAndShapes, CHARTS_V2),
+    charts: await page.locator('[data-analysis-chart]').evaluateAll(readTicksAndShapes),
   }
 }
 
@@ -480,7 +479,7 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       await drawnCharts(page)
       const baseline = await stableAnalysisOutsideTable(page)
       for (const chart of baseline.charts) {
-        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => tickText(period, CHARTS_V2)))
+        expect(chart.ticks.map(tick => tick.text), `${chart.name}: all twelve ordered chart periods`).toEqual(PERIODS.map(period => tickText(period)))
         for (const tick of chart.ticks) expect(tick.painted, `${chart.name}: ${tick.text} has visible glyphs`).toBe(true)
         expect(chart.shapes.length, `${chart.name}: actual plotted data`).toBeGreaterThan(0)
       }
@@ -1010,6 +1009,126 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
   })
 })
 
+/**
+ * The results header and the surface levels (MPA WP4b; coherence §4.1 N1, §4.4). After Run the results open with one
+ * line on the page ground, no box, that names their run (ResultsHeader) and names their region, 12px over the KPI strip
+ * so the two read as one block. The content modules after that block (the charts, the commentary, the table with its
+ * fine print) stand 16px apart below sm and 24px from sm. The company and period form is the control level: its
+ * hairline and no shadow, where the content cards keep their lift in light. Every gap is read in rem at the page's text
+ * size, since 200% text doubles it. On a phone the header breaks between its clauses: each clause lies on one line, and
+ * where one alone is wider than the header (Regeneron's name and the date at 200% text) it wraps inside itself and
+ * nowhere else; no line starts with "·"; nothing scrolls sideways. The run is the legacy state renamed as the plan's
+ * example, Regeneron's conformed name and its ticker, so the longest clause is a real one.
+ */
+for (const theme of THEMES) for (const { width, textScale } of [
+  { width: 320, textScale: 1 }, { width: 390, textScale: 1 }, { width: 768, textScale: 1 }, { width: 1480, textScale: 1 },
+  { width: 320, textScale: 2 }, { width: 390, textScale: 2 },
+]) test.describe(`analysis results header / ${theme} / ${width}px / text ${textScale}`, () => {
+  test.use({ viewport: { width, height: 1000 }, isMobile: width <= 390, hasTouch: width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block', timezoneId: 'America/New_York' })
+  test('names the run 12px above the KPI strip, sets the modules apart by the scale and the form at the control level', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, textScale, false, (dataset) => {
+      dataset.company_name = 'REGENERON PHARMACEUTICALS, INC.'
+      dataset.ticker = 'REGN'
+    })
+    // The fixture's run: synced 18:29 UTC on October 10, 2026, the afternoon of the 10th in New York.
+    const name = /^Regeneron Pharmaceuticals, Inc\.\s·\sREGN\s·\sQuarterly Q3 2023–Q2 2026\s·\sdata as of October 10, 2026$/
+    await expect(page.locator('[data-analysis-results-header]')).toHaveText(name)
+    await expect(page.getByRole('region', { name })).toBeVisible()
+    const layout = await page.evaluate(() => {
+      const box = (el: Element) => el.getBoundingClientRect()
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const results = document.querySelector('[data-analysis-results]')!
+      const header = document.querySelector('[data-analysis-results-header]')!
+      // The strip by its structure, the dl's parent, never by a mark.
+      const strip = document.querySelector('dl:has([data-analysis-kpi])')!.parentElement!
+      const modules = [...results.children].map(box)
+      const style = getComputedStyle(header)
+      // Each line of an element as painted: its characters grouped by the line they sit on, read by their middles, since
+      // the ticker's data face and the words' face draw boxes of different heights on one line.
+      const linesOf = (element: Element) => {
+        const lines: { middle: number; text: string }[] = []
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.textContent ?? ''
+          for (let index = 0; index < text.length; index++) {
+            const range = document.createRange()
+            range.setStart(node, index)
+            range.setEnd(node, index + 1)
+            const rect = range.getBoundingClientRect()
+            if (!rect.width) continue
+            const middle = (rect.top + rect.bottom) / 2
+            const line = lines.find((candidate) => Math.abs(candidate.middle - middle) < rect.height / 2)
+            if (line) line.text += text[index]
+            else lines.push({ middle, text: text[index] })
+          }
+        }
+        return lines.map((line) => line.text)
+      }
+      const clauses = [...header.querySelectorAll('[data-results-clause]')].map((clause) => {
+        const lines = linesOf(clause).length
+        // Its width on one line, measured unwrapped and then restored: whether the header could hold it whole.
+        const element = clause as HTMLElement
+        element.style.whiteSpace = 'nowrap'
+        element.style.maxWidth = 'none'
+        const natural = box(clause).width
+        element.style.whiteSpace = ''
+        element.style.maxWidth = ''
+        return { text: clause.textContent, lines, fits: natural <= box(header).width + 1 }
+      })
+      const controls = getComputedStyle(document.querySelector('[data-analysis-controls]')!)
+      // Whether a computed box-shadow paints: `none`, or layers each transparent or with no offset, blur or spread, do not
+      // (Tailwind's shadow-none and ring variables compute to transparent zero layers).
+      const paints = (shadow: string) => shadow !== 'none' && shadow.split(/,(?![^(]*\))/).some((layer) => {
+        const color = /rgba?\(([^)]*)\)/.exec(layer)
+        const alpha = color ? Number(color[1].split(',')[3] ?? 1) : 1
+        const lengths = layer.replace(color?.[0] ?? '', '').replace('inset', '').trim().split(/\s+/).map(parseFloat)
+        return alpha > 0 && lengths.some((length) => length !== 0)
+      })
+      return {
+        rem,
+        follows: header.nextElementSibling === strip && header.parentElement === results.firstElementChild,
+        headerGap: box(strip).top - box(header).bottom,
+        moduleGaps: modules.slice(1).map((module, index) => module.top - modules[index].bottom),
+        ground: { background: style.backgroundColor, border: style.borderTopWidth, shadow: paints(style.boxShadow) },
+        lines: linesOf(header),
+        clauses,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        controls: {
+          shadow: paints(controls.boxShadow),
+          widths: [controls.borderTopWidth, controls.borderRightWidth, controls.borderBottomWidth, controls.borderLeftWidth],
+          color: controls.borderTopColor,
+        },
+        kpiShadow: paints(getComputedStyle(document.querySelector('[data-analysis-kpi]')!).boxShadow),
+      }
+    })
+    expect(layout.rem).toBeCloseTo(16 * textScale, 1)
+    expect(layout.follows, 'the header opens the results, directly above the KPI strip').toBe(true)
+    expect(Math.abs(layout.headerGap - 0.75 * layout.rem), `12px at this text size between the header and the KPI strip (${layout.headerGap}px)`).toBeLessThanOrEqual(1)
+    expect(layout.ground, 'the header sits on the page ground: no fill, border or shadow').toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: false })
+    // The header's block, the charts, the commentary and the table with its fine print.
+    expect(layout.moduleGaps).toHaveLength(3)
+    const moduleGap = (width >= 640 ? 1.5 : 1) * layout.rem
+    for (const gap of layout.moduleGaps) expect(Math.abs(gap - moduleGap), `modules ${moduleGap}px apart at ${width}px (${layout.moduleGaps})`).toBeLessThanOrEqual(1)
+    // Whole clauses, broken between: one line each wherever the header can hold it, and no line opens on a separator.
+    expect(layout.clauses).toHaveLength(4)
+    for (const clause of layout.clauses) {
+      if (textScale === 1) expect(clause.fits, `"${clause.text}" fits a ${width}px phone's line`).toBe(true)
+      if (clause.fits) expect(clause.lines, `"${clause.text}" lies on one line (${layout.lines.join(' | ')})`).toBe(1)
+    }
+    for (const line of layout.lines) expect(line.trimStart().startsWith('·'), `no line starts with the separator: "${line}"`).toBe(false)
+    expect(layout.overflow, 'nothing scrolls sideways').toBeLessThanOrEqual(0)
+    // The control level: the hairline on all four sides and no shadow painted, in both themes; the content cards keep
+    // their lift in light (a dark card paints none).
+    expect(layout.controls).toEqual({
+      shadow: false,
+      widths: ['1px', '1px', '1px', '1px'],
+      color: theme === 'light' ? 'rgb(229, 231, 235)' : 'rgba(255, 255, 255, 0.1)',
+    })
+    expect(layout.kpiShadow, theme === 'light' ? 'a KPI card keeps its lift' : 'a dark KPI card paints no shadow').toBe(theme === 'light')
+  })
+})
+
 /** Every amount in Swiss francs: a currency code makes the longest tick labels ("CHF 150B"). */
 const inSwissFrancs = (dataset: AnalysisDataset) => {
   for (const series of dataset.series) if (!series.percent) {
@@ -1021,8 +1140,7 @@ const inSwissFrancs = (dataset: AnalysisDataset) => {
 for (const theme of THEMES) {
   test.describe(`analysis chart axes / ${theme}`, () => {
     test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
-    // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
+    // A tick label wider than its axis would run out of the SVG, where it is cut, and one broken at a space reads as two.
     // Wider axes must not make a chart at its card's full desktop width scroll. The spec renderer sets each label 8 px
     // left of its plot, from a gutter sized to its widest label (D5). It scrolls a chart only where the plan is wider
     // than its card (M6), and these plans fit a desktop card.
@@ -1031,7 +1149,7 @@ for (const theme of THEMES) {
     ] as const) {
       test(`${name}: every y tick label is painted on one line inside its axis, and no chart scrolls`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, state, theme, 1, false, edit)
-        const charts = await (await drawnCharts(page)).evaluateAll(readAxes, CHARTS_V2)
+        const charts = await (await drawnCharts(page)).evaluateAll(readAxes)
         for (const chart of charts) {
           expect(chart.labels.length, `${chart.name}: its y ticks are drawn`).toBeGreaterThan(2)
           expect(chart.outside, `${chart.name}: y tick labels outside their axis`).toEqual([])
@@ -1047,16 +1165,16 @@ for (const theme of THEMES) {
 for (const theme of THEMES) {
   test.describe(`analysis chart quarters / ${theme} / 390px`, () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // On a phone a quarterly plot keeps 28 px a quarter past its axes (the spec renderer MIN_SLOT's 36), however wide
-    // they are, and scrolls inside its card.
+    // On a phone a quarterly plot keeps MIN_SLOT (36 px) a quarter past its axes, however wide they are, and scrolls
+    // inside its card.
     for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
       test(`quarterly in ${name}: each quarter keeps its slot, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
-        const charts = await (await drawnCharts(page)).evaluateAll(readSlots, { v2: CHARTS_V2, periods: PERIODS.length })
+        const charts = await (await drawnCharts(page)).evaluateAll(readSlots)
         for (const chart of charts) {
-          // Recharts keeps 28 px a quarter; the spec renderer's slot is at least MIN_SLOT (M6).
+          // The spec renderer's slot is at least MIN_SLOT (M6).
           expect(chart.ticks, `${chart.name}: a printed tick a quarter`).toBe(PERIODS.length)
-          expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual((CHARTS_V2 ? MIN_SLOT : 28) - 0.01)
+          expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual(MIN_SLOT - 0.01)
           expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page does not scroll sideways').toBe(true)
@@ -1065,181 +1183,21 @@ for (const theme of THEMES) {
   })
 }
 
-// Every text a chart draws sits inside its SVG, descenders included: Recharts' axis caption, set on the SVG's bottom
-// edge, read "Fiscal vear" at every width. The spec renderer holds the same rule (D1); its panels print captions of
-// their own but no axis caption, so only Recharts' is counted.
+// Every text the spec renderer draws sits inside its SVG, descenders included (D1). This also guards the
+// clipping regression that made the retired Recharts axis caption read "Fiscal vear".
 for (const width of [360, 390, 1280]) test.describe(`analysis chart text / ${width}px`, () => {
   test.use({ viewport: { width, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['annual', 'captured'] as const) {
-    test(`${state === 'annual' ? 'annual' : 'quarterly'}: every chart text, its caption included, lies inside the chart`, async ({ page, baseURL }) => {
+    test(`${state === 'annual' ? 'annual' : 'quarterly'}: every chart text lies inside the chart`, async ({ page, baseURL }) => {
       await openAnalysis(page, baseURL!, state, 'light')
-      const charts = await (await drawnCharts(page)).evaluateAll(readTextOutsideSvg, CHARTS_V2)
+      const charts = await (await drawnCharts(page)).evaluateAll(readTextOutsideSvg)
       for (const chart of charts) {
         expect(chart.texts, `${chart.name}: its texts are drawn`).toBeGreaterThan(4)
-        if (!CHARTS_V2) expect(chart.captions, `${chart.name}: the axis caption`).toEqual([state === 'annual' ? 'Fiscal year' : 'Fiscal quarter'])
         expect(chart.outside, `${chart.name}: texts the SVG cuts`).toEqual([])
       }
     })
   }
 })
-
-for (const theme of THEMES) for (const width of [390, 1480]) {
-  test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
-    test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    test('keeps filled bars and legible notes with named keyboard values and scrolling', async ({ page, baseURL }, testInfo) => {
-      test.skip(CHARTS_V2, 'Today’s Recharts keyboard and notes contract: charts-v2.spec.ts holds the spec renderer’s (D13), and step 7 (E195) retires this case.')
-      test.setTimeout(60_000)
-      await openAnalysis(page, baseURL!, 'discrepancy', theme)
-      const plots = page.locator('[data-analysis-chart]')
-      await expect(plots).toHaveCount(4)
-      const assertViewport = async () => {
-        for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
-          const overflow = await viewport.evaluate(element => element.scrollWidth > element.clientWidth + 1)
-          if (overflow) {
-            await expect(viewport).toHaveAttribute('role', 'region')
-            await expect(viewport).toHaveAttribute('tabindex', '0')
-            await expect(viewport).toHaveAccessibleName(/chart\. Scroll horizontally to view all periods\./)
-          } else {
-            await expect(viewport).not.toHaveAttribute('role')
-            await expect(viewport).not.toHaveAttribute('tabindex')
-          }
-          const values = viewport.getByRole('application', { name: /chart values\. Use Left and Right arrows to inspect periods\./ })
-          await expect(values).toHaveCount(1)
-          await expect(values).toHaveAttribute('tabindex', '0')
-          expect(await viewport.locator('[tabindex]').evaluateAll(elements =>
-            elements.filter(element => (element as HTMLElement).tabIndex >= 0).length
-          ), 'each chart has one named value-navigation stop').toBe(1)
-          // Start before the chart and enter with a real Tab. Programmatic focus after a
-          // pointer download deliberately does not acquire the browser's :focus-visible.
-          await viewport.locator('xpath=ancestor::section[1]').getByRole('button', { name: /^(Expand|Collapse) chart$/ }).focus()
-          await page.keyboard.press('Tab')
-          if (overflow) {
-            await expect(viewport).toBeFocused()
-            await page.keyboard.press('Tab')
-          }
-          await expect(values).toBeFocused()
-          expect(await viewport.evaluate(element => getComputedStyle(element).boxShadow)).not.toBe('none')
-          await page.keyboard.press('Tab')
-          expect(await page.evaluate(() => document.activeElement?.closest('[data-analysis-chart-scroll]'))).toBeNull()
-          await page.keyboard.press('Shift+Tab')
-          await expect(values).toBeFocused()
-          if (overflow) {
-            await page.keyboard.press('Shift+Tab')
-            await expect(viewport).toBeFocused()
-          }
-        }
-      }
-      await assertViewport()
-      const revenue = plots.first()
-      const viewport = revenue.locator('..')
-      const allBars = revenue.locator(RECHARTS.bars)
-      await expect(allBars).toHaveCount(12)
-      const revenueValues = revenue.getByRole('application', { name: 'Revenue & growth chart values. Use Left and Right arrows to inspect periods.' })
-      await revenueValues.focus()
-      const tooltip = revenue.locator(RECHARTS.tooltip).getByRole('status')
-      const settleViewport = async () => {
-        const settled = await viewport.evaluate(async element => {
-          let previous = element.scrollLeft
-          let stable = 0
-          for (let frame = 0; frame < 90 && stable < 5; frame++) {
-            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
-            stable = Math.abs(element.scrollLeft - previous) < 0.1 ? stable + 1 : 0
-            previous = element.scrollLeft
-          }
-          return stable >= 5
-        })
-        expect(settled, 'keyboard scrolling settles before checking the selected period').toBe(true)
-      }
-      const assertPeriodVisible = async (index: number) => {
-        await expect(tooltip).toContainText(PERIODS[index].replace(/^(\d{4})(Q\d)$/, '$2 $1'))
-        await settleViewport()
-        // DOM text alone does not prove keyboard access: the selected mark and its tooltip
-        // must remain inside the horizontal viewport in both directions and after re-entry.
-        await expect.poll(async () => {
-          const [frame, tip, bar] = await Promise.all([viewport.boundingBox(), tooltip.boundingBox(), allBars.nth(index).boundingBox()])
-          if (!frame || !tip || !bar) return Number.POSITIVE_INFINITY
-          return Math.max(frame.x - tip.x, tip.x + tip.width - frame.x - frame.width,
-            frame.x - bar.x, bar.x + bar.width - frame.x - frame.width)
-        }, { message: `${PERIODS[index]} value and tooltip stay inside the chart viewport` }).toBeLessThanOrEqual(EPSILON)
-      }
-      for (let index = 1; index < PERIODS.length; index++) {
-        await page.keyboard.press('ArrowRight')
-        await assertPeriodVisible(index)
-      }
-      await expect(tooltip).toContainText('Q2 2026')
-      await expect(tooltip).toContainText('YoY growth')
-      await expect(tooltip).toContainText('28.0%')
-      // The quarterly metrics table uses QoQ here; these YoY values need the chart's own path.
-      // Leave at the newest period, then return after the outer viewport has moved. Recharts
-      // retains its index on blur; the next arrow must reveal the expected adjacent period.
-      await page.keyboard.press('Tab')
-      if (width === 390) {
-        await viewport.evaluate(element => { element.scrollLeft = 24 })
-        expect(await viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
-      }
-      await page.keyboard.press('Shift+Tab')
-      await expect(revenueValues).toBeFocused()
-      for (let index = PERIODS.length - 2; index >= 0; index--) {
-        await page.keyboard.press('ArrowLeft')
-        await assertPeriodVisible(index)
-        if (index === PERIODS.length - 2) await expect(tooltip).toContainText('33.1%')
-      }
-      // Moving the pointer does not blur the SVG. Hover a different period near a clipped
-      // edge, then return to the retained keyboard index without moving the pointer away.
-      const hover = await viewport.evaluate((element, bars) => {
-        const bar = element.querySelectorAll(bars)[8]
-        const frame = element.getBoundingClientRect()
-        if (element.scrollWidth > element.clientWidth + 1) {
-          const before = bar.getBoundingClientRect()
-          const centerInContent = before.x + before.width / 2 - frame.x + element.scrollLeft
-          element.scrollLeft = centerInContent - element.clientWidth + 4
-        }
-        const target = bar.getBoundingClientRect()
-        return { x: target.x + target.width / 2, y: frame.y + 80, left: element.scrollLeft }
-      }, RECHARTS.bars)
-      await page.mouse.move(hover.x, hover.y)
-      await expect(revenueValues).toBeFocused()
-      await expect(tooltip).toContainText('Q3 2025')
-      await settleViewport()
-      expect(Math.abs(await viewport.evaluate(element => element.scrollLeft) - hover.left),
-        'pointer inspection cannot scroll a still-focused chart').toBeLessThanOrEqual(EPSILON)
-      await page.keyboard.press('ArrowRight')
-      await assertPeriodVisible(1)
-      await page.keyboard.press('ArrowLeft')
-      await assertPeriodVisible(0)
-      const cleanFill = await allBars.first().getAttribute('fill')
-      const affectedBar = revenue.locator('g[aria-label="Data note a"] path')
-      await expect(affectedBar).toHaveCount(1)
-      await expect(affectedBar).toHaveAttribute('fill', cleanFill!)
-      await expect(affectedBar).not.toHaveAttribute('stroke-dasharray')
-      const letters = page.locator('[data-analysis-chart] g[aria-label^="Data note "] text')
-      expect(await letters.count()).toBeGreaterThan(0)
-      const panel = await revenue.evaluate(element => getComputedStyle(element.closest('section')!).backgroundColor)
-      for (const letter of await letters.all()) {
-        await expect(letter).toHaveAttribute('stroke-width', '3')
-        await expect(letter).toHaveAttribute('paint-order', 'stroke')
-        expect(await letter.evaluate(element => getComputedStyle(element).stroke)).toBe(panel)
-        expect(await letter.evaluate(element => {
-          const bounds = (element as SVGGraphicsElement).getBBox()
-          return bounds.width > 0 && bounds.height > 0 && getComputedStyle(element).fill !== 'none'
-        })).toBe(true)
-      }
-      if (width === 390) {
-        await viewport.focus()
-        await page.keyboard.press('ArrowRight')
-        await expect.poll(() => viewport.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
-      }
-      const downloadPromise = page.waitForEvent('download')
-      await revenue.locator('xpath=ancestor::section[1]').getByRole('button', { name: 'Download chart as PNG' }).click()
-      const download = await downloadPromise
-      expect(download.suggestedFilename()).toMatch(/\.png$/)
-      await download.saveAs(testInfo.outputPath(`revenue-notes-${theme}-${width}.png`))
-      await page.setViewportSize({ width: width === 390 ? 1480 : 390, height: 1000 })
-      await expect.poll(() => viewport.evaluate(element => element.hasAttribute('tabindex'))).toBe(width !== 390)
-      await assertViewport()
-    })
-  })
-}
 
 for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const textScale of [1, 2]) {
   test.describe(`analysis period controls / ${theme} / ${width}px / ${textScale * 100}% text`, () => {

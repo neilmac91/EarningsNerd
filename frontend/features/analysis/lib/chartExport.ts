@@ -1,10 +1,8 @@
-import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import { formatAnalysisPeriod } from './periodLabels'
+import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { formatInstant } from '@/lib/format'
-import { markedNote, type DataNotesModel } from './dataNotes'
-import { formatAnalysisPeriod } from './periodLabels'
-import { FCF_DEFINITION } from './provenance'
 
 /** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
  *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
@@ -21,55 +19,10 @@ export function exportSourceText(dataset: AnalysisDataset): { period: string; pe
   }
 }
 
-/** Notes for the plotted series only, with the report's stable letters and reason sentences. Only a note that questions
- *  the number marks the plot (D-061), so only those enter the panel's chip and the PNG footer; a gap whose note marks
- *  nothing is a plain "unavailable for …" line, and the other notes stay in the page's data notes. */
-export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
-  const references = new Map<string, Map<string, string[]>>()
-  const addReference = (key: string, label: string, period: string) => {
-    const metrics = references.get(key) ?? new Map<string, string[]>()
-    metrics.set(label, [...(metrics.get(label) ?? []), formatAnalysisPeriod(period)])
-    references.set(key, metrics)
-  }
-  const unavailable: string[] = []
-  const unnotedGaps: string[] = []
-  let hasCalculated = false
-  for (const series of plottedSeries) {
-    const missing: string[] = []
-    const missingWithoutNote: string[] = []
-    for (const period of dataset.periods) {
-      const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
-      const note = markedNote(notes.noteFor(point))
-      if (note) addReference(note.key, series.label, period.key)
-      if (point.value == null) {
-        missing.push(formatAnalysisPeriod(period.key))
-        if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
-      } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
-      if (includeYoY && typeof point.yoy === 'number') {
-        const comparison = markedNote(notes.noteForComparison(point, 'yoy'))
-        if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
-      }
-    }
-    if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
-    if (missingWithoutNote.length) unnotedGaps.push(`${series.label}: unavailable for ${missingWithoutNote.join(', ')}.`)
-  }
-  const panelNotes = notes.notes.filter((note) => references.has(note.key))
-  return {
-    panelNotes,
-    unavailable,
-    exportNotes: [
-      ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
-      ...unnotedGaps,
-      ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
-      ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
-    ],
-  }
-}
-
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
  * rasterization, framed so a shared image is self-describing — a HEADER (company name, then
- * ticker · metric · period, then the series legend; the Recharts SVG carries the plot only, never the
+ * ticker · metric · period, then the series legend; the chart's SVG carries the plot only, never the
  * legend/title, which live in the card's HTML header) and a branded FOOTER (the EN mark plus the
  * "EarningsNerd" wordmark, so a viewer knows the source). Downloads go through the shared
  * lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort the
@@ -325,16 +278,16 @@ async function drawBrandFooter(
 }
 
 /* ---------------------------------------------------------------------------
-   Header strip — company, ticker · metric · period, and the series legend. The Recharts
+   Header strip — company, ticker · metric · period, and the series legend. The chart's
    <svg> carries the plot only; the company/metric/legend live outside it (the
-   page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
+   page picker and the card's heading and legend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
    the same data that drives the UI, so a shared image says which company, which
    metric, and which series — with no drift from what the user saw.
 --------------------------------------------------------------------------- */
 
-/** One legend entry — label + its swatch color (exactly the shared `legendItems` the panel
- *  passes to both its on-screen PanelLegend and its plotted series). */
+/** One legend entry — label + its swatch color (the card's own legend, as TrendChartCard passes it
+ *  from the chart model, so the image and the screen name the same series). */
 export interface ChartLegendItem {
   label: string
   color: string
@@ -616,7 +569,7 @@ export function withPngResolution(bytes: Uint8Array<ArrayBuffer>, dpi: number): 
 /**
  * Rasterize the panel's rendered SVG to a 2× PNG and download it, declaring EXPORT_DPI: a company/metric/period/legend
  * header, the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
- * `header` (company + ticker + metric title + the period and its short form + the panel's shared `legendItems`) to
+ * `header` (company + ticker + metric title + the period and its short form + the card's legend, from its chart model) to
  * draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *

@@ -7,6 +7,8 @@ user id with no account row) exactly as it runs today, so the upcoming decomposi
 modules can prove ZERO observable change. Every assertion is on an observable: yielded event dicts,
 DB rows, mock call lists, the in-flight registry, the generation semaphore, and the exact log text
 the code formats (``record.getMessage()`` for the ``%``-style counters).
+The IntegrityError case's ``error`` write names ``starts_run=False`` since E217: that run's fetch
+stage has written, so its error keeps the row's clock.
 """
 import logging
 import re
@@ -34,7 +36,7 @@ from tests.support.summary_stream_harness import (
 )
 
 LOGGER = "app.services.summary_pipeline"
-GENERIC_FAILURE = {"type": "error", "message": "Unable to retrieve this filing at the moment — please try again shortly."}
+GENERIC_FAILURE = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
 # The seven un-prefixed ``%``-style counters the finalize stage can emit, in source order.
 CHANNELS = (
     "figure_trace_untraceable", "summary_quality_partial", "summary_quality_full_machine_only",
@@ -267,7 +269,7 @@ async def test_integrity_error_without_a_winner_row_fails_the_stream_generically
     """An IntegrityError on the Summary insert with NO competing row to serve is re-raised into the
     generic failure path: the ERROR log carries the exception text with a traceback, progress is
     recorded as ``error`` with the first 200 characters, the failed funnel event carries the same
-    text, nothing is persisted, and the only terminal is the generic retrieval error."""
+    text, nothing is persisted, and the only terminal is the generic failure sentence."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     duplicate = IntegrityError("stmt", {}, Exception("dup"))
@@ -295,7 +297,8 @@ async def test_integrity_error_without_a_winner_row_fails_the_stream_generically
     assert [r.getMessage() for r in error_records] == [f"[stream:{filing_id}] Error in streaming summary: {duplicate}"]
     assert error_records[0].exc_info is not None and error_records[0].exc_info[1] is duplicate
     assert _stages(record_progress) == ["fetching", "parsing", "analyzing", "summarizing", "summarizing", "error"]
-    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error=str(duplicate)[:200])
+    assert record_progress.call_args_list[-1] == call(
+        ANY, filing_id, "error", error=str(duplicate)[:200], starts_run=False)  # past its fetch stage: E217
     assert funnel.call_args_list == [
         call("offline", EVENT_GENERATION_STARTED, entry_point=None),
         call("offline", EVENT_GENERATION_FAILED, duration_ms=ANY, result_type="error", entry_point=None,
