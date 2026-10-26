@@ -4,7 +4,7 @@
 
 - Python **3.11**
 - git **2.43** or later (`.claude/hooks/secret_scan_guard.py` holds `attr.tree` for its scan, a setting an older git ignores, so the hook refuses its scans there; outside CI, its suite skips the cases that build a scratch project)
-- Node.js **22.23.2** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and every `.github/workflows/*.yml` / `*.yaml` Node pin in lockstep)
+- Node.js **22.23.4** (see `frontend/.nvmrc`; `frontend/tests/unit/nodeVersionLockstep.spec.ts` keeps `.nvmrc`, `engines` and every `.github/workflows/*.yml` / `*.yaml` Node pin in lockstep)
 - Docker + Docker Compose (optional, for local Postgres/Redis)
 
 ## Local setup
