@@ -152,6 +152,17 @@ def source_accessions(facts: Iterable[Any]) -> set[str]:
     return found
 
 
+def operands_within_accession(provenance: Mapping[str, Any], accession: str | None) -> bool:
+    """Whether every operand of a calculation, nested ones included, was reported under this accession:
+    a calculated figure belongs to one filing only then. True for a record with no operands, so a
+    reader that needs the evidence checks ``inputs`` too (``facts/filing_scope``)."""
+    return all(
+        operand.get("accession") == accession
+        and operands_within_accession(operand.get("provenance") or {}, accession)
+        for operand in provenance.get("inputs", [])
+    )
+
+
 def fact_operand(fact: Any) -> dict[str, Any]:
     """Retain exact immediate operands and their lineage, including units and period bounds."""
     operand = {

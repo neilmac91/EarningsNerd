@@ -391,6 +391,20 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- A filing's own figures (the filing page's annual chart, `facts/filing_scope.py`) are the FY rows
+  at its company and accession, current or not, never the rows keyed by `filing_id`. Both writers
+  skip a stored identity, so a companyfacts row stored first at the filing's identity (the winner
+  for a period the filing reported last, or a year's own-report row) holds that cell with no filing
+  owner: `filing_id` says which writer stored a row, not which filing reported it. Once the
+  per-filing writer has run (`processed_facts_at`), such a row stands in for the filing's: a
+  reported item, or a calculation whose every recorded operand the same accession reported (a
+  companyfacts calculation takes revenue's accession, so its numerator can be a later filing's);
+  a row the audited repair retired never does. Each line keeps the units of the filing's own rows,
+  else the reporting currency the per-filing extractor's rule picks among the stand-ins. A stand-in
+  shows under the year counted in whole years from the latest period end the filing's own rows
+  name (`fiscal_naming.years_back`), since a companyfacts row stored before the fiscal-year-window
+  writer names its year by the calendar year of its end. The Copilot reads the same scope
+  (`copilot_tools._scope`) and shares the operand test (`fact_provenance.operands_within_accession`).
 - Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
   A foreign list is read only when the USD list is its convenience translation (every USD
   period the collector keeps, by period end and span, is also kept from the foreign list; an
