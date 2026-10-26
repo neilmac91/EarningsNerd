@@ -274,6 +274,12 @@ async def test_old_presentation_lazily_regenerates_as_system_invalidated(narrati
     assert regenerated["analysis_id"] == fresh["analysis_id"]
     assert regenerated["narrative_presentation"] == fresh["narrative_presentation"]
     assert regenerated["snapshot_id"] == fresh["snapshot_id"]
+    # Once, never a loop: the regenerated row is current, so the next view is served from it with no model call.
+    events, calls = await _drain(identifier, monkeypatch)
+    served = events[-1]
+    assert calls == [] and served["cached"] is True and served["invalidated"] is False
+    assert served["analysis_id"] == fresh["analysis_id"]
+    assert served["narrative_presentation"] == fresh["narrative_presentation"]
 
 
 @pytest.mark.asyncio
