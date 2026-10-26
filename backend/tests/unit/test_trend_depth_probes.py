@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gzip
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -380,10 +381,33 @@ RESTATED = [
      [("debt_break", "$8.8 billion")]),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], though the pack carries no segment data for FY2025.",
      [("debt_break", "$8.8 billion")]),
+    # ... nor a reading of the company, which a plain form must not be (review 9 gate-and-probes [2]: a debt line gone
+    # from the balance sheet is §1.5's misread deleveraging, which e505700 counted and 09a5b1a took for a disclosure),
+    # nor a line "absent" or with "no value" with no word of the data, which may say the company has none ...
+    ("KO", "Net cash turned positive at $8.8 billion in FY2025 as long-term debt disappeared from the balance sheet [D440][X186].",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "With long-term debt absent from the balance sheet after FY2023, Coca-Cola held net cash of $8.8 billion in FY2025 "
+           "[D440][X186].", [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as Coca-Cola's long-term debt disappeared from its balance sheet.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], with Coca-Cola's long-term debt absent after repayment.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but long-term debt is absent after FY2023.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt has no value after FY2023.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as Coca-Cola reported no long-term debt after FY2023.",
+     [("debt_break", "$8.8 billion")]),
+    ("ORCL", "Total debt was $3.7 billion in FY2022 [X203], as long-term debt was zero.", [("debt_break", "$3.7 billion")]),
     # ... and plain debt said to rise for a cause, or as a whole "all due" within a year, is still the total
-    # (gate-and-probes [2]).
+    # (gate-and-probes [2]), as is a total named as the figure's own though it falls due (review 9 gate-and-probes [3]).
     ("DE", "Debt due to acquisitions reached $13.8 billion in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
     ("DE", "Deere carried $13.8 billion of debt, all due within a year, in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Total debt of $13.8 billion is due within one year in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Deere's total debt of $13.8 billion falls due within a year [X185].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Total borrowings of $13.8 billion are due within one year [X185].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Net debt of $5.5 billion matures by FY2026 [F140][X185].", [("debt_break", "$5.5 billion")]),
+    ("DE", "Total debt stood at $13.8 billion due within a year in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
     # TGT's debt double count (review 8 pack-v2 [0]): its long-term line [X175] already holds the current line [X171],
     # so their sum is the withheld total [D14] counted twice, whatever the sentence calls it.
     ("TGT", "Total debt was $13.4 billion in FY2016 [X175][X171].", [("debt_break", "$13.4 billion")]),
@@ -413,6 +437,16 @@ WITHHELD = [
            "in the 33rd percentile of six peers [D450][D451][D677][D676].", [("peer_break", "-1.0%"), ("peer_break", "33rd percentile")]),
     # A revenue basis break (COP's data check of a recast) discloses nothing of the debt.
     ("COP", "Despite the revenue basis break, net cash was $7.1 billion at FY2025 [D337].", [("debt_break", "$7.1 billion")]),
+    # A debt line gone from the balance sheet, a reading of the company (review 9 gate-and-probes [2]), and a total that
+    # falls due (gate-and-probes [3]): K0's wording, counted as C's in RESTATED.
+    ("KO", "Net cash turned positive at $8.8 billion in FY2025 as long-term debt disappeared from the balance sheet [D442].",
+     [("debt_break", "$8.8 billion")]),
+    ("CVX", "Net cash turned positive at $4.0 billion in FY2025 as long-term debt disappeared [D351].", [("debt_break", "$4.0 billion")]),
+    ("DE", "Total debt fell to $13.8 billion in FY2025 from $43.8 billion in FY2021 as long-term debt disappeared [D406][D225].",
+     [("debt_break", "$13.8 billion")]),
+    ("COP", "Net cash was $7.1 billion in FY2025 after long-term debt disappeared [D337].", [("debt_break", "$7.1 billion")]),
+    ("DE", "Total debt of $13.8 billion is due within one year in FY2025 [D406].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Net debt of $5.5 billion matures by FY2026 [D407].", [("debt_break", "$5.5 billion")]),
 ]
 # True sentences: a disclosure (synthetic ones in each form a break's disclosure takes, and the recorded ones of Sonnet
 # COP in eval-v1 and dev-v3, Haiku KO, and Sonnet NVDA in dev-v3 and dev-v4), a debt line under its own name, plain
@@ -492,7 +526,9 @@ SPARED = [
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], because long-term debt is absent from the pack after FY2023."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt is not available after FY2023."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but long-term debt disappears from the data after FY2023."),
-    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt has no value after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt has no value in the pack after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt has no reported value after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt is absent after FY2023 in the pack."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], though the pack carries no long-term debt after FY2023."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but the pack has no long-term debt after FY2023."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but that ignores long-term debt after FY2023."),
@@ -500,6 +536,26 @@ SPARED = [
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], ignoring unreported long-term debt."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but FY2023 is the last year the pack carries long-term debt."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but the pack carries FY2023 long-term debt and none for FY2025."),
+    # Review 9 gate-and-probes [5]: the data checks' words in another order, and other plain words of the data ...
+    ("KO", "Debt was $1.5 billion in FY2025 [X186], with no long-term debt reported after FY2023."),
+    ("KO", "Debt was $1.5 billion in FY2025 [X186], but long-term debt goes unreported after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], only because long-term debt is no longer in the pack after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt is not in the data after FY2023."),
+    ("KO", "Net cash of $8.8 billion in FY2025 [D440][X186] counts no long-term debt, which the pack drops after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as the pack drops long-term debt after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as no long-term debt is reported after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], with no reported long-term debt after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], with no long-term debt figure after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt is gone from the data after FY2023."),
+    # ... the openings of TGT's and ORCL's checks (arm-fairness [2]: only C reads them, and was failed for them) ...
+    ("TGT", "Total debt was $13.4 billion in FY2016 [X175][X171], though the current portion of debt is already inside "
+            "long-term debt."),
+    ("TGT", "Total debt was $13.4 billion in FY2016 [X175][X171], though long-term debt already includes the current portion."),
+    ("ORCL", "Total debt was $3.7 billion in FY2022 [X203], as long-term debt was reported as zero."),
+    # ... and a total named as the whole a figure that falls due is part of, or plain debt (gate-and-probes [3]).
+    ("DE", "Of Deere's total debt, $13.8 billion falls due within a year in FY2025 [X185]."),
+    ("DE", "Of total borrowings, $13.8 billion falls due within a year in FY2025 [X185]."),
+    ("DE", "Deere's debt of $13.8 billion falls due within a year [X185]."),
     # TGT's debt double count (FY2016-FY2018): the long-term line alone is the right total under any name, as is cash
     # alone less it, and the current line, the long-term line less it, or two years' lines of one kind summed are no
     # figure of the break (the pack fixer's reproduction, wave 5: these failed P's and C's gate once the check landed).
@@ -561,9 +617,29 @@ def test_broken_debt_spares_disclosures_and_other_lines(ticker: str, text: str) 
     # ... the break said plainly of the line it is about (review 8 arm-fairness [2], and Sonnet NVDA's dev-v3 form) ...
     ("This comparison may be a basis break: the pack carries FY2025 short-term investments of $34.6 billion but none for "
      "FY2026, so I draw no conclusion on the size of the drop.", True),
-    ("Net cash was $8.8 billion, but long-term debt is absent after FY2023.", True),
+    ("Net cash was $8.8 billion, but long-term debt is absent from the pack after FY2023.", True),
     ("Net cash was $8.8 billion; the current portion is the only line, the rest is not shown.", True),
-    ("Net cash was $8.8 billion, but long-term debt has no value after FY2023.", True),
+    ("Net cash was $8.8 billion, but long-term debt has no value in the data after FY2023.", True),
+    ("Net cash was $8.8 billion, but long-term debt disappears from the filed lines after FY2023.", True),
+    ("Net cash was $8.8 billion, as long-term debt is not available after FY2023.", True),
+    ("Debt was $1.5 billion, with no long-term debt reported after FY2023.", True),
+    ("Debt was $1.5 billion, but long-term debt goes unreported after FY2023.", True),
+    ("Net cash was $8.8 billion, as long-term debt is not in the data after FY2023.", True),
+    ("Net cash counts no long-term debt, which the pack drops after FY2023.", True),
+    ("Total debt was $13.4 billion, though the current portion of debt is already inside long-term debt.", True),
+    ("Total debt was $3.7 billion in FY2022, as long-term debt was reported as zero.", True),
+    # ... never of the company: a line gone from its balance sheet is a reading of deleveraging (review 9), and a line
+    # "absent" or with "no value", with no word of the data, may be the company's own ...
+    ("Net cash turned positive at $8.8 billion as long-term debt disappeared from the balance sheet.", False),
+    ("With long-term debt absent from the balance sheet after FY2023, Coca-Cola held net cash of $8.8 billion.", False),
+    ("Net cash was $8.8 billion, with Coca-Cola's long-term debt absent after repayment.", False),
+    ("Net cash turned positive at $4.0 billion as long-term debt disappeared.", False),
+    ("Net cash was $8.8 billion, but long-term debt is absent after FY2023.", False),
+    ("Net cash was $8.8 billion, as long-term debt is gone.", False),
+    ("Net cash was $8.8 billion, as Coca-Cola counts no long-term debt.", False),
+    ("Net cash was $8.8 billion, but long-term debt has no value after FY2023.", False),
+    ("Net cash was $8.8 billion, as Coca-Cola reported no long-term debt after FY2023.", False),
+    ("Total debt was $3.7 billion in FY2022, as long-term debt was zero.", False),
     # ... not one about something else, in a sentence that names net cash (review 7), nor Sonnet MSFT's investment marks
     # (dev-v3), which the report's rule of a disclosure word beside any cash word counted.
     ("Net cash was $4.9 billion in FY2025, though revenue is a later recast and not comparable with the first-reported "
@@ -616,6 +692,79 @@ def test_a_debt_double_count_is_read_from_its_own_check_and_fails_only_the_sum()
     assert probes.debt_breaks(both).counted_twice == {"FY2017", "FY2018"}
     assert _found([{"section": "balance_sheet", "type": "fact", "text": "Debt was $11.7 billion in FY2016 [X175]."}],
                   both) == [("debt_break", "$11.7 billion")]
+
+
+def _clauses(detail: str) -> list[str]:
+    """A data check's clauses: its sentence cut at ";" and at its brackets, less the list of values it leaves out."""
+    parts = (part.strip(" .,") for part in re.split(r";|\s\(|\)", detail))
+    return [part for part in parts if part and not part.startswith("net cash % of revenue")]
+
+
+# A figure each break company's version-2 pack names broken (RESTATED), which an echo of its data check must excuse.
+BROKEN_FIGURE = {"COP": "Net cash was $7.1 billion at FY2025 [D335][X203]", "CVX": "Net cash was $4.9 billion in FY2025 [D349][X177]",
+                 "DE": "Net debt was $5.5 billion at FY2025 [D405][X185]", "KO": "Net cash was $8.8 billion in FY2025 [D440][X186]",
+                 "MSFT": "Cash and investments were $13.7 billion in FY2017 [F151][X167]",
+                 "NVDA": "Net cash was $2.1 billion in FY2026 [F150][D440]", "ORCL": "Liquidity was $21.8 billion in FY2017 [F135]",
+                 "TGT": "Cash and short-term investments totalled $10.1 billion in FY2025 [F144][X170]"}
+
+
+def test_every_data_check_s_own_words_disclose_its_break() -> None:
+    # The candidate prompt asks for a break to be stated in the sentence that uses the figure, and P and C read the
+    # checks' words, so an echo of any clause of any debt or liquidity check is a disclosure (review 9 arm-fairness [2]:
+    # TGT's "already inside long-term debt" and ORCL's "reported as zero" were not): one source, the checks themselves.
+    seen = set()
+    for ticker in TICKERS:
+        pack = _committed(ticker, "packs-v2")
+        for check in (c for c in pack["data_checks"] if c["kind"] in ("debt_break", "liquidity_break")):
+            seen.add(ticker)
+            for clause in _clauses(check["detail"]):
+                assert probes.discloses(clause), (ticker, clause)
+                if ticker in BROKEN_FIGURE:
+                    echo = [{"section": "balance_sheet", "type": "fact", "text": f"{BROKEN_FIGURE[ticker]}, as {clause[0].lower()}{clause[1:]}."}]
+                    assert _found(echo, pack) == [] and factcheck.check(echo, pack, backstops=True)["passed"], (ticker, clause)
+    assert seen == {"COP", "CVX", "DE", "KO", "MSFT", "NVDA", "ORCL", "TGT", "USB"}
+    # Without the echo each figure is broken, so the echoes above are what spares it.
+    for ticker, figure in BROKEN_FIGURE.items():
+        assert _found([{"section": "balance_sheet", "type": "fact", "text": f"{figure}."}], _committed(ticker, "packs-v2")), ticker
+
+
+# gap_direction on the committed packs (review 9 gate-and-probes [1], arm-fairness [1]): the models' own same-year margin
+# wordings, which e505700 read and 09a5b1a left alone, true and mirrored, citing the two margins on packs/ and the gap
+# too on packs-v2. {pos} is net margin's true position against operating margin, {opp} the other.
+MARGIN_FORMS = [
+    ("REGN", "FY2025", "Below the line, other income of $1,652.8 million [X117] held net margin at {n}% [{N}], {g}pp {pos} the "
+                       "{o}% operating margin [{O}]{G}."),  # DeepSeek dev-v3 REGN, recorded
+    ("NEE", "FY2025", "Net margin was {n}% [{N}], {g}pp {pos} the {o}% operating margin [{O}]{G}."),  # Sonnet eval-v1 NEE
+    ("DE", "FY2024", "Below the line, interest expense and the tax rate left net margin {g}pp {pos} operating margin in {Y} "
+                     "[{O}][{N}]{G}."),  # DeepSeek eval-v1 DE's form, of one year
+    ("REGN", "FY2025", "Net margin of {n}% in {Y} sat {g}pp {pos} the {o}% operating margin [{N}][{O}]{G}."),
+    ("REGN", "FY2025", "In {Y} net margin, at {n}%, sat {g}pp {pos} operating margin [{N}][{O}]{G}."),
+    ("REGN", "FY2025", "Net margin in {Y} was {g}pp {pos} operating margin [{N}][{O}]{G}."),
+    ("REGN", "FY2025", "Other income lifted {Y} net margin to {n}%, {g}pp {pos} operating margin [{N}][{O}]{G}."),
+    ("CAT", "FY2025", "Net margin {g}pp {pos} operating margin in {Y} reflected the tax rate [{N}][{O}]{G}."),  # the prompt's
+    ("CAT", "FY2025", "Operating margin of {o}% sat {g}pp {opp} net margin in {Y} [{N}][{O}]{G}."),
+]
+
+
+@pytest.mark.parametrize("ticker, year, form", MARGIN_FORMS)
+@pytest.mark.parametrize("version", ["packs", "packs-v2"])
+def test_gap_direction_reads_the_recorded_margin_wordings(ticker: str, year: str, form: str, version: str) -> None:
+    pack = _committed(ticker, version)
+    keys, values = pack["series_keys"], pack["values"]
+    net, operating = keys[f"net_margin|{year}"], keys[f"operating_margin|{year}"]
+    gap = keys.get(f"margin_gap:net_minus_operating|{year}")
+    n, o = values[net]["value"], values[operating]["value"]
+    figures = {"n": f"{n:.1f}", "o": f"{o:.1f}", "g": f"{abs(n - o):.1f}", "Y": year, "N": net, "O": operating,
+               "G": f"[{gap}]" if gap else ""}
+    position = ("above", "below") if n > o else ("below", "above")
+
+    def gate(pos: str, opp: str) -> list[str]:
+        text = form.format(**figures, pos=pos, opp=opp)
+        return [f["failure"] for f in factcheck.check([{"section": "margins", "type": "comparison", "text": text}], pack,
+                                                       backstops=True)["failures"]]
+
+    assert gate(*position) == []
+    assert [f[:23] for f in gate(*reversed(position))] == ["backstop gap_direction:"]
 
 
 # Series keys: "<series>|<period>", a segment's series holding bars of its own, and version 2's "<series>|<period>|checked".

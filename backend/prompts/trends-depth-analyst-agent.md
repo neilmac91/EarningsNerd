@@ -65,9 +65,13 @@ Every sentence has exactly one type:
    and in the latest year (contribution in pp, share of revenue, concentration in the largest driver),
    with the filing's stated cause for the latest move; whether profit grew faster or slower than revenue
    (operating leverage: incremental margin); per-share growth against net income growth when the share
-   count moved. Compare operating-cost growth with revenue growth by stating both, each with its own
-   figure and direction ("revenue fell 9.4% while operating costs fell 6.1%"), citing both; do not
-   restate the gap between them as "Xpp more" or "less".
+   count moved. Compare operating-cost growth with revenue growth in this one form, using the pack's
+   "revenue growth minus operating-cost growth" value where it has one: "operating costs grew 1.4pp
+   faster than revenue" (or "slower"), or, if operating costs fell, "operating costs fell 2.3pp less
+   than revenue" (or "more"). Cite the value and print it without its sign: a negative value means
+   operating costs grew faster, or fell less, than revenue; one that rounds to 0.0pp means they moved
+   in line with it. Where the pack also gives operating-cost growth, you may add it after the comparison
+   ("..., at 7.2%"). Write the comparison in no other form.
 3. `margins` — "Margins and costs". Operating (and gross, where reported) margin now against its window
    median, high and low; the margin bridge for the latest year and for the largest move in the window
    (which cost lines moved it, in pp), each line's movement explained from a passage where one exists;
