@@ -1,4 +1,5 @@
 """Shared presentation contract: exact financial concerns, no new verification claims."""
+import hashlib
 import json
 import re
 import uuid
@@ -102,6 +103,72 @@ def test_reason_words_hold_on_every_surface_that_prints_them():
                    if re.search(r"\b(dash|blank|empty)\b|[\u2013\u2014]", words, re.IGNORECASE))
     assert asks == [], f"words that ask for a page action the PDF, workbook and PNG cannot offer: {asks}"
     assert draws == [], f"words that say how a figure is drawn, which differs by surface: {draws}"
+
+
+def _probe(validation, *reasons):
+    return {"version": 1, "method": "reported", "validation": validation, "reasons": list(reasons), "formula": None,
+            "inputs": []}
+
+
+# Every kind of note in an order the letters do not keep: a record-only note, one with no check recorded, a gap, notes
+# that question the number on a value and on a growth figure, a mixed note and a code with no words of its own; then
+# two citation-only concerns, the unmarked one first.
+NOTES_PROBE = {
+    "mode": "annual", "period_key": "FY2023..FY2024", "periods": [{"key": "FY2023"}, {"key": "FY2024"}],
+    "series": [
+        {"concept": "operating_margin", "label": "Operating margin", "percent": True, "cagr": None, "window_pp": None,
+         "points": [{"period": "FY2023", "value": 30.0, "provenance": _probe("needs_review", "legacy_calculation")},
+                    {"period": "FY2024", "value": 31.0}]},
+        {"concept": "revenue", "label": "Revenue", "percent": False, "cagr": None, "window_pp": None,
+         "points": [{"period": "FY2023", "value": None},
+                    {"period": "FY2024", "value": 120.0, "provenance": _probe("needs_review", "source_conflict"),
+                     "yoy": 0.2, "yoy_provenance": _probe("needs_review", "period_mismatch")}]},
+        {"concept": "free_cash_flow", "label": "Free cash flow", "percent": False, "cagr": None, "window_pp": None,
+         "points": [{"period": "FY2023", "value": 10.0,
+                     "provenance": _probe("needs_review", "legacy_calculation", "source_check_needed")},
+                    {"period": "FY2024", "value": 12.0, "provenance": _probe("needs_review", "probe_code_without_words")}]},
+    ],
+}
+NOTES_PROBE_CITATIONS = [
+    {"value": 1.0, "provenance": _probe("unavailable", "missing_provenance")},
+    {"value": 1.0, "provenance": _probe("needs_review", "unit_mismatch")},
+]
+# Each data notes version's words, record-only list and letter order, as _notes_digest gives them. A saved analysis keeps
+# the notes it was built with, and the cache and the PDF admit it by version alone (presentation_is_current), so the
+# page would refuse a saved row whose words or letters changed under the same version, and only a metered refresh would
+# get past it. A change to any of them takes a new version: raise DATA_NOTES_VERSION and add its digest here, and a
+# saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest. Version 1
+# predates this gate.
+NOTES_DIGESTS = {
+    2: "d59b14b69a76202f8a9ef30e68372de59f31f9ab86ef188895a1495dec545732",
+}
+
+
+def _notes_digest() -> str:
+    report = data_notes(NOTES_PROBE)
+    payload = {"reasons": REASONS, "fallback": _FALLBACK_MESSAGE, "record_only": sorted(RECORD_ONLY_REASONS),
+               "report": report, "with_citations": citation_data_notes(NOTES_PROBE_CITATIONS, report)}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=True).encode()).hexdigest()
+
+
+def test_a_change_to_the_notes_words_or_letters_takes_a_new_version():
+    """Rule 12 for DATA_NOTES_VERSION: the words and the letters a saved analysis keeps are pinned per version."""
+    letters = [(note["letter"], note["reasons"]) for note in citation_data_notes(
+        NOTES_PROBE_CITATIONS, data_notes(NOTES_PROBE))["notes"]]
+    # The probe meets the rule it pins: the marked notes first, in report order, then review, unknown and gap notes.
+    assert letters == [
+        ("a", ["source_conflict"]), ("b", ["legacy_calculation", "source_check_needed"]),
+        ("c", ["probe_code_without_words"]), ("d", ["period_mismatch"]), ("e", ["legacy_calculation"]),
+        ("f", ["legacy_unknown"]), ("g", ["not_in_dataset"]), ("h", ["unit_mismatch"]), ("i", ["missing_provenance"]),
+    ]
+    assert max(NOTES_DIGESTS) == DATA_NOTES_VERSION, "a new version adds its digest beside the released ones"
+    assert len(set(NOTES_DIGESTS.values())) == len(NOTES_DIGESTS), "a new version changes the words or letters"
+    digest = _notes_digest()
+    assert digest == NOTES_DIGESTS[DATA_NOTES_VERSION], (
+        f"the data notes' words, record-only list or letter order changed under version {DATA_NOTES_VERSION}, so a "
+        "saved analysis would keep the old ones and the page would refuse it: raise DATA_NOTES_VERSION and add "
+        f"NOTES_DIGESTS[{DATA_NOTES_VERSION + 1}] = {digest!r}"
+    )
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])

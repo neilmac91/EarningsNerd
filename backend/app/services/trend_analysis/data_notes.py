@@ -7,7 +7,9 @@ from copy import deepcopy
 from typing import Any
 
 # Version 2: the reasons' words below and the marked notes lettered first. The envelope's shape is version 1's, so the
-# frontend reads both; a saved presentation of version 1 regenerates once (presentation_is_current).
+# frontend reads both; a saved presentation of version 1 regenerates once (presentation_is_current). A change to the
+# words, the record-only list or the letter order takes a new version: test_analysis_data_notes.py's NOTES_DIGESTS
+# holds each version's.
 DATA_NOTES_VERSION = 2
 _MISSING = object()
 _KINDS = {"review": 0, "unknown": 1, "unavailable": 2}

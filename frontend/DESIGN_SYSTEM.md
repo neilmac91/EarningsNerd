@@ -978,7 +978,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  marked letters), tests/unit/data-notes.spec.ts and the backend's
                  tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
                  summary words held to the shared notes fixture; marked notes lettered first; no reason's
-                 words ask for a selection or name a dash), the
+                 words ask for a selection or name a dash; each DATA_NOTES_VERSION's words and letters
+                 pinned by digest, so a change to them takes a new version), the
                  backend's tests/unit/test_data_note_reasons_have_words.py (every reason the backend writes
                  has words: a new one cannot fall back to the generic sentence unseen, rule 12; the forms it
                  cannot follow are named in its docstring and planted in its self-test),
