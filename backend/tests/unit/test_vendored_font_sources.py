@@ -8,7 +8,7 @@ directory lacks is only a cut's source, which is not vendored (NOT_VENDORED).
 
 The symbols cuts' code points are written in four places, held equal here: each file's cmap, the
 unicode-range font_face_css declares for each face (pdf_branding.SYMBOLS_RANGE), each pyftsubset command
-SOURCES.txt records, and the glyph gate's MARKS (test_export_palette_parity.py). The cuts and the commands also
+SOURCES.txt records, and MARKS (test_export_palette_parity.py), the marks the glyph gate's fixtures must print. The cuts and the commands also
 carry SPACES, which the declared range leaves out.
 """
 from __future__ import annotations

@@ -496,7 +496,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   face to a file in `backend/app/assets/fonts` and to a family and style no other face declares, and each
   nested list's marker to the disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py`
   holds each file to the hash `SOURCES.txt` records, and the symbols cuts, their declared range, the cut
-  commands and the gate's marks to one set of code points), which reads a
+  commands and the marks the gate's fixtures must print to one set of code points), which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
   EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding

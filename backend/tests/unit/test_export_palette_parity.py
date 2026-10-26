@@ -54,15 +54,21 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    symbols faces carry them, roman and italic, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
    convenience translation) and the won and rupee signs; the data face's stack falls back to Inter before
    the system's monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of
-   WeasyPrint's circle. Over both fixtures, an analysis whose narrative (roman and an em), grid, count line
-   and nested operand list print each of those marks, and a 20-F summary that prints "≈", "₩" and "₹" in
-   prose, a figure column and a quote, each with a mark, a space and a mark: WeasyPrint logs no .notdef;
+   WeasyPrint's circle. Over both fixtures, an analysis whose narrative (roman and an em), grid and count
+   line print the marks (its nested operand list prints the disc), and a 20-F summary that prints "≈", "₩"
+   and "₹" in prose, a figure column and a quote, each with a mark, a space and a mark, the two fixtures
+   printing every mark in MARKS between them: WeasyPrint logs no .notdef;
    every font each render embeds, whatever kind of program, is of a vendored face's family (Inter Var, Inter
    Var Symbols or Geist Mono) and encoded by Identity-H; every glyph a composite font's text map pairs with
    text is, in a file declared for the font's family and style, that text's glyph or one its GSUB reaches
    from it (WeasyPrint keeps the files' glyph ids), so a font that merges two files matches neither; and
-   every marker of a nested list is the disc. What the glyph check cannot see: a substitute GSUB reaches
-   that a different feature setting would not have chosen, and text a font draws outside its text map.
+   every marker of a nested list is the disc. The glyph check reads the text as NFC (HarfBuzz composes a
+   decomposed cluster before GSUB), accepts a space the face does not encode drawn as the face's own space
+   (HarfBuzz's fallback), and follows ligatures in chains ("<->" in Inter: "->" to arrowright, then less and
+   arrowright to arrowboth). What it cannot see: a substitute GSUB reaches that a different feature setting
+   would not have chosen, a shaping HarfBuzz does outside GSUB other than those two, which it would flag
+   though the render is right, and text a font draws outside its text map (WeasyPrint keeps the first text
+   each glyph draws).
 
 The planted forms in test_the_checks_read_what_they_claim score each reader of the source (stylesheet,
 attributes, faces, workbook, module literals) on the forms its rule can take and on look-alikes that
@@ -78,6 +84,7 @@ import functools
 import io
 import logging
 import re
+import unicodedata
 import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -668,8 +675,8 @@ def test_every_font_asked_for_italic_embeds_an_italic_program():
 
 # WeasyPrint writes the family a run resolved to as its font descriptor's /FontFamily: the vendored faces'.
 VENDORED_FAMILIES = frozenset({"Inter Var", "Inter Var Symbols", "Geist Mono"})
-# The marks the latin subsets lack, which Inter's symbols faces carry: pdf_branding.SYMBOLS_RANGE, which
-# test_vendored_font_sources.py holds equal to this.
+# The marks the latin subsets lack, which Inter's symbols faces carry: the every-mark fixtures must print each
+# (the glyph gate reads them), and test_vendored_font_sources.py holds pdf_branding.SYMBOLS_RANGE equal to it.
 MARKS = frozenset("†‡←→◦≈₩₹")
 _SYMBOLS_FACE = re.compile(r"@font-face \{[^}]*Inter-Variable-(?:Italic-)?symbols\.woff2[^}]*\}")  # roman and italic
 
@@ -727,19 +734,44 @@ def vendored_glyphs(path: Path) -> tuple[list[str], dict[int, str], dict[str, fr
     return order, cmap, closure, {key: frozenset(value) for key, value in ligatures.items()}
 
 
+def _reduces_to(sequence: tuple[str, ...], glyph: str, closure: dict[str, frozenset[str]],
+                ligatures: dict[tuple[str, ...], frozenset[str]]) -> bool:
+    """Whether GSUB can turn the glyph ``sequence`` into ``glyph``: by substituting any glyph with one its
+    lookups reach and ligating any run of adjacent glyphs, in any order and as often as it takes ("<->": calt
+    ligates "->" to arrowright, then less and arrowright to arrowboth)."""
+    seen, todo = {sequence}, [sequence]
+    while todo:
+        current = todo.pop()
+        if current == (glyph,):
+            return True
+        steps = [current[:index] + (form,) + current[index + 1:]
+                 for index, member in enumerate(current) for form in closure.get(member, ())]
+        steps += [current[:start] + (ligature,) + current[end:]
+                  for start in range(len(current)) for end in range(start + 2, len(current) + 1)
+                  for ligature in ligatures.get(current[start:end], ())]
+        for step in steps:
+            if step not in seen:
+                seen.add(step)
+                todo.append(step)
+    return False
+
+
 def _entry_problem(path: Path, gid: int, text: str) -> str | None:
-    """Why ``gid`` is not a glyph the vendored file at ``path`` draws for ``text``, or None when it is: the
-    text's glyph, a substitute GSUB reaches from it, or (for a cluster of characters) a ligature of theirs."""
+    """Why ``gid`` is not a glyph the vendored file at ``path`` draws for ``text``, or None when it is: what
+    GSUB makes of the text's glyphs (a substitute, a ligature, a chain of them). HarfBuzz composes a decomposed
+    cluster before GSUB runs (its normaliser: "E" and U+0308 to Edieresis), so the text is read as NFC; and a
+    space the face does not encode (a thin, narrow or ideographic space) it draws with the face's own space,
+    or a substitute of it (the tabular space in a figure cell)."""
     order, cmap, closure, ligatures = vendored_glyphs(path)
     if gid >= len(order):
         return f"glyph {gid} is outside its {len(order)} glyphs"
-    glyph, bases = order[gid], [cmap.get(ord(char)) for char in text]
+    glyph, composed = order[gid], unicodedata.normalize("NFC", text)
+    if len(composed) == 1 and unicodedata.category(composed) == "Zs" and ord(composed) not in cmap and 0x20 in cmap:
+        return None if glyph in closure[cmap[0x20]] else f"it draws the unencoded {composed!r} as {glyph}, not its space"
+    bases = tuple(cmap.get(ord(char)) for char in composed)
     if None in bases:
-        return f"it encodes no {text!r} (drawn as {glyph})"
-    if glyph in closure[bases[0]] and len(text) == 1:
-        return None
-    reachable = set().union(*(closure[ligature] for ligature in ligatures.get(tuple(bases), ())))
-    return None if glyph in reachable else f"it draws {text!r} as {bases[0]}, not {glyph}"
+        return f"it encodes no {composed!r} (drawn as {glyph})"
+    return None if _reduces_to(bases, glyph, closure, ligatures) else f"it draws {text!r} as {bases[0]}, not {glyph}"
 
 
 def glyph_problems(html: str, pdf: bytes) -> list[str]:
@@ -786,6 +818,15 @@ def glyph_problems(html: str, pdf: bytes) -> list[str]:
         if all(misses.values()):
             found.append(f"{name} ({family} {style}) matches no file declared for it: "
                          + "; ".join(f"{file}: {', '.join(miss[:3])}" for file, miss in misses.items()))
+    return found
+
+
+def rendered_text(pdf: bytes) -> set[str]:
+    """Every character an uncompressed WeasyPrint PDF's composite fonts pair with a glyph in their text maps."""
+    found: set[str] = set()
+    for text_map in re.findall(rb"beginbfchar(.*?)endbfchar", pdf, re.DOTALL):
+        found |= {char for _, code in re.findall(rb"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", text_map)
+                  for char in bytes.fromhex(code.decode()).decode("utf-16-be")}
     return found
 
 
@@ -840,8 +881,11 @@ def _every_mark_analysis() -> str:
     detectors join a move with " → "), a calculated figure, whose dagger follows it in the grid's data face
     and in the data notes' count line, and an operand with an operand of its own, a list in the methods list."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
-    # A mark, a space and a mark keep the space in the marks' run (Pango), in roman and in italic (an em).
-    analysis.narrative_md = "Net margin moved 20.0% → 24.3% [2]. Marked † ‡ and †\u2009‡. *Moved 20.0% → 24.3%, † ‡.*"
+    # A mark, a space and a mark keep the space in the marks' run (Pango), in roman and in italic (an em). The
+    # thin space comes first: WeasyPrint's text map keeps the first text a glyph draws, so the reader reads the
+    # face's space as drawn for it (HarfBuzz's fallback for a space the face does not encode).
+    analysis.narrative_md = ("Net margin moved 20.0% → 24.3% [2]. Marked †\u2009‡ and † ‡. Back ← and ◦ open."
+                             " *Moved 20.0% → 24.3%, † ‡.*")
     analysis.dataset_json["series"][0]["points"][2]["provenance"] = {
         "method": "calculated", "validation": "passed", "reasons": [], "formula": "annual_minus_ytd",
         "inputs": [{"concept": "revenue", "value": 2500, "unit": "USD", "provenance": {
@@ -850,7 +894,7 @@ def _every_mark_analysis() -> str:
     }
     html = ExportService().generate_analysis_pdf_html(analysis, export_fixtures.TestAnalysisPdfHtml()._company())
     assert "→" in html and '$1,500 †</td>' in html and "calculated †" in html and '<ul class="operands">' in html
-    assert "<em>Moved 20.0% → 24.3%, † ‡.</em>" in html
+    assert "<em>Moved 20.0% → 24.3%, † ‡.</em>" in html and "Marked †\u2009‡ and † ‡. Back ← and ◦ open." in html
     return html
 
 
@@ -864,6 +908,11 @@ def _every_mark_summary() -> str:
         "Revenue of RMB 941.2B (≈US$129B, convenience translation)",
         "Korea ₩1.2T → ₩1.4T; India ₹4,100 → ₹4,500 crore; RMB 941.2B → ≈US$129B; ≈ ₩1.2T; † ‡; → ₩",
     ]
+    # The first space the data face draws in a figure cell is a narrow no-break space, which Geist Mono does not
+    # encode: HarfBuzz draws its tabular space, and the reader reads that pairing first.
+    sections["financial_highlights"]["table"].insert(0, {
+        "metric": "Shares outstanding", "current_period": "1\u202f234M", "prior_period": "1\u202f200M",
+        "change": "+2.8%", "commentary": "A narrow no-break space in the data face."})
     sections["financial_highlights"]["table"] += [
         {"metric": "Revenue in US dollars", "current_period": "≈US$129B", "prior_period": "≈US$120B",
          "change": "+7.5%", "commentary": "Convenience translation at the stated rate."},
@@ -879,6 +928,7 @@ def _every_mark_summary() -> str:
     html = ExportService().generate_pdf_html(summary, filing)
     assert "(≈US$129B," in html and '<td class="num">≈US$129B</td>' in html and "₩1.2T" in html and "₹4,100" in html
     assert '<td class="num">₩1.2T → ₩1.4T</td><td class="num">† ‡</td>' in html
+    assert '<td class="num">1\u202f234M</td>' in html
     assert "<blockquote>“Korea moved ₩1.2T → ₩1.4T, ≈US$1B; † ‡.”" in html
     return html
 
@@ -895,6 +945,8 @@ def test_every_glyph_prints_in_a_vendored_face(tmp_path):
     assert all(families.values()), families  # the reader found the fonts
     assert {name: sorted(set(found) - VENDORED_FAMILIES) for name, found in families.items()} == {name: [] for name in pdfs}
     assert {name: glyph_problems(pdfs[name], pdf) for name, (pdf, _) in renders.items()} == {name: [] for name in pdfs}
+    drawn = set().union(*(rendered_text(renders[name][0]) for name in ("analysis with every mark", "20-F summary with every mark")))
+    assert MARKS <= drawn, f"the every-mark fixtures print none of {sorted(MARKS - drawn)}"
     for name in ("analysis with every mark", "20-F summary with every mark"):  # the reader saw the marks' faces
         assert {"Inter Var Symbols"} <= set(families[name]), name
         assert any(font.endswith("Inter-Var-Symbols-Italic") and asked and italic
