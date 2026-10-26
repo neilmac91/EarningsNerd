@@ -2528,8 +2528,8 @@ the column wash. The card's subtitle, legend and footnotes take the same inks in
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
 latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
-the text `0†₹₪₱`, since with no text the Font Loading API takes the latin face alone, so † never swaps on a plot (G3)
-and no route preloads latin-ext (spec §0.5). Past the wait a plot paints in the loader's monospace fallback (§8),
+the text `0₹₪₱`, since with no text the Font Loading API takes the latin face alone, so no sign a plot prints swaps on
+it (G3) and no route preloads latin-ext (spec §0.5). No plot prints † (D-061, E194). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
 plots start at one height whatever its legends wrap to. While its font loads a plot holds bones from its own plan,

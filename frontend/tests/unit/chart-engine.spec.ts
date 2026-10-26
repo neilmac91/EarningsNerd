@@ -18,18 +18,20 @@ import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, 
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
-import { groupDataNotes, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
+import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const DATASETS = Object.entries(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [390, 1030] }
-/** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ † ·. Geist Mono's subsets carry each at
- *  0.6 em; ▲ ▼ and the thin space exist in neither, so they are never planned. */
-const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓†·]*$/
+/** The SVG glyph set (spec G2): printable ASCII plus ’ − — ↑ ↓ ·. Geist Mono's subsets carry each at 0.6 em; ▲ ▼
+ *  and the thin space exist in neither, so they are never planned. † left the set with the band's dagger (D-061, E194). */
+const SVG_GLYPHS = /^[\x20-\x7e’−—↑↓·]*$/
 const MARKERS = ['circle', 'square', 'triangle']
 
 /** Every string the renderer will print inside the SVG, from the model and the plan alone. */
@@ -50,7 +52,9 @@ function svgStrings(model: ChartModel, layout: ChartLayout): string[] {
 describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source }) => {
   for (const chart of CHART_IDS) for (const view of ['card', 'expanded'] as const) {
     it(`${chart} · ${view}`, () => {
-      const model = buildChartModel(chart, structuredClone(source))
+      const ds = structuredClone(source)
+      const notes = resolveDataNotes(ds)
+      const model = buildChartModel(chart, ds, notes)
       if (model.unavailable) {
         expect(model.panels, 'a chart that does not apply draws nothing').toEqual([])
         expect(model.unavailable.length).toBeGreaterThan(20)
@@ -203,11 +207,12 @@ describe.each(DATASETS)('%s: the spec model checks', (name, { dataset: source })
       const bandLetters = new Set(Object.values(model.notesBand ?? {}).flat().map((glyph) => glyph.text).filter((text) => /^[a-z]+$/.test(text)))
       const footnoteLetters = new Set(model.footnotes.map((note) => note.mark).filter((mark) => /^[a-z]+$/.test(mark)))
       expect([...bandLetters].sort()).toEqual([...footnoteLetters].sort())
-      const hasDagger = Object.values(model.notesBand ?? {}).flat().some((glyph) => glyph.text === '†')
-      expect(model.footnotes.some((note) => note.mark === '†')).toBe(hasDagger)
-      // G6: † sits only in the band and its footnote, never beside a name or a number.
+      // D-061 (spec §3.3's note): a band letter is a note that questions the number; a gap's footnote leads with no
+      // letter, and no chart draws or keys a †, beside a name, a number or anywhere else (G6).
+      const byLetter = new Map(notes.notes.map((note) => [note.letter, note]))
+      for (const letter of bandLetters) expect(noteMarksFigure(byLetter.get(letter)), `${letter} questions the number`).toBe(true)
       const prose = [model.title, model.subtitle, ...model.legend.flatMap((item) => [item.label, item.value ?? '']),
-        ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.map((note) => note.text)]
+        ...model.panels.map((panel) => panel.caption ?? ''), ...model.footnotes.flatMap((note) => [note.mark, note.text])]
       for (const text of prose) expect(text, 'G6').not.toContain('†')
       // M18: every growth slot without a value is explained, as structural, unavailable or n/m.
       if (chart === 'topline') {
@@ -310,19 +315,38 @@ describe('the cases the step-1 data required', () => {
     expect(model('JPM_annual', 'cash').legend.map((item) => item.label)).toEqual(['Operating CF', 'Net income'])
     const pgr = model('PGR_quarterly', 'topline')
     expect(pgr.title).toBe('Premiums earned & growth')
-    expect(Object.entries(pgr.notesBand!).filter(([, glyphs]) => glyphs.some((glyph) => glyph.text === '†')).map(([period]) => period)).toEqual(['2024Q4', '2025Q4'])
+    // Premiums earned is calculated in two Q4s (the year less its first three quarters): a footnote names them, and no
+    // band glyph marks them (D-061).
+    expect(pgr.footnotes).toContainEqual({ mark: '', text: 'Calculated by EarningsNerd from reported figures: Premiums earned Q4 ’24, Q4 ’25.' })
     expect(model('O_annual', 'topline').unavailable).toBe('No top-line figure in this company’s filed data (revenue, net interest income or premiums earned).')
     expect(model('O_annual', 'margins').unavailable).toBe('Margins need revenue, which is not in this company’s filed data.')
   })
 
-  it('review notes: one letter per period in warning ink, naming the series and periods once', () => {
-    const m = model('REGNPN_annual', 'margins')
-    expect(m.notesBand).toEqual({
-      FY2023: [{ text: 'a', tone: 'review' }], FY2024: [{ text: 'a', tone: 'review' }], FY2025: [{ text: 'a', tone: 'review' }],
-    })
+  it('review notes: a record-only one letters nothing, and one that questions the number letters each period once (D-061)', () => {
+    // REGNPN's simulated flags are legacy_calculation, record-only: no letter, no line; the data notes keep them.
+    const recorded = model('REGNPN_annual', 'margins')
+    expect(recorded.notesBand).toBeNull()
+    expect(recorded.footnotes.map((note) => note.mark)).toEqual([''])
+    expect(recorded.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
+    const m = model('REGNPN_annual', 'margins', questioned)
+    expect(m.notesBand).toEqual({ FY2023: [{ text: 'a' }], FY2024: [{ text: 'a' }], FY2025: [{ text: 'a' }] })
     expect(m.footnotes[0].mark).toBe('a')
     expect(m.footnotes[0].text).toMatch(/^Operating margin and Net margin FY2023–FY2025: /)
-    expect(m.legend.map((item) => item.label), 'an absent gross margin is not listed').toEqual(['Operating', 'Net'])
+  })
+
+  it('MIXED_NOTES, the sweeps’ own dataset: only a questioned value or comparison letters, an n/m one included (D-061)', () => {
+    const ds = dataset(MIXED_NOTES)
+    expect(resolveDataNotes(ds).notes.map((note) => [note.letter, note.kind, noteMarksFigure(note)]), 'every kind a band can meet')
+      .toEqual([['a', 'review', true], ['b', 'review', false], ['c', 'review', true], ['d', 'unknown', false], ['e', 'unavailable', false]])
+    const band = (chart: ChartId) => Object.fromEntries(Object.entries(buildChartModel(chart, ds).notesBand ?? {}).map(([period, glyphs]) => [period, glyphs.map((glyph) => glyph.text)]))
+    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['c'] })
+    expect(buildChartModel('topline', ds).footnotes.slice(0, 2)).toEqual([
+      { mark: 'a', text: 'Revenue YoY FY2024: Available sources disagree on this figure.' },
+      { mark: 'c', text: 'Revenue YoY FY2025: The source inputs cover incompatible reporting periods.' },
+    ])
+    expect(band('margins'), 'operating margin’s questioned flags; net margin’s record-only ones letter nothing').toEqual({ FY2023: ['a'], FY2024: ['a'], FY2025: ['a'] })
+    expect(band('cash'), 'free cash flow’s unrecorded checks letter nothing').toEqual({})
+    expect(band('balance'), 'a gap letters nothing').toEqual({})
   })
 
   it('a gap in the window: the year after it is unavailable, not structural, and a zero base is found by its key', () => {
@@ -389,20 +413,24 @@ describe('the cases the step-1 data required', () => {
     for (const s of ds.series.filter((series) => ['revenue', 'net_income', 'operating_cash_flow'].includes(series.concept))) {
       for (const point of s.points) if (point.value != null) point.provenance = review([`reason_${n++}`])
     }
-    // Letters follow report order, so three FY2017 balance points that share earlier reasons get a one-letter and
+    // Letters follow report order, so three FY2020 balance points that share earlier reasons get a one-letter and
     // two two-letter notes between them.
-    const at = (concept: string) => ds.series.find((s) => s.concept === concept)!.points.find((point) => point.period === 'FY2017')!
+    const at = (concept: string, period = 'FY2020') => ds.series.find((s) => s.concept === concept)!.points.find((point) => point.period === period)!
     at('cash_and_equivalents').provenance = review(['reason_28'])
     at('shareholders_equity').provenance = review(['reason_2'])
     at('long_term_debt').provenance = review(['reason_27'])
+    // FY2017's long-term debt is a gap: its note is unavailable, so it letters nothing (D-061).
+    expect(at('long_term_debt', 'FY2017').value).toBeNull()
+    at('long_term_debt', 'FY2017').provenance = review(['reason_27'])
     const m = buildChartModel('balance', ds)
-    const letterOf = new Map(groupDataNotes(ds).notes.map((note) => [note.reasons[0], note.letter]))
-    const cell = m.notesBand!.FY2017.map((glyph) => glyph.text)
+    const letterOf = new Map(groupDataNotes(ds).notes.filter((note) => note.kind === 'review').map((note) => [note.reasons[0], note.letter]))
+    expect(m.notesBand!.FY2017, 'a gap letters nothing').toBeUndefined()
+    const cell = m.notesBand!.FY2020.map((glyph) => glyph.text)
     const expected = ['reason_2', 'reason_27', 'reason_28'].map((reason) => letterOf.get(reason)!).sort((a, b) => (a.length - b.length) || a.localeCompare(b))
     expect(cell, 'letter order: a … z, aa …').toEqual(expected)
     expect(cell.map((letter) => letter.length), 'one letter, then two').toEqual([1, 2, 2])
     expect(cell, 'a plain string sort would put the two-letter ones first').not.toEqual([...cell].sort())
-    const placed = noteGlyphs(m, layoutChart(m, 502, 'card')).filter((glyph) => glyph.period === 'FY2017')
+    const placed = noteGlyphs(m, layoutChart(m, 502, 'card')).filter((glyph) => glyph.period === 'FY2020')
     placed.slice(1).forEach((glyph, i) => expect(glyph.x - placed[i].x - (textWidth(glyph.text) + textWidth(placed[i].text)) / 2).toBeCloseTo(1.5, 9))
   })
 
@@ -676,7 +704,7 @@ function plan(model: ChartModel, layout: ChartLayout) {
       }
     }),
     legend: model.legend.map((item) => [item.label, item.value ?? null, item.color, item.swatch, item.marker ?? null, item.absent]),
-    notes: noteGlyphs(model, layout).map((glyph) => [glyph.period, glyph.text, glyph.tone, px(glyph.x)]),
+    notes: noteGlyphs(model, layout).map((glyph) => [glyph.period, glyph.text, px(glyph.x)]),
     footnotes: model.footnotes.map((note) => [note.mark, note.text]),
     strip: layout.view === 'expanded' ? model.strip.map((row) => [row.short, row.color, row.swatch, row.marker ?? null, row.cells]) : [],
   }

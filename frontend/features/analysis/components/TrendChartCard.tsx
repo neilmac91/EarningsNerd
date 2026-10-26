@@ -20,7 +20,7 @@ import analytics from '@/lib/analytics'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { chartDataNotes, exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
+import { exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
 import { CARD_HEIGHT, layoutChart, VALUES_DONT_FIT } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, type ChartId } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
@@ -86,12 +86,12 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const view = expanded ? 'expanded' : 'card'
   const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
-  // The series this chart plots, for its data-notes link (the growth mark's key is its top line's, plus ":yoy").
-  const plotted = useMemo(() => {
-    const concepts = new Set(model.panels.flatMap((panel) => panel.marks.map((mark) => mark.seriesKey.split(':')[0])))
-    return dataset.series.filter((series) => concepts.has(series.concept))
-  }, [model, dataset])
-  const { panelNotes } = useMemo(() => chartDataNotes(dataset, plotted, notes, chart === 'topline'), [dataset, plotted, notes, chart])
+  // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
+  // never disagree: an n/m comparison's note letters here too, which today's Recharts (chartDataNotes) never draws.
+  const panelNotes = useMemo(() => {
+    const lettered = new Set(model.footnotes.map((footnote) => footnote.mark))
+    return notes.notes.filter((note) => lettered.has(note.letter))
+  }, [model, notes])
 
   const toggle = (next: boolean) => {
     fromHeight.current = rowRef.current?.getBoundingClientRect().height ?? null
@@ -125,7 +125,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
           ...exportSourceText(dataset),
           notes: [
             ...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)),
-            ...(plotted.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+            ...(model.panels.some((panel) => panel.marks.some((mark) => mark.seriesKey === 'free_cash_flow')) ? [FCF_DEFINITION] : []),
           ],
         },
       }

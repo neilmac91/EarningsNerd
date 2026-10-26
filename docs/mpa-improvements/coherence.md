@@ -570,8 +570,8 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   2026-10-25: step 4, the spec renderer behind `NEXT_PUBLIC_CHARTS_V2` (`#1609`, `0009fb90`), and
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
-- **Open:** step 6's remainder (E194 in `tasks/todo.md`), which takes the notes band to this
-  report's rule (below); step 7 (E195), after the founder's switch (F66).
+- **Open:** step 7 (E195), after the founder's switch (F66). Step 6's remainder, the notes band
+  on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
   value (unavailable notes included, so "every missing point has a letter"), † for a partly
@@ -589,7 +589,7 @@ Under the approved scheme the band follows the marking rule:
   note, as everywhere else.
 
 The rule lives in one helper (§2.1), which WP1 adds to `lib/dataNotes.ts`. The band can call it,
-so the renderer needs no copy of the rule. E194 builds the band on it.
+so the renderer needs no copy of the rule. E194 built the band on it (2026-10-26).
 
 **The analysis plan.** It has no PR. Its chips mark through the same helper.
 
