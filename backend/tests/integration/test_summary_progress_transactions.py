@@ -16,9 +16,9 @@ E214: ``summary_generation_service.record_progress`` writes the row in one
 
 A seeded row's last write comes 10 s after its start, so a count from the last write, not from the start, shows.
 
-E216: a run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on the error row an earlier
-run left, and clears its error; before E216 it kept that row's ``started_at``. Production runs PostgreSQL, so the
-restart is held there as well as on SQLite.
+E216: an admitted run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on the error row
+an earlier run left, and clears its error; before E216 it kept that row's ``started_at``. Production runs PostgreSQL,
+so the restart is held there as well as on SQLite.
 
 E215: the progress poll (``progress_poll_answer``) marks a stalled row, one whose stage is not terminal and whose last
 write is older than ``STALE_PROGRESS_SECONDS``, a retryable error in one UPDATE by filing on those criteria, and reads

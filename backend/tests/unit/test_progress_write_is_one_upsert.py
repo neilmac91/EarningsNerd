@@ -16,12 +16,12 @@ start, so a count from the last write, not from the start, shows. These cases ru
 ``tests/integration/test_summary_progress_transactions.py`` runs the races, and a clear that holds the row while the
 write waits, on PostgreSQL.
 
-E216: a run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on a row an earlier run left.
-Nothing clears that row before a retry after an error or the unready summary's regeneration, so before E216 the new
-run's elapsed time counted from the earlier run's start (two hours, on a two-hour-old error row). The last case drives
-the one orchestrator end to end, unforced and forced, onto such a row: the anchors pin the fetch stage's request and
-the cases before it the write, and it holds the two together (the forced run included, and the writer the pipeline
-reaches).
+E216: an admitted run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on a row an
+earlier run left. Nothing clears that row before a retry after an error or the unready summary's regeneration, so
+before E216 the new run's elapsed time counted from the earlier run's start (two hours, on a two-hour-old error row).
+The last case drives the one orchestrator end to end, unforced and forced, onto such a row: the anchors pin the fetch
+stage's request and the cases before it the write, and it holds the two together (the forced run included, and the
+writer the pipeline reaches).
 """
 import re
 from contextlib import contextmanager
