@@ -247,8 +247,8 @@ says so; everything else follows the spec.
   - The header prints a quarter as the app does, `Q2 2026 · quarter ended Jun 30, 2026`, not `Q2 FY2026`: its end
     date tells a fiscal quarter from a calendar one. An amount prints at 4 significant figures in its own unit
     (`$987.6M`), cents at the finest in dollars. A growth row never says Calculated, since every growth rate is a
-    calculated comparison and the top line's footnote says so. A note letter takes the band's ink: «t.review» for a
-    review note. The state texts carry no dash, as `docs/voice-and-style.md` asks: `Unavailable (a)`,
+    calculated comparison and the top line's footnote says so. A note letter takes the band's ink, the footnotes'
+    `note` (D-061, E194). The state texts carry no dash, as `docs/voice-and-style.md` asks: `Unavailable`,
     `n/m · not meaningful` and `No prior-year period in this window`.
   - The spoken readout spells out what screen readers garble: whole month names, `billion` for `B`, `minus` and
     `plus` for the signs, `Year-over-year growth`, a margin and operating cash flow by their full names, `not
@@ -410,9 +410,11 @@ says so; everything else follows the spec.
     width (E203; chief design on #1652).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
-  letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on
-  the card surface, away from the series inks the label-ink rule guarded against. Affected points lose their hollow
-  markers. The legend's "Notes a" chip gives way to the footnote lines. Decision 7's filled bars stand. Until the
+  letters move off the plot into the notes band (§3.3), and since E194 only a note that questions the number letters,
+  in the footnotes' `note` ink (D-061): in the band letters sit on the card surface, away from the series inks the
+  label-ink rule guarded against. Affected points lose their hollow markers. The Recharts legend's "Notes a" chip
+  gives way to the footnote lines and the card's one Notes control, `DataNotesLink`, which names exactly their letters
+  (E194). Decision 7's filled bars stand. Until the
   flag flips, §4.7 governs the charts in production.
 
 ---
@@ -721,7 +723,8 @@ Definitions:
 
 - Band glyphs are `aria-hidden`. Pointer-only overlay buttons (`tabindex=-1`) open the shared note Modal.
 - The card keeps **one** keyboard Notes control (today's `DataNotesLink`). Footnote letters are focusable buttons.
-- The legend's "Notes a" chip and the "unavailable for FY…" sentence are removed (verified).
+- The legend's "Notes a" chip and the "unavailable for FY…" sentence are removed (verified). The one Notes control
+  above sits in the card's legend row, and since E194 it names exactly the footnotes' letters.
 
 **Footnote lines** (HTML, 12 px; light `text.tertiary #636A77`, dark `chart.label.dark #B8BEC7`), one per line, in
 this order:
@@ -961,7 +964,7 @@ legend has no fixed width; it never pushes the plot.
 | Strip row label | 14, left-aligned (marker centred at x = 6, baseline − 4) | strip band top + 15 + 16·row | «t.tick» |
 | Strip cell | slot centre | as the row label | «t.value» |
 | "Notes" | 0, left-aligned | notes band top + 12 | «t.tick» |
-| Band glyph | slot centre + (k − (n−1)/2) × 8.1 | notes band top + 12 | «t.tick» / «t.review» |
+| Band glyph | slot centre + (k − (n−1)/2) × 8.1 | notes band top + 12 | the footnotes' `note`, equal to «t.tick» (D-061, E194; was «t.tick» / «t.review») |
 
 Gridlines are 1 px at `round(y(t)) + 0.5`, from G_L to W − 8: «t.grid», and «t.zero» for the zero tick. The
 off-scale edge rule sits at the edge + 0.5.
