@@ -194,13 +194,13 @@ async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaph
     pack = load_pack(ticker)  # what both drafts share (the company, its metrics table) from packs/
     tx, ty = reader_text(rx, load_pack(ticker, x)), reader_text(ry, load_pack(ticker, y))  # each its own sources
     record: dict[str, Any] = {"ticker": ticker, "split": pack["split"], "x": x, "y": y, "judge": judge, **shas}
+    interrupted: Optional[BaseException] = None  # set before the forfeit branch, which sends no order to interrupt
     if tx is None or ty is None:  # the model itself failed to produce an analysis: the other side wins
         record["forfeit"] = x if tx is None and ty is not None else y if ty is None and tx is not None else "both"
     else:
         tag = f"{label}/judge/{judge}/{ticker}/{x}__{y}"
         # Unusable orders from earlier runs stay on the record, so its cost is the pair's whole cost.
         first, second, failed = paid_first, None, [o for o in reuse if o is not paid_first and not usable(o)]
-        interrupted: Optional[BaseException] = None
         async with semaphore:
             try:
                 if first is None:

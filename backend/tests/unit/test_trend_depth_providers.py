@@ -579,3 +579,74 @@ def test_the_real_sdk_path_logs_what_each_failure_may_cost(monkeypatch: pytest.M
 
 
 _REAL_ATTEMPT = providers._call_anthropic  # kept before any test replaces it
+
+
+def _deepseek_overloaded(monkeypatch: pytest.MonkeyPatch, clock: list, overloads: int) -> None:
+    """A fake OpenAI-compatible client: each request takes 4 s on ``clock``, and the first ``overloads`` answer 503."""
+
+    class Overloaded(Exception):
+        status_code = 503
+
+    sent: list = []
+
+    class Completions:
+        async def create(self, **kwargs: Any) -> Any:
+            sent.append(kwargs["model"])
+            clock[0] += 4.0
+            if len(sent) <= overloads:
+                raise Overloaded("high demand")
+            usage = types.SimpleNamespace(prompt_tokens=1000, completion_tokens=100, total_tokens=1100,
+                                          prompt_cache_hit_tokens=0)
+            choice = types.SimpleNamespace(message=types.SimpleNamespace(content="{}"), finish_reason="stop")
+            return types.SimpleNamespace(usage=usage, choices=[choice], model="deepseek-flash")
+
+    class Client:
+        def __init__(self, **kwargs: Any) -> None:
+            self.chat = types.SimpleNamespace(completions=Completions())
+
+    async def backoff(seconds: float) -> None:
+        clock[0] += seconds
+
+    openai = types.ModuleType("openai")
+    openai.AsyncOpenAI = Client
+    monkeypatch.setitem(sys.modules, "openai", openai)
+    monkeypatch.setattr(providers, "time", types.SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(providers, "_sleep", backoff)
+    monkeypatch.setenv(ARMS["deepseek-flash"].key_env, "test-key-not-real")
+
+
+@pytest.mark.parametrize("overloads, latency", [(0, 4.0), (1, 38.0), (2, 132.0)])
+def test_an_overload_retry_counts_in_the_latency_a_reader_waits(monkeypatch: pytest.MonkeyPatch, tmp_path,
+                                                                overloads: int, latency: float) -> None:
+    """generate sums each call's latency and the report's percentiles read it, so a peak-hour run whose requests
+    answer 503 must not look as fast as one whose did not: the failed requests and the backoff count."""
+    clock = [100.0]
+    _deepseek_overloaded(monkeypatch, clock, overloads)
+    monkeypatch.setattr(providers, "SPEND_LOG", tmp_path / "spend.jsonl")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = asyncio.run(call(ARMS["deepseek-flash"], "s", "u", tag="t"))
+    assert result.latency_s == pytest.approx(latency)  # 4 s a request, 30 s and then 90 s of backoff
+    row = json.loads((tmp_path / "spend.jsonl").read_text())
+    assert row["latency_s"] == pytest.approx(4.0)  # the ledger times the attempt, as each Claude attempt's row does
+    if overloads:
+        assert result.meta["retries"] == overloads and result.meta["attempt_latency_s"] == pytest.approx(4.0)
+        assert row["retries"] == overloads and row["call_latency_s"] == pytest.approx(latency)
+    else:
+        assert "retries" not in result.meta and "attempt_latency_s" not in result.meta and "retries" not in row
+
+
+def test_a_retried_claude_call_reports_the_whole_wait_and_keeps_the_attempt_time(monkeypatch: pytest.MonkeyPatch,
+                                                                                tmp_path) -> None:
+    _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
+    clock = [0.0]
+    sent, waits = _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(0.3), True)])
+
+    async def backoff(seconds: float) -> None:
+        waits.append(seconds)
+        clock[0] += seconds
+
+    monkeypatch.setattr(providers, "time", types.SimpleNamespace(monotonic=lambda: clock[0]))
+    monkeypatch.setattr(providers, "_sleep", backoff)
+    result = asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", tag="t"))
+    assert len(sent) == 2 and waits == [10.0]
+    assert result.latency_s == pytest.approx(10.0) and result.meta["attempt_latency_s"] == pytest.approx(0.1)

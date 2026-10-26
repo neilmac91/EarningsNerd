@@ -282,10 +282,13 @@ def _hold_key_lock() -> None:
 
 def _log_spend(arm: Arm, result: "CallResult", tag: str, estimated: str = "") -> None:
     # Backend and cost come first, so a row cut short by a crash most likely still says what it cost.
+    # Each row times its own attempt, on every backend; a call's overload retries and backoff are noted beside it.
     row = {"backend": result.backend, "cost_usd": result.cost_usd, "arm": arm.name, "tag": tag,
            "model_served": result.model_served, "input_tokens": result.input_tokens,
            "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens,
-           "latency_s": result.latency_s}
+           "latency_s": result.meta.get("attempt_latency_s", result.latency_s)}
+    if result.meta.get("attempt_latency_s") is not None:
+        row.update({"retries": result.meta.get("retries"), "call_latency_s": result.latency_s})
     if estimated:
         row["estimated"] = estimated
     _append_row(row)
@@ -336,13 +339,16 @@ async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int,
         kwargs["response_format"] = {"type": "json_object"}
     for key_name, value in arm.extra.items():
         kwargs[key_name] = value
+    # The latency is the whole call's: a reader waits through every overload retry and its backoff, so the
+    # peak-hour measurement must count them. The last attempt's own time is kept in meta when there were retries.
     started = time.monotonic()
+    attempt_started, retries = started, 0
     response = None
     for wait in (0, 30, 90, 180):
         # Gemini's free tier answers 503 "high demand" for minutes at a time; DeepSeek rarely needs this.
         if wait:
-            await asyncio.sleep(wait)
-            started = time.monotonic()
+            await _sleep(wait)
+            attempt_started, retries = time.monotonic(), retries + 1
         try:
             response = await client.chat.completions.create(**kwargs)
             break
@@ -351,7 +357,8 @@ async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int,
             daily_quota = status == 429 and "per day" in str(exc).lower()  # resets at midnight Pacific; waiting is futile
             if status not in (429, 500, 502, 503, 504) or wait == 180 or daily_quota:
                 raise
-    latency = time.monotonic() - started
+    finished = time.monotonic()
+    latency = finished - started
     usage = response.usage
     prompt = getattr(usage, "prompt_tokens", 0) or 0
     completion = getattr(usage, "completion_tokens", 0) or 0
@@ -374,7 +381,8 @@ async def _call_openai_compat(arm: Arm, system: str, user: str, max_tokens: int,
                       list_cost(arm, prompt, cached or 0, billed_output), "openai_compat",
                       getattr(response, "model", arm.model),
                       {"finish_reason": response.choices[0].finish_reason,
-                       "total_tokens": getattr(usage, "total_tokens", None)})
+                       "total_tokens": getattr(usage, "total_tokens", None),
+                       **({"retries": retries, "attempt_latency_s": round(finished - attempt_started, 3)} if retries else {})})
 
 
 def anthropic_request(arm: Arm, system: str, user: str, max_tokens: int) -> dict[str, Any]:
@@ -451,6 +459,7 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
     _hold_key_lock()
     reserve = worst_case_usd(arm, system, user, max_tokens)
     cut_attempts = 0
+    started = time.monotonic()  # the whole call, every failed attempt and backoff included (as on openai_compat)
     for attempt in range(6):
         spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
         if spent + reserve > ceiling:
@@ -479,6 +488,9 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
                 _append_row({**held, "cost_usd": -reserve, "estimated": "released: the attempt settled"})
         if failure is None:
             result.meta.update({"retries": attempt, "cut_attempts": cut_attempts})
+            if attempt:  # the ledger row above keeps the attempt's own time; the caller waited the whole call
+                result.meta["attempt_latency_s"] = result.latency_s
+                result.latency_s = round(time.monotonic() - started, 3)
             return result
         if attempt == 5 or not failure.retryable:
             raise failure.error
@@ -540,7 +552,8 @@ async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, tim
 
 
 def _result(arm: Arm, message: Any, latency: float) -> CallResult:
-    """A finished message as a CallResult. The latency is this attempt's alone (as on openai_compat)."""
+    """A finished message as a CallResult. The latency is this attempt's alone; ``_call_anthropic_metered``
+    reports the whole call's when it retried, as ``_call_openai_compat`` does."""
     text = "".join(block.text for block in message.content if block.type == "text")
     usage = message.usage
     cache_read = usage.cache_read_input_tokens or 0

@@ -1563,6 +1563,14 @@ speed is the median over first attempts.
   - **The effect.** K0's eval-v2-r2 p90 of 613.7 s is two of these stalls (AMD's repair and KO's first attempt). C's
     one stall was NVDA's first attempt, in dev-v6-r2.
   - The records carry no wall-clock time, so the stalls cannot be tied to a time of day.
+- **Overload retries, found in Codex's review of this branch.**
+  - Until the fix that followed the review, the harness's own retry on a 429 or 5xx answer restarted the clock. That
+    retry waits 30, 90 and 180 s, and was written for Gemini's free tier. So a call that retried recorded only its
+    last attempt.
+  - The client logged no failed request, so the records cannot show whether any call in these runs retried.
+  - The stalls above are a different path, the client's own timeout and retry, and their full time is recorded.
+  - Since the fix, a call records its whole wait, with its retries and its last attempt's time in its meta. The
+    peak-hour run is measured that way.
 - **Peak hours:** not measured. `eval-v2-peak` is scheduled for 2026-10-27 06:05 UTC and has not run. It now runs
   P beside C (one held-out run each), since P is the build §5.10 proposes.
 

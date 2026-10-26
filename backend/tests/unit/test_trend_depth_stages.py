@@ -698,3 +698,17 @@ def test_the_report_reads_each_systems_own_pack(harness: Any, monkeypatch: pytes
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:
     assert "evals.trend_depth.bootstrap" not in sys.modules
+
+
+def test_a_failed_generation_is_judged_a_forfeit_not_an_error(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A refusal or two invalid replies leave generation_ok False: the pair is a recorded forfeit, sent to no
+    judge, and judge_pair returns it rather than raising, so asyncio.gather's other pairs carry on."""
+    _generation(harness, "deepseek-flash", generation_ok=False, output=None)
+    _generation(harness, "claude-sonnet-5-5")
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"] if record["generation_ok"] else None)
+    record = asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b",
+                                                  asyncio.Semaphore(1)))
+    assert record["forfeit"] == "deepseek-flash" and "error" not in record and record["cost_usd"] == 0  # the side that failed
+    path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
+    assert json.loads(path.read_text())["forfeit"] == "deepseek-flash"
