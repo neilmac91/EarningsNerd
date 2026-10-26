@@ -41,23 +41,28 @@ def _service_request_timeout() -> int:
 
 def _service_pool_timeout() -> float:
     """The pool timeout the API service is deployed with, in the order the service resolves it: the deploy's
-    ``DB_POOL_TIMEOUT`` (``--update-env-vars``), else the image's (an ``ENV`` line in ``backend/Dockerfile``, which
-    already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
-    environment (which ``load_dotenv`` may fill) sets it. A value set on the service by hand outlives
-    ``--update-env-vars`` and is out of this reading's reach."""
+    ``DB_POOL_TIMEOUT`` (``--update-env-vars``), else the image's (an ``ENV`` instruction in ``backend/Dockerfile``,
+    which already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
+    environment (which ``load_dotenv`` may fill) sets it. Any other form, in the Dockerfile or in ``database.py``, fails
+    with a message. A value set on the service by hand outlives ``--update-env-vars`` and is out of this reading's
+    reach."""
     [env] = re.findall(r"--update-env-vars=(\S+)", _service_deploy())
     pairs = dict(item.split("=", 1) for item in env.split(","))
     if "DB_POOL_TIMEOUT" in pairs:
         return float(pairs["DB_POOL_TIMEOUT"])
-    image = [line for line in (ROOT / "backend/Dockerfile").read_text().splitlines()
-             if line.lstrip().upper().startswith("ENV") and "DB_POOL_TIMEOUT" in line]
-    if image:
-        values = [re.search(r"\bDB_POOL_TIMEOUT[= ]+(\d+)\b", line) for line in image]
-        assert all(values), f"backend/Dockerfile sets DB_POOL_TIMEOUT in a form this reading does not know: {image}"
+    # The Dockerfile's instructions, each continued line joined to the one before it, as Docker reads them.
+    instructions = re.sub(r"\\\n", " ", (ROOT / "backend/Dockerfile").read_text()).splitlines()
+    named = [line.strip() for line in instructions if "DB_POOL_TIMEOUT" in line and not line.lstrip().startswith("#")]
+    if named:
+        values = [re.fullmatch(r"(?i:ENV)\s+(?:\S+=\S+\s+)*DB_POOL_TIMEOUT[= ](\d+)(?:\s+\S+=\S+)*", line) for line in named]
+        assert all(values), f"backend/Dockerfile names DB_POOL_TIMEOUT in a form this reading does not know: {named}"
         return float(values[-1].group(1))
-    defaults = re.findall(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$',
-                          (ROOT / "backend/app/database.py").read_text(), re.M)
-    assert len(defaults) == 1, "database.py's DB_POOL_TIMEOUT assignment changed shape; teach this reading its form"
+    source = (ROOT / "backend/app/database.py").read_text()
+    defaults = re.findall(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$', source, re.M)
+    assignments = re.findall(r"^\s*DB_POOL_TIMEOUT\s*(?::[^=\n]*)?=", source, re.M)
+    engine_arguments = re.findall(r"\bpool_timeout\s*=\s*([^,)\s]+)", source)
+    assert len(defaults) == 1 and len(assignments) == 1 and set(engine_arguments) == {"DB_POOL_TIMEOUT"}, (
+        "database.py sets its pool timeout in a form this reading does not know; teach it the new form")
     return float(defaults[0])
 
 
