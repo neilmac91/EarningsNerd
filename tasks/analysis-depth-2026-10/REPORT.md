@@ -57,22 +57,27 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     - **The code and pack fixes did what they were for, at today's cost and a shorter wait.** P stated no
       broken net cash as fact, and no probe-detected mislabel reaches a reader. Its p50 was 10.9 s and its p90
       12.1 s, at $0.0066–0.0067 an analysis, against the version-1 procedure's 12.8 s, 17.8 s and $0.0071. It
-      wrote as many causes as the frozen prompt. Peak hours are not measured yet.
+      wrote as many cause sentences as the frozen prompt; no judge read it. Peak hours are not measured yet.
     - **The candidate prompt fixed calibration but cost depth.** It brought judgement share, evaluative words and
       watch forecasts within their targets, and the judge preferred it to the frozen prompt overall, 10 pairs
-      to 5. It also wrote about one cause sentence fewer per analysis in every run, under the plan's guard, and
-      lost depth in 9 of 20 pairs.
+      to 5. It also wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on
+      average and under the plan's guard, and lost depth in 9 of 20 pairs.
     - **First tries:** 40% of P's analyses and 45% of the candidate's passed without a repair (target 85%).
   - **Proposed (§10):** once the grounding rule is approved, adopt the code and pack fixes as measured, with a
-    deadline on each DeepSeek call. Hold the candidate prompt back, as the plan's guard rule requires: run one
-    calibration round that keeps the guard, or adopt it under a recorded exception. Then add deterministic
-    checks for the error classes that remain.
+    deadline on each DeepSeek call.
+    - Two judgements are in this. The pack is kept although the plan's guard rule, read strictly, fires on it
+      once, within the frozen prompt's own spread from run to run. And the backstops go on without the net-debt
+      prompt line the plan paired them with (`DEEPSEEK-ERRORS.md` §5.10).
+    - Hold the candidate prompt back, as the plan's guard rule requires. Either run one calibration round that
+      keeps the guard, or adopt the prompt under a recorded exception.
+    - Then add deterministic checks for the error classes that remain.
   - The judge evidence on Sonnet against DeepSeek (§7.6) stays on record. Opus preferred Sonnet 18–1, mostly
     on grounding and calibration.
     - On the deterministic calibration measures, the candidate is now within its targets, where Sonnet's
       eval-v1 outputs on the same held-out companies were: judgement share 11.6% (Sonnet 3.8%), evaluative
       words in data sentences 0.0% (2.6%), forecasts in watch items 0 (2 per 60). P, the proposed build, is
-      not: 1.5%, 2.8% and 10 per 60.
+      within target on evaluative words (2.8% pooled), but not on judgement share (1.5%) or watch forecasts (10
+      per 60).
     - On wrong-metric numbers and first-try passes, no build is.
     - No judge compared the candidate or P with Sonnet.
 - **Still open:**
@@ -586,12 +591,17 @@ Gate figures here use the current gate.
    - give the net-versus-operating margin gap within one year;
    - withhold net cash built on a broken debt series, behind a data check.
 
+   Keeping the pack is a judgement. The plan's guard rule, read strictly, fires on it once: in one development round
+   it wrote fewer cause sentences than the frozen prompt's pack in both runs, by amounts within that prompt's own
+   spread from run to run. Over six runs the two match (`DEEPSEEK-ERRORS.md` §5.2).
+
    **The candidate prompt is held back.** It is `backend/prompts/trends-depth-analyst-agent.md` (sha256
    `fc5b808c…`). It restores a judgement slot, words net debt without a minus sign and keeps the margin
    comparison within one year.
    - On the held-out half it met its calibration targets, and the judge preferred it to the frozen prompt overall,
      10 pairs to 5.
-   - But it wrote about one cause sentence fewer per analysis in every run, which is under the plan's guard of 6.
+   - But it wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on average, and
+     fewer than the plan's guard of 6 in every run.
      The plan's pre-registered rule drops a fix that does that.
    - You choose between one calibration round that keeps the guard and adopting it under a recorded exception
      (`DEEPSEEK-ERRORS.md` §5.10).
@@ -637,7 +647,7 @@ Gate figures here use the current gate.
    - your approval of the grounding rule (item 3), and your decision on the candidate prompt (item 2);
    - the peak-hour latency run (`eval-v2-peak`), now for P and the candidate, scheduled for 2026-10-27 06:05 UTC
      and not yet run, against p50 10.5 s and p90 13 s;
-   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 410 recorded calls waited out a 600 s
+   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 442 recorded calls waited out a 600 s
      client timeout (`DEEPSEEK-ERRORS.md` §5.7);
    - run the human pack (§9c), rebuilt on the adopted build's outputs.
 
