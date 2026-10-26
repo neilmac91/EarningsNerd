@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
+import { KPI_FACE_GLYPHS, KPI_MISSING_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
@@ -39,6 +40,11 @@ const NOTES = '[data-analysis-data-notes]'
 // the other finished every other spec in a few minutes and then idled. They share nothing (each opens
 // its own page through openAnalysis; no hooks, no mutable module state), so both workers take them.
 test.describe.configure({ mode: 'parallel' })
+// Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every glyph's advance to a
+// whole pixel (14px for Geist Mono's 14.4 at 24px), so the KPI strip's budget, measured where it paints, is checked in
+// the case where 0.6em would be wrong. The local browser's wrapper passes --font-render-hinting=none; the last flag
+// wins (charts-v2.spec.ts pins it for the same reason).
+test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis evidence / ${theme} / ${width}px`, () => {
@@ -100,7 +106,21 @@ async function pageAndCardGeometry(page: Page) {
         const range = document.createRange(); range.selectNodeContents(node)
         for (const rect of range.getClientRects()) if (rect.width && rect.height) record(rect, node.textContent)
       }
-      return { index, top: box.top, valueTop: value ? bounds(value).top : null, spills }
+      // The value's line, its figure and marks: the union of its painted glyphs.
+      const glyphs: DOMRect[] = []
+      const button = value?.querySelector('button')
+      if (button) {
+        const values = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+        for (let node = values.nextNode(); node; node = values.nextNode()) {
+          if (!node.textContent?.trim() || !node.parentElement || node.parentElement.closest('.sr-only')) continue
+          const range = document.createRange(); range.selectNodeContents(node)
+          glyphs.push(...[...range.getClientRects()].filter(rect => rect.width))
+        }
+      }
+      const style = getComputedStyle(card)
+      const chrome = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth'].reduce((sum, key) => sum + parseFloat(style[key as 'paddingLeft']), 0)
+      const line = glyphs.length ? Math.max(...glyphs.map(rect => rect.right)) - Math.min(...glyphs.map(rect => rect.left)) : 0
+      return { index, top: box.top, valueTop: value ? bounds(value).top : null, spills, line, chrome }
     })
     const rows: Array<{ top: number; valueTops: number[] }> = []
     for (const card of cards) {
@@ -108,11 +128,20 @@ async function pageAndCardGeometry(page: Page) {
       if (!row) { row = { top: card.top, valueTops: [] }; rows.push(row) }
       if (card.valueTop !== null) row.valueTops.push(card.valueTop)
     }
+    const strip = document.querySelector('[data-analysis-kpi]')!.parentElement!
+    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize)
+    // The budget as the grid resolves it: a CSS max() over the values at the advances the strip measured.
+    const ruler = strip.appendChild(document.createElement('div'))
+    ruler.style.cssText = 'position:absolute;visibility:hidden;width:var(--kpi-value)'
+    const kpiBudget = ruler.getBoundingClientRect().width
+    ruler.remove()
     return {
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      kpiWidth: document.querySelector('[data-analysis-kpi]')!.parentElement!.getBoundingClientRect().width,
-      rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
+      kpiWidth: strip.getBoundingClientRect().width,
+      kpiBudget,
+      kpiGap: parseFloat(getComputedStyle(strip).columnGap),
+      rootFontSize,
       cards,
       rows: rows.map(row => ({ values: row.valueTops.length, spread: Math.max(...row.valueTops) - Math.min(...row.valueTops) })),
     }
@@ -143,20 +172,52 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     }
   }
   await assertPaintedMarks(page, '[data-analysis-kpi]')
+  expect(geometry.rootFontSize).toBeCloseTo(16 * textScale, 1)
+  await assertKpiStrip(page, width, geometry)
+  // The dollar fixtures' counts, pinned apart from the budget: two across at phone widths (decision 4, 320px
+  // included) and on tablets, four from lg at ordinary text and at 1480px under 200% text, one on a phone under 200%.
+  expect(geometry.rows[0].values, 'the dollar fixtures keep two cards below lg and four from lg').toBe(textScale > 1 && width < 1024 ? 1 : width >= 1024 ? 4 : 2)
+}
+
+/** The columns KpiStrip's grid gives (E197): auto-fill tracks of at least the widest card (its value plus padding and
+ *  border), half the strip below lg, and from lg a column per tile, four at most, or half the strip once a card is
+ *  wider than that, never three of four; one below 17em of its own text size. Each share keeps 0.5px back, as
+ *  KpiStrip's do. The budget it starts from is checked against the painted values, and the dollar fixtures' counts are
+ *  pinned apart from it (assertPageAndCards). */
+function expectedKpiColumns(geometry: Awaited<ReturnType<typeof pageAndCardGeometry>>, width: number) {
+  if (geometry.kpiWidth < 17 * geometry.rootFontSize) return 1
+  const strip = geometry.kpiWidth, gap = geometry.kpiGap
+  const card = geometry.kpiBudget + Math.max(...geometry.cards.map(item => item.chrome))
+  const half = (strip - gap) / 2 - 0.5
+  const tiles = Math.min(4, geometry.cards.length)
+  const each = (strip - (tiles - 1) * gap) / tiles - 0.5
+  const track = width >= 1024 ? Math.max(each, card, Math.min(half, each + (card - each) * 1e6)) : Math.max(card, half)
+  return Math.min(geometry.cards.length, Math.max(1, Math.floor((strip + gap) / (track + gap))))
+}
+
+/** No KPI value leaves its card or wraps, the page does not scroll sideways, the strip's budget is its widest value as
+ *  painted, and the columns are the most that value allows. */
+async function assertKpiStrip(page: Page, width: number, measured?: Awaited<ReturnType<typeof pageAndCardGeometry>>) {
+  const geometry = measured ?? await pageAndCardGeometry(page)
   await assertSourceControls(page, '[data-analysis-kpi]', 4)
   expect(geometry.scrollWidth, 'document must fit its layout viewport (including invisible positioned boxes)').toBeLessThanOrEqual(geometry.clientWidth + EPSILON)
   expect(geometry.scrollWidth, 'document must fit the configured viewport, even when innerWidth expands').toBeLessThanOrEqual(width + EPSILON)
   expect(geometry.clientWidth).toBeLessThanOrEqual(width)
-  expect(geometry.rootFontSize).toBeCloseTo(16 * textScale, 1)
   expect(geometry.cards).toHaveLength(4)
   for (const card of geometry.cards) {
     expect(card.valueTop, `KPI ${card.index} has a measured value`).not.toBeNull()
     expect(card.spills, `KPI ${card.index} child/text containment`).toEqual([])
   }
+  // The budget is the widest value as painted: never under it, or a card would be too narrow for it, and within a pixel
+  // over it, or the strip would give up a column it has room for.
+  const widest = Math.max(...geometry.cards.map(card => card.line))
+  expect(widest, 'a KPI value was measured').toBeGreaterThan(0)
+  expect(geometry.kpiBudget - widest, `the strip's budget (${geometry.kpiBudget}px) against its widest value (${widest}px)`).toBeGreaterThanOrEqual(-0.5)
+  expect(geometry.kpiBudget - widest, `the strip's budget (${geometry.kpiBudget}px) against its widest value (${widest}px)`).toBeLessThanOrEqual(1)
   expect(geometry.rows.length).toBeGreaterThan(0)
-  const columns = geometry.kpiWidth < 17 * geometry.rootFontSize ? 1 : width >= 1024 ? 4 : 2
+  const columns = expectedKpiColumns(geometry, width)
   for (const row of geometry.rows) {
-    expect(row.values, 'KPI count follows its own width at the active text size').toBe(columns)
+    expect(row.values, 'KPI count follows its widest value and its own width at the active text size').toBe(columns)
     // Compare only cards in the same physical row; a phone's second row is independent.
     expect(row.values).toBeGreaterThan(0)
     expect(row.spread, 'numeric value tops align within each physical KPI row').toBeLessThanOrEqual(EPSILON)
@@ -876,11 +937,18 @@ test.describe('analysis table periods / 816px at 200% text', () => {
   })
 })
 
-for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
-  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-  for (const state of ['discrepancy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
+// At 360px the KPI strip carries a planted code-prefixed value that a note questions, "CA$968.0M" and its letter
+// (138.2px), which two cards cannot hold there (E197); the fixtures' dollar values fit two up.
+for (const theme of THEMES) for (const width of [390, 360] as const) test.describe(`analysis phone marks / ${theme}${width === 360 ? ' / 360px' : ''}`, () => {
+  test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['discrepancy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at ${width}px, in the figure face`, async ({ page, baseURL }) => {
     test.setTimeout(60_000)
-    await openAnalysis(page, baseURL!, state, theme, 1)
+    await openAnalysis(page, baseURL!, state, theme, 1, false, width === 360 ? withQuestionedCanadianFreeCashFlow : undefined)
+    if (width === 360) {
+      const planted = page.locator('[data-analysis-kpi] button').filter({ hasText: /^CA\$968\.0M/ })
+      await expect(planted).toHaveCount(1)
+      await expect(planted.locator('[data-note-letter]'), 'the planted value carries its letter').not.toHaveCount(0)
+    }
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
     // The stylesheet the build emits (E199): the data face falls back to a monospace one, with no metric-matched Arial.
     const mono = await page.evaluate(() => ({
@@ -1146,6 +1214,109 @@ const inSwissFrancs = (dataset: AnalysisDataset) => {
     for (const point of series.points) point.unit = 'CHF'
   }
 }
+
+/** Canadian Pacific's quarterly free cash flow on the latest point the series has: "CA$968.0M", calculated. */
+const withCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
+  const series = dataset.series.find(item => item.concept === 'free_cash_flow')!
+  series.unit = 'CAD'
+  for (const point of series.points) point.unit = 'CAD'
+  series.points.findLast(point => point.value != null)!.value = 968_000_000
+}
+
+/** The same value with a note that questions it, an open source conflict, so it carries a letter (D-061): 138.2px. */
+const withQuestionedCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
+  withCanadianFreeCashFlow(dataset)
+  const point = dataset.series.find(item => item.concept === 'free_cash_flow')!.points.findLast(point => point.value != null)!
+  if (point.provenance) point.provenance = { ...point.provenance, validation: 'needs_review', reasons: ['source_conflict'] }
+  else point.reconciled = false
+}
+
+/** E197: a code-prefixed value that two cards cannot hold puts the strip in one column instead of leaving its card
+ *  ("CHF 22.8B" ran 17.6px past its content box at 320px). Nine glyphs and no mark (no figure carries a dagger, D-061;
+ *  no note questions these), 129.6px at a 16px root, fit two up from 360px, where E197's dagger did not; under 200%
+ *  text the strip takes two cards at 1024px, where four cannot hold them, and four at 1480px, where they can (by 2.3px
+ *  at 0.6em, and by the rule's own half pixel where glyphs snap, so a wider card or gap moves that row). With a note's
+ *  letter, 138.2px, the same value takes one card at 360px and two at 1480px. */
+// Geometry only, so one theme: the inks are the phone marks' and the text floors' to check.
+test.describe('analysis KPI strip, long values', () => {
+  const theme = 'light' as const
+  const NINE = [[320, 1, 1], [360, 1, 2], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 4]] as const
+  const LETTERED = [[320, 1, 1], [360, 1, 1], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 2]] as const
+  for (const [name, state, edit, value, widths] of [
+    ['annual in CHF', 'annual', inSwissFrancs, 'CHF\u00a022.8B', NINE], ['quarterly in CA$', 'legacy', withCanadianFreeCashFlow, 'CA$968.0M', NINE],
+    ['quarterly in CA$, questioned', 'legacy', withQuestionedCanadianFreeCashFlow, 'CA$968.0M', LETTERED],
+  ] as const) for (const [width, textScale, columns] of widths) {
+    test.describe(`${name} at ${width}px${textScale > 1 ? ' and 200% text' : ''}`, () => {
+      test.use({ viewport: { width, height: 900 }, isMobile: width <= 390, hasTouch: width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+      test(`its widest value stays in its card on one line, ${columns === 1 ? 'one card' : columns === 2 ? 'two cards' : 'four cards'} across`, async ({ page, baseURL }) => {
+        test.setTimeout(60_000)
+        await openAnalysis(page, baseURL!, state, theme, textScale, false, edit)
+        await expect(page.locator('[data-analysis-kpi] [data-kpi-value] button').filter({ hasText: value }).first()).toBeVisible()
+        await expect(page.locator('[data-analysis-kpi] [data-kpi-value] button').filter({ hasText: value }).locator('[data-note-letter]'), 'a letter beside the value where a note questions it').toHaveCount(widths === LETTERED ? 1 : 0)
+        const geometry = await pageAndCardGeometry(page)
+        await assertKpiStrip(page, width, geometry)
+        expect(geometry.rows[0].values, 'cards across').toBe(columns)
+      })
+    })
+  }
+  test.describe('a text size set after the strip mounts', () => {
+    test.use({ viewport: { width: 390, height: 900 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    // The probes are measured again whenever they resize (KpiStrip's ResizeObserver), so a text size changed after the
+    // strip mounts gives it advances at that size; measured once, the budget would keep the old size's pixels.
+    test('measures its advances again, and its budget stays the widest value as painted', async ({ page, baseURL }) => {
+      test.setTimeout(60_000)
+      await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+      const advance = () => page.locator('[data-analysis-kpi]').first().evaluate(card => parseFloat(card.closest('dl')!.style.getPropertyValue('--kpi-figure')))
+      const before = await advance()
+      expect(before, 'the strip measured its advance').toBeGreaterThan(0)
+      await page.evaluate(async () => {
+        document.documentElement.style.fontSize = '32px'
+        await document.fonts.ready
+        await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
+      })
+      await expect.poll(advance, { message: 'the advance at a 32px root' }).toBeGreaterThan(1.9 * before)
+      const geometry = await pageAndCardGeometry(page)
+      expect(geometry.rootFontSize).toBe(32)
+      await assertKpiStrip(page, 390, geometry)
+    })
+  })
+  test.describe('the figure face', () => {
+    test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
+    // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at 1.25em. Each glyph is measured in
+    // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
+    // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
+    test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
+      test.setTimeout(60_000)
+      await openAnalysis(page, baseURL!, 'annual', theme, 1)
+      const ascii = Array.from({ length: 95 }, (_, index) => String.fromCharCode(32 + index)).join('')
+      const measure = (glyphs: string) => page.locator('[data-analysis-kpi] [data-kpi-value]').first().evaluate(async (value, glyphs) => {
+        const style = getComputedStyle(value)
+        const faces = '"EN Figure Minus", "Geist Mono"'
+        await document.fonts.load(`${style.fontWeight} ${style.fontSize} ${faces}`, glyphs)
+        await document.fonts.ready
+        const probe = value.appendChild(document.createElement('span'))
+        probe.style.cssText = `position:absolute;white-space:pre;font-family:${faces},serif`
+        const measured = [...glyphs].map(glyph => {
+          probe.textContent = glyph.repeat(10)
+          return { glyph: `U+${glyph.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`, px: Math.round(probe.getBoundingClientRect().width / 10 * 1000) / 1000 }
+        })
+        probe.remove()
+        const strip = value.closest('dl')!
+        return { size: parseFloat(style.fontSize), advance: parseFloat(strip.style.getPropertyValue('--kpi-figure')), measured }
+      }, glyphs)
+      const own = await measure(ascii + KPI_FACE_GLYPHS)
+      expect(own.measured).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
+      expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
+      expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
+      // The control depends on the fallback: where glyphs snap, a serif glyph within half a pixel of the advance would
+      // round to it. Liberation Serif's ₩ (1em) and ₫ (0.51em) and Chromium's 0.3em narrow space are far from it.
+      const missing = await measure(KPI_MISSING_GLYPHS)
+      expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
+    })
+  })
+})
 
 for (const theme of THEMES) {
   test.describe(`analysis chart axes / ${theme}`, () => {

@@ -333,8 +333,10 @@ import {
  *    floor: a form is another credential's, main's works-once phrases too, where nothing outside its clause says it
  *    again, denies or speaks of use, and its clause has that credential as its own subject with every token set apart
  *    from the clause, right after "unlike" or as the subject of a clause of its own that a contrast opens or sets
- *    apart, or where "single-use" stands before that credential's noun right after "unlike", and where the page says
- *    that noun of no token and, if it names a token, no word points back to it, anotherCredentials: "A
+ *    apart, or where "single-use" stands before that credential's noun right after "unlike", where the credential is
+ *    named as one no token is (since stage 4a: a recovery code, a magic link, a password; not a bare key, code or link,
+ *    nor an access key: namesACredential), and where the page says that noun of no token and, if it names a token, no
+ *    word points back to it, anotherCredentials: "A
  *    recovery code is single-use.", "Refresh tokens are reusable, while recovery codes cannot be reused." and "Refresh
  *    tokens are reusable, unlike single-use recovery codes." pass, "Recovery codes cannot be reused, and neither can
  *    refresh tokens.", "Refresh tokens, single-use access keys, renew your session." and "Refresh tokens are
@@ -1805,6 +1807,17 @@ const oneUseFormsIn = (block: string, sentence: string) => {
 const ONCE_OF_ANOTHER = new RegExp(BEFORE_ANOTHER_CREDENTIAL(String.raw`single[- ]use`), 'gi')
 /** A credential's noun as the head of a subject (CREDENTIAL). */
 const A_CREDENTIAL = new RegExp(String.raw`^${CREDENTIAL}$`, 'i')
+/** A credential's noun that names a credential no token is: a password, a passphrase, an OTP, a PIN, an invite. */
+const SELF_NAMED = /^(?:passwords?|passphrases?|OTPs?|PINs?|invit\w*)$/i
+/** A word of a credential's name that no token answers to: "recovery codes", "password reset links", "magic links".
+    Not the rest of CREDENTIAL_NAME ("access", "security", "auth", "authentication", "API", "login", "log-in",
+    "sign-in", "signin"), whose keys, codes and links may be the token ("access keys"). */
+const DISTINCT_NAME = /^(?:recovery|verification|backup|magic|reset|password|invite|invitation|confirmation|email|e-mail|SMS|text)$/i
+/** Whether a credential's words, its noun last, name a credential no token is (E162 stage 4a): a noun that names one
+    (SELF_NAMED), or a word of such a name before it (DISTINCT_NAME). A bare key, code or link, or an access key, may
+    be the token under a name the page gives it in words no reading reads ("Both kinds are cryptographic keys. Each key
+    works only once."). */
+const namesACredential = (words: string[]) => SELF_NAMED.test(words.at(-1) ?? '') || words.slice(0, -1).some((w) => DISTINCT_NAME.test(w))
 /** A token, named or bare ("refresh tokens", "token renewal", "each token", "access tokens"): the refresh or session
     token, or a word a sentence may name it by. */
 const A_TOKEN = /\b(?:(?:refresh|session|access|auth|bearer|api|id)[- ])?tokens?\b(?:[- ]renewal\b)?/gi
@@ -1889,10 +1902,12 @@ const afterUnlike = (tokens: Token[], j: number) => {
     unit, with a contrast opening one of the two and a predicate of its own ("Refresh tokens are reusable, while
     recovery codes cannot be reused.", "Recovery codes cannot be reused, whereas refresh tokens rotate."). Otherwise the
     form is read as main reads it ("Refresh tokens, single-use access keys, renew your session.", "..., and neither can
-    refresh tokens.", "..., but refresh tokens can."). A credential's noun the page says of a token (`said`,
-    nounsSaidOfAToken) may be the token's: "Refresh tokens are cryptographic keys. Each key works only once." and
-    "Each renewal issues a new refresh token. These keys are single-use." are read as main reads them, in one item or
-    across two. */
+    refresh tokens.", "..., but refresh tokens can."). The credential is named as one no token is (namesACredential,
+    E162 stage 4a): a bare key, code or link, or an access key, may be the token under a name the page gives it, so
+    "Each key works only once." and "Each access key works only once." are read as main reads them. A credential's noun
+    the page says of a token (`said`, nounsSaidOfAToken) may be the token's too: "Refresh tokens are backup codes. Each
+    backup code works only once." and "Each renewal issues a new refresh token. Such backup codes are single-use." are
+    read as main reads them, in one item or across two. */
 function anotherCredentials(sentence: string, at: number, said: Set<string>): boolean {
   const reading = readSentence(sentence)
   const { tokens } = reading
@@ -1918,13 +1933,13 @@ function anotherCredentials(sentence: string, at: number, said: Set<string>): bo
   const attributive = [...sentence.matchAll(ONCE_OF_ANOTHER)].find((m) => m.index === at)
   if (attributive) {
     const noun = tokenAt(at + attributive[0].length - 1)
-    if (said.has(lemma(tokens[noun]))) return false
+    if (!namesACredential(attributive[0].split(/\s+/).slice(1)) || said.has(lemma(tokens[noun]))) return false
     // A phrase that names a token says the noun beside it of the token, refused above (nounsSaidOfAToken).
     if (unlikePhrase(k, noun)) return true
     // Outside an "unlike" phrase, it is read as a form said of its unit's subject only where it stands in that subject.
     if (!subject || k < subject.start || k >= subject.end) return false
   }
-  if (!subject || !A_CREDENTIAL.test(subject.head.text) || said.has(lemma(subject.head))) return false
+  if (!subject || !A_CREDENTIAL.test(subject.head.text) || !namesACredential([...subject.premodifiers.map((t) => t.text), subject.head.text]) || said.has(lemma(subject.head))) return false
   return mentions.every(([j, named]) => {
     if (inUnit(own, j)) {
       const apart = unlikePhrase(j, named)
@@ -3784,9 +3799,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // Set beside the token, "one-time" before a credential's noun is that credential's too, as on main
       // (ONE_TIME_OF_ANOTHER); E162's stage 4 keeps the gap.
       ['<li>Refresh tokens, one-time access keys, renew your session.</li>', 'gap'],
-      // A noun the page says of the token in words the family does not read as standing for it is another credential's,
-      // though main refuses the claim; E162's stage 4 keeps the gap.
-      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are cryptographic keys. Each key works only once.</li>', 'gap'],
+      // A page that names the token as a credential no token is, in words no reading reads, passes, though main refuses
+      // the claim (E162 stage 4a). No page would call refresh tokens backup codes, so E162's row records the gap as
+      // accepted.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are backup codes. Each backup code works only once.</li>', 'gap'],
       // The items as they read now, and look-alikes, which pass.
       ['<li><strong>Token renewal:</strong> The session token expires after 30 minutes and is renewed from a refresh token that lasts 30 days. Each renewal replaces the refresh token with a new one, and refresh tokens are stored only as hashes.</li>', false],
       ['<li><strong>Logging out:</strong> Logging out revokes the refresh token your browser sends with it. Logging out of all devices, from your account settings, revokes every refresh token your account holds at that moment, and so does changing or resetting your password. None of these revokes a session token already issued.</li>', false],
@@ -3911,12 +3927,38 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Recovery codes expire, unlike access keys, your session tokens. Each access key works only once.</li>', true],
       ['<li>Recovery codes rotate, unlike refresh tokens, which are cryptographic keys. Each key works only once.</li>', true],
       ['<li>Recovery codes rotate, unlike refresh tokens. The latter are cryptographic keys. Each key works only once.</li>', true],
+      // E162 stage 4a: a bare key, code or link, or an access key, names no credential the token cannot be, so a
+      // one-use form on it is read as main reads it, whatever the page says of it: #1630's gap ("Both kinds are
+      // cryptographic keys."), the same with access keys, and a key the page never names.
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are cryptographic keys. Each key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. Both kinds are access keys. Each access key works only once.</li>', true],
+      ['<li>Refresh tokens rotate. Each key works only once.</li>', true],
+      // ... and a token stays the token under any name before it, as its own subject (CREDENTIAL).
+      ['<li>Unlike passwords, email session tokens are single-use.</li>', true],
+      // ... while a noun that names a credential itself keeps its excuse (SELF_NAMED).
+      ['<li>Unlike refresh tokens, passwords cannot be reused.</li>', false],
+      // ... and the token's aliases above under a credential's name no token answers to, which only the page's reading
+      // of its nouns refuses.
+      ['<li>Refresh tokens are backup codes. Each backup code works only once.</li>', true],
+      ['<ul><li>Refresh tokens are backup codes.</li><li>Each backup code works only once.</li></ul>', true],
+      ['<li>Refresh tokens rotate, but are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate, although they are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate. They are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Refresh tokens rotate, but we call them backup codes. Each backup code works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Such backup codes are single-use.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes are reusable, unlike these single-use reset links.</li>', true],
+      ['<li>Refresh tokens are backup codes. Each backup code is a recovery key. Each recovery key works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens. The latter are backup codes. Each backup code works only once.</li>', true],
+      ['<li>Recovery codes rotate, unlike refresh tokens (backup codes). Each backup code works only once.</li>', true],
+      ['<li>Each renewal issues a new refresh token. Recovery codes stand in for the single-use backup codes.</li>', true],
       // The costs: "and" or a semicolon sets nothing apart, "single-use" before a credential's noun outside an "unlike"
-      // phrase is read as said of its clause's subject, and a noun beside the token in its "unlike" phrase stands for it
-      // beside the credential the phrase sets apart, so these fail as on main though the token is not one-use.
+      // phrase is read as said of its clause's subject, a noun beside the token in its "unlike" phrase stands for it
+      // beside the credential the phrase sets apart, and a bare key after "unlike" names no other credential, so these
+      // fail as on main though the token is not one-use.
       ['<li>Recovery codes cannot be reused, and refresh tokens rotate.</li>', true],
       ['<li>Use a single-use recovery code.</li>', true],
       ['<li>Recovery codes cannot be reused, unlike refresh tokens (cryptographic keys).</li>', true],
+      ['<li>Refresh tokens are reusable, unlike single-use keys.</li>', true],
       // A negation with an adverbial phrase between it and the verb, with no commas (#1456's fifth round, Codex's
       // thread 4336218364), up to four words, and past them with commas.
       ['<li>Logging out does not by itself end your other sessions.</li>', false],
