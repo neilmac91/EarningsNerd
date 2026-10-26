@@ -1,10 +1,12 @@
-# DeepSeek flash's error gap: diagnosis and plan
+# DeepSeek flash's error gap: diagnosis, plan and results
 
-Plan for the "AI trend analysis" in Multi-Period Analysis, 25 October 2026. Branch `claude/trend-analysis-depth-eval`.
+Plan for the "AI trend analysis" in Multi-Period Analysis, 25 October 2026, with the experiment's results of
+26 October (§5). Branch `claude/trend-analysis-depth-eval`.
 
 **Decision (founder, 2026-10-25):** stay on DeepSeek flash. Claude Sonnet 5.5 is not adopted: it cost about
 30 times as much ($0.21 against $0.007 an analysis) and took about a minute instead of 10 seconds. This
-document explains why DeepSeek's error rate runs higher and how to close the gap at DeepSeek's cost.
+document explains why DeepSeek's error rate runs higher and how to close the gap at DeepSeek's cost. §5 reports
+what the experiment found and recommends what to adopt.
 
 **How it was made:** five analysts each took one error class (first-try gate failures, mislabelled numbers,
 calibration, errors the judge named, and held-out robustness with settings). Each traced every recorded
@@ -21,6 +23,34 @@ were dropped or corrected (§1.8). No model was called.
 No model was called and no repository file was changed to write this.
 
 ## Summary
+
+**Outcome (26 October, §5).** The candidate C was frozen after two development rounds. It is pack version 2, the
+candidate prompt and the version-2 repair loop. It ran twice on the 10 held-out companies beside the frozen
+configuration (K0) and the version-1 procedure that the founder's decision priced (the production control).
+- **Met, at about today's cost and wait time:**
+  - **Cost and wait:** $0.0065–0.0067 an analysis and a p90 of 12.5–12.8 s. The production control took $0.0071 and
+    17.8 s.
+  - **The gate:** every C output passed after at most one repair.
+  - **Broken net cash:** none stated as fact. K0 stated it in 8 of 12 analyses of companies with a data break.
+  - **Calibration:** interpretation marked as judgement (11.6% of sentences outside the watch list, against K0's
+    1.0%); no evaluative words in data sentences; no forecasts in watch items.
+  - **The judge** preferred C overall, 10 pairs to 5.
+- **Not resolved:**
+  - **Wrong metric, period or sign.** Read by hand, C's final text says a verified number about the wrong metric,
+    period or sign 3.6 times per 1,000 verified claims. K0 does so 3.4 times and the control 4.1 (Sonnet 1.4 in
+    eval-v1). That is no measurable change.
+  - **First try:** 45% of C's analyses passed without a repair (target 85%).
+  - **Depth:** K0 won depth in 9 of 20 pairs (limit 5).
+  - **p50:** 12.0 s in one run (target 10.5 s).
+- **Recommendation, a proposal for the founder** (§5.10):
+  - Once the founder approves the grounding rule, adopt C with a per-attempt deadline on each DeepSeek call.
+  - Then add deterministic checks for the errors that remain, starting with "above or below a reference level" and
+    the bank profile.
+
+  Nothing in production has changed. The peak-hour latency run (`eval-v2-peak`) is scheduled for 2026-10-27
+  06:05 UTC and has not run.
+
+**Diagnosis (25 October, §1–§3):**
 
 - **DeepSeek really does make more errors, but the gap is narrower and more specific than the headline.** On the frozen prompt across the 25 recorded generations:
   - **First-try gate failures.** DeepSeek has 17 real ones, Sonnet 1. The gate is the deterministic fact-check of every number. Sonnet's other first-try failures were all errors of the gate itself.
@@ -40,7 +70,7 @@ No model was called and no repository file was changed to write this.
   - Pack additions: an operating cash flow / net income median and low, net-debt wording, and suppressing net cash that is built on broken debt.
   - A few prompt lines in the cached system prompt.
   - **Expected cost and latency:** about the same or lower ($0.006–0.007 per analysis). p50 stays at about 9–10 s. p90 should fall from 16 s to about 10–13 s, because fewer and shorter repairs are needed.
-- **Proof:** measure on the development half first and then the held-out half, with two generated runs per configuration. Deterministic metrics come first, then the Opus auditor and judge. Expected spend is about $2.1–2.5 of DeepSeek (at most about $4.3) and $30–43 of Opus (§3).
+- **Proof:** measure on the development half first and then the held-out half, with two generated runs per configuration. Deterministic metrics come first, then the Opus auditor and judge. Expected spend is about $2.1–2.5 of DeepSeek (at most about $4.3) and $30–43 of Opus (§3). Spent: $2.65 of DeepSeek and $48.34 of Opus at the CLI's notional rates (§5.1).
 
 ---
 
@@ -1005,6 +1035,612 @@ an audit grew with its input instead, step 0 would cost about $7.2.
 
 ---
 
+## 5. Results
+
+The experiment of §3 ran on Monday 26 October 2026. Every number below names its source:
+- the reports, `runs/<label>/REPORT.md` and `summary.json`, whose counts are before hand reading, and the pooled
+  reports in `runs/<a>+<b>/`;
+- the spend ledger, `runs/spend.jsonl`;
+- two hand readings made for this section, with no model call:
+  - **the mislabel reading** read all 98 mislabel items that the reports list for K0, C and the control (52
+    counted and 46 "not counted"), each against its record and the pack its arm reads;
+  - **the failure, depth and latency reading** classified every first-try failure of eval-v2, read the 17 pairs in
+    which the Opus judge gave K0 depth over C, and timed every recorded DeepSeek call.
+
+Their working files are not committed (see Evidence). This branch changes no production code, and nothing in this
+section is implemented in production.
+
+**Arms** (§3, step 2):
+
+| Arm | Prompt | Pack |
+|---|---|---|
+| K0 | frozen, `d558d371` | `packs/` |
+| P | frozen | `packs-v2/` |
+| Q | candidate | `packs/` |
+| C | candidate | `packs-v2/` |
+
+- All four run under `--pipeline v2`: the retyping, the gate with its backstops, one patch repair (or a full repair
+  if the patch is unusable), then the fallback.
+- **The production control** is `eval-v2-v1control`: K0 under `--pipeline v1`. That is eval-v1's procedure (the gate
+  without backstops, one full repair), the procedure behind the founder's "about $0.007 and 10 seconds".
+- Production itself still runs today's code-written narrative (REPORT.md §1).
+
+### 5.1 What ran, and what it cost
+
+| Label | Step | What ran | Analyses | Start (UTC, 26 Oct) |
+|---|---|---|---|---|
+| `eval-v1-view2` | 0 | Opus re-audited eval-v1's 20 DeepSeek and 20 Sonnet outputs under view 2. No generation | 40 audits | committed 08:26 |
+| `step1-r1` | 1 | The patch repair, twice each, on the 21 recorded DeepSeek first passes that version 2 still repairs | 42 repairs | 10:02, off-peak |
+| `dev-v5-r1`, `dev-v5-r2` | 2, round 1 | K0, P, Q and C on the 10 development companies, with candidate `05f799a8` | 80 | 10:03 and 10:14, off-peak |
+| — | round 2 | Six candidate lines and gate rule G1, from dev-v5's first-try failures. No model call (§2, "As built") | — | — |
+| `dev-v6-r1`, `dev-v6-r2` | 2, the one further round | The same four arms, with candidate `fc5b808c` | 80 | from 15:19, off-peak |
+| `eval-v2-r1`, `eval-v2-r2` | 3 | K0 and C, frozen at `fc5b808c` and the gate of 3115165, on the 10 held-out companies | 40 | from 16:11, off-peak |
+| `eval-v2-v1control` | 3, added | The production control on the 10 held-out companies, the same evening | 10 | 16:40, off-peak |
+| `eval-v2-peak` | 4 (harness README) | C, one held-out run inside DeepSeek's peak window, for latency only | — | **scheduled for 2026-10-27 06:05 UTC, not yet run** |
+
+- The start times come from the runs' commit messages.
+- Every generation finished. No generation failed, no repair is owed and there was no provider error (each report's
+  rows).
+- **Audits.** Opus audited every K0, C and control output: the semantic audit under view 2, and the cause audit.
+  DeepSeek V4 Pro audited K0 and C as the second auditor.
+- **Judge.** The Opus judge compared C with K0 in both orders in every development and held-out run.
+- P and Q have deterministic measures only, as §3 planned.
+
+**Spend** (`runs/spend.jsonl`). The ledger's audit rows carry no label. Each is assigned by its place in the ledger,
+between a run's generation rows and its judge rows. The first 40 rows are step 0's and the last 20 are the
+control's audits.
+
+| Label | DeepSeek flash | DeepSeek V4 Pro (second auditor) | Opus through `claude -p` (notional) |
+|---|---|---|---|
+| Step 0 (`eval-v1-view2`) | — | — | $6.18 (40 semantic audits) |
+| Step 1 (`step1-r1`) | $0.02 (42 patches) | — | — |
+| dev-v5, 2 runs | $0.54 | $0.43 | $13.59 |
+| dev-v6, 2 runs | $0.54 | $0.42 | $13.44 |
+| eval-v2, 2 runs | $0.27 | $0.42 | $13.13 |
+| Control | $0.02 | — | $2.01 |
+| **Total** | **$1.39** | **$1.26** | **$48.34** |
+
+- **DeepSeek: $2.65 billed.** §3 estimated about $2.1–2.5, and at most about $4.3. The peak run is not in the
+  ledger yet; §3 prices it at about $0.14.
+- **Opus: $48.34**, at the CLI's notional rates. It runs on the Claude subscription, not the API key. §3 estimated
+  about $30–43. Most of the difference has two sources:
+  - the second development round audited and judged all of K0 and C ($13.44, against the $8.9 planned for an
+    optional round of 20 analyses);
+  - the control's audits ($2.01) were not in the plan.
+- **The control's DeepSeek bill is not its cost.** It recorded $0.0020 an analysis (`summary.json`,
+  `cost_recorded_mean`). Version 1 sends no nonce, so the control's prompts read from cache the packs that earlier
+  runs had sent. The report prices each analysis as a company's first analysis would bill: $0.0071.
+
+**Step 1, the patch repair alone** (`runs/step1-r1/repair-replay/summary.json`):
+- 42 patch repairs, with 0 provider errors and 0 falling back to a full repair;
+- every untouched sentence kept byte for byte in 42 of 42;
+- 37 of 42 pass the gate after one patch;
+- latency p50 2.5 s and p90 3.2 s, at $0.00054 a repair. A full repair takes about 6.5 s and costs $0.00145 (§1.1).
+
+### 5.2 The held-out result
+
+The rows of §3's Measures table. Two rows are read by hand:
+- **the real first-try gate errors**, by the failure reading. They are the gate's failures on the model's own first
+  output, less the gate's false positives;
+- **the real mislabels**, by the mislabel reading.
+
+Every other value is printed by `runs/eval-v2-r1`, `runs/eval-v2-r2`, their pooled report and
+`runs/eval-v2-v1control`. The pooled latencies come from the failure reading, as the pooled report prints none.
+
+| Measure | Target for C | C: run 1 · run 2 (pooled) | C against target | K0: run 1 · run 2 (pooled) | Production control (one run) |
+|---|---|---|---|---|---|
+| Passes without a model repair | at least 85% pooled; no run below 80% | 60% · 30% (45%) | **missed** | 20% · 40% (30%) | 50% under version 1's gate; 30% on the arms' basis (VRTX's and DUK's first passes also carry backstop hits) |
+| Final outputs passing the gate after one repair (the rest fall back) | — | 10 · 10 of 10 | — | 9 · 9 of 10 (CVX in both) | 9 of 10 |
+| Real first-try gate errors per analysis (failure reading) | 0.15 or less | 0.70 · 0.70 (0.70); printed 0.70 · 0.90 | **missed** | 1.00 · 0.70 (0.85); printed 1.30 · 0.70 | printed 0.60; not read by hand |
+| First-try backstop hits per analysis | — | 0.00 · 0.10 (0.05) | — | 0.20 · 0.70 (0.45) | 0.40 |
+| Repairs sent for broken net cash alone | — | 0 of 4 · 0 of 7 | — | 0 of 8 · 0 of 6 | 0 of 5 |
+| Mislabels per 1,000 verified claims, probes alone | — | 0.0 · 0.0 | — | 0.0 · 0.0 | 4.1 (3 in 735) |
+| Real mislabels per 1,000 verified claims (mislabel reading) | 3.5 or less in each run | 5.9 · 1.4 (3.6: 5 in 1,405); printed 7.4 · 2.7 | **missed** in run 1 | 1.3 · 5.5 (3.4: 5 in 1,478); printed 4.0 · 5.5 | 4.1 (3 in 735); printed 5.4 |
+| Judgement share outside the watch list | 3–12% | 12.0% · 11.2% (11.6%) | met | 1.1% · 0.8% (1.0%) | 0.8% |
+| Evaluative words in fact and comparison sentences | 3% or less | 0.0% · 0.0% | met | 5.6% · 3.5% (4.6%) | 5.4% |
+| Watch items with forecast wording, per 60 | 2 or fewer | 0 · 0 | met | 4.0 · 8.0 (6.0) | 2.0 |
+| Unsigned falls (U1) | 0 (guard) | 0 · 0 | met | 0 · 0 | 1 (VRTX) |
+| Unitless dollars; margin-gap direction | — | 0; 0 | — | 0; 0 | 0; 0 |
+| Broken net cash stated as fact | 0 | 0 of 6 · 0 of 6 (5 and 3 disclosed) | met | 4 of 6 · 4 of 6 | 4 of 6 |
+| Sentences stating a broken figure | 0 | 0 · 0 | met | 9 · 10 | 10 |
+| Version-1 peer ranks on a peer's broken year | — | 0 · 0 | — | 2 · 3 | 3 |
+| Cause support, Opus: supported; unsupported | at least 72%; at most 2% (guard) | 71% · 69% (70%); 0% | **missed** (supported) | 70% · 78% (74%); 2% · 0% | 68%; 0% |
+| Cause sentences per analysis | at least 6 (guard) | 5.2 · 5.2 | **missed** | 5.6 · 6.3 (6.0) | 6.9 |
+| Judge, C against K0: grounding and calibration each won or tied in the same pair | C on at least 12 of 20 | 7 · 9 of 10 (16 of 20) | met | 5 · 2 of 10 (7 of 20) | not judged |
+| Judge: pairs in which K0 won depth | no more than 5 of 20 | 4 · 5 (9 of 20) | **missed** | — | not judged |
+| Words per analysis, mean (max) | 700 or fewer | 589 (700) · 619 (689) | met | 626 (707) · 613 (762) | 634 (787) |
+| Sentences per analysis, mean (max) | 30 or fewer | 29.7 (30) · 29.8 (31) | met on the mean; one analysis has 31 | 29.1 (30) · 29.1 (30) | 29.2 (31) |
+| Analyses with all 7 sections | all | 10 · 10 of 10 | met | 10 · 10 of 10 | 10 of 10 |
+| API list cost per analysis, off-peak | at most $0.0075 | $0.0065 · $0.0067 | met | $0.0068 · $0.0067 | $0.0071 |
+| Latency p50 (s) | at most 10.5 | 10.1 · 12.0 (11.2) | **missed** in run 2 | 12.3 · 11.3 (11.8) | 12.8 |
+| Latency p90 (s) | at most 13 | 12.5 · 12.8 (12.5) | met | 13.7 · 613.7 (74.5; 14.1 with each stall's 600 s taken out) | 17.8 |
+| Latency at peak hours (`eval-v2-peak`) | the same targets | scheduled for 2026-10-27 06:05 UTC, not yet run | open | — | — |
+| Logic slips (probe measures, read by hand) | — | 0 · 0 | — | 1 · 0 | 0 |
+
+- **C missed seven of its targets and guards:**
+  - passes without a repair;
+  - real first-try errors;
+  - real mislabels in run 1;
+  - cause support;
+  - cause count;
+  - depth;
+  - p50 in run 2.
+- **The stopping rule** (§3, "When to stop"):
+  - The held-out half ran once, and nothing was changed after its results.
+  - C missed by more than it did on development. Passes fell from dev-v6's 60% to 45%, and first-try gate failures
+    rose from a printed 0.35 to 0.80 per analysis. So this is reported, and the candidate is not tuned on these
+    companies.
+
+**The judge on the held-out half** (the overall verdict from each run's report, the criteria from the pooled report;
+both orders agreeing; K0 wins · C wins · ties or splits):
+
+| Criterion | eval-v2-r1 | eval-v2-r2 | Pooled |
+|---|---|---|---|
+| Overall | 3 · 4 · 3 | 2 · 6 · 2 | 5 · 10 · 5 |
+| Grounding | 3 · 5 · 2 | 1 · 5 · 4 | 4 · 10 · 6 |
+| Calibration | 2 · 4 · 4 | 0 · 8 · 2 | 2 · 12 · 6 |
+| Depth | 4 · 0 · 6 | 5 · 1 · 4 | 9 · 1 · 10 |
+| Coverage | 3 · 0 · 7 | 3 · 2 · 5 | 6 · 2 · 12 |
+| Clarity | 4 · 1 · 5 | 2 · 1 · 7 | 6 · 2 · 12 |
+
+**Against eval-v1.** The same 10 held-out companies, read under view 2:
+- `eval-v1-view2`'s report prints 9 DeepSeek mislabels in 711 verified claims (12.7 per 1,000), and 1 of Sonnet's in
+  724 (1.4).
+- Step 0's hand reading (its commit, e4ba4cd) found 16 of DeepSeek's 18 flags over the 20 companies real. The two
+  false ones are RIVN's and KO's, both held out, which leaves 7 in 711: 9.8 per 1,000.
+- Today K0 reads 3.4, C 3.6 and the production control 4.1. The control repeats eval-v1's configuration, so the
+  fall from eval-v1 is between days or runs, not between arms.
+- Two readers did these readings, so the comparison is approximate. At this sample size a twofold spread between two
+  runs of one configuration is the noise floor.
+- **Calibration against Sonnet.** On the same held-out companies, `eval-v1-view2` prints Sonnet's judgement share at
+  3.8%, its evaluative words at 2.6% and its watch forecasts at 2.0 per 60. C's 11.6%, 0.0% and 0 are within §3's
+  targets, where Sonnet's were. No judge compared C with Sonnet: §3's optional pairing was not run.
+
+### 5.3 The development rounds and the four arms
+
+Pooled over each round's two runs (`runs/dev-v5-r1+dev-v5-r2`, `runs/dev-v6-r1+dev-v6-r2`). The real mislabel rates
+are the mislabel reading's; P and Q have no Opus audit.
+
+| Measure | K0 v5 | P v5 | Q v5 | C v5 | K0 v6 | P v6 | Q v6 | C v6 |
+|---|---|---|---|---|---|---|---|---|
+| Passes without a model repair (run 1 · run 2) | 15% (1 · 2) | 15% (2 · 1) | 10% (1 · 1) | 35% (5 · 2) | 30% (3 · 3) | 30% (4 · 2) | 15% (2 · 1) | 60% (7 · 5) |
+| First-try gate failures per analysis, printed | 0.70 | 0.90 | 0.80 | 0.45 | 0.80 | 0.75 | 1.15 | 0.35 |
+| First-try backstop hits per analysis | 0.65 | 0.55 | 0.95 | 0.70 | 0.65 | 0.30 | 0.55 | 0.25 |
+| Mislabels per 1,000, probes alone | 1.3 | 0.7 | 0.0 | 0.0 | 0.7 | 0.0 | 0.7 | 0.0 |
+| Real mislabels per 1,000 (mislabel reading) | 6.0 | — | — | 6.8 | 4.1 | — | — | 5.6 |
+| Judgement share outside watch | 1.5% | 0.6% | 10.1% | 11.1% | 2.5% | 1.5% | 9.8% | 10.4% |
+| Evaluative words | 3.1% | 4.0% | 1.0% | 1.0% | 4.4% | 5.6% | 1.6% | 1.0% |
+| Watch forecasts per 60 | 3.0 | 10.0 | 0.0 | 0.0 | 5.0 | 5.0 | 1.0 | 0.0 |
+| Sentences stating broken net cash | 9 | 0 | 10 | 0 | 11 | 0 | 11 | 0 |
+| Cause sentences per analysis | 6.8 | 7.0 | 5.7 | 5.8 | 7.2 | 6.8 | 5.7 | 5.8 |
+| Cause support, Opus | 75% | — | — | 83% | 74% | — | — | 85% |
+| Latency p50, run 1 · run 2 (s) | 14.2 · 15.9 | 14.5 · 16.2 | 14.2 · 16.0 | 12.8 · 15.5 | 14.0 · 13.8 | 13.8 · 14.3 | 12.9 · 14.7 | 10.5 · 13.4 |
+| Cost per analysis | $0.0068 | $0.0068–0.0069 | $0.0068–0.0069 | $0.0067–0.0068 | $0.0067 | $0.0067–0.0068 | $0.0068–0.0069 | $0.0066 |
+
+The judge, C against K0 (K0 wins · C wins · ties or splits):
+
+| Round | Overall | Depth | Grounding and calibration each won or tied: K0 · C |
+|---|---|---|---|
+| dev-v5 | 2 · 12 · 6 | 11 · 0 · 9 | 2 · 18 of 20 |
+| dev-v6 | 3 · 8 · 9 | 8 · 1 · 11 | 4 · 18 of 20 |
+
+On the round-2 gate, C's dev-v5-r1 gate failures fall from 0.30 to 0.20, one sentence on CAT (§3's note on round 2).
+The table prints the reports as committed.
+
+**What each half of the candidate did** (P against K0 shows the pack; Q against K0 shows the prompt):
+- **The pack, version 2:**
+  - It removed broken net cash stated as fact: 0 sentences for P and C in every run, against 9–11 per round for K0
+    and Q.
+  - It removed the version-1 peer ranks built on broken years (P 0, K0 8 per round).
+  - It halved the backstop hits in dev-v6 (P 0.30 against K0's 0.65), but not in dev-v5 (0.55 against 0.65).
+  - Alone, it did not lower first-try gate failures (P 0.90 and 0.75, against K0's 0.70 and 0.80).
+  - It did nothing for calibration. P's watch forecasts are the worst of the four arms (10.0 and 5.0 per 60).
+- **The prompt, the candidate:**
+  - It moved calibration on either pack: judgement 9.8–11.1%, evaluative words 1.0–1.6%, watch forecasts 0–1
+    per 60.
+  - On `packs/` it raised the first-try failures: Q's backstop hits were 0.95 in dev-v5, and its gate failures 1.15
+    in dev-v6. Q's passes were the lowest of the four arms (10% and 15%).
+  - The likely reason is that its lines are written for version 2's pack: the net-debt wording and the typical
+    operating cash flow / net income level are there, not in `packs/`. Q's backstop hits, in each run's list, are
+    mostly R1 (another ratio's reference level) and R2a (a minus sign under net debt).
+  - It cost causes: 5.7–5.8 cause sentences per analysis for Q and C, against 6.8–7.2 for K0 and P. The prompt costs
+    depth, not the pack.
+- **Together (C):** C is the only arm whose first try improved. Its gate failures were 0.45 and 0.35, and it passed
+  35% and 60% of analyses. It kept Q's calibration and P's clean net cash.
+
+**Round 2** (dev-v5 to dev-v6; C's prompt changed, and K0 changed only by G1):
+- **C improved:**
+  - passes went from 35% to 60%;
+  - gate failures from 0.45 to 0.35;
+  - backstop hits from 0.70 to 0.25;
+  - depth lost from 11 to 8 pairs;
+  - real mislabels from 6.8 to 5.6 per 1,000.
+- **K0 improved too, with no change of its own.** Its passes went from 15% to 30% and its real mislabels from 6.0
+  to 4.1. The round-2 replay flipped no K0 sentence (§2, "As built"). So part of C's improvement is run-to-run
+  variation.
+- **Lines that did not hold** (from the two readings):
+  - "Above or below a reference, by its numbers": C still wrote COST's "1.71x … above the 1.75x window median" in
+    dev-v6-r1, and NVDA's "60.4% … above the 62.4% window high" in dev-v6-r2.
+  - "No operating-cost comparison without the gap value" (P2): C wrote one in all 6 analyses of the three companies
+    without that value (COP and JPM in dev-v6, USB in eval-v2). Both JPM sentences have the wrong direction.
+  - "The efficiency ratio's complement" is new in both dev-v6 runs, and wrong in both.
+  - "Give the stated cause" left C's cause count at 5.8 per analysis on development, and 5.2 on held out.
+  - "Both margins from that one year": C mixed years on DE in both held-out runs. It was caught first try in
+    run 2, and is a mislabel in run 1's final output.
+- **A line that held on development only:** the net-debt line (P1) took C's net-debt sign errors from 2 to 0 on the
+  development half. KO's "net debt was $32.4 billion, -70.7% of revenue" in eval-v2-r2 is one more.
+
+### 5.4 Mislabels, read by hand
+
+**Verdicts:**
+- **Counted:** 46 of the 52 counted items are real errors.
+- **The 6 false counted items:**
+  - SNAP's "$2.6bn": the level is $2.6bn too;
+  - RIVN's 75th percentile;
+  - three "80%" red-flag thresholds (ORCL K0, KO C, DUK C), which the gate verified through an unrelated computed
+    bound, so Opus judged that match, not the sentence;
+  - the control's DUK "-0.62x", which is correctly labelled. Counted the way §1.2 counted CAT's similar sentence,
+    it would make the control's rate 5.4.
+- **Not counted:** all 46 "not counted" Opus flags are false (twin values, bounds, or the gate's own match misread),
+  so the classifier's class held.
+- **Minor errors** are sentences that are wrong as written but still give a careful reader the right picture: a sign
+  under "net debt", the rounding of a difference, an ambiguous phrase, a one-year slip between nearly equal values.
+
+**Real errors per 1,000 verified claims, per run.** The verified claims are each report's `audited_verified_claims`.
+
+| Arm | dev-v5-r1 | dev-v5-r2 | dev-v6-r1 | dev-v6-r2 | eval-v2-r1 | eval-v2-r2 | Runs at 3.5 or less |
+|---|---|---|---|---|---|---|---|
+| K0 | 8.0 | 3.9 | 1.4 | 6.9 | 1.3 | 5.5 | 2 of 6 |
+| C | 11.2 | 2.7 | 6.8 | 4.4 | 5.9 | 1.4 | 2 of 6 |
+| Production control | — | — | — | — | 4.1 (its one run) | — | — |
+
+| Pool | K0 | C | Control |
+|---|---|---|---|
+| Development, 4 runs | 15 in 2,963 (5.1); 3.7 with minor errors left out | 18 in 2,886 (6.2); 4.5 | — |
+| **Held out, 2 runs** | **5 in 1,478 (3.4); 2.7** | **5 in 1,405 (3.6); 2.1** | **3 in 735 (4.1); 2.7** |
+| All 6 runs | 20 in 4,441 (4.5) | 23 in 4,291 (5.4) | — |
+
+Each held-out figure rests on 3 to 5 sentences, so none of the three can be told from the others.
+
+**Error classes among the real errors** (six runs for K0 and C, one for the control):
+
+| Class | K0 | C | Control |
+|---|---|---|---|
+| A. Above or below a reference level (window median, high or low, or peer median) | 2 | 6 (1 minor) | 0 |
+| B. Another ratio's reference level (the free-cash-flow median used for operating cash flow / net income) | 3 | 0 | 1 |
+| C. Period slips | 2 | 4 (2 minor) | 0 |
+| D. Passage figures misattributed (wrong year or basis, wrong line, a change stated as a level) | 5 | 2 | 1 (minor) |
+| E. A minus sign under net debt, or net cash's sign dropped | 3 (all minor) | 3 (all minor) | 1 |
+| F. Sign or direction of another value | 2 (DE twice) | 1 (CVX) | 0 |
+| G. Wrong metric (a component named as the total) | 1 (USB) | 1 (RIVN) | 0 |
+| Bank profile (JPM): cost against revenue in the wrong direction (3); "the efficiency ratio's complement" (2) | 0 | 5 | 0 |
+| H. Rounding of a difference | 2 (minor) | 0 | 0 |
+| I. Label slip on a recast value | 0 | 1 (minor) | 0 |
+| **Total** | **20 (5 minor)** | **23 (7 minor)** | **3 (1 minor)** |
+
+- **C fixed class B.** Version 2's operating cash flow / net income median works: there were 3 for K0 on
+  development and 1 for the control, and none for C. C also misread fewer passages (2 against K0's 5).
+- **C added class A and the bank errors.**
+  - Five of C's six class-A errors are against version 2's new operating-cash-flow medians or window levels. COST's
+    "1.71x above the 1.75x median" is in 3 of 4 development runs. There are none on the held-out half.
+  - All five bank errors are JPM's, on the development half. C also wrote USB's operating-cost comparison in
+    eval-v2-r2, with the right sign.
+- **Net-debt signs persist equally** (3 for K0, 3 for C, all minor). Probe R2a misses 4 of the 6 "minus sign under
+  net debt" sentences, because it takes "net cash" anywhere earlier in the sentence as the label (the `probes.py`
+  docstring). R2a is also the gate's backstop, so what it misses reaches the final outputs; Opus found these.
+- **Held out, C's 5 errors fall in 5 different classes:** VRTX I, RIVN G, CVX F, DE C and KO E. K0's 5 are DE F
+  twice, RIVN D, USB G and ORCL E. No class holds more than one of C's.
+
+### 5.5 First-try failures and the repair (eval-v2)
+
+The failure reading ran the gate with its backstops on each model's own first output. Its counts match the reports:
+K0 has 20 gate claims and 9 backstop claims over the two runs, and C has 16 and 1.
+
+It sorts each failing claim into one of three kinds:
+- **True error:** the pack supports the right sentence, and the model miscited, miscomputed, cut a figure or guessed a
+  cause.
+- **Prompt-induced:** a slot or example in the arm's prompt asks for what its pack cannot supply, or copying the
+  prescribed form produces the failure.
+- **False positive:** a true, grounded sentence the gate cannot read.
+
+| | K0 run 1 | K0 run 2 | C run 1 | C run 2 | K0 | C |
+|---|---|---|---|---|---|---|
+| True error | 9 | 4 | 5 | 4 | 13 | 9 |
+| Prompt-induced | 3 | 10 | 2 | 4 | 13 | 6 |
+| False positive | 3 | 0 | 0 | 2 | 3 | 2 |
+| Analyses failing first try | 8 | 6 | 4 | 7 | 14 of 20 | 11 of 20 |
+| Final outputs passing the gate | 9 | 9 | 10 | 10 | 18 | 20 |
+
+**K0's prompt-induced failures** are the input gaps C was built to fix:
+- net-debt signs (8);
+- the typical operating cash flow / net income level (2);
+- the 100% payout threshold (3).
+
+C had none of the first two kinds.
+
+**C's prompt-induced failures** have four sources:
+- the drivers form on USB, which has no gap value (2);
+- buybacks as a share of ORCL's negative free cash flow (2);
+- the margin example's FY2025 frame on DE (1);
+- the 100% threshold (1).
+
+No pack ID holds the 100% threshold, so it failed in all 4 first tries that wrote it (3 by K0, 1 by C). In each, the
+repair swapped in some year's payout level, and the "self-funded" meaning was lost.
+
+**C's 9 true errors:**
+- 5 figures without their own ID, 4 of them a red flag's figure;
+- 2 wrong IDs;
+- 2 figures cut instead of rounded.
+
+With every prompt-induced failure and false positive removed, C would pass first try in only 6 of 10 per run (60%),
+against the 85% target.
+
+**The repair:**
+- The patch repair fixed 15 of C's 17 failing claims cleanly. The other two:
+  - VRTX's buyback figure became "the restatement" (a run-1 mislabel);
+  - USB's "fell 6.4pp more than revenue" passes the gate, but revenue rose.
+- All 20 of C's final outputs pass the gate.
+- Two of K0's do not (CVX, both runs), so in production they would fall back to today's narrative.
+
+### 5.6 Depth
+
+The failure reading read the 17 pairs in which K0 won depth in eval-v2 (9) and dev-v6 (8), against a limit of 5 per
+split. In those 17 pairs the judge's overall verdict was C 8, K0 5, ties 4.
+
+| In the 17 pairs | K0 | C |
+|---|---|---|
+| Cause sentences, all 17 analyses | 118 | 98 |
+| Cause audit of those: supported / partial / unsupported | 88 / 29 / 1 (75% supported) | 81 / 17 / 0 (83%) |
+| Causes in the margins section, per analysis (eval-v2 / dev-v6) | 1.9 / 2.2 | 1.1 / 1.4 |
+| Red-flag sentences, per analysis | 3.9 / 3.8 | 5.9 / 5.0 (of which judgements 2.9 / 2.5) |
+| Words, per analysis | 652 / 665 | 598 / 608 |
+| Passages cited, per analysis | 7.9 / 9.5 | 6.2 / 7.0 |
+| Peer sentences, per analysis | 2.0 / 1.8 | 1.2 / 1.9 |
+| Segment or product sentences, per analysis | 3.0 / 2.4 | 2.4 / 1.9 |
+
+- **What C lacked** (in the judge's rationales): mostly causes in the margins section, then segment drivers and peer
+  comparisons.
+- **Why.** Both arms write 29–30 sentences, at the 30-sentence cap. C's two-sentence red flags take about 2 more
+  sentences, mostly the closing judgements, and that space is what K0 spends on margin causes and drivers.
+- **K0's extra depth was only partly grounded.**
+  - K0 wrote 20 more cause sentences than C. Of those, 7 more are fully supported, 12 more partial and 1 more
+    unsupported.
+  - In 6 of the 17 pairs, part of K0's depth was a balance-sheet reading built on net-cash figures that `packs-v2`
+    withholds as broken (CVX, KO twice, TGT, COP, NVDA).
+- **Cause sentences** were not lifted by round 2's "give the stated cause" line: 5.2 per analysis in eval-v2 and 5.8 in
+  dev-v6 (§5.3).
+
+### 5.7 Latency and cost against the production control
+
+From the failure reading: linear quantiles as in `records.quantile`; the per-token speed is the median over first
+attempts.
+
+| Group | First attempt p50 / p90 (s) | ms per output token | Repairs | Repair p50 / p90 (s) | Total p50 / p90 (s) |
+|---|---|---|---|---|---|
+| C, eval-v2, both runs | 9.3 / 10.4 | 5.21 | 11 patch | 2.5 / 3.1 | 11.2 / 12.5 |
+| K0, eval-v2, both runs | 9.8 / 10.6 | 5.33 | 14 patch | 2.9 / 3.4 | 11.8 / 74.5 (11.8 / 14.1 with 600 s taken out per stall) |
+| Production control (version 1) | 8.9 / 10.3 | 5.07 | 5 full | 7.0 / 7.8 | 12.8 / 17.8 |
+
+- **What drives latency.**
+  - A fit over 78 calls without a stall gives about 3.0 s plus 3.7 ms per output token (R² 0.96).
+  - Input of 24,000–56,000 tokens, cached or not, adds nothing measurable. So the control's warm cache does not
+    flatter its latency.
+  - A patch repair costs at least about 2 s.
+- **p50 follows the repair rate.** It is about 10 s when fewer than half the analyses repair, and about 12 s when
+  half or more do. C's run 1, with 4 repairs, had a p50 of 10.1 s; its run 2, with 7, had 12.0 s. At the 85% pass
+  target, p50 would be about 9.5 s and p90 about 11–12 s.
+- **Against the production control,** C is about 5 s faster at p90 and about 1 s faster at p50. It is also cheaper:
+  $0.0065–0.0067 an analysis against $0.0071 (K0 $0.0067–0.0068). At DeepSeek's peak price, every cost doubles.
+- **The development runs were slower per token.**
+  - Their first attempts ran at a median of 5.5–6.4 ms per output token (10.1–11.7 s), against 5.2–5.3 ms
+    (9.3–9.7 s) in eval-v2. These figures are from the ledger: its generation calls with more than 1,000 output
+    tokens and under 60 s.
+  - So the development p50s (12.8–16.2 s, apart from C's 10.5 s in dev-v6-r1) sit above eval-v2's (10.1–12.3 s).
+- **Stalls.**
+  - 8 of the 410 recorded DeepSeek generation calls (2.0%), in 8 of 245 analyses (3.3%), took 600 s plus a call of
+    normal length. All 8 are in the labels since dev-v5, and there are none in eval-v2-r1, the control or step 1.
+  - **The cause.** The harness client calls DeepSeek with `timeout_s=600.0` and `max_retries=2`
+    (`providers.py`, `_call_openai_compat`). It cut a request that never answered at 600 s and sent it again, and
+    the retry ran at normal speed.
+  - **The effect.** K0's eval-v2-r2 p90 of 613.7 s is two of these stalls (AMD's repair and KO's first attempt). C's
+    one stall was NVDA's first attempt, in dev-v6-r2.
+  - The records carry no wall-clock time, so the stalls cannot be tied to a time of day.
+- **Peak hours:** not measured. `eval-v2-peak` is scheduled for 2026-10-27 06:05 UTC and has not run.
+
+### 5.8 What the experiment resolved, and what it did not
+
+**Resolved** (held out unless said):
+- **Broken net cash and data breaks** (§1, mechanism 5):
+  - C stated no broken figure as fact: 0 of 12 analyses of companies with a break, and 0 sentences. K0 stated them
+    in 8 of 12 analyses (19 sentences) and the control in 4 of 6 (10 sentences).
+  - C disclosed the break in 5 and 3 of the 6.
+  - P and C stated none in development either.
+- **The free-cash-flow median used for operating cash flow** (mechanism 2, class B): 0 for C, against 3 for K0 on
+  development and 1 for the control.
+- **Calibration** (mechanism 3, as to judgements):
+  - judgement share 11.6% against K0's 1.0% and the control's 0.8%;
+  - evaluative words in data sentences 0.0% against 4.6% and 5.4%;
+  - no watch forecasts, against 6 and 2 per 60;
+  - the judge's calibration verdicts were C 12, K0 2.
+- **The repair's latency.**
+  - A patch takes 2.5 s at p50, against 7.0 s for the control's full repair, and it kept every untouched sentence in
+    step 1 (42 of 42).
+  - All 20 of C's outputs passed the gate after one repair, against K0's 18 and the control's 9 of 10.
+- **Probe-detectable mislabels in the final text.** The version-2 backstops send them to repair: 0.0 per 1,000 in
+  every version-2 arm's final outputs on held out, against the control's 4.1.
+- **Cost and p90 within the founder's constraints:** $0.0065–0.0067 and 12.5–12.8 s, against the production
+  control's $0.0071 and 17.8 s.
+
+**Not resolved:**
+- **Wrong metric, period or sign in the final text.**
+  - After hand reading: C 3.6 per 1,000 verified claims, K0 3.4 and the control 4.1. Sonnet scored 1.4 in eval-v1.
+  - C met the 3.5 target in 2 of its 6 runs, as K0 did. C changed which errors occur, not how many.
+- **Figures without their own ID, and filled prompt slots** (mechanisms 1 and 4).
+  - These still make most first-try failures. C passed first try in 45% of analyses against the 85% target, with 0.70
+    real gate errors per analysis against 0.15.
+  - The repair hides them from the reader, at about 2.5 s each.
+- **Depth.**
+  - K0 won depth in 9 of 20 held-out pairs (limit 5).
+  - C wrote 5.2 cause sentences per analysis (guard 6).
+  - Cause support was 70% (guard 72%). K0 and the control read 74% and 68% on the same companies, so that part is not
+    C's alone. C's 83–85% on development did not carry over.
+- **p50 in run 2:** 12.0 s against 10.5 s, set by the repair rate.
+- **Peak-hour latency:** not yet measured.
+- **Stalls:** 2.0% of calls waited out a 600 s timeout. The harness keeps that timeout; a production call cannot.
+- **Noise.**
+  - With 10 companies and 2 runs, the experiment can only separate large effects.
+  - Two runs of one configuration differ about twofold in mislabels (eval-v1's held-out reading against the control:
+    9.8 and 4.1).
+  - K0's passes doubled between dev-v5 and dev-v6 with no change of its own.
+
+### 5.9 Bottom line
+
+**What it did.** The candidate meets the founder's cost and wait-time constraints and is the better build:
+- **Cost:** $0.0065–0.0067 an analysis.
+- **Wait:** p50 10.1–12.0 s and p90 12.5–12.8 s, against the production control's 12.8 s and 17.8 s.
+- **Fixes:** of §1's five mechanisms, it fixes the pack gaps filled with the nearest number (2) and the unnoticed
+  data breaks (5), and the judgement side of the literal typing (3).
+- **Against the frozen configuration:**
+  - better on first-try passes, final gate passes, broken net cash, calibration, p90 and cost;
+  - about equal on wrong-metric numbers and cause support;
+  - worse on depth, coverage and clarity.
+
+  The judge preferred C overall, 10 pairs to 5.
+
+**What it did not do.** It did not close DeepSeek's error gap:
+- **Mislabels.** On held-out companies, its final text states a verified number about the wrong metric, period or
+  sign about as often as the frozen configuration and the control (3.6, 3.4 and 4.1 per 1,000 verified claims, read
+  by hand). Sonnet scored 1.4 in eval-v1.
+- **The lower rate than eval-v1's is not the fixes' doing.** Measured today, every arm is lower than eval-v1, the
+  control included.
+- **First tries** still fail in more than half of the analyses.
+- **Depth fell against K0**, because the candidate's red flags spend the sentence budget that K0 gives to margin
+  causes.
+
+**What remains.** The errors left are spread thin: on held out, C's five errors are five different kinds. More prompt
+lines did not stop the ones that recur (§5.3). What can still remove them is deterministic: checks the gate runs on
+numbers it has already matched, proven by replay on the recorded outputs, not by more runs.
+
+### 5.10 Recommendation (a proposal for the founder)
+
+The grounding rule (`GROUNDING-RULE.md`) needs the founder's approval before any production work. This branch changes
+no production code, and nothing below is built in production.
+
+**Adopt as one build, once the rule is approved.** This is C as measured, plus a call deadline.
+
+1. **The version-2 repair loop and gate.** These are fixes 2, the code of 5, 7, 12 and 13, which §3 lets ship on
+   their own evidence:
+   - the patch repair, with the full repair as its fallback;
+   - the rewritten repair message;
+   - the retyping of figure-only causes;
+   - the narrowed gate fixes;
+   - the backstops (R1, R2a, R2c, R3, U1, `gap_direction`, `broken_debt`) as repair triggers.
+
+   *Evidence:* the step-1 replay and §5.7's latency. Under version 2, K0's final outputs hold no probe-detected
+   mislabel (0.0 per 1,000) and no unsigned fall; the version-1 control holds 4.1 and 1.
+2. **Pack version 2.** These are fixes 3, 4, 8, 9 and 11: the operating cash flow / net income median and low, the
+   net-debt wording, and broken debt and cash withheld behind data checks.
+
+   *Evidence:* no broken figure stated as fact in any P or C run, and class B gone (§5.4).
+
+   *Cost:* class-A errors moved onto the new medians, which next-work item 1 addresses.
+3. **The candidate prompt** (`fc5b808c`).
+
+   *Evidence:* the calibration rows of §5.2, and the judge (calibration C 12 to 2, overall 10 to 5).
+
+   *Cost:* depth (§5.6). The judge also gave K0 coverage and clarity, 6 pairs to 2 each.
+4. **A per-attempt deadline on the DeepSeek call, with one retry.** This is new, and not in the harness.
+
+   *Evidence:* 2.0% of recorded calls waited out the harness's 600 s timeout and then ran at normal speed (§5.7).
+   Cutting at a time-to-first-token deadline and retrying once would cost that deadline plus about 10 s. Production's
+   Copilot stream has a 75 s overall deadline (`copilot_chat._CHAT_SECONDS`), and the analysis needs its own.
+
+This build does not meet §3's targets for first-try passes, mislabels, depth or causes, nor p50 in one of its two
+runs. Its rate of wrong-metric, period or sign sentences is where the control's is. The founder decides with that
+in view.
+
+**Do not adopt:**
+- **The frozen configuration as the production build** (K0, or the control). On held out, K0:
+  - stated broken net cash as fact in 8 of 12 analyses with a break (19 sentences; the control, 10 sentences);
+  - marked almost no interpretation as judgement (1.0%; the control, 0.8%);
+  - left 2 of its 20 outputs failing after repair (the control, 1 of 10).
+- **Prompt lines as the only enforcement of a rule the model ignored** (§5.3):
+  - P2, "no operating-cost comparison without the gap value";
+  - "above or below a reference, by its numbers";
+  - "give the stated cause";
+  - "both margins from that one year".
+
+  They can stay in the prompt, but the rules need code.
+- **What this branch already withdrew or advised against:**
+  - auto-citation (fix 1);
+  - gate rules G2–G7;
+  - the items under "Not recommended" in §2, DeepSeek's thinking mode among them.
+- **Not yet for banks** (a founder decision):
+  - Five of C's 23 real mislabels in six runs are JPM's.
+  - C's USB drivers sentence failed first try in both held-out runs.
+  - Until the bank profile (next work, item 2) lands, banks could keep today's narrative.
+
+**Next work, ranked by the errors it is expected to remove.** Counts are C's 23 real mislabels in 4,291 verified
+claims over its six runs (the mislabel reading), unless said otherwise.
+
+1. **A deterministic backstop for "above or below a reference level"** (class A: 6 of 23; K0 2 of 20).
+   - **Why it is checkable.** Every case puts a comparison word between two numbers the gate has already matched to
+     cited IDs: a value, and a window median, high or low, or a peer median. In each, the word contradicts the two
+     numbers' signed order; in NVDA's 0.86x, the value is the very window low it is said to be below.
+   - **Why a check is needed.** COST's case recurred in 3 of 4 development runs, after round 2's prompt line too. All
+     6 are on the development half.
+   - **Proof:** replay on the recorded outputs, with no model call. Every recorded class-A sentence must fail, and no
+     true comparison may.
+   - **Cost:** a hit costs one patch repair (about 2.5 s and $0.0005).
+2. **The bank profile** (5 of 23, all JPM: the cost-against-revenue direction 3 times, "the efficiency ratio's
+   complement" twice). USB's prompt-induced first-try failures in both held-out runs add to it.
+   - Give banks a "revenue growth minus operating-cost growth" value (noninterest expense against revenue), so that
+     fix 7's certain form checks its sign.
+   - As a backstop in place of P2, fail any operating-cost comparison in a pack without that value (COP, JPM, USB).
+   - Take "complement" out of the form.
+   - Widen the bank passages: the JPM gold example needed passages the selector missed (REPORT.md §4).
+3. **Period slips** (class C: 4 of 23, 2 minor; K0 2).
+   - **The cases:**
+     - "prior year" put on the latest year's figure (JPM's $48.2 billion, in both K0 and C);
+     - a year's debt given the year before's label, between nearly equal values (NVDA's $8.47 billion, twice);
+     - a margin gap from one year beside another year's tax rate (DE's 3.7pp).
+   - **Candidate check:** compare "prior year" against the cited ID's period. That check is narrow.
+   - **Caution:** wider year binding has failed review before (G4, §2), so this needs the replay and planted tests
+     before any gate change.
+4. **R2a's label reading** (class E: 3 of 23, all minor; K0 3, the control 1).
+   - R2a reads "net cash" anywhere earlier in the sentence as the figure's label, so it misses 4 of the 6 "minus
+     sign under net debt" sentences (§5.4).
+   - Reading the label in the figure's own clause should catch them, and as a backstop it sends them to the patch
+     repair.
+5. **Depth.** This removes no error; it targets the missed depth and cause guards.
+   - C's margins sections carry 1.1–1.4 causes, against K0's 1.9–2.2.
+   - Its red flags take about 2 more sentences at the 30-sentence cap (§5.6).
+   - Options: one closing judgement for the red-flag section instead of one per flag, or a margins slot for a cause
+     a passage states. Measure each against the cause guard.
+   - Aim at grounded causes, not at K0's count: only 7 of K0's 20 extra cause sentences were fully supported.
+6. **Fewer repairs, for the wait.** The repair fixes these, so the reader never sees them.
+   - C's first-try true errors are mostly a figure without its own ID: 5 of 9, and 4 of those are a red flag's
+     figure.
+   - The 100% payout threshold failed in all 4 first tries that wrote it, because no pack ID holds it.
+   - Two failures put a share of ORCL's negative free cash flow in a slot that asks how free cash flow was used.
+   - **The fix:** write "100% of free cash flow" into that red flag's text, cite each flag's figures by their own IDs,
+     and leave the free-cash-flow-use slot empty when free cash flow is negative.
+   - **Why it matters for the wait:** p50 is about 10 s when fewer than half the analyses repair (§5.7).
+
+**Before switching on** (REPORT.md §10, item 6, as it now stands):
+- the founder's approval of the grounding rule;
+- the peak-hour run, `eval-v2-peak` (scheduled for 2026-10-27 06:05 UTC, not yet run), against p50 10.5 s and
+  p90 13 s;
+- the per-attempt deadline above;
+- the blind human pack (REPORT.md §9c), rebuilt on C's outputs: it has not been rated, and it holds Sonnet's
+  analyses, not DeepSeek's;
+- the long-term-debt mapping in production's facts layer, a separate decision (§4).
+
+**How to measure the next round.**
+- Prove each deterministic check by replaying it over every recorded output, with no model call. Release it only if
+  it fails each recorded case and no true sentence.
+- New generated runs at 10 companies and 2 runs cannot separate error rates of 3–5 per 1,000 (§5.2).
+
 ---
 
 ## Evidence
@@ -1013,6 +1649,11 @@ The analysis scripts and intermediate tables were working files of the session t
 are not committed, because the probes they contain move into the harness, with unit tests, in step 0 of §3
 (CLAUDE.md rule 12). Every instance above names its company, its sentence and its pack IDs, so it can be
 re-checked against the committed records in `runs/` and the packs in `packs/`.
+
+§5's two hand readings were made the same way, with no model call, and their working files are not committed
+either. Each mislabel item and first-try failure they read is listed in its run's `REPORT.md` under "For hand
+reading", with its company, its sentence and its pack IDs. The judge's verdicts and rationales are in
+`runs/<label>/judge/`. §5 gives each verdict's class and count.
 
 **Opus spend in §3** is the rate billed through `claude -p`. It runs on the Claude subscription, not the
 Anthropic API key.
