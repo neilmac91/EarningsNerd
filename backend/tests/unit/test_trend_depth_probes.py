@@ -204,9 +204,24 @@ SNAP = _pack(("D398", "Total debt", "FY2025", 3_536_829_000.0, "usd", "total_deb
         (SNAP_MARGINS, "Net margin of -7.8% beat operating margin by 1.2pp, helped by $96.7 million of debt-extinguishment "
                        "gains in other income [F50][F30][P18].", []),
         (SNAP_MARGINS, "Net margin was 1.2pp below operating margin in FY2025 [D591].", [("gap_direction", "1.2pp")]),
-        # ... and only when both margins are named on either side of the comparative, two different margins.
+        # "More than" and "less than" after a verb that only places, and "over", are positions too (tests-and-gates [1]),
+        # cited on packs-v2 or as the two margins on packs/ ...
+        (CAT_MARGINS, "Net margin was 3.4pp more than operating margin in FY2025 [D1168].", [("gap_direction", "3.4pp")]),
+        (CAT_MARGINS, "Net margin was 3.4pp less than operating margin in FY2025 [D1168].", []),
+        (CAT_MARGINS, "Net margin was 3.4pp more than operating margin in FY2025 [F50][F30].", [("gap_direction", "3.4pp")]),
+        (CAT_MARGINS, "Net margin ran 3.4pp over operating margin in FY2025 [D1168].", [("gap_direction", "3.4pp")]),
+        (CAT_MARGINS, "Net margin ran 3.4pp under operating margin in FY2025 [D1168].", []),
+        # ... but after a rise or fall verb they compare two moves, not the gap ...
+        (CAT_MARGINS, "Net margin fell 3.4pp more than operating margin in FY2025 [D1168].", []),
+        # ... and only when both margins are compared in the gate's certain forms (factcheck.compared_sides): the first
+        # the subject, the other after the comparative, two different margins, in the active voice. The passive is left
+        # alone (review 8: the true "net margin was exceeded by operating margin" failed, its false mirror passed).
         (CAT_MARGINS, "Operating margin of 16.5% left net margin 3.4pp above it in FY2025 [F30][F50][D1168].", []),
         (CAT_MARGINS, "In FY2025 net margin stood 3.4pp above the net margin window low [F50][D1200][D1168].", []),
+        (CAT_MARGINS, "In FY2025 net margin was exceeded by operating margin by 3.4pp [D1168].", []),
+        (CAT_MARGINS, "In FY2025 operating margin was exceeded by net margin by 3.4pp [D1168].", []),
+        (CAT_MARGINS, "Operating margin exceeded net margin by 3.4pp in FY2025 [D1168].", []),
+        (CAT_MARGINS, "Operating margin trailed net margin by 3.4pp in FY2025 [D1168].", [("gap_direction", "3.4pp")]),
         # U1: a fall stated as a CAGR with no sign (DeepSeek COP) ...
         (COP, "Revenue then fell 20.5% in FY2023 on lower realized prices, and the three years to FY2025 show a 5.3% CAGR "
               "[F8][D274][D844].", [("U1", "5.3%")]),
@@ -356,6 +371,19 @@ RESTATED = [
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186]; the caveat is that margins may fall.", [("debt_break", "$8.8 billion")]),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], and segment data is missing for FY2025.",
      [("debt_break", "$8.8 billion")]),
+    # ... nor the break's plain words about another line or the company itself (arm-fairness [2]) ...
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], though segment data is absent for FY2025.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], with buybacks absent.", [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], ignoring one-off tax payments.", [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as Coca-Cola carries no long-term debt.",
+     [("debt_break", "$8.8 billion")]),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], though the pack carries no segment data for FY2025.",
+     [("debt_break", "$8.8 billion")]),
+    # ... and plain debt said to rise for a cause, or as a whole "all due" within a year, is still the total
+    # (gate-and-probes [2]).
+    ("DE", "Debt due to acquisitions reached $13.8 billion in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
+    ("DE", "Deere carried $13.8 billion of debt, all due within a year, in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
 ]
 # The same figures through the IDs version 2 withholds, as the frozen arms state them, one per reason (eval-v1
 # DeepSeek KO, DE, NVDA, TGT, CAT, PG): only an arm reading version 1 sees them.
@@ -444,6 +472,30 @@ SPARED = [
     ("NVDA", "Liquidity was $43.2 billion in FY2025 [F149][X188]."),
     ("NVDA", "Cash and short-term investments were $43.2 billion in FY2025 [F149][X188]."),
     ("COP", "Cash and short-term investments were $6.6 billion in FY2020 [F108][X183]."),
+    # Review 8: a line named by a maturity after plain "debt", or a figure said to fall due, is the line that falls due
+    # (gate-and-probes [2]: DE's, CVX's and COP's current portion) ...
+    ("DE", "Debt due within one year was $13.8 billion in FY2025 [X185]."),
+    ("DE", "Debt maturing within a year rose to $13.8 billion in FY2025 [X185]."),
+    ("DE", "Of Deere's debt, $13.8 billion falls due within a year in FY2025 [X185]."),
+    ("CVX", "Debt maturities within a year were $2.3 billion in FY2025 [X177]."),
+    ("CVX", "Chevron's debt due within one year fell to $2.3 billion in FY2025 [X177]."),
+    ("COP", "In FY2025 $1.0 billion of debt matured within a year [X203]."),
+    ("DE", "Total debt includes $13.8 billion of debt due within a year in FY2025 [X185]."),
+    # ... a line named after "in" (tests-and-gates [1]), and a disclosure about the current portion ...
+    ("KO", "For net cash, the pack shows only $1.5 billion in short-term borrowings in FY2025 [X186]."),
+    ("COP", "Net cash was $7.1 billion in FY2025 [D335][X203]; the current portion is the only line, the rest is not shown."),
+    # ... and the break said plainly, as the candidate prompt asks (arm-fairness [2]).
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], because long-term debt is absent from the pack after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt is not available after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but long-term debt disappears from the data after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], as long-term debt has no value after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], though the pack carries no long-term debt after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but the pack has no long-term debt after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but that ignores long-term debt after FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], with long-term debt unreported since FY2023."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], ignoring unreported long-term debt."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but FY2023 is the last year the pack carries long-term debt."),
+    ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but the pack carries FY2023 long-term debt and none for FY2025."),
 ]
 
 
@@ -490,6 +542,12 @@ def test_broken_debt_spares_disclosures_and_other_lines(ticker: str, text: str) 
     ("Net cash was 83rd percentile of six semiconductor peers against a peer median of -13.9% of revenue, subject to the "
      "same data caveat.", True),
     ("Cash and short-term investments totalled $10.1 billion in FY2025, but that double counts them.", True),
+    # ... the break said plainly of the line it is about (review 8 arm-fairness [2], and Sonnet NVDA's dev-v3 form) ...
+    ("This comparison may be a basis break: the pack carries FY2025 short-term investments of $34.6 billion but none for "
+     "FY2026, so I draw no conclusion on the size of the drop.", True),
+    ("Net cash was $8.8 billion, but long-term debt is absent after FY2023.", True),
+    ("Net cash was $8.8 billion; the current portion is the only line, the rest is not shown.", True),
+    ("Net cash was $8.8 billion, but long-term debt has no value after FY2023.", True),
     # ... not one about something else, in a sentence that names net cash (review 7), nor Sonnet MSFT's investment marks
     # (dev-v3), which the report's rule of a disclosure word beside any cash word counted.
     ("Net cash was $4.9 billion in FY2025, though revenue is a later recast and not comparable with the first-reported "
@@ -497,6 +555,10 @@ def test_broken_debt_spares_disclosures_and_other_lines(ticker: str, text: str) 
     ("Net cash was $8.8 billion in FY2025, though one-off tax payments understate free cash flow.", False),
     ("Net cash was $8.8 billion in FY2025, a cushion that a missing dividend increase would not explain.", False),
     ("Those gains are investment marks rather than operations, so net income overstates the earnings run-rate.", False),
+    # ... nor plain words about another line (review 7's "basis break" stays about revenue).
+    ("This comparison may be a basis break: revenue for FY2025 was recast, so I draw no conclusion.", False),
+    ("Free cash flow is absent from the pack after FY2022, when it was $18.2 billion.", False),
+    ("Net cash was $8.8 billion, though segment data is not available for FY2025.", False),
 ])
 def test_a_disclosure_counts_only_about_debt_or_cash(text: str, says: bool) -> None:
     assert probes.discloses(text) is says
