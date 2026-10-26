@@ -13,9 +13,10 @@
 -- filings' rows, current or not, the cross-check replaced with a proxy's figure, and 5 those it
 -- confirmed against one. Together they are the cohort of the journaled repair, the quarterly repair's
 -- proxy step (backend/app/services/proxy_fact_repair.py, E211). It names companies and changes nothing.
--- Retire: the session that applies that repair deletes this file, and the unit test that holds its
--- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), in the
--- records PR that closes it, by 2026-12-31 at the latest. It waits for a detection-sql run right after
+-- Retire: the records PR that closes the repair deletes this file, and the unit test that holds its
+-- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), by
+-- 2026-12-31, or, if a refused company's line is still open then, when it closes, the extension recorded
+-- on that line. It waits for a detection-sql run right after
 -- the apply, before any companyfacts sync or facts backfill reaches a repaired company, in which, for
 -- every company the apply repaired, sets 2 and 3 read no rows and sets 4 and 5 read exactly the rows
 -- (fact_id) its report lists in proxy.detection_listed, each with the step's verdict

@@ -1493,14 +1493,22 @@ def test_detection_listed_reads_sets_4_and_5_as_the_file_does():
             "outcome": "confirmed", "authoritative_value": 700.0}}})),
         (14, _listed_state(filing_id=None, source="companyfacts", form=None, accession="X20", value=700.0,
                            period_end=date(2020, 12, 31))),
+        (15, _listed_state(filing_id=None, form="DEF 14A", accession="P26", value=800.0,  # as 12-14, with a
+                           period_end=date(2019, 12, 31))),  # blank form: 17 is no report row, so 16 is listed
+        (16, _listed_state(value=13_049e6, period_end=date(2019, 12, 31), provenance={"checks": {"authoritative": {
+            "outcome": "confirmed", "authoritative_value": 800.0}}})),
+        (17, _listed_state(filing_id=None, source="companyfacts", form="  ", accession="X19", value=800.0,
+                           period_end=date(2019, 12, 31))),
     ]
-    verdicts = {2: "kept_agrees_with_authority", 5: "kept_confirmed_by_10k", 9: "no_proxy_figure", 13: "reconfirmed"}
+    verdicts = {2: "kept_agrees_with_authority", 5: "kept_confirmed_by_10k", 9: "no_proxy_figure", 13: "reconfirmed",
+                16: "reconfirmed"}
     assert proxy.detection_listed(rows, verdicts) == [
         {"fact_id": 2, "set": 4, "verdict": "kept_agrees_with_authority"},
         {"fact_id": 3, "set": 4, "verdict": "unclassified"},
         {"fact_id": 5, "set": 5, "verdict": "kept_confirmed_by_10k"},
         {"fact_id": 9, "set": 4, "verdict": "no_proxy_figure"},
         {"fact_id": 13, "set": 5, "verdict": "reconfirmed"},
+        {"fact_id": 16, "set": 5, "verdict": "reconfirmed"},
     ]
     scaled_up = {"checks": {"authoritative": {"original_value": 12_345.0}}}  # the authority scaled a units parse
     assert proxy.detection_listed([(1, proxy_row), (2, _listed_state(source="companyfacts", value=12_345e6,

@@ -90,8 +90,9 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    value is 1,000 or 1,000,000 times the recorded original (the authority scaling up a parse read in
    units, the replacement the check exists for). Kept, and counted `filing_rows_kept`, when it already
    holds today's authority's figure, the 10-K's. Otherwise restored (`filing_rows_restored`) to its
-   recorded `original_value` and passed through today's cross-check, as the backfill stores it now (source `edgar_xbrl`, its check
-   recorded against the 10-K's figure), when that original is within 1% of the 10-K's figure; where the
+   recorded `original_value` and passed through today's cross-check, as the backfill stores it now
+   (source `edgar_xbrl`, its check recorded against the 10-K's figure), when that original is within 1%
+   of the 10-K's figure; where the
    payload gives no figure (a year only a proxy tags), restored to the original with the local gate's
    verdict and no authoritative check, as the backfill stores it with no authority. Refused when no
    original was recorded (a replacement before #1191), or when the original is more than 1% off the
@@ -177,9 +178,10 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   figure and a set-5 row already confirmed against it. A kept row is counted on every run while a
   proxy figure, a stored proxy-form row or a proxy item in the payload, holds its figure (set 4: its
   value; set 5: the figure its check confirmed it against) and no other stored report row does.
-  Detection lists it where a stored proxy-form row is that witness or, in set 4, where its recorded
-  original is within 1% of 1,000 or 1,000,000 times its value (the file's "scale" listing); a row kept
-  against a payload item alone is otherwise counted on every run and never listed (below).
+  Detection lists it where a stored proxy-form row is that witness or, in set 4, where its value is
+  within 1% of 1/1,000 or 1/1,000,000 of its recorded original, with the same sign (the file's "scale"
+  listing); a row kept against a payload item alone is otherwise counted on every run and never listed
+  (below).
 - `rows`: one entry per row the step settles, with its `action` (`inserted`, `promoted`, `corrected`,
   `retired_without_winner`, `dependent_<outcome>`, `restored`, `reannotated`, `reannotation_held`,
   `kept_agrees_with_authority`, `kept_confirmed_by_10k` or `reconfirmed`), its own and its winner's
@@ -211,13 +213,15 @@ and any other value is read row by row. A held calculation keeps its stored reco
 record still carries the old check against the proxy's figure, and nothing rewrites it later: a sync
 or backfill skips a stored identity, the lineage backfill records only a calculation with no record,
 and the step's later runs leave its operand as the apply wrote it, so only this preview and its apply
-name it. Give each held calculation its own `tasks/todo.md` line, as a refused company gets, and
-decide it from its filing by a reviewed repair. Every `winner_form` is `10-K` (a 10-K/A
+name it. Give each company with a held calculation one `tasks/todo.md` line, as a refused company
+gets, naming its held calculations by fact id, and decide each from its filing by a reviewed repair
+(one line per company keeps the file within its 120 lines). Every `winner_form` is `10-K` (a 10-K/A
 that carries the pay-versus-performance table is a report, and admitted); `gap` measures each retired
 figure against its winner, the first measure for rows with no stored report behind them. Read
 `made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the other
 corrections against a baseline: a plain preview of the same tickers on the commit before the step,
-saved before it merged.
+saved before it merged. A company only set 5 names is first known after the merge (set 5 is new with
+the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
 **The journal.** The apply journals the step's rows with the rest of the run, under
 `calculation_version` `proxy-repair-v1`: the rows it wrote or left to the computed-metric correction,
@@ -240,7 +244,10 @@ must read no rows in sets 2 and 3, and in sets 4 and 5 exactly the rows its appl
 apply wrote them, and a sync or backfill in between can change them: a sync can store a later 10-K's
 comparative, a report row that takes a kept row off set 5. For a company one of them reached first,
 run its dry run again and compare the file with that preview's `proxy.detection_listed`, which reads
-the rows as they stand. Record the listed rows, with their verdicts, in the records change. A company the apply refused
+the rows as they stand. Each set stops at 200 rows and carries its full count (`of_n`): where a set's
+`of_n` exceeds the rows it shows, that run cannot establish the criterion, and the set's limit is raised
+in a reviewed change before the run is repeated. Record the listed rows, with their verdicts, in the
+records change. A company the apply refused
 stays listed in every set until its own follow-up line closes, by a reviewed repair or by recording why
 its rows stand.
 
