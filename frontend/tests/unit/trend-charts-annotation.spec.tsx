@@ -124,7 +124,7 @@ describe('TrendCharts source note marks', () => {
     const revenue = series('revenue', 'Revenue', [100, 110, 120])
     revenue.points.forEach((point) => { point.provenance = passed; point.yoy = 0.125; point.yoy_provenance = passed })
     revenue.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
-    revenue.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    revenue.points[1].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['unit_mismatch'] }
     render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
     const content = tooltipContent.entries[0]
     const payload = [
@@ -147,7 +147,7 @@ describe('TrendCharts source note marks', () => {
     const revenue = series('revenue', 'Revenue', [100, 110, 120])
     revenue.points.forEach((point) => { point.provenance = passed; point.yoy = 0.1; point.yoy_provenance = passed })
     revenue.points[1].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
-    revenue.points[2].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    revenue.points[2].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['unit_mismatch'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
     const bars = [...container.querySelectorAll('rect')]
     expect(bars).toHaveLength(3)
@@ -159,12 +159,34 @@ describe('TrendCharts source note marks', () => {
     expect(screen.getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
   })
 
+  it('draws no ring, letter, tooltip note or chip for a note about the record rather than the number (D-061)', () => {
+    const revenue = series('revenue', 'Revenue', [100, 110, 120])
+    revenue.points.forEach((point) => { point.provenance = passed; point.yoy = 0.1; point.yoy_provenance = passed })
+    revenue.points[1].provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    revenue.points[2].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    // The legacy notes stay in the report: the page's fine print lists them.
+    expect(groupDataNotes({ ...dataset, series: [revenue] }).notes.map((note) => note.reasons)).toEqual([['legacy_calculation']])
+    const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
+    expect(container.querySelectorAll('circle[stroke-width="2"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[aria-label^="Data note"]')).toHaveLength(0)
+    expect(container.querySelectorAll('text')).toHaveLength(0)
+    expect(screen.queryByRole('button', { name: /Review data notes/ })).not.toBeInTheDocument()
+    const tooltip = render(tooltipContent.entries[0]({ active: true, label: 'FY2024', payload: [
+      { dataKey: 'revenue', name: 'Revenue', value: 120 },
+      { dataKey: 'growth', name: 'YoY growth', value: 10 },
+    ] }))
+    const status = within(tooltip.getByRole('status'))
+    expect(status.getByText('Revenue')).toBeInTheDocument()
+    expect(status.getByText('YoY growth')).toBeInTheDocument()
+    expect(status.queryByText(/· note/)).not.toBeInTheDocument()
+  })
+
   it.each([43, -43])('places bar and growth notes together at the actual %s value endpoint', (value) => {
     const revenue = series('revenue', 'Revenue', [value, null, null])
     revenue.points[0].provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     // The independent growth scale maps twice the bar value to the same rendered y.
     revenue.points[0].yoy = value * 2 / 100
-    revenue.points[0].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] }
+    revenue.points[0].yoy_provenance = { ...passed, method: 'calculated', validation: 'needs_review', reasons: ['unit_mismatch'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [revenue] }} />)
     const bar = container.querySelector('g[aria-label="Data note a"] rect')!
     const dot = container.querySelector('circle[stroke-width="2"]')!
@@ -226,13 +248,14 @@ describe('TrendCharts source note marks', () => {
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [cash] }} />)
     expect(container.querySelectorAll('circle, rect, text')).toHaveLength(0)
     expect(screen.getByText('Operating CF: unavailable for FY2023.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
+    // The gap's note marks nothing, so no chip names it; the sentence above says it in words (D-061).
+    expect(screen.queryByRole('button', { name: /Review data notes/ })).not.toBeInTheDocument()
   })
 
   it('moves close margin letters apart while retaining their true plotted circle positions', () => {
     const operating = series('operating_margin', 'Operating margin', [43, 43, 43])
     const net = series('net_margin', 'Net margin', [38.6, 38.6, 38.6])
-    for (const item of [operating, net]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    for (const item of [operating, net]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [operating, net] }} />)
     const marks = [...container.querySelectorAll('g[aria-label="Data note a"]')]
     expect(marks).toHaveLength(6)
@@ -251,7 +274,7 @@ describe('TrendCharts source note marks', () => {
     // The right axis (equity) maps 400 to y=60, between the two left-axis points (57 and 61.4).
     // Comparing raw values or projecting every value through the left axis cannot place this note.
     const equity = series('shareholders_equity', 'Equity', [400, 400, 400])
-    for (const item of [debt, cash, equity]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['legacy_calculation'] }
+    for (const item of [debt, cash, equity]) for (const point of item.points) point.provenance = { ...passed, validation: 'needs_review', reasons: ['source_conflict'] }
     const { container } = render(<TrendCharts dataset={{ ...dataset, series: [debt, cash, equity] }} />)
     const marks = [...container.querySelectorAll('g[aria-label="Data note a"]')]
     expect(marks).toHaveLength(9)

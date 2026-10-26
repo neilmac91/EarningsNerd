@@ -126,13 +126,14 @@ describe('TrendCharts legends', () => {
     const { rerender } = render(<TrendCharts dataset={flagged} exportEnabled />)
     expect(screen.getAllByRole('button', { name: /^Review data notes a(?:,|$)/ })).toHaveLength(1)
     const panel = screen.getByRole('heading', { name: 'Revenue & growth' }).closest('section')!
-    expect(within(panel).getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
+    // The panel's other note (b) records no check: it marks nothing, so the chip names a alone (D-061).
+    expect(within(panel).getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
     fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
     expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('Note a: A source check remains unresolved')]) }),
     }))
     rerender(<TrendCharts dataset={dataset} />)
-    expect(within(panel).queryByRole('button', { name: 'Review data notes a, b' })).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /^Review data notes/ })).not.toBeInTheDocument()
   })
 
   it('shows a legend naming each line for a multi-series panel (Margins)', () => {

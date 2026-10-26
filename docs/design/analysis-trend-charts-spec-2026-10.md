@@ -386,8 +386,16 @@ says so; everything else follows the spec.
     ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
   - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
     footnotes) can still swap once on a cold cache, now between two monospace faces.
-  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so a panel in either prints its sign in the fallback, a glyph
-    G2 bans (E203).
+  - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so the engine prints their codes ("KRW 120,000T"), as it does a
+    code-like symbol (E203); so does XOF, whose "F CFA" holds a narrow no-break space no face draws. `moneyPrefix`
+    prints a symbol only where the face draws every glyph past ASCII in it (`DATA_FACE_SIGNS` in `scale.ts`, read by
+    hand from the faces' cmaps in a 2026-10-25 build; next/font fetches the faces at build). `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that
+    list, and the wait's sample test holds it to the sample, so a sign the face lacks paints in no plot (G2).
+  - Outside the spec renderer, `lib/format.ts`'s `fmtCurrency` still prints ₩ and ₫ in the data face, so in the
+    fallback, on four surfaces: the KPI strip, the source dialog's figure (`font-figure`, which falls through to Geist
+    Mono), What changed's figures, and today's Recharts charts (`Chart.tsx`). The metrics table prints bare figures.
+    A code is wider than the sign, so the fix waits on the KPI strip's narrow cards (E197) and checks each surface's
+    width (E203; chief design on #1652).
 - **What this spec supersedes, and when.** When the renderer replaces today's charts (report §10, step 7), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and review letters take «t.review»: in the band they sit on
@@ -723,6 +731,11 @@ this order:
 
 The card, the expanded view and the export show every line. A "+n more notes" truncation that opens the Modal is
 optional for production and is not part of the verified build.
+
+**2026-10-25, D-061:** today's charts already mark a point only where its note questions the number (`noteMarksFigure`,
+`features/analysis/lib/dataNotes.ts`). This band takes the rule as the note at the head of §3.3 states it, in the
+charts plan's step 6 (E194), before F66. Until then it letters every note, drawn only behind `NEXT_PUBLIC_CHARTS_V2`,
+which is off.
 
 ### 3.4 Missing, zero, negative, outlier
 

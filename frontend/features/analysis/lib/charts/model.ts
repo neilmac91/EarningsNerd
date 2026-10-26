@@ -340,7 +340,8 @@ function calculatedFootnotes(partly: AnalysisSeries[], fully: string[]): Footnot
   ]
 }
 
-const fullyCalculated = (series: AnalysisSeries, ds: AnalysisDataset) => {
+/** Every value the series has in the window is calculated (the sentence above the metrics table names these). */
+export const fullyCalculated = (series: AnalysisSeries, ds: AnalysisDataset) => {
   const keys = new Set(ds.periods.map((period) => period.key))
   const valued = series.points.filter((point) => keys.has(point.period) && point.value != null)
   return valued.length > 0 && valued.every(isCalculated)

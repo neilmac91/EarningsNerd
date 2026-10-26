@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Annotated, Any, Optional
 from contextlib import aclosing
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from uuid import UUID
 import asyncio
 import json
@@ -52,7 +53,7 @@ from app.services.summary_generation_service import (
 from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_request_evidence import SummaryRequestEvidence
 from app.services.summary_pipeline import (
-    stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
+    GenerationUserSnapshot, stream_filing_summary, to_sse, snapshot_generation_user, load_generation_user,
 )
 from app.services.provenance_service import enrich_summary_provenance, source_safe_business_overview, standardized_xbrl
 from app.services.change_report_service import change_report_for_filing
@@ -97,6 +98,20 @@ class SummaryStreamResponse(StreamingResponse):
                     await self.owned_stream.aclose()
                 finally:
                     self.evidence.finish("cancelled")
+
+
+@dataclass(frozen=True)
+class _StreamAdmission:
+    """What the generate stream's admission unit read before it released the request's session: the replay's
+    response, or the inputs of a generation."""
+
+    replay: Optional[dict] = None
+    filing_type: Optional[str] = None
+    ticker: Optional[str] = None
+    generation_user: Optional[GenerationUserSnapshot] = None
+    refresh_unready: bool = False
+    refresh_xbrl: bool = False
+    had_summary: bool = False
 
 
 class AskRequest(BaseModel):
@@ -227,125 +242,145 @@ async def generate_summary_stream(
     evidence.start()
     try:
         client_host = request.client.host if request.client else "unknown"
-        logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
+        # The admission's unit releases the request's session, which detaches the user: read its id first.
+        user_id = current_user.id
+        logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id} (IP: {client_host}, force={force})")
 
         enforce_rate_limit(
             request,
             SUMMARY_LIMITER,
-            f"summary:{current_user.id}",
+            f"summary:{user_id}",
             error_detail="Too many summary requests. Try again shortly.",
             include_client_ip=False,
         )
 
-        # Eagerly load content_cache and company relationship to avoid detached session issues
-        filing = db.query(Filing).options(
-            joinedload(Filing.content_cache),
-            joinedload(Filing.company)
-        ).filter(Filing.id == filing_id).first()
+        def admit() -> _StreamAdmission:
+            """The admission's session work and the session's release, as one unit off the event loop
+            (lessons/ops-release-cached-filing-reads-before-yield.md): the filing and summary reads, the
+            served body (its Risks projected over the filing's own text), the readiness and Pro checks, the
+            progress clear and the generation snapshot, in the route's order. Its 404 and 403 leave it
+            after the release."""
+            try:
+                # Eagerly load content_cache and company relationship to avoid detached session issues
+                filing = db.query(Filing).options(
+                    joinedload(Filing.content_cache),
+                    joinedload(Filing.company)
+                ).filter(Filing.id == filing_id).first()
 
-        if not filing:
-            raise HTTPException(status_code=404, detail="Filing not found")
+                if not filing:
+                    raise HTTPException(status_code=404, detail="Filing not found")
 
-        # Check if summary already exists
-        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        refresh_unready = False
-        cleared_for_regeneration = False
-        refresh_xbrl = False
-        if summary:
-            # The body this route would replay, judged by the filing page's readiness rule
-            # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
-            # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying it
-            # hands back the failure card, or a page that never leaves "generating".
-            served_overview = source_safe_business_overview(summary, filing)
-            stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
-            refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
-            if refresh_unready:
-                # Such a row counts as a missing summary: any signed-in user regenerates it, with or
-                # without force, metered as a fresh generation, and nothing is cleared here. The
-                # pipeline updates the row in place (force_regenerate below) and re-checks it once it
-                # owns the generation (replace_unready_only). A row another request makes ready in
-                # between is served or kept, along with the XBRL and progress that request wrote.
-                logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
-            elif force:
-                # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
-                # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
-                # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
-                # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
-                # inside `if summary`, past a row the page cannot show: when no summary the page shows
-                # exists yet, force waives nothing, so a failed-generation retry stays open to Free users.
-                # The pipeline then serves or keeps any summary another request saves meanwhile
-                # (replace_unready_only below).
-                if not is_pro_user(current_user):
-                    raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Regenerating a summary is a Pro feature.",
-                    )
-                # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
-                # existing summary row rather than delete+insert, so the summaries.id — and any
-                # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
-                # both destroy the bookmark and raise an FK violation on any bookmarked summary in
-                # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
-                # the stored summary. The run re-fetches XBRL (refresh_xbrl below) and replaces the
-                # stored snapshot only with XBRL that arrives; it is not cleared here, so a run the
-                # pipeline refuses, or one that ends early, keeps the snapshot the kept summary's
-                # source verification reads.
-                logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
-                refresh_xbrl = True
+                # Check if summary already exists
+                summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+                refresh_unready = False
+                cleared_for_regeneration = False
+                refresh_xbrl = False
+                if summary:
+                    # The body this route would replay, judged by the filing page's readiness rule
+                    # (is_summary_ready). A row the page cannot show as a summary (failure filler, a writer
+                    # error, an empty body, an earlier pipeline's in-progress marker) is not one: replaying
+                    # it hands back the failure card, or a page that never leaves "generating".
+                    served_overview = source_safe_business_overview(summary, filing)
+                    stored_raw = summary.raw_summary if isinstance(summary.raw_summary, dict) else {}
+                    refresh_unready = not is_summary_ready(served_overview, stored_raw.get("writer_error"))
+                    if refresh_unready:
+                        # Such a row counts as a missing summary: any signed-in user regenerates it, with
+                        # or without force, metered as a fresh generation, and nothing is cleared here. The
+                        # pipeline updates the row in place (force_regenerate below) and re-checks it once
+                        # it owns the generation (replace_unready_only). A row another request makes ready
+                        # in between is served or kept, along with the XBRL and progress that request wrote.
+                        logger.info(f"[stream:{filing_id}] Stored summary is not ready (failure or stale marker) - regenerating in place")
+                    elif force:
+                        # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403;
+                        # anyone unauthenticated already got 401 at the endpoint) — otherwise it's a
+                        # denial-of-wallet / "wipe a popular filing for everyone" vector. Resolved via the
+                        # entitlements SSoT (not the is_pro mirror) so a lagging mirror can't wrongly
+                        # grant/deny it. NB this gate sits inside `if summary`, past a row the page cannot
+                        # show: when no summary the page shows exists yet, force waives nothing, so a
+                        # failed-generation retry stays open to Free users. The pipeline then serves or
+                        # keeps any summary another request saves meanwhile (replace_unready_only below).
+                        if not is_pro_user(current_user):
+                            raise HTTPException(
+                                status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Regenerating a summary is a Pro feature.",
+                            )
+                        # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
+                        # existing summary row rather than delete+insert, so the summaries.id — and any
+                        # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here
+                        # would both destroy the bookmark and raise an FK violation on any bookmarked
+                        # summary in Postgres. Keep-better applies: a fresh run that comes back below the
+                        # stored tier keeps the stored summary. The run re-fetches XBRL (refresh_xbrl
+                        # below) and replaces the stored snapshot only with XBRL that arrives; it is not
+                        # cleared here, so a run the pipeline refuses, or one that ends early, keeps the
+                        # snapshot the kept summary's source verification reads.
+                        logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
+                        refresh_xbrl = True
 
-                # Clear progress record, so the run's row starts a fresh clock. Harmless before
-                # admission: no reader shows the progress row while the summary exists (it is kept).
-                progress = db.query(SummaryGenerationProgress).filter(
-                    SummaryGenerationProgress.filing_id == filing_id
-                ).first()
-                if progress:
-                    db.delete(progress)
+                        # Clear progress record, so the run's row starts a fresh clock. Harmless before
+                        # admission: no reader shows the progress row while the summary exists (it is kept).
+                        # One DELETE with no read before it: off the loop two forces of one filing clear it at
+                        # once, and a read, then a delete, left the second deleting a row already gone.
+                        db.query(SummaryGenerationProgress).filter(
+                            SummaryGenerationProgress.filing_id == filing_id
+                        ).delete(synchronize_session=False)
 
-                # Committed below, once the stream's inputs are read: the commit expires the user and
-                # the filing, and a read of either after it refreshes its row with a fresh checkout on
-                # the event loop (lessons/ops-release-cached-filing-reads-before-yield.md).
-                cleared_for_regeneration = True
-            else:
-                # Capture the response before closing the dependency's read transaction.
-                payload = {
-                    'type': 'complete',
-                    'summary': served_overview,
-                    'summary_id': summary.id,
-                }
-                db.close()
+                        # Committed below, once the stream's inputs are read: the commit expires the user
+                        # and the filing, and a read of either after it would refresh its row.
+                        cleared_for_regeneration = True
+                    else:
+                        # The replay's response, captured before the release.
+                        return _StreamAdmission(replay={
+                            'type': 'complete',
+                            'summary': served_overview,
+                            'summary_id': summary.id,
+                        })
 
-                evidence.delivery_path = "router_cache"
+                # Copy loaded identity inputs without lazy SQL before the release. Missing subscription
+                # inputs resolve in a separate worker-owned transaction after it; neither the request
+                # session nor any ORM object crosses into that worker or the stream.
+                admission = _StreamAdmission(
+                    replay=None,
+                    filing_type=filing.filing_type,
+                    ticker=filing.company.ticker if filing.company else None,
+                    generation_user=snapshot_generation_user(current_user, user_id),
+                    refresh_unready=refresh_unready,
+                    refresh_xbrl=refresh_xbrl,
+                    had_summary=summary is not None,
+                )
+                if cleared_for_regeneration:
+                    db.commit()
+                return admission
+            finally:
+                filing_list_service.release_request_session(db)
 
-                async def existing_summary():
-                    evidence.observe_terminal(payload)
-                    yield f"data: {json.dumps(payload)}\n\n"
-                return SummaryStreamResponse(existing_summary(), evidence)
+        admission = await run_in_threadpool(admit)
+        if admission.replay is not None:
+            payload = admission.replay
+            evidence.delivery_path = "router_cache"
 
-        user_id = current_user.id
+            async def existing_summary():
+                evidence.observe_terminal(payload)
+                yield f"data: {json.dumps(payload)}\n\n"
+            return SummaryStreamResponse(existing_summary(), evidence)
+
         logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
         # Only the authenticated account owns server event identity. Client ph_id is not authority.
-        telemetry_distinct_id = str(current_user.id)
+        telemetry_distinct_id = str(user_id)
         telemetry_entry_point = (entry_point or "")[:64] or None
         telemetry_ctx = {
             "filing_id": filing_id,
-            "filing_type": filing.filing_type,
-            "ticker": filing.company.ticker if filing.company else None,
+            "filing_type": admission.filing_type,
+            "ticker": admission.ticker,
             "user_type": "authenticated",
             "forced": force,
-            "account_id_at_event": str(current_user.id),
+            "account_id_at_event": str(user_id),
             "identity_evidence": "server_authenticated",
             "analytics_consent_at_event": True,
             "request_id": evidence.properties["request_id"],
         }
-
-        # Copy loaded identity inputs without lazy SQL, then release the request connection.
-        # Resolve missing subscription inputs in a separate worker-owned transaction; neither
-        # the request session nor any ORM object crosses into that worker or the stream.
-        generation_user = snapshot_generation_user(current_user, user_id)
-        if cleared_for_regeneration:
-            db.commit()
-        db.close()
-        generation_user = await run_in_threadpool(load_generation_user, generation_user)
+        generation_user = await run_in_threadpool(load_generation_user, admission.generation_user)
+        refresh_unready, refresh_xbrl = admission.refresh_unready, admission.refresh_xbrl
 
         async def event_stream():
             evidence.delivery_path = "pipeline"
@@ -361,7 +396,7 @@ async def generate_summary_stream(
                 # Admitted with no row the page shows (an unready row, or force with no row at all): the
                 # pipeline re-checks the row, so one another request has since saved and made ready is
                 # served or kept, never regenerated or replaced under the waived Pro gate.
-                replace_unready_only=refresh_unready or (force and summary is None),
+                replace_unready_only=refresh_unready or (force and not admission.had_summary),
                 refresh_xbrl=refresh_xbrl,
                 request_evidence=evidence,
             )) as events:

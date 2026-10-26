@@ -18,7 +18,10 @@ the corresponding visible warnings; mutations removing these paths must fail tho
 **Additional evidence (2026-10-11, analysis data notes)**: Repeated warnings made the same concern
 look like many unrelated errors and widened metric columns. Group explanations once and carry the
 same letters, reason identities and counts across the report and exports; keep a mark at each
-affected figure. Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
+figure whose note questions the number, and every note in the evidence dialog, the data notes and the
+exports (D-061, 2026-10-25: a record-only `legacy_calculation` note, a gap and a missing check record mark
+nothing; `frontend/tests/unit/dataNoteMarking.spec.tsx` holds the rule to the shared fixture's
+`marked_letters`). Shared `backend/tests/fixtures/analysis_data_notes.json` cases are exercised by
 Python and TypeScript. `test_analysis_data_notes.py`, `data-notes.spec.ts` and export tests pin the
 shared groups and numeric-cell preservation. `analysis-presentation-api.spec.ts` rejects supplied
 metadata that omits concerns or belongs to another snapshot before the stream becomes terminal;
