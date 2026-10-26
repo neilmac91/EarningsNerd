@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import app.services.trend_analysis.data_notes as data_notes_module
 from app.services.trend_analysis.data_notes import (
     _FALLBACK_MESSAGE,
     DATA_NOTES_VERSION,
@@ -137,21 +138,27 @@ NOTES_PROBE_CITATIONS = [
 # the notes it was built with, and the cache and the PDF admit it by version alone (presentation_is_current), so the
 # page would refuse a saved row whose words or letters changed under the same version, and only a metered refresh would
 # get past it. A change to any of them takes a new version: raise DATA_NOTES_VERSION and add its digest here, and a
-# saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest. Version 1
-# predates this gate.
+# saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest; a version not
+# yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
-    2: "d59b14b69a76202f8a9ef30e68372de59f31f9ab86ef188895a1495dec545732",
+    2: "7ede3a16e7998ae8baf39035e5d85d54192122efb3923b4ef0999f9fa72e6ac0",
 }
 
 
 def _notes_digest() -> str:
+    """The words, the record-only list and the letters the probe gets, never the version number the digest decides:
+    the digest a failure prints for the next version is the one that version computes."""
+    def unversioned(envelope: dict) -> dict:
+        return {key: value for key, value in envelope.items() if key != "version"}
+
     report = data_notes(NOTES_PROBE)
     payload = {"reasons": REASONS, "fallback": _FALLBACK_MESSAGE, "record_only": sorted(RECORD_ONLY_REASONS),
-               "report": report, "with_citations": citation_data_notes(NOTES_PROBE_CITATIONS, report)}
+               "report": unversioned(report),
+               "with_citations": unversioned(citation_data_notes(NOTES_PROBE_CITATIONS, report))}
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=True).encode()).hexdigest()
 
 
-def test_a_change_to_the_notes_words_or_letters_takes_a_new_version():
+def test_a_change_to_the_notes_words_or_letters_takes_a_new_version(monkeypatch):
     """Rule 12 for DATA_NOTES_VERSION: the words and the letters a saved analysis keeps are pinned per version."""
     letters = [(note["letter"], note["reasons"]) for note in citation_data_notes(
         NOTES_PROBE_CITATIONS, data_notes(NOTES_PROBE))["notes"]]
@@ -164,10 +171,15 @@ def test_a_change_to_the_notes_words_or_letters_takes_a_new_version():
     assert max(NOTES_DIGESTS) == DATA_NOTES_VERSION, "a new version adds its digest beside the released ones"
     assert len(set(NOTES_DIGESTS.values())) == len(NOTES_DIGESTS), "a new version changes the words or letters"
     digest = _notes_digest()
+    # Following the message below converges: the raised version computes the digest it prints.
+    monkeypatch.setattr(data_notes_module, "DATA_NOTES_VERSION", DATA_NOTES_VERSION + 1)
+    assert _notes_digest() == digest, "the digest must not depend on the version number it decides"
+    monkeypatch.undo()
     assert digest == NOTES_DIGESTS[DATA_NOTES_VERSION], (
         f"the data notes' words, record-only list or letter order changed under version {DATA_NOTES_VERSION}, so a "
-        "saved analysis would keep the old ones and the page would refuse it: raise DATA_NOTES_VERSION and add "
-        f"NOTES_DIGESTS[{DATA_NOTES_VERSION + 1}] = {digest!r}"
+        f"saved analysis would keep the old ones and the page would refuse it: raise DATA_NOTES_VERSION to "
+        f"{DATA_NOTES_VERSION + 1} and add NOTES_DIGESTS[{DATA_NOTES_VERSION + 1}] = {digest!r} (while version "
+        f"{DATA_NOTES_VERSION} is not yet on main, replace its digest instead)"
     )
 
 
