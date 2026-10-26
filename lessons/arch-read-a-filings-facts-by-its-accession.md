@@ -15,7 +15,9 @@ cell the same way. Reproduced through both real writers in
 review found that, unchecked, they also gave a 10-Q's page an "annual" chart (the sync labels the
 prior year-end balance FY and stores it under the 10-Q's accession while the 10-Q filed it last),
 an older 10-K a lone oldest-year bar for each line the per-filing writer read no current year of,
-and an older 20-F a lone current-year USD bar for such a line (an early sync's convenience row).
+and a 20-F, older or newest, a lone current-year USD bar beside its CNY lines for such a line: an
+early sync's convenience row, or the current sync's at a filer that switched reporting currency
+(Hello Group, Vipshop, JOYY), whose USD list `currency.series_unit` keeps.
 
 **Rule**: select one filing's facts with `company_id == filing.company_id` and
 `accession == filing.accession_number`, current or not; for its annual figures, call
@@ -33,50 +35,68 @@ count. A row another writer stored under the accession counts only when every on
    operands, so check `inputs` too): a companyfacts calculation takes its first operand's accession,
    so its other operand may be a later filing's, and a legacy calculation with no operands proves
    nothing;
-4. its line reaches the filing's own period end: some row of the line that counts (the filing's
-   own, or one meeting 1-3), in the line's one currency, ends within `fiscal_naming.DRIFT_DAYS`
-   days of `Filing.period_end_date`, counted in days, never calendar years (a year ending by
-   September and its first quarter end in one calendar year). With no period end on record, no
-   such row counts. Short of it, the rows another writer left there are only the cells the filing
-   reported last (an older report's oldest year and older balance, an interim report's prior
-   year-end balance), and a line of those alone reads as all it disclosed. `period_end_date` is
-   EDGAR's submissions `reportDate`, which names the XBRL year end itself in nearly every annual
-   report, 52/53-week calendars included (1,048 of 1,050 sampled from 99 filers). The 18 days absorb
-   the odd one a day off (one of 63 in a sample of 52/53-week filers) and stay well inside the
-   quarter that keeps a 10-Q's prior year-end out. The two misses of the first sample, Tractor
-   Supply's 2014 and 2015 10-Ks, give the filing date, 53 days on: such a report keeps its own rows
-   only, as before this reader.
+4. it is in the filing's currency. In a line the filing owns rows of, its unit is one of theirs. In
+   any other line, its currency (a ratio's is its recorded operands', `currency._operand_unit`) is
+   the one the filing's own rows rank first by the per-filing extractor's rule
+   (`currency._reporting_currency`: the most period ends, then a non-USD code; presence at the
+   filing's own year breaks no tie), since the extractor chose it for this report; own rows in two
+   currencies (a USD read, then a native one) take the one with more years, the native one on a tie.
+   A sync can hold a line only in USD, as an early one read the USD lists alone and a current one
+   does for a filer that switched currency, and that line's own-year translation alone reaches the
+   period end. Only when no own row carries a currency do the stand-ins rank their own: the sync
+   held every annual cell the writer read, in the writer's currency (the newest report synced first,
+   at a domestic filer or after a native sync), or the writer stored no annual row (an interim
+   report, or one it read nothing annual from);
+5. its line reaches the filing's own period end: some row of the line that counts (the filing's own,
+   or one meeting 1-4) ends within `fiscal_naming.DRIFT_DAYS` days of `Filing.period_end_date`,
+   counted in days, never calendar years (a year ending by September and its first quarter end in
+   one calendar year). With no period end on record, no such row counts. Short of it, the rows
+   another writer left there are only the cells the filing reported last (an older report's oldest
+   year and older balance, an interim report's prior year-end balance), and a line of those alone
+   reads as all it disclosed. `period_end_date` is EDGAR's submissions `reportDate`, which names the
+   XBRL year end itself in nearly every annual report, 52/53-week calendars included (1,048 of 1,050
+   sampled from 99 filers). The 18 days absorb the odd one a day off and stay well inside the
+   quarter that keeps a 10-Q's prior year-end out. A sample of 63 reports from 52/53-week filers had
+   two misses: one a day off, and Legacy Reserves' fresh-start predecessor span 21 days off, whose
+   flow lines' stand-ins fall short while its balances, at `reportDate`, still reach. The two misses
+   of the first sample, Tractor Supply's 2014 and 2015 10-Ks, give the filing date, 53 days on: such
+   a report keeps its own rows only, as before this reader.
 
-Keep another company's rows out (a combined report shares one accession), keep each line in one
-currency (the filing's own rows', else the one with the most period ends among the others, a
-non-USD one on a tie, never the one present at the filing's own year: the native row for that year
-sits under the later report that re-reported it, while an early sync's USD convenience row for it
-stays), and show a row another writer stored under the year counted, back or forward, from the
-latest period end the filing's own rows name (never from another such row's); it keeps its own
-label when the filing owns no row to count from, or when no whole number of years lies between the
-two (`fiscal_naming.years_back` gives none, as across a transition period): writer generations
-name a year differently.
+Keep another company's rows out (a combined report shares one accession), and show a row another
+writer stored under the year counted, back or forward, from the latest period end the filing's own
+rows name (never from another such row's); it keeps its own label when the filing owns no row to
+count from, or when no whole number of years lies between the two (`fiscal_naming.years_back`
+gives none, as across a transition period): writer generations name a year differently.
 
-Two known shapes stand outside the rule. Reaching the period end does not make a line whole: once
-WP5b's own-report rows land, an older report whose own year a later one restated holds that
-own-report row beside its oldest year, while the middle year's winner sits under the later
-report's accession, so for a line the per-filing writer read nothing of the chart shows the oldest
-year and its own without the one between, side by side on the categorical axis. No writer on main
-stores such a row yet; whoever lands the WP5b writer settles it, there or with a rule here. And a
-40-F is never processed: the summary pipeline fetches XBRL for 10-K, 10-Q and 20-F only
-(`summary_stages/enrichment.py`), so a 40-F's processed gate stays shut and its chart empty, as
-before this reader; its test case holds for when one is.
+Known shapes outside the rule. Reaching the period end does not make a line whole. Condition 4
+closes the shape reachable today: a sync of 2026-10-10 to #1365 read the USD lists alone and stored
+under each 20-F's accession a margin over its own-year convenience figures, operands recorded, so an
+older report's margin line reached through it and charted its oldest year and own year without the
+one between. The same rows keep the newest report's margin line off its chart (the native sync skips
+the identity they hold, so its own year has no CNY margin) until the quarterly repair recomputes
+them from native operands (`docs/quarterly-data-repair.md`). Once WP5b's own-report rows land, an
+older report whose own year a later one restated holds that own-report row, in its own currency,
+beside its oldest year, while the middle year's winner sits under the later report's accession: for
+a line the per-filing writer read nothing of, the chart again shows the oldest year and its own
+without the one between, side by side on the categorical axis. No writer on main stores such a row
+yet; whoever lands the WP5b writer settles it, there or with a rule here. A report the writer read
+nothing annual from takes the stand-ins' own currency (condition 4), so at a switched filer it
+charts its USD translations, one year a line. And a 40-F is never processed: the summary pipeline
+fetches XBRL for 10-K, 10-Q and 20-F only (`summary_stages/enrichment.py`), so a 40-F's processed
+gate stays shut and its chart empty, as before this reader; its test case holds for when one is.
 
 **Evidence**: `backend/app/services/facts/filing_scope.py::annual_filing_rows` and `filing_years`,
 read by `facts/fundamentals.get_filing_fundamentals`; the Copilot already scoped by accession
 (`copilot_tools._scope`). Each condition is pinned on the bad case by
-`backend/tests/unit/test_filing_fundamentals_by_accession.py`, condition 4's currency and its
-distance in days included. Partly gated by
-`backend/tests/unit/test_filing_facts_read_by_accession.py`, which counts every mention of
-`FinancialFact.filing_id` through the model (the column, an ownership test, a lookup by name, a join
-with no onclause to or from the model or `Filing` in its method, function or table form, a
-relationship on or to the model) in `backend/app`, `backend/scripts`, `backend/evals` and the
-top-level backend modules against a reviewed list; a comparison of a loaded row's `filing_id` or a
-copied state's key, a name built at run time, a join whose tables are unpacked or reached through a
-bound name or a call, and a new reader that restates the conditions above instead of calling
-`filing_scope` are review-checked.
+`backend/tests/unit/test_filing_fundamentals_by_accession.py`, condition 4's currency shapes
+(an early sync's rows alone and beside a native sync, a switched filer, a ratio's operands, own
+rows in two currencies) and condition 5's distance in days included. Partly gated by
+`backend/tests/unit/test_filing_facts_read_by_accession.py`, which counts the mentions of
+`FinancialFact.filing_id` through the model it can see (the column, an ownership test, a lookup by
+name, a join with no onclause to or from the model or `Filing` in its method, function or table
+form, a relationship on or to the model) in `backend/app`, `backend/scripts`, `backend/evals` and
+the top-level backend modules against a reviewed list; a comparison of a loaded row's `filing_id`
+or a copied state's key, a name built at run time, a join whose tables are unpacked or reached
+through a bound name, a call or a re-exported SQLAlchemy module, a mention in `backend/tests`, and
+a new reader that restates the conditions above instead of calling `filing_scope` are
+review-checked.

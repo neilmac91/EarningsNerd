@@ -416,9 +416,10 @@ def test_a_line_reaches_a_period_of_report_a_day_off_its_year_end(db, reported, 
     """The period of report is EDGAR's submissions ``reportDate``, not a date read from the XBRL contexts
     the rows came from. The two name the same day in nearly every annual report, 52/53-week calendars
     included. The odd one is a day apart, which still reaches, across a calendar year too: here
-    1 January for a year to 31 December. A filer that gave its filing date instead, weeks later, is
-    beyond any tolerance that keeps a 10-Q's prior year-end out: the report keeps its own rows only, as
-    before this reader (the newest report owns none)."""
+    1 January for a year to 31 December. A filer that gave its filing date instead (Tractor Supply's
+    2014 and 2015 10-Ks, 53 days on; here 46) falls outside the 18 days, though inside the quarter
+    that keeps a 10-Q's prior year-end out: the report keeps its own rows only, as before this reader
+    (the newest report owns none)."""
     company = _company(db)
     reports = _calendar(company)
     filing = _filing(db, company, reports[2024])
