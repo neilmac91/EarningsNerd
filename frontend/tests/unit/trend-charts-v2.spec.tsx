@@ -571,6 +571,8 @@ describe('the PNG export', () => {
     expect(options?.header).toMatchObject({
       ticker: ds.ticker,
       title: model.title,
+      period: 'FY2016–FY2025',
+      periodShort: 'FY2016–FY2025',
       legend: model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.light.series[item.color!] })),
       notes: [...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)), FCF_DEFINITION],
     })
@@ -594,6 +596,12 @@ describe('the PNG export', () => {
     // The secondary ink is chart.tick's on dark, the card's legend names' ink (§3.8), not the export's own.
     expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
+  })
+
+  it('a quarterly card’s PNG names its range in the long form and the card’s own short one', async () => {
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_quarterly')} exportEnabled />)
+    await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('margins')]).getByRole('button', { name: 'Download chart as PNG' })))
+    expect(vi.mocked(exportPanelPng).mock.calls[0][2]?.header).toMatchObject({ period: 'Q3 2023–Q2 2026', periodShort: 'Q3 ’23–Q2 ’26' })
   })
 
   it('is busy while its PNG is drawn and refuses a second press, never natively disabled (§3.9 exporting; E200)', async () => {

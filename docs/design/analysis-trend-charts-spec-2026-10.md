@@ -292,8 +292,8 @@ says so; everything else follows the spec.
   above. The renderer names each text's role (`data-text`) and each panel's plot rect (`data-plot`) for these checks.
   `frontend/tests/unit/chart-readout.spec.ts` holds every readout to the model, and the golden plans carry the six
   datasets' readouts. The unit specs also run M14, and M19 on the PNG's legend (`chart-export.spec.ts`). In a browser,
-  under full font hinting, in CI's `e2e-charts-v2` job (a required check on `main`; E195's follow-up moves its specs into
-  `e2e-tests` once F67 lifts the check):
+  under full font hinting, unconditionally in CI's required `e2e-tests` job. The founder lifted the separate
+  `e2e-charts-v2` check (F67), and E195 retired that duplicate job and the specs' flag guards:
   - `frontend/tests/e2e/charts-v2-gallery.spec.ts` draws twelve datasets chosen for their cases, in both themes at
     1280 and 390 px, card and expanded. It holds each chart to the plan the engine makes at the width the page
     measured (its size, and every text by role and ink), and to D1, D2, D3, D5, D6 on the computed colours (the card's
@@ -1138,6 +1138,11 @@ because they delay readout and complicate export timing. A theme switch swaps to
    - 24 px pad;
    - company (Inter 600 18);
    - `TICKER · chart title`;
+     - as built (#1627, `frontend/DESIGN_SYSTEM.md` §10), the export carries the period on this line in its own form,
+       `TICKER · chart title · FY2016–FY2025`, and in this card's short form (`Q3 ’24–Q4 ’25`) when the long one is
+       wider than the strip (the image less its 16 px pads) and the short one fits; otherwise the range takes a line
+       of its own in the same size and ink, as a bank's subtitle does on a phone; only a line that still does not
+       fit is condensed;
    - subtitle;
    - legend: the same inline items, same strings, same item x positions, drawn on the canvas with `measureText` in
      the page's body font stack;

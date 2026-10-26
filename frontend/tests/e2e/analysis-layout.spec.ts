@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
-import { drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
+import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -15,8 +15,8 @@ import { drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from '
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
  *
  * The trend charts are read through fixtures/trendChartDom.ts, on the spec renderer, the only one since step 7 of the
- * trend-chart migration (E195). CI's e2e-charts-v2 job runs this file too until the job goes (E195's follow-up);
- * charts-v2.spec.ts holds the renderer's keyboard and notes cases.
+ * trend-chart migration (E195). CI's e2e-tests job runs this file and charts-v2.spec.ts, which holds the renderer's
+ * keyboard and notes cases.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
@@ -1062,6 +1062,22 @@ for (const theme of THEMES) {
     }
   })
 }
+
+// Every text the spec renderer draws sits inside its SVG, descenders included (D1). This also guards the
+// clipping regression that made the retired Recharts axis caption read "Fiscal vear".
+for (const width of [360, 390, 1280]) test.describe(`analysis chart text / ${width}px`, () => {
+  test.use({ viewport: { width, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['annual', 'captured'] as const) {
+    test(`${state === 'annual' ? 'annual' : 'quarterly'}: every chart text lies inside the chart`, async ({ page, baseURL }) => {
+      await openAnalysis(page, baseURL!, state, 'light')
+      const charts = await (await drawnCharts(page)).evaluateAll(readTextOutsideSvg)
+      for (const chart of charts) {
+        expect(chart.texts, `${chart.name}: its texts are drawn`).toBeGreaterThan(4)
+        expect(chart.outside, `${chart.name}: texts the SVG cuts`).toEqual([])
+      }
+    })
+  }
+})
 
 for (const theme of THEMES) for (const width of [320, 390, 1480]) for (const textScale of [1, 2]) {
   test.describe(`analysis period controls / ${theme} / ${width}px / ${textScale * 100}% text`, () => {

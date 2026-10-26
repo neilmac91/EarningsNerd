@@ -77,9 +77,8 @@ python3 ../ops/dev/verify.py -- npm run build    # production build
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
 `backend-tests` (ruff + bandit + the parallel pytest fast lane, then the performance suite
 serially), `migrations-postgres` (the migrations and the concurrency tests on PostgreSQL),
-`frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright), `e2e-charts-v2` (the
-trend charts' browser gates on the same build, whose `NEXT_PUBLIC_CHARTS_V2` nothing reads since E195; the job folds
-into `e2e-tests` after F67), `lighthouse` and
+`frontend-tests` (lint, typecheck and vitest), `e2e-tests` (build + Playwright, including the trend
+charts and gallery), `lighthouse` and
 `secret-scan` (gitleaks). Required PR checks also include `review-gate`. After the applicable CI gates
 pass on `main`, changes under `backend/` outside `backend/tests/` deploy to Cloud Run. See
 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).

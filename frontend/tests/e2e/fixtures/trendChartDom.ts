@@ -61,6 +61,25 @@ export function readAxes(charts: Element[]) {
   })
 }
 
+/** Each text a chart draws whose box (ascent to descent, so a "y" or "q" descender counts) leaves its SVG, which cuts
+ *  it: "Fiscal year" read "Fiscal vear" while its baseline sat on the SVG's bottom edge. */
+export function readTextOutsideSvg(charts: Element[]) {
+  return charts.map((chart) => {
+    const svg = chart.querySelector(':scope > svg')!.getBoundingClientRect()
+    const texts = [...chart.querySelectorAll(':scope > svg text')]
+    return {
+      name: chart.getAttribute('data-analysis-chart'),
+      texts: texts.length,
+      outside: texts.flatMap((text) => {
+        const box = text.getBoundingClientRect()
+        if (!box.width && !box.height) return []
+        const inside = box.top >= svg.top - 0.5 && box.bottom <= svg.bottom + 0.5 && box.left >= svg.left - 0.5 && box.right <= svg.right + 0.5
+        return inside ? [] : [`${text.textContent} at ${Math.round(box.left - svg.left)},${Math.round(box.top - svg.top)}–${Math.round(box.right - svg.left)},${Math.round(box.bottom - svg.top)} of ${Math.round(svg.width)}×${Math.round(svg.height)}`]
+      }),
+    }
+  })
+}
+
 /** Each chart's slot between x ticks and its painted x tick labels. */
 export function readSlots(charts: Element[]) {
   return charts.map((chart) => {
