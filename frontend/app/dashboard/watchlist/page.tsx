@@ -14,7 +14,7 @@ import AccountLoadFailure from '@/features/auth/components/AccountLoadFailure'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
-import SummaryStatusBadge, { summaryNextStep } from '@/features/watchlist/components/SummaryStatusBadge'
+import SummaryStatusBadge, { summaryNextStep, summaryStatusKind } from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
 import { Badge, buttonVariants, Card, cx, GuidanceCard, MissingValue, Skeleton } from '@/components/ui'
@@ -27,6 +27,11 @@ function formatRelative(dateLike?: string | null) {
   const date = new Date(dateLike)
   if (Number.isNaN(date.getTime())) return 'Unknown'
   return `${formatDistanceToNowStrict(date, { addSuffix: true })}`
+}
+
+/** A pipeline stage key as the start of a sentence: `fetching` reads "Fetching". */
+function sentenceStart(stage: string) {
+  return stage.charAt(0).toUpperCase() + stage.slice(1)
 }
 
 export default function WatchlistDashboardPage() {
@@ -255,10 +260,20 @@ export default function WatchlistDashboardPage() {
                             Summary ID #{latest.summary_id}
                           </div>
                         </>
+                      ) : latest && summaryStatusKind(latest.summary_status) === 'error' ? (
+                        // A failed run is no work under way: the tile reads as the filing page's stored failure
+                        // does (SummaryDisplay), beside the card's Error chip and next step, with no elapsed count
+                        // (E219). The status ink on a sentence and its glyph, as the missing state's line below.
+                        <div className="flex items-center space-x-2 text-sm text-error-light dark:text-error-dark">
+                          <WarningCircleIcon className="h-4 w-4" />
+                          <span>This summary did not finish</span>
+                        </div>
                       ) : latest && progressStage ? (
                         <>
-                          <div className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark capitalize">
-                            {progressStage} in progress
+                          {/* The stage is the pipeline's key (`fetching`, `summarizing`), its first letter upper-cased
+                              in code: `capitalize` upper-cased every word's ("Fetching In Progress"). */}
+                          <div className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark">
+                            {sentenceStart(progressStage)} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
                             <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
