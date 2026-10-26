@@ -49,8 +49,8 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
     document, even if a later filing restated a period. Never keyed by ``filing_id`` alone: a
     companyfacts row stored first at the filing's identity holds that cell with no filing owner.
     Restricted to ``fiscal_period == "FY"`` (the annual-report periods — 10-K / 20-F / 40-F; see
-    ``_fiscal_period``), so a quarter stored under the same accession never surfaces as an annual bar
-    under the chart's "Annual figures" label. Returns ``None`` when the filing doesn't exist.
+    ``_fiscal_period``): a quarter under the same accession never shows as an annual bar, nor does a
+    10-Q's FY-labelled prior year-end balance (``annual_filing_rows``). ``None`` when no such filing.
     """
     filing = (
         db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()

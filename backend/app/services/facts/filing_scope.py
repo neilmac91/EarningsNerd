@@ -12,12 +12,14 @@ reported it; a filing's figures are the rows at its company and accession
 """
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from sqlalchemy.orm import Session
 
 from app.models import Filing, FinancialFact
 from app.services.fact_provenance import operands_within_accession, provenance_for_fact
 from app.services.facts.currency import _reporting_currency
-from app.services.facts.fiscal_naming import years_back
+from app.services.facts.fiscal_naming import DRIFT_DAYS, years_back
 
 
 def _stands_in(row: FinancialFact, accession: str) -> bool:
@@ -50,15 +52,29 @@ def _series_units(rows: list[FinancialFact]) -> dict[str, set[str]]:
     return units
 
 
+def _lines_reaching(rows: list[FinancialFact], period_end: date | datetime | None) -> set[str]:
+    """The concepts whose line has a row at the filing's own period end, within a 52/53-week calendar's
+    drift (``fiscal_naming.DRIFT_DAYS``): ``Filing.period_end_date`` is the period of report EDGAR's
+    submissions index gives (``reportDate``), not a date read from the XBRL contexts the rows came from.
+    A filing with no period end on record has no line known to reach it."""
+    if period_end is None:
+        return set()
+    end = period_end.date() if isinstance(period_end, datetime) else period_end
+    return {row.concept for row in rows if abs((row.period_end - end).days) <= DRIFT_DAYS}
+
+
 def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     """The filing's own FY rows, by concept then period end, current or not.
 
     Read at the filing's company and accession (another company's rows under a combined report's
-    accession stay out). The rows the per-filing writer stored count always; a row another writer
-    stored there stands in for the filing's (``_stands_in``) once that writer has run
-    (``processed_facts_at``), since before then the rows stored there are only the cells this filing
-    reported last, and a chart of those alone would read as all it disclosed. No ``is_latest`` filter:
-    a later restatement demotes the rows, never removes them from their filing's chart.
+    accession stay out). The rows the per-filing writer stored count always. A row another writer
+    stored there stands in for the filing's (``_stands_in``) only once that writer has run
+    (``processed_facts_at``), and only in a line that reaches the filing's own period end
+    (``_lines_reaching``): short of either, the rows stored there are only the cells this filing
+    reported last (an older report's oldest year and older balance; an interim report's prior
+    year-end balance, which the sync labels FY although the per-filing writer stores no FY row for
+    an interim report), and a line of those alone would read as all it disclosed. No ``is_latest``
+    filter: a later restatement demotes the rows, never removes them from their filing's chart.
     """
     rows = (
         db.query(FinancialFact)
@@ -74,16 +90,19 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     chosen = [row for row in rows if row.filing_id is not None
               or processed and _stands_in(row, filing.accession_number)]
     units = _series_units(chosen)
-    return [row for row in chosen if row.unit in units[row.concept]]
+    chosen = [row for row in chosen if row.unit in units[row.concept]]
+    reaching = _lines_reaching(chosen, filing.period_end_date)
+    return [row for row in chosen if row.filing_id is not None or row.concept in reaching]
 
 
 def filing_years(rows: list[FinancialFact]) -> dict[int, int | None]:
     """The fiscal year each of a filing's rows shows under, by row id. The filing's own rows keep theirs.
-    A stand-in is named as the per-filing writer would have named its cell: whole years counted from the
-    latest period end the filing's own rows name (``fiscal_naming.years_back``), else by its own label. A
-    companyfacts row stored before the fiscal-year-window writer names its year by the calendar year of
-    its end, so for an issuer that names a year by its start (Target) or a 52-week year ending on
-    1 January, its own label would repeat the next bar's."""
+    A stand-in is named as the per-filing writer would have named its cell: whole years counted back or
+    forward from the latest period end the filing's own rows name, never a stand-in's
+    (``fiscal_naming.years_back``), else by its own label. A companyfacts row stored before the
+    fiscal-year-window writer names its year by the calendar year of its end, so for an issuer that
+    names a year by its start (Target) or a 52-week year ending on 1 January, its own label would
+    repeat the next bar's."""
     own = {row.period_end: row.fiscal_year for row in rows if row.filing_id is not None and row.fiscal_year}
     anchor = max(own, default=None)
     years: dict[int, int | None] = {}

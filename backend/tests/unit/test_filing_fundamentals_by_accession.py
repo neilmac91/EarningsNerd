@@ -138,11 +138,11 @@ def _margins(filing: Filing, years, value: float) -> list[tuple]:
     return [(f"{year}-12-31", pytest.approx(value), "pure", filing.accession_number) for year in years]
 
 
-def _calendar(company: Company) -> dict[int, dict[str, list[dict]]]:
+def _calendar(company: Company, year_end: str = "12-31") -> dict[int, dict[str, list[dict]]]:
     """Three timely 10-Ks: each reports three years of revenue and net income, and two balances."""
     def report(fy: int) -> dict[str, list[dict]]:
         years = (fy - 2, fy - 1, fy)
-        return _report(_accession(company, fy + 1), fy, **{
+        return _report(_accession(company, fy + 1), fy, year_end=year_end, **{
             REV: {y: 100.0 * (y - 2000) for y in years}, "NetIncomeLoss": {y: 10.0 * (y - 2000) for y in years},
             "Assets": {y: 1000.0 * (y - 2000) for y in years[1:]},
         })
@@ -239,12 +239,13 @@ def test_a_calculation_stands_in_only_when_this_report_gave_every_operand(db):
     _process(db, filing, k24)
 
     # The sync's net margin takes revenue's accession, this report's; for 2023 and 2024 its numerator
-    # is the recast's. It holds the report's own margin cells, so those years show no margin at all.
+    # is the recast's. It holds the report's own margin cells, so those years show no margin, and the
+    # 2022 margin alone (both operands the report's) is a line short of the report's year: none shows.
     stored = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_margin",
                                                accession=filing.accession_number).all()
     assert sorted((row.period_end.year, row.filing_id) for row in stored) == [(2022, None), (2023, None), (2024, None)]
     chart = _chart(db, filing)
-    assert chart["net_margin"] == _margins(filing, (2022,), 10.0)
+    assert "net_margin" not in chart
     assert chart["gross_margin"] == _margins(filing, (2022, 2023, 2024), 50.0)
     assert chart["net_income"] == _own(k24, "NetIncomeLoss")  # the report's own figures, not the recast's
 
@@ -285,20 +286,24 @@ def test_a_retired_or_unproven_row_never_stands_in_and_a_legacy_reported_one_doe
     assert series["revenue"][0]["provenance"]["filed_at"] == "2025-02-15"  # the sync's own record
 
 
-def test_a_stand_in_takes_the_year_the_reports_own_rows_count_to_its_period(db):
+@pytest.mark.parametrize("held", [2021, 2023], ids=["before-the-own-rows", "after-the-own-rows"])
+def test_a_stand_in_takes_the_year_the_reports_own_rows_count_to_its_period(db, held):
     """A companyfacts row stored before the fiscal-year-window writer names its year by the calendar year
     of its end. Target names a year by its start: its report for the year to 3 February 2024 is fiscal
-    2023, and the year to 29 January 2022 is fiscal 2021, not 2022."""
+    2023, and the year to 29 January 2022 is fiscal 2021, not 2022. A stand-in before the report's own
+    rows is counted back from the latest of them, one after them (its own year, held as a year's
+    own-report row holds it) forward, and never from a stand-in, whose label would name the anchor."""
     company = _company(db)
     accn = _accession(company, 2024)
     ends = {2021: "2022-01-29", 2022: "2023-01-28", 2023: "2024-02-03"}
     report = {REV: [{"val": 100.0 * (fy - 2000), "start": _start(end), "end": end, "accn": accn, "fy": 2023,
                      "fp": "FY", "form": "10-K", "filed": "2024-03-13", "unit": "USD"} for fy, end in ends.items()]}
     filing = _filing(db, company, report)
+    end = date.fromisoformat(ends[held])
     facts_service.upsert_facts_bulk(db, [{
         "company_id": company.id, "filing_id": None, "concept": "revenue", "raw_tag": f"us-gaap:{REV}", "unit": "USD",
-        "period_start": date.fromisoformat(_start(ends[2021])), "period_end": date.fromisoformat(ends[2021]),
-        "fiscal_year": 2022, "fiscal_period": "FY", "value": 2100.0, "form": "10-K", "accession": accn,
+        "period_start": date.fromisoformat(_start(ends[held])), "period_end": end, "fiscal_year": end.year,
+        "fiscal_period": "FY", "value": 100.0 * (held - 2000), "form": "10-K", "accession": accn,
         "source": "companyfacts", "reconciled": True,
     }])
     standardized = _standardized(report)  # the extractor names each year from the report's own focus
@@ -310,7 +315,7 @@ def test_a_stand_in_takes_the_year_the_reports_own_rows_count_to_its_period(db):
     [revenue] = [s for s in facts_service.get_filing_fundamentals(db, filing.id)["concepts"] if s["concept"] == "revenue"]
     assert [(p["period_end"], p["fiscal_year"], p["value"]) for p in revenue["points"]] == [
         (ends[2021], 2021, 2100.0), (ends[2022], 2022, 2200.0), (ends[2023], 2023, 2300.0)]
-    assert db.query(FinancialFact).filter_by(company_id=company.id, period_end=date(2022, 1, 29)).one().fiscal_year == 2022
+    assert db.query(FinancialFact).filter_by(company_id=company.id, period_end=end).one().fiscal_year == end.year
 
 
 def test_an_unprocessed_report_charts_nothing_until_its_own_writer_runs(db):
@@ -325,6 +330,89 @@ def test_an_unprocessed_report_charts_nothing_until_its_own_writer_runs(db):
 
     _process(db, filing, reports[2023])
     assert _chart(db, filing)["revenue"] == _own(reports[2023], REV)
+
+
+# --- A stand-in shows only in a line that reaches the filing's own period end ------------------------
+
+
+def test_a_line_short_of_the_reports_own_year_charts_only_the_reports_own_rows(db):
+    """For a line the per-filing writer read no current year of, the rows the sync stored under an older
+    report's accession are the cells it reported last, its oldest year: alone, or beside the report's
+    own comparative, they would read as all it disclosed. Such a line keeps the report's own rows only."""
+    company = _company(db)
+    reports = _calendar(company)
+    filing = _filing(db, company, reports[2023])
+    _sync(db, company, *reports.values())
+    # The extractor read no net income from this report, and revenue for its two comparative years only.
+    read = {REV: reports[2023][REV][:2], "Assets": reports[2023]["Assets"]}
+    facts_service.process_filing_facts(db, filing, standardized=_standardized(read))
+
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number).all()
+    assert {(row.concept, row.period_end.year) for row in rows if row.filing_id is None} == {
+        ("revenue", 2021), ("net_income", 2021), ("net_margin", 2021), ("total_assets", 2022)}
+    chart = _chart(db, filing)
+    assert chart.keys() == {"revenue", "total_assets"}
+    assert chart["revenue"] == _own(reports[2023], REV)[1:2]  # its own 2022 row, as before any stand-in
+    assert chart["total_assets"] == _own(reports[2023], "Assets")  # reaches 2023, so its older balance shows
+
+
+@pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
+def test_an_interim_report_charts_no_annual_line(db, sync_first):
+    """A 10-Q's comparative balance is the prior year-end's. The sync labels that instant FY and stores
+    it under the 10-Q's accession while the 10-Q filed it last; the per-filing writer stores no FY row
+    for an interim report, so that row holds none of its cells, and its line ends a quarter before the
+    10-Q's own period: the 10-Q's page shows no annual chart."""
+    company = _company(db)
+    annual = _calendar(company)[2024]
+    common = {"accn": _accession(company, 2025, 40), "fy": 2025, "fp": "Q1", "form": "10-Q", "filed": "2025-05-01",
+              "unit": "USD"}
+    interim = {REV: [{**common, "val": 330.0, "start": "2025-01-01", "end": "2025-03-31"}],
+               "Assets": [{**common, "val": 24000.0, "end": "2024-12-31"}, {**common, "val": 24100.0, "end": "2025-03-31"}]}
+    _filing(db, company, annual)
+    filing = _filing(db, company, interim)
+    steps = [lambda: _sync(db, company, annual, interim), lambda: _process(db, filing, interim)]
+    for step in steps if sync_first else steps[::-1]:
+        step()
+
+    [held] = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
+                                               fiscal_period="FY").all()
+    assert (held.concept, held.period_end, held.filing_id) == ("total_assets", date(2024, 12, 31), None)
+    assert _chart(db, filing) == {}
+
+
+def test_a_report_with_no_period_end_on_record_charts_only_its_own_rows(db):
+    """With no period of report, no line can be shown to reach it, so no stand-in shows: the newest
+    report, whose every cell the sync holds, charts nothing; an older one charts the years it owns."""
+    company = _company(db)
+    reports = _calendar(company)
+    older, newest = _filing(db, company, reports[2023]), _filing(db, company, reports[2024])
+    older.period_end_date = newest.period_end_date = None
+    db.commit()
+    _sync(db, company, *reports.values())
+    _process(db, older, reports[2023])
+    _process(db, newest, reports[2024])
+
+    assert _chart(db, newest) == {}
+    chart = _chart(db, older)
+    assert chart["revenue"] == _own(reports[2023], REV)[1:]
+    assert chart["total_assets"] == _own(reports[2023], "Assets")[1:]
+
+
+def test_a_line_reaches_a_period_of_report_a_52_week_calendar_names_by_its_month_end(db):
+    """The period of report comes from EDGAR's submissions index, not from the XBRL contexts the rows
+    were read from, so for a 52/53-week filer the two can name different days of one year end: here
+    31 December for a year to Saturday 28 December."""
+    company = _company(db)
+    reports = _calendar(company, year_end="12-28")
+    filing = _filing(db, company, reports[2024])
+    filing.period_end_date = datetime(2024, 12, 31, tzinfo=timezone.utc)
+    db.commit()
+    _sync(db, company, *reports.values())
+    _process(db, filing, reports[2024])
+
+    chart = _chart(db, filing)
+    assert chart["revenue"] == _own(reports[2024], REV)
+    assert chart["total_assets"] == _own(reports[2024], "Assets")
 
 
 def test_another_companys_rows_under_the_same_accession_stay_out(db):
@@ -464,3 +552,5 @@ def test_a_years_own_report_row_stands_in_for_that_report_after_a_restatement(db
 
     assert result["skipped"] == 2  # 2020, which it reported last, and 2022, its own-report row
     assert _chart(db, filing)["revenue"] == _own(k22, REV)  # 800, never the 2024 report's 750
+    [revenue] = [s for s in facts_service.get_filing_fundamentals(db, filing.id)["concepts"] if s["concept"] == "revenue"]
+    assert [p["fiscal_year"] for p in revenue["points"]] == [2020, 2021, 2022]  # 2022 counted on from 2021
