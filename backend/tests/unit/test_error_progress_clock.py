@@ -145,18 +145,21 @@ async def test_a_followers_error_keeps_the_live_leaders_clock(clock):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [
     "provider_raises", "provider_raises_from_cache", "provider_raises_for_a_6k", "backstop_in_generation",
-    "backstop_in_sec_fetch"])
+    "backstop_in_sec_fetch", "backstop_in_6k_exhibits"])
 async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, monkeypatch, failure):
     """A leader that fails 5 s after its fetch stage started the clock counts its error from that start: when its
     provider raises (``failure.failed``) after any of the fetch stage's three branches (SEC EDGAR's document, a fresh
     content cache that fetches nothing, a 6-K's exhibits), and when the backstop fires (``failure.timed_out``) as it
-    waits for the provider, or for SEC EDGAR's document between its fetch stage's write and its parsing stage's."""
-    filing_id = seed_company_filing(filing_type="6-K" if failure == "provider_raises_for_a_6k" else "10-K")
+    waits for the provider, or, between its fetch stage's write and its parsing stage's, for SEC EDGAR's document or a
+    6-K's exhibits."""
+    six_k = failure in ("provider_raises_for_a_6k", "backstop_in_6k_exhibits")
+    filing_id = seed_company_filing(filing_type="6-K" if six_k else "10-K")
     _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
     if failure == "provider_raises_from_cache":
         _seed_fresh_cache(filing_id)
-    if failure == "provider_raises_for_a_6k":
-        monkeypatch.setattr(summary_pipeline, "get_sixk_text", AsyncMock(return_value="Exhibit 99.1: the quarter."))
+    exhibits = AsyncMock(return_value="Exhibit 99.1: the quarter.")
+    if six_k:
+        monkeypatch.setattr(summary_pipeline, "get_sixk_text", exhibits)
     fire_backstop = _backstop(monkeypatch) if failure.startswith("backstop") else None
 
     async def five_seconds_on(*args, **kwargs):
@@ -164,18 +167,20 @@ async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock, 
         if fire_backstop is None:
             raise RuntimeError("provider down")
         fire_backstop()
-        await asyncio.Event().wait()  # the run's release cancels this wait once the backstop has fired
+        await asyncio.Event().wait()  # the backstop or the run's release cancels this wait once it has fired
 
     with stream_boundaries() as summarize:
         sec_fetch = summary_pipeline.sec_edgar_service.get_filing_document
         if failure == "backstop_in_sec_fetch":
             sec_fetch.side_effect = five_seconds_on
+        elif failure == "backstop_in_6k_exhibits":
+            exhibits.side_effect = five_seconds_on
         else:
             summarize.side_effect = five_seconds_on
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
-    assert sec_fetch.call_count == (0 if failure in ("provider_raises_from_cache", "provider_raises_for_a_6k") else 1)
-    assert summarize.call_count == (0 if failure == "backstop_in_sec_fetch" else 1)
+    assert sec_fetch.call_count == (0 if six_k or failure == "provider_raises_from_cache" else 1)
+    assert summarize.call_count == (0 if failure in ("backstop_in_sec_fetch", "backstop_in_6k_exhibits") else 1)
     expected = "Pipeline timeout" if failure.startswith("backstop") else "provider down"
     assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), expected)
 
