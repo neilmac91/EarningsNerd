@@ -121,17 +121,6 @@ export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
 
 /**
- * Draw Multi-Period Analysis's four trend charts with the spec renderer (step 4 of the trend-chart migration, E192;
- * docs/design/analysis-trend-charts-spec-2026-10.md): one SVG per chart from the chart engine's plan, instead of
- * Recharts. It covers /analysis and its locked teaser, with its own keyboard values stop, tooltip and column wash (step
- * 5, E193). It stays off in production until the founder's switch decision (F66). Set
- * NEXT_PUBLIC_CHARTS_V2='true' for a preview or for CI's charts-v2 e2e job; never in vercel.json, whose env reaches
- * production.
- * Default: disabled.
- */
-export const CHARTS_V2 = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
-
-/**
  * Name 20-F filings on the plan cards. Mirrors the API's ENABLE_FPI_FILINGS, which decides whether
  * foreign private issuers' filings are served at all (backend/app/config.py defaults it off; the API
  * deploy step sets it on). The Free plan line reads "10-K, 10-Q and 20-F filings from SEC EDGAR" only

@@ -24,7 +24,7 @@ const REVENUE_POINTS: RevenuePoint[] = (
  * the data notes as the table's fine print under it.
  * A server component: the dataset reaches the two client components through the RSC payload,
  * already narrowed to three series, instead of shipping the demo JSON module to the browser.
- * TrendCharts (recharts) is deliberately not rendered here: it would pull the charting library
+ * TrendCharts is deliberately not rendered here: it would pull the chart renderer
  * into the landing route's JS, which has a budget the marketing screens must respect.
  */
 export default function AnalysisDemo() {
