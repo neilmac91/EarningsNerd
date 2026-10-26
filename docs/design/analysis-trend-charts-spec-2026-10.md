@@ -313,7 +313,7 @@ says so; everything else follows the spec.
     - It runs at DPR 1 under full hinting, the harder case for D1 and D8, where §6 names DPR 2.
     - The unit fixtures lose their wire `data_notes`, which describe the full datasets the audit rebuilt and which the
       page's contract therefore refuses; the page groups the notes from the points, as for any dataset without them.
-  - `frontend/tests/e2e/analysis-layout.spec.ts`, the analysis page's layout gate, runs in that job and in `e2e-tests`, and
+  - `frontend/tests/e2e/analysis-layout.spec.ts`, the analysis page's layout gate, runs in the same job and
     reads the charts through `fixtures/trendChartDom.ts`: the renderer's `data-text` and `data-plot` (until E195 it
     read the Recharts layers without the flag). Every chart prints all twelve quarters and keeps its marks whatever
     the metrics table shows; y tick labels sit inside their axis on one line; no chart scrolls at a desktop card's
@@ -350,8 +350,8 @@ says so; everything else follows the spec.
     measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
     names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the
     card's notes on screen (`#B8BEC7`).
-  - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
-    copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
+  - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until the token fold; the sidecar
+    copies that frontmatter. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
     renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow markers, the halos and the keyboard
     stop), and the crosshair and "dark labels use `secondary`" lines stay for the Recharts charts that remain (filing
     fundamentals and peers); the font-loader note came with the loader (item 6, E199: "Fonts (E199)" below). Item 7
