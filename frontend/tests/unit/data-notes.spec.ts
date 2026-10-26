@@ -70,7 +70,7 @@ describe('server data notes admission', () => {
   })
 
   it.each([
-    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 2 }) }],
+    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 3 }) }],
     ['fractional total', (wire: DataNotesWire) => { wire.totals.total = 1.5 }],
     ['unsafe total', (wire: DataNotesWire) => { wire.totals.total = Number.MAX_SAFE_INTEGER + 1 }],
     ['duplicate note', (wire: DataNotesWire) => { wire.notes.push(structuredClone(wire.notes[0])) }],
@@ -84,6 +84,17 @@ describe('server data notes admission', () => {
     const wire = structuredClone(example.expected)
     mutate(wire)
     expect(() => decodeDataNotes(wire, example.dataset)).toThrow('Invalid analysis data notes')
+  })
+
+  it('decodes a version 2 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+    const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
+    for (const version of [1, 2] as const) {
+      const wire = { ...structuredClone(example.expected), version }
+      expect(decodeDataNotes(wire, example.dataset)).toEqual(wire)
+      const report = { ...example.dataset, data_notes: wire }
+      const citationWire = { ...structuredClone(example.expected_citation_notes!), version }
+      expect(decodeCitationDataNotes(citationWire, report, example.citations!)).toEqual(citationWire)
+    }
   })
 
   it('rejects internally balanced totals that falsely promote a review value to passed', () => {

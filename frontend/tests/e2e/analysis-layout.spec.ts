@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
-import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, EXPECTED_TABLE_VALUE_DAGGERS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
+import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
@@ -58,7 +58,9 @@ for (const theme of THEMES) for (const width of [390, 1480]) {
       const fold = prose.locator('details')
       await expect(fold).toHaveCount(1)
       await expect(fold).not.toHaveAttribute('open')
-      await expect(fold.locator('summary')).toContainText('Show the 20 source figures behind this · figures carry note a')
+      // The planted source conflict is a citation-only supplement after the report's a (legacy) and b (gaps); the
+      // fold names it, and not a, whose note is about the record, not the number (D-061).
+      await expect(fold.locator('summary')).toContainText('Show the 20 source figures behind this · figures carry note c')
       const notes = page.locator(`${NOTES} > details`)
       await notes.locator(':scope > summary').click()
       const prior = await page.locator('[data-analysis-print-scope] details').evaluateAll(items => items.map(item => (item as HTMLDetailsElement).open))
@@ -125,7 +127,8 @@ async function assertPageAndCards(page: Page, width: number, textScale: number, 
     const card = page.locator('[data-analysis-kpi]').nth(index)
     await expect(card.locator('dt')).toHaveText(expected.label)
     const source = card.locator('button[aria-label$="View source and calculation"]')
-    await expect(source.locator('span').filter({ hasText: /^†$/ })).toHaveCount(expected.daggers)
+    // A calculated figure carries no dagger (D-061): its control says "calculated" in words.
+    expect(await source.textContent(), `${expected.label}: no dagger`).not.toContain('†')
     const letters = EXPECTED_KPI_LETTERS[state][index]
     for (const { scope, expectedLetters } of [
       { scope: source, expectedLetters: letters.value },
@@ -363,12 +366,13 @@ async function assertTable(page: Page, state: AnalysisState) {
     unavailableCount++
     await expect(table.locator('tbody tr').nth(missing.row).locator('td').nth(column).locator('button')).toHaveAttribute('aria-label', /: unavailable/)
   }
-  await expect(sourceControls.locator('[data-note-kind="unavailable"]')).toHaveCount(unavailableCount)
+  // A gap shows its dash and marks nothing (D-061): its note is counted and listed in the data notes.
+  await expect(sourceControls.locator('[data-note-kind="unavailable"]')).toHaveCount(0)
   await expect(table.locator('tbody button[aria-label*="\u003a unavailable"]')).toHaveCount(unavailableCount)
   // Count value marks inside source controls separately from comparison marks below them.
   await expect(sourceControls.locator('[data-note-kind="review"]')).toHaveCount(EXPECTED_TABLE_REVIEWS[state])
-  // Q4 header daggers cannot satisfy value-mark presence; count inside source buttons.
-  await expect(sourceControls.locator('span').filter({ hasText: /^†$/ })).toHaveCount(EXPECTED_TABLE_VALUE_DAGGERS)
+  // No figure carries a dagger (D-061); the Q4 header's † marks a period, so count inside source buttons only.
+  expect((await sourceControls.allTextContents()).join(''), 'no dagger in a table figure').not.toContain('†')
   await expect(table.locator('tbody [data-note-kind="review"]:not(button *)')).toHaveCount(EXPECTED_TABLE_COMPARISON_REVIEWS[state])
   const expectedNotes = EXPECTED_TABLE_CELL_NOTES[state]
   const expectedCells = Array.from({ length: METRICS }, (_, row) => expectedPeriods.map(period => {
@@ -377,7 +381,7 @@ async function assertTable(page: Page, state: AnalysisState) {
       .map(({ letter, kind }) => ({ text: letter, letter, kind }))
     const unavailable = UNAVAILABLE_CELLS.some(slot => slot.row === row && slot.periods.some(key => key === period))
     return {
-      value: unavailable ? [{ text: expectedNotes.unavailableLetter, letter: expectedNotes.unavailableLetter, kind: 'unavailable' }] : notes(expectedNotes.value),
+      value: unavailable ? [] : notes(expectedNotes.value),
       comparison: notes(expectedNotes.comparison),
     }
   }))
@@ -391,7 +395,9 @@ async function assertTable(page: Page, state: AnalysisState) {
   ))
   expect(actualCells, 'each financial cell retains its exact value/comparison note, including cells with no note').toEqual(expectedCells)
   const letters = [...new Set(expectedCells.flat().flatMap(cell => [...cell.value, ...cell.comparison].map(mark => mark.letter)))].sort()
-  await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Review data notes ${letters.join(', ')}`, exact: true })).toBeVisible()
+  // The table's chip lists the letters its figures show; with none, there is no chip.
+  if (letters.length) await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: `Review data notes ${letters.join(', ')}`, exact: true })).toBeVisible()
+  else await expect(page.locator('[data-analysis-metrics]').getByRole('button', { name: /^Review data notes/ })).toHaveCount(0)
   await assertPaintedMarks(page, TABLE)
   await assertSourceControls(page, `${TABLE} tbody`, METRICS * expectedPeriods.length)
   await assertTableGeometry(page, expectedPeriods.length)
@@ -447,17 +453,18 @@ async function stableAnalysisOutsideTable(page: Page) {
 async function assertNotes(page: Page, state: AnalysisState) {
   const expected = EXPECTED_NOTES[state]
   const summary = page.locator(`${NOTES} > details > summary`)
-  await expect(summary).toContainText(`${expected.unavailable} unavailable`)
-  await expect(summary).toContainText(`${expected.calculated} calculated`)
-  if (state === 'clean') {
-    await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
-    await expect(summary).toContainText(`${expected.unavailable} unavailable (a)`)
-  } else {
-    await expect(summary).toContainText(`${expected.reviewValues} figures need review (a)`)
-    await expect(summary).toContainText(`${expected.reviewComparisons} comparisons carry note a`)
-    await expect(summary).toContainText(`${expected.unavailable} unavailable (b)`)
-    await expect(summary).not.toContainText('No figures need review')
-  }
+  // One line of fine print under the table (D-061): the gaps and the calculated figures counted in words, never "—".
+  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as a dash`)
+  await expect(summary).toContainText(`${expected.calculated} calculated from filed figures`)
+  if (state === 'discrepancy') {
+    // A note that questions the number is named by its letter, places and words.
+    await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: Available sources disagree on this figure')
+  } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
+  if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
+  // Never while a note needs review, the legacy state's record-only note included.
+  else await expect(summary).not.toContainText('No figures need review')
+  await expect(summary).not.toContainText(/\([a-z]\)/)
   await expect(summary).not.toContainText('passed automated checks')
   await expect(summary).not.toContainText('no validation record')
 }
@@ -483,11 +490,19 @@ for (const theme of THEMES) for (const profile of PROFILES) {
       await assertTable(page, state)
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       expect(await stableAnalysisOutsideTable(page), 'the table leaves KPI, note totals and chart data alone').toEqual(baseline)
-      // Disclosure content is also part of the responsive page, not an overflow escape hatch.
-      await section.getByRole('button', { name: /^Review data notes/ }).focus()
-      await page.keyboard.press('Enter')
-      await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
-      await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
+      // Disclosure content is also part of the responsive page, not an overflow escape hatch. Only the discrepancy's
+      // figures carry a letter, so only its table has a Notes chip; the chip opens the fine print at its note.
+      if (state === 'discrepancy') {
+        await section.getByRole('button', { name: /^Review data notes/ }).focus()
+        await page.keyboard.press('Enter')
+        await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
+        await expect(page.locator(`${NOTES} li`).first()).toBeFocused()
+        await expect(page.locator(`${NOTES} li`).first()).toHaveAttribute('id', 'analysis-data-note-a')
+      } else {
+        await expect(section.getByRole('button', { name: /^Review data notes/ })).toHaveCount(0)
+        await page.locator(`${NOTES} > details > summary`).click()
+        await expect(page.locator(`${NOTES} > details`)).toHaveAttribute('open', '')
+      }
       await assertPageAndCards(page, profile.width, profile.textScale ?? 1, state)
       expect(traffic.dataset, 'the report reads its dataset once').toBe(1)
       expect(traffic.stream, 'the report never regenerates analysis').toBe(1)
@@ -862,7 +877,7 @@ test.describe('analysis table periods / 816px at 200% text', () => {
 
 for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-  for (const state of ['legacy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
+  for (const state of ['discrepancy', 'edge'] as const) test(`${state}: a figure's marks share its line and its cell at 390px, in the figure face`, async ({ page, baseURL }) => {
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, state, theme, 1)
     expect(await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('12px "EN Figure Minus"', '-') }), 'the minus face draws the hyphen-minus').toBe(true)
@@ -886,7 +901,7 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         const parent = node.parentElement!
         if (!node.textContent?.trim() || parent.closest('.sr-only')) continue
         const range = document.createRange(); range.selectNodeContents(node)
-        const mark = parent.closest('[data-note-letter]') ? 'letter' : node.textContent.trim() === '†' ? 'dagger' : null
+        const mark = parent.closest('[data-note-letter]') ? 'letter' : node.textContent.includes('†') ? 'dagger' : null
         if (!mark && !face) face = `${getComputedStyle(parent).fontFamily}|${getComputedStyle(parent).fontVariantNumeric}`
         const display = getComputedStyle(parent).display
         for (const r of range.getClientRects()) if (r.width && r.height) glyphs.push({ mark, display, left: r.left, right: r.right, top: r.top, bottom: r.bottom })
@@ -913,10 +928,8 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
         if (mark.left < end - 1) problems.push(`${control.name}: a mark sits before the figure's end`)
         // The first mark keeps 2px from its figure: set flush, readers dropped "$4.1B†a"'s dagger at 1x in dark.
         if (index === 0 && figure.length && mark.left - end < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a mark touches its figure`)
-        // A letter after † keeps 2px (0.125rem): set flush, the pair read as one glyph at 1x (the study's readout).
-        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.left - marks[index - 1].right < 0.125 * control.rem - 0.5) problems.push(`${control.name}: a letter touches its dagger`)
-        // A staircase: a letter after † stands above it. Level, "†a" read as one mark at 1x in dark (the readout).
-        if (mark.mark === 'letter' && marks[index - 1]?.mark === 'dagger' && mark.top > marks[index - 1].top - 1) problems.push(`${control.name}: a letter is not above its dagger`)
+        // A calculated figure carries no dagger (D-061): its control says "calculated" in words.
+        if (mark.mark === 'dagger') problems.push(`${control.name}: a dagger beside the figure`)
         // The control's dotted underline skips an inline-block, but a flex item is blockified (display: block) and the
         // underline reaches it, drawn again under the mark at its raised baseline.
         if (control.underlined && mark.display !== 'inline-block') problems.push(`${control.name}: a ${mark.mark} is a ${mark.display} box under the control's underline`)
@@ -927,7 +940,8 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
       if (control.table) for (const glyph of control.glyphs) if (glyph.left < control.left - 1 || glyph.right > control.right + 1) problems.push(`${control.name}: ${glyph.mark ? 'a mark' : 'the figure'} leaves its cell`)
     }
     expect(problems).toEqual([])
-    expect(controls.some(control => control.glyphs.some((glyph, index, all) => glyph.mark === 'letter' && all[index - 1]?.mark === 'dagger')), 'a dagger and a letter are measured together').toBe(true)
+    expect(controls.some(control => control.glyphs.some(glyph => glyph.mark === 'letter')), 'a letter is measured').toBe(true)
+    expect(controls.filter(control => control.text.includes('†')).map(control => control.name), 'no dagger in any figure control').toEqual([])
     // A change line's letter keeps 2px from its change too. The change sits outside the figure's source button, so it is
     // measured from its own line: the change's glyphs (n/m's visible abbreviation included), then the letter.
     const changeLines = await page.locator(`${TABLE} tbody td`).evaluateAll(cells => cells.flatMap(cell => [...cell.querySelectorAll('[data-note-letter]')]
@@ -958,11 +972,11 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
     expect(changeProblems).toEqual([])
     expect(changeLines.length, 'a change line with a letter is measured').toBeGreaterThan(0)
     if (state === 'edge') {
-      // The planted figures fill their column's whole budget with their marks (nine glyphs: the figure, the dagger and
-      // a two-letter note), the sign the ASCII hyphen-minus.
-      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$92.2M'], [/^Financing cash flow, Q4 2025: /, '-$922M']] as const) {
+      // The planted figures fill their column's whole budget with their mark (nine glyphs: the figure and a two-letter
+      // note), the sign the ASCII hyphen-minus.
+      for (const [name, figure] of [[/^Working capital, Q4 2023: /, '$922.0M'], [/^Financing cash flow, Q4 2025: /, '-$92.2M']] as const) {
         const control = controls.find(item => name.test(item.name))
-        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}†[a-z]{2}$`))
+        expect(control?.text, `${name}`).toMatch(new RegExp(`^${figure.replace(/[$.]/g, '\\$&')}[a-z]{2}$`))
       }
       expect(controls.map(control => control.text).join('')).not.toContain('−')
       // n/m stays visible and is read as words.
@@ -970,6 +984,29 @@ for (const theme of THEMES) test.describe(`analysis phone marks / ${theme}`, () 
       await expect(tbody.getByText('n/m', { exact: true }).first()).toHaveAttribute('aria-hidden', 'true')
       await expect(tbody.getByText('not meaningful', { exact: true }).first()).toHaveClass(/\bsr-only\b/)
     }
+  })
+})
+
+for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`analysis data notes placement / ${theme} / ${width}px`, () => {
+  test.use({ viewport: { width, height: 1000 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
+  test("sets the data notes as the table's fine print, 8px under its card", async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, 1)
+    const placement = await page.evaluate(() => {
+      const table = document.querySelector('[data-analysis-metrics]')!
+      const notes = document.querySelector('[data-analysis-data-notes]')!
+      const summary = notes.querySelector(':scope > details > summary')!
+      const range = document.createRange(); range.selectNodeContents(summary)
+      return {
+        follows: table.nextElementSibling === notes,
+        gap: notes.getBoundingClientRect().top - table.getBoundingClientRect().bottom,
+        lines: new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.bottom))).size,
+      }
+    })
+    expect(placement.follows, 'the data notes follow the metrics table').toBe(true)
+    expect(Math.abs(placement.gap - 8), `the data notes sit 8px under the table card (${placement.gap}px)`).toBeLessThanOrEqual(1)
+    // Closed, the fine print is one line on a desktop; a phone wraps it.
+    if (width === 1480) expect(placement.lines, 'the closed data notes are one line at 1480px').toBe(1)
   })
 })
 

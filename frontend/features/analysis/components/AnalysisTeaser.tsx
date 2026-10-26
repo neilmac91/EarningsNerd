@@ -38,13 +38,16 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
         <DataNotesProvider dataset={demoDataset}>
           <div className="flex flex-col gap-4">
             <KpiStrip dataset={demoDataset} />
-            <DataNotes dataset={demoDataset} sample />
             <TrendCharts dataset={demoDataset} />
             <NarrativePane
               state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
               sample
             />
-            <MetricsTable dataset={demoDataset} />
+            {/* The table's fine print sits 8px under it, as on the page. */}
+            <div className="flex flex-col gap-2">
+              <MetricsTable dataset={demoDataset} />
+              <DataNotes dataset={demoDataset} sample />
+            </div>
           </div>
         </DataNotesProvider>
       </PeekLocked>

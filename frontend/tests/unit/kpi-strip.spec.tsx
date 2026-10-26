@@ -179,7 +179,8 @@ describe('KpiStrip', () => {
     const revenue = screen.getAllByRole('term').find((term) => term.textContent === 'Revenue')!.parentElement!
     expect(within(revenue).getByText('Q2 2026')).toBeInTheDocument()
     expect(within(revenue).queryByText(/latest available/)).not.toBeInTheDocument()
-    expect(within(revenue).getByRole('button', { name: /Revenue, Q2 2026: \$0\.00,/ })).toBeInTheDocument()
+    // Zero is a value. Its note (no check recorded) marks nothing, so the name names none (D-061).
+    expect(within(revenue).getByRole('button', { name: /^Revenue, Q2 2026: \$0\.00\. View source/ })).toBeInTheDocument()
     expect(screen.queryByText('Q3 2026')).not.toBeInTheDocument()
   })
 })
