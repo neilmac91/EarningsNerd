@@ -14,8 +14,8 @@ the stall's error; and a clear landing after the commit, before the answer read 
 expired, answered 500 too (``ObjectDeletedError``). Each race here runs the other write, committed in a
 session of its own, just before the poll's UPDATE or, for the last, just before its first read after it.
 The service's clock is pinned, so a row's age is exact, and a seeded row starts 600 s before its last write,
-so a check of the start instead of the last write shows. Beside each case's filing is a neighbour with a stalled
-row that comes first in the table, so a mark or a read that loses its filing's filter shows too.
+so a check of the start instead of the last write shows. Beside each case's filing is a neighbour with a summary
+and a stalled row, each first in its table, so a mark or a read that loses its filing's filter shows too.
 ``tests/integration/test_summary_progress_transactions.py`` runs the first two races, and a write or a clear
 that holds the row while the mark waits, on PostgreSQL.
 """
@@ -28,7 +28,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, SessionLocal
-from app.models import Company, Filing, SummaryGenerationProgress
+from app.models import Company, Filing, Summary, SummaryGenerationProgress
 from app.services import summary_generation_service
 from app.services.summary_generation_service import (
     STALE_PROGRESS_SECONDS,
@@ -91,14 +91,14 @@ def _filing(company_id: int, number: int) -> Filing:
                   document_url=f"https://example.test/filing-{number}.htm")
 
 
-# Another filing's row in every case that marks: stalled too, and never touched by this filing's poll or mark.
+# Another filing's progress row in every case: stalled too, and never touched by this filing's poll or mark.
 NEIGHBOUR = {"stage": "analyzing", "error": None}
 
 
 @pytest.fixture
 def neighbour_id(engine) -> int:
-    """Another filing's stalled row, made before this case's filing so that it comes first in the table: a mark or a
-    read that loses its filing's filter reaches it."""
+    """Another filing, with a summary and a stalled progress row, made before this case's filing so that each comes
+    first in its table: a mark or a read that loses its filing's filter reaches them."""
     with _session(engine) as db:
         company = Company(cik="0000000215", ticker="STLL", name="Stalled Progress")
         db.add(company)
@@ -106,6 +106,7 @@ def neighbour_id(engine) -> int:
         neighbour = _filing(company.id, 0)
         db.add(neighbour)
         db.flush()
+        db.add(Summary(filing_id=neighbour.id))
         db.add(_progress(NEIGHBOUR["stage"], STALLED, neighbour.id))
         db.commit()
         return neighbour.id
