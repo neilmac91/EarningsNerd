@@ -94,6 +94,26 @@ describe('MetricsTable', () => {
     expect(screen.getByText('+2.0%').parentElement).toHaveTextContent('Change vs prior quarter')
   })
 
+  it('gives a figure and its change line the whole budget unless a note that marks them takes a glyph (D-061)', () => {
+    const fact = { version: 1 as const, method: 'reported' as const, validation: 'needs_review' as const, formula: null, inputs: [] }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    // Nine glyphs each: "$1,234.56" and "+123,457%". A record-only note marks nothing and takes no glyph; the source
+    // conflict's letter takes one, so its figure drops to "$1.2K".
+    const budgets: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [{
+      concept: 'eps_diluted', label: 'EPS (diluted)', unit: 'USD/shares', percent: false, cagr: null, points: [
+        { period: 'FY2023', value: 1234.56, provenance: { ...fact, reasons: ['legacy_calculation'] } },
+        { period: 'FY2024', value: 1234.56, provenance: { ...fact, reasons: ['source_conflict'] }, yoy: 1234.567, yoy_provenance: { ...fact, method: 'calculated' as const, reasons: ['legacy_calculation'] } },
+      ],
+    }] }
+    render(<MetricsTable dataset={budgets} />)
+    const cell = (period: string) => screen.getByRole('button', { name: new RegExp(`^EPS \\(diluted\\), ${period}: `) })
+    expect(cell('FY2023').querySelector('span')!.textContent).toBe('$1,234.56')
+    expect(cell('FY2023').querySelector('[data-note-letter]')).toBeNull()
+    expect(cell('FY2024').querySelector('span')!.textContent).toBe('$1.2K')
+    expect(cell('FY2024').querySelector('[data-note-letter]')).toHaveTextContent(/^[a-z]$/)
+    expect(screen.getByText('+123,457%')).toBeInTheDocument()
+  })
+
   it('names the metrics the run calculates in the sentence above the table, as the dataset labels them', () => {
     const calculated = { version: 1 as const, method: 'calculated' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
     const reported = { ...calculated, method: 'reported' as const }
