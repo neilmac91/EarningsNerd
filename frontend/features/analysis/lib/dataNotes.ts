@@ -99,7 +99,9 @@ export interface DataNotesTotals {
 
 /** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1: only the reasons'
  *  words and the letter order (marked notes first) differ, and the local grouper writes 2. A saved version 1 envelope
- *  (the landing sample, a tab opened before the server moved) still decodes with its stored words and letters. */
+ *  (the landing sample, a report a tab loaded before the server moved) still decodes with its stored words and letters.
+ *  A narrative that tab streams after the move does not: its notes are version 2's, so their report prefix is not the
+ *  tab's, and the decoder refuses it (EVIDENCE_RECOVERY) until Run analysis reloads the report with them. */
 export interface DataNotesWire {
   version: 1 | 2
   notes: DataNote[]

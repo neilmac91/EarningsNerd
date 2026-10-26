@@ -36,7 +36,10 @@ letter order takes a new version: `test_analysis_data_notes.py` pins each versio
 (`NOTES_DIGESTS`), and a row saved under the old version regenerates once, unmetered.
 
 **Deployment compatibility (2026-10-11)**: Adding structured evidence does not update an
-already-open browser tab. Keep the code-owned operand tail in its existing wire grammar until
+already-open browser tab. Nor does a data notes version: a tab that loaded its report under the old
+version still decodes it, but refuses the first narrative it streams after the backend moves (a new
+report prefix, EVIDENCE_RECOVERY) until Run analysis reloads the report; `data-notes.spec.ts` holds
+both halves (2026-10-26). Keep the code-owned operand tail in its existing wire grammar until
 those clients no longer depend on it; compact the reading prose and structured operand values
 separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
 `analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
