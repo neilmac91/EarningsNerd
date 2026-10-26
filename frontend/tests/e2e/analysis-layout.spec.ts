@@ -1066,7 +1066,8 @@ for (const theme of THEMES) {
 }
 
 // Every text a chart draws sits inside its SVG, descenders included: Recharts' axis caption, set on the SVG's bottom
-// edge, read "Fiscal vear" at every width. The spec renderer holds the same rule (D1) and prints no caption.
+// edge, read "Fiscal vear" at every width. The spec renderer holds the same rule (D1); its panels print captions of
+// their own but no axis caption, so only Recharts' is counted.
 for (const width of [360, 390, 1280]) test.describe(`analysis chart text / ${width}px`, () => {
   test.use({ viewport: { width, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' })
   for (const state of ['annual', 'captured'] as const) {

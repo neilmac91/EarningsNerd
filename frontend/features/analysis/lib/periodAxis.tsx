@@ -20,9 +20,10 @@ import { annualTickLabel, quarterlyTickLines } from './periodLabels'
 // (features/analysis/lib/charts) reads the same ones without importing this React module.
 export { annualTickLabel, quarterlyTickLines } from './periodLabels'
 
-/** How far the caption's baseline sits above the band's bottom, which is the SVG's: Geist Mono's 11px text box runs
- *  3px below its baseline ("y" in "Fiscal year"), so at 0 the SVG cut the descenders ("Fiscal vear"); 4 keeps a 1px
- *  inset, the spec renderer's rule for every text (D1). */
+/** How far the caption's baseline sits above the band's bottom, which is the SVG's. Geist Mono's text box runs its
+ *  descent, 0.295em (3.2px at 11px, which Chromium lays out as 3px), below the baseline, so at 0 the SVG cut the box
+ *  and the "y" in "Fiscal year" ("Fiscal vear"). At 4 the whole box stays inside the SVG with under a pixel to spare,
+ *  D1's rule for every chart text (the box inside its SVG, to the edge). */
 export const AXIS_CAPTION_OFFSET = 4
 
 /** XAxis band heights: the tick row (one line annual / two stacked quarterly) plus the axis
