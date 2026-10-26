@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
 /**
@@ -13,6 +13,10 @@ import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
  */
 const enabled = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
 const THEMES: AnalysisTheme[] = ['light', 'dark']
+// The first chart's own card: the nearest <section> around its chart, never an outer section that holds every
+// chart (the results are a labelled <section>, WP4b).
+const firstChartCard = (page: Page) => page.locator('[data-analysis-chart]').first().locator('xpath=ancestor::section[1]')
+
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every advance to a whole
 // pixel unless the SVG asks for geometric precision, so D1 and D8 run in the case that can break them. The local
@@ -147,7 +151,7 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
       test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
       test.setTimeout(120_000)
       await openAnalysis(page, baseURL!, 'captured', theme)
-      const card = page.locator('section:has([data-analysis-chart])').first()
+      const card = firstChartCard(page)
       const viewport = card.locator('[data-analysis-chart-scroll]')
       const stop = card.getByRole('slider')
       const tooltip = card.locator('[data-chart-tooltip]')
@@ -272,7 +276,7 @@ test.describe('trend charts v2 / 900px: a card that scrolls, with an expanded vi
   test('collapsing opens the card at its newest period again (spec §3.10)', async ({ page, baseURL }) => {
     test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
     await openAnalysis(page, baseURL!, 'captured', 'light')
-    const card = page.locator('section:has([data-analysis-chart])').first()
+    const card = firstChartCard(page)
     const viewport = card.locator('[data-analysis-chart-scroll]')
     const fromNewest = () => viewport.evaluate((element) => element.scrollWidth - element.clientWidth - element.scrollLeft)
     const overflows = () => viewport.evaluate((element) => element.scrollWidth > element.clientWidth + 1)
@@ -293,7 +297,7 @@ test.describe('trend charts v2 / a tap pins a tooltip', () => {
   test('a tap shows its period’s tooltip, a second tap or a tap outside closes it', async ({ page, baseURL }) => {
     test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
     await openAnalysis(page, baseURL!, 'captured', 'light')
-    const card = page.locator('section:has([data-analysis-chart])').first()
+    const card = firstChartCard(page)
     const viewport = card.locator('[data-analysis-chart-scroll]')
     await viewport.scrollIntoViewIfNeeded()
     const tooltip = card.locator('[data-chart-tooltip]')
