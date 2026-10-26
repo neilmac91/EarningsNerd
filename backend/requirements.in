@@ -4,7 +4,7 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.161.1,<1.0.0
+fastapi>=0.162.0,<1.0.0
 uvicorn[standard]>=0.54.0,<1.0.0
 python-multipart>=0.0.28
 # Private feedback screenshots use the Cloud Run runtime identity; no browser storage keys.
@@ -42,7 +42,7 @@ openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
 edgartools>=5.62.1
-posthog==7.75.6
+posthog==7.75.11
 json-repair>=0.64.2
 # Copilot reads an answer as the browser renders it (CommonMark) before publishing its quotations
 # (decision F). Already in the lock via rich; declared because app code imports it directly.
