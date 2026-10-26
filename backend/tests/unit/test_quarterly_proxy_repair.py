@@ -758,15 +758,17 @@ def test_after_the_apply_no_current_row_comes_from_or_is_built_on_a_proxy(db, mo
     shapes["OOO"] = (company, payload)
     shapes["XQT"] = _confirmed_by_the_10ks_figure(db, monkeypatch)[:2]
     shapes["FBK"] = _without_accessions(db, monkeypatch)[:2]
+    shapes["KEP"] = _cross_checked(db, monkeypatch, "KEP", _mrk_payload(), 18_254e9,  # 1,000 times too large,
+                                   period=("2025-12-31", "2025-01-01", "2026-02-25"))[:2]  # replaced by the 10-K's
     payloads = {ticker: payload for ticker, (_company, payload) in shapes.items()}
     before = {number: dict(Counter(ticker for ticker, _ in entries))
               for number, entries in _detection(db, payloads).items()}
     assert before == {  # not vacuous: every set lists the planted rows
         2: {"AAA": 6, "BBB": 6, "CCC": 1, "III": 1, "EEE": 3, "DDD": 5, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5,
-            "QQQ": 5, "XQT": 6, "FBK": 5},
+            "QQQ": 5, "XQT": 6, "FBK": 5, "KEP": 6},
         3: {"AAA": 5, "CCC": 5, "III": 5, "EEE": 3, "DDD": 4, "NNN": 5, "SSS": 3, "KKK": 5, "OOO": 5, "QQQ": 5,
-            "XQT": 5},
-        4: {"DDD": 1, "MMM": 1, "KKK": 1, "OOO": 1},
+            "XQT": 5, "KEP": 5},
+        4: {"DDD": 1, "MMM": 1, "KKK": 1, "OOO": 1, "KEP": 1},
         5: {"QQQ": 1, "XQT": 1, "FBK": 1},
     }
     named = set()
@@ -778,7 +780,7 @@ def test_after_the_apply_no_current_row_comes_from_or_is_built_on_a_proxy(db, mo
     assert (after[2], after[3]) == ([], [])
     # Sets 4 and 5 read exactly the rows the apply reports name, each kept on purpose with its verdict.
     assert {(ticker, fact_id, number) for number in (4, 5) for ticker, fact_id in after[number]} == named
-    assert {(ticker, number) for ticker, _fact_id, number in named} == {("XQT", 5), ("FBK", 5)}
+    assert {(ticker, number) for ticker, _fact_id, number in named} == {("XQT", 5), ("FBK", 5), ("KEP", 4)}
     for ticker, (company, payload) in shapes.items():  # a second apply journals nothing
         again = _apply(db, company, payload, run_id="apply-2")
         kept = {entry["fact_id"] for entry in again["proxy"]["detection_listed"]}
@@ -1214,3 +1216,43 @@ def test_two_proxy_rows_at_one_key_retire_together_and_admit_one_winner(db, monk
     [winner] = _rows(db, company, concept="net_income", fiscal_period="FY", period_end=date(2021, 12, 31),
                      is_latest=True)
     assert winner.accession == _accn(company, "K23")
+
+
+def _listed_state(**overrides):
+    _fact, state = _state(**{"filing_id": 3, "accession": "K25", "form": "10-K", "source": "edgar_xbrl",
+                             **overrides})
+    return state
+
+
+def test_detection_listed_reads_sets_4_and_5_as_the_file_does():
+    # The report's detection_listed transcribes the file's sets 4 and 5 (only a stored proxy row
+    # witnesses); the PR records the file's own run over the shapes above. Each branch, once.
+    proxy_row = _listed_state(filing_id=None, form="DEF 14A", accession="P26", value=12_345e6)
+    replaced = {"checks": {"authoritative": {"original_value": 11_000e6, "outcome": "replaced"}}}
+    rows = [
+        (1, proxy_row),
+        (2, _listed_state(source="companyfacts", value=12_345e6, provenance=replaced)),  # why = proxy row
+        (3, _listed_state(source="companyfacts", value=12_345e6, concept="revenue",  # why = scale: no proxy
+                          provenance={"checks": {"authoritative": {"original_value": 12_345e9}}})),  # row, 1/1,000
+        (4, _listed_state(source="companyfacts", value=12_345e9, period_end=date(2022, 12, 31),
+                          provenance={"checks": {"authoritative": {"original_value": 12_345e6}}})),  # neither
+        (5, _listed_state(value=13_049e6, provenance={"checks": {"authoritative": {  # set 5
+            "outcome": "confirmed", "authoritative_value": 12_345e6}}})),
+        (6, _listed_state(value=13_049e6, provenance={"checks": {"authoritative": {  # replaced, not confirmed
+            "outcome": "replaced", "authoritative_value": 12_345e6}}})),
+        (7, _listed_state(value=13_049e6, concept="revenue", provenance={"checks": {"authoritative": {
+            "outcome": "confirmed", "authoritative_value": 12_345e6}}})),  # no proxy row at revenue
+    ]
+    verdicts = {2: "kept_agrees_with_authority", 5: "kept_confirmed_by_10k"}
+    assert proxy.detection_listed(rows, verdicts) == [
+        {"fact_id": 2, "set": 4, "verdict": "kept_agrees_with_authority"},
+        {"fact_id": 3, "set": 4, "verdict": "unclassified"},
+        {"fact_id": 5, "set": 5, "verdict": "kept_confirmed_by_10k"},
+    ]
+    scaled_up = {"checks": {"authoritative": {"original_value": 12_345.0}}}  # the authority scaled a units parse
+    assert proxy.detection_listed([(1, proxy_row), (2, _listed_state(source="companyfacts", value=12_345e6,
+                                                                     provenance=scaled_up))], {}) == []
+    # A report row holding the figure takes a row off either set.
+    report = _listed_state(filing_id=None, source="companyfacts", value=12_345e6, accession="K26")
+    assert proxy.detection_listed([*rows[:3], *rows[4:6], (8, report)], verdicts) == [
+        {"fact_id": 3, "set": 4, "verdict": "unclassified"}]
