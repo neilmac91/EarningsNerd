@@ -34,7 +34,7 @@ from tests.support.summary_stream_harness import (
 
 LOGGER = "app.services.summary_pipeline"
 INITIALIZING = {"type": "progress", "stage": "initializing", "message": "Initializing...", "percent": 0}
-GENERIC_FAILURE = {"type": "error", "message": "Unable to retrieve this filing at the moment — please try again shortly."}
+GENERIC_FAILURE = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
 TIMED_OUT = {"type": "error", "message": "Summary generation timed out. Please try again."}
 
 

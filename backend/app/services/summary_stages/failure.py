@@ -81,6 +81,6 @@ async def failed(run: GenerationRun, e: Exception) -> dict:
     if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
         error_message = error_msg[:200]
     else:
-        error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+        error_message = "We could not generate this summary. Try again shortly."
 
     return {'type': 'error', 'message': error_message}

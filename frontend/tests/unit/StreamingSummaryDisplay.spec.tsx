@@ -261,8 +261,8 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 })
 
-// The pipeline's sentences keep their em-dashes until the next functional change to summary_stages (F35,
-// D-046, E92); the card shows the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one
+// The pipeline's em-dash sentences took the product's words with E217's functional change to summary_stages (F35,
+// D-046, E92); the others the card still maps (features/summaries/lib/streamErrorCopy.ts), and the raw sentence
 // still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
@@ -271,7 +271,7 @@ describe('StreamingSummaryDisplay failure reason', () => {
         streamingText=""
         stage="error"
         message=""
-        error={'Unable to retrieve this filing at the moment \u2014 please try again shortly.'}
+        error={"We couldn't generate this summary just now. Please try again shortly."}
         filing={filing}
       />,
     )

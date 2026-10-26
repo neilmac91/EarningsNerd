@@ -63,7 +63,7 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
             except Exception:  # noqa: BLE001
                 run.filing_text = ""
         if not run.filing_text:
-            yield {'type': 'error', 'message': 'Unable to retrieve this 6-K at the moment — please try again shortly.'}
+            yield {'type': 'error', 'message': 'We could not retrieve this 6-K from SEC EDGAR. Try again shortly.'}
             return
         run.mark_stage("fetch_document")
         yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
@@ -113,6 +113,6 @@ async def fetch_document(run: GenerationRun) -> AsyncIterator[dict]:
 
         except Exception as fetch_error:
             logger.error(f"[stream:{filing_id}] Error fetching SEC document: {fetch_error}", exc_info=True)
-            error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
+            error_msg = "We could not generate this summary. Try again shortly."
             yield {'type': 'error', 'message': error_msg}
             return

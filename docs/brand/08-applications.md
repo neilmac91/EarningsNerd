@@ -282,9 +282,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   that line, unsigned, and the live region says it once, without guessing why. A stored summary that failed reads "This summary did
   not finish" over its own sentence, "The last attempt for this filing did not finish. Try again to
   generate it." The pipeline's stream errors are mapped on the client
-  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings are to change
-  with the next functional change there, and the mapping holds until then (F35, D-046, E92). The raw
-  sentence still decides the paywall card and the retry, and
+  (`frontend/features/summaries/lib/streamErrorCopy.ts`): the summary_stages strings with an em-dash took
+  the product's words with E217's functional change there (F35, D-046, E92), and the map holds each of them
+  as itself and maps the rest. The raw sentence still decides the paywall card and the retry, and
   `tests/unit/streamErrorCopy.spec.ts` reads the Python (every summary_stages module and
   `services/ai/summary_finalize.py`, whose payload messages two stages stream) so a reworded sentence
   fails until it is mapped. The client's own fallbacks (`features/summaries/api/summaries-api.ts`,

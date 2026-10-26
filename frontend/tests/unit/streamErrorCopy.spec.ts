@@ -12,8 +12,9 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
 /**
  * The summary stream's error sentences are written in the backend pipeline (summary_stages, and the
  * payload messages services/ai/summary_finalize.py writes for generation.py and finalize.py to stream),
- * whose sentences change with the next functional change there (F35, D-046, E92); until then the filing page
- * maps each one to the product's words (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48).
+ * whose em-dash sentences took the product's words with E217's functional change there (F35, D-046, E92); the
+ * filing page maps each sentence to the product's words (features/summaries/lib/streamErrorCopy.ts, brand sweep
+ * filing/F48), a sentence already in them to itself.
  * This gate reads every module under summary_stages plus ai/summary_finalize.py, read only, and holds the
  * map to that Python source:
  *
@@ -55,9 +56,9 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
  *     radix, a const or arithmetic resolved to its value), an escape (`'\u2014'`, `` `\u{2014}` ``) or a
  *     JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX text or an attribute string). App source (every
- *     tracked script under app, components, features, hooks and lib) may spell it that way only in
- *     streamErrorCopy.ts, by char code, whose keys are matched, never shown. Out of reach: a code computed
- *     at run time from a value the file does not state.
+ *     tracked script under app, components, features, hooks and lib) spells it no such way: streamErrorCopy.ts
+ *     did, by char code, for the backend's em-dash keys, until the backend took the voice (E92). Out of reach: a
+ *     code computed at run time from a value the file does not state.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -606,16 +607,14 @@ describe('the summary stream error sentences the filing page maps', () => {
     ).toEqual([])
   })
 
-  it('spells a displayed em-dash only as the character, the char code in streamErrorCopy.ts aside', () => {
+  it('spells a displayed em-dash only as the character', () => {
     const users = execFileSync('git', ['ls-files', 'app', 'components', 'features', 'hooks', 'lib'], { cwd: FRONTEND, encoding: 'utf8' })
       .split('\n')
       .filter((rel) => /\.(?:[cm]?js|jsx|ts|tsx)$/.test(rel) && !/\.d\.ts$/.test(rel))
     expect(users.length, 'the walk found the app').toBeGreaterThan(300)
     // By file and spelling, not line: the one allowed site may move within its file.
     const found = users.flatMap((rel) => hiddenDashes(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel)).map((site) => site.replace(/:\d+ /, ' '))
-    expect(found, 'spell no displayed em-dash any way but the character; no-em-dash-copy.spec.ts cannot see the others').toEqual([
-      'features/summaries/lib/streamErrorCopy.ts a char code',
-    ])
+    expect(found, 'spell no displayed em-dash any way but the character; no-em-dash-copy.spec.ts cannot see the others').toEqual([])
     // Each spelling, planted; a code computed from a value the file does not state is out of reach.
     const spellings: Record<string, string> = {
       'a hex char code': 'const d = String.fromCharCode(0x2014)',
@@ -652,7 +651,10 @@ describe('the summary stream error sentences the filing page maps', () => {
     expect(streamErrorCopy("You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries.")).toBe(
       "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.",
     )
-    expect(streamErrorCopy(`Unable to retrieve this filing at the moment ${EM_DASH} please try again shortly.`)).toBe(
+    expect(streamErrorCopy("We couldn't generate this summary just now. Please try again shortly.")).toBe(
+      'We could not generate this summary. Try again shortly.',
+    )
+    expect(streamErrorCopy('We could not generate this summary. Try again shortly.')).toBe(
       'We could not generate this summary. Try again shortly.',
     )
     expect(streamErrorCopy('The filing could not be summarized right now.')).toBe('The filing could not be summarized right now.')

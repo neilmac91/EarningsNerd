@@ -34,8 +34,8 @@ STEP_ONE = {
 FETCHED_OK = {"type": "progress", "stage": "fetching", "message": "File validated and fetched successfully", "percent": 15}
 SIXK_RETRIEVING = {"type": "progress", "stage": "fetching", "message": "Retrieving 6-K exhibits from EDGAR...", "percent": 10}
 SIXK_FETCHED = {"type": "progress", "stage": "fetching", "message": "6-K exhibits fetched", "percent": 15}
-SEC_FETCH_ERROR = {"type": "error", "message": "Unable to retrieve this filing at the moment — please try again shortly."}
-SIXK_FETCH_ERROR = {"type": "error", "message": "Unable to retrieve this 6-K at the moment — please try again shortly."}
+SEC_FETCH_ERROR = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
+SIXK_FETCH_ERROR = {"type": "error", "message": "We could not retrieve this 6-K from SEC EDGAR. Try again shortly."}
 FETCH_MESSAGES = [
     "Connecting to SEC EDGAR...",
     "Downloading filing document...",

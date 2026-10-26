@@ -574,7 +574,7 @@ def determine_status(run: SummaryRun) -> None:
     # the provider returned no covered structured section at all.
     if not run.sections and run.covered_sections == 0:
         run.status = "error"
-        run.message = "Unable to retrieve this filing at the moment — please try again shortly."
+        run.message = "We could not generate this summary. Try again shortly."
 
     # If processing stopped mid-way but we have some sections, mark as partial
     if len(run.sections) > 0 and coverage_ratio < 0.7:

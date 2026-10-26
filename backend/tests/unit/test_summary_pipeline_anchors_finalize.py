@@ -34,7 +34,7 @@ from tests.support.summary_stream_harness import (
 )
 
 LOGGER = "app.services.summary_pipeline"
-GENERIC_FAILURE = {"type": "error", "message": "Unable to retrieve this filing at the moment — please try again shortly."}
+GENERIC_FAILURE = {"type": "error", "message": "We could not generate this summary. Try again shortly."}
 # The seven un-prefixed ``%``-style counters the finalize stage can emit, in source order.
 CHANNELS = (
     "figure_trace_untraceable", "summary_quality_partial", "summary_quality_full_machine_only",

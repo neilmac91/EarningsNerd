@@ -426,7 +426,7 @@ _LIQUIDITY = {"liquidity": "Cash covers maturities."}
 _NOTES = [{"item": "Leases", "impact": "Lease costs were minor."}]
 _CARDS = ["Financial Overview", "Management Commentary", "Strategic Developments"]
 _PARTIAL = "Some sections may not have loaded fully."
-_ERROR = "Unable to retrieve this filing at the moment — please try again shortly."
+_ERROR = "We could not generate this summary. Try again shortly."
 _A4_CASES = [
     # (case, sections, covered of 9, legacy card titles, status, message)
     ("0-covered-no-cards", {}, 0, [], "error", _ERROR),

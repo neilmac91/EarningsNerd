@@ -132,7 +132,7 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.delivery_path = "coalesced"
         logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
-        yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
+        yield {'type': 'progress', 'stage': 'queued', 'message': 'This summary is already being generated. Joining that run…', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
         while not existing_generation.is_set() and waited < pipeline.INFLIGHT_WAIT_CAP_SECONDS:
             try:
                 await asyncio.wait_for(existing_generation.wait(), timeout=pipeline.settings.STREAM_HEARTBEAT_INTERVAL)

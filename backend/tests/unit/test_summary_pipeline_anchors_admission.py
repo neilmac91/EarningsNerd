@@ -294,6 +294,6 @@ async def test_late_claim_fresh_reread_marks_evidence_coalesced_without_generati
     summary_id = next(f["summary_id"] for f in completed if f["type"] == "complete")
     assert [f["type"] for f in resumed] == ["progress", "progress", "complete"]
     assert resumed[1]["stage"] == "queued"
-    assert resumed[1]["message"] == "Another request is already generating this analysis — joining it..."
+    assert resumed[1]["message"] == "This summary is already being generated. Joining that run…"
     assert resumed[-1] == {"type": "complete", "summary": resumed[-1]["summary"], "summary_id": summary_id}
     assert filing_id not in summary_pipeline._inflight_generations
