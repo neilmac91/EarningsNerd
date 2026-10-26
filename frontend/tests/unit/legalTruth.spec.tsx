@@ -4137,6 +4137,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out, which you do not need to confirm, revokes your session tokens.</li>', true],
       ['<li>Passwords are hashed, and a logout on a device you do not own ends every session.</li>', true],
       ['<li>Passwords are hashed, and logging out of a device you do not own ends every session.</li>', true],
+      // ... and in main's timed reading of a sentence that names a new password (ANY_NEW_PASSWORD), as main refuses "Our
+      // new password policy is documented and idle sessions end after 30 minutes."
+      ['<li>Our new password policy is documented and every session you do not close ends within 30 minutes.</li>', true],
       ['<li>Nobody doubts that changing your password ends every session.</li>', true],
       ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
       ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
