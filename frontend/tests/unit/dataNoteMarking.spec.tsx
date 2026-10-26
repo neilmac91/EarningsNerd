@@ -196,8 +196,9 @@ describe('every surface marks and names only the notes that question the number 
 
     // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
     // sources), a chart's band letters, its tooltip's and its footnotes', by a class, an SVG paint or colour attribute or an
-    // inline style (which the browser reads back as rgb()) on the letter or on anything around it it could inherit the
-    // ink from. Out of reach: ink a stylesheet rule sets by another selector, since the unit tests load no stylesheet.
+    // inline style (which the browser reads back as rgb()) on the letter, on anything around it it could inherit the ink
+    // from, or on anything inside it that could draw its glyph. Out of reach: ink a stylesheet rule sets by another
+    // selector, since the unit tests load no stylesheet.
     const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
     const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
     const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
@@ -211,9 +212,9 @@ describe('every surface marks and names only the notes that question the number 
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
     const inked = (element: Element) => ['fill', 'stroke', 'color'].some((ink) => warningInks.has((element.getAttribute(ink) ?? '').toUpperCase())
       || warningInks.has((element as HTMLElement).style?.getPropertyValue(ink) ?? ''))
-    const around = (letter: Element) => { const chain: Element[] = []; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
-    const inWarning = Object.values(letters).flat().filter((letter) =>
-      letter.closest(['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')) || around(letter).some(inked))
+    const warningClass = ['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')
+    const sources = (letter: Element) => { const chain = [...letter.querySelectorAll('*')]; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
+    const inWarning = Object.values(letters).flat().filter((letter) => sources(letter).some((element) => element.matches(warningClass) || inked(element)))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 
