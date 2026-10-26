@@ -204,7 +204,7 @@ async def test_expired_follower_budget_does_not_replace_active_leader(monkeypatc
                 filing_id=fid, current_user=None, user_id=None, telemetry_distinct_id="offline",
                 telemetry_entry_point=None, telemetry_ctx={},
             )]
-            assert frames[-1] == {"type": "error", "message": "Summary generation timed out. Please try again."}
+            assert frames[-1] == {"type": "error", "message": "The summary timed out before it finished. Try again."}
             generate.assert_not_called()
             assert summary_pipeline._inflight_generations.get(fid) is leader
             assert not leader.is_set()

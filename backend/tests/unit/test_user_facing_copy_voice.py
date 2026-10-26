@@ -237,10 +237,6 @@ CODE_ATTRS = re.compile(
 # (module docstring).
 EXEMPT: dict[str, tuple[int, str]] = {
     "app/services/ai/markdown_render.py": (3, "founder: eval-pinned summary fallback text"),
-    "app/services/ai/summary_finalize.py": (1, "founder: the pipeline's 'Unable to retrieve' sentence (failure.py routes on it)"),
-    "app/services/summary_stages/admission.py": (1, "founder: summary pipeline sentences"),
-    "app/services/summary_stages/failure.py": (1, "founder: summary pipeline sentences"),
-    "app/services/summary_stages/fetch.py": (2, "founder: summary pipeline sentences"),
 
     "app/routers/contact.py::send_contact_notifications": (11, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
@@ -272,10 +268,11 @@ EXEMPT: dict[str, tuple[int, str]] = {
 # and 8 and listed the two files they found in the same commit, 16 when the backend-exports PR (#1345) landed
 # and its four entries went, 13 when the five routers' voice pass (E45) took four of its five entries off (the
 # red flag's waits for a PROMPT_VERSION event, see its entry) and the account verb, learned in the same commit,
-# listed the one break a locked test pins. Lower it with every deletion, in the same diff; when two shrinking PRs
-# meet, the later merge sets it to the merged list's count, which the equality holds it to. Raising it for new
-# copy is the one change this gate exists to refuse.
-EXEMPT_CAP = 13
+# listed the one break a locked test pins, 9 when the summary pipeline's stream sentences took the voice with
+# E217's functional change to summary_stages (F35, D-046; E92) and their four entries went. Lower it with every
+# deletion, in the same diff; when two shrinking PRs meet, the later merge sets it to the merged list's count, which
+# the equality holds it to. Raising it for new copy is the one change this gate exists to refuse.
+EXEMPT_CAP = 9
 
 
 @dataclass(frozen=True)

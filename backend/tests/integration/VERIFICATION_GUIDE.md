@@ -129,7 +129,7 @@ pytest backend/tests/integration/test_summary_stream_heartbeat.py --cov=app.rout
 ```json
 {
   "type": "error",
-  "message": "Unable to retrieve this filing at the moment — please try again shortly."
+  "message": "We could not generate this summary. Try again shortly."
 }
 ```
 
