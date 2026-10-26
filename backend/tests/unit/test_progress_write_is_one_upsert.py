@@ -175,7 +175,7 @@ def test_a_later_write_keeps_the_start_counts_from_it_and_clears_an_error(engine
 
 
 def test_a_write_records_its_error_and_replaces_the_coverage_it_names(engine, filing_id):
-    _seed(engine, filing_id, age_seconds=5, section_coverage={"business": "full"})
+    _seed(engine, filing_id, age_seconds=30, section_coverage={"business": "full"})
     _write(engine, filing_id, "error", error="Pipeline timeout", section_coverage={"business": "partial"})
     row = _row(engine, filing_id)
     assert row["stage"] == "error"
