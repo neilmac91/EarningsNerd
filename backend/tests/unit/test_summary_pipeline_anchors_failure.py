@@ -248,7 +248,7 @@ async def test_generic_handler_survives_a_failing_error_progress_write(caplog):
 @pytest.mark.asyncio
 async def test_failure_message_classification_and_the_failed_funnel_event(raised: str, expected: str):
     """Messages that already read ``Unable to retrieve``/``Unable to complete`` reach the client
-    verbatim (cut at 200 characters); every other exception becomes the generic retrieval error.
+    verbatim (cut at 200 characters); every other exception becomes the generic failure sentence.
     The failed funnel event always carries the raw message cut at 200 plus the telemetry context."""
     filing_id = seed_company_filing()
     funnel = MagicMock()

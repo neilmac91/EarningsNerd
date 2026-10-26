@@ -157,8 +157,8 @@ async def test_sec_fetch_heartbeats_rotate_messages_and_cap_percent_at_15(caplog
 # ------------------------------------------------------------------------ C2: empty SEC document
 
 @pytest.mark.asyncio
-async def test_empty_sec_document_ends_the_stream_with_the_retrieval_error(caplog):
-    """An empty fetch result is a fetch failure: the stream ends with the generic retrieval error
+async def test_empty_sec_document_ends_the_stream_with_the_generic_failure(caplog):
+    """An empty fetch result is a fetch failure: the stream ends with the generic failure sentence
     as its only terminal (no parsing stage, no provider call, no Summary row, no ``error`` progress
     record), logs the ValueError text at ERROR with a traceback, and gives back the generation slot
     and in-flight leadership."""

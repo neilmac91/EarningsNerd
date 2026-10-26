@@ -269,7 +269,7 @@ async def test_integrity_error_without_a_winner_row_fails_the_stream_generically
     """An IntegrityError on the Summary insert with NO competing row to serve is re-raised into the
     generic failure path: the ERROR log carries the exception text with a traceback, progress is
     recorded as ``error`` with the first 200 characters, the failed funnel event carries the same
-    text, nothing is persisted, and the only terminal is the generic retrieval error."""
+    text, nothing is persisted, and the only terminal is the generic failure sentence."""
     caplog.set_level(logging.INFO, logger=LOGGER)
     filing_id = seed_company_filing()
     duplicate = IntegrityError("stmt", {}, Exception("dup"))
