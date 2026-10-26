@@ -300,6 +300,13 @@ def test_the_old_gate_scores_the_model_s_own_first_output(harness: Any) -> None:
     assert seen == ["RAW", "FIXED"]  # a version-1 record's first pass is its own
 
 
+def test_the_report_and_the_replays_read_one_first_output(harness: Any) -> None:
+    """One definition of the model's own first output, in ``records``: the report's first-try rows, ``replay`` and
+    ``retype``'s code-only replay read the same (review 9, repair-loop [0], where the replay read a second copy)."""
+    from evals.trend_depth import records, retype
+    assert harness.report.first_output is records.first_output is retype.first_output
+
+
 def test_the_current_gate_columns_check_a_version_2_record_with_its_backstops(harness: Any) -> None:
     """generate --pipeline v2 decides with the backstops, so "as run · current gate" must too, or one output reads
     'fail · pass' for a backstop hit alone, as if the gate had changed."""

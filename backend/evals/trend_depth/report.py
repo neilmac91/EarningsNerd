@@ -34,7 +34,7 @@ Every measure is on one basis for every record and arm, and reads the pack the a
   repair generate still owes (``records.awaiting_repair``: its first pass failed the gate), count as not passing, and
   a warning at the top names every record generate still owes (``pending_warnings``). A repair sent for the gate's
   broken_debt backstop alone has a row of its own: only an arm reading ``packs-v2/`` can have one;
-- first-try errors score the model's own first output (``first_output``) under the gate as it is now, in two rows:
+- first-try errors score the model's own first output (``records.first_output``) under the gate as it is now, in two rows:
   the gate's failing claims, and the claims its backstops fail beyond them (``first_try``);
 - mislabels are distinct sentences, from the probes of a number said about another ratio, basis or year
   (``MISLABEL_KINDS``) and Opus's substantive flags (``OPUS``), each per 1,000 verified claims, in two rows: the
@@ -70,10 +70,10 @@ from evals.trend_depth import calibration, factcheck, probes
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, SECTION_KEYS, load_pack, sentences_of
 from evals.trend_depth.judge import CRITERIA, _family
-from evals.trend_depth.providers import ARMS, packs_dir, parse_json_object
+from evals.trend_depth.providers import ARMS, packs_dir
 from evals.trend_depth.records import (
-    api_cost, awaiting_repair, first_reads, first_request_cache, output_sha256, pack_sha256, pipeline_of, prefix_key,
-    quantile, read_same_output, shared_prefixes, text_sha256, unsettled, warm_first_attempts,
+    api_cost, awaiting_repair, first_output, first_reads, first_request_cache, output_sha256, pack_sha256, pipeline_of,
+    prefix_key, quantile, read_same_output, shared_prefixes, text_sha256, unsettled, warm_first_attempts,
 )
 from evals.trend_depth.semantics import classify_flag
 
@@ -323,18 +323,6 @@ def broken_debt_repair(record: dict[str, Any]) -> list[dict[str, Any]]:
         return []
     failures = (record.get("first_pass_gate") or record.get("gate") or {}).get("failures", [])
     return failures if failures and all(f["failure"].startswith(_BROKEN_DEBT_FAILURE) for f in failures) else []
-
-
-def first_output(record: dict[str, Any]) -> Optional[dict[str, Any]]:
-    """The model's first output, before the code's retyping or any repair. A version-1 record's is its first pass (its
-    output when no repair ran). A version-2 record's first pass carries the retyping, so its first valid reply is read
-    from its attempts instead; None if none parses."""
-    if record.get("pipeline") != "v2":
-        first = record.get("first_pass_output")
-        return first if isinstance(first, dict) else record["output"]
-    replies = [a for a in record.get("attempts", []) if a.get("attempt") != "repair" and not a.get("problems")]
-    parsed = parse_json_object(replies[-1].get("raw") or "") if replies else None
-    return parsed if isinstance(parsed, dict) and isinstance(parsed.get("sections"), list) else None
 
 
 def _plain(text: str) -> str:
@@ -856,7 +844,7 @@ def render(label: str, systems: list[str], summary: dict[str, Any]) -> str:
                      else f"one auditor for every system, {folder.removeprefix('semantics-by-')}")
             lines += [f"Verified numbers checked for the metric and period the sentence gives them ({title}). A flag on a "
                       "bound the value satisfies (under view 1, which never told the auditor the claim was a bound), or on "
-                      "a number several cited values match, is counted apart from the substantive ones "
+                      "a number that two differently named quantities match, is counted apart from the substantive ones "
                       "(`semantics.classify_flag`). View is the auditor's view of the matches "
                       "(`semantics.VIEW`; 1 showed no signed value, bound or twin):", "",
                       "| System | Analyses | Claims consistent | Flagged | of which substantive | bound | ambiguous | Not labelled | Auditor | View |",
@@ -1169,7 +1157,7 @@ def hand_reading(system: str, m: dict[str, Any]) -> list[str]:
         ("Mislabels, each claim (probes R1, R2a, R2c, R3 and Opus substantive flags; a sentence counts once)",
          [f"{h['ticker']} {h['source']} '{h['claim']}': {_quote(h['sentence'])} ({h['detail']})"
           + (f" [{h['also']}]" if h.get("also") else "") for h in m["mislabel_list"]]),
-        ("Opus flags not counted (a bound the value satisfies, under view 1; a number several cited values match)",
+        ("Opus flags not counted (a bound the value satisfies, under view 1; a number two differently named quantities match)",
          [f"{h['ticker']} {h['source']} {h['class']} '{h['claim']}': {_quote(h['sentence'])} ({h['detail']})"
           for h in m["opus_other"]]),
         *[(f"Probe {kind}", [f"{h['ticker']} '{h['claim']}': {_quote(h['sentence'])} ({h['detail']})" for h in m[kind]])

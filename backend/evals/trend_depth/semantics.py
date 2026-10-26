@@ -35,7 +35,7 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-from evals.trend_depth import factcheck
+from evals.trend_depth import factcheck, probes
 from evals.trend_depth.causes import _auditor, audit_call, earlier_audit, reuse_audit
 from evals.trend_depth.companies import eval_companies
 from evals.trend_depth.generate import RUNS, load_pack, sentences_of
@@ -268,6 +268,115 @@ def _current_view_copy(out: Path, label: str, system: str, ticker: str, auditor:
     return True
 
 
+# --- One quantity under two names (classify_flag) -------------------------------------------------------------------
+# A window low, high or median is, by the pack's own definition, a point of its series under another name
+# (``derived._window_figures``, ``derived.version_two_values``): the low or high is its one input, the median the
+# input it equals when the count is odd.
+_SELECTIONS = ("minimum over window", "maximum over window", "median over window")
+# Values whose recorded inputs are not what the pack computes them from, with the series they are computed from, in
+# their own period. ``derived.build_derived`` computes the growth gap as revenue growth less the growth of the
+# operating-expenses line wherever the pack has that line in both years, but lists revenue and operating income as its
+# inputs, the basis it falls back on (revenue less operating income) when it has not. Where the pack carries that
+# operating-expense growth (95 of the 144 gaps in each pack version) the gap is exactly the difference of the two
+# growths (``test_trend_depth_semantics.py`` pins it on every committed gap); elsewhere no pack value holds the cost
+# growth, so no calculation of the gate's is the gap.
+_COMPUTED_FROM = {"operating_leverage_gap": ("g:revenue", "g:operating_expenses")}
+# A metrics-table value the dataset calculated names the series it is calculated from in its formula ("100 *
+# operating_income / revenue", "operating_cash_flow - abs(capital_expenditures)"), of its own period; its CAGR
+# ("compound annual growth", series "<x>_cagr", period "FY2016..FY2025") is series x at the window's two ends.
+_FORMULA_SERIES = re.compile(r"[a-z][a-z_]*")
+_FORMULA_FUNCTIONS = frozenset({"abs"})
+_CAGR_SUFFIX = "_cagr"
+
+
+def _same_value(a: float, b: float) -> bool:
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-6)
+
+
+def _selected(vid: str, pack: dict[str, Any]) -> str:
+    """The point of its series a window low, high or median is (``_SELECTIONS``: the input with its unit and signed
+    value), else ``vid`` itself. COST's operating cash flow / net income window low (FY2022) [D721], which packs-v2
+    appends, is its FY2022 value [D225]; CAT's operating margin window high (FY2024) [D1122] is its FY2024 margin."""
+    values = pack["values"]
+    value = values.get(vid)
+    if not value or value.get("formula") not in _SELECTIONS:
+        return vid
+    return next((i for i in value.get("inputs") or [] if i in values and values[i]["unit"] == value["unit"]
+                 and _same_value(values[i]["value"], value["value"])), vid)
+
+
+def _series_ids(pack: dict[str, Any]) -> dict[tuple[str, str], str]:
+    """(series, period) -> ID, from the pack's series keys. A tagged key (version 2's checked peer rank, filed beside
+    the version-1 rank of the same series and period) is left out: it is not the value a formula names."""
+    out = {}
+    for key, vid in pack.get("series_keys", {}).items():
+        series, period, tag = probes.split_key(key)
+        if not tag:
+            out[(series, period)] = vid
+    return out
+
+
+def _operands(vid: str, pack: dict[str, Any], series_ids: dict[tuple[str, str], str]) -> frozenset[str]:
+    """The IDs the pack computes value ``vid`` from, as its own record says, each window figure read as the point it is
+    (``_selected``); none when the record does not name them all:
+
+    - a value of a series in ``_COMPUTED_FROM``: those series in its period, when the pack holds every one (the growth
+      gap's two growths);
+    - else its ``inputs``, when every one is a pack value (a D value: a growth's two levels, a margin's numerator and
+      denominator, a margin change's two margins, net cash's cash and debt);
+    - else, for a metrics-table value the dataset calculated, the series its formula names in its period, or, for a
+      CAGR, its series at the window's two ends; every name must be a series of the pack in that period.
+
+    Without a full set, nothing: a value is never read as a calculation the pack does not record."""
+    values = pack["values"]
+    value = values[vid]
+    series, period = next((key for key, i in series_ids.items() if i == vid), ("", value["period"]))
+    if series in _COMPUTED_FROM:
+        found = [series_ids.get((name, period)) for name in _COMPUTED_FROM[series]]
+    elif value.get("inputs"):
+        found = [i if i in values else None for i in value["inputs"]]
+    elif value.get("source") == "calculated" and series.endswith(_CAGR_SUFFIX) and ".." in period:
+        found = [series_ids.get((series[:-len(_CAGR_SUFFIX)], end)) for end in period.split("..")]
+    elif value.get("source") == "calculated" and series:
+        names = [n for n in _FORMULA_SERIES.findall(value.get("formula") or "") if n not in _FORMULA_FUNCTIONS]
+        found = [series_ids.get((name, period)) for name in names] or [None]
+    else:
+        found = [None]
+    return frozenset(_selected(i, pack) for i in found) if all(found) else frozenset()
+
+
+def _computed_as(c: factcheck.Candidate, found: list[factcheck.Candidate], pack: dict[str, Any],
+                 series_ids: dict[tuple[str, str], str]) -> Optional[int]:
+    """The index in ``found`` of the gate's calculation that a cited value is, by the pack's own derivation, with its
+    unit and signed value; else None. The calculation is either
+
+    - over exactly the values the pack computes it from (``_operands``): the same-year gap [D693] is net margin [F50]
+      less operating margin [F30], the gate's "pp F50-F30"; CVX's growth gap [D379] is "pp D358-D373"; AMD's revenue
+      CAGR [F231] is "CAGR F1->F10 over 9y"; CAT's operating margin change [D476] is its FY2025 margin [F30] less its
+      FY2024 window high [D1122], which is the FY2024 margin; or
+    - the inverse of a value it is an operand of, over that value and its other operand: COP's buybacks [X141] are its
+      buybacks plus dividends [D339] less its dividends [X151], and ORCL's operating cash flow [F84] its free cash flow
+      [F104] plus its capex [F94]. Only a sum or a difference of two values of one unit has such an inverse.
+
+    Window figures are read as the points they are (``_selected``). The derivation, never the value alone, makes two
+    candidates one: different metrics that print one number (two CAGRs of 2.8%, VRTX's buybacks and its buybacks plus
+    dividends, as it pays no dividend, a bridge line equal to the margin's change) stay two."""
+    if c.how != "cited":
+        return None
+    vid = _selected(c.ids[0], pack)
+    mine = _operands(vid, pack, series_ids)
+    for n, d in enumerate(found):
+        if d.how == "cited" or d.unit != c.unit or not _same_value(d.value, c.value):
+            continue
+        theirs = frozenset(_selected(i, pack) for i in d.ids)
+        if mine and theirs == mine:
+            return n
+        if len(theirs) == 2 and vid not in theirs and any(
+                _operands(x, pack, series_ids) == {vid, *(theirs - {x})} for x in theirs):
+            return n
+    return None
+
+
 def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: dict[str, Any], view: int = 1) -> str:
     """Why the auditor's ``mismatch`` may not be an error, read deterministically from the gate; ``view`` is the view
     the audit was made under (its ``view``, 1 when it has none):
@@ -277,15 +386,18 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
       tells the auditor the claim is a bound and asks whether it applies to that metric and period, so a flag on a
       bound there is a reading of the sentence ("Net margin stayed above 15% [F30]" for an operating margin of 16.5%,
       a net margin of 13.1%) and stays substantive;
-    - ``ambiguous``: two or more cited values with different labels match the number, so the one the gate
-      reported may not be the one the sentence means. Candidates that are one quantity count once: a cited value
-      derived from exactly the values another matching calculation reads, with that calculation's unit and signed
-      value, is that calculation under its own name, read under the calculation's label (packs-v2's same-year gap
-      [D693] is PG's net margin [F50] less its operating margin [F30], the gate's "pp F50-F30"). Otherwise a sentence
-      that cites the gap's ID, as the candidate prompt asks, shields every flag on it, while the same sentence
-      without the ID, on packs/, counts (review 8 measures [0]);
+    - ``ambiguous``: two or more quantities with different labels match the number, so the one the gate reported may
+      not be the one the sentence means;
     - ``substantive``: neither, so the sentence most likely gives the number the wrong metric, period or sign.
-    """
+
+    Candidates that are one quantity by the pack's own derivation count once, under one label: a window low, high or
+    median is the point of its series it equals (``_selected``), and a cited value is the gate's calculation of it
+    (``_computed_as``). Otherwise a sentence that also cites what a figure is computed from shields every flag on the
+    figure, while the same sentence citing less counts: the frozen prompt's gap sentence citing the gap with both
+    growths (CVX's "outran cost reduction by 1.2pp [D373][D358][D379]"), a CAGR cited with its two levels, and C's
+    year value cited beside the window low packs-v2 appends to K0's packs (review 8 measures [0]; review 9 measures
+    [0], arm-fairness [3]). Two names of one number that the pack does not derive one from the other stay two
+    labels: the flag may be the gate's choice of name, not the sentence's error."""
     sentence = next((s for s in sentences if factcheck.CITATION_RE.sub("", s["text"]).strip() == item["sentence"]), None)
     if sentence is None:
         return "substantive"
@@ -297,15 +409,13 @@ def classify_flag(item: dict[str, Any], sentences: list[dict[str, Any]], pack: d
     cited = [i for g in factcheck.CITATION_RE.findall(sentence["text"]) for i in factcheck.ID_RE.findall(g)]
     values = pack["values"]
     found = [c for c in factcheck.candidates(cited, pack) if factcheck.matches(claim, c)]
+    series_ids = _series_ids(pack)
 
-    def quantity(c: factcheck.Candidate) -> factcheck.Candidate:
-        """The calculation a cited derived value is (same inputs, unit and signed value), else the candidate itself."""
-        inputs = set(values[c.ids[0]].get("inputs") or []) if c.how == "cited" else set()
-        return next((d for d in found if inputs and d.how != "cited" and set(d.ids) == inputs and d.unit == c.unit
-                     and math.isclose(d.value, c.value, rel_tol=1e-9, abs_tol=1e-6)), c)
+    def label(q: factcheck.Candidate) -> str:
+        """The quantity's name: its values' labels, each window figure read as its point; a passage figure's source."""
+        return " + ".join(sorted(values[_selected(i, pack)]["label"] for i in q.ids if i in values)) or q.how
 
-    labels = {" + ".join(sorted(values[i]["label"] for i in q.ids if i in values)) or q.how
-              for q in map(quantity, found)}
+    labels = {label(found[n] if (n := _computed_as(c, found, pack, series_ids)) is not None else c) for c in found}
     return "ambiguous" if len(labels) > 1 else "substantive"
 
 

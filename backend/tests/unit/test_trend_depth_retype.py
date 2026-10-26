@@ -7,7 +7,9 @@ found a new class of wrong number it licensed. So a figure stated without its ow
 repair fixes: on review 8's leaks (a from-level dated by the cited change's year, a base year's level as the current
 one), on CVX's committed packs of both versions, and on the three recorded omissions auto-citation used to fix (NVDA's
 71.1% in eval-v1 and dev-v4, JPM's 52.4%). The code-only replay of recorded first passes (``real_failures``) decides
-through that same function. ``retype`` is pure, so it is imported directly.
+through that same function, with the backstops, on the model's own first output (``records.first_output``): a
+version-1 record's first pass, not its repaired output, and a version-2 record's first reply, not the copy the code
+retyped (review 9, tests-and-gates [3] and repair-loop [0]). ``retype`` is pure, so it is imported directly.
 """
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ from typing import Any
 
 import pytest
 
-from evals.trend_depth import retype
+from evals.trend_depth import records, retype
 
 RECORDS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
 
@@ -165,6 +167,82 @@ def test_the_code_only_replay_decides_through_the_code_step(tmp_path: Path) -> N
     assert lines[-1] == ("  first passes: 2; failing: 2; failing after retyping: 1; failing the gate alone: 2; "
                          "failing the gate alone after retyping: 1")
     assert f"    retyped: {BRIDGE}" in lines and f"    still: '71.1%' matches nothing the sentence cites | {OMITTED}" in lines
+
+
+def _write(records: Path, label: str, system: str, name: str, record: dict[str, Any]) -> None:
+    path = records / "runs" / label / system / f"{name}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record))
+
+
+FIXED = "Gross margin fell 3.9pp to 71.1% [D1][F4]."
+
+
+def test_the_replay_reads_a_repaired_first_pass_not_its_final_output(tmp_path: Path) -> None:
+    """A version-1 record that was repaired keeps the model's first pass as ``first_pass_output``; its ``output`` is the
+    repair's, which passes. Replaying the output would count no repaired first pass: eval-v1's "failing: 12 ... failing
+    the gate alone: 6", fix 1's documented figures, would read 10 and 0 (review 9, tests-and-gates [3])."""
+    (tmp_path / "packs").mkdir()
+    (tmp_path / "packs" / "T.json").write_text(json.dumps(PACK))
+    elsewhere = ("fact", "Gross margin was 71.1% in FY2025 [F4].")
+    _write(tmp_path, "eval-v1", "deepseek-flash", "A", {"ticker": "T", "output": _output(elsewhere, ("comparison", FIXED)),
+                                                       "first_pass_output": _output(elsewhere, ("comparison", OMITTED))})
+    lines = retype.real_failures(tmp_path, ["eval-v1"], "deepseek-flash")
+    assert lines[-1] == ("  first passes: 1; failing: 1; failing after retyping: 1; failing the gate alone: 1; "
+                         "failing the gate alone after retyping: 1")
+    assert f"    was: '71.1%' matches nothing the sentence cites | {OMITTED}" in lines
+
+
+def test_the_replay_decides_with_the_backstops_as_a_run_does(tmp_path: Path) -> None:
+    """A first pass whose only failure is a backstop's goes to the repair under version 2, so it counts as failing, and
+    not as failing the gate alone: COP's FY2025 total debt [D336] is its current portion alone, a debt-break year that
+    packs-v2 withholds (the broken_debt backstop). Without the backstops in the replay's first verdict, eval-v1's "12
+    and 11" would read 6 and 5."""
+    folder = tmp_path / "packs-v2"
+    folder.mkdir()
+    (folder / "COP.json.gz").write_bytes((RECORDS / "packs-v2" / "COP.json.gz").read_bytes())
+    stated = _output(("fact", "Total debt was $1.0 billion in FY2025 [D336]."))
+    _write(tmp_path, "dev-v5-r1", "deepseek-flash-c", "COP", {"ticker": "COP", "output": stated})
+    lines = retype.real_failures(tmp_path, ["dev-v5-r1"], "deepseek-flash-c")
+    assert lines[-1] == ("  first passes: 1; failing: 1; failing after retyping: 1; failing the gate alone: 0; "
+                         "failing the gate alone after retyping: 0")
+    assert lines[0] == "dev-v5-r1/deepseek-flash-c/COP: 1 failure(s) -> 1 (0 of the gate itself)"
+    assert lines[1].startswith("    was: backstop broken_debt: '$1.0 billion' rests on D336")
+
+
+def _v2_record(own: dict[str, Any], **fields: Any) -> dict[str, Any]:
+    """A version-2 record as generate writes it: the model's reply in its attempts, its first pass already retyped."""
+    fixed, retyped, gate = retype.first_pass(own, PACK)
+    return {"ticker": "T", "pipeline": "v2", "output": fixed, "retyped": retyped, "gate": gate,
+            "attempts": [{"attempt": 0, "problems": [], "raw": json.dumps(own)}], **fields}
+
+
+def test_a_version_2_first_pass_is_replayed_from_the_model_s_own_reply(tmp_path: Path) -> None:
+    """A version-2 record's ``first_pass_output``, and its ``output`` when no repair ran, are the copy the code already
+    retyped. The replay reads the model's own reply (``records.first_output``), so a first pass that passed only after
+    retyping still counts as failing and lists its retype, and a repaired one lists every failure the model wrote
+    (review 9, repair-loop [0])."""
+    (tmp_path / "packs").mkdir()
+    (tmp_path / "packs" / "T.json").write_text(json.dumps(PACK))
+    retyped_only = _v2_record(_output(("cause", BRIDGE)))
+    assert retyped_only["gate"]["passed"]  # what generate kept: no repair, the retyped copy as its output
+    own = _output(("fact", "Gross margin was 71.1% in FY2025 [F4]."), ("cause", BRIDGE), ("comparison", OMITTED))
+    repaired = _v2_record(own)
+    repaired.update(first_pass_output=repaired["output"], output=_output(("comparison", FIXED)))
+    repaired["attempts"].append({"attempt": "repair", "problems": [], "raw": "{}"})
+    unreadable = {**retyped_only, "attempts": [{"attempt": 0, "problems": ["not JSON"], "raw": "nonsense"}]}
+    for name, record in (("A", retyped_only), ("B", repaired), ("C", unreadable)):
+        _write(tmp_path, "dev-v5-r1", "deepseek-flash", name, record)
+    lines = retype.real_failures(tmp_path, ["dev-v5-r1"], "deepseek-flash")
+    assert lines[-1] == ("  first passes: 3; failing: 2; failing after retyping: 1; failing the gate alone: 2; "
+                         "failing the gate alone after retyping: 1; first passes with no readable reply: 1")
+    assert lines.count(f"    retyped: {BRIDGE}") == 2
+    assert "dev-v5-r1/deepseek-flash/T: 2 failure(s) -> 1 (1 of the gate itself)" in lines  # the repaired one
+    assert "dev-v5-r1/deepseek-flash/T: no first reply parses, so nothing is replayed" in lines
+
+
+def test_the_replay_and_the_report_read_one_first_output() -> None:
+    assert retype.first_output is records.first_output
 
 
 def test_retyping_never_loads_the_bootstrap() -> None:

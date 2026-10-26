@@ -1,8 +1,8 @@
 """The depth harness's shared rules over run records (evals/trend_depth/records.py).
 
 Pins when a generation is final enough to audit or judge, and when one awaits only its repair (which the report counts
-as not passing), the pipeline a record was made with (version 2 with auto-citation another build), how an audit or a
-verdict is tied to the output it
+as not passing), the pipeline a record was made with (version 2 with auto-citation another build), the model's own
+first output (a version-2 first pass carries the code's retyping), how an audit or a verdict is tied to the output it
 read, when a first pass may be repaired or copied (only beside the prompt and the pack it read), and how the
 report prices a company's first analysis from the recorded calls: a first request reads its model's and prompt's shared
 prefix, what most first requests of that prompt read over every label, so neither a warm repeat nor a cold start moves it.
@@ -50,6 +50,25 @@ def test_a_version_2_record_made_with_auto_citation_is_another_build() -> None:
     and the report's builds must not take it for the version 2 of now."""
     assert records.pipeline_of({}) == "v1" and records.pipeline_of({"pipeline": "v2"}) == "v2"
     assert records.pipeline_of({"pipeline": "v2", "autocite": {"added": [], "rejected": 0}}) == "v2 with auto-citation"
+
+
+def _analysis(text: str) -> dict[str, Any]:
+    return {"sections": [{"key": "cash", "sentences": [{"type": "cause", "text": text}]}]}
+
+
+def test_the_model_s_first_output_is_its_first_valid_reply_in_version_2() -> None:
+    """Version 1 keeps the model's first pass as ``first_pass_output`` (its ``output`` when no repair ran). Version 2's
+    ``first_pass_output`` and unrepaired ``output`` are the copy the code retyped, so the model's own first output is
+    its last first-pass reply that parsed, never a repair's; none when no reply parses. The report's first-try
+    measures, ``replay`` and ``retype``'s code-only replay read it here (review 9, repair-loop [0])."""
+    own, retyped, repaired = _analysis("own"), _analysis("retyped"), _analysis("repaired")
+    assert records.first_output({"output": own}) is own
+    assert records.first_output({"output": repaired, "first_pass_output": own}) is own
+    replies = [{"attempt": 0, "problems": ["not JSON"], "raw": "nonsense"}, {"attempt": 1, "problems": [], "raw": json.dumps(own)},
+               {"attempt": "repair", "problems": [], "raw": json.dumps(repaired)}]
+    v2 = {"pipeline": "v2", "output": repaired, "first_pass_output": retyped, "attempts": replies}
+    assert records.first_output(v2) == own
+    assert records.first_output({**v2, "attempts": replies[:1] + replies[2:]}) is None
 
 
 def test_an_audit_is_tied_to_the_output_it_read() -> None:
