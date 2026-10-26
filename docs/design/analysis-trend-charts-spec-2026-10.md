@@ -1011,8 +1011,9 @@ because they delay readout and complicate export timing. A theme switch swaps to
    - company (Inter 600 18);
    - `TICKER · chart title`;
      - as built (#1627, `frontend/DESIGN_SYSTEM.md` §10), the export carries the period on this line in its own form,
-       `TICKER · chart title · FY2016–FY2025`, and in the card's short form (`Q3 ’24–Q4 ’25`) when the long one is
-       wider than the image;
+       `TICKER · chart title · FY2016–FY2025`, and in this card's short form (`Q3 ’24–Q4 ’25`) when the long one is
+       wider than the strip (the image less its 16 px pads); what still does not fit is condensed, as a bank's
+       quarterly short form is, to about 97% at 390 px;
    - subtitle;
    - legend: the same inline items, same strings, same item x positions, drawn on the canvas with `measureText` in
      the page's body font stack;

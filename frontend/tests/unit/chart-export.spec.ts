@@ -74,7 +74,8 @@ describe('exportFilename', () => {
 
 describe('exportSourceText', () => {
   // The PNG's subtitle names the run's window as the file name, the PDF and the workbook do (periodLabels.ts).
-  // Its short form is the card's own subtitle's (charts/model.ts), which the header takes when the long one is too wide.
+  // Its short form is the spec renderer's card subtitle's (charts/model.ts), which the header takes when the long one
+  // is wider than its strip.
   it.each([
     { run: 'an annual run', period_key: 'FY2016..FY2025', period: 'FY2016–FY2025', periodShort: 'FY2016–FY2025' },
     { run: 'a quarterly run', period_key: '2024Q3..2025Q4', period: 'Q3 2024–Q4 2025', periodShort: 'Q3 ’24–Q4 ’25' },
@@ -149,28 +150,29 @@ describe('withPngResolution', () => {
     expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
   })
 
-  it('passes bytes that are not a PNG through unchanged', () => {
-    const whole = png(IHDR, IDAT, IEND)
-    const withTail = new Uint8Array(whole.length + 2)
-    withTail.set(whole)
-    // Each guard has a case only it decides: the signature; a chunk header the bytes cannot hold (1 to 3 bytes left:
-    // with 4 or more, the chunk's length reads and the next guard decides); a chunk whose data runs past the end;
-    // a first chunk other than IHDR; no chunk at all.
-    for (const [name, bytes] of [
-      ['text', new TextEncoder().encode('png')],
-      ['nothing', new Uint8Array()],
-      ['whole chunks after a wrong signature', new Uint8Array([...new Uint8Array(8), ...IHDR, ...IDAT, ...IEND])],
-      ['two bytes of a chunk header', whole.subarray(0, 8 + IHDR.length + 2)],
-      ['two bytes after IEND', withTail],
-      ['a chunk cut inside its data', whole.subarray(0, 8 + IHDR.length + IDAT.length - 3)],
-      ['a chunk cut inside its CRC', whole.subarray(0, whole.length - 3)],
-      ['a first chunk that is not IHDR', png(IDAT, IEND)],
-      ['the signature alone', png()],
-    ] as const) expect(withPngResolution(bytes, EXPORT_DPI), name).toBe(bytes)
+  // Each guard has a case only it decides: the signature; a chunk header the bytes cannot hold (1 to 3 bytes left:
+  // with 4 or more, the chunk's length reads and the next guard decides); a chunk whose length runs past the end (its
+  // header whole, 12 bytes or more left); a first chunk other than IHDR; no chunk at all. IEND cut short leaves 9 of
+  // its 12 bytes, so either length guard decides it.
+  const whole = png(IHDR, IDAT, IEND)
+  const withTail = new Uint8Array(whole.length + 2)
+  withTail.set(whole)
+  it.each([
+    { name: 'text', bytes: new TextEncoder().encode('png') },
+    { name: 'nothing', bytes: new Uint8Array() },
+    { name: 'whole chunks after a wrong signature', bytes: new Uint8Array([...new Uint8Array(8), ...IHDR, ...IDAT, ...IEND]) },
+    { name: 'two bytes of a chunk header', bytes: whole.subarray(0, 8 + IHDR.length + 2) },
+    { name: 'two bytes after IEND', bytes: withTail },
+    { name: 'IDAT cut inside its data', bytes: whole.subarray(0, 8 + IHDR.length + 8 + 5) },
+    { name: 'IDAT cut inside its CRC', bytes: whole.subarray(0, 8 + IHDR.length + IDAT.length - 3) },
+    { name: 'IEND cut short (either length guard)', bytes: whole.subarray(0, whole.length - 3) },
+    { name: 'a first chunk that is not IHDR', bytes: png(IDAT, IEND) },
+    { name: 'the signature alone', bytes: png() },
+  ])('passes $name through unchanged', ({ bytes }) => {
+    expect(withPngResolution(bytes, EXPORT_DPI)).toBe(bytes)
   })
 
   it('reads a view that starts inside a larger buffer', () => {
-    const whole = png(IHDR, IDAT, IEND)
     const host = new Uint8Array(3 + whole.length)
     host.set(whole, 3)
     expect(withPngResolution(host.subarray(3), EXPORT_DPI)).toEqual(withPngResolution(whole, EXPORT_DPI))
@@ -483,6 +485,10 @@ describe('exportPanelPng header', () => {
     }
   }
 
+  /** The stub's measure: each character half an em of the px size `ctx.font` names, so a text measured in another
+   *  font than it is drawn in measures wrong. */
+  const halfEm = (font: string) => Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1]) / 2
+
   let fillTexts: string[]
   let fillArgs: { text: string; maxWidth?: number }[]
   let ctx: Record<string, unknown>
@@ -502,7 +508,7 @@ describe('exportPanelPng header', () => {
         fillTexts.push(text)
         fillArgs.push({ text, maxWidth })
       }),
-      measureText: (t: string) => ({ width: t.length * 7 }),
+      measureText: (t: string) => ({ width: t.length * halfEm(ctx.font as string) }),
       scale: vi.fn(),
       drawImage: vi.fn(),
       save: vi.fn(),
@@ -559,12 +565,12 @@ describe('exportPanelPng header', () => {
   })
 
   describe('at a narrow width', () => {
-    // A bank's longest chart at quarterly range; the stub measures 7 px a character and the strip is the plot's width
-    // less its two pads.
+    // A bank's longest chart at quarterly range; the stub measures half an em a character in the font set when it
+    // measures, and the strip is the plot's width less its two pads.
     const BANK = { ...HEADER, ticker: 'JPM', title: 'Net interest income & growth', legend: [], ...exportSourceText({ ...quarterly, period_key: '2024Q3..2025Q4' }) }
     const LONG = 'JPM · Net interest income & growth · Q3 2024–Q4 2025'
     const SHORT = 'JPM · Net interest income & growth · Q3 ’24–Q4 ’25'
-    const plotFor = (subtitle: string) => subtitle.length * 7 + 2 * HEADER_STAMP.padX
+    const plotFor = (subtitle: string) => (subtitle.length * HEADER_STAMP.subtitleSize) / 2 + 2 * HEADER_STAMP.padX
     const subtitles = () => fillArgs.filter((call) => call.text.startsWith('JPM · '))
 
     it.each([
@@ -672,8 +678,8 @@ describe('exportPanelPng header', () => {
     for (const call of [mark, earnings, nerd]) expect(call.alpha, `${call.op} is drawn opaque`).toBe(1)
     expect(nerd.fill).toBe(accent)
     expect(imageSources.at(-1)).toContain(encodeURIComponent(`fill="${accent}"`))
-    // Right: the wordmark ends at the inset from the right edge (the stub measures 7px a glyph).
-    expect(nerd.x + 'Nerd'.length * 7).toBe(PLOT_W - MARK_STAMP.inset)
+    // Right: the wordmark ends at the inset from the right edge (the stub: half an em a character, 7 px at 14 px).
+    expect(nerd.x + ('Nerd'.length * MARK_STAMP.wordmarkSize) / 2).toBe(PLOT_W - MARK_STAMP.inset)
     // Bottom: the mark sits inside the last strip of the canvas.
     expect(mark.y).toBeGreaterThanOrEqual(canvasHeight - MARK_STAMP.stripHeight)
     expect(mark.y + (mark.h ?? 0)).toBeLessThanOrEqual(canvasHeight)
@@ -802,7 +808,7 @@ describe('exportPanelPng header', () => {
     const drawImage = ctx.drawImage as ReturnType<typeof vi.fn>
     // The plot is the drawImage call at x=0; its y must equal the reserved header height for the
     // legend as it actually wraps at this plot width (the export measures with the same stub).
-    const rows = layoutLegend((s) => s.length * 7, HEADER.legend, PLOT_W - 2 * HEADER_STAMP.padX)
+    const rows = layoutLegend((s) => (s.length * HEADER_STAMP.legendSize) / 2, HEADER.legend, PLOT_W - 2 * HEADER_STAMP.padX)
     const plotCall = drawImage.mock.calls.find((c) => c[1] === 0)
     expect(plotCall?.[2]).toBe(headerHeight(rows.length))
   })

@@ -8,8 +8,8 @@ import { FCF_DEFINITION } from './provenance'
 
 /** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
  *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
- *  run's "FY2024"), and in the short form the card's own subtitle prints ("Q3 ’24–Q4 ’24"), which the header takes
- *  when the long one does not fit. The source data's sync time, an instant, prints as the day it falls on in the
+ *  run's "FY2024"), and in the short form the spec renderer's card subtitle prints ("Q3 ’24–Q4 ’24"; charts/model.ts),
+ *  which the header takes when the long one is wider than its strip. The source data's sync time, an instant, prints as the day it falls on in the
  *  reader's zone (DataNotes prints the long form). */
 export function exportSourceText(dataset: AnalysisDataset): { period: string; periodShort: string; sourceNote: string; disclosure: string } {
   const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
@@ -595,7 +595,8 @@ export function withPngResolution(bytes: Uint8Array<ArrayBuffer>, dpi: number): 
 /**
  * Rasterize the panel's rendered SVG to a 2× PNG and download it, declaring EXPORT_DPI: a company/metric/period/legend
  * header, the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
- * `header` (company + ticker + metric title + the panel's shared `legendItems`) to draw the frame;
+ * `header` (company + ticker + metric title + the period and its short form + the panel's shared `legendItems`) to
+ * draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *
  * The SVG plot is rasterized in an isolated image document, where the page's CSS variables and

@@ -2123,8 +2123,9 @@ Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab l
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
 source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
 and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`);
-a subtitle wider than the image takes the range's short form, the card's own ("Q3 ’24–Q4 ’25"), and only what still
-does not fit is condensed. The file declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px
+a subtitle wider than the strip (the image less its 16 px pads) takes the range's short form ("Q3 ’24–Q4 ’25", as
+the spec renderer's card subtitle prints it; today's Recharts card prints no range), and only what still does not
+fit is condensed. The file declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px
 a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
 file's chunk).
 The PNG's plot paints the screen's Geist Mono:
