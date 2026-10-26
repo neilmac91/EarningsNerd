@@ -6,8 +6,11 @@ provenance; they never recalculate or promote a legacy record to validated statu
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime, timezone
 import re
 from typing import Any
+
+from app.utils.datetimes import ensure_utc, utc_from_iso
 
 ANALYSIS_DISCLAIMER = (
     "EarningsNerd provides financial data and AI-assisted commentary for research, not investment "
@@ -28,6 +31,18 @@ _FORMULA_LABELS = {
     "compound_annual_growth": "(last / first) ^ (1 / fiscal years between endpoints) - 1",
     "percentage_point_change": "current percentage - comparison percentage",
 }
+
+
+def display_instant(value: datetime | str | None) -> str | None:
+    """An instant as the exports print it, "October 24, 2026, 20:26 UTC": the server cannot know the
+    reader's zone, so the zone is named. None when absent or unreadable."""
+    if not value:
+        return None
+    try:
+        moment = (ensure_utc(value) if isinstance(value, datetime) else utc_from_iso(str(value))).astimezone(timezone.utc)
+    except ValueError:
+        return None
+    return f"{moment:%B} {moment.day}, {moment.year}, {moment:%H:%M} UTC"
 
 
 def formula_text(formula: Any) -> str:

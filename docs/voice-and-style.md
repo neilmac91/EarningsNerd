@@ -146,7 +146,12 @@ the business card, the footer and the merch; it is the positioning in six words.
   and the mark) and print that. The served name stays the data value: a key, a URL, a search query, an
   analytics property, an API payload or a cache row, a CSV, a title attribute that quotes the filing, and a
   record a reader downloads (the evidence pack's JSON, the redlines' review receipt), which keeps EDGAR's name
-  as the filing's header gives it, kept beside the display form as `conformedName`.
+  as the filing's header gives it, kept beside the display form as `conformedName`. The backend holds the one
+  other copy of the rule, `backend/app/utils/company_names.py`, held to this module by a shared case table
+  (`backend/tests/fixtures/company_display_names.json`, which `formatCompanyName.spec.ts` and
+  `backend/tests/unit/test_company_names.py` both run; the Python test also holds the word lists equal): the
+  Multi-Period Analysis PDF and workbook print the display form, while the filing summary's PDF and CSV keep
+  EDGAR's name until E210.
   `frontend/tests/unit/companyNameDisplay.spec.ts` fails a served name printed raw, a `CompanyLogo` given
   one, a field of the app's own filled with one (a served object handed whole to a view of the app's own
   among them) and a printed `conformedName`, except the forms its header names as gaps (text a call puts on
