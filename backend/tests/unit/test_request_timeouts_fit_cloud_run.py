@@ -46,8 +46,8 @@ def _service_pool_timeout() -> float:
     which already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
     environment (which ``load_dotenv`` may fill) sets it. Both files' shapes are checked whichever layer wins, and
     fail with a message: a Dockerfile instruction naming the value other than as an ``ENV`` this reads, a
-    ``database.py`` that binds the name anywhere but its one default line (``_bindings`` names every kind of binding
-    it finds), or a ``pool_timeout`` keyword other than the bare name. Code that
+    ``database.py`` that binds the name, in any of the ways ``_bindings`` lists, anywhere but its one default line,
+    or a ``pool_timeout`` keyword other than the bare name. Code that
     sets the pool's timeout another way (keyword arguments spread from a mapping, a change at run time), and a value
     set on the service by hand (which outlives ``--update-env-vars``), are out of this reading's reach."""
     # The Dockerfile's instructions as Docker reads them: comment lines dropped (Docker never continues one), then
@@ -79,14 +79,17 @@ def _service_pool_timeout() -> float:
 
 
 def _bindings(module: ast.Module, name: str) -> list[ast.AST]:
-    """Every node of a parsed module that binds ``name``: an assignment target of any kind (plain, augmented,
-    annotated, unpacked, chained, a ``for`` or ``with`` target, a walrus), an import, an ``except`` clause, a match
-    capture, a ``def`` or a ``class``."""
+    """The nodes of a parsed module that bind ``name`` in one of these ways: an assignment target of any kind
+    (plain, augmented, annotated, unpacked, chained, a ``for`` or ``with`` target, a walrus), a parameter of a
+    function or lambda, an import, an ``except`` clause, a match capture, a ``def`` or a ``class``. A star import
+    counts whatever it binds, since a parse cannot see its names."""
     found: list[ast.AST] = []
     for node in ast.walk(module):
         if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
             found.append(node)
-        elif isinstance(node, ast.alias) and (node.asname or node.name.split(".")[0]) == name:
+        elif isinstance(node, ast.arg) and node.arg == name:
+            found.append(node)
+        elif isinstance(node, ast.alias) and (node.name == "*" or (node.asname or node.name.split(".")[0]) == name):
             found.append(node)
         elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name == name:
             found.append(node)
