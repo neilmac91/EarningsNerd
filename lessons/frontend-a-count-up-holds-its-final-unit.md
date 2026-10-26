@@ -6,9 +6,10 @@ Date: 2026-10-25   Area: frontend
 "so width never jitters", with ``(v) => `$${v.toFixed(1)}B` `` as its example. The strip passed compact notation
 instead, which picks a unit per frame: on its way to "CHF 22.8B" the value showed "CHF 999.9M", a glyph wider than the
 final value. E197's fix sizes the strip's columns from its widest final value: at 360px "CHF 22.8B" (129.6px) sits two
-up with 2.4px to spare, so the frames from "CHF 100.0M" to "CHF 999.9M" (144px at their widest) would have run past its
-card while the tween passed them; sizing for the widest frame instead would have put every strip whose values pass a
-unit boundary in one column. Formatting every frame in the final value's unit (`compactCurrencyCountUp`: "CHF 0.0B" …
+up with 2.4px to spare, so the frames from "CHF 100.0M" to "CHF 999.9M" (144px at their widest) would have run 12px past
+its content box, into the card's padding, while the tween passed them; sizing for the widest frame instead would have
+cost a code-prefixed strip a column wherever its final values just fit: two cards at 360 and 375px, four at 1480px
+under 200% text. Formatting every frame in the final value's unit (`compactCurrencyCountUp`: "CHF 0.0B" …
 "CHF 22.8B") makes the final value the widest frame, so the layout measures one string, and the last frame stays the
 compact text the page printed before.
 

@@ -1102,8 +1102,8 @@ const withQuestionedCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
  *  ("CHF 22.8B" ran 17.6px past its content box at 320px). Nine glyphs and no mark (no figure carries a dagger, D-061;
  *  no note questions these), 129.6px at a 16px root, fit two up from 360px, where E197's dagger did not; under 200%
  *  text the strip takes two cards at 1024px, where four cannot hold them, and four at 1480px, where they can (by 2.3px
- *  at 0.6em, and by the rule's own half pixel where glyphs snap, so a change to the card's padding, border or gap moves
- *  that row). With a note's letter, 138.2px, the same value takes one card at 360px and two at 1480px. */
+ *  at 0.6em, and by the rule's own half pixel where glyphs snap, so a wider card or gap moves that row). With a note's
+ *  letter, 138.2px, the same value takes one card at 360px and two at 1480px. */
 // Geometry only, so one theme: the inks are the phone marks' and the text floors' to check.
 test.describe('analysis KPI strip, long values', () => {
   const theme = 'light' as const
