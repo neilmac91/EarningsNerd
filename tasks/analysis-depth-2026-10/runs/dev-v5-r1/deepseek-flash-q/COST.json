@@ -1,0 +1,2928 @@
+{
+ "ticker": "COST",
+ "arm": "deepseek-flash-q",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2017..FY2026",
+ "snapshot_id": "b74cafbfa1843c1a221ed4b1585363336ddc93c2ded4b28f7c8f6280c90a1a97",
+ "prompt_sha256": "05f799a8cdcc892d0843a5987d9d8333cc1c81a02571d18d71a12a619ce0b33e",
+ "packs": "packs",
+ "pack_sha256": "01255eab068b05eb534e3207121ee730ab83082448822cd992d2933bddb4466c",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 34786,
+   "cached_input_tokens": 2432,
+   "output_tokens": 1842,
+   "reasoning_tokens": 0,
+   "latency_s": 10.059,
+   "cost_usd": 0.005966,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 36628
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 10.0% a year from $129,025 million in FY2017 to $303,154 million in FY2026 [F1][F10][F203].\"},\n    {\"type\": \"comparison\", \"text\": \"The shape is a steady compounding line with two step-ups: revenue growth of 17.5% in FY2021 and 15.8% in FY2022 against 9.2% in FY2020 [D189][D238][D140].\"},\n    {\"type\": \"cause\", \"text\": \"FY2021's jump came from a 16% comparable sales increase, with e-commerce comparable sales up 44% and gasoline prices adding 100 basis points to net sales [P54][P55].\"},\n    {\"type\": \"cause\", \"text\": \"FY2022 followed on a 14% comparable sales increase, with the strongest growth in gasoline, business centers and travel, and sales still lifted by inflation [P42].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The US segment supplied most of the growth, contributing 6.2pp of FY2025's 8.2% and 7.2pp of FY2026's 10.1% revenue increase [D669][D385][D672][D434].\"},\n    {\"type\": \"cause\", \"text\": \"FY2026's $27,335 million net sales increase was primarily a comparable sales gain of $22,457 million, or 8%, on 5% higher average ticket and 3% higher frequency [P14].\"},\n    {\"type\": \"comparison\", \"text\": \"Food and Sundries remained the largest product line at 38.5% of FY2026 revenue but contributed only 2.6pp of growth, while warehouse ancillary and other businesses added 3.7pp [D558][D560][D601].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating income grew 12.3% a year against revenue's 10.0%, and operating costs grew 0.1pp slower than revenue in FY2026 [F204][F203][D458].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS compounded at 14.6% against net income's 14.7%, with the diluted share count essentially flat at 444.4 million [F207][F205][X100].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin reached 3.9% in FY2026, its window high, against a 3.4% median and a 3.1% low in FY2019 [F32][D691][D692][D690].\"},\n    {\"type\": \"comparison\", \"text\": \"The FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat at 87.2% of revenue [D447][D460][D459][D413].\"},\n    {\"type\": \"cause\", \"text\": \"SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9].\"},\n    {\"type\": \"comparison\", \"text\": \"In FY2026 net margin of 3.0% sat 0.9pp below the 3.9% operating margin, a gap of 0.9pp [F52][F32][D448].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2026 operating cash increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms [P6].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin was 3.1% against a 2.8% median, with capex at 2.1% of revenue and 2.41x D&A [D418][D698][D417][D423].\"},\n    {\"type\": \"cause\", \"text\": \"Investing outflow rose to $6,378 million from $5,311 million, primarily capital expenditures [F112][F111][P5].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378].\"},\n    {\"type\": \"comparison\", \"text\": \"That net cash position ranked at the 100th percentile of six retail peers against a -4.4% median, and the current ratio was 1.06x versus a 1.02x median [D715][D716][F182][D704].\"},\n    {\"type\": \"cause\", \"text\": \"Buybacks plus dividends of $3,306 million absorbed 35.2% of free cash flow, with $848 million of repurchases under the January 2023 program [D429][D430][X110][P3].\"},\n    {\"type\": \"comparison\", \"text\": \"Long-term debt fell 31.5% to $3,914 million while the diluted share count slipped 0.1% [D445][F192][D452].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 3.9% sits at the 17th percentile of six retail peers against a 5.0% median, and net margin of 3.0% also ranks 17th against 3.5% [F32][D709][D710][F52][D711][D712].\"},\n    {\"type\": \"judgement\", \"text\": \"The thin-margin model is structural rather than deteriorating, since the margin is at its window high, but it leaves little cushion if merchandise costs or wages outrun sales.\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow conversion of 1.02x net income ranked at the 67th percentile against a 0.83x median, and capex has risen to 2.41x D&A from 1.83x in FY2017 [D422][D717][D718][D423][D11].\"},\n    {\"type\": \"judgement\", \"text\": \"Rising capital intensity is the item to watch: if capex keeps outpacing depreciation, the free cash flow that funds buybacks and dividends narrows.\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Whether FY2027 operating margin holds at the FY2026 high of 3.9% or slips toward the 3.4% median, reported in the FY2027 10-K [F32][D692].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether free cash flow per dollar of net income stays above the 0.99x median or falls back toward the 0.60x FY2022 low, reported in the FY2027 10-K [D701][D699].\"},\n    {\"type\": \"comparison\", \"text\": \"Whether net cash as a share of revenue holds above the FY2026 5.0% or reverses toward the FY2024 2.1%, reported in the FY2027 10-K [D428][D330].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 36959,
+   "cached_input_tokens": 34688,
+   "output_tokens": 366,
+   "reasoning_tokens": 0,
+   "latency_s": 4.263,
+   "cost_usd": 0.000664,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 37325
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"margins\", \"original\": \"SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9].\", \"type\": \"cause\", \"text\": \"SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 million [P9].\"}, {\"section\": \"cash\", \"original\": \"Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422].\", \"type\": \"comparison\", \"text\": \"Operating cash flow of $15,817 million was 1.71x net income in FY2026, and free cash flow of $9,382 million was 1.02x net income, above the 0.99x window median [F82][F42][D421][F102][D422][D701].\"}, {\"section\": \"balance_sheet\", \"original\": \"Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378].\", \"type\": \"comparison\", \"text\": \"Net cash reached $15,139 million, or 5.0% of revenue, in FY2026, up from $9,496 million in FY2025 [D427][D428][D378].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 71745,
+  "cached_input_tokens": 37120,
+  "output_tokens": 2208,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 14.322,
+ "cost_usd": 0.00663,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "1029c8bc6940",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 10.0% a year from $129,025 million in FY2017 to $303,154 million in FY2026 [F1][F10][F203]."
+     },
+     {
+      "type": "comparison",
+      "text": "The shape is a steady compounding line with two step-ups: revenue growth of 17.5% in FY2021 and 15.8% in FY2022 against 9.2% in FY2020 [D189][D238][D140]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2021's jump came from a 16% comparable sales increase, with e-commerce comparable sales up 44% and gasoline prices adding 100 basis points to net sales [P54][P55]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 followed on a 14% comparable sales increase, with the strongest growth in gasoline, business centers and travel, and sales still lifted by inflation [P42]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The US segment supplied most of the growth, contributing 6.2pp of FY2025's 8.2% and 7.2pp of FY2026's 10.1% revenue increase [D669][D385][D672][D434]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026's $27,335 million net sales increase was primarily a comparable sales gain of $22,457 million, or 8%, on 5% higher average ticket and 3% higher frequency [P14]."
+     },
+     {
+      "type": "comparison",
+      "text": "Food and Sundries remained the largest product line at 38.5% of FY2026 revenue but contributed only 2.6pp of growth, while warehouse ancillary and other businesses added 3.7pp [D558][D560][D601]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 12.3% a year against revenue's 10.0%, and operating costs grew 0.1pp slower than revenue in FY2026 [F204][F203][D458]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS compounded at 14.6% against net income's 14.7%, with the diluted share count essentially flat at 444.4 million [F207][F205][X100]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin reached 3.9% in FY2026, its window high, against a 3.4% median and a 3.1% low in FY2019 [F32][D691][D692][D690]."
+     },
+     {
+      "type": "comparison",
+      "text": "The FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat at 87.2% of revenue [D447][D460][D459][D413]."
+     },
+     {
+      "type": "cause",
+      "text": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 million [P9]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 net margin of 3.0% sat 0.9pp below the 3.9% operating margin, a gap of 0.9pp [F52][F32][D448]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, and free cash flow of $9,382 million was 1.02x net income, above the 0.99x window median [F82][F42][D421][F102][D422][D701]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 operating cash increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms [P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 3.1% against a 2.8% median, with capex at 2.1% of revenue and 2.41x D&A [D418][D698][D417][D423]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing outflow rose to $6,378 million from $5,311 million, primarily capital expenditures [F112][F111][P5]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026, up from $9,496 million in FY2025 [D427][D428][D378]."
+     },
+     {
+      "type": "comparison",
+      "text": "That net cash position ranked at the 100th percentile of six retail peers against a -4.4% median, and the current ratio was 1.06x versus a 1.02x median [D715][D716][F182][D704]."
+     },
+     {
+      "type": "cause",
+      "text": "Buybacks plus dividends of $3,306 million absorbed 35.2% of free cash flow, with $848 million of repurchases under the January 2023 program [D429][D430][X110][P3]."
+     },
+     {
+      "type": "comparison",
+      "text": "Long-term debt fell 31.5% to $3,914 million while the diluted share count slipped 0.1% [D445][F192][D452]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 3.9% sits at the 17th percentile of six retail peers against a 5.0% median, and net margin of 3.0% also ranks 17th against 3.5% [F32][D709][D710][F52][D711][D712]."
+     },
+     {
+      "type": "judgement",
+      "text": "The thin-margin model is structural rather than deteriorating, since the margin is at its window high, but it leaves little cushion if merchandise costs or wages outrun sales."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow conversion of 1.02x net income ranked at the 67th percentile against a 0.83x median, and capex has risen to 2.41x D&A from 1.83x in FY2017 [D422][D717][D718][D423][D11]."
+     },
+     {
+      "type": "judgement",
+      "text": "Rising capital intensity is the item to watch: if capex keeps outpacing depreciation, the free cash flow that funds buybacks and dividends narrows."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether FY2027 operating margin holds at the FY2026 high of 3.9% or slips toward the 3.4% median, reported in the FY2027 10-K [F32][D692]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether free cash flow per dollar of net income stays above the 0.99x median or falls back toward the 0.60x FY2022 low, reported in the FY2027 10-K [D701][D699]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether net cash as a share of revenue holds above the FY2026 5.0% or reverses toward the FY2024 2.1%, reported in the FY2027 10-K [D428][D330]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 652,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 17,
+   "cause": 7,
+   "judgement": 2
+  },
+  "claims": 79,
+  "verified": 78,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "margins",
+    "sentence": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9].",
+    "type": "cause",
+    "failure": "backstop unitless_dollars: '$126' matches only the raw literal of P9; the filing's tables may be in millions"
+   },
+   {
+    "section": "cash",
+    "sentence": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422].",
+    "type": "comparison",
+    "failure": "backstop R1: '0.99x' a reference level of 'Free cash flow / net income' [D701] set against 1.71x of 'Operating cash flow / net income'"
+   },
+   {
+    "section": "balance_sheet",
+    "sentence": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378].",
+    "type": "fact",
+    "failure": "'$9,496 million' matches cited but not in the period(s) named (2026)"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 10.0% a year from $129,025 million in FY2017 to $303,154 million in FY2026 [F1][F10][F203].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F203"
+    ],
+    "claims": [
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F203"
+      ]
+     },
+     {
+      "claim": "$129,025 million",
+      "value": 129025.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$303,154 million",
+      "value": 303154.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The shape is a steady compounding line with two step-ups: revenue growth of 17.5% in FY2021 and 15.8% in FY2022 against 9.2% in FY2020 [D189][D238][D140].",
+    "type": "comparison",
+    "citations": [
+     "D189",
+     "D238",
+     "D140"
+    ],
+    "claims": [
+     {
+      "claim": "17.5%",
+      "value": 17.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D189"
+      ]
+     },
+     {
+      "claim": "15.8%",
+      "value": 15.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D238"
+      ]
+     },
+     {
+      "claim": "9.2%",
+      "value": 9.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D140"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2021's jump came from a 16% comparable sales increase, with e-commerce comparable sales up 44% and gasoline prices adding 100 basis points to net sales [P54][P55].",
+    "type": "cause",
+    "citations": [
+     "P54",
+     "P55"
+    ],
+    "claims": [
+     {
+      "claim": "16%",
+      "value": 16.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P54",
+      "ids": [
+       "P54"
+      ]
+     },
+     {
+      "claim": "44%",
+      "value": 44.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P54",
+      "ids": [
+       "P54"
+      ]
+     },
+     {
+      "claim": "100 basis points",
+      "value": 1.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P55",
+      "ids": [
+       "P55"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2022 followed on a 14% comparable sales increase, with the strongest growth in gasoline, business centers and travel, and sales still lifted by inflation [P42].",
+    "type": "cause",
+    "citations": [
+     "P42"
+    ],
+    "claims": [
+     {
+      "claim": "14%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P42",
+      "ids": [
+       "P42"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The US segment supplied most of the growth, contributing 6.2pp of FY2025's 8.2% and 7.2pp of FY2026's 10.1% revenue increase [D669][D385][D672][D434].",
+    "type": "comparison",
+    "citations": [
+     "D669",
+     "D385",
+     "D672",
+     "D434"
+    ],
+    "claims": [
+     {
+      "claim": "6.2pp",
+      "value": 6.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D669"
+      ]
+     },
+     {
+      "claim": "8.2%",
+      "value": 8.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D385"
+      ]
+     },
+     {
+      "claim": "7.2pp",
+      "value": 7.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D672"
+      ]
+     },
+     {
+      "claim": "10.1%",
+      "value": 10.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FY2026's $27,335 million net sales increase was primarily a comparable sales gain of $22,457 million, or 8%, on 5% higher average ticket and 3% higher frequency [P14].",
+    "type": "cause",
+    "citations": [
+     "P14"
+    ],
+    "claims": [
+     {
+      "claim": "$27,335 million",
+      "value": 27335.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14 (x1e+06)",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "$22,457 million",
+      "value": 22457.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14 (x1e+06)",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "8%",
+      "value": 8.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "5%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "3%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Food and Sundries remained the largest product line at 38.5% of FY2026 revenue but contributed only 2.6pp of growth, while warehouse ancillary and other businesses added 3.7pp [D558][D560][D601].",
+    "type": "comparison",
+    "citations": [
+     "D558",
+     "D560",
+     "D601"
+    ],
+    "claims": [
+     {
+      "claim": "38.5%",
+      "value": 38.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D558"
+      ]
+     },
+     {
+      "claim": "2.6pp",
+      "value": 2.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D560"
+      ]
+     },
+     {
+      "claim": "3.7pp",
+      "value": 3.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D601"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 12.3% a year against revenue's 10.0%, and operating costs grew 0.1pp slower than revenue in FY2026 [F204][F203][D458].",
+    "type": "comparison",
+    "citations": [
+     "F204",
+     "F203",
+     "D458"
+    ],
+    "claims": [
+     {
+      "claim": "12.3%",
+      "value": 12.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F204"
+      ]
+     },
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F203"
+      ]
+     },
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D458",
+      "ids": [
+       "D458"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS compounded at 14.6% against net income's 14.7%, with the diluted share count essentially flat at 444.4 million [F207][F205][X100].",
+    "type": "comparison",
+    "citations": [
+     "F207",
+     "F205",
+     "X100"
+    ],
+    "claims": [
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F207"
+      ]
+     },
+     {
+      "claim": "14.7%",
+      "value": 14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F205"
+      ]
+     },
+     {
+      "claim": "444.4 million",
+      "value": 444.4,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X100"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin reached 3.9% in FY2026, its window high, against a 3.4% median and a 3.1% low in FY2019 [F32][D691][D692][D690].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D691",
+     "D692",
+     "D690"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     },
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D690"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat at 87.2% of revenue [D447][D460][D459][D413].",
+    "type": "comparison",
+    "citations": [
+     "D447",
+     "D460",
+     "D459",
+     "D413"
+    ],
+    "claims": [
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "87.2%",
+      "value": 87.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D413"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9].",
+    "type": "cause",
+    "citations": [
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "10 basis points",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     },
+     {
+      "claim": "$126",
+      "value": 126.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop unitless_dollars: '$126' matches only the raw literal of P9; the filing's tables may be in millions"
+    ]
+   },
+   {
+    "section": "margins",
+    "text": "In FY2026 net margin of 3.0% sat 0.9pp below the 3.9% operating margin, a gap of 0.9pp [F52][F32][D448].",
+    "type": "comparison",
+    "citations": [
+     "F52",
+     "F32",
+     "D448"
+    ],
+    "claims": [
+     {
+      "claim": "3.0%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F52"
+      ]
+     },
+     {
+      "claim": "0.9pp",
+      "value": 0.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F52-F32",
+      "ids": [
+       "F52",
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "0.9pp",
+      "value": 0.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F52-F32",
+      "ids": [
+       "F52",
+       "F32"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422].",
+    "type": "comparison",
+    "citations": [
+     "F82",
+     "F42",
+     "D421",
+     "D701",
+     "D422"
+    ],
+    "claims": [
+     {
+      "claim": "$15,817 million",
+      "value": 15817.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F82"
+      ]
+     },
+     {
+      "claim": "1.71x",
+      "value": 1.71,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "0.99x",
+      "value": 0.99,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D701"
+      ]
+     },
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R1: '0.99x' a reference level of 'Free cash flow / net income' [D701] set against 1.71x of 'Operating cash flow / net income'"
+    ]
+   },
+   {
+    "section": "cash",
+    "text": "The FY2026 operating cash increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms [P6].",
+    "type": "cause",
+    "citations": [
+     "P6"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin was 3.1% against a 2.8% median, with capex at 2.1% of revenue and 2.41x D&A [D418][D698][D417][D423].",
+    "type": "comparison",
+    "citations": [
+     "D418",
+     "D698",
+     "D417",
+     "D423"
+    ],
+    "claims": [
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D418"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D698"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D417"
+      ]
+     },
+     {
+      "claim": "2.41x",
+      "value": 2.41,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing outflow rose to $6,378 million from $5,311 million, primarily capital expenditures [F112][F111][P5].",
+    "type": "cause",
+    "citations": [
+     "F112",
+     "F111",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$6,378 million",
+      "value": 6378.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F112"
+      ]
+     },
+     {
+      "claim": "$5,311 million",
+      "value": 5311.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F111"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378].",
+    "type": "fact",
+    "citations": [
+     "D427",
+     "D428",
+     "D378"
+    ],
+    "claims": [
+     {
+      "claim": "$15,139 million",
+      "value": 15139.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "$9,496 million",
+      "value": 9496.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "period_mismatch",
+      "matched": "cited"
+     }
+    ],
+    "failures": [
+     "'$9,496 million' matches cited but not in the period(s) named (2026)"
+    ]
+   },
+   {
+    "section": "balance_sheet",
+    "text": "That net cash position ranked at the 100th percentile of six retail peers against a -4.4% median, and the current ratio was 1.06x versus a 1.02x median [D715][D716][F182][D704].",
+    "type": "comparison",
+    "citations": [
+     "D715",
+     "D716",
+     "F182",
+     "D704"
+    ],
+    "claims": [
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D715"
+      ]
+     },
+     {
+      "claim": "-4.4%",
+      "value": -4.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D716"
+      ]
+     },
+     {
+      "claim": "1.06x",
+      "value": 1.06,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F182"
+      ]
+     },
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D704"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks plus dividends of $3,306 million absorbed 35.2% of free cash flow, with $848 million of repurchases under the January 2023 program [D429][D430][X110][P3].",
+    "type": "cause",
+    "citations": [
+     "D429",
+     "D430",
+     "X110",
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "$3,306 million",
+      "value": 3306.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     },
+     {
+      "claim": "35.2%",
+      "value": 35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     },
+     {
+      "claim": "$848 million",
+      "value": 848.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X110"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Long-term debt fell 31.5% to $3,914 million while the diluted share count slipped 0.1% [D445][F192][D452].",
+    "type": "comparison",
+    "citations": [
+     "D445",
+     "F192",
+     "D452"
+    ],
+    "claims": [
+     {
+      "claim": "31.5%",
+      "value": 31.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "$3,914 million",
+      "value": 3914.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F192"
+      ]
+     },
+     {
+      "claim": "0.1%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Operating margin of 3.9% sits at the 17th percentile of six retail peers against a 5.0% median, and net margin of 3.0% also ranks 17th against 3.5% [F32][D709][D710][F52][D711][D712].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D709",
+     "D710",
+     "F52",
+     "D711",
+     "D712"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "17th percentile",
+      "value": 17.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D709"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D710"
+      ]
+     },
+     {
+      "claim": "3.0%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F52"
+      ]
+     },
+     {
+      "claim": "3.5%",
+      "value": 3.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D712"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The thin-margin model is structural rather than deteriorating, since the margin is at its window high, but it leaves little cushion if merchandise costs or wages outrun sales.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow conversion of 1.02x net income ranked at the 67th percentile against a 0.83x median, and capex has risen to 2.41x D&A from 1.83x in FY2017 [D422][D717][D718][D423][D11].",
+    "type": "comparison",
+    "citations": [
+     "D422",
+     "D717",
+     "D718",
+     "D423",
+     "D11"
+    ],
+    "claims": [
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     },
+     {
+      "claim": "67th percentile",
+      "value": 67.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D717"
+      ]
+     },
+     {
+      "claim": "0.83x",
+      "value": 0.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D718"
+      ]
+     },
+     {
+      "claim": "2.41x",
+      "value": 2.41,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     },
+     {
+      "claim": "1.83x",
+      "value": 1.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Rising capital intensity is the item to watch: if capex keeps outpacing depreciation, the free cash flow that funds buybacks and dividends narrows.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether FY2027 operating margin holds at the FY2026 high of 3.9% or slips toward the 3.4% median, reported in the FY2027 10-K [F32][D692].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D692"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether free cash flow per dollar of net income stays above the 0.99x median or falls back toward the 0.60x FY2022 low, reported in the FY2027 10-K [D701][D699].",
+    "type": "comparison",
+    "citations": [
+     "D701",
+     "D699"
+    ],
+    "claims": [
+     {
+      "claim": "0.99x",
+      "value": 0.99,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D701"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D699"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether net cash as a share of revenue holds above the FY2026 5.0% or reverses toward the FY2024 2.1%, reported in the FY2027 10-K [D428][D330].",
+    "type": "comparison",
+    "citations": [
+     "D428",
+     "D330"
+    ],
+    "claims": [
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D330"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 2
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 1,
+   "comparison": 18,
+   "cause": 7,
+   "judgement": 2
+  },
+  "claims": 80,
+  "verified": 80,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 10.0% a year from $129,025 million in FY2017 to $303,154 million in FY2026 [F1][F10][F203].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F203"
+    ],
+    "claims": [
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F203"
+      ]
+     },
+     {
+      "claim": "$129,025 million",
+      "value": 129025.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$303,154 million",
+      "value": 303154.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The shape is a steady compounding line with two step-ups: revenue growth of 17.5% in FY2021 and 15.8% in FY2022 against 9.2% in FY2020 [D189][D238][D140].",
+    "type": "comparison",
+    "citations": [
+     "D189",
+     "D238",
+     "D140"
+    ],
+    "claims": [
+     {
+      "claim": "17.5%",
+      "value": 17.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D189"
+      ]
+     },
+     {
+      "claim": "15.8%",
+      "value": 15.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D238"
+      ]
+     },
+     {
+      "claim": "9.2%",
+      "value": 9.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D140"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2021's jump came from a 16% comparable sales increase, with e-commerce comparable sales up 44% and gasoline prices adding 100 basis points to net sales [P54][P55].",
+    "type": "cause",
+    "citations": [
+     "P54",
+     "P55"
+    ],
+    "claims": [
+     {
+      "claim": "16%",
+      "value": 16.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P54",
+      "ids": [
+       "P54"
+      ]
+     },
+     {
+      "claim": "44%",
+      "value": 44.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P54",
+      "ids": [
+       "P54"
+      ]
+     },
+     {
+      "claim": "100 basis points",
+      "value": 1.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P55",
+      "ids": [
+       "P55"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2022 followed on a 14% comparable sales increase, with the strongest growth in gasoline, business centers and travel, and sales still lifted by inflation [P42].",
+    "type": "cause",
+    "citations": [
+     "P42"
+    ],
+    "claims": [
+     {
+      "claim": "14%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P42",
+      "ids": [
+       "P42"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The US segment supplied most of the growth, contributing 6.2pp of FY2025's 8.2% and 7.2pp of FY2026's 10.1% revenue increase [D669][D385][D672][D434].",
+    "type": "comparison",
+    "citations": [
+     "D669",
+     "D385",
+     "D672",
+     "D434"
+    ],
+    "claims": [
+     {
+      "claim": "6.2pp",
+      "value": 6.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D669"
+      ]
+     },
+     {
+      "claim": "8.2%",
+      "value": 8.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D385"
+      ]
+     },
+     {
+      "claim": "7.2pp",
+      "value": 7.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D672"
+      ]
+     },
+     {
+      "claim": "10.1%",
+      "value": 10.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FY2026's $27,335 million net sales increase was primarily a comparable sales gain of $22,457 million, or 8%, on 5% higher average ticket and 3% higher frequency [P14].",
+    "type": "cause",
+    "citations": [
+     "P14"
+    ],
+    "claims": [
+     {
+      "claim": "$27,335 million",
+      "value": 27335.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14 (x1e+06)",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "$22,457 million",
+      "value": 22457.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14 (x1e+06)",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "8%",
+      "value": 8.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "5%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     },
+     {
+      "claim": "3%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P14",
+      "ids": [
+       "P14"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Food and Sundries remained the largest product line at 38.5% of FY2026 revenue but contributed only 2.6pp of growth, while warehouse ancillary and other businesses added 3.7pp [D558][D560][D601].",
+    "type": "comparison",
+    "citations": [
+     "D558",
+     "D560",
+     "D601"
+    ],
+    "claims": [
+     {
+      "claim": "38.5%",
+      "value": 38.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D558"
+      ]
+     },
+     {
+      "claim": "2.6pp",
+      "value": 2.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D560"
+      ]
+     },
+     {
+      "claim": "3.7pp",
+      "value": 3.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D601"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 12.3% a year against revenue's 10.0%, and operating costs grew 0.1pp slower than revenue in FY2026 [F204][F203][D458].",
+    "type": "comparison",
+    "citations": [
+     "F204",
+     "F203",
+     "D458"
+    ],
+    "claims": [
+     {
+      "claim": "12.3%",
+      "value": 12.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F204"
+      ]
+     },
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F203"
+      ]
+     },
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D458",
+      "ids": [
+       "D458"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS compounded at 14.6% against net income's 14.7%, with the diluted share count essentially flat at 444.4 million [F207][F205][X100].",
+    "type": "comparison",
+    "citations": [
+     "F207",
+     "F205",
+     "X100"
+    ],
+    "claims": [
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F207"
+      ]
+     },
+     {
+      "claim": "14.7%",
+      "value": 14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F205"
+      ]
+     },
+     {
+      "claim": "444.4 million",
+      "value": 444.4,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X100"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin reached 3.9% in FY2026, its window high, against a 3.4% median and a 3.1% low in FY2019 [F32][D691][D692][D690].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D691",
+     "D692",
+     "D690"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     },
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D690"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat at 87.2% of revenue [D447][D460][D459][D413].",
+    "type": "comparison",
+    "citations": [
+     "D447",
+     "D460",
+     "D459",
+     "D413"
+    ],
+    "claims": [
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "87.2%",
+      "value": 87.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D413"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 million [P9].",
+    "type": "cause",
+    "citations": [
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "10 basis points",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     },
+     {
+      "claim": "$126 million",
+      "value": 126.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9 (x1e+06)",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2026 net margin of 3.0% sat 0.9pp below the 3.9% operating margin, a gap of 0.9pp [F52][F32][D448].",
+    "type": "comparison",
+    "citations": [
+     "F52",
+     "F32",
+     "D448"
+    ],
+    "claims": [
+     {
+      "claim": "3.0%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F52"
+      ]
+     },
+     {
+      "claim": "0.9pp",
+      "value": 0.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F52-F32",
+      "ids": [
+       "F52",
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "0.9pp",
+      "value": 0.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F52-F32",
+      "ids": [
+       "F52",
+       "F32"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, and free cash flow of $9,382 million was 1.02x net income, above the 0.99x window median [F82][F42][D421][F102][D422][D701].",
+    "type": "comparison",
+    "citations": [
+     "F82",
+     "F42",
+     "D421",
+     "F102",
+     "D422",
+     "D701"
+    ],
+    "claims": [
+     {
+      "claim": "$15,817 million",
+      "value": 15817.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F82"
+      ]
+     },
+     {
+      "claim": "1.71x",
+      "value": 1.71,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D421"
+      ]
+     },
+     {
+      "claim": "$9,382 million",
+      "value": 9382.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F102"
+      ]
+     },
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     },
+     {
+      "claim": "0.99x",
+      "value": 0.99,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D701"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The FY2026 operating cash increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms [P6].",
+    "type": "cause",
+    "citations": [
+     "P6"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin was 3.1% against a 2.8% median, with capex at 2.1% of revenue and 2.41x D&A [D418][D698][D417][D423].",
+    "type": "comparison",
+    "citations": [
+     "D418",
+     "D698",
+     "D417",
+     "D423"
+    ],
+    "claims": [
+     {
+      "claim": "3.1%",
+      "value": 3.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D418"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D698"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D417"
+      ]
+     },
+     {
+      "claim": "2.41x",
+      "value": 2.41,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing outflow rose to $6,378 million from $5,311 million, primarily capital expenditures [F112][F111][P5].",
+    "type": "cause",
+    "citations": [
+     "F112",
+     "F111",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$6,378 million",
+      "value": 6378.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F112"
+      ]
+     },
+     {
+      "claim": "$5,311 million",
+      "value": 5311.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F111"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026, up from $9,496 million in FY2025 [D427][D428][D378].",
+    "type": "comparison",
+    "citations": [
+     "D427",
+     "D428",
+     "D378"
+    ],
+    "claims": [
+     {
+      "claim": "$15,139 million",
+      "value": 15139.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D427"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "$9,496 million",
+      "value": 9496.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D378"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "That net cash position ranked at the 100th percentile of six retail peers against a -4.4% median, and the current ratio was 1.06x versus a 1.02x median [D715][D716][F182][D704].",
+    "type": "comparison",
+    "citations": [
+     "D715",
+     "D716",
+     "F182",
+     "D704"
+    ],
+    "claims": [
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D715"
+      ]
+     },
+     {
+      "claim": "-4.4%",
+      "value": -4.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D716"
+      ]
+     },
+     {
+      "claim": "1.06x",
+      "value": 1.06,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F182"
+      ]
+     },
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D704"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks plus dividends of $3,306 million absorbed 35.2% of free cash flow, with $848 million of repurchases under the January 2023 program [D429][D430][X110][P3].",
+    "type": "cause",
+    "citations": [
+     "D429",
+     "D430",
+     "X110",
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "$3,306 million",
+      "value": 3306.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D429"
+      ]
+     },
+     {
+      "claim": "35.2%",
+      "value": 35.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D430"
+      ]
+     },
+     {
+      "claim": "$848 million",
+      "value": 848.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X110"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Long-term debt fell 31.5% to $3,914 million while the diluted share count slipped 0.1% [D445][F192][D452].",
+    "type": "comparison",
+    "citations": [
+     "D445",
+     "F192",
+     "D452"
+    ],
+    "claims": [
+     {
+      "claim": "31.5%",
+      "value": 31.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "$3,914 million",
+      "value": 3914.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F192"
+      ]
+     },
+     {
+      "claim": "0.1%",
+      "value": 0.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Operating margin of 3.9% sits at the 17th percentile of six retail peers against a 5.0% median, and net margin of 3.0% also ranks 17th against 3.5% [F32][D709][D710][F52][D711][D712].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D709",
+     "D710",
+     "F52",
+     "D711",
+     "D712"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "17th percentile",
+      "value": 17.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D709"
+      ]
+     },
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D710"
+      ]
+     },
+     {
+      "claim": "3.0%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F52"
+      ]
+     },
+     {
+      "claim": "3.5%",
+      "value": 3.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D712"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The thin-margin model is structural rather than deteriorating, since the margin is at its window high, but it leaves little cushion if merchandise costs or wages outrun sales.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow conversion of 1.02x net income ranked at the 67th percentile against a 0.83x median, and capex has risen to 2.41x D&A from 1.83x in FY2017 [D422][D717][D718][D423][D11].",
+    "type": "comparison",
+    "citations": [
+     "D422",
+     "D717",
+     "D718",
+     "D423",
+     "D11"
+    ],
+    "claims": [
+     {
+      "claim": "1.02x",
+      "value": 1.02,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D422"
+      ]
+     },
+     {
+      "claim": "67th percentile",
+      "value": 67.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D717"
+      ]
+     },
+     {
+      "claim": "0.83x",
+      "value": 0.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D718"
+      ]
+     },
+     {
+      "claim": "2.41x",
+      "value": 2.41,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D423"
+      ]
+     },
+     {
+      "claim": "1.83x",
+      "value": 1.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Rising capital intensity is the item to watch: if capex keeps outpacing depreciation, the free cash flow that funds buybacks and dividends narrows.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether FY2027 operating margin holds at the FY2026 high of 3.9% or slips toward the 3.4% median, reported in the FY2027 10-K [F32][D692].",
+    "type": "comparison",
+    "citations": [
+     "F32",
+     "D692"
+    ],
+    "claims": [
+     {
+      "claim": "3.9%",
+      "value": 3.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F32"
+      ]
+     },
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D692"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether free cash flow per dollar of net income stays above the 0.99x median or falls back toward the 0.60x FY2022 low, reported in the FY2027 10-K [D701][D699].",
+    "type": "comparison",
+    "citations": [
+     "D701",
+     "D699"
+    ],
+    "claims": [
+     {
+      "claim": "0.99x",
+      "value": 0.99,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D701"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D699"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Whether net cash as a share of revenue holds above the FY2026 5.0% or reverses toward the FY2024 2.1%, reported in the FY2027 10-K [D428][D330].",
+    "type": "comparison",
+    "citations": [
+     "D428",
+     "D330"
+    ],
+    "claims": [
+     {
+      "claim": "5.0%",
+      "value": 5.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D428"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D330"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 79,
+  "verified": 78,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "margins",
+    "sentence": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9].",
+    "type": "cause",
+    "failure": "backstop unitless_dollars: '$126' matches only the raw literal of P9; the filing's tables may be in millions"
+   },
+   {
+    "section": "cash",
+    "sentence": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422].",
+    "type": "comparison",
+    "failure": "backstop R1: '0.99x' a reference level of 'Free cash flow / net income' [D701] set against 1.71x of 'Operating cash flow / net income'"
+   },
+   {
+    "section": "balance_sheet",
+    "sentence": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378].",
+    "type": "fact",
+    "failure": "'$9,496 million' matches cited but not in the period(s) named (2026)"
+   }
+  ],
+  "backstop_failures": 2
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 10.0% a year from $129,025 million in FY2017 to $303,154 million in FY2026 [F1][F10][F203]."
+     },
+     {
+      "type": "comparison",
+      "text": "The shape is a steady compounding line with two step-ups: revenue growth of 17.5% in FY2021 and 15.8% in FY2022 against 9.2% in FY2020 [D189][D238][D140]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2021's jump came from a 16% comparable sales increase, with e-commerce comparable sales up 44% and gasoline prices adding 100 basis points to net sales [P54][P55]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 followed on a 14% comparable sales increase, with the strongest growth in gasoline, business centers and travel, and sales still lifted by inflation [P42]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The US segment supplied most of the growth, contributing 6.2pp of FY2025's 8.2% and 7.2pp of FY2026's 10.1% revenue increase [D669][D385][D672][D434]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026's $27,335 million net sales increase was primarily a comparable sales gain of $22,457 million, or 8%, on 5% higher average ticket and 3% higher frequency [P14]."
+     },
+     {
+      "type": "comparison",
+      "text": "Food and Sundries remained the largest product line at 38.5% of FY2026 revenue but contributed only 2.6pp of growth, while warehouse ancillary and other businesses added 3.7pp [D558][D560][D601]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 12.3% a year against revenue's 10.0%, and operating costs grew 0.1pp slower than revenue in FY2026 [F204][F203][D458]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS compounded at 14.6% against net income's 14.7%, with the diluted share count essentially flat at 444.4 million [F207][F205][X100]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin reached 3.9% in FY2026, its window high, against a 3.4% median and a 3.1% low in FY2019 [F32][D691][D692][D690]."
+     },
+     {
+      "type": "comparison",
+      "text": "The FY2026 margin rose 0.1pp, with SG&A adding 0.1pp and cost of revenue flat at 87.2% of revenue [D447][D460][D459][D413]."
+     },
+     {
+      "type": "cause",
+      "text": "SG&A fell 10 basis points as a share of net sales, though excluding gasoline price inflation it rose one basis point, with foreign currency adding $126 [P9]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 net margin of 3.0% sat 0.9pp below the 3.9% operating margin, a gap of 0.9pp [F52][F32][D448]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $15,817 million was 1.71x net income in FY2026, above the 0.99x window median, and free cash flow was 1.02x net income [F82][F42][D421][D701][D422]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 operating cash increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms [P6]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin was 3.1% against a 2.8% median, with capex at 2.1% of revenue and 2.41x D&A [D418][D698][D417][D423]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing outflow rose to $6,378 million from $5,311 million, primarily capital expenditures [F112][F111][P5]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net cash reached $15,139 million, or 5.0% of revenue, in FY2026 from $9,496 million a year earlier [D427][D428][D378]."
+     },
+     {
+      "type": "comparison",
+      "text": "That net cash position ranked at the 100th percentile of six retail peers against a -4.4% median, and the current ratio was 1.06x versus a 1.02x median [D715][D716][F182][D704]."
+     },
+     {
+      "type": "cause",
+      "text": "Buybacks plus dividends of $3,306 million absorbed 35.2% of free cash flow, with $848 million of repurchases under the January 2023 program [D429][D430][X110][P3]."
+     },
+     {
+      "type": "comparison",
+      "text": "Long-term debt fell 31.5% to $3,914 million while the diluted share count slipped 0.1% [D445][F192][D452]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 3.9% sits at the 17th percentile of six retail peers against a 5.0% median, and net margin of 3.0% also ranks 17th against 3.5% [F32][D709][D710][F52][D711][D712]."
+     },
+     {
+      "type": "judgement",
+      "text": "The thin-margin model is structural rather than deteriorating, since the margin is at its window high, but it leaves little cushion if merchandise costs or wages outrun sales."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow conversion of 1.02x net income ranked at the 67th percentile against a 0.83x median, and capex has risen to 2.41x D&A from 1.83x in FY2017 [D422][D717][D718][D423][D11]."
+     },
+     {
+      "type": "judgement",
+      "text": "Rising capital intensity is the item to watch: if capex keeps outpacing depreciation, the free cash flow that funds buybacks and dividends narrows."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Whether FY2027 operating margin holds at the FY2026 high of 3.9% or slips toward the 3.4% median, reported in the FY2027 10-K [F32][D692]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether free cash flow per dollar of net income stays above the 0.99x median or falls back toward the 0.60x FY2022 low, reported in the FY2027 10-K [D701][D699]."
+     },
+     {
+      "type": "comparison",
+      "text": "Whether net cash as a share of revenue holds above the FY2026 5.0% or reverses toward the FY2024 2.1%, reported in the FY2027 10-K [D428][D330]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}
