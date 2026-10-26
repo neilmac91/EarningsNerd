@@ -7,7 +7,7 @@ import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '../
 import { CHART_TOKENS } from '../../features/analysis/lib/charts/theme'
 import { resolveDataNotes } from '../../features/analysis/lib/dataNotes'
 import { selectHeadlineFigures } from '../../features/analysis/lib/reportPresentation'
-import { plannedByRole } from '../unit/chartPlan'
+import { plannedByRole, questioned } from '../unit/chartPlan'
 import { datasetFixture, geometryDataset, openAnalysis, openDataset, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 
@@ -42,7 +42,7 @@ function inSwissFrancs(dataset: AnalysisDataset) {
 const GALLERY: Array<[string, () => AnalysisDataset | 'captured', string]> = [
   ['META quarterly', () => 'captured', 'the captured production dataset, its notes'],
   ['REGN annual in CHF', () => inSwissFrancs(unit('REGN_annual')), 'a code-prefixed currency: values that may not fit'],
-  ['REGN annual, nine review notes', () => unit('REGNPN_annual'), 'the notes band in three charts, the review ink'],
+  ['REGN annual, nine review notes', () => questioned(unit('REGNPN_annual')), 'the notes band in three charts, its letters in the note ink'],
   ['LCID annual', () => unit('LCID_annual'), 'off-scale margins, clipped growth, a 340× top-line range'],
   ['RIVN annual', () => unit('RIVN_annual'), 'a zero top line: n/m and gaps on the zero rule, growth of +2,915%'],
   ['PLUG annual', () => unit('PLUG_annual'), 'debt 119× below cash, near-zero equity labels'],

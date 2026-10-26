@@ -223,12 +223,14 @@ describe('TrendCharts PNG export wiring', () => {
     return vi.mocked(exportPanelPng).mock.calls.at(-1)?.[2]?.header
   }
 
-  it('passes company, ticker, metric, and a multi-series legend to the export', () => {
+  it('passes company, ticker, metric, period range and a multi-series legend to the export', () => {
     render(<TrendCharts dataset={dataset} exportEnabled />)
     const header = clickExport('Margins')
     expect(header?.company).toBe('Test Co')
     expect(header?.ticker).toBe('TST')
     expect(header?.title).toBe('Margins')
+    expect(header?.period).toBe('FY2023–FY2024')
+    expect(header?.periodShort).toBe('FY2023–FY2024')
     expect(header?.legend.map((i) => i.label)).toEqual(['Gross', 'Operating'])
   })
 

@@ -29,10 +29,12 @@ import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { tableComparisonText, tableFigureText } from '@/features/analysis/lib/tableFormat'
+import { withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { dataset: AnalysisDataset }>
-}
+})
 const NAMES = Object.keys(FIXTURE.datasets)
 
 const UNIT: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }

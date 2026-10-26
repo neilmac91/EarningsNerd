@@ -323,6 +323,12 @@ jobs:
         env:
           FEEDBACK_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
         run: python -m pytest tests/integration/test_feedback_submission_transactions.py
+      - name: Verify summary progress concurrency on PostgreSQL
+        working-directory: backend
+        timeout-minutes: 3
+        env:
+          PROGRESS_CONCURRENCY_TEST_DATABASE_URL: postgresql://earningsnerd:earningsnerd@127.0.0.1:5432/earningsnerd
+        run: python -m pytest tests/integration/test_summary_progress_transactions.py
 
   frontend-tests:
     runs-on: ubuntu-latest

@@ -6,11 +6,16 @@ import { markedNote, type DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
 import { FCF_DEFINITION } from './provenance'
 
-/** The PNG header's source line and disclosure, the same under every chart renderer. The source data's sync time, an
- *  instant, prints as the day it falls on in the reader's zone (DataNotes prints the long form). */
-export function exportSourceText(dataset: AnalysisDataset): { sourceNote: string; disclosure: string } {
+/** The PNG header's period range, source line and disclosure, the same under every chart renderer. The range is the
+ *  run's window as the file name, the PDF and the workbook name it ("FY2016–FY2025", "Q3 2024–Q4 2024", a one-period
+ *  run's "FY2024"), and in the short form the spec renderer's card subtitle prints ("Q3 ’24–Q4 ’24"; charts/model.ts),
+ *  which the header takes when the long one is wider than its strip. The source data's sync time, an instant, prints as the day it falls on in the
+ *  reader's zone (DataNotes prints the long form). */
+export function exportSourceText(dataset: AnalysisDataset): { period: string; periodShort: string; sourceNote: string; disclosure: string } {
   const sourceDate = formatInstant(dataset.data_as_of, 'MMM d, yyyy')
   return {
+    period: formatAnalysisPeriod(dataset.period_key),
+    periodShort: formatAnalysisPeriod(dataset.period_key, 'short'),
     sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
     disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
   }
@@ -64,7 +69,7 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
  * rasterization, framed so a shared image is self-describing — a HEADER (company name, then
- * ticker · metric, then the series legend; the Recharts SVG carries the plot only, never the
+ * ticker · metric · period, then the series legend; the Recharts SVG carries the plot only, never the
  * legend/title, which live in the card's HTML header) and a branded FOOTER (the EN mark plus the
  * "EarningsNerd" wordmark, so a viewer knows the source). Downloads go through the shared
  * lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort the
@@ -320,7 +325,7 @@ async function drawBrandFooter(
 }
 
 /* ---------------------------------------------------------------------------
-   Header strip — company, ticker · metric, and the series legend. The Recharts
+   Header strip — company, ticker · metric · period, and the series legend. The Recharts
    <svg> carries the plot only; the company/metric/legend live outside it (the
    page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
@@ -339,10 +344,15 @@ export interface ChartLegendItem {
 export interface ChartExportHeader {
   /** Company name — the anchor identity (e.g. "Tesla, Inc."). */
   company: string
-  /** Ticker (e.g. "TSLA") — paired with the metric in the subtitle. */
+  /** Ticker (e.g. "TSLA") — first in the "ticker · metric · period" subtitle. */
   ticker: string
   /** The panel/metric title (e.g. "Cash generation"). */
   title: string
+  /** The run's period range (e.g. "FY2016–FY2025"), last in the subtitle; exportSourceText supplies it. */
+  period?: string
+  /** The range's short form (e.g. "Q3 ’24–Q4 ’25"), drawn instead when the subtitle with `period` is wider than the
+   *  strip and the short form fits; exportSourceText supplies it. */
+  periodShort?: string
   legend: ChartLegendItem[]
   sourceNote?: string
   disclosure?: string
@@ -350,16 +360,16 @@ export interface ChartExportHeader {
 }
 
 /** Header geometry — exported for tests. Three tiers mirroring a captioned financial chart:
- *  company (bold, text.primary), "ticker · metric" (medium, text.secondary), then the legend
- *  (text-xs with an 8–9px rounded swatch). Values in CSS px; the caller's retina scale is applied
- *  on top. */
+ *  company (bold, the primary ink), "ticker · metric · period" (medium, the secondary ink), then the legend
+ *  (text-xs with an 8–9px rounded swatch); the inks are text.primary and text.secondary unless the card passes its
+ *  own (ExportInk). Values in CSS px; the caller's retina scale is applied on top. */
 export const HEADER_STAMP = {
   padX: 16,
   padTop: 14,
   padBottom: 14,
   companySize: 15,
   subtitleSize: 12,
-  lineGap: 4, // company → subtitle
+  lineGap: 4, // company → subtitle, and subtitle → the range's own line
   legendGap: 11, // subtitle → first legend row
   legendSize: 12,
   swatch: 9,
@@ -405,14 +415,34 @@ export function layoutLegend(
   return rows
 }
 
-/** Total header-strip height: the company + subtitle lines are always present; `numRows` of legend
- *  add on top (0 = header without a legend, mirroring a single-series panel). */
-export function headerHeight(numRows: number): number {
+/**
+ * The subtitle's lines. "{ticker} · {metric} · {period}" on one line where it fits `maxWidth`; else with the period's
+ * short form ("Q3 ’24–Q4 ’25") where that fits; else the range breaks onto a line of its own, in the same size and ink,
+ * since an annual range has no shorter form ("JPM · Net interest income & growth" / "FY2016–FY2025"). A line still
+ * wider than the strip is condensed by fillText's maxWidth. Pure (measurement injected); exported for tests.
+ */
+export function layoutSubtitle(
+  measure: (text: string) => number,
+  header: Pick<ChartExportHeader, 'ticker' | 'title' | 'period' | 'periodShort'>,
+  maxWidth: number
+): string[] {
+  const subtitleWith = (period?: string) => [header.ticker, header.title, period].filter(Boolean).join(' · ')
+  const long = subtitleWith(header.period)
+  if (measure(long) <= maxWidth) return [long]
+  const short = subtitleWith(header.periodShort)
+  if (header.periodShort && measure(short) <= maxWidth) return [short]
+  const lead = subtitleWith()
+  return header.period && lead ? [lead, header.period] : [long]
+}
+
+/** Total header-strip height: the company line and `subtitleLines` subtitle lines (one, or two where the range takes
+ *  its own line) are always present; `numRows` of legend add on top (0 = header without a legend, mirroring a
+ *  single-series panel). */
+export function headerHeight(numRows: number, subtitleLines = 1): number {
   let h =
     HEADER_STAMP.padTop +
     HEADER_STAMP.companySize +
-    HEADER_STAMP.lineGap +
-    HEADER_STAMP.subtitleSize
+    subtitleLines * (HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize)
   if (numRows > 0) {
     h += HEADER_STAMP.legendGap + numRows * LEGEND_ROW_H + (numRows - 1) * HEADER_STAMP.rowGap
   }
@@ -463,14 +493,14 @@ function fillSwatch(
   }
 }
 
-/** Draw the company + "ticker · metric" subtitle + pre-laid-out legend rows into the top strip.
- *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the card's own
- *  inks (ExportInk).
- *  `maxWidth` on each fillText condenses (never clips) a pathologically long string — a no-op for
- *  real company/metric names. */
+/** Draw the company + the pre-laid-out "ticker · metric · period" subtitle lines (layoutSubtitle) + legend rows into
+ *  the top strip. Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the
+ *  card's own inks (ExportInk). `maxWidth` on each fillText is the last resort: it condenses (never clips) what is
+ *  still wider than the strip, such as a long company name. */
 function drawHeader(
   ctx: CanvasRenderingContext2D,
   header: ChartExportHeader,
+  subtitle: string[],
   rows: LaidOutItem[][],
   width: number,
   { primary, secondary }: ExportInk
@@ -486,11 +516,13 @@ function drawHeader(
   ctx.fillText(header.company, HEADER_STAMP.padX, top + HEADER_STAMP.companySize, maxW)
   top += HEADER_STAMP.companySize + HEADER_STAMP.lineGap
 
-  // Subtitle — "{ticker} · {metric}".
-  const subtitle = header.ticker ? `${header.ticker} · ${header.title}` : header.title
+  // Subtitle — "{ticker} · {metric} · {period}" ("REGN · Margins · FY2016–FY2025"), or its range on a line of its own.
   ctx.font = font(500, HEADER_STAMP.subtitleSize)
   ctx.fillStyle = secondary
-  ctx.fillText(subtitle, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
+  subtitle.forEach((line, index) => {
+    if (index > 0) top += HEADER_STAMP.subtitleSize + HEADER_STAMP.lineGap
+    ctx.fillText(line, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
+  })
   top += HEADER_STAMP.subtitleSize
 
   if (rows.length === 0) return
@@ -516,10 +548,76 @@ function drawHeader(
   }
 }
 
+/** The export's raster scale, device px per CSS px: retina-crisp. tests/e2e/chart-export-fidelity.spec.ts compares
+ *  the plot with a screenshot at this scale, so a change here is a change there. */
+export const EXPORT_SCALE = 2
+/** The resolution the PNG declares in its pHYs chunk, 72 dpi for each device px per CSS px: the 2× raster then prints
+ *  1 CSS px as 1 pt, so the 12px notes print at 12 pt. A PNG that declares none prints at a size the application
+ *  guesses. */
+export const EXPORT_DPI = EXPORT_SCALE * 72
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+  let c = index
+  for (let bit = 0; bit < 8; bit++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  return c
+})
+
+/** CRC-32 as PNG computes it over a chunk's type and data (ISO 3309, the reflected 0xEDB88320 polynomial). */
+function crc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff
+  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
 /**
- * Rasterize the panel's rendered SVG to a 2× PNG and download it: a company/metric/legend header,
- * the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
- * `header` (company + ticker + metric title + the panel's shared `legendItems`) to draw the frame;
+ * The PNG with its resolution declared: a pHYs chunk right after IHDR giving `dpi` on both axes, in pixels a metre
+ * (unit 1, the metre), with any pHYs the encoder wrote dropped and every other chunk kept in order. Bytes that are
+ * not a PNG, or whose chunks do not run whole to its end, come back unchanged. Pure; exported for tests.
+ */
+export function withPngResolution(bytes: Uint8Array<ArrayBuffer>, dpi: number): Uint8Array<ArrayBuffer> {
+  // Shorter than the signature, an index past the end reads undefined, which matches no byte.
+  if (PNG_SIGNATURE.some((byte, index) => bytes[index] !== byte)) return bytes
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  const chunks: Uint8Array[] = []
+  for (let offset = PNG_SIGNATURE.length; offset < bytes.length;) {
+    // Each chunk: a 4-byte length, its 4-byte type, the data, then a 4-byte CRC.
+    if (offset + 12 > bytes.length) return bytes
+    const end = offset + 12 + view.getUint32(offset)
+    if (end > bytes.length) return bytes
+    const type = String.fromCharCode(...bytes.subarray(offset + 4, offset + 8))
+    if (chunks.length === 0 && type !== 'IHDR') return bytes
+    if (type !== 'pHYs') chunks.push(bytes.subarray(offset, end))
+    offset = end
+  }
+  if (chunks.length === 0) return bytes
+
+  const pixelsPerMetre = Math.round(dpi / 0.0254)
+  const pHYs = new Uint8Array(21)
+  const fields = new DataView(pHYs.buffer)
+  fields.setUint32(0, 9) // data length
+  pHYs.set([0x70, 0x48, 0x59, 0x73], 4) // "pHYs"
+  fields.setUint32(8, pixelsPerMetre)
+  fields.setUint32(12, pixelsPerMetre)
+  pHYs[16] = 1 // unit: the metre
+  fields.setUint32(17, crc32(pHYs.subarray(4, 17)))
+
+  const parts = [bytes.subarray(0, PNG_SIGNATURE.length), chunks[0], pHYs, ...chunks.slice(1)]
+  const tagged = new Uint8Array(parts.reduce((total, part) => total + part.length, 0))
+  let at = 0
+  for (const part of parts) {
+    tagged.set(part, at)
+    at += part.length
+  }
+  return tagged
+}
+
+/**
+ * Rasterize the panel's rendered SVG to a 2× PNG and download it, declaring EXPORT_DPI: a company/metric/period/legend
+ * header, the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
+ * `header` (company + ticker + metric title + the period and its short form + the panel's shared `legendItems`) to
+ * draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *
  * The SVG plot is rasterized in an isolated image document, where the page's CSS variables and
@@ -566,24 +664,27 @@ export async function exportPanelPng(
   const image = await loadSvgImage(new XMLSerializer().serializeToString(clone))
   if (!image) return false
 
-  const scale = 2 // retina-crisp output
+  const scale = EXPORT_SCALE
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
 
-  // Lay the legend out first (needs a font-set ctx to measure) so the header height — and thus the
-  // canvas height — is known before we size the canvas. Sizing the canvas resets ctx state, so
+  // Lay the subtitle and legend out first (each needs a font-set ctx to measure) so the header height — and thus
+  // the canvas height — is known before we size the canvas. Sizing the canvas resets ctx state, so
   // everything below re-applies scale + fonts.
   let headH = 0
+  let subtitleLines: string[] = []
   let legendRows: LaidOutItem[][] = []
   if (header) {
+    ctx.font = font(500, HEADER_STAMP.subtitleSize)
+    subtitleLines = layoutSubtitle((text) => ctx.measureText(text).width, header, Math.max(1, width - 2 * HEADER_STAMP.padX))
     ctx.font = font(400, HEADER_STAMP.legendSize)
     legendRows = layoutLegend(
       (label) => ctx.measureText(label).width,
       header.legend,
       width - 2 * HEADER_STAMP.padX
     )
-    headH = headerHeight(legendRows.length)
+    headH = headerHeight(legendRows.length, subtitleLines.length)
   }
   ctx.font = font(400, HEADER_STAMP.subtitleSize)
   const notes = header ? [header.sourceNote, ...(header.notes ?? []), header.disclosure].filter((note): note is string => !!note) : []
@@ -596,7 +697,7 @@ export async function exportPanelPng(
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
-  if (header) drawHeader(ctx, header, legendRows, width, ink)
+  if (header) drawHeader(ctx, header, subtitleLines, legendRows, width, ink)
   ctx.drawImage(image, 0, headH, width, height)
   ctx.font = font(400, HEADER_STAMP.subtitleSize)
   ctx.fillStyle = ink.secondary
@@ -606,6 +707,8 @@ export async function exportPanelPng(
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false
-  downloadBlob(blob, filename)
+  // Chromium's canvas writes no pHYs, so a document would guess the print size; the file declares its own.
+  const png = withPngResolution(new Uint8Array(await blob.arrayBuffer()), EXPORT_DPI)
+  downloadBlob(new Blob([png], { type: 'image/png' }), filename)
   return true
 }

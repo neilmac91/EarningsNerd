@@ -325,9 +325,13 @@ second's delete matched none, which SQLAlchemy only warns of (in two sets of six
 it, and under `-W error` a force answered 500). It is the Rule's check-then-write, so it is now one DELETE by
 filing with no read before it, which checks no row count, so a row another force has already deleted is no error,
 and which holds between instances too; behind the held row both forces answered 200 in three runs. A clear that
-lands inside another run's `record_progress`, between its read and its update, still fails that run: the
-`StaleDataError` reaches the pipeline's failure stage and ends it in the error event, refunding its unit only
-between the provider's start and the summary's save, as one could on the base and from another instance. The
+landed inside another run's `record_progress`, between its read and its update, still failed that run: the
+`StaleDataError` reached the pipeline's failure stage and ended it in the error event, refunding its unit only
+between the provider's start and the summary's save, as one could on the base and from another instance. Since
+E214 `record_progress` writes the row in one `INSERT … ON CONFLICT (filing_id) DO UPDATE` with no read before it:
+after such a clear it inserts a fresh row, and after another run's insert, which its INSERT had collided with
+(`IntegrityError`), it updates that row (`backend/tests/unit/test_progress_write_is_one_upsert.py`, and
+`backend/tests/integration/test_summary_progress_transactions.py` on PostgreSQL). The
 route's rate limit (its 429) answers before the unit, so, like a 422, it still leaves the lookup's transaction for
 the finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built off
 the loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a Subscription

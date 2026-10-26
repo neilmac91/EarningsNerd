@@ -1,17 +1,23 @@
+import { crc32, deflateSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   chartDataNotes,
   embeddedFontFaces,
+  EXPORT_DPI,
+  EXPORT_SCALE,
   EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
   exportPanelPng,
+  exportSourceText,
   headerHeight,
   layoutLegend,
   layoutExportNotes,
+  layoutSubtitle,
   MARK_STAMP,
   parseUnicodeRange,
+  withPngResolution,
 } from '@/features/analysis/lib/chartExport'
 import { readFileSync } from 'node:fs'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -66,6 +72,113 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('exportSourceText', () => {
+  // The PNG's subtitle names the run's window as the file name, the PDF and the workbook do (periodLabels.ts).
+  // Its short form is the spec renderer's card subtitle's (charts/model.ts), which the header takes when the long one
+  // is wider than its strip.
+  it.each([
+    { run: 'an annual run', period_key: 'FY2016..FY2025', period: 'FY2016–FY2025', periodShort: 'FY2016–FY2025' },
+    { run: 'a quarterly run', period_key: '2024Q3..2025Q4', period: 'Q3 2024–Q4 2025', periodShort: 'Q3 ’24–Q4 ’25' },
+    { run: 'a one-period run', period_key: 'FY2024..FY2024', period: 'FY2024', periodShort: 'FY2024' },
+    { run: 'a one-quarter run', period_key: '2026Q2..2026Q2', period: 'Q2 2026', periodShort: 'Q2 ’26' },
+  ])('names the period range of $run: $period, or $periodShort', ({ period_key, period, periodShort }) => {
+    expect(exportSourceText({ ...quarterly, period_key })).toMatchObject({ period, periodShort })
+  })
+})
+
+/* -------------------------------------------------------------------------
+   The PNG's declared resolution. Chunks are built and read here with node:zlib's CRC-32, so the module's own CRC
+   is checked against another implementation.
+------------------------------------------------------------------------- */
+const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+function chunk(type: string, data: Uint8Array = new Uint8Array()): Buffer {
+  const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+  const bytes = Buffer.alloc(body.length + 8)
+  bytes.writeUInt32BE(data.length, 0)
+  body.copy(bytes, 4)
+  bytes.writeUInt32BE(crc32(body), body.length + 4)
+  return bytes
+}
+/** A whole PNG of one RGBA pixel, in the brand sage. */
+const IHDR = chunk('IHDR', Buffer.from([0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]))
+const IDAT = chunk('IDAT', deflateSync(Buffer.from([0, 0x3c, 0x66, 0x50, 0xff])))
+const IEND = chunk('IEND')
+const png = (...chunks: Buffer[]) => new Uint8Array(Buffer.concat([SIGNATURE, ...chunks]))
+/** Each chunk in file order: its type, its data and whether its CRC is node:zlib's. */
+function readChunks(bytes: Uint8Array) {
+  const buffer = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  expect(buffer.subarray(0, 8)).toEqual(SIGNATURE)
+  const chunks: { type: string; data: Buffer; crcMatches: boolean }[] = []
+  for (let offset = 8; offset < buffer.length;) {
+    const length = buffer.readUInt32BE(offset)
+    chunks.push({
+      type: buffer.toString('latin1', offset + 4, offset + 8),
+      data: buffer.subarray(offset + 8, offset + 8 + length),
+      crcMatches: buffer.readUInt32BE(offset + 8 + length) === crc32(buffer.subarray(offset + 4, offset + 8 + length)),
+    })
+    offset += 12 + length
+  }
+  return chunks
+}
+const physOf = (data: Buffer) => ({ x: data.readUInt32BE(0), y: data.readUInt32BE(4), unit: data[8] })
+
+describe('withPngResolution', () => {
+  it('declares 144 dpi in a pHYs chunk right after IHDR, in pixels a metre, and keeps every other byte', () => {
+    const input = png(IHDR, IDAT, IEND)
+    const tagged = withPngResolution(input, EXPORT_DPI)
+    expect(EXPORT_DPI).toBe(144)
+    const chunks = readChunks(tagged)
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(chunks.every((entry) => entry.crcMatches)).toBe(true)
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
+    // The chunk's exact bytes after the signature and IHDR (8 + 25): length 9, "pHYs", 5669 twice, the metre, the CRC.
+    expect(Buffer.from(tagged.subarray(33, 54)).toString('hex')).toBe('0000000970485973000016250000162501495224f0')
+    expect(Buffer.concat([tagged.subarray(0, 33), tagged.subarray(54)])).toEqual(Buffer.from(input))
+  })
+
+  it('rounds the resolution to the nearest pixel a metre', () => {
+    const resolution = (dpi: number) => physOf(readChunks(withPngResolution(png(IHDR, IDAT, IEND), dpi))[1].data)
+    expect(resolution(72)).toEqual({ x: 2835, y: 2835, unit: 1 }) // 2834.6
+    expect(resolution(96)).toEqual({ x: 3780, y: 3780, unit: 1 }) // 3779.5
+  })
+
+  it('replaces any pHYs the encoder wrote, wherever it stood, with its own', () => {
+    const encoders = chunk('pHYs', Buffer.from([0, 0, 0x0b, 0x13, 0, 0, 0x0b, 0x13, 1])) // 2835, 72 dpi
+    const chunks = readChunks(withPngResolution(png(IHDR, encoders, IDAT, encoders, IEND), EXPORT_DPI))
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(chunks.every((entry) => entry.crcMatches)).toBe(true)
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
+  })
+
+  // Each guard has a case only it decides: the signature; a chunk header the bytes cannot hold (1 to 3 bytes left:
+  // with 4 or more, the chunk's length reads and the next guard decides); a chunk whose length runs past the end (its
+  // header whole, 12 bytes or more left); a first chunk other than IHDR; no chunk at all. IEND cut short leaves 9 of
+  // its 12 bytes, so either length guard decides it.
+  const whole = png(IHDR, IDAT, IEND)
+  const withTail = new Uint8Array(whole.length + 2)
+  withTail.set(whole)
+  it.each([
+    { name: 'text', bytes: new TextEncoder().encode('png') },
+    { name: 'nothing', bytes: new Uint8Array() },
+    { name: 'whole chunks after a wrong signature', bytes: new Uint8Array([...new Uint8Array(8), ...IHDR, ...IDAT, ...IEND]) },
+    { name: 'two bytes of a chunk header', bytes: whole.subarray(0, 8 + IHDR.length + 2) },
+    { name: 'two bytes after IEND', bytes: withTail },
+    { name: 'IDAT cut inside its data', bytes: whole.subarray(0, 8 + IHDR.length + 8 + 5) },
+    { name: 'IDAT cut inside its CRC', bytes: whole.subarray(0, 8 + IHDR.length + IDAT.length - 3) },
+    { name: 'IEND cut short (either length guard)', bytes: whole.subarray(0, whole.length - 3) },
+    { name: 'a first chunk that is not IHDR', bytes: png(IDAT, IEND) },
+    { name: 'the signature alone', bytes: png() },
+  ])('passes $name through unchanged', ({ bytes }) => {
+    expect(withPngResolution(bytes, EXPORT_DPI)).toBe(bytes)
+  })
+
+  it('reads a view that starts inside a larger buffer', () => {
+    const host = new Uint8Array(3 + whole.length)
+    host.set(whole, 3)
+    expect(withPngResolution(host.subarray(3), EXPORT_DPI)).toEqual(withPngResolution(whole, EXPORT_DPI))
   })
 })
 
@@ -218,6 +331,24 @@ describe('headerHeight', () => {
   it('grows with each wrapped legend row', () => {
     expect(headerHeight(2)).toBeGreaterThan(headerHeight(1))
     expect(headerHeight(1)).toBeGreaterThan(headerHeight(0))
+  })
+
+  it('grows by one subtitle line where the range takes its own', () => {
+    for (const rows of [0, 2]) {
+      expect(headerHeight(rows, 2) - headerHeight(rows)).toBe(HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize)
+    }
+  })
+})
+
+describe('layoutSubtitle', () => {
+  const measure = (text: string) => text.length
+  it('leaves a range with nothing before it on its one line, for maxWidth to condense', () => {
+    expect(layoutSubtitle(measure, { ticker: '', title: '', period: 'FY2016–FY2025' }, 5)).toEqual(['FY2016–FY2025'])
+  })
+  it('leaves a subtitle with no range on its one line', () => {
+    expect(layoutSubtitle(measure, { ticker: 'JPM', title: 'Net interest income & growth' }, 5)).toEqual([
+      'JPM · Net interest income & growth',
+    ])
   })
 })
 
@@ -415,8 +546,15 @@ describe('exportPanelPng header', () => {
     }
   }
 
+  /** The stub's measure: each character half an em of the px size `ctx.font` names, so a text measured in another
+   *  font than it is drawn in measures wrong. */
+  const halfEm = (font: string) => Number(/(\d+(?:\.\d+)?)px/.exec(font)?.[1]) / 2
+
   let fillTexts: string[]
   let fillArgs: { text: string; maxWidth?: number }[]
+  /** Each text drawn and each text measured, with the canvas state it was drawn or measured in. */
+  let drawn: { text: string; y: number; maxWidth?: number; font: string; fill: string }[]
+  let measured: { text: string; font: string }[]
   let ctx: Record<string, unknown>
 
   beforeEach(() => {
@@ -424,17 +562,23 @@ describe('exportPanelPng header', () => {
     vi.stubGlobal('Image', FakeImage)
     fillTexts = []
     fillArgs = []
+    drawn = []
+    measured = []
     ctx = {
       fillStyle: '',
       font: '',
       textBaseline: '',
       globalAlpha: 1,
       fillRect: vi.fn(),
-      fillText: vi.fn((text: string, _x: number, _y: number, maxWidth?: number) => {
+      fillText: vi.fn((text: string, _x: number, y: number, maxWidth?: number) => {
         fillTexts.push(text)
         fillArgs.push({ text, maxWidth })
+        drawn.push({ text, y, maxWidth, font: ctx.font as string, fill: ctx.fillStyle as string })
       }),
-      measureText: (t: string) => ({ width: t.length * 7 }),
+      measureText: (t: string) => {
+        measured.push({ text: t, font: ctx.font as string })
+        return { width: t.length * halfEm(ctx.font as string) }
+      },
       scale: vi.fn(),
       drawImage: vi.fn(),
       save: vi.fn(),
@@ -460,13 +604,13 @@ describe('exportPanelPng header', () => {
 
   const PLOT_W = 560
 
-  function makeContainer(): HTMLElement {
+  function makeContainer(width: number = PLOT_W): HTMLElement {
     const container = document.createElement('div')
     container.style.backgroundColor = 'rgb(251, 250, 246)'
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
     // jsdom reports a 0×0 rect; give it a realistic plot size so the footer/legend layout is real.
     svg.getBoundingClientRect = () =>
-      ({ width: PLOT_W, height: 224, top: 0, left: 0, right: PLOT_W, bottom: 224, x: 0, y: 0, toJSON() {} }) as DOMRect
+      ({ width, height: 224, top: 0, left: 0, right: width, bottom: 224, x: 0, y: 0, toJSON() {} }) as DOMRect
     container.appendChild(svg)
     document.body.appendChild(container)
     return container
@@ -481,6 +625,95 @@ describe('exportPanelPng header', () => {
     expect(fillTexts).toContain('Free cash flow')
     expect(fillTexts).toContain('Net income (right)')
     expect(downloadBlob).toHaveBeenCalledOnce()
+  })
+
+  it('names the period range last in the subtitle, from the header both renderers spread', async () => {
+    const header = { ...HEADER, ...exportSourceText({ ...quarterly, period_key: 'FY2022..FY2024' }) }
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header })
+    expect(fillTexts).toContain('TSLA · Cash generation · FY2022–FY2024')
+    expect(fillTexts).not.toContain('TSLA · Cash generation')
+  })
+
+  describe('at a narrow width', () => {
+    // A bank's longest chart; the stub measures half an em a character in the font set when it measures, and the
+    // strip is the plot's width less its two pads.
+    const BANK = { ...HEADER, ticker: 'JPM', title: 'Net interest income & growth', legend: [], ...exportSourceText({ ...quarterly, period_key: '2024Q3..2025Q4' }) }
+    const LEAD = 'JPM · Net interest income & growth'
+    const LONG = `${LEAD} · Q3 2024–Q4 2025`
+    const SHORT = `${LEAD} · Q3 ’24–Q4 ’25`
+    const plotFor = (subtitle: string) => (subtitle.length * HEADER_STAMP.subtitleSize) / 2 + 2 * HEADER_STAMP.padX
+    /** Each subtitle line drawn, with its baseline and maxWidth. */
+    const subtitles = () =>
+      (ctx.fillText as ReturnType<typeof vi.fn>).mock.calls
+        .filter(([text]) => text.startsWith('JPM · ') || /^(Q\d \d{4}|FY\d{4})/.test(text))
+        .map(([text, , y, maxWidth]) => ({ text, y, maxWidth }))
+    const plotTop = () => (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.find((call) => call[1] === 0)?.[2]
+    const firstBaseline = HEADER_STAMP.padTop + HEADER_STAMP.companySize + HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize
+    const nextBaseline = firstBaseline + HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize
+
+    it.each([
+      { width: plotFor(LONG), case: 'where the long form fits', line: LONG },
+      { width: plotFor(LONG) - 1, case: 'where only the short form fits', line: SHORT },
+      { width: plotFor(SHORT), case: 'where the short form just fits', line: SHORT },
+    ])('draws the subtitle on one line, $case', async ({ width, line }) => {
+      await exportPanelPng(makeContainer(width), 'x.png', { header: BANK })
+      expect(subtitles()).toEqual([{ text: line, y: firstBaseline, maxWidth: width - 2 * HEADER_STAMP.padX }])
+      expect(plotTop()).toBe(headerHeight(0))
+    })
+
+    it.each([
+      { case: 'a quarterly range whose short form does not fit', header: BANK, width: plotFor(SHORT) - 1, range: 'Q3 2024–Q4 2025' },
+      { case: 'a quarterly range with no short form', header: { ...BANK, periodShort: undefined }, width: plotFor(LONG) - 1, range: 'Q3 2024–Q4 2025' },
+      // A 360 px phone's annual card exports at 290 px (chief design on d5afd593 and c152be6f), and an annual range
+      // has no shorter form.
+      { case: 'an annual range on a phone', header: { ...BANK, ...exportSourceText({ ...quarterly, period_key: 'FY2016..FY2025' }) }, width: 290, range: 'FY2016–FY2025' },
+      { case: 'a lead that itself does not fit, which maxWidth condenses', header: BANK, width: plotFor(LEAD) - 1, range: 'Q3 2024–Q4 2025' },
+    ])('sets the range on a line of its own for $case, and the plot a line lower', async ({ header, width, range }) => {
+      await exportPanelPng(makeContainer(width), 'x.png', { header })
+      const maxWidth = width - 2 * HEADER_STAMP.padX
+      expect(subtitles()).toEqual([
+        { text: LEAD, y: firstBaseline, maxWidth },
+        { text: range, y: nextBaseline, maxWidth },
+      ])
+      expect(plotTop()).toBe(headerHeight(0, 2))
+    })
+
+    it('sets the range line in the subtitle’s font and ink, measured in that font, with the legend below it', async () => {
+      // The bank's top-line card on a 360 px phone: an annual range, its two-item legend, a card's own inks.
+      const legend = [{ label: 'Net interest income', color: '#111111' }, { label: 'YoY growth', color: '#222222' }]
+      const header = { ...BANK, legend, ...exportSourceText({ ...quarterly, period_key: 'FY2016..FY2025' }) }
+      await exportPanelPng(makeContainer(290), 'x.png', { header, ink: { primary: '#123456', secondary: '#654321' } })
+      const [lead, range] = [LEAD, 'FY2016–FY2025'].map((text) => drawn.find((call) => call.text === text))
+      expect(lead).toMatchObject({ y: firstBaseline, fill: '#654321', font: expect.stringMatching(`^500 ${HEADER_STAMP.subtitleSize}px `) })
+      expect(range).toMatchObject({ y: nextBaseline, fill: lead?.fill, font: lead?.font })
+      // The subtitle's widths came from the font it is drawn in.
+      const subtitleMeasures = measured.filter(({ text }) => text.startsWith('JPM · '))
+      expect(subtitleMeasures.length).toBeGreaterThan(0)
+      for (const { font } of subtitleMeasures) expect(font).toBe(lead?.font)
+      // One legend row, its labels centred in a row that starts a legend gap below the range line.
+      const rowMiddle = nextBaseline + HEADER_STAMP.legendGap + Math.max(HEADER_STAMP.legendSize, HEADER_STAMP.swatch) / 2
+      expect(legend.map(({ label }) => drawn.find((call) => call.text === label)?.y)).toEqual([rowMiddle, rowMiddle])
+      expect(plotTop()).toBe(headerHeight(1, 2))
+    })
+  })
+
+  it('downloads the canvas PNG at the export scale, declaring the export resolution', async () => {
+    let canvasWidth = 0
+    vi.mocked(HTMLCanvasElement.prototype.toBlob).mockImplementation(function (this: HTMLCanvasElement, cb: BlobCallback) {
+      canvasWidth = this.width
+      cb(new Blob([png(IHDR, IDAT, IEND)], { type: 'image/png' }))
+    } as never)
+    expect(await exportPanelPng(makeContainer(), 'x.png', { header: HEADER })).toBe(true)
+    // tests/e2e/chart-export-fidelity.spec.ts compares the plot with a screenshot at 2×: tag the file, never rescale it.
+    expect(EXPORT_SCALE).toBe(2)
+    expect(canvasWidth).toBe(PLOT_W * EXPORT_SCALE)
+    expect(downloadBlob).toHaveBeenCalledOnce()
+    const [blob, filename] = vi.mocked(downloadBlob).mock.calls[0]
+    expect(filename).toBe('x.png')
+    expect(blob.type).toBe('image/png')
+    const chunks = readChunks(new Uint8Array(await blob.arrayBuffer()))
+    expect(chunks.map((entry) => entry.type)).toEqual(['IHDR', 'pHYs', 'IDAT', 'IEND'])
+    expect(physOf(chunks[1].data)).toEqual({ x: 5669, y: 5669, unit: 1 })
   })
 
   it('stamps the EarningsNerd wordmark in the footer', async () => {
@@ -553,8 +786,8 @@ describe('exportPanelPng header', () => {
     for (const call of [mark, earnings, nerd]) expect(call.alpha, `${call.op} is drawn opaque`).toBe(1)
     expect(nerd.fill).toBe(accent)
     expect(imageSources.at(-1)).toContain(encodeURIComponent(`fill="${accent}"`))
-    // Right: the wordmark ends at the inset from the right edge (the stub measures 7px a glyph).
-    expect(nerd.x + 'Nerd'.length * 7).toBe(PLOT_W - MARK_STAMP.inset)
+    // Right: the wordmark ends at the inset from the right edge (the stub: half an em a character, 7 px at 14 px).
+    expect(nerd.x + ('Nerd'.length * MARK_STAMP.wordmarkSize) / 2).toBe(PLOT_W - MARK_STAMP.inset)
     // Bottom: the mark sits inside the last strip of the canvas.
     expect(mark.y).toBeGreaterThanOrEqual(canvasHeight - MARK_STAMP.stripHeight)
     expect(mark.y + (mark.h ?? 0)).toBeLessThanOrEqual(canvasHeight)
@@ -683,7 +916,7 @@ describe('exportPanelPng header', () => {
     const drawImage = ctx.drawImage as ReturnType<typeof vi.fn>
     // The plot is the drawImage call at x=0; its y must equal the reserved header height for the
     // legend as it actually wraps at this plot width (the export measures with the same stub).
-    const rows = layoutLegend((s) => s.length * 7, HEADER.legend, PLOT_W - 2 * HEADER_STAMP.padX)
+    const rows = layoutLegend((s) => (s.length * HEADER_STAMP.legendSize) / 2, HEADER.legend, PLOT_W - 2 * HEADER_STAMP.padX)
     const plotCall = drawImage.mock.calls.find((c) => c[1] === 0)
     expect(plotCall?.[2]).toBe(headerHeight(rows.length))
   })

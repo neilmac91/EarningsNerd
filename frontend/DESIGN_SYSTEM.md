@@ -2490,7 +2490,15 @@ when the SVG remains focused, and does not scroll the chart. The next keyboard a
 the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
 Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
 returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. The PNG's plot paints the screen's Geist Mono:
+source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
+and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`);
+a subtitle wider than the strip (the image less its 16 px pads) takes the range's short form ("Q3 ’24–Q4 ’25", as
+the spec renderer's card subtitle prints it; today's Recharts card prints no range) where that fits, and otherwise
+the range takes a line of its own in the same size and ink (an annual range has no shorter form: "JPM · Net interest
+income & growth" / "FY2016–FY2025" on a phone); only a line that still does not fit is condensed. The file
+declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
+file's chunk).
+The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
@@ -2542,8 +2550,8 @@ the column wash. The card's subtitle, legend and footnotes take the same inks in
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
 latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
-the text `0†₹₪₱`, since with no text the Font Loading API takes the latin face alone, so † never swaps on a plot (G3)
-and no route preloads latin-ext (spec §0.5). Past the wait a plot paints in the loader's monospace fallback (§8),
+the text `0₹₪₱`, since with no text the Font Loading API takes the latin face alone, so no sign a plot prints swaps on
+it (G3) and no route preloads latin-ext (spec §0.5). No plot prints † (D-061, E194). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
 plots start at one height whatever its legends wrap to. While its font loads a plot holds bones from its own plan,
