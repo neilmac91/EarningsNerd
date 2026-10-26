@@ -472,13 +472,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   space for a space Pango keeps between two marks. It is a family of its own, 'Inter Var Symbols',
   after Inter in every stack: WeasyPrint embeds two faces of one family and style as one font, so a second
   'Inter Var' face drew "₩" as the latin "A". The data face falls back to Inter and its symbols before the
-  system's monospace, and a nested list takes the disc. Each PDF names itself (its title, English, EarningsNerd as author and
+  system's monospace, and a nested list takes the disc, as the app's lists do at every level. Each PDF names itself (its title, English, EarningsNerd as author and
   generator, the analysis its ticker, mode and range as the subject) and ships tagged, with a structure
   tree; no PDF/UA claim, as no validator backs one. The analysis exports print an instant as words with
   its zone named ("Generated October 24, 2026, 20:26 UTC", "Source data as of …"), never raw ISO. The
   workbook names itself in its properties (title, subject, EarningsNerd as creator) and prints each sheet
-  one page wide with the brand footer and a page count, the Overview portrait and the rest landscape,
-  Metrics repeating its header row and label column. The workbook's header rows rest in the ink on the
+  with the brand footer and a page count, the Overview portrait and the rest landscape: one page wide,
+  Metrics repeating its header row and label column, except "Sources & methods", whose 17 columns printed
+  at 2.9pt on one page, so it prints four pages wide (8.1pt in LibreOffice), repeating its header row and
+  its Metric and Period columns. The analysis PDF's meta line breaks between its clauses, never inside an
+  instant. The workbook's header rows rest in the ink on the
   neutral ground and its labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
   "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
   each count that is not zero, singular at one, and the passed count only when no figure needs

@@ -708,7 +708,7 @@ class TestAnalysisPdfHtml:
         assert "annual_minus_ytd" in html
         assert "2500 USD (2024-01-01 to 2024-12-31)" in html
         assert "a" * 64 in html and "quarterly-v2" in html
-        assert "Source data as of July 1, 2026, 09:00 UTC · " in html and "2026-07-01T09:00:00Z" not in html
+        assert "Source data as of July 1, 2026, 09:00 UTC</span> · " in html and "2026-07-01T09:00:00Z" not in html
         assert "finance-lease principal" in html
         assert "do not appear in the filings" not in html
         assert "This analysis was generated" not in html
@@ -883,15 +883,46 @@ class TestAnalysisPdfHtml:
         regn = SimpleNamespace(name="REGENERON PHARMACEUTICALS, INC.", ticker="REGN")
         html = ExportService().generate_analysis_pdf_html(analysis, regn)
         assert "<h1>Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis</h1>" in html and "REGENERON" not in html
-        assert "Generated October 24, 2026, 20:26 UTC · Exported " in html
-        assert re.search(r"Exported [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC<br>Source data as of "
-                         r"October 24, 2026, 20:21 UTC · Dataset version", html)
+        assert '<span class="clause">Generated October 24, 2026, 20:26 UTC</span> · <span class="clause">Exported ' in html
+        assert re.search(r"Exported [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC</span><br><span class=\"clause\">"
+                         r"Source data as of October 24, 2026, 20:21 UTC</span> · Dataset version", html)
         assert ".435743" not in html and "T20:" not in html
         # No name: the ticker titles it. No record: the meta line says so. A value that is not an instant: as stored.
         analysis.updated_at, analysis.dataset_json["data_as_of"] = None, "Legacy refresh"
         html = ExportService().generate_analysis_pdf_html(analysis, SimpleNamespace(name=None, ticker="REGN"))
         assert "<h1>REGN · Multi-Period Analysis</h1>" in html
-        assert "Generated Not recorded · " in html and "Source data as of Legacy refresh · " in html
+        assert "Generated Not recorded</span> · " in html and "Source data as of Legacy refresh</span> · " in html
+
+    def test_the_meta_line_breaks_between_clauses_never_inside_an_instant(self):
+        """Chief design on f7593b13: page 1's meta line broke inside the export instant ("Exported October 25,
+        2026, 14:17" / "UTC"). A real WeasyPrint layout of the meta line at every width from 120pt to 500pt:
+        the "Generated …", "Exported …" and "Source data as of …" clauses each sit whole on one line."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from datetime import datetime
+
+        from weasyprint.formatting_structure import boxes
+
+        analysis = self._analysis()
+        analysis.updated_at = datetime(2026, 10, 24, 20, 26, 7)
+        analysis.dataset_json["data_as_of"] = "2026-10-24T20:21:42Z"
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        clauses = re.findall(r"(?:Generated|Exported|Source data as of) [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC",
+                             re.sub(r"<[^>]+>", "", html))
+        assert len(clauses) == 3, clauses
+        broken = {}
+        for width in range(120, 501, 10):
+            narrowed = html.replace("</head>", f"<style>.meta {{ width: {width}pt; }}</style></head>", 1)
+            try:
+                page = weasyprint.HTML(string=narrowed).render().pages[0]
+            except Exception as exc:  # missing system libs in odd envs: not what this test reads
+                pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+            meta = next(box for box in page._page_box.descendants()
+                        if box.element is not None and box.element.get("class") == "meta" and isinstance(box, boxes.BlockBox))
+            lines = ["".join(text.text for text in line.descendants() if isinstance(text, boxes.TextBox))
+                     for line in meta.descendants() if isinstance(line, boxes.LineBox)]
+            assert len(lines) >= 3, (width, lines)
+            broken[width] = [clause for clause in clauses if not any(clause in line for line in lines)]
+        assert {width: split for width, split in broken.items() if split} == {}
 
     def test_display_instant_reads_an_instant_as_words_with_its_zone(self):
         from datetime import datetime, timedelta, timezone

@@ -223,18 +223,23 @@ class TestFileAndPrintSetup:
         # openpyxl writes the instant as UTC and reads it back naive; it stamps the modified time on save.
         assert properties.created == EXPORTED_AT.replace(tzinfo=None) and properties.language == "en"
 
-    def test_every_sheet_prints_one_page_wide_with_the_brand_footer(self, workbook):
+    def test_every_sheet_prints_to_its_width_with_the_brand_footer(self, workbook):
+        """Each sheet prints one page wide but Sources: its 17 audit columns printed at about 2.9pt on one page
+        (chief design on f7593b13), so it prints four pages wide, repeating its Metric and Period columns."""
         for sheet in workbook.worksheets:
             setup = sheet.page_setup
+            pages_wide = 4 if sheet.title == "Sources & methods" else 1
             assert setup.orientation == ("portrait" if sheet.title == "Overview" else "landscape"), sheet.title
-            assert (setup.fitToWidth, setup.fitToHeight, sheet.sheet_properties.pageSetUpPr.fitToPage) == (1, 0, True), sheet.title
+            assert (setup.fitToWidth, setup.fitToHeight, sheet.sheet_properties.pageSetUpPr.fitToPage) == (
+                pages_wide, 0, True), sheet.title
             assert (sheet.oddFooter.left.text, sheet.oddFooter.right.text) == (
                 "EarningsNerd · earningsnerd.io", "Page &P of &N"), sheet.title
             assert str(sheet.sheet_properties.tabColor.rgb).endswith("4F7A63"), sheet.title  # the setup keeps the tab
         metrics, sources = workbook["Metrics"], workbook["Sources & methods"]
         # Written "1:1" and "A:A"; the file's defined name reads back absolute.
         assert (metrics.print_title_rows, metrics.print_title_cols) == ("$1:$1", "$A:$A")
-        assert (sources.print_title_rows, sources.print_title_cols) == ("$1:$1", None)
+        assert (sources.print_title_rows, sources.print_title_cols) == ("$1:$1", "$A:$B")
+        assert [sources.cell(1, column).value for column in (1, 2)] == ["Metric", "Period"]
         assert workbook["Overview"].print_title_rows is None
         assert metrics["B2"].value == "revenue"  # the machine column keeps the raw concept key
 

@@ -462,12 +462,14 @@ class ExportService:
         mode = "Annual" if analysis.mode == "annual" else "Quarterly"
         # Instants read as words with their zone named ("October 24, 2026, 20:26 UTC"); a data-as-of value
         # that is not an instant prints as stored. "Source data as of" is the page's words (DataNotes.tsx).
+        # Each instant's clause is one unbroken run, so the line breaks between clauses, never before "UTC".
         data_as_of = dataset.get("data_as_of")
         meta_html = (
             f'<span class="data">{escape(company.ticker or "")}</span> · {mode} · '
             f'<span class="data">{escape(period_label(analysis.period_key))}</span> · '
-            f'Generated {display_instant(generated_at) or "Not recorded"} · Exported {display_instant(utcnow())}'
-            f"<br>Source data as of {escape(display_instant(data_as_of) or str(data_as_of or 'Not recorded'))} · "
+            f'<span class="clause">Generated {display_instant(generated_at) or "Not recorded"}</span> · '
+            f'<span class="clause">Exported {display_instant(utcnow())}</span><br><span class="clause">Source data as of '
+            f"{escape(display_instant(data_as_of) or str(data_as_of or 'Not recorded'))}</span> · "
             f"Dataset version: {escape(str(dataset.get('dataset_version') or 'Legacy snapshot'))}"
             f'<br>Snapshot: <span class="snapshot">{escape(str(dataset.get("snapshot_id") or "Not recorded"))}</span>'
         )

@@ -255,6 +255,7 @@ p {{ margin: 0 0 9px 0; color: {p["ink_secondary"]}; }}
   margin: 0 0 16px 0;
 }}
 .meta .data {{ font-family: 'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace; }}
+.meta .clause {{ white-space: nowrap; }}
 
 /* With no outer frame, a table's last hairline would sit on the next block ("Profitability" under
    Financial Highlights): it keeps a list's spacing below it. */
@@ -302,7 +303,7 @@ blockquote cite {{
   color: {p["ink_tertiary"]};
 }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
-/* A nested list takes the disc too: WeasyPrint's default circle (U+25E6) is in no latin subset. */
+/* A nested list takes the disc too, as the app's lists do at every level (WeasyPrint's default is the circle). */
 ul ul {{ list-style-type: disc; }}
 li {{ margin: 3px 0; }}
 .footnote {{ color: {p["ink_tertiary"]}; font-size: 8.5pt; }}

@@ -468,7 +468,7 @@ async def test_a_saved_analysis_pdf_opens_the_documents_its_saved_folders_name(s
     saved_links = links.findall(saved_pdf)
     assert set(saved_links) == set(folders.values())  # The saved row links each 10-K's folder, and only those.
     assert links.findall(pdfs[0]) == [opened.get(url, url) for url in saved_links]
-    restored, exported = pdfs[0], re.compile(r"Exported \S+")
+    restored, exported = pdfs[0], re.compile(r"Exported [^<]*")  # the whole instant, to its clause's end
     for folder, document in opened.items():
         restored = restored.replace(document, folder)
     assert exported.sub("", restored) == exported.sub("", saved_pdf)
