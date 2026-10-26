@@ -52,10 +52,7 @@ _AS_NOT_CAUSAL_BEFORE = re.compile(r"\b(?:such|same|as (?:much|many|high|low|lar
 _SO_NOT_CAUSAL_AFTER = re.compile(r"^\s*(?:far|much|many)\b", re.I)
 
 # Words a sentence about figures uses without explaining them: directions, bridges, capital returns, references,
-# scale and function words. A word outside this list and outside the cited labels is a claim beyond the figures. The
-# last line holds the words of a product's contribution to growth with no passage (dev-v5: C's REGN "The FY2021 surge
-# came from REGEN-COV, which contributed 66.4pp", and five more REGEN-COV sentences on record); "lift" stays out, as
-# "lifting" in REGN's wrong days-sales-outstanding sentence says more than its figures.
+# scale and function words. A word outside this list and outside the cited labels is a claim beyond the figures.
 _FIGURE_TALK = frozenset("""
 a an the of and or in on at as to from by for with than that this these its it their which while whereas but then
 also still only just about roughly nearly almost around over under above below against versus vs between per
@@ -69,7 +66,6 @@ held hold stayed stay remained remain flat unchanged steady stable essentially b
 sharply modestly change changed level share count combined together high low higher lower median peak trough
 percentile peer window year fiscal fy pp point percent percentage billion million thousand x time margin effect
 line total beat exceeded trailed outpaced outran matched lagged topped
-spike surge reversal collapse collapsed collapsing zero disappearance whose s sale
 """.split())
 
 

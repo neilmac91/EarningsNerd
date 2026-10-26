@@ -112,10 +112,9 @@ _NET_LABEL = re.compile(r"\bnet[- ](cash|debt)\b(?!\s+(?:flows?|provided|used|ge
 _COMPARATIVE = re.compile(r"\b(better|worse)\b", re.I)
 _STRONG_BREAK = re.compile(r";|\bwhile\b|\bwhereas\b|\bbut\b", re.I)
 _CHANGE_LABEL = re.compile(r"\bCAGR\b|\bgrowth(?:$|,)|\bchange$", re.I)
-# Words that say a fall without a direction word (dev-v5: P's CAT "a 22.4% collapse in FY2020").
 _FALL_WORDS = re.compile(
     r"\b(?:dip\w*|drag\w*|subtract\w*|negative|loss\w*|deficit|minus|shortfall|slump\w*|plung\w*|slid\w*|slide|sank|"
-    r"sink\w*|cut\w*|retreat\w*|lost|weak\w*|shed|collaps\w*|plummet\w*|tumbl\w*)\b", re.I)
+    r"sink\w*|cut\w*|retreat\w*|lost|weak\w*|shed)\b", re.I)
 _LIST_BREAK = re.compile(r";|,\s+(?:and|but|while|whereas)\b|\bwhile\b|\bwhereas\b|\bbut\b", re.I)
 _RISE, _FALL = r"rose|risen|rising|increased|grew|climbed|jumped", r"fell|fallen|falling|decreased|declined|dropped|slipped|shrank"
 _MOVED_TO = re.compile(rf"\b(?:({_RISE})|({_FALL}))\s+(?:back\s+)?to\s*$", re.I)
