@@ -980,7 +980,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  summary words held to the shared notes fixture; marked notes lettered first; no reason's
                  words ask for a selection or name a dash), the
                  backend's tests/unit/test_data_note_reasons_have_words.py (every reason the backend writes
-                 has words: a new one cannot fall back to the generic sentence unseen, rule 12),
+                 has words: a new one cannot fall back to the generic sentence unseen, rule 12; the forms it
+                 cannot follow are named in its docstring and planted in its self-test),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
