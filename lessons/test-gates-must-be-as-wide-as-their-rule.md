@@ -105,8 +105,8 @@ header that names each gap a case marks, in `backend/tests/unit/test_mail_publis
 mail reader's planted pages (`TEXT_SIZES`, `LONG_RUNS`, `LENDS`, `WIDTHS`, `REACHES`, `VIEWPORTS`,
 `COLOURS`), each list's counts held equal, in `backend/tests/unit/test_mail_header_template.py`; and the
 rendered gate's planted cases (`PAGES`, `REACHES`, `SENDS`, `ADDRESSES`), their counts held equal, in
-`backend/tests/unit/test_mail_rendered_addresses.py`; and the data notes' reason reader's `PLANTED`, beside its
-runtime drivers, in `backend/tests/unit/test_data_note_reasons_have_words.py`.
+`backend/tests/unit/test_mail_rendered_addresses.py`; and the data notes' reason reader's `PLANTED`, beside the
+traced run of its emitter modules, in `backend/tests/unit/test_data_note_reasons_have_words.py`.
 Scoring a model of a reader against the reader itself has no gate yet: E116 in `tasks/todo.md` would score
 the mail reader against the pinned Chromium in CI.
 
@@ -468,7 +468,8 @@ tuple unpacking and imports; round two found that rewrite had lost a parameter i
 (`codes = list(codes)`), which the first reader caught, and that a default and a list filled by `append` under another
 name were neither followed nor named. Round two took the binding family from the language at once (each assignment,
 what `append`, `extend`, `insert`, `add` and `update` put in a name, a loop's variable, a default, an enclosing
-function's binding, a call through an import, a module or a class), planted every form it still misses with a literal
-it would collect, and added the output half: the emitters it can run without a database run through each branch that
-writes a reason, failing on a code with no words, on one the reader does not find in that module (it went blind) and
-on one the reader finds there that no driver reaches.
+function's binding, a call through an import, a module or a class) and added an output half, but round three still
+found a tuple loop target over a table missed and unnamed, a `**kwargs` gap planted with nothing to collect, and the
+output half comparing codes, not branches, across four of the five emitter modules. Round three made the endpoint
+structural rather than one more form: the reader names each reason-writing line, every emitter module is run through
+them traced, and an unreached line fails (`test-hold-a-static-dataflow-reader-with-coverage-of-its-sites.md`).

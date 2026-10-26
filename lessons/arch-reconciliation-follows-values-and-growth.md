@@ -29,8 +29,9 @@ an absent legacy field alone permits the older presentation fallback.
 Every reason the backend writes has words of its own in `data_notes.REASONS` and `provenance.ts`
 REASONS (2026-10-25, data notes version 2): `backend/tests/unit/test_data_note_reasons_have_words.py`
 reads every module under `app/` and fails a reason with none, which would otherwise reach the page and
-the exports as the generic fallback sentence, and runs the emitters it can without a database to hold
-what they write to the same words and to what the reader finds, and the shared fixture holds the two maps, the
+the exports as the generic fallback sentence, and runs every emitter module the reader names through each
+reason-writing line it names (traced; quarterly_fact_repair on in-memory SQLite) to hold what they write to the
+same words and to what the reader finds, and the shared fixture holds the two maps, the
 record-only list and the fine print's summary words equal. A saved analysis keeps its notes, and the
 cache admits it by `DATA_NOTES_VERSION` alone, so a change to the words, the record-only list or the
 letter order takes a new version: `test_analysis_data_notes.py` pins each version's digest
