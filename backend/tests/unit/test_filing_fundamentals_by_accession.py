@@ -485,19 +485,24 @@ def _foreign(company: Company, fy: int, form: str) -> tuple[dict, dict]:
     return native, _report(_accession(company, fy), fy, **common, **{REV: {fy: round(1000.0 * (fy - 2000) / 7.0)}})
 
 
-@pytest.mark.parametrize("form", ["20-F", "40-F"])
-def test_a_foreign_annual_reports_chart_keeps_one_currency_per_line(db, form):
-    company = _company(db)
-    (n23, u23), (n24, u24) = _foreign(company, 2023, form), _foreign(company, 2024, form)
-    older, newer = _filing(db, company, n23), _filing(db, company, n24)
-    # A sync from before companyfacts read the reporting currency stored each year's USD row ...
+def _early_usd_sync(db, company: Company, form: str, *translations: tuple[int, dict]) -> None:
+    """What a sync from before companyfacts read the reporting currency stored for a foreign filer: each
+    report's own year of revenue in USD, its convenience translation, under that report's accession."""
     facts_service.upsert_facts_bulk(db, [{
         "company_id": company.id, "filing_id": None, "concept": "revenue", "raw_tag": f"us-gaap:{REV}",
         "unit": "USD", "period_start": date.fromisoformat(_start(f"{fy}-03-31")), "period_end": date(fy, 3, 31),
         "fiscal_year": fy, "fiscal_period": "FY", "value": usd[REV][0]["val"], "form": form,
         "accession": _accession(company, fy), "source": "companyfacts", "reconciled": True,
-    } for fy, usd in ((2023, u23), (2024, u24))])
-    # ... which the native sync demotes, storing the CNY history beside it.
+    } for fy, usd in translations])
+
+
+@pytest.mark.parametrize("form", ["20-F", "40-F"])
+def test_a_foreign_annual_reports_chart_keeps_one_currency_per_line(db, form):
+    company = _company(db)
+    (n23, u23), (n24, u24) = _foreign(company, 2023, form), _foreign(company, 2024, form)
+    older, newer = _filing(db, company, n23), _filing(db, company, n24)
+    _early_usd_sync(db, company, form, (2023, u23), (2024, u24))
+    # The native sync demotes those USD rows, storing the CNY history beside them.
     _sync(db, company, n23, u23, n24, u24)
     _process(db, older, n23)  # owns two years, the sync holds its oldest year and older balance
     _process(db, newer, n24)  # the sync holds every cell
@@ -513,6 +518,30 @@ def test_a_foreign_annual_reports_chart_keeps_one_currency_per_line(db, form):
         assert revenue["unit"] == "CNY"
         assert {p["fiscal_period"] for s in payload["concepts"] for p in s["points"]} == {"FY"}
         assert len({p["fiscal_year"] for p in revenue["points"]}) == 3  # one bar a year
+
+
+def test_an_older_foreign_reports_line_it_was_never_read_from_shows_no_convenience_bar(db):
+    """For a line the per-filing writer read nothing of, an older 20-F holds two stand-ins: its oldest
+    year in CNY (the native sync's) and its own year in USD (an early sync's convenience translation,
+    which only this report gave). One period end each: the native currency takes the line, since the
+    native row for the report's own year sits under the later report that re-reported it. Taken by
+    presence at that year, the USD row alone would reach the period end and chart a lone bar beside the
+    CNY lines; in CNY the line falls short of it (reach is read in the line's one currency), so none
+    shows."""
+    company = _company(db)
+    (n23, u23), (n24, u24) = _foreign(company, 2023, "20-F"), _foreign(company, 2024, "20-F")
+    older, _newer = _filing(db, company, n23), _filing(db, company, n24)
+    _early_usd_sync(db, company, "20-F", (2023, u23), (2024, u24))
+    _sync(db, company, n23, u23, n24, u24)
+    facts_service.process_filing_facts(db, older, standardized=_standardized({"Assets": n23["Assets"]}))
+
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=older.accession_number,
+                                             concept="revenue").all()
+    assert sorted((row.period_end, row.unit, row.filing_id) for row in rows) == [
+        (date(2021, 3, 31), "CNY", None), (date(2023, 3, 31), "USD", None)]
+    chart = _chart(db, older)
+    assert "revenue" not in chart
+    assert chart["total_assets"] == _own(n23, "Assets")
 
 
 def test_a_reports_own_rows_keep_their_currency_beside_a_later_native_sync(db):
