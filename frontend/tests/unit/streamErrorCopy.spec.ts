@@ -49,13 +49,13 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since round 3)
  *     and its 429 must not, and a status the table does not classify fails. A reworded sentence fails here
  *     until the matcher follows it.
- *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence, a line of the map
+ *  4. Voice: what the page shows has no em-dash, no exclamation mark and no "please", and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
  *     key's only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
- *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads each literal's text, escapes decoded, for the character,
- *     so a dash spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
- *     radix, a const or arithmetic resolved to its value) or a JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX
- *     text or an attribute string). This case reads escapes too (`'\u2014'`, `` `\u{2014}` ``). App source (every
+ *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads only the files whose raw text holds the character, so a dash
+ *     spelled any other way in a file with no literal one passes it: a char code (`String.fromCharCode(0x2014)`,
+ *     `fromCodePoint`, any radix, a const or arithmetic resolved to its value), an escape (`'\u2014'`,
+ *     `` `\u{2014}` ``) or a JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX text or an attribute string). App source (every
  *     tracked script under app, components, features, hooks and lib) spells it no such way: streamErrorCopy.ts
  *     did, by char code, for the backend's em-dash keys, until the backend took the voice (E92). Out of reach: a
  *     code computed at run time from a value the file does not state.
