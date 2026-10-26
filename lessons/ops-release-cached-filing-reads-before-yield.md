@@ -321,18 +321,20 @@ row the loop's longest gap was 12 to 33 ms (six runs, the longest on a process's
 raw-HTML replay 0.17 to 0.27 s (seven runs), the projection's own work in its worker thread (11 to 17 ms in five
 runs with the projection stubbed). The progress clear was a read, then a delete at the commit, which the loop had
 run one at a time on an instance: in the thread pool two Pro forces of one filing both found the row, and the
-second's delete matched none, which SQLAlchemy only warns of (4 and 5 of 6 bursts in the review met it, and under
-`-W error` a force answered 500). It is the Rule's check-then-write, so it is now one DELETE by filing with no
-read before it, which finds no row missing and holds between instances too; behind the held row both forces
-answered 200 in three runs. A clear that lands inside another run's `record_progress`, between its read and its
-update, still fails that run (`StaleDataError` reaches the pipeline's failure stage: the error event, its unit
-refunded), as one could on the base and from another instance. The route's rate limit (its 429) answers before the
-unit, so, like a 422, it still leaves the lookup's transaction for the finalizer. Its burst case holds every
-checkout, statement and release off the loop, the served body built off the loop, each answer and each admitted
-request's orchestrator inputs, each reader's plan given by a Subscription row its `is_pro` mirror contradicts, and
-the progress row touched only by the Pro forces' DELETEs, one each; a case of its own holds the 429 before the
-unit (no read, no served body, no clear); and `test_summary_provider_lifecycle.py`'s route cases hold the
-request's release off the loop, before the response starts (2026-10-25, E171).
+second's delete matched none, which SQLAlchemy only warns of (in two sets of six bursts in the review, 4 and 5 met
+it, and under `-W error` a force answered 500). It is the Rule's check-then-write, so it is now one DELETE by
+filing with no read before it, which checks no row count, so a row another force has already deleted is no error,
+and which holds between instances too; behind the held row both forces answered 200 in three runs. A clear that
+lands inside another run's `record_progress`, between its read and its update, still fails that run: the
+`StaleDataError` reaches the pipeline's failure stage and ends it in the error event, refunding its unit only
+between the provider's start and the summary's save, as one could on the base and from another instance. The
+route's rate limit (its 429) answers before the unit, so, like a 422, it still leaves the lookup's transaction for
+the finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built off
+the loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a Subscription
+row its `is_pro` mirror contradicts, and the progress row touched only by the Pro forces' DELETEs, one each; a
+case of its own holds the 429 before the unit (no read, no served body, no clear); and
+`test_summary_provider_lifecycle.py`'s route cases hold the request's release off the loop, before the response
+starts (2026-10-25, E171).
 A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
 process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
 one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on

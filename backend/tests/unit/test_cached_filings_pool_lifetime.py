@@ -9,8 +9,8 @@ One rule, three parts in this one module:
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
-  in the thread pool, and a throttled generate-stream request must be refused before its admission reads
-  anything; each auth session route (logout signed in, with only the refresh cookie and
+  in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
+  filing or summary; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
@@ -636,8 +636,8 @@ async def test_generate_stream_releases_its_connection_off_the_loop_before_it_st
         assert loop_statements and loop_statements == [False] * len(loop_statements)
         assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
         assert built_on_loop == ([False] * 8 if stored is not None and case != "missing" else [])
-        # Only a Pro force touches the progress row, with one DELETE each and no read before it: off the loop the
-        # forces clear it at once, and the base's read, then delete, let a force find a row another was deleting.
+        # With the orchestrator stubbed, only a Pro force touches the progress row, with one DELETE each and no read
+        # before it: run off the loop, a read, then a delete, let a force find a row another was deleting.
         assert progress_statements == (["DELETE"] * 8 if case == "force_pro" else [])
         assert engine.pool.checkedout() == 0
         # Each route released its own connection; the dependency's finalizer found nothing open. A generation's
