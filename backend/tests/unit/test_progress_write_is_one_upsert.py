@@ -9,8 +9,9 @@ failure stage, and the reader got the error card. The write is now one ``INSERT 
 after a clear it inserts a fresh row, and after an insert it updates that row and keeps its ``started_at``.
 
 Each race runs the other write, committed in a session of its own, just before the statement that writes the progress
-table, which on main came after the read. The service's clock is pinned, so each elapsed time is exact; SQLite's date
-functions keep milliseconds, which the tolerance allows for. These cases run on SQLite;
+table, which before E214 came after the read. The service's clock is pinned, so each elapsed time is exact; SQLite's
+date functions keep milliseconds, which the tolerance allows for. A seeded row's last write comes 10 s after its
+start, so a count from the last write, not from the start, shows. These cases run on SQLite;
 ``tests/integration/test_summary_progress_transactions.py`` runs the races, and a clear that holds the row while the
 write waits, on PostgreSQL.
 """
@@ -27,7 +28,7 @@ from app.models import Company, Filing, SummaryGenerationProgress
 from app.services import summary_generation_service
 from app.utils.datetimes import utcnow
 
-# The statement that writes the progress table: main's UPDATE or INSERT, or the upsert's INSERT.
+# The statement that writes the progress table: the UPDATE or INSERT before E214, or the upsert's INSERT.
 WRITE = re.compile(r"\s*(?:INSERT INTO|UPDATE) summary_generation_progress\b")
 # The service's clock in every case, pinned so an elapsed time is exact.
 NOW = datetime(2026, 10, 26, 6, 0, tzinfo=timezone.utc)
@@ -82,8 +83,8 @@ def _seed(engine, filing_id, *, age_seconds, stage="fetching", error=None, secti
     started_at = NOW - timedelta(seconds=age_seconds)
     with _session(engine) as db:
         db.add(SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=started_at,
-                                         updated_at=started_at, elapsed_seconds=0.0, error=error,
-                                         section_coverage=section_coverage))
+                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0,
+                                         error=error, section_coverage=section_coverage))
         db.commit()
     return started_at
 
@@ -135,7 +136,7 @@ def test_an_insert_just_before_the_write_is_updated_with_its_start_kept(engine, 
 
     def insert(other):
         other.add(SummaryGenerationProgress(filing_id=filing_id, stage="fetching", started_at=started_at,
-                                            updated_at=started_at, elapsed_seconds=0.0))
+                                            updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0))
 
     with _just_before_the_write(engine, insert) as ran:
         _write(engine, filing_id, "analyzing")
@@ -153,6 +154,11 @@ def test_the_first_write_inserts_the_row(engine, filing_id):
     assert row["started_at"] == row["updated_at"] == NOW
     assert row["elapsed_seconds"] == 0.0
     assert row["error"] is None and row["section_coverage"] is None
+    with _session(engine) as db:
+        # SQL NULL, as before E214, and not JSON null, which the ORM reads as None too.
+        assert db.query(SummaryGenerationProgress).filter(
+            SummaryGenerationProgress.filing_id == filing_id,
+            SummaryGenerationProgress.section_coverage.is_(None)).count() == 1
 
 
 def test_a_later_write_keeps_the_start_counts_from_it_and_clears_an_error(engine, filing_id):

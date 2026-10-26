@@ -1,15 +1,17 @@
 """E214 on PostgreSQL: ``summary_generation_service.record_progress`` writes a filing's progress row in one
 ``INSERT … ON CONFLICT (filing_id) DO UPDATE``, so another transaction's clear or insert of the row cannot fail the run.
 
-- A clear committed just before the write: the write inserts a fresh row. On main the write's UPDATE matched no row,
-  and SQLAlchemy raised ``StaleDataError``.
-- An insert committed just before the write: the write updates that row and keeps its ``started_at``. On main the
-  write's INSERT collided on the filing's key, ``IntegrityError``.
+- A clear committed just before the write: the write inserts a fresh row. Before E214 the write's UPDATE matched no
+  row, and SQLAlchemy raised ``StaleDataError``.
+- An insert committed just before the write: the write updates that row and keeps its ``started_at``. Before E214
+  the write's INSERT collided on the filing's key, ``IntegrityError``.
 - A clear holding the row, uncommitted, as the write runs: the write waits for it, then inserts a fresh row after its
-  commit, or updates the row after its rollback. On main the write read the row, its UPDATE waited, and after the
+  commit, or updates the row after its rollback. Before E214 the write read the row, its UPDATE waited, and after the
   commit it matched no row.
 - Three writers of a filing that has no row, each held at its write until all three reach it: each succeeds, and the
-  filing has one row. On main two of the three INSERTs collided.
+  filing has one row. Before E214 two of the three INSERTs collided.
+
+A seeded row's last write comes 10 s after its start, so a count from the last write, not from the start, shows.
 
 ``tests/unit/test_progress_write_is_one_upsert.py`` holds the write's columns, and the first two races, on SQLite.
 PROGRESS_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify summary progress concurrency on
@@ -33,7 +35,7 @@ from app.database import Base, SessionLocal
 from app.models import Company, Filing, SummaryGenerationProgress
 from app.services import summary_generation_service
 
-# The statement that writes the progress table: main's UPDATE or INSERT, or the upsert's INSERT.
+# The statement that writes the progress table: the UPDATE or INSERT before E214, or the upsert's INSERT.
 WRITE = re.compile(r"\s*(?:INSERT INTO|UPDATE) summary_generation_progress\b")
 # The service's clock in every case, pinned so an elapsed time is exact.
 NOW = datetime(2026, 10, 26, 6, 0, tzinfo=timezone.utc)
@@ -88,7 +90,7 @@ def _seed(engine, filing_id, *, age_seconds):
     started_at = NOW - timedelta(seconds=age_seconds)
     with _session(engine) as db:
         db.add(SummaryGenerationProgress(filing_id=filing_id, stage="fetching", started_at=started_at,
-                                         updated_at=started_at, elapsed_seconds=0.0))
+                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0))
         db.commit()
     return started_at
 
@@ -142,7 +144,7 @@ def test_an_insert_committed_just_before_the_write_is_updated_with_its_start_kep
 
     def insert(other):
         other.add(SummaryGenerationProgress(filing_id=filing_id, stage="fetching", started_at=started_at,
-                                            updated_at=started_at, elapsed_seconds=0.0))
+                                            updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0))
 
     with _just_before_the_write(postgres_engine, insert) as ran:
         _write(postgres_engine, filing_id, "analyzing")
@@ -175,7 +177,9 @@ def test_a_write_behind_an_uncommitted_clear_waits_and_follows_its_outcome(postg
                 future = pool.submit(write)
                 try:
                     assert entered.wait(5), "the write did not reach its database write"
-                    assert not finished.wait(0.2), "the write passed an uncommitted clear"
+                    if finished.wait(0.2):
+                        future.result(timeout=5)  # a write that raised shows its own error
+                        pytest.fail("the write passed an uncommitted clear")
                 finally:
                     if commit_clear:
                         clearing.commit()

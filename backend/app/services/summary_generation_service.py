@@ -407,11 +407,12 @@ def record_progress(
 ) -> None:
     """Write the filing's progress row in one statement, and commit (E214).
 
-    The first write of a run inserts the row and starts its clock (``started_at``). A later write sets the stage, the
-    error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
-    ``elapsed_seconds`` from it in SQL. With no read before the write, a clear or an insert landing just before it (a
-    Pro force's clear, an admin reset, another run of the filing on the API's other instance) cannot fail the run:
-    after a clear it inserts a fresh row, and after an insert it updates that row."""
+    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write, a run's first
+    write onto an earlier run's row included, sets the stage, the error (``None`` clears it) and, when given, the
+    section coverage; it keeps the stored ``started_at`` and counts ``elapsed_seconds`` from it in SQL. With no read
+    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
+    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
+    fresh row, and after an insert it updates that row."""
     now = utcnow()
     dialect = db.get_bind().dialect.name
     insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
