@@ -10,11 +10,11 @@ import { LAUNCHER_KEEP_CLEAR_GAP, overlapsKeepClear } from '@/lib/launcherKeepCl
 /**
  * N17: on a phone the floating feedback launcher rested over the analysis headline figures after Run, so "$14.3B"
  * read "4.3B" (three blind evaluators, severity 3). The launcher now steps aside without moving: while its box,
- * LAUNCHER_KEEP_CLEAR_GAP px around, meets a region marked `data-launcher-keep-clear` (the KPI strip) outside an inert
- * or aria-hidden subtree (a locked preview's strip has nothing to tap), it takes `opacity-0 pointer-events-none`,
- * keyboard focus (`focus-visible:`) brings it back, and it never yields while its own dialog is open. Its fade takes
- * the fast motion token and none runs under reduced motion. It stays one fixed site at z-30 on BOTTOM_CHROME_OFFSET
- * (tests/unit/bottomChromeLadder.spec.ts, unchanged).
+ * LAUNCHER_KEEP_CLEAR_GAP px around, meets a region marked `data-launcher-keep-clear` (the KPI strip, the analysis
+ * results header) outside an inert or aria-hidden subtree (a locked preview's strip has nothing to tap), it takes
+ * `opacity-0 pointer-events-none`, keyboard focus (`focus-visible:`) brings it back, and it never yields while its own
+ * dialog is open. Its fade takes the fast motion token and none runs under reduced motion. It stays one fixed site at
+ * z-30 on BOTTOM_CHROME_OFFSET (tests/unit/bottomChromeLadder.spec.ts, unchanged).
  *
  * jsdom lays nothing out, so the boxes are stubbed and requestAnimationFrame is a queue this spec flushes; what a
  * browser paints is tests/e2e/feedback-launcher-keep-clear.spec.ts's.

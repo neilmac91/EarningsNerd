@@ -65,6 +65,9 @@ import {
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
  *    allowlisted file pass. Each allowlist entry is held to its file: set aside, the rule finds its factories there.
+ *  - the Card shadow selector (eslint.config.mjs DESIGN_SHARED_RULES, MPA WP4b): a Card's elevation is its prop, so a
+ *    shadow class or a box-shadow arbitrary property in a Card's className fails, in a string, a template chunk or a
+ *    cx() argument. A Card imported under another name, a class in a variable and spread props are not read.
  */
 
 const frontendRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -1069,6 +1072,36 @@ describe('the repository config', SLOW, () => {
     // The exemption: the Google button keeps its brand-mandated surface (DESIGN_SYSTEM.md §9).
     const [google] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'features/auth/components/GoogleSignInButton.tsx') })
     expect(google.messages.filter((m) => m.message === 'Raw palette class — semantic tokens only.')).toEqual([])
+  })
+
+  // The Card shadow selector (eslint.config.mjs, DESIGN_SYSTEM.md Card / panel, MPA WP4b): a Card's elevation is its
+  // prop, since cx does no tailwind-merge and a shadow class on top competes with the prop's by stylesheet order. It
+  // reads a string, a template chunk and a cx() argument, after a space, at the start, under a variant or `!`, a bare
+  // `shadow` before a space or at the end, and an arbitrary property in the same cascade; another element's shadow, a
+  // Card's filter (`drop-shadow-`) and the prop itself pass.
+  it("reads a shadow class in a Card's className and nowhere else", async () => {
+    const eslint = new ESLint({ cwd: frontendRoot })
+    const probe = [
+      "import { Card, cx } from '@/components/ui'",
+      'export function Probe({ on }: { on: boolean }) {',
+      '  return (',
+      '    <div className="shadow-e2">',
+      '      <Card className="p-cap-5 shadow-none">a</Card>',
+      '      <Card className={`p-4 ${on ? "p-3" : "p-2"} md:shadow-e3`}>b</Card>',
+      "      <Card className={cx('p-4', on && '!shadow')}>c</Card>",
+      '      <Card className="shadow p-4">d</Card>',
+      '      <Card className="[box-shadow:none] p-4">e</Card>',
+      '      <Card className="p-4 [--tw-shadow:none]">f</Card>',
+      '      <Card className="p-4 drop-shadow-sm" elevation="none">g</Card>',
+      '    </div>',
+      '  )',
+      '}',
+      '',
+    ].join('\n')
+    const [app] = await eslint.lintText(probe, { filePath: path.join(frontendRoot, 'app/design-rules-probe.tsx') })
+    expect(app.messages.map((m) => `${m.line} ${m.ruleId} ${m.message}`)).toEqual(
+      [5, 6, 7, 8, 9, 10].map((line) => `${line} no-restricted-syntax A Card's shadow is its elevation prop (elevation="none" for none), never a shadow class on top.`),
+    )
   })
 
   it('reads a raw colour in rgba()/hsla() in either case and an unpinned or other-locale number, time or date format on app code, and in lib/format.ts', async () => {

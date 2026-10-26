@@ -1,18 +1,14 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
 import { MissingValue } from '@/components/ui/MissingValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { noteMarksFigure, noteSummary, type DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
-import { formatInstant, formatLocalDate } from '@/lib/format'
+import { useSourceDate } from '@/features/analysis/lib/useSourceDate'
 import DataNoteMark from './DataNoteMark'
 import { useDataNotes } from './DataNotesContext'
-
-/** Nothing to subscribe to: the source date asks only whether it renders in the browser. */
-const noSubscription = () => () => {}
 
 const comparisonLabel = (basis: string) => basis === 'qoq' ? 'QoQ' : basis === 'yoy' ? 'YoY' : basis === 'window_pp' ? 'window percentage-point' : 'CAGR'
 
@@ -71,14 +67,8 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
   const printScope = usePrintDetails()
   const model = useDataNotes(dataset)
   const { totals } = model
-  // data_as_of is an instant, the source data's sync time, so it prints as the day it falls on in the reader's zone.
-  // The server (the landing renders its demo there) and the hydrating render cannot know that zone, so they print the
-  // day the API writes, iso_z's UTC day, which every zone renders alike; React renders again right after hydrating,
-  // with the reader's day (useTodayEasternIso's pattern, E136). Suppressing the mismatch kept the server's day instead.
-  const inBrowser = useSyncExternalStore(noSubscription, () => true, () => false)
-  const sourceDate = inBrowser
-    ? formatInstant(dataset.data_as_of, 'MMMM d, yyyy')
-    : formatLocalDate(dataset.data_as_of, 'MMMM d, yyyy')
+  // The day the source data was synced, in the reader's zone once hydrated (useSourceDate), as the results header prints it.
+  const sourceDate = useSourceDate(dataset.data_as_of)
   const marked = model.notes.filter(noteMarksFigure)
   const unknownComparisons = model.notes.filter((note) => note.kind === 'unknown').reduce((count, note) => count + note.comparisons.length, 0)
   // Decision 9 says it whenever every populated figure passed, whatever a comparison carries. D-061 keeps "never mark a

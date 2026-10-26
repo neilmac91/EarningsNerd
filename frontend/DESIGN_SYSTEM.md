@@ -521,6 +521,12 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
+                 <Card elevation="none"> is the control level: the fill and the hairline with no shadow in either
+                 theme, for an input area that is not content, today the analysis page's company and period form
+                 (§6; Analysis results). Set it through the prop, never a shadow class on top: cx does no
+                 tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
+                 eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
+                 className; designRules.spec.ts plants it).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -867,6 +873,39 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
+
+Analysis results <ResultsHeader>, AnalysisPageClient's results column and AnalysisTeaser's preview (MPA WP4b;
+                 coherence §4.4). Four levels: the ground (`background`) holds the page title, the results header and
+                 the disclaimer; the control level is the company and period form, <Card elevation="none"> (Card /
+                 panel, §6); the content level is one card per module (each KPI tile, each chart, the commentary,
+                 the metrics table), panel, hairline and shadow-e2 in light; overlays are the evidence Modal and the
+                 popovers.
+                 The results are one <section aria-labelledby> named by the header, a p and not a heading, so each
+                 module's heading stays an h2 under the page h1 (§5) and no level is renumbered. The header is one
+                 line on the ground, no box, text-sm in the secondary ink: the company's display name
+                 (formatCompanyName) at 600 in the primary ink, its ticker in the data face (tnum font-data, as the
+                 form's company row sets it), the mode and the run's range (ANALYSIS_MODE_LABEL with
+                 formatAnalysisPeriod of period_key, the chart PNG header's range: “Quarterly Q3 2023–Q2 2026”),
+                 then “data as of {MMMM d, yyyy}”, the day the data notes print (useSourceDate: the UTC day on the
+                 server and while hydrating, the reader's day after), or “source refresh time unavailable”. Every
+                 clause is read from the dataset on screen, never from the picker. The clauses join with “ · ”; each
+                 is an inline-block that carries its separator on a no-break space, so a phone breaks between
+                 clauses, never inside one unless it alone is wider than the line (Regeneron's name at 320px under
+                 200% text), and no line starts with “·”. Spacing: the header sits 12px over the KPI strip (gap-3),
+                 the two one block; the modules stand 16px apart below sm and 24px from sm (gap-4 sm:gap-6), in the
+                 Free teaser's preview too; the data notes stay 8px under the table (Data notes strip); a module's
+                 inset keeps its token (p-cap-5, p-4 sm:p-cap-6, the KPI tiles' p-3 sm:p-4); the chart grid keeps
+                 gap-4 between its cards, one module. Only the page renders the header: the Free teaser's caption
+                 and the landing demo's title bar name their sample, which has no live date to print.
+                 The header carries `data-launcher-keep-clear`, as the KPI strip does (Stacking): the launcher steps
+                 aside from the run's name as from its figures (tests/e2e/feedback-launcher-keep-clear.spec.ts).
+                 Gates: tests/unit/analysis-results-header.spec.tsx (the clauses and their separators, the
+                 region's name and its h2s, the control card's classes, Card's elevations, no header on the sample
+                 surfaces, the Free teaser's module gaps), tests/unit/analysis-source-date.spec.tsx (the source day on both surfaces) and
+                 tests/e2e/analysis-layout.spec.ts "analysis results header" (both themes, at 320, 390, 768 and
+                 1480px and under 200% text at 320 and 390px: 12px over the strip, the module gaps, every clause
+                 whole where the line holds it, no line opening on “·”, no sideways scroll, the control card's
+                 hairline with no box-shadow and a KPI card's lift in light).
 
 Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
                  Q2 2026, a window as one range), without changing link destinations, code or source
@@ -1684,8 +1723,11 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  The feedback launcher never rests over a headline figure (N17: after Run on a 390px phone it sat
                  over the KPI strip, and "$14.3B" read "4.3B"). It steps aside without moving: while its box, 8px
                  around (lib/launcherKeepClear, LAUNCHER_KEEP_CLEAR_GAP), meets a region the page marks
-                 `data-launcher-keep-clear` (KpiStrip's root), it takes `opacity-0 pointer-events-none`, so a tap
-                 there reaches the figure. A region inside an `inert` or `aria-hidden="true"` subtree does not count:
+                 `data-launcher-keep-clear` (KpiStrip's root, and ResultsHeader, the line that names the run over
+                 it: at 390x844 a run made after a 60px scroll lands the header, not the strip, under the launcher,
+                 which rested opaque over "Quarterly" and "data as of"; MPA WP4b), it takes `opacity-0
+                 pointer-events-none`, so a tap there reaches the figure or the header's text. A region inside an
+                 `inert` or `aria-hidden="true"` subtree does not count:
                  PeekLocked's preview (the Free analysis teaser's strip) is both, blurred under its overlay, with
                  nothing a tap could reach; the landing's AnalysisDemo is neither, its figures readable, so the
                  launcher steps aside there too. `focus-visible:opacity-100 focus-visible:pointer-events-auto` bring
@@ -1707,7 +1749,8 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  pointer there, and a tap on the first opens its evidence; the launcher shows with the strip clear of
                  it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a figure,
                  and a bare key press (Shift) brings it back, as does the focus an Escape close returns; at rest after
-                 Run it follows the same rule, a strip mounted under it included).
+                 Run it follows the same rule, a header mounted under it included; the header's last line at the
+                 launcher's foot, the strip more than 8px below, steps it aside, the header's text taking the pointer).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
@@ -2228,6 +2271,13 @@ that no longer exists, fails too.
 ~1.02:1 (invisible). Cards on cream use a **lighter** fill (`panel-light`) + hairline + soft
 `shadow-e*`; **brighten** on hover (`hover:bg-white`), never darken. In dark, separation is fill
 contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint color only.
+
+**The control level** (MPA WP4b, coherence §4.4): an input area is not content, so it does not lift
+over the results it controls. The analysis page's company and period form is `<Card elevation="none">`:
+the same lighter fill and hairline with no shadow, still apart from the cream by fill and hairline,
+never a tint. The content cards below it on the page keep `shadow-e2` in light. Gates:
+`tests/unit/analysis-results-header.spec.tsx` (the classes) and `tests/e2e/analysis-layout.spec.ts`
+"analysis results header" (the computed hairline and no box-shadow, in both themes).
 
 ## 7. Marketing surfaces
 

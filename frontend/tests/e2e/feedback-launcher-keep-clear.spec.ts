@@ -5,7 +5,8 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
  * N17, in a real Chromium: the floating feedback launcher (FeedbackWidget, a 44px circle 20px from a phone's left and
  * bottom edges) rested over the analysis headline figures after Run, so "$14.3B" read "4.3B" (three blind evaluators,
  * severity 3). It now steps aside without moving: while its box, 8px around, meets a region the page marks
- * `data-launcher-keep-clear` (the KPI strip), it goes to `opacity-0 pointer-events-none`; keyboard focus
+ * `data-launcher-keep-clear` (the KPI strip, and the results header over it that names the run, MPA WP4b), it goes to
+ * `opacity-0 pointer-events-none`; keyboard focus
  * (`focus-visible:`) brings it back, and it never yields while its own dialog is open. It keeps its place and its rung
  * (bottomChromeLadder.spec.ts).
  *
@@ -20,10 +21,15 @@ import { answerAnalysisApi, openAnalysis, runAnalysis } from './fixtures/analysi
  *   (c) a focus its dialog returns after a pointer close (the close button tapped) leaves it stepped aside over a
  *       figure, the figure taking the pointer; a key brings it back (Enter opens its dialog, which keeps it shown, and
  *       the focus an Escape close returns shows it); blur steps it aside again;
- *   (d) at rest right after Run it follows the same rule: as openAnalysis leaves the page, and with the strip landing
- *       under it when the reader scrolled the form before Run, where only the page's growth (no scroll) reports it.
- * The strip is found by its structure, never by the mark, so a strip that loses its mark fails on what the reader
- * sees. Mutation (on committed state): removing `data-launcher-keep-clear` from KpiStrip.tsx fails (a) and (d).
+ *   (d) at rest right after Run it follows the same rule: as openAnalysis leaves the page, and with the results landing
+ *       under it when the reader scrolled the form before Run, where only the page's growth (no scroll) reports it: a
+ *       60px scroll lands the header there, the strip more than 8px below, the header's text where the launcher rested
+ *       opaque before the header was marked;
+ *   (e) the header's last line at the launcher's foot, the strip more than 8px below it: the launcher steps aside for
+ *       the header alone, and the header's text takes the pointer where the launcher sits.
+ * The strip and the header are found by their structure and their own attribute, never by the mark, so a region that
+ * loses its mark fails on what the reader sees. Mutations (on committed state): removing `data-launcher-keep-clear`
+ * from KpiStrip.tsx fails (a); removing it from ResultsHeader.tsx fails (d) and (e).
  *
  * CI runs e2e with no backend: openAnalysis answers the API in the browser (fixtures/analysisLayoutApi.ts).
  */
@@ -35,6 +41,15 @@ const launcher = (page: Page) => page.getByRole('button', { name: 'Send feedback
 /** The KPI strip's root, the dl's parent, located without its keep-clear mark. */
 const strip = (page: Page) => page.locator('dl:has([data-analysis-kpi])').locator('..')
 const values = (page: Page) => page.locator('[data-analysis-kpi] [data-kpi-value]')
+/** The results header, by its own attribute, never by the keep-clear mark. */
+const header = (page: Page) => page.locator('[data-analysis-results-header]')
+/** The header's text as painted: a box per piece of each line. */
+const textBoxes = (loc: Locator): Promise<Box[]> =>
+  loc.evaluate((el) => {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    return [...range.getClientRects()].filter((r) => r.width && r.height).map((r) => ({ top: r.top, bottom: r.bottom, left: r.left, right: r.right }))
+  })
 const opacity = (loc: Locator) => loc.evaluate((el) => getComputedStyle(el).opacity)
 const boxOf = (loc: Locator): Promise<Box> =>
   loc.evaluate((el) => {
@@ -62,19 +77,26 @@ const centreOf = (box: Box) => ({ x: (box.left + box.right) / 2, y: (box.top + b
 const scrollBy = (page: Page, dy: number) =>
   page.evaluate((dy) => window.scrollTo({ top: window.scrollY + dy, behavior: 'instant' }), dy)
 
-/** The launcher steps aside: transparent, and every figure its box covers takes the pointer there. Returns how many
-    figures it covered, so a check that met none cannot pass empty. */
+/** The launcher steps aside: transparent, and every figure and piece of the header's text its box covers takes the
+    pointer there. Returns how many figures and header pieces it covered, so a check that met none cannot pass empty. */
 async function expectStepsAside(page: Page, at: string) {
   await expect.poll(() => opacity(launcher(page)), `${at}: the launcher fades`).toBe('0')
   const launcherBox = await boxOf(launcher(page))
-  let covered = 0
+  let figures = 0
   for (const value of await values(page).all()) {
     const point = coveredPoint(launcherBox, await boxOf(value))
     if (!point) continue
-    covered++
+    figures++
     expect(await hitsAt(value, point), `${at}: "${await value.textContent()}" takes the pointer where the launcher sits`).toBe(true)
   }
-  return covered
+  let text = 0
+  for (const piece of await textBoxes(header(page))) {
+    const point = coveredPoint(launcherBox, piece)
+    if (!point) continue
+    text++
+    expect(await hitsAt(header(page), point), `${at}: the results header's text takes the pointer where the launcher sits`).toBe(true)
+  }
+  return { figures, text }
 }
 
 async function expectRests(page: Page, at: string) {
@@ -104,10 +126,11 @@ for (const theme of ['light', 'dark'] as const) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       expect((await transition()).property).toBe('none')
 
-      // (d) At rest right after Run: the state the rule gives for where the strip landed.
+      // (d) At rest right after Run: the state the rule gives for where the header and the strip landed.
       expect(await page.evaluate(() => window.scrollY), 'Run leaves the page where it was').toBe(0)
-      if (meets(await boxOf(launcher(page)), await boxOf(strip(page)))) await expectStepsAside(page, 'at rest after Run')
-      else await expectRests(page, 'at rest after Run, the strip clear of the launcher')
+      const atRest = await boxOf(launcher(page))
+      if (meets(atRest, await boxOf(strip(page))) || meets(atRest, await boxOf(header(page)))) await expectStepsAside(page, 'at rest after Run')
+      else await expectRests(page, 'at rest after Run, the strip and the header clear of the launcher')
 
       // (a) Each figure at the launcher's centre height.
       let covered = 0
@@ -117,7 +140,7 @@ for (const theme of ['light', 'dark'] as const) {
         const target = centreOf(await boxOf(launcher(page))).y
         await scrollBy(page, centreOf(await boxOf(value)).y - target)
         expect(Math.abs(centreOf(await boxOf(value)).y - target), `${label}: centred on the launcher`).toBeLessThan(1)
-        const here = await expectStepsAside(page, `${label} at the launcher's height`)
+        const here = (await expectStepsAside(page, `${label} at the launcher's height`)).figures
         covered += here
         if (here && !tapped) {
           // A tap where the launcher sits reaches the figure, which opens its evidence.
@@ -149,7 +172,7 @@ for (const theme of ['light', 'dark'] as const) {
       await expect(launcher(page), 'the dialog returns focus to the launcher').toBeFocused()
       const first = values(page).first()
       await scrollBy(page, centreOf(await boxOf(first)).y - centreOf(await boxOf(launcher(page))).y)
-      expect(await expectStepsAside(page, 'focused by a pointer close, over the first figure'), 'it covered the first figure').toBeGreaterThanOrEqual(1)
+      expect((await expectStepsAside(page, 'focused by a pointer close, over the first figure')).figures, 'it covered the first figure').toBeGreaterThanOrEqual(1)
       await expect(launcher(page), 'it keeps the focus while it steps aside').toBeFocused()
       // A key brings it back. A bare key press (Shift opens nothing) turns the focus it holds into keyboard focus.
       await page.keyboard.press('Shift')
@@ -165,11 +188,19 @@ for (const theme of ['light', 'dark'] as const) {
       expect(await hitsAt(launcher(page), centreOf(await boxOf(launcher(page)))), 'focused from the keyboard, it takes the pointer').toBe(true)
       await launcher(page).blur()
       await expectStepsAside(page, 'blurred over the first figure')
+
+      // (e) The header's last line at the launcher's foot: the strip lies more than 8px below, so the header alone
+      // steps it aside, and its text takes the pointer where the launcher sits.
+      await scrollBy(page, (await boxOf(header(page))).bottom - (await boxOf(launcher(page))).bottom)
+      expect(Math.round((await boxOf(header(page))).bottom), 'the header ends at the launcher\'s foot').toBe(Math.round((await boxOf(launcher(page))).bottom))
+      expect(meets(await boxOf(launcher(page)), await boxOf(strip(page))), 'the strip lies clear of the launcher').toBe(false)
+      expect((await expectStepsAside(page, "the header's last line at the launcher's foot")).text, 'the launcher covered the header\'s text').toBeGreaterThanOrEqual(1)
     })
 
-    test('a run that lands the strip under the launcher, with no scroll after it, leaves the figures uncovered', async ({ page, baseURL }) => {
-      // (d) N17's rest state: the reader scrolled the form a little, then ran. The strip mounts under the launcher and
-      // no scroll follows, so only the page's growth reports it.
+    test('a run that lands the results under the launcher, with no scroll after it, leaves them uncovered', async ({ page, baseURL }) => {
+      // (d) N17's rest state: the reader scrolled the form a little, then ran. The results mount under the launcher and
+      // no scroll follows, so only the page's growth reports it. At 60px it is the header that lands there, the strip
+      // just below the launcher's 8px: before the header was marked, the launcher rested opaque over its words.
       await page.addInitScript((theme) => {
         localStorage.setItem('theme', theme)
         localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z' }))
@@ -186,8 +217,12 @@ for (const theme of ['light', 'dark'] as const) {
       expect(traffic.unexpectedApi).toEqual([])
       expect(await page.evaluate(() => window.scrollY), 'no scroll after Run').toBe(60)
 
-      expect(meets(await boxOf(launcher(page)), await boxOf(strip(page))), 'the strip landed under the launcher').toBe(true)
-      expect(await expectStepsAside(page, 'the strip mounted under the launcher'), 'the launcher covered a figure').toBeGreaterThanOrEqual(1)
+      const atRest = await boxOf(launcher(page))
+      expect(meets(atRest, await boxOf(header(page))), 'the header landed under the launcher').toBe(true)
+      // The strip lies outside the launcher's 8px, so the header's mark alone decides the yield.
+      expect(meets(atRest, await boxOf(strip(page))), 'the strip lies clear of the launcher').toBe(false)
+      const covered = await expectStepsAside(page, 'the results mounted under the launcher')
+      expect(covered.text, 'the launcher covered the header\'s text').toBeGreaterThanOrEqual(1)
     })
   })
 }
