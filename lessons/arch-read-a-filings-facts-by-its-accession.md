@@ -72,9 +72,13 @@ count. A row another writer stored under the accession counts only when every on
    a later report restated its own year: the sync holds the oldest year, which the report filed last,
    and the own year, WP5b's own-report row (`facts/own_reports.py`), while the year between sits under
    the next report's accession (728 days for a year ending by September, 2020-09-26 to 2022-09-24). A
-   gapped line keeps the filing's own rows only, as a line short of its period end does. A fiscal-year
-   change's transition period, which no FY row spans, counts as a gap too, so such a line keeps its
-   own rows as well.
+   report some sync saw as the newest holds the year between itself, as a demoted winner, and its line
+   is whole; one no sync saw as the newest (an older report when the company was first synced) does
+   not. A line has a gap too where the audited repair withheld the year between, and, on main before
+   this condition, where the extractor gave the own year alone, beside the oldest-year stand-in. A
+   gapped line keeps the filing's own rows only, as a line short of its period end does. A 53-week
+   year (371 days) is no gap; a fiscal-year change's transition period, which no FY row spans, counts
+   as one, so such a line keeps its own rows as well.
 
 Keep another company's rows out (a combined report shares one accession), and show a row another
 writer stored under the year counted, back or forward, from the latest period end the filing's own
@@ -129,8 +133,9 @@ read by `facts/fundamentals.get_filing_fundamentals`; the Copilot already scoped
 line the report owns no row of and in one it owns, a per-share line, own rows in two currencies
 tied and not, the stand-ins' own tie), condition 5's distance in days, and condition 6 on the
 own-report rows' shapes (REGN's FY2018 to FY2021 10-Ks in either processing order, a year ending by
-September, a CNY 20-F with its own rows and with none, a 10-Q that recasts the prior balance, and the
-one-year line it leaves) included. The Copilot reads the same rows and computes no growth across a
+September and its 53-week year, a CNY 20-F with its own rows and with none, a 10-Q that recasts the
+prior balance, an earlier sync's whole line and its withheld year between, a line read for its own
+year alone, and the one-year line it leaves) included. The Copilot reads the same rows and computes no growth across a
 gap: its prior year lies 357 to 373 days back (`copilot_tools._prior_comparable`). Partly gated by
 `backend/tests/unit/test_filing_facts_read_by_accession.py`, which counts the mentions of
 `FinancialFact.filing_id` through the model it can see (the column, an ownership test, a lookup by
