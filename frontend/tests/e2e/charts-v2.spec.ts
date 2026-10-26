@@ -394,7 +394,7 @@ test.describe('trend charts v2 / the grid while the renderer’s chunk loads, at
 
   test('four cards of bones under one status, inside the page, then the charts', async ({ page, baseURL }) => {
     test.skip(!enabled, CHARTS_JOB_ONLY)
-    // Hold the renderer's own chunk (its panel attribute names it, as the flag-off case reads) until the skeleton is read.
+    // Hold the renderer's own chunk (the one that carries its `data-axis-domain` panel attribute) until the skeleton is read.
     let release!: () => void
     const held = new Promise<void>((resolve) => { release = resolve })
     await page.route('**/_next/static/chunks/*.js', async (route) => {

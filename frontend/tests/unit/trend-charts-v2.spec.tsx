@@ -6,7 +6,7 @@
    trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
-   dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
+   dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
@@ -624,10 +624,22 @@ describe('the PNG export', () => {
     expect(analytics.exportGenerated).not.toHaveBeenCalled()
     expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
   })
+
+  it('says so too when the export throws (a canvas the browser will not read back), and the control comes back', async () => {
+    vi.mocked(exportPanelPng).mockRejectedValueOnce(new DOMException('tainted', 'SecurityError'))
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} exportEnabled />)
+    const button = within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })
+    await act(async () => fireEvent.click(button))
+    expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
+    expect(analytics.exportGenerated).not.toHaveBeenCalled()
+    expect(button, 'no longer busy').not.toHaveAttribute('aria-busy')
+    await act(async () => fireEvent.click(button))
+    expect(exportPanelPng, 'a second press exports again').toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('TrendCharts draws the spec renderer', () => {
-  it('on, the spec renderer draws every chart', async () => {
+  it('draws every chart, as its own chunk', async () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)

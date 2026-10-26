@@ -2498,7 +2498,9 @@ is a default — currency/ticker labels routinely override: `<YAxis {...yAxisPro
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
-percent axis clips an extreme value and prints its true value at the plot edge (spec A3b; e2e
+percent axis clips an extreme value and prints its true value at the plot edge (spec A3b; gates:
+`chart-engine.spec.ts`, "a clipped bar is an off-scale value", and `chart-readout.spec.ts`, "an off-scale value prints
+its true value"). Tick labels stay inside their axis on one line, and no chart scrolls at a desktop card's width (e2e
 `analysis-layout.spec.ts`, "analysis chart axes", and the export gate's Swiss-franc case). The engine's
 formats round as the metrics table rounds, half away from zero on the decimal; the spec's M15
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.

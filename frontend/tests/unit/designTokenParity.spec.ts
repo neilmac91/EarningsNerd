@@ -59,9 +59,9 @@ describe('JS color mirrors stay token-true', () => {
     it(`${file} uses only config token hexes`, () => {
       const hexes = [...new Set((stripComments(read(file)).match(HEX) ?? []).map((h) => h.toLowerCase()))]
       expect(hexes.filter((h) => !tokens.has(h))).toEqual([])
-      // Only the renderer's own mirror takes its pairs' new values: a production mirror that did (Chart.tsx's dark
-      // labels or series) would ship them before F66, and every hex would still be a token.
-      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, before F66 (E195 folds them in)').toEqual([])
+      // Only the renderer's own mirror takes its pairs' new values: another mirror that did (Chart.tsx's dark labels or
+      // series) would ship them outside /analysis before the token fold, and every hex would still be a token.
+      if (file !== RENDERER_MIRROR) expect(hexes.filter((h) => rendererOnly.includes(h)), 'the spec renderer’s own hexes, until the token fold (E195’s follow-up)').toEqual([])
     })
   }
 

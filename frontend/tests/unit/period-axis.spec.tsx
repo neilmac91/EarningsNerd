@@ -8,7 +8,7 @@ import { buildMarkSvg, MARK_STAMP } from '@/features/analysis/lib/chartExport'
 describe('annualTickLabel', () => {
   it("renders bare two-digit years — '16, '17… — so every label centers on its bar", () => {
     // No FY prefix on any tick (the wider "FY '16" shifted off its bar — AAPL field test);
-    // the axis caption underneath names the unit instead.
+    // the chart's subtitle names the fiscal basis instead.
     expect(annualTickLabel('FY2016')).toBe("'16")
     expect(annualTickLabel('FY2017')).toBe("'17")
     expect(annualTickLabel('FY2025')).toBe("'25")

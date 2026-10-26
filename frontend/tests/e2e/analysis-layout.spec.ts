@@ -1020,8 +1020,7 @@ const inSwissFrancs = (dataset: AnalysisDataset) => {
 for (const theme of THEMES) {
   test.describe(`analysis chart axes / ${theme}`, () => {
     test.use({ viewport: { width: 1280, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // TrendCharts sizes each value axis from its tick labels. A label wider than its axis runs into the chart's margin
-    // (8 px left, 16 px right) and then out of the SVG, where it is cut; one Recharts breaks at a space reads as two.
+    // A tick label wider than its axis would run out of the SVG, where it is cut, and one broken at a space reads as two.
     // Wider axes must not make a chart at its card's full desktop width scroll. The spec renderer sets each label 8 px
     // left of its plot, from a gutter sized to its widest label (D5). It scrolls a chart only where the plan is wider
     // than its card (M6), and these plans fit a desktop card.
@@ -1046,14 +1045,14 @@ for (const theme of THEMES) {
 for (const theme of THEMES) {
   test.describe(`analysis chart quarters / ${theme} / 390px`, () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // On a phone a quarterly plot keeps 28 px a quarter past its axes (the spec renderer MIN_SLOT's 36), however wide
-    // they are, and scrolls inside its card.
+    // On a phone a quarterly plot keeps MIN_SLOT (36 px) a quarter past its axes, however wide they are, and scrolls
+    // inside its card.
     for (const [name, edit] of [['dollars', undefined], ['Swiss francs', inSwissFrancs]] as const) {
       test(`quarterly in ${name}: each quarter keeps its slot, and the chart scrolls inside its card`, async ({ page, baseURL }) => {
         await openAnalysis(page, baseURL!, 'captured', theme, 1, false, edit)
         const charts = await (await drawnCharts(page)).evaluateAll(readSlots)
         for (const chart of charts) {
-          // Recharts keeps 28 px a quarter; the spec renderer's slot is at least MIN_SLOT (M6).
+          // The spec renderer's slot is at least MIN_SLOT (M6).
           expect(chart.ticks, `${chart.name}: a printed tick a quarter`).toBe(PERIODS.length)
           expect(chart.slot, `${chart.name}: px a quarter`).toBeGreaterThanOrEqual(MIN_SLOT - 0.01)
           expect(chart.scrolls, `${chart.name}: scrolls inside its card`).toBe(true)

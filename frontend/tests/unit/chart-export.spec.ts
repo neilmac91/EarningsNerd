@@ -68,9 +68,21 @@ describe('exportFilename', () => {
 })
 
 describe('exportSourceText', () => {
-  it("notes the source data's day, not its instant (#1457)", () => {
-    // Noon UTC falls on October 20 in every zone from UTC-12 to UTC+11, so the case reads the same day in any runner.
-    expect(exportSourceText({ ...quarterly, data_as_of: '2026-10-20T12:00:00.008084Z' }).sourceNote).toBe('Source: SEC filings via EarningsNerd · data as of Oct 20, 2026')
+  it("notes the source data's day in the reader's zone, not its instant (#1457)", () => {
+    // The zone is pinned, so the case reads the same in any runner: noon UTC is October 20 in UTC and already
+    // October 21 in Auckland (UTC+13 that day).
+    const zone = process.env.TZ
+    const inZone = (tz: string) => {
+      process.env.TZ = tz
+      return exportSourceText({ ...quarterly, data_as_of: '2026-10-20T12:00:00.008084Z' }).sourceNote
+    }
+    try {
+      expect(inZone('UTC')).toBe('Source: SEC filings via EarningsNerd · data as of Oct 20, 2026')
+      expect(inZone('Pacific/Auckland')).toBe('Source: SEC filings via EarningsNerd · data as of Oct 21, 2026')
+    } finally {
+      if (zone === undefined) delete process.env.TZ
+      else process.env.TZ = zone
+    }
     expect(exportSourceText({ ...quarterly, data_as_of: null }).sourceNote).toBe('Source: SEC filings via EarningsNerd · source refresh time unavailable')
   })
 })

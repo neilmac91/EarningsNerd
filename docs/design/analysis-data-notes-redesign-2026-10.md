@@ -648,10 +648,11 @@ grouping and the sentences so the four cannot disagree (Phase 2); the exports re
   by the spacing exception (table rows about 41 px apart, columns at least 68 px); repeated "Open filing
   ↗" links carry distinct names. The table scrolls by swipe and snaps to columns; the chart plot scrolls
   by swipe inside its region, never the page.
-- Colour: letters and `†` carry the meaning; tones carry direction, as today. Warning ink is 6.4:1 on
-  cream and inside its tint 5.2:1; amber-500 on navy in dark; the muted letter pair is 5.2:1 / 5.8:1 on
-  panel. Hollow markers keep a 2 px stroke of the series colour (≥ 3:1 on both grounds); chart letters
-  use the chart label ink.
+- Colour: letters carry the meaning; tones carry direction, as today. Since D-061 no figure carries a `†`
+  and no letter takes warning ink: a figure's letter is the note ink, and a chart's, in its notes band, the
+  chart's note ink (§4.7). Warning ink (6.4:1 on cream, 5.2:1 inside its tint; amber-500 on navy in dark)
+  stays for the evidence dialog's "Needs review" on a note that questions the number. The muted letter pair
+  is 5.2:1 / 5.8:1 on panel.
 - Gates: the analysis route joins `tests/e2e/text-floors.spec.ts` in both themes; the layout gate (#1206,
   `tests/e2e/analysis-layout.spec.ts`) asserts the region's role, name and Tab stop, the header counts and
   every figure control's name; still owed there, as follow-ups: the conditional Tab stop, a focused cell

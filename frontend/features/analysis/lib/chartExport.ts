@@ -280,8 +280,8 @@ async function drawBrandFooter(
    metric, and which series — with no drift from what the user saw.
 --------------------------------------------------------------------------- */
 
-/** One legend entry — label + its swatch color (exactly the shared `legendItems` the panel
- *  passes to both its on-screen PanelLegend and its plotted series). */
+/** One legend entry — label + its swatch color (the card's own legend, as TrendChartCard passes it
+ *  from the chart model, so the image and the screen name the same series). */
 export interface ChartLegendItem {
   label: string
   color: string
