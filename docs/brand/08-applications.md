@@ -495,7 +495,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
   embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's
   family and to Identity-H, with no .notdef drawn, each glyph a font's text map pairs with text to that
-  text's glyph or a GSUB substitute of it in a file declared for the font's family and style, each declared
+  text's glyph or what GSUB makes of it (a substitute, a ligature or a chain of them, the text read as given
+  or composed, and a space the face lacks drawn as its own; the gate's docstring names what it cannot see)
+  in a file declared for the font's family and style, each declared
   face to a file in `backend/app/assets/fonts` and to a family and style no other face declares, and each
   nested list's marker to the disc, by `test_export_palette_parity.py` (`test_vendored_font_sources.py`
   holds each file to the hash `SOURCES.txt` records, and the symbols cuts, their declared range, the cut

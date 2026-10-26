@@ -62,10 +62,12 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    Var Symbols or Geist Mono) and encoded by Identity-H; every glyph a composite font's text map pairs with
    text is, in a file declared for the font's family and style, that text's glyph or one its GSUB reaches
    from it (WeasyPrint keeps the files' glyph ids), so a font that merges two files matches neither; and
-   every marker of a nested list is the disc. The glyph check reads the text as NFC (HarfBuzz composes a
-   decomposed cluster before GSUB), accepts a space the face does not encode drawn as the face's own space
-   (HarfBuzz's fallback), and follows ligatures in chains ("<->" in Inter: "->" to arrowright, then less and
-   arrowright to arrowboth). What it cannot see: a substitute GSUB reaches that a different feature setting
+   every marker of a nested list is the disc. The glyph check reads the text as given and as NFC (HarfBuzz
+   composes a decomposed cluster where the face encodes the composed letter, "E" and U+0308 to Geist Mono's
+   Edieresis, and where it does not, GSUB may ligate the parts, "C" and U+0301 to Inter's Cacute), accepts a
+   space the face does not encode drawn as the face's own space (HarfBuzz's fallback), and follows ligatures in
+   chains ("<->" in Inter: "->" to arrowright, then less and arrowright to arrowboth); a reduction that runs
+   past _REDUCE_STATES states fails the test rather than stall it. What it cannot see: a substitute GSUB reaches that a different feature setting
    would not have chosen, a shaping HarfBuzz does outside GSUB other than those two, which it would flag
    though the render is right, and text a font draws outside its text map (WeasyPrint keeps the first text
    each glyph draws).
@@ -734,16 +736,25 @@ def vendored_glyphs(path: Path) -> tuple[list[str], dict[int, str], dict[str, fr
     return order, cmap, closure, {key: frozenset(value) for key, value in ligatures.items()}
 
 
+# The search visits every mix of each position's substitutes before it rejects a cluster, so a long wrong one
+# grows as their product: Geist Mono's ">>>>>" ran past 20 s, and now fails at the cap in about 0.3 s. The
+# fixtures' renders take at most 18 states.
+_REDUCE_STATES = 50_000
+
+
 def _reduces_to(sequence: tuple[str, ...], glyph: str, closure: dict[str, frozenset[str]],
                 ligatures: dict[tuple[str, ...], frozenset[str]]) -> bool:
     """Whether GSUB can turn the glyph ``sequence`` into ``glyph``: by substituting any glyph with one its
     lookups reach and ligating any run of adjacent glyphs, in any order and as often as it takes ("<->": calt
-    ligates "->" to arrowright, then less and arrowright to arrowboth)."""
+    ligates "->" to arrowright, then less and arrowright to arrowboth). A search past _REDUCE_STATES states
+    fails, naming the cluster, rather than stall the test."""
     seen, todo = {sequence}, [sequence]
     while todo:
         current = todo.pop()
         if current == (glyph,):
             return True
+        assert len(seen) <= _REDUCE_STATES, f"reducing {sequence} to {glyph} passed {_REDUCE_STATES} states"
+
         steps = [current[:index] + (form,) + current[index + 1:]
                  for index, member in enumerate(current) for form in closure.get(member, ())]
         steps += [current[:start] + (ligature,) + current[end:]
@@ -758,20 +769,23 @@ def _reduces_to(sequence: tuple[str, ...], glyph: str, closure: dict[str, frozen
 
 def _entry_problem(path: Path, gid: int, text: str) -> str | None:
     """Why ``gid`` is not a glyph the vendored file at ``path`` draws for ``text``, or None when it is: what
-    GSUB makes of the text's glyphs (a substitute, a ligature, a chain of them). HarfBuzz composes a decomposed
-    cluster before GSUB runs (its normaliser: "E" and U+0308 to Edieresis), so the text is read as NFC; and a
-    space the face does not encode (a thin, narrow or ideographic space) it draws with the face's own space,
-    or a substitute of it (the tabular space in a figure cell)."""
+    GSUB makes of the text's glyphs (a substitute, a ligature, a chain of them), the text read as given or as
+    NFC. HarfBuzz's normaliser composes a decomposed cluster where the face encodes the composed letter ("E"
+    and U+0308 to Geist Mono's Edieresis); where it does not, the parts stay and GSUB may ligate them ("C" and
+    U+0301 to Inter's Cacute, by its ccmp). A space the face does not encode (a thin, narrow or ideographic
+    space) HarfBuzz draws with the face's own space, or a substitute of it (Inter's tabular space)."""
     order, cmap, closure, ligatures = vendored_glyphs(path)
     if gid >= len(order):
         return f"glyph {gid} is outside its {len(order)} glyphs"
     glyph, composed = order[gid], unicodedata.normalize("NFC", text)
     if len(composed) == 1 and unicodedata.category(composed) == "Zs" and ord(composed) not in cmap and 0x20 in cmap:
         return None if glyph in closure[cmap[0x20]] else f"it draws the unencoded {composed!r} as {glyph}, not its space"
-    bases = tuple(cmap.get(ord(char)) for char in composed)
-    if None in bases:
+    readings = [tuple(cmap.get(ord(char)) for char in reading) for reading in dict.fromkeys((composed, text))]
+    if any(None not in bases and _reduces_to(bases, glyph, closure, ligatures) for bases in readings):
+        return None
+    if all(None in bases for bases in readings):
         return f"it encodes no {composed!r} (drawn as {glyph})"
-    return None if _reduces_to(bases, glyph, closure, ligatures) else f"it draws {text!r} as {bases[0]}, not {glyph}"
+    return f"it draws {text!r} as {next(bases for bases in readings if None not in bases)[0]}, not {glyph}"
 
 
 def glyph_problems(html: str, pdf: bytes) -> list[str]:
@@ -909,7 +923,7 @@ def _every_mark_summary() -> str:
         "Korea ₩1.2T → ₩1.4T; India ₹4,100 → ₹4,500 crore; RMB 941.2B → ≈US$129B; ≈ ₩1.2T; † ‡; → ₩",
     ]
     # The first space the data face draws in a figure cell is a narrow no-break space, which Geist Mono does not
-    # encode: HarfBuzz draws its tabular space, and the reader reads that pairing first.
+    # encode: HarfBuzz draws its own space, and the reader reads that pairing first.
     sections["financial_highlights"]["table"].insert(0, {
         "metric": "Shares outstanding", "current_period": "1\u202f234M", "prior_period": "1\u202f200M",
         "change": "+2.8%", "commentary": "A narrow no-break space in the data face."})
@@ -953,6 +967,14 @@ def test_every_glyph_prints_in_a_vendored_face(tmp_path):
                    for font, asked, italic in embedded_fonts(renders[name][0])), name
     markers = list_markers(pdfs["analysis with every mark"])
     assert markers[2] == {"• "} and "• " in markers[1], markers  # the operands list sits in the methods list
+
+    # What HarfBuzz makes of a cluster, each a right render the reader must pass: a ligature chain ("<->" in
+    # Inter), a decomposed letter Geist Mono encodes composed ("E" and U+0308 to Edieresis, read as NFC) and one
+    # Inter's latin cut encodes only as parts ("C" and U+0301, which its ccmp ligates to Cacute, read as given).
+    for body in ("<p>A &lt;-&gt; B</p>", '<table><tr><td class="num">E\u0308 1</td></tr></table>', "<p>C\u0301racovia</p>"):
+        shaped = render_branded_pdf(title="Shaped", doc_kind="Shaped", meta_html="", body_html=body)
+        pdf, notdef = rendered(shaped)
+        assert (notdef, glyph_problems(shaped, pdf)) == ([], []), body
 
     # Planted: the same PDF without the symbols face sets the dagger and the arrow in DejaVu; with the data
     # face's stack as it was, the grid's dagger takes the system's monospace; without the disc rule a nested
