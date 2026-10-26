@@ -336,10 +336,12 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
         "the UTC pin may set the session's time zone and nothing else: anything more can set a guard again"
     )
     # The quarterly repair and lineage backfill scripts run their SQL through their services and the fact
-    # writers' lock, so those modules are read too. database.py's additive-column DDL and
-    # subscription_service.py bound their own lock waits on purpose, and stay out.
+    # writers' lock, so those modules are read too, the repair's proxy step included (it runs no SQL, but it
+    # sits on the repair's path). database.py's additive-column DDL and subscription_service.py bound their
+    # own lock waits on purpose, and stay out.
     sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
-                   ROOT / "backend/app/services/filing_lineage_repair.py"]
+                   ROOT / "backend/app/services/filing_lineage_repair.py",
+                   ROOT / "backend/app/services/proxy_fact_repair.py"]
     for path in [*scripts, *sql_modules]:
         assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (

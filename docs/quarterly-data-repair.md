@@ -4,10 +4,13 @@ This is an operator maintenance tool, not part of normal ingestion. Normal compa
 keep accession identities immutable. An explicit repair can correct previously stored calculated
 quarterly facts and rebuild lineage for existing annual computed metrics (margins, free cash
 flow and liquidity ratios). It keeps a before/after journal in `financial_fact_revision` in the
-same transaction. It does not rewrite filing JSON or per-filing reported financial records, call AI,
-change production flags, or delete facts. Annual repairs are restricted to the known computed
-metric registry, source `derived`/`companyfacts`, no reported raw tag, and no filing owner; reported
-annual numeric values and filing-owned metrics are preserved by the computed-metric repair.
+same transaction. It does not rewrite filing JSON, call AI, change production flags, or delete facts.
+Per-filing reported records change only through the proxy step (below, "Proxy-statement values
+(E211)"): it promotes one that agrees with the 10-K's winner (`is_latest` only), restores one the old
+cross-check replaced with a proxy's figure, records again a check confirmed against one, and
+re-annotates a restored row's calculations. Annual computed-metric repairs are restricted to the known
+computed metric registry, source `derived`/`companyfacts`, no reported raw tag, and no filing owner;
+reported annual numeric values and filing-owned metrics are preserved by the computed-metric repair.
 A separate positive-evidence calendar correction can relabel companyfacts-owned reported rows:
 the exact raw tag, start/end, accession, unit and concept must match the corrected normalizer.
 Wrong fiscal years are corrected in place; wrong quarter labels are archived and replaced under
@@ -21,7 +24,8 @@ Newly eligible filing-owned calculations
 require an authoritative filing-scoped repair and are outside this tool: the lineage backfill
 (`docs/filing-lineage-repair.md`) records their lineage, journaled in the same table and reverted by
 this tool's rollback. New inserts remain
-quarterly except for positively identified reported calendar replacements. Deploying the schema does not execute the repair.
+quarterly except for positively identified reported calendar replacements and the 10-K winners the
+proxy step admits. Deploying the schema does not execute the repair.
 
 ## Prepare a bounded cohort
 
@@ -66,6 +70,126 @@ coverage counters. `before` is actual current coverage. Dry-run `projected_after
 candidate additions before the standard writer resolves filing-date precedence, so it is a
 preview rather than a guarantee of final selected-row counts. An apply returns actual `after`
 coverage. Counts alone are not proof that financial figures are correct.
+
+## Proxy-statement values (E211)
+
+Before #1622 a proxy or information statement's pay-versus-performance figure could win a
+companyfacts period, and the backfill's cross-check could take it as the authority over a filing's
+parse (`facts/currency.is_proxy_form` keeps both out now). Ingestion never rewrites a stored identity,
+so those rows stay until this repair's proxy step (`backend/app/services/proxy_fact_repair.py`) repairs
+them. It runs in every preview and apply, with no flag, after the calendar correction and before the
+computed-metric correction, reading only the payload the repair already fetched. A company with no proxy
+row and no filing row a proxy figure replaced or confirmed passes through it unchanged.
+
+It runs four passes, in this order; the sets are those of `ops/detection/proxy_form_winners.sql`.
+
+1. **Set 4: filing rows the old cross-check replaced with a proxy's figure** (a filing owner and source
+   `companyfacts`, whose value a proxy figure holds: a stored proxy-form row, current or not, or a proxy
+   item in the payload; relative 1e-6). Left alone when a stored report row holds the value, or when the
+   value is 1,000 or 1,000,000 times the recorded original (the authority scaling up a parse read in
+   units, the replacement the check exists for). Kept, and counted `filing_rows_kept`, when it already
+   holds today's authority's figure, the 10-K's. Otherwise restored to its recorded `original_value` and
+   passed through today's cross-check, as the backfill stores it now (source `edgar_xbrl`, its check
+   recorded against the 10-K's figure), when that original is within 1% of the 10-K's figure or the
+   payload gives none; that filing's calculations of the restored concept are then re-annotated
+   (`provenance` and `reconciled` only). Refused when no original was recorded (a replacement before
+   #1191), or when the original is more than 1% off the 10-K's figure.
+2. **Set 5: filing rows the old cross-check confirmed against a proxy's figure** (a filing row of
+   another source whose recorded check confirmed it against an `authoritative_value` a proxy figure
+   holds and no stored report row does). Its value and source stay, and its check is recorded again
+   against today's authority (`filing_rows_reconfirmed`). Refused when the 10-K's figure is more than 1%
+   off the row's value: FedEx's proxy, in dollars, confirmed a parse that read millions as units.
+3. **Set 2: current proxy-form rows.** Each is retired: `is_latest` and `reconciled` false, provenance
+   `validation: unavailable` with reason `proxy_statement_value`, and `replacement` naming what took its
+   key. The fresh winner at its key (concept, period end, fiscal period, unit) is then admitted. It is
+   inserted when no stored row holds its identity; corrected and promoted when a companyfacts-owned row
+   holds it (a stored 10-K row a proxy demoted); promoted, `is_latest` only, when a filing-owned row
+   holds it and agrees with it. A key with no fresh winner in any unit keeps no current row
+   (`retired_without_winner`): the fixed ingestion's own result for a period only a proxy tags.
+4. **Set 3: current rows built on a proxy figure** (provenance that quotes a proxy row's accession).
+   A calculation the computed-metric correction can recompute, its identity among the payload's
+   candidates, is left to it (`dependents_recomputed`). Otherwise it is retired with reason
+   `proxy_statement_operand` and the fresh fact at its key admitted as in set 2 (`dependents_retired`).
+
+**The agreement test.** A filing-owned row at the winner's identity is promoted only when its value is
+within 1% of the winner's (the cross-check's own tolerance for one filing's parse against companyfacts'
+figure for that filing), its start equals the winner's or it has none, and its fiscal year equals the
+winner's. A missing start counts as agreement (founder, 2026-10-26): the per-filing writer stored rows
+without one before #831, and the identity already names the filing and the period. The promoted row's
+value, provenance and labels never change.
+
+**Refusals.** The step refuses the whole company before any write when it cannot settle a case on
+positive evidence, with every reason in one error: `Proxy repair refused for this company (N):
+<concept> <fiscal period> <period end> (fact <id>): <reason>; …`.
+
+| Reason | Meaning |
+|---|---|
+| `a filing row holds a proxy's figure, not the 10-K's, and records no original value` | set 4: a replacement from before #1191 |
+| `the 10-K's figure disagrees with the recorded original value by more than 1%, and the filing row holds neither` | set 4: the parse and the 10-K disagree |
+| `the old cross-check confirmed this filing row against a proxy's figure, and the 10-K's figure disagrees with it by more than 1%` | set 5 |
+| `a row with a filing owner carries a proxy form, which no writer stores` | set 2: an anomaly |
+| `another row is current at this key (fact N)` | two current rows at one key: an anomaly |
+| `the payload holds more than one winner at this key` | an ambiguous winner |
+| `the payload's winner for this period is in <unit>; sync the company first` | a native-currency filer: sync it first (above), then preview again |
+| `a stored report row (fact N) has no fresh winner to agree with` | no fresh winner, but a stored report gives a figure |
+| `the winner's row (fact N) was rolled back; a reviewed reapplication is required` | as for any rolled-back identity (below) |
+| `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K on: …` | the agreement test, naming each failing clause: `value`, `start`, `fiscal year` |
+| `a row outside the repair's scope is built on a proxy figure` | set 3: a filing's calculation or a reported row |
+
+A postcondition then holds on the plan, before any write, and again on the apply's rows after its
+writes: no current row is proxy-form, no current row quotes a proxy accession, and each key the step
+settled holds the current rows it planned (one, or none after `retired_without_winner`), counting on the
+apply a current row with no fiscal period at a quarter's period end. It fails with `Proxy repair would
+leave rows for detection: {…}` or `Proxy repair left rows for detection: {…}`; after the writes the
+company's transaction then rolls back, journal included.
+
+While the step lives, a refusal blocks every quarterly repair of that company, not only its proxy
+repair. Dispatch the apply without a refused ticker, give it its own `tasks/todo.md` line with the
+reason, and decide each refused row from its filing (founder, 2026-10-26).
+
+**Reading the preview.** Each company's report carries a `proxy` block:
+
+- The counters above, at zero when unused. `inserted`, `promoted`, `corrected` and
+  `retired_without_winner` count once per key; `retired` counts rows.
+- `rows`: one entry per row the step settles, with its `action` (`inserted`, `promoted`, `corrected`,
+  `retired_without_winner`, `dependent_<outcome>`, `restored`, `reannotated`,
+  `kept_agrees_with_authority` or `reconfirmed`), its own and its winner's accession and value, `gap`
+  (`|a - b| / max(|a|, |b|)`; 1.0 is a figure at another scale), the winner's form and filing date
+  (`winner_form`, `winner_filed`), and `twin_fact_id` where a current row with no fiscal period sits at
+  a quarter key's period end (the apply decides it).
+- `other_planned_updates`, `other_planned_inserts`, `other_updates_by_kind` (`made_unavailable`,
+  `is_latest`, `value`, `label`, `provenance_only`) and `other_inserts_by_concept`: the company's other
+  pending corrections, which the same approval applies.
+- `projected_residual`, and on an apply `residual`: the postcondition's counts, all zero.
+
+The CLI's report adds `proxy_totals`, each counter and each `other_*` entry summed over the companies
+that succeeded. Read each company's block this way: `inserted + promoted + corrected +
+retired_without_winner` equals `retired` (one proxy row per key, as the writers leave it);
+`retired_without_winner` and `dependents_retired` are expected to be zero, and any other value is read
+row by row; every `winner_form` is `10-K` (a 10-K/A that carries the pay-versus-performance table is a
+report, and admitted); `gap` measures each retired figure against its winner, the first measure for
+rows with no stored report behind them. Read `made_unavailable` row by row in `changes`: each such
+figure leaves the public pages. Read the other corrections against a baseline: a plain preview of the
+same tickers on the commit before the step, saved before it merged.
+
+**The journal.** The apply journals the step's rows with the rest of the run, under
+`calculation_version` `proxy-repair-v1`: the rows it wrote or left to the computed-metric correction,
+its inserts, and every row that is or quotes a proxy row. The run's other rows keep `quarterly-v2`, so
+one query lists the proxy repair alone:
+
+```sql
+SELECT fact_id, before_state, after_state FROM financial_fact_revision
+WHERE run_id = :run_id AND calculation_version = 'proxy-repair-v1' ORDER BY id;
+```
+
+A retired row is non-current and `unavailable`, so no reader shows it: the public pages, the Copilot's
+accession scope and the fiscal-year evidence all withhold an unavailable figure. The audited rollback
+(below) reverts the step's rows with the rest of the run. After the apply, dispatch `detection-sql`:
+`proxy_form_winners.sql` must read no rows in sets 2 to 5, except rows the change's record names with
+their reason (a kept or reconfirmed row whose figure no stored report row holds).
+
+The step is temporary. Once detection reads no rows in sets 2 to 5, a records change deletes the
+detection file and its test, and a later change removes the step.
 
 ## Optional directly reported quarterly EPS
 
@@ -155,6 +279,9 @@ runner through that proxy, so the report lands in the run's log. Operation
   `resync COMPLETED via jobs channel for: …`.
 - **The apply re-plans.** The apply plans again from a fresh SEC read, so its own report is the
   record of what changed, not the preview's. Compare the two before closing the change.
+- **The proxy step.** Both operations run it with no flag ("Proxy-statement values (E211)", above).
+  One approval applies each company's whole plan: its proxy repair and its other pending corrections
+  (`other_*` in its `proxy` block).
 - **Session guards.** Before the script, the step prints the session's settings as Postgres reports
   them: `session read_only=on lock_timeout=10s statement_timeout=2min` for the preview, and
   `read_only=off` for the apply. It stops unless they are the step's own. The preview's
@@ -224,6 +351,10 @@ rollback adds its own journal entries and references the revisions it reverses. 
 with no journal under the target run fails its own line (`No bounded apply journal for this
 company/run`) and makes the exit code nonzero; the other companies still roll back, each in its own
 transaction.
+
+The proxy step's rows roll back like any other. Its inserted 10-K winners then stay as rolled-back
+history, so the company's every later repair refuses, and no sync heals those keys, since their
+identities are taken: roll a proxy repair back only to stop a harmful apply.
 
 Reapplication that encounters an identity inserted and subsequently rolled back is deliberately
 rejected. This CLI does not reactivate those archived rows: inspect the reason for rollback and

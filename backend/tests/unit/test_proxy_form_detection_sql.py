@@ -13,7 +13,7 @@ from pathlib import Path
 from app.services.facts.currency import _PROXY_FORM
 
 SQL = Path(__file__).resolve().parents[3] / "ops" / "detection" / "proxy_form_winners.sql"
-SETS = 4  # each statement declares its own params
+SETS = 5  # each statement declares its own params
 NORMALIZED_MATCH = re.compile(
     r"upper\(btrim\(regexp_replace\(\w+\.form, '\\s\+', ' ', 'g'\)\)\) !?~ p\.proxy_form"
 )

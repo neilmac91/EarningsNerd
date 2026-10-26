@@ -2,7 +2,10 @@
 
 The caller owns commit/rollback. Fetch inputs BEFORE opening the repair transaction. Normal
 companyfacts ingestion remains insert-only; this explicit maintenance path journals corrections
-of already occupied identities without deleting facts or rewriting filing-owned records.
+of already occupied identities without deleting facts. It rewrites no filing-owned record, except
+through its proxy step (``proxy_fact_repair``, E211), whose filing-owned writes are narrow: it
+promotes a row that agrees with the 10-K's winner, restores a figure the old cross-check replaced
+with a proxy's, re-records a proxy-confirmed check, and re-annotates a restored row's calculations.
 """
 from collections import Counter
 from datetime import date
@@ -66,6 +69,17 @@ def _restore(row: FinancialFact, state: dict[str, Any]) -> None:
         elif key == "value":
             value = Decimal(value)
         setattr(row, key, value)
+
+
+def _loop_scope(state: dict[str, Any]) -> bool:
+    """The rows the same-identity loop corrects: a calculated quarter or a known annual computed
+    metric, without a filing owner. The proxy step leaves a calculation in this scope to the loop."""
+    quarter_calculated = state["source"] == "derived" and state["fiscal_period"] in QUARTERS
+    annual_computed = (
+        state["fiscal_period"] == "FY" and state["concept"] in METRIC_INPUTS
+        and state["source"] in {"derived", "companyfacts"} and state["raw_tag"] is None
+    )
+    return state["filing_id"] is None and (quarter_calculated or annual_computed)
 
 
 def _quarantine(state: dict[str, Any], reason: str) -> dict[str, Any]:
@@ -253,9 +267,12 @@ def repair_company(
 
     ``reported_eps`` contains trusted rows from the explicit filing-source manifest adapter.
     Same-identity edits cover calculated quarters and known annual computed metrics without a
-    filing owner. Source-proven calendar errors can relabel companyfacts-owned reported rows;
-    filing-owned records stay untouched. Standard upsert chooses latest winners for new identities;
-    explicit reported EPS has narrow precedence.
+    filing owner. Source-proven calendar errors can relabel companyfacts-owned reported rows.
+    The proxy step (``proxy_fact_repair.plan``) runs between the two: it retires each current row
+    a proxy statement supplied and admits the 10-K's winner at its key, and its filing-owned writes
+    are the narrow ones the module docstring names; other filing-owned records stay untouched.
+    Standard upsert chooses latest winners for new identities; explicit reported EPS has narrow
+    precedence. The proxy step's postcondition is checked on the plan and again after the writes.
     """
     if db.new or db.dirty or db.deleted:
         raise ValueError("Repair requires a clean caller-owned transaction")
@@ -292,13 +309,12 @@ def repair_company(
         "free_cash_flow": {"operating_cash_flow", "capital_expenditures"},
     }
     updates, calendar_inserts = _calendar_relabels(before, facts, meta)
+    # Call time: proxy_fact_repair imports this module's helpers. It writes into ``updates``.
+    from app.services import proxy_fact_repair
+
+    proxy = proxy_fact_repair.plan(before, updates, facts, normalized, payload)
     for row_id, state in before.items():
-        quarter_calculated = state["source"] == "derived" and state["fiscal_period"] in QUARTERS
-        annual_computed = (
-            state["fiscal_period"] == "FY" and state["concept"] in METRIC_INPUTS
-            and state["source"] in {"derived", "companyfacts"} and state["raw_tag"] is None
-        )
-        if state["filing_id"] is not None or not (quarter_calculated or annual_computed):
+        if not _loop_scope(state):
             continue
         if row_id in updates and not updates[row_id]["is_latest"]:
             # A proven obsolete calendar scope must not be restored by a second exclusion path.
@@ -318,16 +334,18 @@ def repair_company(
                     updates[row_id] = quarantined
             continue
         target = _candidate_state(candidate)
-        # Preserve source/entity/accession identity and the existing latest selection.
-        corrected = {**state, **{key: target[key] for key in _MUTABLE_FIELDS}}
+        # Preserve source/entity/accession identity and the latest selection, the proxy step's included.
+        corrected = {**updates.get(row_id, state), **{key: target[key] for key in _MUTABLE_FIELDS}}
         if corrected != state:
             updates[row_id] = corrected
 
     # Only calculated missing quarters enter from companyfacts; explicit reported EPS comes from
     # the narrow source adapter, never from a URL or user-supplied free-form numeric value.
-    inserts = calendar_inserts + [f for f in candidates
-               if f["source"] == "derived" and f["fiscal_period"] in QUARTERS
-               and _identity(_candidate_state(f)) not in identities]
+    # One fact per identity: the proxy step and this path both plan a fresh Q4 at a retired proxy key.
+    inserts = list({_identity(_candidate_state(f)): f for f in [*calendar_inserts, *proxy.inserts, *[
+        f for f in candidates if f["source"] == "derived" and f["fiscal_period"] in QUARTERS
+        and _identity(_candidate_state(f)) not in identities
+    ]]}.values())
     quarterly_labels = {
         (_json_value(f["period_end"]), f["fiscal_period"], f["fiscal_year"])
         for f in candidates if f["fiscal_period"] in QUARTERS
@@ -390,7 +408,11 @@ def repair_company(
             {"fact_id": row_id, "before": before[row_id], "after": state}
             for row_id, state in updates.items()
         ], "inserts": [_candidate_state(fact) for fact in inserts],
+        "proxy": proxy.summary(before, updates, inserts),
     }
+    result["proxy"]["projected_residual"] = proxy.residual(projected + result["inserts"], twins=False)
+    if any(result["proxy"]["projected_residual"].values()):
+        raise ValueError(f"Proxy repair would leave rows for detection: {result['proxy']['projected_residual']}")
     if dry_run:
         result["projected_after"] = coverage(projected + result["inserts"])
         result["projection_note"] = "Insert latest-filed precedence is resolved during apply."
@@ -406,18 +428,22 @@ def repair_company(
     facts_service.upsert_facts_bulk(db, inserts, commit=False)
     db.flush()
     after_rows = _rows(db, company_id)
+    after_states = [snapshot(row) for row in after_rows]
     revisions = 0
-    for row in after_rows:
-        after = snapshot(row)
+    for row, after in zip(after_rows, after_states):
         if before.get(row.id) != after:
             db.add(FinancialFactRevision(
                 run_id=run_id, company_id=company_id, fact_id=row.id, action="apply",
-                calculation_version=REPAIR_VERSION, payload_sha256=digest,
-                before_state=before.get(row.id), after_state=after,
+                calculation_version=proxy.journal_version(row.id, after, inserted=row.id not in before),
+                payload_sha256=digest, before_state=before.get(row.id), after_state=after,
             ))
             revisions += 1
     db.flush()
-    result.update({"after": coverage([snapshot(row) for row in after_rows]), "revisions": revisions})
+    result.update({"after": coverage(after_states), "revisions": revisions})
+    # Only the apply sees where the upsert lands an insert (a newer twin keeps it non-current).
+    result["proxy"]["residual"] = proxy.residual(after_states, twins=True)
+    if any(result["proxy"]["residual"].values()):
+        raise ValueError(f"Proxy repair left rows for detection: {result['proxy']['residual']}")
     return result
 
 
