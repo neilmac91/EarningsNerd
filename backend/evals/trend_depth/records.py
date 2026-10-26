@@ -211,7 +211,8 @@ def api_cost(record: dict[str, Any], shared_cache: int = 0) -> Optional[float]:
     company's first analysis would bill:
 
     - a Claude CLI call reads nothing from cache: the harness's API request sets no cache breakpoint;
-    - a Claude API call is priced as billed, cache writes included;
+    - a Claude API call is priced as billed, cache writes included, plus the worst case of each attempt cut short
+      mid-stream before it (``cut_cost_usd``): its tokens are the reply's alone, so that cost is added here, once;
     - an OpenAI-compatible (DeepSeek) first attempt reads at most ``shared_cache`` tokens from cache (its prompt's
       ``first_request_cache`` over every label), and a later attempt (a JSON retry or the repair) keeps its recorded
       hits, because it re-sends the first attempt's prefix seconds later, as a fresh analysis would.
@@ -221,12 +222,13 @@ def api_cost(record: dict[str, Any], shared_cache: int = 0) -> Optional[float]:
         return record.get("cost_usd")
     total = 0.0
     for attempt in all_attempts(record):
-        backend, cached, write = attempt.get("backend"), int(attempt.get("cached_input_tokens") or 0), 0
+        backend, cached, write, cut = attempt.get("backend"), int(attempt.get("cached_input_tokens") or 0), 0, 0.0
         if backend == "claude_cli":
             cached = 0
         elif backend == "anthropic":
-            write = int((attempt.get("meta") or {}).get("cache_creation_input_tokens") or 0)
+            meta = attempt.get("meta") or {}
+            write, cut = int(meta.get("cache_creation_input_tokens") or 0), float(meta.get("cut_cost_usd") or 0)
         elif attempt.get("attempt") == 0:
             cached = min(cached, shared_cache)
-        total += list_cost(arm, attempt["input_tokens"], cached, attempt["output_tokens"], write)
+        total += list_cost(arm, attempt["input_tokens"], cached, attempt["output_tokens"], write) + cut
     return total

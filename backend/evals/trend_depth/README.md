@@ -151,7 +151,9 @@ worst case is the prompt at one token per byte, plus a full `max_tokens` of outp
 - **A stream that fails after it starts** may be billed, but usage reports output only at the end. So it is
   logged at its worst case, marked `estimated`, before any retry. A reply that was whole before its connection
   failed is kept and logged at its own cost. The ledger can overstate what the key spent, never understate
-  it.
+  it. The call's cost counts the cut attempts too: a retry that returns adds their worst case to the reply's own
+  (`cut_cost_usd`), and a call that fails after them carries it, so a record and the report's cost count them once,
+  as the ledger does.
 - **One process at a time.** A process holds a lock on the ledger while it spends on the key, so a second one
   (two steps run at once) is refused. Run the Claude API steps one after another.
 - **Other sessions.** A session in another checkout keeps a ledger of its own. So also set a spend limit on the

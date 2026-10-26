@@ -112,7 +112,7 @@ async def audit_call(auditor: str, system_prompt: str, user: str, tag: str, reco
     try:
         result = await call(ARMS[auditor], system_prompt, user, max_tokens=16000, tag=tag)
     except Exception as exc:
-        if getattr(exc, "result", None) is not None:  # a truncated reply was paid for
+        if getattr(exc, "result", None) is not None:  # a truncated reply or a cut attempt was paid for
             write_failed(record, exc.result, exc, out_path)
         raise
     if result.meta.get("stop_reason") == "refusal":

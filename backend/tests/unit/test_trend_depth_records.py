@@ -156,6 +156,16 @@ def test_claude_cli_calls_read_nothing_from_cache_and_api_calls_are_priced_as_bi
     assert first_request_cache([api]) == 0  # only an OpenAI-compatible first request sets the shared prefix
 
 
+def test_a_claude_api_call_adds_the_attempts_cut_before_it_once() -> None:
+    """providers records a cut attempt's worst case as ``cut_cost_usd`` beside the reply's own tokens, or with none
+    when the call then failed: the tokens are repriced and the cut is added, so neither is counted twice."""
+    sonnet = ARMS["claude-sonnet-5-5"]
+    reply = {**_attempt(0, "anthropic", 1000, 0, 10), "meta": {"cache_creation_input_tokens": 0, "cut_cost_usd": 0.162}}
+    failed = {**_attempt("repair", "anthropic", 0, 0, 0), "meta": {"stop_reason": "cut short", "cut_cost_usd": 0.324}}
+    assert api_cost({"arm": "claude-sonnet-5-5", "attempts": [reply]}) == pytest.approx(list_cost(sonnet, 1000, 0, 10) + 0.162)
+    assert api_cost({"arm": "claude-sonnet-5-5", "attempts": [reply, failed]}) == pytest.approx(0.1641 + 0.324)
+
+
 def test_a_failed_generation_a_record_replaced_still_counts() -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
     record = {"arm": "claude-sonnet-5-5", "prior_attempts": [_attempt(0, "anthropic", 60000, 0, 64000)],

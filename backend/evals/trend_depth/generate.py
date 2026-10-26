@@ -149,6 +149,14 @@ def _usage(attempts: list[dict[str, Any]]) -> dict[str, int]:
     return {key: sum(a[key] for a in attempts) for key in ("input_tokens", "cached_input_tokens", "output_tokens", "reasoning_tokens")}
 
 
+def _paid_failure(result: Any) -> list[str]:
+    """The problem a call that raised is recorded with when it was paid for (its ``result``): Claude API attempts cut
+    short mid-stream before the call failed, at their worst case, or a reply that stopped at its token cap."""
+    if result.meta.get("stop_reason") == "cut short":
+        return ["the call failed after attempts cut short mid-stream (their worst case)"]
+    return ["the reply stopped at max_tokens"]
+
+
 def _add_attempt(record: dict[str, Any], result: Any, problems: list[str]) -> None:
     """Add a repair call to a record: its attempt, usage, latency and cost."""
     record["attempts"].append(_attempt("repair", result, problems))
@@ -191,8 +199,8 @@ async def generate_proposed(arm_name: str, ticker: str, repair: bool = True, tag
         try:
             result = await call(arm, system, message, max_tokens=max_tokens_for(arm), tag=tag)
         except Exception as exc:  # noqa: BLE001 - re-raised with the paid attempts attached
-            if getattr(exc, "result", None) is not None:  # a truncated reply was paid for: record it
-                attempts.append(_attempt(attempt, exc.result, ["the reply stopped at max_tokens"]))
+            if getattr(exc, "result", None) is not None:  # a truncated reply or a cut attempt was paid for: record it
+                attempts.append(_attempt(attempt, exc.result, _paid_failure(exc.result)))
             raise GenerationError(f"{type(exc).__name__}: {exc}", attempts) from exc
         if result.meta.get("stop_reason") == "refusal":
             # The model declined: its own outcome, recorded and never retried with the same pack.
@@ -261,8 +269,8 @@ async def repair_or_mark(arm: Any, system: str, user: str, record: dict[str, Any
             await _repair(arm, system, user, record["output"], record, pack, tag)
         record.pop("repair_error", None)
     except Exception as exc:  # noqa: BLE001 - recorded on the record, which keeps its first pass
-        if getattr(exc, "result", None) is not None:  # a truncated repair was paid for: record it
-            _add_attempt(record, exc.result, ["the reply stopped at max_tokens"])
+        if getattr(exc, "result", None) is not None:  # a truncated repair or a cut attempt was paid for: record it
+            _add_attempt(record, exc.result, _paid_failure(exc.result))
         record["repair_error"] = f"{type(exc).__name__}: {exc}"[:500]
 
 

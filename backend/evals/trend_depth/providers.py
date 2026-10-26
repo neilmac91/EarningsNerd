@@ -449,23 +449,40 @@ CUT_LOGGED = "trend_depth_cut_logged"  # set on an interruption once _call_anthr
 RESERVED = "reserved: the worst case of an attempt in flight, released when it settles"
 
 
+def _with_cuts(error: Exception, cuts: list[CallResult], started: float) -> Exception:
+    """``error``, raised after attempts that were cut short, carrying them as ``result`` (as ``IncompleteReply``
+    carries its paid call), so the caller records what they may have cost: their worst case, and no tokens, since
+    none was measured."""
+    if cuts:
+        cost = round(sum(cut.cost_usd for cut in cuts), 6)
+        meta = {"stop_reason": "cut short", "cut_attempts": len(cuts), "cut_cost_usd": cost}
+        setattr(error, "result", CallResult("", 0, 0, 0, 0, round(time.monotonic() - started, 3), cost, "anthropic",
+                                            cuts[-1].model_served, meta))
+    return error
+
+
 async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: int, timeout_s: float, tag: str) -> CallResult:
     """Up to six attempts, each admitted against the ceiling on its own. Before an attempt is sent, its worst case
     is written to the ledger as a reservation, which a row of the opposite sign releases once the attempt has
     settled and its own cost is on disk. An attempt that ends any other way (a kill, or an interruption before
     its cost is written) leaves the reservation counted. An attempt whose stream started and then failed may be
     billed, so it is logged at its worst case. The ledger can therefore overstate what the key spent, never
-    understate it."""
+    understate it.
+
+    The caller's cost is the whole call's, as the ledger's is: the result's ``cost_usd`` adds each cut attempt's worst
+    case to the reply's own (``cut_cost_usd`` in its meta; its tokens are the reply's alone), and a failure raised after
+    a cut carries them (``_with_cuts``)."""
     _hold_key_lock()
     reserve = worst_case_usd(arm, system, user, max_tokens)
-    cut_attempts = 0
+    cuts: list[CallResult] = []  # each attempt whose stream started and then failed, at its worst case
     started = time.monotonic()  # the whole call, every failed attempt and backoff included (as on openai_compat)
     for attempt in range(6):
         spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
         if spent + reserve > ceiling:
-            raise BudgetExceeded(f"Anthropic spend ${spent:.2f}, attempts in flight included, leaves no room for this "
-                                 f"call's worst case of ${reserve:.2f} under the ${ceiling:.2f} ceiling "
-                                 "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
+            refused = BudgetExceeded(f"Anthropic spend ${spent:.2f}, attempts in flight included, leaves no room for this "
+                                     f"call's worst case of ${reserve:.2f} under the ${ceiling:.2f} ceiling "
+                                     "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
+            raise _with_cuts(refused, cuts, started)
         held = {"backend": "anthropic", "cost_usd": reserve, "arm": arm.name, "tag": tag, "estimated": RESERVED}
         _append_row(held)
         failure: Optional[_AttemptFailed] = None
@@ -477,7 +494,7 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
         except _AttemptFailed as exc:
             failure = exc
             if exc.cut is not None:
-                cut_attempts += 1
+                cuts.append(exc.cut)
                 _log_spend(arm, exc.cut, f"{tag} (attempt {attempt + 1}, cut short)", CUT_ESTIMATE)
             settled = True
         except BaseException as exc:
@@ -487,13 +504,16 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
             if settled:  # otherwise the reservation stays counted, which overstates rather than understates
                 _append_row({**held, "cost_usd": -reserve, "estimated": "released: the attempt settled"})
         if failure is None:
-            result.meta.update({"retries": attempt, "cut_attempts": cut_attempts})
+            # The ledger row above is the reply's own cost; each cut attempt has a row of its own.
+            cut_cost = round(sum(cut.cost_usd for cut in cuts), 6)
+            result.meta.update({"retries": attempt, "cut_attempts": len(cuts), "cut_cost_usd": cut_cost})
+            result.cost_usd = round(result.cost_usd + cut_cost, 6)
             if attempt:  # the ledger row above keeps the attempt's own time; the caller waited the whole call
                 result.meta["attempt_latency_s"] = result.latency_s
                 result.latency_s = round(time.monotonic() - started, 3)
             return result
         if attempt == 5 or not failure.retryable:
-            raise failure.error
+            raise _with_cuts(failure.error, cuts, started)
         await _sleep(_backoff_s(failure.error, attempt))
     raise AssertionError("unreachable: the last attempt returns or raises")
 
