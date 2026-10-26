@@ -255,7 +255,8 @@ would pass it. §7.4 measures how often that happens. **No part of the rule is i
     flow) and two had a year swapped. Together the gate and the audit caught all 11 affected claims: the
     gate caught 2, the audit 9.
   - Its flags are split deterministically into substantive, bound ("below 1.0x", true of the cited value)
-    and ambiguous (several cited values match the number).
+    and ambiguous (two quantities with different labels match the number; a figure cited beside what the pack
+    computes it from is one quantity, not two).
 - **Cost and latency** are measured from every call's real token usage and wall-clock time. Cost is the
   API list price of the measured tokens, including any repair call.
 

@@ -460,7 +460,7 @@ Latency is about 3.2 ms per output token.
 
 ### As built
 
-Where the built fixes differ from the plan above, after reviews 5 to 8. The code is the harness (`backend/evals/trend_depth/`, README there). The packs are `packs-v2/` (its README) and the candidate prompt is `backend/prompts/trends-depth-analyst-agent.md`. Each figure below is reproduced by the command named beside it, run with the code at this commit; none calls a model. Fix 1's figures of what auto-citation did are those of its last build (e505700), before it was removed.
+Where the built fixes differ from the plan above, after reviews 5 to 9. The code is the harness (`backend/evals/trend_depth/`, README there). The packs are `packs-v2/` (its README) and the candidate prompt is `backend/prompts/trends-depth-analyst-agent.md`. Each figure below is reproduced by the command named beside it, run with the code at this commit; none calls a model. Fix 1's figures of what auto-citation did are those of its last build (e505700), before it was removed.
 
 **Fix 1: built, tested and removed** (wave 5, after review 8). The code step before a repair is fix 5's retyping
 alone (`retype.py`; `retype.first_pass` is the retyping, then the gate with its backstops). A figure stated without its
@@ -503,50 +503,103 @@ own ID is a gate failure ("matches nothing the sentence cites"), which the patch
 - **Watch items are typed `comparison`.** This is DeepSeek's own convention, so the judgement share outside the watch list compares across arms and models unchanged.
 - **The gate still does not enforce the judgement tier** (§4).
 
-**Fix 7: a growth gap's sign, only where the gate reads it with certainty** (`factcheck.compared_sides`; wave 5,
-review 8). A value labelled "revenue growth minus operating-cost growth" has its sign checked only where the clause
-compares its two sides in one of these forms. The side named first is the subject: its nouns stand right before its
-verb, with at most "of <figure>" and one adverb ("also", "only", "still", "just", "again") between, and never after a
-preposition. The other side follows the comparative in the same clause.
-- **A move.** A bare side with a rise or fall verb right before the figure, then "faster", "more", "further",
-  "deeper", "steeper" or their opposites and "than" the other side ("costs fell 1.2pp less than revenue": costs minus
-  revenue is +1.2), or the comparative before "than Y by" the figure. The sign is the verb's direction times the
-  comparative's.
-- **A standing.** A side named with "growth", placed by a verb that only places ("was", "ran", "came in"), then a
-  position ("ahead of", "behind", "above", "over", "short of") or "more than" / "less than"; or an active outpacing
-  verb before "Y by" the figure ("beat", "trailed", "lagged"). A side named without "growth" counts only in a year the
-  pack shows the two lines did not both fall (`factcheck.both_fell`, from the gap's revenue inputs; both fell in 22 of
-  144 gap values in each pack version, CVX, DE and TGT in FY2025 among them, all three held out); "outgrew" counts in
-  any year.
+**Fix 7: a growth gap's sign, only where the gate reads it with certainty** (`factcheck.compared_sides`; waves 5
+and 6, reviews 8 and 9). A value labelled "revenue growth minus operating-cost growth" has its sign checked only where
+the clause compares its two sides in one of these forms. The side named first is the subject: its nouns stand right
+before its verb, with at most "of <figure>", its year ("in FY2026"), its figure in brackets ("(3.3%)") and one adverb
+("also", "only", "still", "just", "again") between, and never after a preposition. The other side follows the
+comparative in the same clause.
+- **A move.** A bare side with a rise or fall verb right before the figure, after "has", "have" or "had" or none,
+  then "faster", "more", "further", "deeper", "steeper" or their opposites and "than" the other side ("costs fell 1.2pp
+  less than revenue": costs minus revenue is +1.2), or the comparative before "than Y by" the figure. The sign is the
+  verb's direction times the comparative's.
+- **A standing.** A side named with "growth", placed by a verb that only places ("was", "ran", "came in") or by none
+  ("with revenue growth 2.1pp ahead of operating-cost growth"), then a position ("ahead of", "behind", "above", "over",
+  "short of") or "more than" / "less than"; or an active outpacing verb before "Y by" the figure ("beat", "trailed",
+  "lagged"). A side named without "growth" counts only in a year the pack shows the two lines did not both fall
+  (`factcheck.both_fell`, from the gap's revenue inputs; both fell in 22 of 144 gap values in each pack version, CVX, DE
+  and TGT in FY2025 among them, all three held out; `tests/unit/test_trend_depth_both_fell.py` pins the 22, years in
+  which costs fell further than revenue, and a year revenue fell while costs rose); "outgrew" counts in any year.
+- **In a certain form the cited gap settles the claim** (review 9). Where the clause compares a cited gap's sides in
+  one of these forms, the figure is that gap: the unsigned difference of the two growths cited beside it ("pp
+  D373-D358", the same quantity) no longer settles a sign the clause gives the other way. At 09a5b1a all 188 false
+  mirrors of today's drivers form (fix 10) with both growths added passed.
 - **Every other form is read by magnitude, with no direction verdict:** an appositive after a comma, a participle, the
   passive, a side named as its fall, a move of a growth rate, one side unnamed, a side another metric names. The match
-  stays "cited", so the semantic audit sees the stored signed value (view 2). For a gap of two margins of one year,
-  only standings are read; `gap_direction` reads the same forms (fix 12).
-- **Effect.** On the 101 sentences of reviews 6 to 8 and the candidate prompt's forms (wave 5's working files, run on
-  both pack versions with the backstops), the 54 true ones all pass; the reader before failed 20 of them, each a repair
-  message that could push the model to the false mirror. 11 of the 47 false ones pass by magnitude (10 before), among
-  them CVX's "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs" (D379 is -1.22pp) and its mirrors on DE and
-  TGT, ORCL's passive and CAT's passive margin standing (§4). `tests/unit/test_trend_depth_factcheck.py` holds 74
-  certain-form sentences and 49 read by magnitude on the committed values (`CERTAIN`, `BY_MAGNITUDE`).
+  stays "cited", so the semantic audit sees the stored signed value (view 2).
+- **A gap of two levels of one year** (net margin minus operating margin; `factcheck._level_standing`, review 9) has no
+  both-fell reading, so it is read as e505700 read it, in any wording: the margin named last before a position after
+  the figure, or before an outpacing verb, and not after a preposition, is placed against the other margin after it
+  ("held net margin at 31.4%, 6.5pp below the 24.9% operating margin", "left net margin 6.5pp under operating margin",
+  the verbless "net margin 5.2pp below operating margin"). Wave 5 had read only a standing whose subject, right before
+  its verb, is one margin, so these wordings went unchecked, among them the appositive the frozen prompt's own example
+  invites ("..., 6.5pp above operating margin"), which K0 and P read (review 9).
+  Two forms stay unread: the passive ("net margin was exceeded by operating margin by 3.4pp"), where "by", not the
+  other side, follows the verb, and a move of two levels ("net margin fell 3.4pp more than operating margin"), which
+  is not their gap; e505700 read both, and failed the true passive and that move. The gate leaves this gap unsigned:
+  `gap_direction` checks its sign by this reading (fix 12).
+- **Effect.** On the 127 sentences of reviews 6 to 9 and the candidate prompt's forms (101 of reviews 6 to 8, 26 of
+  review 9; the waves' working files, run on both pack versions with the backstops), the 67 true ones all pass; the
+  reader before wave 5 failed 20 of reviews 6 to 8's 54, each a repair message that could push the model to the false
+  mirror. 11 of the 60 false ones pass by magnitude, the same 11 as in wave 5, among them CVX's "Revenue fell 4.6% in
+  FY2025, 1.2pp less than operating costs" (D379 is -1.22pp) and its mirrors on DE and TGT, ORCL's passive and CAT's
+  passive margin standing (§4). A generated sweep gives no wrong verdict: every growth gap of every pack in 12
+  certain forms (3,360 true sentences and their 3,360 mirrors), and every same-year margin gap in 10 forms, cited on
+  packs-v2 and as the two margins on packs (3,020 true sentences and 3,020 mirrors). At 09a5b1a 1,960 of those
+  growth-gap mirrors and 1,812 of the margin-gap ones passed.
+- **Tests.** `tests/unit/test_trend_depth_factcheck.py` holds 92 certain-form sentences (44 true, 48 false mirrors)
+  and 49 read by magnitude, on fixtures of the committed values (`CERTAIN`, `BY_MAGNITUDE`; wave 5 said 74, but
+  `CERTAIN` held 69, review 9); a true sentence and its false mirror for every word of every certain form, 192 pairs
+  (`WORD_MIRRORS`), with a test that each top-level alternative of each pattern has a word there; and 20 sentences of
+  the level reading.
 - **On the records.** `python -m evals.trend_depth.replay --base e505700` flips no recorded sentence and moves no pass
-  count, with or without the backstops. Over every recorded output (377 outputs, 11,284 sentences: eval-v1, dev-v3,
-  dev-v4, plant-sem and the gold examples) no probe verdict changes either. One match label does: Sonnet's dev-v4 REGN
-  "operating costs outgrew it by 4.4pp" is now read by magnitude ("it" names no side), still verified.
+  count, with or without the backstops; nor does `--base 09a5b1a`. Over every recorded output (377 outputs, 11,284
+  sentences: eval-v1, dev-v3, dev-v4, plant-sem and the gold examples) no probe verdict changes either. One match
+  label does against e505700: Sonnet's dev-v4 REGN "operating costs outgrew it by 4.4pp" is now read by magnitude
+  ("it" names no side), still verified. Of the 31 recorded same-year margin-gap sentences, no true one is hit and
+  every mirror fails (09a5b1a missed 2: dev-v3 DeepSeek REGN, eval-v1 Sonnet NEE).
 
-**Fix 10: the drivers instruction asks for both growths, not their gap** (after wave 5). The plan's wording, "when
-both fell, say which fell more", invited the appositive "Revenue fell 4.6% in FY2025, 1.2pp less than operating
-costs", whose false mirror fix 7 can only read by magnitude (§4). The candidate now says: "Compare operating-cost
-growth with revenue growth by stating both, each with its own figure and direction ('revenue fell 9.4% while
-operating costs fell 6.1%'), citing both; do not restate the gap between them as 'Xpp more' or 'less'." Each growth
-then carries its own direction word, which the gate has always checked against the cited growth's sign. The frozen
-prompt (K0, P) keeps its wording, so a gap mirror there is measured by the Opus audit alone.
+**Fix 10: the drivers comparison is one form the gate reads with certainty** (wave 6, review 9). The candidate (Q and
+C) now says: "Compare operating-cost growth with revenue growth in this one form, using the pack's 'revenue growth
+minus operating-cost growth' value where it has one: 'operating costs grew 1.4pp faster than revenue' (or 'slower'),
+or, if operating costs fell, 'operating costs fell 2.3pp less than revenue' (or 'more'). Cite the value and print it
+without its sign: a negative value means operating costs grew faster, or fell less, than revenue; one that rounds to
+0.0pp means they moved in line with it. Where the pack also gives operating-cost growth, you may add it after the
+comparison ('..., at 7.2%'). Write the comparison in no other form."
+- **Why this form.** It is fix 7's move, whose sign is the verb's direction times the comparative's. "Grew ...
+  faster" and "fell ... less" both put costs ahead of revenue, so a wrong choice of verb (costs that fell said to
+  have "grown ... slower") still gives the right sign: only the English suffers, never the figure (§4). No committed
+  pack prints a gap of 1.4 or 2.3pp, or a revenue or operating-cost growth of 7.2%, so no example is a company's.
+- **Verified on every pack** (`tests/unit/test_trend_depth_prompt_examples.py` reads the form from the prompt and runs
+  it on all 40 packs, 658 sentences; wave 6's working table runs `check` with and without the backstops). On the 17
+  packs with a gap value (COP, JPM and USB have none), in both versions and every year, the form as prescribed passes
+  282 of 282 and its mirror (the comparative flipped) fails 282 of 282; with the pack's operating-cost growth added,
+  188 of 188 and 188 of 188, and with both growths added, the same. Six pack-years print 0.0pp and state no sign (COST
+  FY2018 and FY2022 and SNAP FY2023, in each version). In the latest year, the same on both versions, operating costs
+  grew slower than revenue at AMD, COST, DUK, MSFT, NVDA, RIVN and SNAP, grew faster at CAT, NEE, ORCL, PG and REGN,
+  fell less at CVX, DE and TGT, and fell more at KO and VRTX.
+- **Tried and withdrawn: both growths** (09a5b1a). After wave 5 the candidate asked for both growths instead, each
+  with its own figure and direction word, both cited, and not the gap ("revenue fell 9.4% while operating costs fell
+  6.1%"). Four packs carry no operating-cost growth, in either version: PG and COST (development) and KO and TGT (held
+  out), whose gap is built from revenue less operating income. There the true sentence failed the gate ("matches
+  nothing the sentence cites"), a repair K0 never pays, while a cost-of-revenue or SG&A growth said as operating costs
+  passed. Its premise, that each growth's direction word is checked against the cited growth, held only where the
+  pack has that growth.
+- **Before that,** the candidate at e505700 said "Compare operating-cost growth with revenue growth, each with its own
+  direction (rose / fell); when both fell, say which fell more", which invited the appositive "Revenue fell 4.6% in
+  FY2025, 1.2pp less than operating costs", whose false mirror fix 7 reads by magnitude only (§4).
+- **The frozen prompt (K0, P) keeps its own wording,** "(operating leverage: incremental margin, operating-cost growth
+  against revenue growth)" (`prompts/frozen-d558d371.md`), beside its rule that a difference "needs both figures cited
+  in that sentence". A gap mirror there fails the gate in a certain form; in any other form it passes, for every arm,
+  and only the Opus audit of K0 measures it, a flag on it counting even where the sentence cites the gap with both
+  growths, K0's recorded form (fix 14). P has no audit, so a P gap mirror outside the certain forms is not measured.
 
 **Fix 8: debt and cash breaks in pack version 2** (`packs-v2/README.md`).
 - **Withheld, not dropped.** Every ID built on a broken year stays in the pack, so a version-1 output still checks against it, but the render does not show it (`withheld`).
 - **Debt breaks.** These are found by line tests:
   - `debt_break`: the long-term debt line is missing or zero while debt is still evident;
   - a debt onset: a smaller debt line first appears and total debt jumps while interest expense does not follow. DE's FY2016–FY2019 total debt is long-term debt only;
-  - a debt double count (review 8): the long-term line already holds the current line total debt adds to it. The filer's own figure decides: its noncurrent debt and leases, less the noncurrent leases its same 10-K reports, equal the long-term line less the current line within a quarter of the current line (had the long-term line left the current portion out, the two would differ by the whole current line). Only a long-term tag that may hold its current portion is read, beside a current line above 1% of it. It names TGT FY2016–FY2018 as a `debt_break` check and withholds TGT's total debt and its growth there (D14, D33, D82; D62, D109, D156; its net cash was already withheld). Among the peers it names BA, PH and UPS, so CAT's checked industrials median leaves out BA FY2025, PH FY2026 and UPS FY2025 and moves from -38.0% (n=6) to -59.4% (n=3).
+  - a debt double count (review 8): the long-term line already holds the current line total debt adds to it. The filer's own figure decides: its noncurrent debt and leases, less the noncurrent leases its same 10-K reports, equal the long-term line less the current line within a quarter of the current line (had the long-term line left the current portion out, the two would differ by the whole current line). Only a long-term tag that may hold its current portion is read, beside a current line above 1% of it. It names TGT FY2016–FY2018 as a `debt_break` check and withholds TGT's total debt and its growth there (D14, D33, D82; D62, D109, D156; its net cash was already withheld). Among the peers of the 20 it names BA, PH and UPS (and, outside them, T in the media group, which no evaluation company reads), so CAT's checked industrials median leaves out BA FY2025, PH FY2026 and UPS FY2025 and moves from -38.0% (n=6) to -59.4% (n=3).
 - **The implied-rate test detects no break.** It fires on none of the 20 outside the break spans, and inside them it misses most first years.
 - **Liquidity breaks** (`liquidity_break`): a cash or investment line missing in one year (COP, MSFT, NVDA, ORCL), or short-term investments already inside cash (TGT).
 - **Checked peer ranks.** A version-1 net-cash peer rank or median built on a peer's broken year is withheld (`peer_break`). Where three or more peers pass the same tests it is replaced by a checked rank under a new ID: PG, CAT, COST, AMD, DUK and NEE; RIVN keeps none.
@@ -557,14 +610,16 @@ prompt (K0, P) keeps its wording, so a gap mirror there is measured by the Opus 
 
 **Fix 12: two backstops beyond the plan** (`probes.py`; each a gate failure under `--pipeline v2`).
 - **`gap_direction`.** Net margin said to be above or below operating margin against the sign of the same year's gap: the cited "net margin minus operating margin" value, or the difference of the two margins the gate matched.
-  - It reads only the forms the gate reads a gap's sides in with certainty (`factcheck.compared_sides`, fix 7: net margin the subject, in the active voice, operating margin after the comparative, "3.4pp more than" and "over" included). A passive ("net margin was exceeded by operating margin by 3.4pp") or any other form is left alone (review 8).
+  - It reads a gap of two levels as the gate does (`factcheck.compared_sides`, `_level_standing`, fix 7; review 9): the margin named last before a position after the figure, or before an outpacing verb, against the other margin after it, in any wording, as e505700 read it ("held net margin at 31.4%, 6.5pp below the 24.9% operating margin", "left net margin 6.5pp under operating margin", "Net margin of 13.1% trailed operating margin by 3.4pp"). The passive ("net margin was exceeded by operating margin by 3.4pp") and a move of two levels ("net margin fell 3.4pp more than operating margin") are left alone. Wave 5's narrowing to a margin named as the subject had let the false mirrors of the other wordings pass, among them the appositive the frozen prompt's example invites.
+  - Review 9's 28 wordings on both pack versions, each true and mirrored (112 verdicts), are all right (09a5b1a passed 44 mirrors). Of the 31 recorded same-year gap sentences no true one is hit and all 31 mirrors are caught (09a5b1a 29).
   - The gate reads no direction into a same-year gap, so this is its sign check on either pack version. A sign error on packs-v2's cited gap therefore falls in the same row for P and C as for K0.
   - It finds no hit in eval-v1.
-- **`broken_debt`.** A figure version 2 withholds, cited by its ID, or the same figure rebuilt from the lines version 2 shows: a line of a break year under a total's name, or beside a total of another year. Plain "debt" is the total, but debt named by a maturity after it ("debt due within one year", "debt maturities", "$1.0 billion of debt matured") is that line, and so is a figure said to fall due ("Of Deere's debt, $13.8 billion falls due within a year"; review 8). In a double count only a figure on both lines is broken, their sum whatever it is called: TGT's cash with its short-term investments, and TGT's FY2016–FY2018 long-term line with its current line, where the long-term line alone is the right total under any name ("Debt was $11.7 billion in FY2016 [X175]" passes; wave 5's integration, since without it that check failed this true sentence in P's and C's gate, with a repair message pointing at the double count). It is excused only by a disclosure in a clause about debt or cash (`probes.discloses`, the one rule that the gate, the stated sentences and the analysis's state all read): the data checks' words, or the break said plainly of the line it is about, as the candidate prompt asks ("long-term debt is absent", "not available", "has no value", "disappears", "ignores long-term debt", "the pack carries no long-term debt", "carries FY2025 short-term investments but none for FY2026"; review 8). The same words about another line or about the company ("with buybacks absent", "as Coca-Cola carries no long-term debt") disclose nothing.
+- **`broken_debt`.** A figure version 2 withholds, cited by its ID, or the same figure rebuilt from the lines version 2 shows: a line of a break year under a total's name, or beside a total of another year. Plain "debt" is the total, but debt named by a maturity after it ("debt due within one year", "debt maturities", "$1.0 billion of debt matured") is that line, and so is a figure said to fall due ("Of Deere's debt, $13.8 billion falls due within a year"; review 8), unless the sentence names an explicit total as the figure's own ("Total debt of $13.8 billion is due within one year", "Net debt of $5.5 billion matures by FY2026" state the total; review 9), not as the whole it is part of ("Of Deere's total debt, $13.8 billion falls due" is the line). In a double count only a figure on both lines is broken, their sum whatever it is called: TGT's cash with its short-term investments, and TGT's FY2016–FY2018 long-term line with its current line, where the long-term line alone is the right total under any name ("Debt was $11.7 billion in FY2016 [X175]" passes; wave 5's integration, since without it that check failed this true sentence in P's and C's gate, with a repair message pointing at the double count). It is excused only by a disclosure in a clause about debt or cash (`probes.discloses`, the one rule that the gate, the stated sentences and the analysis's state all read): the data checks' own words, so that an echo of any clause of a packs-v2 debt or liquidity check discloses its break (`_CHECK_WORDS`: "not reported", "reported as zero", "omit them", "this pack leaves them out", "already inside long-term debt", TGT's "tags ... together" and "the long-term line less the current portion", "count it twice"; review 9), or the break said plainly of the data about the line, as the candidate prompt asks: "long-term debt is absent from the pack", "disappears from the data", "has no value in the pack", "has no reported value", "no long-term debt reported", "goes unreported", "no long-term debt figure", "not available", "ignores long-term debt", "the pack carries no long-term debt", "which the pack drops", "is not in the data", "carries FY2025 short-term investments but none for FY2026" (reviews 8 and 9). The same words about another line or about the company disclose nothing: "with buybacks absent", "as Coca-Cola carries no long-term debt", and "as long-term debt disappeared from the balance sheet", a misread deleveraging that review 8's forms had counted as a disclosure. So, since wave 6, "absent", "gone", "disappears" or "has no value" with no word of the data ("long-term debt has no value after FY2023") disclose nothing either: the company may be the one without debt.
   - The gate's backstop reads the arm's own pack, so it fires only for P and C, as `packs/` records no break.
   - The report's measure reads `packs-v2/`'s breaks for every arm.
-  - Review 7's 42 broken sentences are all caught. Its 3 false failures, and 59 correct sentences on the 9 break companies' packs, pass (re-run on wave 5's code and packs). Review 8's six sentences on debt that falls due (DE, CVX, COP) and its plain disclosures now pass.
-  - Over every recorded output, wave 5 moves no `broken_debt` hit; one sentence's disclosure changes, dev-v3 Sonnet NVDA's "the pack carries FY2025 short-term investments [X188] but none for FY2026", which states no broken figure.
+  - Review 7's 42 broken sentences are all caught. Its 3 false failures, and 59 correct sentences on the 9 break companies' packs, pass (re-run on wave 5's code and packs). Review 8's six sentences on debt that falls due (DE, CVX, COP) pass, and so do its plain disclosures, except "has no value" with no word of the data (wave 6).
+  - Review 9's 44 debt and disclosure cases are all right (27 wrong at 09a5b1a, 23 at e505700): the misread deleveraging counts again on KO, CVX, DE and COP, a total that falls due counts on DE, and every clause of every packs-v2 debt or liquidity check (29 clauses on 9 companies) discloses, on its own and echoed after its company's broken figure.
+  - Over every recorded output, wave 5 moves no `broken_debt` hit; one sentence's disclosure changes, dev-v3 Sonnet NVDA's "the pack carries FY2025 short-term investments [X188] but none for FY2026", which states no broken figure. Wave 6 moves no gate, probe, `broken_debt` or disclosure verdict against 09a5b1a.
 - **The logic checks are measures, never failures** (`MEASURE_KINDS`).
 
 **The measurement nonce** (not in the plan). Under `--pipeline v2`, each user message opens with a nonce of the label, arm and ticker (`generate.analysis_nonce`, recorded as `nonce`), and its repair repeats it.
@@ -588,7 +643,12 @@ therefore leaves out the in-call retries the arms' runs keep.
   - On eval-v1 this changes the view of 126 of DeepSeek's 1,459 verified claims and 120 of Sonnet's 1,458.
   - It adds about 7% to view 2's audit message: 18,810 to 20,169 characters on average over eval-v1's 40 DeepSeek and Sonnet audits.
 - **Message size against view 1** (measured on the same 40 audits, review 8 measures [1]). View 2's user message is about 22% longer than the one Opus read under view 1 (20,169 against 16,596 characters on average, with the same 73 items), and its SYSTEM is 2,900 characters against 786, so the whole input is about 33% longer (23,069 against 17,382). By a fit of 80 recorded Opus audits' cost on their characters and items ($0.0165 an audit, $2.58 per million characters, $0.00104 an item; R² 0.91), input is about a third of an audit's cost, so view 2 adds about $0.015 an audit.
-- **One quantity, one flag label** (review 8 measures [0]). `classify_flag` counts a mismatch flag as ambiguous only when two differently labelled quantities match the figure. A cited derived value whose inputs, unit and signed value are those of another matching calculation is that calculation: packs-v2's same-year gap [D693] is PG's net margin [F50] less its operating margin [F30]. Before, an Opus flag on C's sentence that cites [D693], as the candidate prompt asks, was dropped as ambiguous, while the same flag on K0's sentence without it counted. None of the 146 recorded mismatch flags changes class.
+- **One quantity, one flag label** (review 8 measures [0]; review 9 measures [0], arm-fairness [3]). `classify_flag` counts a mismatch flag as ambiguous only when two quantities with different labels match the figure. Two candidates are one quantity only by the pack's own record of how a value is built, with the same unit and signed value, never by the value alone:
+  - a window low, high or median is the point of its series it equals (`_selected`): packs-v2's appended operating cash flow / net income window low [D721] is COST's FY2022 value [D225];
+  - a cited value is the gate's calculation over what the pack computes it from (`_operands`, `_computed_as`): its inputs (packs-v2's same-year gap [D693] is PG's net margin [F50] less its operating margin [F30]); for the growth gap, the two growths where the pack holds the operating-expense growth (95 of 144 gaps in each version; its recorded inputs are revenue and operating income, its fallback basis), so CVX's [D379] is the gate's "pp D358-D373"; for a metrics-table value, the series its formula names in its period, or, for a CAGR, its series at the window's two ends (AMD's [F231] is "CAGR F1->F10 over 9y");
+  - or the inverse of a sum or difference it is an operand of: ORCL's operating cash flow [F84] is its free cash flow [F104] plus its capex [F94]. This one goes beyond what review 9 named; without it a flag on ORCL's eval-v1 sentence of the three figures would count on free cash flow but not on operating cash flow.
+
+  Before, a sentence that also cited what a figure is computed from shielded every flag on the figure, while the same sentence citing less counted: K0's recorded gap sentence with both growths (eval-v1 DeepSeek CVX "...outran cost reduction by 1.2pp [D373][D358][D379]") and its false mirror, a CAGR cited with its two levels, a margin with its numerator and denominator, and C's year value beside the window low packs-v2 appends; wave 5 had merged only a cited value into a calculation over exactly its recorded inputs. Different metrics that print one number stay two labels: USB's two 2.8% CAGRs, VRTX's buybacks and its buybacks plus dividends (it pays none), MSFT's bridge residual, PG's and TGT's gap against cost-of-revenue growth. Of the 146 recorded mismatch flags one changes class: plant-sem's planted relabel at REGN, "Operating cash flow compounded at 12.8% a year" [F1][F10][F198], flagged by V4 Pro, from ambiguous to substantive; no eval-v1 flag moves. Over every recorded output 315 of 9,755 verified claims would class differently if flagged, all from ambiguous to substantive (eval-v1 DeepSeek's ambiguous claims 163 to 114 of 1,459, Sonnet's 157 to 118 of 1,458).
 - **No record carries a view yet.** Step 0's re-audit is the first under view 2.
 
 ### Tested separately, not in the candidate
@@ -690,13 +750,13 @@ All measures are reported per split (development, held out) and per run, as a ra
 | Real first-try gate errors per analysis | Distinct failing claims (and causes without a passage) of the model's own first output, before the code's retyping, under the gate now without backstops; known artefacts subtracted by hand. A figure stated without its own ID counts here in every arm, as no code adds it | 0.68 (17 in 25, frozen prompt): eval-v1 0.40 (8 in 20; development half 3 in 10), dev-v4 1.8 (9 in 5) | 0.04 (1 in 25; eval-v1's 2 are artefacts) | 0.15 or less |
 | First-try backstop hits per analysis | Distinct claims the backstops fail beyond the gate's, broken net cash apart (its own row); each one a repair under `--pipeline v2` | 0.90 (18 in 20) | 0 (0 in 20) | — |
 | Mislabels per 1,000 verified claims, probes alone | Distinct sentences with a probe hit R1, R2a, R2c or R3, over every output. This is the basis every arm shares, as P and Q have no Opus audit. A sentence stating broken net cash is counted there instead | 8.2 (12 sentences in 1,459 claims) | 0.0 (0 in 1,458) | — (read beside the next row) |
-| Real mislabels per 1,000 verified claims | Distinct sentences, over the outputs Opus read (K0 and C): probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand. A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash. These are view-1 audits; step 0 gives view 2's | About 0.7 (1 after reading; 5 before, 3.4) | 3.5 or less in each run |
+| Real mislabels per 1,000 verified claims | Distinct sentences, over the outputs Opus read (K0 and C): probe hits R1, R2a, R2c and R3 plus Opus substantive flags, read by hand; a flag on a figure cited beside what the pack computes it from counts as on the figure alone (§2, "As built", fix 14). A sentence stating broken net cash is counted there instead; U1, unitless dollars and the margin-gap direction have rows of their own | About 8.9 (13 sentences in 1,459 claims after reading; 15 before, 10.3). §1.2's 14 included TGT's net-debt sentence, now counted under broken net cash. These are view-1 audits; step 0 gives view 2's | About 0.7 (1 after reading; 5 before, 3.4) | 3.5 or less in each run |
 | Judgement share, outside watch | Sentence types | 0.8% (4 of 530) | 3.8% (20 of 527) | 3–12% |
 | Evaluative words in fact and comparison sentences | Lexicon (`backend/evals/trend_depth/calibration.py`), outside arc and watch | 5.8% (19 of 330) | 2.2% (7 of 312) | 3% or less |
 | Watch items with forecast wording | Lexicon, read by hand | 11 of 60 by the lexicon; about 7 after reading (§1.3) | 1 of 60 | 2 or fewer per 60 |
 | Unsigned falls | U1 | 1 | 0 | 0 (guard) |
-| Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction`, the sign check on a same-year margin gap, cited or as two margins' difference. The gate leaves that gap unsigned, so a sign error on it lands in this row for every arm | 2 (COST); 0 | 0; 0 | — |
-| Broken net cash stated as fact | Analyses of a company whose `packs-v2/` pack names a debt or liquidity break (COP, CVX, DE, KO, ORCL, TGT, USB; MSFT and NVDA liquidity only). Its breaks are read for every arm: a withheld figure cited by its ID, or rebuilt from the lines `packs-v2/` still shows (a line of a break year under a total's name, plain "debt" included but not debt named by a maturity or a figure said to fall due, or beside a total of another year; in a double count, TGT's cash with its short-term investments and its FY2016–FY2018 long-term line with its current line, only the two lines' sum). A sentence discloses a break only in a clause about debt or cash, in the data checks' words or the break said plainly of its line (`probes.discloses`). The lines version 2 names only in an `unmapped_line` check (CAT's current portion of long-term debt, KO's investments), and those no test names (`packs-v2/README.md`, "Not detected"), are outside this measure | 6 of 9 stated as fact (debt break 4 of 7: COP, CVX, DE, KO; liquidity break 2 of 5: NVDA, TGT); 1 disclosed (USB) | 2 of 9 stated as fact (debt break 1 of 7: DE; liquidity break 1 of 5: TGT); 5 disclosed | 0 stated as fact |
+| Unitless dollars; net margin's direction against operating margin | Probes `unitless_dollars`; `gap_direction`, the sign check on a same-year margin gap, cited or as two margins' difference, in any wording that places one margin against the other (the passive and a move of two levels aside; §2, "As built", fix 12). The gate leaves that gap unsigned, so a sign error on it lands in this row for every arm | 2 (COST); 0 | 0; 0 | — |
+| Broken net cash stated as fact | Analyses of a company whose `packs-v2/` pack names a debt or liquidity break (COP, CVX, DE, KO, ORCL, TGT, USB; MSFT and NVDA liquidity only). Its breaks are read for every arm: a withheld figure cited by its ID, or rebuilt from the lines `packs-v2/` still shows (a line of a break year under a total's name, plain "debt" included but not debt named by a maturity, nor a figure said to fall due unless a total is named as its own, or beside a total of another year; in a double count, TGT's cash with its short-term investments and its FY2016–FY2018 long-term line with its current line, only the two lines' sum). A sentence discloses a break only in a clause about debt or cash, in the data checks' own words or the break said plainly of the data about its line, never of the company (`probes.discloses`). The lines version 2 names only in an `unmapped_line` check (CAT's current portion of long-term debt, KO's investments), and those no test names (`packs-v2/README.md`, "Not detected"), are outside this measure | 6 of 9 stated as fact (debt break 4 of 7: COP, CVX, DE, KO; liquidity break 2 of 5: NVDA, TGT); 1 disclosed (USB) | 2 of 9 stated as fact (debt break 1 of 7: DE; liquidity break 1 of 5: TGT); 5 disclosed | 0 stated as fact |
 | Sentences stating a broken figure | The same, each sentence that states one without disclosing the break in that sentence, whatever the analysis says elsewhere | 13 | 6 | 0 |
 | Version-1 peer ranks on a peer's broken year | `peer_break`: only an arm reading `packs/` can cite one, so informational | 7 sentences in 7 analyses | 7 in 7 | — |
 | Cause support | Opus causes audit | 76% / 23% / 1% | 76% / 22% / 1% | Guard: at least 72% supported, at most 2% unsupported, at least 6 cause sentences per analysis |
@@ -719,8 +779,17 @@ commit, in the §3 measures table of its "all: 20 companies" section. dev-v4's c
 Wave 5 (review 8) changed one printed baseline: the broken-net-cash row's debt-break denominator, 6 to 7, as TGT's
 FY2016–FY2018 double count is a debt break (DeepSeek 4 of 7, Sonnet 1 of 7; the held-out half 3 of 6 and 1 of 6).
 Every other row prints as before: the gate's new gap reading and disclosure forms, the double count's sum rule and the
-flag merge (none of 146 recorded flags changes class) move no recorded verdict, and the removal of auto-citation
+flag merge (none of 146 recorded flags changed class then) move no recorded verdict, and the removal of auto-citation
 touches no baseline record, as eval-v1 and dev-v4 ran version 1 (the report's own-ID row went with it).
+
+Wave 6 (review 9) changes no baseline. The eval-v1 and dev-v4 reports print a `summary.json` identical, byte for
+byte, to wave 5's; only the report's wording of the ambiguous class changes. The gate's certain forms (the subject's
+year or bracketed figure, a verbless standing, a cited gap that settles a certain form), its level reading, the
+disclosures tied to the data and the total that falls due move no gate, probe, `broken_debt` or disclosure verdict on
+any recorded output (377 outputs, 11,284 sentences). Of the 146 recorded mismatch flags the one that changes class
+(§2, "As built", fix 14) is plant-sem's, under the V4 Pro auditor, which no row reads. `repair_replay --dry-run` lists
+the same 21 cases, 11 of them eval-v1's, and `python -m evals.trend_depth.retype` prints the same counts (eval-v1:
+20 first passes, 12 failing, 11 after retyping, 6 and 5 by the gate alone; dev-v4: 5, 4, 4, 4, 4).
 
 ### When to stop
 
@@ -776,7 +845,10 @@ an audit grew with its input instead, step 0 would cost about $7.2.
 - **Calibration may not move the judge as far as the measures suggest.** Opus's calibration notes also cite uncited "so / as" inferences, and the word lexicon is only a proxy. DeepSeek's sentence-type mix also turns on single words in section instructions, so any prompt edit can shift types elsewhere. Watch the full type mix every run.
 - **Unconfirmed record.** The earlier prompt texts in `calibration/prompt_v*.md` are reconstructions; the dev-v3 records carry no prompt hash. The "one judgement" finding rests on that reconstruction.
 - **The gate's judgement tier** is described in `factcheck.py` but not enforced, and the prompt's rule is stricter than the grounding rule's Tier 4. This needs a decision.
-- **Growth-gap mirrors the gate passes by magnitude** (fix 7). A false sign in a form the gate does not read with certainty passes it, for every arm alike: "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs" on CVX (the gap is -1.22pp), and its mirrors on DE and TGT, all held out. The plan's drivers wording ("when both fell, say which fell more") invited that appositive; the candidate prompt now asks for both growths instead (As built, fix 10), and the frozen prompt keeps it. Only the Opus audit of K0 and C, which sees the signed value under view 2, can catch them; P and Q have no audit. Older, and untouched: a false sign in any form passes when the sentence also cites both growth rates, as their unsigned difference settles the claim.
+- **Growth-gap mirrors the gate passes by magnitude** (fix 7). A false sign in a form the gate does not read with certainty passes it, for every arm alike: "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs" on CVX (the gap is -1.22pp), and its mirrors on DE and TGT, all held out. The candidate prompt's drivers wording at e505700 ("when both fell, say which fell more") invited that appositive; the candidate now prescribes fix 7's move, which the gate reads with certainty (As built, fix 10). The frozen prompt never had that wording: it asks only for "operating-cost growth against revenue growth", so K0 and P may write the gap in any form. Only the Opus audit of K0 and C, which sees the signed value under view 2, can catch such a mirror, and since wave 6 a flag on it counts even where the sentence also cites both growths, K0's recorded form (fix 14); P and Q have no audit, so their mirrors outside the certain forms are not measured. Narrowed in wave 6: a false sign in a certain form now fails even when the sentence also cites both growth rates, whose unsigned difference used to settle the claim; outside the certain forms the gap is read by magnitude either way.
+- **Lines moving opposite ways** (fix 10). Where revenue rose and operating costs fell (KO FY2025, VRTX FY2025), the prescribed true sentence reads "operating costs fell 9.7pp more than revenue", odd English beside a revenue that grew. "Grew 9.7pp slower" also passes: its verb is wrong for costs that fell, but no figure or sign is. A wrong sign fails in either wording. The judge may mark the English down.
+- **Plain disclosures that fail closed** (fix 12, wave 6). "Long-term debt has no value after FY2023" or "is absent after FY2023", with no word of the data, no longer disclose a break, since the same words describe a company that repaid its debt: P and C get a repair for such a sentence, and the measure counts it as stated. The words the checks themselves use, and any plain form that names the data ("absent from the pack", "has no reported value"), still disclose.
+- **Known, not fixed (older than e505700).** "$13.8 billion of total debt is due within a year", the total named after the figure as the whole, still counts as a broken figure. The generic words "missing", "unavailable" and "drops out" still disclose without a word of the data, so "went missing from the balance sheet" excuses a broken figure.
 - **Production data.** Long-term debt mapping breaks in 6 of 20 packs, and TGT's long-term tag already holds the current portion its total debt adds (FY2016–FY2018, which version 2 names). It probably also affects peers' net cash, the peer medians and the production metrics table. Version 2 also finds lines the pack never sums:
   - CAT's long-term debt due within one year and KO's short-term investments (`unmapped_line`);
   - others no test sees, among those `packs-v2/README.md` lists under "Not detected": TGT's FY2019 double count, AMD's FY2023 and FY2025 current portion counted twice (its FY2025 net cash reads $6,456m against $7,330m), CVX's and COP's long-term lines (CVX FY2016–FY2017 and FY2020–FY2021, COP FY2017–FY2020), and PG's available-for-sale securities. Every arm sees them alike, and the broken-net-cash measure does not count them. A test that reads one tag's meaning fails on another filer, so only the shape the filer's own figures decide is named.

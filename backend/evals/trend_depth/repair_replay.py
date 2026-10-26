@@ -6,7 +6,11 @@
 A case is a ``deepseek-flash`` first pass recorded under ``--sources`` (eval-v1, dev-v4 and dev-v3 by default): the
 model's own output (a repaired record's ``first_pass_output``, else its ``output``) that version 2 would still send
 to a repair after its code's retyping (``generate.fix_first_pass``: the retyping, then the gate with its backstops, on
-the pack the arm reads; no code adds an ID). Each case goes ``--repeats`` times (default 2) through generate's own
+the pack the arm reads; no code adds an ID). That is the model's own output in a version-1 record, as every default
+source is. A version-2 record's ``first_pass_output``, and its ``output`` when no repair ran, is the copy its run
+already retyped: the gate's verdict on it is the run's, so the cases are the same, but a first pass that passed only
+after retyping is listed as passing "as written" (``records.first_output``, which the report, ``replay`` and
+``retype`` read, takes the model's own reply). Each case goes ``--repeats`` times (default 2) through generate's own
 version-2 repair (``generate.repair_or_mark``: the patch request, then the full repair if the patches are
 unusable), through the real provider call, as the control arm ``deepseek-flash`` (the frozen prompt on packs/), whose
 client here retries nothing within a call (``REPLAY_ARM``: a timeout or a dropped connection is a provider error).

@@ -11,6 +11,13 @@ stated, no sentence ended at an abbreviation, every sentence printing it up to t
 claim its own parsed figure; and instructions that read a twin as a name for that one value and a sign as part of the
 match. Each view is built as ``semantics.audit`` builds it, from the gate's own match of the sentence.
 
+Flag classes (``classify_flag``; reviews 8 and 9, measures [0], arm-fairness [3]): a figure cited beside what the
+pack computes it from is one quantity, so a flag on it counts as it does when the figure is cited alone, for K0's
+sentences on packs/ and C's on packs-v2 alike (a growth gap with both growths, a CAGR with its levels, a margin with
+its numerator and denominator, a window low, high or median with its point, packs-v2's operating cash flow / net
+income window figures, a sum's inverse); different metrics that print one number stay two; and every committed
+derivation the rule reads is the gate's own calculation.
+
 The module is imported over a stub bootstrap, as in ``test_trend_depth_stages.py``, so the real bootstrap (which
 rewrites the process's database and AI settings) never loads and no model is called.
 """
@@ -299,6 +306,10 @@ def _flag_class(semantics: Any, text: str, claim: str, pack: dict[str, Any]) -> 
     return semantics.classify_flag(item, [{"section": "margins", "type": "comparison", "text": text}], pack, 2)
 
 
+def _cited(text: str) -> list[str]:
+    return [i for g in factcheck.CITATION_RE.findall(text) for i in factcheck.ID_RE.findall(g)]
+
+
 @pytest.mark.parametrize("wording", ["sat 4.3pp above the 22.7% operating margin", "exceeded the 22.7% operating margin by 4.3pp"])
 def test_a_cited_gap_and_its_two_margins_are_one_quantity(semantics: Any, wording: str) -> None:
     # PG FY2026 on packs-v2: D693 is net margin F50 (18.44%) less operating margin F30 (22.69%), -4.25pp, which the gate
@@ -324,6 +335,188 @@ def test_only_a_derived_value_equal_to_the_calculation_of_its_inputs_merges(sema
     pack["values"]["D1"]["inputs"] = inputs
     assert _flag_class(semantics, "Net margin of 10.0% was 5.0pp above the 5.0% operating margin [F1][F2][D1].", "5.0pp",
                        pack) == expected
+
+
+# --- One quantity by the pack's own derivation (review 9 measures [0], arm-fairness [3]) ------------------------------
+# A flag counts (substantive) or not (ambiguous) by the quantities that match its figure. A figure cited beside what
+# the pack computes it from is one quantity, so its flag counts as the same figure's does when cited alone: the class
+# must not depend on how many IDs the sentence carries, as the frozen prompt's sentences carry the gap with both
+# growths and the candidate prompt's carry the year value with packs-v2's window low. Each row: the sentence citing
+# both, the same sentence citing less, and the figure. True sentences and their false mirrors alike: a flag counts the
+# same either way, and only a false one should draw it.
+ONE_QUANTITY = [
+    # CVX FY2025 (held out): the growth gap D379 (-1.22pp) is revenue growth D358 (-4.64%) less operating-expense growth
+    # D373 (-3.42%), though its inputs list revenue and operating income. eval-v1 DeepSeek's (K0's) own sentence, true,
+    # and its false mirrors, which the gate passes by magnitude, so that the Opus audit alone can catch them (§4).
+    pytest.param("CVX", "Operating costs fell 3.4% while revenue fell 4.6%, so the revenue decline outran cost reduction by "
+                 "1.2pp [D373][D358][D379].",
+                 "Operating costs fell 3.4% while revenue fell 4.6%, so the revenue decline outran cost reduction by "
+                 "1.2pp [D379].", "1.2pp", id="CVX gap, K0's recorded sentence"),
+    pytest.param("CVX", "Operating costs fell 3.4% while revenue fell 4.6%, so cost reduction outran the revenue decline by "
+                 "1.2pp [D373][D358][D379].",
+                 "Operating costs fell 3.4% while revenue fell 4.6%, so cost reduction outran the revenue decline by "
+                 "1.2pp [D379].", "1.2pp", id="CVX gap, its false mirror"),
+    pytest.param("CVX", "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs [D358][D373][D379].",
+                 "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs [D358][D379].", "1.2pp",
+                 id="CVX gap, the appositive mirror"),
+    # DE FY2024: its gap's inputs (revenue, operating income) are complete, yet not what it is computed from.
+    pytest.param("DE", "In FY2024 revenue fell 15.6% while operating costs fell only 11.9% [D367][D382], a 3.7pp gap [D389].",
+                 "In FY2024 revenue fell 15.6% while operating costs fell only 11.9%, a 3.7pp gap [D389].", "3.7pp",
+                 id="DE gap, K0's recorded sentence"),
+    # AMD: the revenue CAGR F231, a metrics-table value with no inputs, is FY2016's and FY2025's revenue [F1][F10].
+    pytest.param("AMD", "Revenue compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in FY2025 "
+                 "[F1][F10][F231].", "Revenue compounded at 26.0% a year [F231].", "26.0%", id="AMD CAGR, true"),
+    pytest.param("AMD", "Operating cash flow compounded at 26.0% a year from $4,319 million in FY2016 to $34,639 million in "
+                 "FY2025 [F1][F10][F231].", "Operating cash flow compounded at 26.0% a year [F231].", "26.0%",
+                 id="AMD CAGR, relabelled"),
+    # PG FY2026: operating margin F30 is "100 * operating_income / revenue", F20 over F10.
+    pytest.param("PG", "Operating margin was 22.7% in FY2026 on operating income of $19.7 billion and revenue of $87.0 "
+                 "billion [F30][F20][F10].", "Operating margin was 22.7% in FY2026 [F30].", "22.7%", id="PG margin, true"),
+    pytest.param("PG", "Net margin was 22.7% in FY2026 on operating income of $19.7 billion and revenue of $87.0 billion "
+                 "[F30][F20][F10].", "Net margin was 22.7% in FY2026 [F30].", "22.7%", id="PG margin, relabelled"),
+    # CAT FY2025 (development): the margin change D476 is FY2025's margin F30 less FY2024's, which the window high D1122
+    # is (eval-v1 Haiku's sentence, an Opus flag classed ambiguous before), and its mirror.
+    pytest.param("CAT", "Operating margin of 16.5% [F30] is above its 14.3% window median [D1123] but 3.7pp below the "
+                 "FY2024 high of 20.2% [D476][D1122].", "Operating margin fell 3.7pp in FY2025 [D476].", "3.7pp",
+                 id="CAT margin change against the window high, true"),
+    pytest.param("CAT", "Operating margin of 16.5% [F30] is above its 14.3% window median [D1123] but 3.7pp above the "
+                 "FY2024 high of 20.2% [D476][D1122].", "Operating margin rose 3.7pp in FY2025 [D476].", "3.7pp",
+                 id="CAT margin change against the window high, its mirror"),
+    # Fix 3's operating cash flow / net income window figures, which packs-v2 appends (C reads them, K0 cannot):
+    # COST's window low D721 is its FY2022 value D225, NVDA's D850 its FY2026 value D435 (development), CAT's median
+    # D1158 its FY2022 value D291. The mislabel is fix 3's own class, free cash flow for operating cash flow.
+    pytest.param("COST", "Free cash flow was 1.26x net income in FY2022 [D225], the window low [D721].",
+                 "Free cash flow was 1.26x net income in FY2022 [D225], the lowest of the window.", "1.26x",
+                 id="COST window low, relabelled"),
+    pytest.param("COST", "Operating cash flow was 1.26x net income in FY2022 [D225], the window low [D721].",
+                 "Operating cash flow was 1.26x net income in FY2022 [D225], the lowest of the window.", "1.26x",
+                 id="COST window low, true"),
+    pytest.param("NVDA", "Free cash flow was 0.86x net income in FY2026 [D435], the window low [D850].",
+                 "Free cash flow was 0.86x net income in FY2026 [D435], the lowest of the window.", "0.86x",
+                 id="NVDA window low, relabelled"),
+    pytest.param("CAT", "Free cash flow was 1.16x net income in FY2022 [D291], the window median [D1158].",
+                 "Free cash flow was 1.16x net income in FY2022 [D291], the median of the window.", "1.16x",
+                 id="CAT window median, relabelled"),
+    # ORCL FY2026 (eval-v1 DeepSeek): free cash flow F104 is operating cash flow F84 less capex F94, so each of the three
+    # is the gate's calculation over the other two (an inversion of the pack's own formula), and its relabel.
+    *[pytest.param("ORCL", f"{lead} rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed {tail} "
+                   "to -$23.7 billion [D426][F84][D406][F94][F104].",
+                   f"{lead} rose 53.6% to $32.0 billion, 47.5% of revenue, but capex of $55.7 billion pushed {tail} "
+                   "to -$23.7 billion [D426][F84][D406][F104].", claim, id=f"ORCL {claim}, {kind}")
+      for lead, tail, kind in (("Operating cash flow", "free cash flow", "true"), ("Free cash flow", "operating cash flow",
+                                                                                  "relabelled"))
+      for claim in ("$32.0 billion", "$55.7 billion", "-$23.7 billion")],
+]
+
+
+@pytest.mark.parametrize("ticker, cited_with, cited_without, claim", ONE_QUANTITY)
+def test_a_figure_cited_beside_what_it_is_computed_from_is_one_quantity(semantics: Any, ticker: str, cited_with: str,
+                                                                       cited_without: str, claim: str) -> None:
+    classes = {}
+    for folder in ("packs", "packs-v2"):
+        pack = _load(folder, ticker)
+        for name, text in (("with", cited_with), ("without", cited_without)):
+            if all(i in pack["values"] for i in _cited(text)):  # packs/ lacks packs-v2's appended IDs
+                classes[(folder, name)] = _flag_class(semantics, text, claim, pack)
+    assert ("packs-v2", "with") in classes and ("packs", "without") in classes  # C's sentence and K0's
+    assert classes == dict.fromkeys(classes, "substantive")
+
+
+# Different metrics that print one number stay two quantities, whatever the sentence cites: the merge reads the pack's
+# derivation, never the value alone.
+DIFFERENT_METRICS = [
+    # USB: two CAGRs of different series, 2.78% and 2.83% (eval-v1 Sonnet, an Opus flag).
+    pytest.param("USB", "From FY2016 to FY2025 net interest income compounded at 4.0% [F115], ahead of noninterest income "
+                 "at 2.8% [F116] and net income at 2.8% [F117].", "2.8%", id="USB two CAGRs"),
+    # VRTX pays no dividend, so its buybacks plus dividends D441 (inputs: buybacks X147 alone) equal its buybacks to
+    # the cent, and their share of free cash flow D442 (inputs D441, F105) equals the gate's buybacks over free cash
+    # flow: one number, two names, neither the pack's calculation of the other. Both names are true, so a flag on the
+    # number is likely the gate's choice of name; only a window figure is the one input it equals.
+    pytest.param("VRTX", "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025 [X147][F105][D442].", "63.2%",
+                 id="VRTX share of free cash flow, no dividend"),
+    pytest.param("VRTX", "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025 [X147][D441][D442].",
+                 "$2.02 billion", id="VRTX buybacks plus no dividend"),
+    # eval-v1 DeepSeek's VRTX sentence (flagged by Opus and V4 Pro): 63.17% and its difference from a -0.04% share
+    # count change, 63.13%.
+    pytest.param("VRTX", "Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share "
+                 "count was unchanged [D441][D442][D459].", "63.2%", id="VRTX recorded sentence"),
+    # MSFT FY2026: the margin's change (+1.16pp) and its bridge's residual (+1.22pp) (eval-v1 Sonnet, an Opus flag).
+    pytest.param("MSFT", "The FY2026 bridge was +1.2pp in total: cost of revenue cost 0.9pp, R&D added 0.8pp and other "
+                 "lines added 1.2pp [D487][D500][D501][D502].", "1.2pp", id="MSFT bridge residual"),
+    # PG FY2026 has no operating-expense line, so its gap D482 (-2.15pp) is revenue growth less the growth of revenue
+    # less operating income, which no pack value holds: the difference of revenue growth D457 and cost-of-revenue
+    # growth D472 (-2.08pp) is another metric (review 9 arm-fairness [0]'s substitute). TGT FY2025 likewise.
+    pytest.param("PG", "In FY2026 revenue rose 3.3% while cost of revenue rose 5.3%, a 2.1pp gap [D457][D472][D482].",
+                 "2.1pp", id="PG gap against cost of revenue"),
+    pytest.param("TGT", "In FY2025 revenue fell 1.7% while cost of revenue fell 1.3%, a 0.4pp gap [D416][D431][D439].",
+                 "0.4pp", id="TGT gap against cost of revenue"),
+]
+
+
+@pytest.mark.parametrize("ticker, text, claim", DIFFERENT_METRICS)
+def test_different_metrics_that_print_one_number_stay_two(semantics: Any, ticker: str, text: str, claim: str) -> None:
+    assert [_flag_class(semantics, text, claim, _load(folder, ticker)) for folder in ("packs", "packs-v2")] == ["ambiguous"] * 2
+
+
+def _window_pack(low_inputs: list[str]) -> dict[str, Any]:
+    values = {"F1": ("Operating margin", "FY2024", 7.5), "F2": ("Operating margin", "FY2025", 5.0),
+              "F3": ("Gross margin", "FY2025", 5.0),
+              "D1": ("Operating margin window low (FY2025)", "FY2024..FY2025", 5.0)}
+    pack = {"values": {vid: {"id": vid, "label": label, "period": period, "unit": "pct", "value": value}
+                       for vid, (label, period, value) in values.items()}, "passages": [], "red_flags": []}
+    pack["values"]["D1"].update(formula="minimum over window", inputs=low_inputs)
+    return pack
+
+
+@pytest.mark.parametrize("text, low_inputs, expected", [
+    ("Net margin was 5.0% in FY2025 [F2], the window low [D1].", ["F2"], "substantive"),   # the low is the year's value
+    ("Net margin was 5.0% in FY2025 [F3], the window low [D1].", ["F2"], "ambiguous"),     # another series, one number
+    ("Net margin was 5.0% in FY2025 [F2], the window low [D1].", ["F1"], "ambiguous"),     # not the point it selected
+])
+def test_a_window_figure_is_only_the_point_of_its_own_series(semantics: Any, text: str, low_inputs: list[str],
+                                                             expected: str) -> None:
+    assert _flag_class(semantics, text, "5.0%", _window_pack(low_inputs)) == expected
+
+
+def test_every_committed_derivation_is_the_gate_s_own_calculation(semantics: Any) -> None:
+    """The derivations ``classify_flag`` reads, on every committed pack of both versions: each growth gap whose pack
+    holds the operating-expense growth is revenue growth less it (95 of 144 per version; the other 49 have no
+    operands), and each metrics-table value the dataset calculated (margins, free cash flow, working capital, the
+    current ratio, CAGRs: 1,112 per version) is the gate's calculation over the series its formula names. A rebuilt
+    pack that breaks one fails here, not silently in the measure."""
+    for folder in ("packs", "packs-v2"):
+        gaps, gaps_found, calculated, calculated_found = 0, 0, 0, 0
+        for path in sorted((RECORDS / folder).glob("*.json.gz")):
+            pack = json.loads(gzip.decompress(path.read_bytes()))
+            series_ids = semantics._series_ids(pack)
+            for (series, _), vid in series_ids.items():
+                value = pack["values"][vid]
+                if series not in semantics._COMPUTED_FROM and value.get("source") != "calculated":
+                    continue
+                operands = semantics._operands(vid, pack, series_ids)
+                gap = series in semantics._COMPUTED_FROM
+                gaps, calculated = gaps + gap, calculated + (not gap)
+                if not operands:
+                    continue
+                found = factcheck.candidates([vid, *sorted(operands)], pack)
+                cited = next(c for c in found if c.how == "cited" and c.ids == (vid,))
+                assert semantics._computed_as(cited, found, pack, series_ids) is not None, (folder, path.name, vid)
+                gaps_found, calculated_found = gaps_found + gap, calculated_found + (not gap)
+        assert (gaps, gaps_found, calculated, calculated_found) == (144, 95, 1112, 1112), folder
+
+
+def test_a_planted_relabel_of_a_cagr_counts(semantics: Any) -> None:
+    """plant-sem's REGN relabel: "Operating cash flow compounded at 12.8% a year" cites the revenue CAGR [F198] with
+    its two levels [F1][F10]. The auditor flagged 12.8% and the flag was classed ambiguous, so that this planted error
+    counted only through the sentence's other flags; it is one quantity, and counts on its own."""
+    run = RECORDS / "runs" / "plant-sem"
+    audit = json.loads((run / "semantics" / "claude-sonnet-5-5" / "REGN.json").read_text())
+    record = json.loads((run / "claude-sonnet-5-5" / "REGN.json").read_text())
+    item = next(i for i in audit["items"] if i["label"] == "mismatch" and i["claim"] == "12.8%")
+    sentences = [s for section in record["output"]["sections"] for s in section["sentences"]]
+    text = next(s["text"] for s in sentences if factcheck.CITATION_RE.sub("", s["text"]).strip() == item["sentence"])
+    assert "Operating cash flow compounded at 12.8%" in text and _cited(text) == ["F1", "F10", "F198"]
+    assert semantics.classify_flag(item, sentences, _load("packs", "REGN"), audit.get("view", 1)) == "substantive"
 
 
 def test_these_tests_leave_the_real_bootstrap_unloaded() -> None:

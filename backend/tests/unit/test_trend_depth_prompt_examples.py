@@ -1,5 +1,6 @@
-"""The candidate prompt's examples copy no evaluation company's figures (DEEPSEEK-ERRORS.md §3 step 0.4), and its
-section rules agree with its sentence budget (below the examples' tests).
+"""The candidate prompt's examples copy no evaluation company's figures (DEEPSEEK-ERRORS.md §3 step 0.4), its section
+rules agree with its sentence budget, and its drivers comparison is a form the gate reads the gap's sign in on every
+committed pack (each below the examples' tests).
 
 Every arm on the candidate prompt reads its examples in every request, so an example that is one of the 20
 companies' gate-passing sentences hands that company's figures and IDs to those arms and skews its results. The test
@@ -213,6 +214,89 @@ def test_a_section_count_against_the_budget_is_caught(old: str, new: str, found:
     text = CANDIDATE.read_text()
     assert old in " ".join(text.split())
     assert budget_disagreements(" ".join(text.split()).replace(old, new)) == found
+
+
+# --- The drivers comparison: one form, read with certainty on every committed pack ----------------------------------
+#
+# The candidate asks Q and C to compare operating-cost growth with revenue growth in one form, citing the pack's
+# "revenue growth minus operating-cost growth" value (review 9: 09a5b1a asked for both growths' figures, which PG, COST,
+# KO and TGT do not carry, so the true sentence failed the gate there and a cost-of-revenue figure under the costs' name
+# passed). The form must be one the gate reads the gap's sign in with certainty (factcheck.compared_sides, a move), so on
+# every pack and every year with that value its true sentence passes and its mirror fails, with and without the
+# backstops; so must the form with the pack's operating-cost growth added, and with both growths, whose unsigned
+# difference is the same quantity.
+_DRIVERS_FORM = re.compile(r'"operating costs (grew|fell) (\d+\.\d)pp (faster|slower|less|more) than revenue"\s*'
+                           r'\(or "(faster|slower|less|more)"\)')
+_FLIP = {"faster": "slower", "slower": "faster", "less": "more", "more": "less"}
+
+
+def drivers_forms(text: str) -> dict[str, tuple[str, str]]:
+    """The candidate's drivers comparison, by verb: (the comparative when operating costs grew more than revenue, or
+    fell less; the other)."""
+    rule = " ".join(section_rules(text)["drivers"].split())
+    found = {verb: (ahead, other) for verb, _, ahead, other in _DRIVERS_FORM.findall(rule)}
+    assert all(_FLIP[ahead] == other for ahead, other in found.values()), found
+    return found
+
+
+def drivers_sentences(pack: dict[str, Any], forms: dict[str, tuple[str, str]]) -> list[tuple[str, str, str]]:
+    """(year, true sentence, its mirror) in the candidate's form for each year the pack gives the gap, and with the
+    pack's operating-cost growth and revenue growth added where it gives both. A gap that prints as 0.0pp has no sign."""
+    keys, values = pack["series_keys"], pack["values"]
+    out = []
+    for key, gap_id in sorted(keys.items()):
+        if not key.startswith("operating_leverage_gap|"):
+            continue
+        year = key.split("|")[1]
+        gap = values[gap_id]["value"]
+        if f"{abs(gap):.1f}" == "0.0":
+            continue
+        revenue_id, cost_id = keys[f"g:revenue|{year}"], keys.get(f"g:operating_expenses|{year}")
+        revenue = values[revenue_id]["value"]
+        verb = "grew" if revenue - gap >= 0 else "fell"  # operating-cost growth is revenue growth less the gap
+        ahead, other = forms[verb]
+        said = ahead if gap < 0 else other  # costs ahead of revenue when revenue growth minus cost growth is negative
+        base = f"Operating costs {verb} {abs(gap):.1f}pp {{}} than revenue in {year}"
+        templates = [f"{base} [{gap_id}]."]
+        if cost_id:
+            cost = values[cost_id]["value"]
+            templates += [f"{base}, at {abs(cost):.1f}% [{gap_id}][{cost_id}].",
+                          f"{base}, {abs(cost):.1f}% against {abs(revenue):.1f}% [{gap_id}][{cost_id}][{revenue_id}]."]
+        out += [(year, t.format(said), t.format(_FLIP[said])) for t in templates]
+    return out
+
+
+def test_the_drivers_comparison_is_the_one_form_the_gate_reads() -> None:
+    assert drivers_forms(CANDIDATE.read_text()) == {"grew": ("faster", "slower"), "fell": ("less", "more")}
+    # 09a5b1a's line asked for both growths' own figures, a form with no gap in it: the test finds no form there.
+    old = ('Compare operating-cost growth with revenue growth by stating both, each with its own figure and direction ("revenue '
+           'fell 9.4% while operating costs fell 6.1%"), citing both; do not restate the gap between them as "Xpp more" or "less".')
+    text = " ".join(CANDIDATE.read_text().split())
+    rule = section_rules(text)["drivers"]
+    assert drivers_forms(text.replace(rule, rule.split(" Compare ")[0] + " " + old)) == {}
+
+
+@pytest.mark.parametrize("name", [name for name, _ in committed_packs()])
+def test_the_drivers_comparison_passes_true_and_fails_its_mirror_on_every_pack(name: str) -> None:
+    pack = dict(committed_packs())[name]
+    forms = drivers_forms(CANDIDATE.read_text())
+    for year, true, mirror in drivers_sentences(pack, forms):
+        for backstops in (False, True):
+            check = factcheck.check([{"section": "drivers", "type": "comparison", "text": true}], pack, backstops=backstops)
+            assert check["passed"], (name, true, check["failures"])
+            failures = factcheck.check([{"section": "drivers", "type": "comparison", "text": mirror}], pack,
+                                       backstops=backstops)["failures"]
+            assert any("other way" in f["failure"] for f in failures), (name, mirror, failures)
+
+
+def test_the_drivers_comparison_reaches_every_pack_with_a_gap() -> None:
+    # Every pack that gives the gap has the form in every such year: 17 of the 20 (COP, JPM and USB give none), the four
+    # without operating-cost growth (PG, COST, KO, TGT) included, in both pack versions.
+    forms = drivers_forms(CANDIDATE.read_text())
+    counted = {name: len(drivers_sentences(pack, forms)) for name, pack in committed_packs()}
+    assert {name for name, count in counted.items() if not count} == {
+        f"{folder}/{ticker}" for folder in FOLDERS for ticker in ("COP", "JPM", "USB")}
+    assert sum(counted.values()) == 2 * (141 + 2 * 94)
 
 
 @pytest.mark.parametrize("paragraph, figures, ids", [

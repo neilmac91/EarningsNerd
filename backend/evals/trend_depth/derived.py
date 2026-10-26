@@ -833,10 +833,14 @@ def debt_double_counted(reg: Registry, periods: list[str], split: dict[str, tupl
     TGT's LongTermDebt is its debt note's "Total notes and debentures", from which the "Amounts due within one year"
     are subtracted after its leases: at FY2016, $11,715m less the $1,718m current line is $9,997m, and its $11,031m of
     noncurrent debt and leases less $1,025m of capital leases is $10,006m, so its total debt of $13,433m [D14] counts
-    $1,718m twice; FY2017 and FY2018 read the same. Among the peers it names BA FY2020-FY2025, UPS FY2023-FY2025 and PH
-    FY2024 and FY2026. A long-term line that leaves the current portion out misses by about the current line (TSLA,
-    MU), and so does a year whose untagged adjustment is about as large: TGT's FY2019 swap valuation adjustment of $137m
-    beside a $161m current line leaves $204m, a year no test names (packs-v2/README.md, "Not detected")."""
+    $1,718m twice; FY2017 and FY2018 read the same. Among the peers of the 20 it names BA FY2020-FY2025, UPS
+    FY2023-FY2025 and PH FY2024 and FY2026, and in the media group, which no evaluation company reads, T FY2019-FY2020
+    and FY2022-FY2025. A long-term line that leaves the current portion out misses by about the current line (TSLA), and
+    so does a current line that holds what the long-term line lacks: MU's LongTermDebt holds its current notes, but its
+    current line also holds current finance leases (all $560m of it at FY2025), so FY2020's $194m of current notes
+    counted twice misses by those leases, $76m against a margin of $67.5m. So does a year whose untagged adjustment is
+    about as large: TGT's FY2019 swap valuation adjustment of $137m beside a $161m current line leaves $204m, a year no
+    test names (packs-v2/README.md, "Not detected")."""
     years = []
     for period in periods:
         line, current, own = _long_term_debt(reg, period), reg.get("debt_current", period), split.get(period)

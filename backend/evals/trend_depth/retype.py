@@ -9,7 +9,8 @@
 cited value's label or of a cited flag's detail, or figure talk such as "offset", "consumed", "flat") is a margin
 bridge or a capital-return sentence mistyped. It becomes a ``comparison``. ``first_pass`` is the whole code step: the
 retyping, then the gate with its backstops on what it leaves. ``generate.fix_first_pass`` records it, and
-``real_failures`` replays recorded first passes through the same function, so the replay decides as a run would.
+``real_failures`` replays the model's own first outputs (``records.first_output``; a version-2 record's
+``first_pass_output`` already carries the retyping) through the same function, so the replay decides as a run would.
 
 **No auto-citation.** Fix 1 appended a figure's missing own ID by code; it was removed. Reviews 6, 7 and 8 each found
 a new class of wrong number its rules licensed (a wrong year, metric, threshold, sign, from-level or base year), while
@@ -35,6 +36,7 @@ from typing import Any, Iterator, Optional
 from evals.trend_depth import factcheck
 from evals.trend_depth.factcheck import CITATION_RE, ID_RE, Claim
 from evals.trend_depth.providers import packs_dir
+from evals.trend_depth.records import first_output
 
 RECORDS = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
 SKIP = ("judge", "causes", "semantics")  # audit and verdict folders beside the systems
@@ -188,11 +190,21 @@ def recorded(records: Path, labels: list[str],
 def real_failures(records: Path, labels: list[str], system: str) -> list[str]:
     """Each first pass of ``system`` that fails the gate or its backstops, through version 2's code (``first_pass``):
     what was retyped, and what remains; then how many first passes would still go to a repair, by the gate with its
-    backstops (as a run decides) and by the gate alone."""
+    backstops (as a run decides) and by the gate alone.
+
+    A first pass is the model's own first output (``records.first_output``): a version-1 record's
+    ``first_pass_output`` (its ``output`` when no repair ran), and a version-2 record's first valid reply, read from its
+    attempts, as its ``first_pass_output`` and its unrepaired ``output`` are the copy the code already retyped. Read
+    from them, a first pass that passed only after retyping would not count as failing, and its retypes would not be
+    listed (review 9, repair-loop [0])."""
     lines, tally = [], Counter()
     for name, record, pack in recorded(records, labels, [system]):
-        first = record.get("first_pass_output") or record["output"]
+        first = first_output(record)
         tally["first passes"] += 1
+        if first is None:
+            tally["first passes with no readable reply"] += 1
+            lines.append(f"{name}: no first reply parses, so nothing is replayed")
+            continue
         before = factcheck.check(_sentences(first), pack, backstops=True)
         if before["passed"]:
             continue

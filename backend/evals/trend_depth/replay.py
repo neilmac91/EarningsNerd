@@ -7,7 +7,7 @@ Calls no model. The base gate is ``factcheck.py`` as committed at ``--base`` (re
 temporary module), so the comparison needs no frozen copy in the tree. Every first pass and every final output
 of every system in ``runs/<label>/`` is checked against the pack that system reads (``packs-v2/`` for the ``-p``
 and ``-c`` arms), and so are the gold examples (``gold.py``); ``current`` keeps no sentences and is skipped. A
-version-2 record's first pass is the model's own first output (``report.first_output``), before the code's
+version-2 record's first pass is the model's own first output (``records.first_output``), before the code's
 retyping (and, in a record made before fix 1 was removed, its auto-citation). A version-2 run decides with the gate
 now and ``backstops=True``, a version-1 run made today with the gate now alone, and eval-v1 decided with the base
 gate. Printed:
