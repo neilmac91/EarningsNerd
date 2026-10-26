@@ -73,28 +73,36 @@ gives none, as across a transition period): writer generations name a year diffe
 Known shapes outside the rule. Reaching the period end does not make a line whole. Condition 4
 closes the shape reachable today: a sync of 2026-10-10 to #1365 read the USD lists alone and stored
 under each 20-F's accession a ratio (a margin, the current ratio) over its own-year convenience
-figures, operands recorded, so an older report's ratio line reached through it and charted its
-oldest year and own year without the one between. The same rows cost the newest 20-F its ratio lines
-in one processing order: when the per-filing writer first ran on it after the native sync, which
-skipped the identity those rows hold, it owns no row of the line and its own year has no CNY ratio,
-so the line falls short. Had the writer run before the native sync, it owns the CNY ratios of the
-two earlier years, the line is owned, and every year shows. The quarterly repair recomputes those
-rows from native operands (`docs/quarterly-data-repair.md`), but only as the Ops
-`repair-quarterly-apply` the founder approves for named tickers; nothing schedules it, and
-`tasks/todo.md` F61 (2) records whether it has run. Few filings can be in that state: only
-summarized filings are processed, and F61 (1)'s count of 2026-10-23 found one classified CNY summary
-and 5 with no recorded currency. Once WP5b's own-report rows land, an older report whose own year a
-later one restated holds that own-report row, in its own currency, beside its oldest year, while the
-middle year's winner sits under the later report's accession: for a line the per-filing writer read
-nothing of, the chart again shows the oldest year and its own without the one between, side by side
-on the categorical axis. No writer on main stores such a row yet; whoever lands the WP5b writer
-settles it, there or with a rule here. A report the writer stored no annual row of takes the
-stand-ins' own currency (condition 4), so at a switched filer, or at a foreign filer not re-synced
-since #1365 whose only stand-ins are the early sync's USD rows, it charts its USD translations, one
-year a line, on the older and the newest 20-F alike (main charted nothing for it). And a 40-F is
-never processed: the summary pipeline fetches XBRL for 10-K, 10-Q and 20-F only
-(`summary_stages/enrichment.py`), so a 40-F's processed gate stays shut and its chart empty, as
-before this reader; its test case holds for when one is.
+figures, operands recorded, so an older report's margin line the writer read nothing of reached
+through it and charted its oldest year and own year without the one between (a balance-sheet ratio
+has no year between: a 20-F gives two balance years). The same rows cost ratio lines in one
+processing order, when the per-filing writer first ran on a report after the native sync, which
+skipped the identities they hold. The newest 20-F then owns no row of a margin or current-ratio line
+and its own year has no CNY ratio, so the line falls short. An older 20-F loses its current-ratio
+line the same way: the native sync holds its older balance's ratio and the early sync its own
+year's, so the writer owns none, and the CNY older balance alone falls short (a margin line it read
+is owned through the middle year, and shows). Had the writer run before the native sync, it owns the
+CNY ratios that sync had not stored (a margin's two earlier years, a current ratio's earlier balance
+year), the line is owned, and every year shows. Main charted none of these lines either: it read the
+writer's rows alone. The quarterly repair recomputes a stored ratio from native operands only where
+the sync's candidate shares its identity (`docs/quarterly-data-repair.md`). That holds for the
+newest report's own-year rows, so its lines return once the repair runs, and not for an older
+report's, whose native own-year ratio sits under the later report's accession, so its current ratio
+does not. The repair runs only as the Ops `repair-quarterly-apply` the founder approves for named
+tickers; nothing schedules it, and whether it has run is unknown (`tasks/todo.md` F61 (2)). Few
+filings can be in that state: only summarized filings are processed, and F61 (1)'s count of
+2026-10-23 found one classified CNY summary and 5 with no recorded currency. Once WP5b's own-report
+rows land, an older report whose own year a later one restated holds that own-report row, in its own
+currency, beside its oldest year, while the middle year's winner sits under the later report's
+accession: for a line the per-filing writer read nothing of, the chart again shows the oldest year
+and its own without the one between, side by side on the categorical axis. No writer on main stores
+such a row yet; whoever lands the WP5b writer settles it, there or with a rule here. A report the
+writer stored no annual row of takes the stand-ins' own currency (condition 4), so at a switched
+filer, or at a foreign filer not re-synced since #1365 whose only stand-ins are the early sync's USD
+rows, it charts its USD translations, one year a line, on the older and the newest 20-F alike (main
+charted nothing for it). And a 40-F is never processed: the summary pipeline fetches XBRL for 10-K,
+10-Q and 20-F only (`summary_stages/enrichment.py`), so a 40-F's processed gate stays shut and its
+chart empty, as before this reader; its test case holds for when one is.
 
 **Evidence**: `backend/app/services/facts/filing_scope.py::annual_filing_rows` and `filing_years`,
 read by `facts/fundamentals.get_filing_fundamentals`; the Copilot already scoped by accession
