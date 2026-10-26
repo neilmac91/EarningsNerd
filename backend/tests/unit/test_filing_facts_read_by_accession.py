@@ -329,6 +329,7 @@ def test_the_scan_scores_every_planted_form():
         "    select(Fact).select_from(sa.outerjoin(Filing, Fact)), orm.join(FinancialFact, Filing, None)\n"
         "    select(Fact).select_from(sa.join(left=Fact, right=Filing))\n"
         "    db.query(FinancialFact).join(Filing.__table__), FinancialFact.__table__.join(Filing.__table__)\n"
+        "    Fact.__table__.join(Company.__table__)\n"
         "    db.query(FinancialFact).join(target=Filing), db.query(FinancialFact).join(Filing, None)\n"
         "    return select(FinancialFact).join_from(FinancialFact, Filing)\n"
         "def look_alikes(db, row, state, fid, name, mapping):\n"
@@ -346,7 +347,7 @@ def test_the_scan_scores_every_planted_form():
         ("direct", "column"): 1, ("through_aliases", "column"): 3, ("module_attribute", "column"): 1,
         ("table_columns", "column"): 2, ("table_columns", "by_name"): 1, ("by_name", "by_name"): 4,
         ("more_by_name", "by_name"): 2, ("owned", "ownership"): 1, ("ownership", "ownership"): 4,
-        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 14,
+        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 15,
     })
     # A relationship on the model, or one to it, loads rows over the same inferred key.
     assert mentions(
