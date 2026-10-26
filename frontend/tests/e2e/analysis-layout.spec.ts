@@ -461,7 +461,7 @@ async function assertNotes(page: Page, state: AnalysisState) {
   if (state === 'discrepancy') {
     // A note that questions the number is named by its letter, places and summary words (data notes version 2).
     await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
-    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values; we show the most recent')
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values (the most recent shown)')
   } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
   if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
   // Never while a note needs review, the legacy state's record-only note included.

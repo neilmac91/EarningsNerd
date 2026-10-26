@@ -89,21 +89,68 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
         assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
 
 
+# The gesture verbs of a page, in every form: words no export or PNG can honour. "Open", "expand" and "follow" are left
+# out, since a sentence about filings uses them in other senses ("opening balance", "the following period").
+PAGE_ACTIONS = re.compile(
+    r"\b(?:select|selects|selected|selecting|click|clicks|clicked|clicking|tap|taps|tapped|tapping|hover|hovers"
+    r"|hovered|hovering|press|presses|pressed|pressing|choose|chooses|chose|chosen|choosing|scroll|scrolls|scrolled"
+    r"|scrolling|swipe|swipes|swiped|swiping|drag|drags|dragged|dragging|toggle|toggles|toggled|toggling)\b",
+    re.IGNORECASE,
+)
+# How a missing figure is drawn differs by surface: the table, the PDF and the bar charts print the dash, a line chart
+# breaks its line and the workbook leaves the cell empty. A range's en dash is sanctioned and passes.
+DRAWING = re.compile(r"\bdash(?:es)?\b|\u2014", re.IGNORECASE)
+# A note's message is read for one figure (the dialog, a workbook comment) and for all of a note's figures at once (the
+# detail, the PDF's and the workbook's lists, the chart footnotes), so it points at neither one nor a set.
+DEICTIC = re.compile(r"\b(?:this|these)\b", re.IGNORECASE)
+
+
+def _surface_problems(words: str, *, clause: bool = False) -> list[str]:
+    problems = [label for label, pattern in (
+        ("asks for a page action the PDF, workbook and PNG cannot offer", PAGE_ACTIONS),
+        ("says how a figure is drawn, which differs by surface", DRAWING),
+        ("points at one figure, though a note can group several", DEICTIC),
+    ) if pattern.search(words)]
+    # The fine print lists a note's places, and joins its clauses, with "; ", so a clause's own would split them.
+    if clause and ";" in words:
+        problems.append("carries a semicolon, which the fine print reads as its own separator")
+    return problems
+
+
+@pytest.mark.parametrize("words, clause", [
+    ("Select it to compare with the filing.", False), ("Selecting it opens the filing.", False),
+    ("Clicking it opens the filing.", False), ("Press it to compare.", False), ("Choose one to see both filings.", False),
+    ("Tap it for the source.", False), ("Hover over it for its inputs.", False), ("Shown as a dash.", False),
+    ("Shown as \u2014, never as zero.", False), ("Filings report different values for this figure.", False),
+    ("Not in our data for these periods.", False),
+    ("the filings report different values; we show the most recent", True),
+])
+def test_the_surface_words_check_fails_what_it_names(words, clause):
+    assert _surface_problems(words, clause=clause)
+
+
+@pytest.mark.parametrize("words, clause", [
+    ("The filing left the table empty.", False), ("The company reported a blank value.", False),
+    ("Covers FY2016\u2013FY2025.", False), ("The opening balance differs from the previous closing balance.", False),
+    ("Restated in the following period.", False), ("The expanded share count differs.", False),
+    ("Calculated before 10 October 2026; shown as stored, with its inputs not linked.", False),
+    ("the filings report different values (the most recent shown)", True),
+])
+def test_the_surface_words_check_passes_ordinary_words(words, clause):
+    assert _surface_problems(words, clause=clause) == []
+
+
 def test_reason_words_hold_on_every_surface_that_prints_them():
     """A note's message prints in the page's data notes and evidence dialog, the PDF, the workbook's comments and
-    Overview and the chart PNG's footnotes, and provenance.ts holds the same words (the fixture above). So no sentence
-    asks for what only the page can do ("Select it to compare"), and none says how a figure is drawn: the page, the PDF
-    and the charts print a gap as a dash, but the workbook leaves its cell empty. The fine print's summary clauses are
-    held alike, since WP3 prints them in the exports too."""
-    sentences = {**REASONS, "(fallback)": _FALLBACK_MESSAGE,
-                 **{f"(summary) {reason}": clause for reason, clause in SUMMARIES.items()},
-                 "(summary fallback)": SUMMARY_FALLBACK}
-    asks = sorted(reason for reason, words in sentences.items()
-                  if re.search(r"\b(select|click|tap|hover)\b", words, re.IGNORECASE))
-    draws = sorted(reason for reason, words in sentences.items()
-                   if re.search(r"\b(dash|blank|empty)\b|[\u2013\u2014]", words, re.IGNORECASE))
-    assert asks == [], f"words that ask for a page action the PDF, workbook and PNG cannot offer: {asks}"
-    assert draws == [], f"words that say how a figure is drawn, which differs by surface: {draws}"
+    Overview and the chart PNG's footnotes, for one figure and for a note's several, and provenance.ts holds the same
+    words (the fixture above). So no sentence asks for what only the page can do ("Select it to compare"), says how a
+    figure is drawn, or points at one figure ("this figure"). The fine print's summary clauses are held alike, since WP3
+    prints them in the exports too, and carry no semicolon of their own."""
+    sentences = [(reason, words, False) for reason, words in {**REASONS, "(fallback)": _FALLBACK_MESSAGE}.items()]
+    sentences += [(f"(summary) {reason}", clause, True)
+                  for reason, clause in {**SUMMARIES, "(fallback)": SUMMARY_FALLBACK}.items()]
+    problems = {reason: found for reason, words, clause in sentences if (found := _surface_problems(words, clause=clause))}
+    assert problems == {}, f"reason words that do not hold on every surface: {problems}"
 
 
 def _probe(validation, *reasons):
@@ -141,7 +188,7 @@ NOTES_PROBE_CITATIONS = [
 # saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest; a version not
 # yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
-    2: "7ede3a16e7998ae8baf39035e5d85d54192122efb3923b4ef0999f9fa72e6ac0",
+    2: "048538a8134b62df4d356a3143ff9320f9b57100ad08258817b7979899666496",
 }
 
 

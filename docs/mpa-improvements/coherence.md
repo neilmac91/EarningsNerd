@@ -859,18 +859,28 @@ Each sentence promises only what the code enforces:
   sentence names what is shown and how to compare.
 
 **As shipped (WP2, #1659).** A reason's words print on every surface: the page's detail, the
-dialog, the PDF, the workbook and the chart PNG. Three proposed sentences changed for that:
-- `not_in_dataset` reads "Not in our data for these periods; never shown as zero." The workbook
-  leaves a gap's cell empty where the page, the PDF and the charts print the dash, so "shown as —"
-  stays in the page's summary line ("3 not in our data, shown as —"), drawn beside the table's own
-  dash. The voice rule also keeps "—" out of a sentence.
+dialog, the PDF, the workbook and the chart PNG. They are read for one figure (the dialog, a
+workbook cell's comment) and once for all of a note's figures (the detail, the PDF's and the
+workbook's lists, the chart footnotes). The proposed sentences changed for that:
+- `not_in_dataset` reads "Not in our data; never shown as zero." The table, the PDF and the bar
+  charts print a gap as the dash, a line chart breaks its line and the workbook leaves the cell
+  empty, so "shown as —" stays in the page's summary line ("3 not in our data, shown as —"),
+  drawn beside the table's own dash. The voice rule also keeps "—" out of a sentence.
 - `source_conflict` and `source_check_needed` stop before "select it to compare": nothing can be
   selected in an export. On the page, the detail's closing line ("Select any figure to see its
   source filing, method and inputs") and the dialog give the way to compare.
+- No reason's words point at one figure. "Different values for this figure" printed above three
+  places in the open detail (chief design's review of #1659), so `source_conflict` reads "The
+  company's filings report different values. We show the most recent filing's value." and every
+  other sentence says "the" or names nothing: "Zero where the previous period had a value."
+- `source_conflict`'s summary clause reads "the filings report different values (the most recent
+  shown)": the summary lists places with "; ", so a clause's own semicolon split the line where
+  the places did.
 
-`backend/tests/unit/test_analysis_data_notes.py` fails a reason's words that ask for a selection or
-say how a figure is drawn. WP5's "select it to see both filings" therefore belongs to the page, not
-to a reason's sentence.
+`backend/tests/unit/test_analysis_data_notes.py` fails a reason's words that ask for a page action,
+say how a figure is drawn or point at one figure ("this", "these"), and a summary clause with a
+semicolon. WP5's "select it to see both filings" therefore belongs to the page, not to a reason's
+sentence.
 
 ### 3.4 Comprehension test
 

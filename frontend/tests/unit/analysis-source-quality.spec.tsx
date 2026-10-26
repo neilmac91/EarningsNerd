@@ -6,7 +6,7 @@ import DataNotes, { DataNotesList } from '@/features/analysis/components/DataNot
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
+import { REASON_SUMMARIES, reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -73,7 +73,7 @@ describe('Financial origin and source checks', () => {
     // A note only on growth figures is named by them: the first three metrics, then a count of the rest.
     const topLine = bank ? 'Net interest income' : 'Revenue'
     expect(summary.querySelector('[data-note-letter="a"]')).not.toBeNull()
-    expect(summary).toHaveTextContent(`${topLine} YoY Q1 2024, Q2 2024, Q3 2024, Q4 2024, Q1 2025, Q2 2025, Q3 2025, Q4 2025; ${topLine} QoQ Q4 2025; Net income YoY Q4 2025 and 3 more: the filings report different values; we show the most recent`)
+    expect(summary).toHaveTextContent(`${topLine} YoY Q1 2024, Q2 2024, Q3 2024, Q4 2024, Q1 2025, Q2 2025, Q3 2025, Q4 2025; ${topLine} QoQ Q4 2025; Net income YoY Q4 2025 and 3 more: ${REASON_SUMMARIES.source_conflict}`)
     // The table's dash itself, a screen reader hearing "a dash" in its place.
     expect(summary).toHaveTextContent('1 not in our data, shown as —')
     expect(within(summary as HTMLElement).getByText('a dash')).toHaveClass('sr-only')
@@ -384,7 +384,7 @@ describe('Financial origin and source checks', () => {
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent(reasonText('not_in_dataset'))
     await userEvent.click(value)
     const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
-    expect(within(dialog).getByText(/Not in our data for these periods/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Not in our data; never shown as zero/)).toBeInTheDocument()
     expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
   })
 

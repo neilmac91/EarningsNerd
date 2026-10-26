@@ -46,7 +46,8 @@ workbook and the chart PNG offer nothing to select (its high-tier review).
   (`email_verified`) and scope the claim to what those reads do.
 - A sentence one map feeds to several surfaces (a data note's reason) promises on each of them. Keep
   a page action ("select it") and a surface's drawing ("shown as a dash") out of it, and say them
-  on the surface that does them.
+  on the surface that does them. Where a surface prints it once for several figures, it points at
+  no one figure ("this figure").
 - When a correction rewrites one sentence, grep for the same claim elsewhere (another component, a
   comment, a record, a mail) and fix or hand off every copy in the same change.
 - An error's remedy is a promise for every path that sends its code: read each raise site before

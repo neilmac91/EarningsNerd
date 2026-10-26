@@ -270,7 +270,7 @@ class TestMetricsSheet:
         assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
 
     def test_a_gap_stays_empty_and_its_note_says_no_dash(self, workbook):
-        # The page, the PDF and the charts print a gap as a dash; the workbook leaves its cell empty, so the note it
+        # The table, the PDF and the bar charts print a gap as a dash; the workbook leaves its cell empty, so the note it
         # carries here and in the Overview says only that the figure is not in our data, never zero (data notes v2).
         cell = workbook["Metrics"]["E3"]
         assert cell.value is None
@@ -304,7 +304,7 @@ class TestMetricsSheet:
         })
         alternative = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]["G3"]
         assert alternative.value == 0.5 and alternative.number_format == "0.0%"
-        assert alternative.comment.text.startswith("Data note a: The company’s filings report different values for this figure.")
+        assert alternative.comment.text.startswith(f"Data note a: {REASONS['source_conflict']}")
 
     def test_quarterly_dataset_omits_window_columns(self):
         quarterly = _dataset()
