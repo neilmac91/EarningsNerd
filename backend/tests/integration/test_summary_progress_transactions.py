@@ -1,5 +1,8 @@
-"""E214 on PostgreSQL: ``summary_generation_service.record_progress`` writes a filing's progress row in one
-``INSERT … ON CONFLICT (filing_id) DO UPDATE``, so another transaction's clear or insert of the row cannot fail the run.
+"""E214 and E215 on PostgreSQL: another transaction's write of a filing's progress row cannot fail a run's progress
+write or the progress poll, nor have the poll overwrite it.
+
+E214: ``summary_generation_service.record_progress`` writes the row in one
+``INSERT … ON CONFLICT (filing_id) DO UPDATE``.
 
 - A clear committed just before the write: the write inserts a fresh row. Before E214 the write's UPDATE matched no
   row, and SQLAlchemy raised ``StaleDataError``.
@@ -13,7 +16,26 @@
 
 A seeded row's last write comes 10 s after its start, so a count from the last write, not from the start, shows.
 
-``tests/unit/test_progress_write_is_one_upsert.py`` holds the write's columns, and the first two races, on SQLite.
+E216: an admitted run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on the error row
+an earlier run left, and clears its error; before E216 it kept that row's ``started_at``. Production runs PostgreSQL,
+so the restart is held there as well as on SQLite.
+
+E215: the progress poll (``progress_poll_answer``) marks a stalled row, one whose stage is not terminal and whose last
+write is older than ``STALE_PROGRESS_SECONDS``, a retryable error in one UPDATE by filing on those criteria, and reads
+the row after it.
+
+- A clear committed just before the mark: the poll answers "pending". Before E215 the poll flipped the row it had read
+  in memory, its commit's UPDATE matched no row, and SQLAlchemy raised ``StaleDataError`` (a 500).
+- A run's write committed just before the mark: the row keeps it, and the poll answers it. Before E215 the stall's
+  error overwrote it.
+- A run's write, or a clear, holding the row uncommitted as the mark runs: the mark waits for it; after its commit the
+  mark matches nothing, and the poll answers the write, or "pending" after the clear; after its rollback it marks
+  the row. Before E215 the mark's UPDATE matched the row by its key: after a write's commit it overwrote the
+  write, and after a clear's it matched no row.
+
+``tests/unit/test_progress_write_is_one_upsert.py`` holds the write's columns, and E214's first two races, on SQLite;
+``tests/unit/test_orphaned_progress.py`` holds the mark's criteria, E215's first two races and a clear just after
+the mark's commit, on SQLite.
 PROGRESS_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify summary progress concurrency on
 PostgreSQL"); each case owns a disposable schema, and without the variable they skip.
 """
@@ -32,7 +54,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
-from app.models import Company, Filing, SummaryGenerationProgress
+from app.models import Company, Filing, Summary, SummaryGenerationProgress
 from app.services import summary_generation_service
 
 # The statement that writes the progress table: the UPDATE or INSERT before E214, or the upsert's INSERT.
@@ -58,7 +80,7 @@ def postgres_engine():
         conn.execute(CreateSchema(schema))
     try:
         Base.metadata.create_all(
-            engine, tables=[Company.__table__, Filing.__table__, SummaryGenerationProgress.__table__])
+            engine, tables=[Company.__table__, Filing.__table__, Summary.__table__, SummaryGenerationProgress.__table__])
         yield engine
     finally:
         with engine.begin() as conn:
@@ -86,11 +108,12 @@ def filing_id(postgres_engine) -> int:
         return filing.id
 
 
-def _seed(engine, filing_id, *, age_seconds):
+def _seed(engine, filing_id, *, age_seconds, stage="fetching", error=None):
     started_at = NOW - timedelta(seconds=age_seconds)
     with _session(engine) as db:
-        db.add(SummaryGenerationProgress(filing_id=filing_id, stage="fetching", started_at=started_at,
-                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0))
+        db.add(SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=started_at,
+                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0,
+                                         error=error))
         db.commit()
     return started_at
 
@@ -218,3 +241,106 @@ def test_writers_of_a_filing_with_no_row_each_succeed_on_one_row(postgres_engine
         event.remove(postgres_engine, "before_cursor_execute", before)
     [row] = _rows(postgres_engine, filing_id)
     assert row["stage"] in stages and row["started_at"] == NOW
+
+
+def test_a_runs_first_write_restarts_the_clock_on_an_earlier_runs_row(postgres_engine, filing_id):
+    _seed(postgres_engine, filing_id, age_seconds=7200, stage="error", error="Pipeline timeout")
+    with _session(postgres_engine) as db:
+        summary_generation_service.record_progress(db, filing_id, "fetching", starts_run=True)
+    assert _rows(postgres_engine, filing_id) == [{"stage": "fetching", "started_at": NOW, "elapsed_seconds": 0.0}]
+    assert _states(postgres_engine, filing_id) == [{"stage": "fetching", "error": None}]
+
+
+# E215: the progress poll's stale mark.
+STALLED = summary_generation_service.STALE_PROGRESS_SECONDS + 3600
+
+
+def _poll(engine, filing_id):
+    with _session(engine) as db:
+        return summary_generation_service.progress_poll_answer(db, filing_id)
+
+
+def _states(engine, filing_id):
+    with _session(engine) as db:
+        return [{"stage": row.stage, "error": row.error}
+                for row in db.query(SummaryGenerationProgress).filter_by(filing_id=filing_id)]
+
+
+def test_a_clear_committed_just_before_the_mark_answers_pending(postgres_engine, filing_id):
+    _seed(postgres_engine, filing_id, age_seconds=STALLED)
+    with _just_before_the_write(postgres_engine, lambda other: _clear(other, filing_id)) as ran:
+        answer = _poll(postgres_engine, filing_id)
+    assert ran, "the clear did not run before the mark"
+    assert answer == {"stage": "pending", "elapsedSeconds": 0}
+    assert _states(postgres_engine, filing_id) == []
+
+
+def test_a_write_committed_just_before_the_mark_is_kept_and_answered(postgres_engine, filing_id):
+    _seed(postgres_engine, filing_id, age_seconds=STALLED)
+
+    def write(other):
+        summary_generation_service.record_progress(other, filing_id, "analyzing")
+
+    with _just_before_the_write(postgres_engine, write) as ran:
+        answer = _poll(postgres_engine, filing_id)
+    assert ran, "the write did not run before the mark"
+    assert (answer["stage"], answer["error"]) == ("analyzing", None)
+    assert _states(postgres_engine, filing_id) == [{"stage": "analyzing", "error": None}]
+
+
+def _hold_a_write(db, filing_id):
+    # A run's write, as record_progress's conflict update makes it.
+    db.query(SummaryGenerationProgress).filter_by(filing_id=filing_id).update(
+        {"stage": "analyzing", "updated_at": NOW, "error": None}, synchronize_session=False)
+
+
+_HELD = {"write": _hold_a_write, "clear": _clear}
+# What the poll answers, and the filing's rows, once the holder ends: a committed write leaves the row fresh, so the
+# mark leaves it, and a committed clear leaves nothing; after a rollback the mark finds the stalled row it read.
+_AFTER_COMMIT = {"write": [{"stage": "analyzing", "error": None}], "clear": []}
+_MARKED = [{"stage": "error", "error": summary_generation_service.STALLED_ERROR}]
+
+
+@pytest.mark.parametrize("holder", ["write", "clear"])
+@pytest.mark.parametrize("commit_holder", [True, False])
+def test_a_mark_behind_an_uncommitted_holder_waits_and_follows_its_outcome(
+        postgres_engine, filing_id, holder, commit_holder):
+    _seed(postgres_engine, filing_id, age_seconds=STALLED)
+    entered = threading.Event()
+    finished = threading.Event()
+
+    def before(conn, cursor, statement, parameters, context, executemany):
+        if WRITE.match(statement):
+            entered.set()
+
+    def poll():
+        try:
+            return _poll(postgres_engine, filing_id)
+        finally:
+            finished.set()
+
+    with _session(postgres_engine) as holding:
+        _HELD[holder](holding, filing_id)  # the uncommitted write or clear holds the row
+        event.listen(postgres_engine, "before_cursor_execute", before)
+        try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(poll)
+                try:
+                    assert entered.wait(5), "the poll did not reach its mark"
+                    if finished.wait(0.2):
+                        future.result(timeout=5)  # a poll that raised shows its own error
+                        pytest.fail(f"the mark passed an uncommitted {holder}")
+                finally:
+                    if commit_holder:
+                        holding.commit()
+                    else:
+                        holding.rollback()
+                answer = future.result(timeout=6)
+        finally:
+            event.remove(postgres_engine, "before_cursor_execute", before)
+    rows = _AFTER_COMMIT[holder] if commit_holder else _MARKED
+    if rows:
+        assert {"stage": answer["stage"], "error": answer["error"]} == rows[0]
+    else:
+        assert answer == {"stage": "pending", "elapsedSeconds": 0}
+    assert _states(postgres_engine, filing_id) == rows

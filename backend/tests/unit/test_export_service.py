@@ -15,6 +15,7 @@ import csv
 import io
 import re
 import xml.etree.ElementTree as ET
+import zlib
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +50,12 @@ def _closing_note(html: str) -> list[str]:
 
 def _csv_rows(csv_text: str) -> list[list[str]]:
     return list(csv.reader(io.StringIO(csv_text.removeprefix("\ufeff"))))
+
+
+def _inflated(pdf: bytes) -> bytes:
+    """A compressed PDF's streams, inflated: WeasyPrint packs the catalog into a Flate object stream."""
+    return b"".join(zlib.decompress(stream) for stream in re.findall(rb"stream\n(.*?)\nendstream", pdf, re.S)
+                    if stream[:1] == b"\x78")
 
 
 def _full_sections():
@@ -159,7 +166,7 @@ class TestPdfHtml:
         summary, filing = _make_summary_and_filing(_full_sections())
         html = service.generate_pdf_html(summary, filing)  # would raise AttributeError pre-fix
         assert isinstance(html, str)
-        assert "<html>" in html
+        assert '<html lang="en">' in html
 
     def test_includes_every_section(self, service):
         summary, filing = _make_summary_and_filing(_full_sections())
@@ -701,7 +708,7 @@ class TestAnalysisPdfHtml:
         assert "annual_minus_ytd" in html
         assert "2500 USD (2024-01-01 to 2024-12-31)" in html
         assert "a" * 64 in html and "quarterly-v2" in html
-        assert "2026-07-01T09:00:00Z" in html
+        assert "Source data as of July 1, 2026, 09:00 UTC</span> · " in html and "2026-07-01T09:00:00Z" not in html
         assert "finance-lease principal" in html
         assert "do not appear in the filings" not in html
         assert "This analysis was generated" not in html
@@ -865,6 +872,78 @@ class TestAnalysisPdfHtml:
         assert period_label("FY2022..FY2024") == "FY2022\u2013FY2024" and period_label("2024Q1..2025Q4") == "Q1 2024\u2013Q4 2025"
         assert period_label("held in FY2021..FY2021, then FY2022..FY2024") == "held in FY2021, then FY2022\u2013FY2024"
 
+    def test_the_company_and_the_instants_read_as_the_page_prints_them(self):
+        """WP3-A: the title takes the page's display name, never EDGAR's capitals, and each instant reads as
+        words with its zone named, never raw ISO with microseconds; the summary PDF keeps its own (§0 flag 11)."""
+        from datetime import datetime
+
+        analysis = self._analysis()
+        analysis.updated_at = datetime(2026, 10, 24, 20, 26, 7, 435743)  # naive, as SQLite returns it
+        analysis.dataset_json["data_as_of"] = "2026-10-24T20:21:42.435743Z"
+        regn = SimpleNamespace(name="REGENERON PHARMACEUTICALS, INC.", ticker="REGN")
+        html = ExportService().generate_analysis_pdf_html(analysis, regn)
+        assert "<h1>Regeneron Pharmaceuticals, Inc. · Multi-Period Analysis</h1>" in html and "REGENERON" not in html
+        assert '<span class="clause">Generated October 24, 2026, 20:26 UTC</span> · <span class="clause">Exported ' in html
+        assert re.search(r"Exported [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC</span><br><span class=\"clause\">"
+                         r"Source data as of October 24, 2026, 20:21 UTC</span> · Dataset version", html)
+        assert ".435743" not in html and "T20:" not in html
+        # No name: the ticker titles it. No record: the meta line says so. A value that is not an instant: as stored.
+        analysis.updated_at, analysis.dataset_json["data_as_of"] = None, "Legacy refresh"
+        html = ExportService().generate_analysis_pdf_html(analysis, SimpleNamespace(name=None, ticker="REGN"))
+        assert "<h1>REGN · Multi-Period Analysis</h1>" in html
+        assert "Generated Not recorded</span> · " in html and "Source data as of Legacy refresh</span> · " in html
+
+    def test_the_meta_line_breaks_between_clauses_never_inside_an_instant(self):
+        """Chief design on f7593b13: page 1's meta line broke inside the export instant ("Exported October 25,
+        2026, 14:17" / "UTC"). A real WeasyPrint layout of the meta line, with the PDF's stylesheet, every 10pt
+        from 120pt to 500pt: the "Generated …", "Exported …" and "Source data as of …" clauses each sit whole on
+        one line, and from 210pt, wider than the widest clause, every line fits the line's box."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from datetime import datetime
+
+        from weasyprint.formatting_structure import boxes
+
+        analysis = self._analysis()
+        analysis.updated_at = datetime(2026, 10, 24, 20, 26, 7)
+        analysis.dataset_json["data_as_of"] = "2026-10-24T20:21:42Z"
+        html = ExportService().generate_analysis_pdf_html(analysis, self._company())
+        clauses = re.findall(r"(?:Generated|Exported|Source data as of) [A-Z][a-z]+ \d{1,2}, \d{4}, \d{2}:\d{2} UTC",
+                             re.sub(r"<[^>]+>", "", html))
+        assert len(clauses) == 3, clauses
+        # The meta line alone, in the PDF's own head: the layout under test, without laying out the whole report.
+        html = re.sub(r'(<div class="meta">.*?</div>).*(</body>)', r"\1\2", html, count=1, flags=re.S)
+        try:
+            weasyprint.HTML(string=html).render()
+        except Exception as exc:  # missing system libs in odd envs: not what this test reads
+            pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+        broken, overflowing = {}, {}
+        for width in range(120, 501, 10):
+            narrowed = html.replace("</head>", f"<style>.meta {{ width: {width}pt; }}</style></head>", 1)
+            page = weasyprint.HTML(string=narrowed).render().pages[0]
+            meta = next(box for box in page._page_box.descendants()
+                        if box.element is not None and box.element.get("class") == "meta" and isinstance(box, boxes.BlockBox))
+            lines = [line for line in meta.descendants() if isinstance(line, boxes.LineBox)]
+            texts = ["".join(text.text for text in line.descendants() if isinstance(text, boxes.TextBox)) for line in lines]
+            assert len(lines) >= 3, (width, texts)
+            broken[width] = [clause for clause in clauses if not any(clause in text for text in texts)]
+            if width >= 210:  # 1pt is 4/3 CSS px; a line's content is its children's extent
+                overflowing[width] = [text for line, text in zip(lines, texts)
+                                      if max(child.position_x + child.margin_width() for child in line.children)
+                                      - meta.content_box_x() > width * 4 / 3 + 0.5]
+        assert {width: split for width, split in broken.items() if split} == {}
+        assert {width: wide for width, wide in overflowing.items() if wide} == {}
+
+    def test_display_instant_reads_an_instant_as_words_with_its_zone(self):
+        from datetime import datetime, timedelta, timezone
+
+        from app.services.analysis_export_metadata import display_instant
+
+        assert display_instant(datetime(2026, 7, 6)) == "July 6, 2026, 00:00 UTC"  # a naive value is UTC
+        assert display_instant(datetime(2026, 7, 6, 1, 30, tzinfo=timezone(timedelta(hours=2)))) == "July 5, 2026, 23:30 UTC"
+        assert display_instant("2026-10-24T20:21:42.435743Z") == "October 24, 2026, 20:21 UTC"
+        assert display_instant("2026-01-15") == "January 15, 2026, 00:00 UTC"
+        assert [display_instant(value) for value in (None, "", "not a date", "2026-13-01")] == [None] * 4
+
     def test_titles_ranges_and_note_scopes_read_in_the_voice(self):
         """F07, F12, F20, F21: the title takes a middot, the appendix heading sentence case, the
         window key its en-dash range, and each note's scope its singular and no zero clause."""
@@ -986,6 +1065,39 @@ class TestBrandedShell:
             assert "GeistMono-latin.woff2" in html
             assert '"Page " counter(page) " of " counter(pages)' in html
             assert "EarningsNerd · earningsnerd.io" in html
+
+    @pytest.mark.asyncio
+    async def test_both_pdfs_carry_their_metadata_and_a_structure_tree(self, service):
+        """WP3-A: the inspection read a metadata of {'Producer'} alone and an untagged file. The shell names
+        the document (title, language, author, generator; the analysis its subject) and every export asks
+        WeasyPrint for a tagged PDF, which the bytes each export method ships carry."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from app.services.pdf_branding import PDF_OPTIONS
+
+        assert PDF_OPTIONS["pdf_tags"] is True
+        expected = {
+            "analysis": ("Test & Co · Multi-Period Analysis", "TST · Annual · FY2022–FY2024"),
+            "summary": ("BIOGEN INC. · 10-K summary", None),
+        }
+        for name, html in (("analysis", self._analysis_html()), ("summary", self._summary_html(service))):
+            assert html.startswith('<!DOCTYPE html>\n<html lang="en">'), name
+            try:
+                document = weasyprint.HTML(string=html).render()
+            except Exception as exc:  # missing system libs in odd envs: not what this test reads
+                pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+            metadata = document.metadata
+            assert (metadata.title, metadata.description) == expected[name], name
+            assert (metadata.lang, metadata.authors, metadata.generator) == ("en", ["EarningsNerd"], "EarningsNerd"), name
+            assert b"/StructTreeRoot" in document.write_pdf(uncompressed_pdf=True, **PDF_OPTIONS), name
+        analysis = TestAnalysisPdfHtml()
+        shipped = {
+            "analysis": await service.export_analysis_pdf(analysis._analysis(), analysis._company()),
+            "summary": await service.export_pdf(*_make_summary_and_filing(_full_sections())),
+        }
+        for name, pdf in shipped.items():
+            assert b"/StructTreeRoot" in _inflated(pdf) and b"/Lang (en)" in _inflated(pdf), name
+        untagged = weasyprint.HTML(string=self._analysis_html()).write_pdf()
+        assert b"/StructTreeRoot" not in _inflated(untagged), "the reader must tell an untagged PDF apart"
 
     def test_metrics_section_gets_the_landscape_named_page(self):
         html = self._analysis_html()
