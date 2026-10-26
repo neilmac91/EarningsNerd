@@ -1,0 +1,106 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "20636d327448c0033835341c724961fa0b70accd8471405bcce971a0f61d21da",
+ "y_sha256": "c25a7e569b50fc69eba6829be5514d27e4d15576e0b8b47dbaeca2c9a296abbc",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has several grounding errors. It cites subscription growth and leased-facility capex, but its passages are truncated before saying either. It treats debt-extinguishment gains as boosting operating cash flow, when they are deducted. It says the EPS improvement 'trailed' the net-loss improvement, though 35.7% exceeds 34.0%. B also overreaches on 'subscriber growth' but is otherwise tighter. B adds the residual margin bridge, other-revenue mix shift and labelled SBC-reliance analysis. A's watch thresholds are slightly sharper."
+   },
+   "cost_usd": 0.144768,
+   "latency_s": 15.599,
+   "backend": "claude_cli",
+   "input_tokens": 15377,
+   "cached_input_tokens": 0,
+   "output_tokens": 1088,
+   "reasoning_tokens": 826,
+   "meta": {
+    "duration_api_ms": 10911,
+    "cache_creation_input_tokens": 15375,
+    "list_cost_usd": 0.083268
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has several grounding errors. It cites subscription growth and leased-facility capex, but its passages are truncated before saying either. It treats debt-extinguishment gains as boosting operating cash flow, when they are deducted. It says the EPS improvement 'trailed' the net-loss improvement, though 35.7% exceeds 34.0%. B also overreaches on 'subscriber growth' but is otherwise tighter. B adds the residual margin bridge, other-revenue mix shift and labelled SBC-reliance analysis. A's watch thresholds are slightly sharper.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both drafts wrongly cite subscriber growth for other revenue. B has more errors. It says free cash flow ($437.2m) exceeded the $460.5m loss, which is false. It calls a 35.7% EPS improvement 'trailing' 34.0%, and treats debt-extinguishment gains as raising operating cash flow. It also invents 'leased-facility' from a truncated passage. B adds real depth (peer operating margin, sales and marketing drivers, sharper watch thresholds), but A's labelled analysis and fewer misreads win on grounding."
+   },
+   "cost_usd": 0.141405,
+   "latency_s": 15.512,
+   "backend": "claude_cli",
+   "input_tokens": 15373,
+   "cached_input_tokens": 727,
+   "output_tokens": 1205,
+   "reasoning_tokens": 946,
+   "meta": {
+    "duration_api_ms": 11804,
+    "cache_creation_input_tokens": 14644,
+    "list_cost_usd": 0.082829
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Both drafts wrongly cite subscriber growth for other revenue. B has more errors. It says free cash flow ($437.2m) exceeded the $460.5m loss, which is false. It calls a 35.7% EPS improvement 'trailing' 34.0%, and treats debt-extinguishment gains as raising operating cash flow. It also invents 'leased-facility' from a truncated passage. B adds real depth (peer operating margin, sales and marketing drivers, sharper watch thresholds), but A's labelled analysis and fewer misreads win on grounding.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.286173
+}

@@ -1,0 +1,106 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "650a94c1d3b0e0c0019c3724316f672c7e9c5ddd452b837b79b8813ab0567c67",
+ "y_sha256": "1c3e7de346b67e492e15f000e05c5774af5c18abbf75dfe6760fffb5e3e65cda",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's 'peer-leading' $7.1bn FY2025 net cash rests on a calculated figure, yet the table reports no long-term debt after FY2020. A presents it as fact. Its watch item about the 46% payout 'exceeding' a greater-than-30% target is illogical. B discloses the debt gap, omits post-2020 net cash and labels its judgements as analysis. Driver depth is similar: A adds SG&A and peers, B adds operating expenses and pre-tax margin."
+   },
+   "cost_usd": 0.132261,
+   "latency_s": 14.137,
+   "backend": "claude_cli",
+   "input_tokens": 14770,
+   "cached_input_tokens": 727,
+   "output_tokens": 989,
+   "reasoning_tokens": 751,
+   "meta": {
+    "duration_api_ms": 9994,
+    "cache_creation_input_tokens": 14041,
+    "list_cost_usd": 0.076097
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's 'peer-leading' $7.1bn FY2025 net cash rests on a calculated figure, yet the table reports no long-term debt after FY2020. A presents it as fact. Its watch item about the 46% payout 'exceeding' a greater-than-30% target is illogical. B discloses the debt gap, omits post-2020 net cash and labels its judgements as analysis. Driver depth is similar: A adds SG&A and peers, B adds operating expenses and pre-tax margin.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B adds real depth: a cited FY2023 price cause, the SG&A swing, the three-year earnings slide and the segment-sum flag. But it calls a $7.1bn net cash position a peer-leading balance sheet when long-term debt is missing. Its watch items also speculate (pressure buybacks, likely disposals). A discloses the debt gap and labels its interpretation, though its 'price-led' FY2023 claim is uncited."
+   },
+   "cost_usd": 0.136961,
+   "latency_s": 16.406,
+   "backend": "claude_cli",
+   "input_tokens": 14770,
+   "cached_input_tokens": 727,
+   "output_tokens": 1224,
+   "reasoning_tokens": 1002,
+   "meta": {
+    "duration_api_ms": 12692,
+    "cache_creation_input_tokens": 14041,
+    "list_cost_usd": 0.080797
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B adds real depth: a cited FY2023 price cause, the SG&A swing, the three-year earnings slide and the segment-sum flag. But it calls a $7.1bn net cash position a peer-leading balance sheet when long-term debt is missing. Its watch items also speculate (pressure buybacks, likely disposals). A discloses the debt gap and labels its interpretation, though its 'price-led' FY2023 claim is uncited.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.269222
+}

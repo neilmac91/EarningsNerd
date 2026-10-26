@@ -1,0 +1,68 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 4,
+ "output_sha256": "53030e084b9fd38080afff52e500d3eeb7b226b51d516276ab45341f192f376d",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 step came from Data Center revenue up 217% on Hopper GPU shipments for LLM training and inference .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year-on-year increase was due to higher Data Center revenue. Compute grew 266% due to higher shipments of the NVIDIA Hopper GPU computing platform for the training and inference of LLMs, recommendation engines and generative AI applications. Networking was up 133% due to higher shipments of InfiniBand."
+    },
+    {
+     "id": "P23",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217% from fiscal year 2023. In Data Center, we launched AI inference platforms that combine our full-stack inference software with NVIDIA Ada, NVIDIA Hopper and NVIDIA Grace Hopper processors optimized for generative AI, LLMs and other AI workloads. We introduced NVIDIA DGX Cloud and AI Foundations to help businesses create and operate custom large language models and generative AI models. As AV algorithms move to video transformers, and more cars are equipped with cameras, we expect NVIDIA\u2019s automotive data center processing demand to grow significantly. We estimate that in fiscal year 2024, approximately 40% of Data Center revenue was for AI inference. In the fourth quarter of fiscal year 2024, large cloud providers represented more than half of our Data Center revenue, supporting both internal workloads and external customers. We announced NVIDIA Spectrum-X, an accelerated networking platform for AI."
+    }
+   ],
+   "label": "partial",
+   "reason": "P22 ties Hopper shipments to Compute's 266% growth; P23 gives Data Center's 217% without a cause. Networking grew on InfiniBand."
+  },
+  {
+   "sentence": "FY2026 growth was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 says FY2026 growth came from data center compute and networking, with Blackwell the majority of Data Center revenue."
+  },
+  {
+   "sentence": "Within it, Data Center computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 says computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200/GB300 systems."
+  },
+  {
+   "sentence": "Investing outflows of $52.2 billion rose on higher equity investment purchases and a non-exclusive license agreement with Groq .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 says higher equity investment purchases and the Groq non-exclusive license drove higher investing outflows."
+  }
+ ],
+ "cost_usd": 0.032864,
+ "backend": "claude_cli",
+ "input_tokens": 2669,
+ "cached_input_tokens": 0,
+ "output_tokens": 576
+}

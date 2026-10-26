@@ -1,0 +1,106 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "81c08d58bffbf5458bf88471ee72cf58eaa1cdb1a259e0610b08b659095a61d4",
+ "y_sha256": "bdf435f348388c1b88ea1d65ccc46ba024eec7af03647ee08f787886a1b87cca",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A builds its balance-sheet verdict on a $7.1bn FY2025 net cash figure and a top peer rank, though long-term debt is untagged after FY2020. That likely overstates the balance sheet and also feeds A's watch item. B discloses this gap and limits its leverage verdict. B slips by citing the cash-flow passage for an earnings claim and by asserting FY2023 was price-led without a supporting passage. A has richer cost detail, but the grounding difference outweighs it."
+   },
+   "cost_usd": 0.128965,
+   "latency_s": 12.876,
+   "backend": "claude_cli",
+   "input_tokens": 14553,
+   "cached_input_tokens": 727,
+   "output_tokens": 911,
+   "reasoning_tokens": 676,
+   "meta": {
+    "duration_api_ms": 9005,
+    "cache_creation_input_tokens": 13824,
+    "list_cost_usd": 0.073669
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A builds its balance-sheet verdict on a $7.1bn FY2025 net cash figure and a top peer rank, though long-term debt is untagged after FY2020. That likely overstates the balance sheet and also feeds A's watch item. B discloses this gap and limits its leverage verdict. B slips by citing the cash-flow passage for an earnings claim and by asserting FY2023 was price-led without a supporting passage. A has richer cost detail, but the grounding difference outweighs it.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B gives more interpretation: the FY2023 price cause, SG&A and DD&A drivers, EPS dilution and an ROE peer comparison. But it reports $7.1bn of net cash at the 100th peer percentile, even though long-term debt is untagged after FY2020. That overstates balance-sheet strength, and a watch item is built on it. A flags this gap. A has smaller faults: an unsupported 'price-led' claim and an operating-cash-flow passage cited for earnings."
+   },
+   "cost_usd": 0.132237,
+   "latency_s": 14.26,
+   "backend": "claude_cli",
+   "input_tokens": 14557,
+   "cached_input_tokens": 727,
+   "output_tokens": 1073,
+   "reasoning_tokens": 839,
+   "meta": {
+    "duration_api_ms": 10287,
+    "cache_creation_input_tokens": 13828,
+    "list_cost_usd": 0.076925
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B gives more interpretation: the FY2023 price cause, SG&A and DD&A drivers, EPS dilution and an ROE peer comparison. But it reports $7.1bn of net cash at the 100th peer percentile, even though long-term debt is untagged after FY2020. That overstates balance-sheet strength, and a watch item is built on it. A flags this gap. A has smaller faults: an unsupported 'price-led' claim and an operating-cash-flow passage cited for earnings.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.261202
+}
