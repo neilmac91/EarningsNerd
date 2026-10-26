@@ -307,6 +307,7 @@ def test_the_scan_scores_every_planted_form():
         "from app import models\n"
         "import os, sqlalchemy as sa, sqlalchemy.orm\n"
         "from sqlalchemy import join, join as sql_join, orm\n"
+        "from app.tables import company_table\n"
         "from sqlalchemy.orm import aliased\n"
         "Alias = Fact\n"
         "Parent = aliased(Report)\n"
@@ -361,6 +362,7 @@ def test_the_scan_scores_every_planted_form():
         "    os.path.join(name, 'Filing'), sa.join(Summary, Company)\n"
         "    Company.__table__.join(Fact.__table__, Company.__table__.c.id == Fact.__table__.c.company_id)\n"
         "    models.Company.__table__.join(Filing.__table__, models.Company.id == Filing.company_id)\n"
+        "    company_table.join(Fact.__table__, company_table.c.id == Fact.__table__.c.company_id)\n"
         "    db.query(Summary).join(Company), ', '.join(name), db.query(FinancialFact).filter_by(**mapping)\n"
         "    return row.filing_id == fid, state['filing_id'], {'filing_id': fid}, 'filing_id'\n"
     )
