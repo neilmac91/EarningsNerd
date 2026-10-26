@@ -310,7 +310,7 @@ describe('Admin feedback: the row status select stays focusable', () => {
       return (
         <table>
           <tbody>
-            {data?.map((record) => <FeedbackRow key={record.id} feedback={record} />)}
+            {data?.map((record) => <FeedbackRow key={record.id} feedback={record} detailsOpen={false} onViewDetails={vi.fn()} />)}
           </tbody>
         </table>
       )

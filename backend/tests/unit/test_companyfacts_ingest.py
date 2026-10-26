@@ -1120,3 +1120,271 @@ class TestNativeReportingCurrencySync:
         rows = db.query(FinancialFact).filter_by(company_id=fpi.id, concept="revenue").all()
         assert {(r.unit, r.is_latest) for r in rows} == {("USD", True)}
         db.close()
+
+
+# --- Proxy and information statements: a pay-versus-performance table is no report ------------
+#
+# Since 2023 a DEF 14A's pay-versus-performance table tags NetIncomeLoss for five fiscal years.
+# Companyfacts lists those items under the proxy's own form, filed after every 10-K they quote, so
+# the latest-filed winner was the proxy's figure: the 2026-10 restatement census found 120 such cells
+# at 24 companies, 12 of them off the 10-K's (FedEx's in dollars, not millions; Merck's FY2021 5.4%).
+
+_FDX_INCOME = {2022: 3_826e6, 2023: 3_972e6, 2024: 4_331e6, 2025: 4_092e6, 2026: 4_433e6}
+_FDX_REVENUE = {2022: 93_512e6, 2023: 90_155e6, 2024: 87_693e6, 2025: 87_926e6, 2026: 89_100e6}
+_MRK_INCOME = {2021: 13_049e6, 2022: 14_519e6, 2023: 365e6, 2024: 17_117e6, 2025: 18_254e6}
+_MRK_PROXY = {**_MRK_INCOME, 2021: 12_345e6}  # the DEF 14A's FY2021, 5.4% under the 10-K's
+_MRK_REVENUE = {2021: 48_704e6, 2022: 59_283e6, 2023: 60_115e6, 2024: 64_168e6, 2025: 64_900e6}
+
+
+def _ten_ks(values, tag="", *, start="01-01", end="12-31", lag="02-25"):
+    """Each fiscal year's 10-K, with up to two comparatives: K<yy>, filed on ``lag`` (month-day) after
+    its year closes, tags that year and the two before it that ``values`` holds. A year that does not
+    start on January 1 starts in the calendar year before the one it ends in."""
+    def span(year):
+        return f"{year - 1 if start != '01-01' else year}-{start}", f"{year}-{end}"
+
+    return [_item(values[year], span(year)[1], start=span(year)[0], accn=f"K{fy % 100}{tag}", fy=fy,
+                  filed=f"{fy + (lag < end)}-{lag}")
+            for fy in values for year in range(fy - 2, fy + 1) if year in values]
+
+
+def _fdx_payload():
+    """FedEx's shape: May fiscal years, then a DEF 14A filed in August 2026 whose table tags all five
+    years in dollars, not millions (3,826 for FY2022's 3,826 million)."""
+    annual = {"start": "06-01", "end": "05-31", "lag": "07-20"}
+    proxy = [_item(value / 1e6, f"{year}-05-31", start=f"{year - 1}-06-01", accn="P26", fy=2026,
+                   form="DEF 14A", filed="2026-08-17") for year, value in _FDX_INCOME.items()]
+    return _payload({"NetIncomeLoss": {"units": {"USD": _ten_ks(_FDX_INCOME, **annual) + proxy}},
+                     REV_TAG: {"units": {"USD": _ten_ks(_FDX_REVENUE, **annual)}}})
+
+
+def _mrk_payload(tag="", *, proxy=True):
+    """Merck's shape: calendar years, 2025's 10-Qs (Q4 derives as FY - YTD9), then, unless ``proxy`` is
+    off, a DEF 14A filed in April 2026 whose table tags 2021-2025, its 2021 figure off the 10-K's."""
+    def quarter(value, start, end, fp, filed):
+        return _item(value, end, start=start, accn=f"{fp}-25{tag}", fy=2025, fp=fp, form="10-Q", filed=filed)
+
+    income = _ten_ks(_MRK_INCOME, tag) + [
+        quarter(5_079e6, "2025-01-01", "2025-03-31", "Q1", "2025-05-01"),
+        quarter(4_433e6, "2025-04-01", "2025-06-30", "Q2", "2025-07-30"),
+        quarter(5_785e6, "2025-07-01", "2025-09-30", "Q3", "2025-10-30"),
+        quarter(15_297e6, "2025-01-01", "2025-09-30", "Q3", "2025-10-30"),
+    ]
+    if proxy:
+        income += [_item(value, f"{year}-12-31", start=f"{year}-01-01", accn=f"P26{tag}", fy=2025,
+                         form="DEF 14A", filed="2026-04-08") for year, value in _MRK_PROXY.items()]
+    return _payload({"NetIncomeLoss": {"units": {"USD": income}},
+                     REV_TAG: {"units": {"USD": _ten_ks(_MRK_REVENUE, tag)}}})
+
+
+def _annual_income(facts):
+    return {f["fiscal_year"]: (f["value"], f["accession"], f["form"]) for f in facts
+            if (f["concept"], f["fiscal_period"]) == ("net_income", "FY")}
+
+
+class TestProxyStatementItems:
+    @pytest.mark.parametrize("form", [
+        "DEF 14A", "DEFA14A", "DEFM14A", "DEFR14A", "DEFC14A", "DEFN14A", "DFAN14A", "DFRN14A",
+        "PRE 14A", "PREM14A", "PRER14A", "PREC14A", "PREN14A", "PRRN14A", "PX14A6G", "PX14A6N",
+        "DEF 14C", "DEFM14C", "DEFR14C", "PRE 14C", "PREM14C", "PRER14C",
+        "def 14a", " DEF  14A ", "DEF 14A/A",
+    ])
+    def test_every_schedule_14a_and_14c_form_is_a_proxy(self, form):
+        from app.services.facts.currency import is_proxy_form
+
+        assert is_proxy_form(form)
+
+    @pytest.mark.parametrize("form", [
+        "10-K", "10-K/A", "10-KT", "10-KT/A", "10-Q", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A",
+        "6-K", "6-K/A", "8-K", "8-K/A", "S-1", "S-1/A", "S-4", "S-4/A", "F-1", "F-4", "10-12B",
+        "10-12G", "POS AM", "424B4", "11-K", "N-14", "SC 14D9", "SC 14N", "", None, 14,
+        # 14A or 14C after a hyphen or a digit, and other forms with no letter-only prefix: the
+        # pattern's prefix must be letters alone, or a fund's N-14AE would read as a proxy.
+        "N-14AE", "N-14AE/A", "N-14 8C", "N-14 8C/A", "N-CSR", "ARS", "SC 14D9/A",
+    ])
+    def test_reports_and_other_schedules_stay_admitted(self, form):
+        from app.services.facts.currency import is_proxy_form
+
+        assert not is_proxy_form(form)
+
+    def test_a_later_proxy_in_dollars_never_replaces_the_10k_in_millions(self):
+        facts, _ = svc.normalize_companyfacts(1, _fdx_payload())
+        latest_10k = {2022: "K24", 2023: "K25", 2024: "K26", 2025: "K26", 2026: "K26"}
+        assert _annual_income(facts) == {year: (value, latest_10k[year], "10-K")
+                                         for year, value in _FDX_INCOME.items()}
+        margins = {f["fiscal_year"]: f["value"] for f in facts
+                   if (f["concept"], f["fiscal_period"]) == ("net_margin", "FY")}
+        assert margins == pytest.approx({year: _FDX_INCOME[year] / _FDX_REVENUE[year] * 100
+                                         for year in _FDX_INCOME})
+        assert [f for f in facts if f["accession"] == "P26" or f["form"] == "DEF 14A"] == []
+        operands = [i for f in facts for i in (f.get("provenance") or {}).get("inputs", [])]
+        assert operands and all(i["accession"].startswith("K") for i in operands)
+
+    def test_a_later_proxy_with_another_value_never_replaces_the_10k_nor_names_a_derived_quarter(self):
+        facts, _ = svc.normalize_companyfacts(1, _mrk_payload())
+        latest_10k = {2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "K25"}
+        assert _annual_income(facts) == {year: (value, latest_10k[year], "10-K")
+                                         for year, value in _MRK_INCOME.items()}
+        # A derived quarter is named by its year's winner: the 10-K, never the proxy filed after it.
+        q4 = _by_key(facts)[("net_income", date(2025, 12, 31), "Q4")]
+        assert (q4["accession"], q4["form"], q4["provenance"]["formula"]) == ("K25", "10-K", "FY - YTD9")
+        assert q4["value"] == pytest.approx(18_254e6 - 15_297e6)
+        assert [f for f in facts if f["form"] == "DEF 14A"] == []
+
+    def test_a_period_only_a_proxy_tags_takes_no_value_from_it(self):
+        # FY2021 has a fiscal year (the 10-K's revenue) but no reported net income under any tag, and
+        # FY2022's 10-K tags it ProfitLoss only; the proxy tags both years NetIncomeLoss, the first tag.
+        payload = _payload({
+            REV_TAG: {"units": {"USD": _ten_ks({2021: 900e6, 2022: 1_000e6, 2023: 1_100e6})}},
+            "NetIncomeLoss": {"units": {"USD": _ten_ks({2023: 130e6}) + [
+                _item(value, f"{year}-12-31", start=f"{year}-01-01", accn="P24", fy=2023, form="DEF 14A",
+                      filed="2024-04-20") for year, value in ((2021, 90e6), (2022, 100e6), (2023, 130e6))
+            ]}},
+            "ProfitLoss": {"units": {"USD": _ten_ks({2022: 110e6})}},
+        })
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        assert _annual_income(facts) == {2022: (110e6, "K22", "10-K"), 2023: (130e6, "K23", "10-K")}
+        assert _by_key(facts)[("net_income", date(2022, 12, 31), "FY")]["raw_tag"] == "us-gaap:ProfitLoss"
+        assert ("net_margin", date(2021, 12, 31), "FY") not in _by_key(facts)
+
+    def test_a_proxy_item_never_ranks_a_unit_list(self):
+        # A USD proxy item at a year the CNY list lacks would make the USD list no convenience
+        # translation, and the whole CNY series would be read in USD. series_unit counts only the
+        # items the collector admits, so the series stays in CNY, exactly as without the item.
+        payload = _cny_payload()
+        payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"].append(
+            _item(100e9, "2021-03-31", start="2020-04-01", accn="P24", fy=2024, form="DEF 14A",
+                  filed="2024-08-01"))
+        assert svc.normalize_companyfacts(1, payload) == svc.normalize_companyfacts(1, _cny_payload())
+
+
+@pytest.mark.requires_db
+class TestProxyStatementItemsSync:
+    @pytest.mark.parametrize("synced_before_the_proxy", [False, True],
+                             ids=["report-never-stored", "report-stored-then-demoted"])
+    def test_the_next_sync_replaces_a_stored_proxy_winner_only_where_it_never_stored_the_report(
+        self, monkeypatch, synced_before_the_proxy,
+    ):
+        # A sync before this fix stored the proxy's net income as each year's current row, and the
+        # net margin from it. The next sync's winner is the 10-K's item. Where no sync stored that
+        # identity, the bulk upsert inserts it and demotes the proxy's row, which has no local filing
+        # date. Where a sync between the 10-K and the proxy stored it, and the proxy's row then
+        # demoted it, the upsert skips that identity and the proxy's row stays current: ingestion
+        # never rewrites an identity. A margin is named by revenue's accession, so no sync recomputes
+        # it: one a sync first stored from the proxy's net income stays the proxy's. The existing
+        # quarterly repair recomputes it, and leaves the reported rows to a journaled repair of their own.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+        from app.services.facts import currency
+        from app.services.quarterly_fact_repair import repair_company
+
+        db = SessionLocal()
+        company = _new_company(db)
+        company.cik = str(uuid.uuid4().int % 10**10)  # the repair matches the payload's CIK
+        db.commit()
+        tag = f"-{uuid.uuid4().hex[:8]}"  # accession numbers are unique across companies
+
+        def payload(proxy=True):
+            return {**_mrk_payload(tag, proxy=proxy), "cik": int(company.cik)}
+
+        if synced_before_the_proxy:
+            svc._persist_companyfacts_payload(db, company, payload(proxy=False))
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, payload())
+
+        def current(concept, fiscal_period="FY"):
+            return {r.period_end.year: (float(r.value), r.accession.removesuffix(tag), r.form)
+                    for r in db.query(FinancialFact).filter_by(
+                        company_id=company.id, concept=concept, fiscal_period=fiscal_period, is_latest=True)}
+
+        proxy_won = {year: (value, "P26", "DEF 14A") for year, value in _MRK_PROXY.items()}
+        assert current("net_income") == proxy_won
+        margin_before = current("net_margin")[2021]
+        first_stored_from = _MRK_INCOME if synced_before_the_proxy else _MRK_PROXY
+        assert margin_before[0] == pytest.approx(first_stored_from[2021] / _MRK_REVENUE[2021] * 100)
+        stored = db.query(FinancialFact).filter_by(company_id=company.id).count()
+
+        result = svc._persist_companyfacts_payload(db, company, payload())
+        latest_10k = {2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "K25"}
+        reported = {year: (value, latest_10k[year], "10-K") for year, value in _MRK_INCOME.items()}
+        assert current("net_income") == (proxy_won if synced_before_the_proxy else reported)
+        assert current("net_income", "Q4")[2025][1] == ("P26" if synced_before_the_proxy else "K25")
+        assert current("net_margin")[2021] == margin_before
+        assert db.query(FinancialFact).filter_by(company_id=company.id).count() == stored + result["inserted"]
+        assert result["inserted"] == (0 if synced_before_the_proxy else len(reported) + 1)  # and the Q4
+
+        plan = repair_company(db, company.id, payload(), dry_run=True)
+        changed = {(c["before"]["concept"], c["before"]["fiscal_period"], c["before"]["period_end"][:4]): c["after"]
+                   for c in plan["changes"]}
+        assert float(changed[("net_margin", "FY", "2021")]["value"]) == pytest.approx(
+            _MRK_INCOME[2021] / _MRK_REVENUE[2021] * 100)
+        assert not any(concept == "net_income" and period == "FY" for concept, period, _year in changed)
+        db.close()
+
+    def test_a_proxy_row_never_displaced_a_10k_listed_locally(self, monkeypatch):
+        # The bulk upsert keeps a current row whose accession has a local filing date over an incoming
+        # row with none, and no filing row is a proxy (FilingType lists no 14A or 14C form). So where the
+        # 10-Ks were listed locally, a sync before this fix stored the proxy's rows behind them, and
+        # this branch's sync finds nothing to change.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        db.add_all(Filing(company_id=company.id, accession_number=f"K{fy % 100}{tag}", filing_type="10-K",
+                          filing_date=datetime(fy + 1, 2, 25, tzinfo=timezone.utc),
+                          document_url="https://example.com/d", sec_url="https://example.com/s")
+                   for fy in _MRK_INCOME)
+        db.commit()
+        svc._persist_companyfacts_payload(db, company, _mrk_payload(tag, proxy=False))
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_income").all()
+        assert {(r.fiscal_period, r.accession.removesuffix(tag)) for r in rows
+                if r.is_latest and r.fiscal_period in ("FY", "Q4")} == {
+            ("FY", "K23"), ("FY", "K24"), ("FY", "K25"), ("Q4", "K25")}
+        assert {r.accession.removesuffix(tag) for r in rows if r.form == "DEF 14A"} == {"P26"}
+        result = svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        assert (result["inserted"], result["demoted"]) == (0, 0)
+        db.close()
+
+    def test_a_proxy_row_stays_current_over_a_10k_listed_after_it(self, monkeypatch):
+        # The other order: a sync before this fix made the proxy's rows current, and only then was the
+        # FY2025 10-K listed and its facts stored. The per-filing writer treats a current companyfacts
+        # row with no local filing as newer, so it stores the 10-K's FY2025 row behind the proxy's,
+        # under the identity this branch's sync now picks as the winner. The sync skips that identity,
+        # so FY2025 keeps the proxy's row current although the 10-K is listed; the years whose winner
+        # nothing stored heal. The detection SQL's sets 1 and 2 list such a row for the repair.
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+        from app.services.facts import currency
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+        with monkeypatch.context() as before_the_fix:
+            before_the_fix.setattr(currency, "is_proxy_form", lambda form: False)
+            svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        filing = Filing(company_id=company.id, accession_number=f"K25{tag}", filing_type="10-K",
+                        filing_date=datetime(2026, 2, 25, tzinfo=timezone.utc),
+                        period_end_date=datetime(2025, 12, 31, tzinfo=timezone.utc),
+                        document_url="https://example.com/d", sec_url="https://example.com/s")
+        db.add(filing)
+        db.commit()
+        svc.process_filing_facts(db, filing, standardized={"net_income": {"series": [
+            {"period": "2025-12-31", "period_start": "2025-01-01", "value": 18_254e6, "fiscal_period": "FY"},
+        ]}})
+
+        svc._persist_companyfacts_payload(db, company, _mrk_payload(tag))
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, concept="net_income",
+                                                 fiscal_period="FY").all()
+        assert {r.period_end.year: r.accession.removesuffix(tag) for r in rows if r.is_latest} == {
+            2021: "K23", 2022: "K24", 2023: "K25", 2024: "K25", 2025: "P26"}
+        filed = next(r for r in rows if r.filing_id == filing.id)
+        assert (filed.period_end.year, filed.source, filed.is_latest) == (2025, "edgar_xbrl", False)
+        db.close()

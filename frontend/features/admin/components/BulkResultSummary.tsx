@@ -99,11 +99,11 @@ export default function BulkResultSummary({ outcomes, skipped, emailRequested }:
 
       {skipped.length > 0 && (
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-tertiary-light dark:text-text-tertiary-dark">
             <WarningCircleIcon className="h-4 w-4" />
             {skipped.length} skipped
           </div>
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
             {skipped.join(', ')}: already invited or invalid.
           </p>
         </div>

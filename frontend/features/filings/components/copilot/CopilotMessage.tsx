@@ -172,7 +172,7 @@ function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
     th: ({ node: _n, children, ...rest }: ComponentProps<'th'> & MdExtra) => (
       <th
         {...rest}
-        className="border-b border-border-light px-2 py-1.5 text-left text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+        className="border-b border-border-light px-2 py-1.5 text-left text-data-xs font-semibold uppercase tracking-eyebrow text-text-tertiary-light dark:border-border-dark dark:text-text-tertiary-dark"
       >
         {children}
       </th>
@@ -310,7 +310,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                         <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
                     ) : null}
                     <TrustBadge citation={c} />
                   </div>
@@ -327,9 +327,9 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                         <OpensOriginal />
                       </a>
                     ) : c.section_ref ? (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">{c.section_ref}</span>
                     ) : (
-                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">Excerpt {c.n}</span>
+                      <span className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">Excerpt {c.n}</span>
                     )}
                     <TrustBadge citation={c} />
                   </div>

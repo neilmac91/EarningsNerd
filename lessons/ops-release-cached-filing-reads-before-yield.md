@@ -33,7 +33,7 @@ back an already-loaded object unchanged), not an attribute loaded before it
 read handlers, and the `backend/app/routers/summaries.py` summary read, progress and what-changed
 handlers (2026-10: the summary read and its polled progress had been missed and answered 4x500 in
 the same burst; each is now one unit in the thread pool). The gate is
-`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in two halves. Its parameterized
+`backend/tests/unit/test_cached_filings_pool_lifetime.py`, in three parts. Its parameterized
 full-app eight-request, four-slot burst also checks that the dependency's finalizer never finds a
 transaction still open and that no listed route makes a checkout on the loop; it covers only the
 routes it lists. The peers ranking and the waitlist status and stats reads
@@ -219,15 +219,142 @@ write at once, for each of the five, report what they found once, the second rea
 commit; each write waits for the lock; and, without it, the deadlock. Their burst case holds every
 checkout, statement and release off the loop, each answer, each route's rows, and each audit row's admin
 and the count its request answered (2026-10-25, E171).
+The admin invite routes did the same (`admin.py`: the invite list, mint, revoke and re-send). Under eight
+admins on four slots, through the real auth dependency, the list, revoke, mint and re-send ran 8 of 16,
+48 of 56, 48 of 56 and 64 of 80 statements on the loop, the writes checked out 16 of 24 connections
+there, and every case left its transaction for the finalizer, the 404s and 409s included; the mint and
+re-send held a connection through their invite mail (each the same in three runs; the mail runs only with
+marketing readiness open, and `is_marketing_available()` keeps it closed, so a mint asking for it answers
+503 before any unit and a re-send of a bound invite answers 503 from its unit). The list and the revoke
+(with its audit row) are now one unit each, and the mint and the re-send mint in one unit and write their
+audit row in another after the mail, so no pool slot waits on the mail provider; that row now takes a
+checkout of its own, so a pool still full at its timeout loses it, logged, where the base's held
+connection kept it. The revoke and the re-issue are the Rule's check-then-write units: in the thread pool
+a registration on the same instance can redeem the invite between their check and their write, as one on
+the other instance always could. On a local PostgreSQL 16, with a registration's redemption of the invite
+uncommitted for 1.0 s, the base's revoke and re-send froze the loop for 0.945 to 1.019 s at their write,
+then revoked the redeemed invite, and the re-send minted a replacement for it. They now read the invite
+under its row lock until their commit (`invite_service._unused_invite_locked`, with `populate_existing`,
+so a caller that kept an invite it read before the lock sees the redemption too): each waits in the
+thread pool, sees the redemption's commit and answers 409, and the loop's longest gap was 11 to 14 ms
+(88 ms on a process's first request). A registration on the same instance, whose session work still runs
+on the loop (E121), can now wait there for that lock, from the revoke's or re-send's read to its commit
+(a median of about 4 ms in the review's stress run, and up to 205 ms when a garbage collection paused
+inside it), which the base's loop never overlapped. `test_admin_invite_transactions.py` races both
+against a redemption on PostgreSQL in CI, its control shows each acting on the redeemed invite without
+the lock, and two admins' writes of one invite take turns at the lock: a shared one (FOR SHARE) would let
+both read, then deadlock at their writes. A redemption that comes second is refused (E201): `redeem_invite`
+checks `is_revoked` as well as `used_at`, and one that waits behind the lock re-checks the row when the
+write commits; the same gate races it, its control redeeming the revoked invite without the check.
+`create_free_account`, a refusal, no longer takes a session of its own; its auth lookup's transaction is
+still left for the finalizer, as a 403's is (2026-10-25, E171).
+The summaries router's two exports (`export_summary_pdf`, `export_summary_csv`) ran their plan check (the
+reader's subscription read) and their summary and filing reads on the loop, on the connection the auth lookup
+had checked out, and each build read its company there too; every export, refusal and 404 left its transaction
+for the finalizer, and an export kept its connection through its build and render. Under eight readers on four
+slots, through the real auth dependency, eight exports ran 32 of their 40 statements on the loop, eight Free
+readers' refusals (403) 8 of 16, and eight 404s for a missing summary or a missing filing 16 of 24 and 24 of
+32. With the real WeasyPrint, one PDF export of a full summary held its connection 649 to 1,035 ms (ten
+exports), the length of its render, so four at once held each of an instance's four pooled connections that
+long. The plan check, both reads and the release are now one thread-pool unit the two routes share
+(`_summary_and_filing_for_export`); its rows come back detached with the filing's content cache and company
+loaded, and its 403 and 404s leave it after the release. The same PDF export holds its connection 2.5 to 6.4
+ms. The builds ran on the loop as well: projecting the filing's text takes about 1 ms for a one-sentence
+excerpt, 12 to 17 ms for a real 10-K's text (588,000 characters) and 1.2 to 1.8 s for a cache holding only
+that filing's raw HTML (4.3 million characters), so the CSV and the PDF's HTML now build in worker threads, as
+the render does (`asyncio.to_thread`; `test_default_executor_allowlist.py` names both). An anonymous request's
+401 answers before the unit; one whose token names an inactive or deleted account answers there too, after the
+lookup, so it still leaves the lookup's transaction for the finalizer. Its burst case holds every checkout,
+statement and release off the loop and each answer, each reader's plan given by its Subscription row against
+its `is_pro` mirror (a plan check on the detached user falls back to the mirror and answers wrong), and its
+render case holds no connection while either export builds or renders, and neither on the loop (2026-10-25,
+E171).
+The admin router's stale-summary refresh (`refresh_stale_summaries`) read its candidates on the loop, on the
+connection the auth lookup had checked out, and a real run kept a connection out through every generation: the
+candidates' read left its transaction open through the first, each stamp re-read after it, on the same session
+after a commit, checked out another on the loop that stayed out through the next, and the audit row was written
+there too. Under eight admins on four slots, through the real auth dependency, with the generation stubbed,
+eight dry runs ran 16 of their 24 statements on the loop, eight real runs of five candidates each 72 of 80 with
+48 of their 56 checkouts there, and every run left its transaction for the finalizer. Each generation of a real
+run began with the request's connection out, so four real runs at once held all four of an instance's pooled
+connections, and a fifth admin's request answered 500 at the pool's timeout (each the same in two runs; one
+second in the probe, `DB_POOL_TIMEOUT`'s 10 s in production, where a generation takes up to about 120 s and a
+run makes up to ten). The candidates' read and the release are now one thread-pool unit, the admin's id and
+email read before it, and `admin_summary_service.regenerate_in_place` takes no session: it re-reads each stamp,
+and writes the audit row, in a session of its own in the thread pool (`_in_own_session` through `run_owned_sync`,
+which outside a `request_work` scope runs on anyio's tokens, as `run_in_threadpool` does), so no connection is out
+while a generation runs. That session's close, like the release, logs a failure rather than raising it. On
+PostgreSQL, with the connection dropped after a unit's last statement, an unguarded close answered 500 after the
+paid generations wherever the drop came; the guarded one answers 200 with the audit row. The base answered 500 at
+its next commit, 200 without its audit row after the last re-read, or, after the audit row's read-back, 200 with
+its audit row, its request-scoped `get_db` then failing to close once the answer had gone (the review's probes).
+The job-side drain
+(`summary_refresh.drain_stale`) re-reads in a session of its own too, on its job's loop, where no request
+waits. `lessons/ops-one-connection-per-request-unit.md` keeps a session of its own for background work, since one
+opened while the request's session holds a connection needs a second; the refresh's open only after the release,
+one at a time, so none waits for a connection while it holds one. The audit row is a call of its own with its
+action written out (`_record_refresh`): the legal pages' audit walk (`frontend/tests/unit/legalTruth.spec.tsx`)
+reads a writer where it is called or handed first to `run_in_threadpool`, not one handed on through another
+call. A non-admin's 403 answers before the unit, so it still leaves the
+lookup's transaction for the finalizer, as the other admin routes' do. Its burst cases hold every checkout,
+statement and release off the loop, each answer, each generation and each audit row; its hold case, no
+connection out as each generation starts or ends; a case of its own, a run whose own sessions fail to close,
+still returning its outcomes and writing its audit row; and the route's tests, a generation that raises or ends
+in an error event counted failed (2026-10-25, E171).
+The summaries router's generate stream (`generate_summary_stream`), E171's last route, ran its admission on the
+loop, on the connection the auth lookup had checked out: its filing and summary reads, the served body (the stored
+summary's Risks projected over the filing's own text: about 0.5 ms for a one-sentence excerpt, 11 ms for a real
+10-K's text and 1.0 to 1.15 s for a cache holding only the filing's raw HTML, 4.3 million characters), the
+readiness and Pro checks, the force branch's progress clear and commit, and the close before it streamed. Under
+eight readers on four slots, through the real auth dependency, with the orchestrator stubbed, eight replays ran 16
+of their 24 statements on the loop, eight generations and eight regenerations of an unready row 16 of 32 each,
+eight Pro forces 33 of 41, eight Free forces 24 of 32 and eight requests for a missing filing 8 of 16; each
+replay, generation and Pro force gave its connection back on the loop, and each Free force's 403 and each 404 left
+its transaction for the finalizer (each the same in two runs). One replay of the raw-HTML cache froze the loop for
+1.3 to 1.5 s, and on a local PostgreSQL 16 another transaction holding the filing's progress row for 1.0 s froze
+it for 0.91 to 0.95 s through a Pro force, whose progress clear waited for the row's lock at its commit (three
+runs). The admission is now one thread-pool unit (`admit`) that takes those steps in the route's order and
+releases the session in its `finally`, its 404 and 403 leaving it after the release; it returns the replay's
+response or the generation's inputs, the reader's id read before it, and the stream calls the one orchestrator
+with the same arguments. The same probes ran every statement, checkout and checkin off the loop; behind the held
+row the loop's longest gap was 12 to 33 ms (six runs, the longest on a process's first request), and behind the
+raw-HTML replay 0.17 to 0.27 s (seven runs), the projection's own work in its worker thread (11 to 17 ms in five
+runs with the projection stubbed). The progress clear was a read, then a delete at the commit, which the loop had
+run one at a time on an instance: in the thread pool two Pro forces of one filing both found the row, and the
+second's delete matched none, which SQLAlchemy only warns of (in two sets of six bursts in the review, 4 and 5 met
+it, and under `-W error` a force answered 500). It is the Rule's check-then-write, so it is now one DELETE by
+filing with no read before it, which checks no row count, so a row another force has already deleted is no error,
+and which holds between instances too; behind the held row both forces answered 200 in three runs. A clear that
+lands inside another run's `record_progress`, between its read and its update, still fails that run: the
+`StaleDataError` reaches the pipeline's failure stage and ends it in the error event, refunding its unit only
+between the provider's start and the summary's save, as one could on the base and from another instance. The
+route's rate limit (its 429) answers before the unit, so, like a 422, it still leaves the lookup's transaction for
+the finalizer. Its burst case holds every checkout, statement and release off the loop, the served body built off
+the loop, each answer and each admitted request's orchestrator inputs, each reader's plan given by a Subscription
+row its `is_pro` mirror contradicts, and the progress row touched only by the Pro forces' DELETEs, one each; a
+case of its own holds the 429 before the unit (no filing or summary read, no served body, no clear); and
+`test_summary_provider_lifecycle.py`'s route cases hold the request's release off the loop, before the response
+starts (2026-10-25, E171).
+A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
+process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
+one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on
+`request_work`'s executor of their own (`run_owned_sync`). So an instance with more requests in flight than
+its tokens and pool slots together can have every token held by lookups waiting for connections whose holders
+need a token to give them back, and nothing moves until the pool times out, which the optional lookup reads as
+anonymous. In the exports' review, on 40 tokens and four slots, 43 PDF exports all answered and 44 as few as 4
+(the rest 401); sixty answered 20 or 36 of 60, where the base answered all 60, and sixty change reports, one
+unit since #1286, 32 to 42 in three runs (the rest 500); forty exports, and forty change reports, all
+answered. Cloud Run's `--concurrency=40` keeps an instance at the token count, a margin of the pool's slots,
+and the pool-lifetime file holds every concurrency the deploy sets there; raising it needs the units on a
+limiter of their own (2026-10-25, E171).
 The pool-lifetime file's AST ratchet reads every async router function and fails, above that function's
 ceiling, a session call on the loop in its own body (on main before the fix it named both summaries
 routes) or, since 2026-10-24, the session handed there to any call but a thread dispatcher's (with the
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
-their counts (the rest of the auth router, E121; the admin router's 6 routes and the summaries router's
-generate stream and two exports, E171; five of those hand-offs, the header's strict ones, use no
-connection on the loop), so none can add one in a
+their counts (the rest of the auth router, E121, since E171's last route left on 2026-10-25; four of those
+hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop

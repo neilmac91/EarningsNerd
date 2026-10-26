@@ -17,7 +17,7 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { compactMoney, moneyFormat, MINUS, niceAxis, percentFormat } from '@/features/analysis/lib/charts/scale'
+import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
 
@@ -562,6 +562,17 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
     expect(mixed.unavailable).toMatch(/more than one currency/)
   })
 
+  it('a won or dong filer reads by its code, since Geist Mono draws neither sign (E203)', () => {
+    expect(ticks(model('REGN_annual', 'cash', inUnit('KRW')))[1]).toBe('KRW 2B')
+    expect([moneyPrefix('KRW'), moneyPrefix('VND'), moneyPrefix('INR'), moneyPrefix('ILS'), moneyPrefix('PHP')]).toEqual(['KRW ', 'VND ', '₹', '₪', '₱'])
+    // XOF's "F CFA" holds a narrow no-break space (U+202F), which no Geist Mono face draws, so it prints its code too.
+    expect(moneyPrefix('XOF')).toBe('XOF ')
+    // Over the ISO 4217 list, every glyph past ASCII that a prefix prints is a sign the data face draws (G2).
+    const printed = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
+    expect([...new Set(printed)].filter((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))).toEqual([])
+    expect(printed, 'the list is the one Intl prints from').toEqual(expect.arrayContaining(['₹', '₪', '₱', '€', '£', '¥']))
+  })
+
   it('currencySymbol reads ISO 4217 codes only', () => {
     expect([currencySymbol('USD'), currencySymbol('JPY'), currencySymbol('EUR'), currencySymbol('GBP')]).toEqual(['$', '¥', '€', '£'])
     expect([currencySymbol('shares'), currencySymbol(''), currencySymbol(null), currencySymbol('usd')]).toEqual([null, null, null, null])
@@ -608,7 +619,16 @@ describe('A1 and A2: ticks and printed values', () => {
     expect([format.d0, format.value(999.7e6), format.value(400e6)]).toEqual([2, '$1.00B', '$0.40B'])
   })
 
-  it('A1 at any magnitude: a ₩120,000T axis still steps uniformly', () => {
+  it('M15: every printed value rounds as the metrics table rounds, half away from zero on the decimal', () => {
+    // Each half is a hair under it as a double (143.35 is 143.3499…), where toFixed rounds down: "143.3", "30.1".
+    expect([fixed(143.35, 1), fixed(30.15, 1), fixed(0.35, 1), fixed(46.995, 2), fixed(4.0805, 3)]).toEqual(['143.4', '30.2', '0.4', '47.00', '4.081'])
+    // At each call site: a percent panel's values, an amount at its axis's precision, and in its own unit.
+    expect([percentFormat(10, false).value(30.15), percentFormat(10, true).value(-0.35)]).toEqual(['30.2%', `${MINUS}0.4%`])
+    const format = moneyFormat([200e6], 50e6, [0, 50e6, 100e6, 150e6, 200e6], 'USD')
+    expect([format.value(143.35e6, 1), tooltipMoney(-46.995e6, 'USD'), compactMoney(3.55e6, 'USD')]).toEqual(['$143.4M', `${MINUS}$47.00M`, '$3.6M'])
+  })
+
+  it('A1 at any magnitude: a KRW 120,000T axis still steps uniformly', () => {
     expect(niceAxis([3e16, 1.2e17], 5)).toMatchObject({ step: 2.5e16, ticks: [0, 2.5e16, 5e16, 7.5e16, 1e17, 1.25e17] })
   })
 

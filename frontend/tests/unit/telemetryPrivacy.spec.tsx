@@ -59,6 +59,9 @@ describe('authentication credentials never enter telemetry', () => {
     const { sanitizeTelemetry } = await import('@/lib/telemetryPrivacy')
     const event = {
       event: '$identify', properties: { token: 'phc_public_ingestion', symbol: 'AAPL',
+        image: 'blob:https://example.test/private-screenshot',
+        resource: 'Loaded data:image/png;base64,private-screenshot',
+        encodedImage: encodeURIComponent('blob:https://example.test/private-screenshot'),
         $set: { url: tokenUrl, token: TOKEN },
         nested: [{ $initial_referrer: encodeURIComponent(tokenUrl), message: `Failed GET /verify-email?new_credential=${TOKEN}`, log: `Authorization: Bearer ${TOKEN}`, diagnostic: `Rejected JWT ${JWT}` }],
       },
@@ -70,6 +73,10 @@ describe('authentication credentials never enter telemetry', () => {
     expect(JSON.stringify(clean)).not.toContain(JWT)
     expect(clean.properties.token).toBe('phc_public_ingestion')
     expect(clean.properties.symbol).toBe('AAPL')
+    expect(JSON.stringify(clean)).not.toContain('private-screenshot')
+    expect(clean.properties.image).toBe('[REDACTED]')
+    expect(clean.properties.resource).toBe('Loaded [REDACTED]')
+    expect(clean.properties.encodedImage).toBe(encodeURIComponent('[REDACTED]'))
     expect(clean.$set_once.$initial_current_url).toBe('https://example.test/path')
     expect(clean.properties.nested[0].$initial_referrer).toBe(encodeURIComponent('https://example.test/reset-password'))
     expect(event.properties.$set.token).toBe(TOKEN) // Do not mutate application inputs.

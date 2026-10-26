@@ -8,6 +8,7 @@ from typing import Any, Dict
 from sqlalchemy.orm import Session
 
 from app.models import User
+from app.services.feedback_media_cleanup_service import enqueue_owner_media_deletion
 
 
 def apply_profile_update(db: Session, current_user: User, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -47,6 +48,7 @@ def delete_user(db: Session, user_id: int) -> None:
     route answers its own 500 (the deletion-failure policy is F18's)."""
     if db.query(User.id).filter(User.id == user_id).with_for_update().first() is None:
         raise LookupError(f"Account {user_id} was deleted after its lookup")
+    enqueue_owner_media_deletion(db, user_id)
     db.delete(db.get(User, user_id))
     db.commit()
 

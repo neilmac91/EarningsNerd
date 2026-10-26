@@ -281,7 +281,7 @@ function OpenContactForm({ recheck }: { recheck: () => Promise<LegalReadiness | 
             className={clsx(inputClasses(), 'mt-2')}
             placeholder="What happened, or what you'd like to know"
           />
-          <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+          <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             {CONTACT_LIMITS.messageMin} to {MESSAGE_MAX} characters
           </p>
         </div>

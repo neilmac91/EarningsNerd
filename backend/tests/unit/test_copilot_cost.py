@@ -5,6 +5,8 @@ the best-effort PostHog emit helper (event name + property filtering), and the r
 turns a `complete` event's usage into a cost event.
 """
 
+from datetime import datetime, timezone
+
 import pytest
 
 from app.config import settings
@@ -252,3 +254,76 @@ def test_per_model_price_table_and_peak_multiplier(monkeypatch):
     unknown = llm_pricing.estimate_call_cost_usd("other-model", {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000}, at=off_peak)
     assert unknown["cost_usd"] == 3.0
     assert llm_pricing.estimate_call_cost_usd("deepseek-flash", {}, at=off_peak) == {"cost_usd": None, "peak": False}
+
+
+# NEW-01: a cache half the provider left out is the rest of the prompt, and unknown usage is an unknown cost.
+_OFF_PEAK = datetime(2026, 9, 12, 12, 0, tzinfo=timezone.utc)  # Saturday: never peak
+_PEAK = datetime(2026, 9, 14, 7, 30, tzinfo=timezone.utc)      # Monday 07:30 UTC
+_HIT, _MISS, _OUT = 0.003, 0.15, 0.60  # deepseek-flash, USD per 1M tokens (llm_pricing._MODEL_PRICES_PER_1M)
+
+
+@pytest.mark.parametrize(("usage", "hits", "misses"), [
+    # The SDK's cached_tokens with no miss count: the uncached rest of the prompt is priced at the miss tariff.
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_hit_tokens": 0}, 0, 1_000_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_hit_tokens": 100_000}, 100_000, 900_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_miss_tokens": 900_000}, 100_000, 900_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0,
+      "cache_hit_tokens": 100_000, "cache_miss_tokens": 900_000}, 100_000, 900_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0}, 0, 1_000_000),
+    # Halves that do not fit inside the prompt are not trusted: the prompt is priced at the dearer rate.
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_hit_tokens": 2_000_000}, 0, 1_000_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_miss_tokens": -1}, 0, 1_000_000),
+    ({"prompt_tokens": 4, "completion_tokens": 0, "cache_hit_tokens": True}, 0, 4),
+    # The output tariff applies on top of the split.
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 500_000, "cache_hit_tokens": 100_000}, 100_000, 900_000),
+    # Two halves that do not add up to the prompt: the hits stand, and the rest of the prompt is priced as misses.
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0,
+      "cache_hit_tokens": 100_000, "cache_miss_tokens": 50_000}, 100_000, 900_000),
+    ({"prompt_tokens": 1_000_000, "completion_tokens": 0,
+      "cache_hit_tokens": 600_000, "cache_miss_tokens": 600_000}, 600_000, 400_000),
+    # Two reported halves describe the input when the prompt total is missing.
+    ({"prompt_tokens": None, "completion_tokens": 0,
+      "cache_hit_tokens": 100_000, "cache_miss_tokens": 900_000}, 100_000, 900_000),
+])
+def test_every_prompt_token_is_priced_once_at_its_cache_tariff(usage, hits, misses):
+    from app.services import llm_pricing
+
+    raw = hits * _HIT + misses * _MISS + usage["completion_tokens"] * _OUT
+    assert llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=_OFF_PEAK) == {
+        "cost_usd": round(raw / 1_000_000, 6), "peak": False}
+    peak = llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=_PEAK)
+    assert peak == {"cost_usd": round(raw * settings.AI_PEAK_PRICE_MULTIPLIER / 1_000_000, 6), "peak": True}
+
+
+def test_the_acceptance_figures_for_a_million_token_prompt():
+    from app.services import llm_pricing
+
+    no_hits = {"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_hit_tokens": 0}
+    tenth = {"prompt_tokens": 1_000_000, "completion_tokens": 0, "cache_hit_tokens": 100_000}
+    assert llm_pricing.estimate_call_cost_usd("deepseek-flash", no_hits, at=_OFF_PEAK)["cost_usd"] == 0.15
+    assert llm_pricing.estimate_call_cost_usd("deepseek-flash", tenth, at=_OFF_PEAK)["cost_usd"] == round(
+        0.1 * 0.003 + 0.9 * 0.15, 6)
+
+
+@pytest.mark.parametrize("usage", [
+    {"prompt_tokens": 1_000_000},                                                    # output count missing
+    {"prompt_tokens": 1_000_000, "completion_tokens": None, "cache_hit_tokens": 0},
+    {"completion_tokens": 500},                                                      # input unknown
+    {"prompt_tokens": None, "completion_tokens": 500, "cache_hit_tokens": 100_000},  # one half, no total
+    {"prompt_tokens": None, "completion_tokens": 500, "cache_miss_tokens": 900_000},
+    {},
+])
+def test_unknown_required_usage_is_an_unknown_cost_never_a_partial_or_zero(usage):
+    from app.services import llm_pricing
+
+    for at in (_OFF_PEAK, _PEAK):
+        assert llm_pricing.estimate_call_cost_usd("deepseek-flash", usage, at=at)["cost_usd"] is None
+
+
+def test_the_flat_estimator_prices_the_missing_half_too():
+    hit = 100_000
+    assert estimate_inference_cost_usd(1_000_000, 0, cache_hit_tokens=hit) == round(
+        (hit * settings.AI_INPUT_CACHE_HIT_PRICE_PER_1M
+         + (1_000_000 - hit) * settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M) / 1_000_000, 6)
+    assert estimate_inference_cost_usd(1_000_000, 0, cache_hit_tokens=0) == round(
+        settings.AI_INPUT_CACHE_MISS_PRICE_PER_1M, 6)

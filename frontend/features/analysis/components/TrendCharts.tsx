@@ -53,9 +53,10 @@ import {
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import ChartControl from './ChartControl'
+import { TrendChartsSkeleton } from './TrendChartBones'
 import DataNotesLink from './DataNotesLink'
 import { useDataNotes } from './DataNotesContext'
-import type { DataNote, DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { markedNote, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { layoutChartNotes, type ChartNotePosition } from '@/features/analysis/lib/chartNoteLayout'
 
@@ -337,9 +338,11 @@ function PanelCard({
 
   const plottedSeries = barSeries ? [barSeries] : lineEntries.map(({ concept }) => series[concept])
   const { panelNotes, unavailable: unavailableNotes, exportNotes } = chartDataNotes(dataset, plottedSeries, notes, !!panel.growthLine)
+  // A point carries a hollow ring and a letter, and its tooltip row names a note, only where the note questions the
+  // number (D-061): every chart mark below reads its note here.
   const noteAt = (concept: string, period: string, growth = false) => {
     const point = series[concept]?.points.find((entry) => entry.period === period)
-    return point ? growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point) : null
+    return point ? markedNote(growth ? notes.noteForComparison(point, 'yoy') : notes.noteFor(point)) : null
   }
   const renderDot = (concept: string, color: string, growth = false) => function ChartNoteDot(props: NoteDotProps) {
     const period = props.payload?.period ?? ''
@@ -647,7 +650,7 @@ function PanelCard({
       </div>
       </ChartViewport>
       {unavailableNotes.length > 0 && (
-        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
           {unavailableNotes.join(' ')}
         </p>
       )}
@@ -755,11 +758,13 @@ function RechartsTrendCharts({
 /** The spec renderer (lib/featureFlags CHARTS_V2, E192), its own chunk so the flag-off route loads none of it. With
  *  `loading` the lazy load gets its own Suspense boundary, and the error boundary sits outside the chunk, so one that
  *  fails to load (a stale client after a deploy) says the charts could not be drawn instead of taking the route down.
- *  `loading` rethrows the error the pages-router loader hands it, so either next/dynamic reaches the boundary. */
+ *  `loading` rethrows the error the pages-router loader hands it, so either next/dynamic reaches the boundary, and
+ *  otherwise draws the grid's bones. */
 const TrendChartsV2 = dynamic(() => import('./TrendChartsV2'), {
   loading: ({ error }) => {
     if (error) throw error
-    return null
+    // Spec §3.9 `loading`: four cards of bones at the card's height hold the grid's place (E200).
+    return <TrendChartsSkeleton />
   },
 })
 // While the flag is on the chunk starts loading with this module, before a run's results ask for it. A failure here

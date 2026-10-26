@@ -71,7 +71,7 @@ if [ $? -eq 0 ]; then
   echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
 fi
 # Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
-# runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
+# runs task_worker_main.py, which starts Sentry but prints none of them). Name the revisions that printed each in
 # the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
 # quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
 # step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
@@ -101,7 +101,7 @@ SENTRY_KINDS = (("initialized", "Sentry error tracking initialized"), ("failed",
                 ("dsn-unset", "SENTRY_DSN not configured"), ("sdk-missing", "Sentry SDK not available"))
 SENTRY_LINES = tuple(line for _, line in SENTRY_KINDS)
 # What the fake answers for each Sentry read, in SENTRY_KINDS order, and the lines the step prints for them. Each kind
-# names revisions in one fixture and none in the other; only API-service revisions, as the task worker starts no Sentry.
+# names revisions in one fixture and none in the other; only API-service revisions, as the task worker prints none of the four lines.
 SENTRY_ANSWERS = {
     "permitted": ("earningsnerd-backend-00509-zl7\nearningsnerd-backend-00508-62h\nearningsnerd-backend-00509-zl7\n",
                   "", "", ""),
@@ -149,6 +149,20 @@ SEAM = ("ops/describe/service.py", "gcloud_json")
 LOCAL_COMMAND = ("ops/dev/verify.py", "run_command", "Popen")
 # Modules that start child processes outside the subprocess/os calls this gate inspects.
 CHILD_MODULES = {"pty", "asyncio", "multiprocessing"}
+# This fixed, hash-bound source is passed to Cloud Run on the serving app image, never run in
+# the Actions interpreter. Its only asyncio uses coordinate ASGI requests; subprocesses remain
+# subject to the same withheld-stderr gate below.
+FEEDBACK_RUNTIME = "ops/feedback_media/verify_runtime.py"
+FEEDBACK_RUNTIME_IMPORTS = {
+    "sqlalchemy.engine", "sqlalchemy", "psycopg2", "uvicorn", "main", "app.database", "app.models",
+    "app.models.feedback", "app.services.feedback_storage_worker_service", "app.services.password_utils",
+    "app.services.feedback_media_cleanup_service", "app.services.user_account_service", "app.utils.datetimes",
+    "app.services.request_work",
+}
+OPS_SIBLING_IMPORTS = {
+    "ops/feedback_media/manage.py": {"ops.feedback_media.verify_manage"},
+    "ops/feedback_media/verify_manage.py": {"manage"},
+}
 # Public modules in 3.11's sys.stdlib_module_names that 3.12 or 3.13 removed: CI's interpreter still lists them; the
 # runner's python3 (3.12 today) lacks the first five, and a 3.13 runner would lack the rest too.
 REMOVED_AFTER_311 = {
@@ -296,7 +310,7 @@ def test_describe_jobs_step_never_prints_gcloud_stderr(tmp_path, failing):
     assert not [token for token in WITHHELD_TOKENS if token in result.stdout]  # command values stay withheld
     if failing is None:
         assert result.returncode == 0 and calls == reads
-        assert result.stdout.count("== earningsnerd-") == 8 and result.stdout.endswith("describe-jobs: PASS\n")
+        assert result.stdout.count("== earningsnerd-") == 9 and result.stdout.endswith("describe-jobs: PASS\n")
     else:
         assert result.returncode == 1 and calls == reads[:failing + 1]
         assert result.stdout == f"::error::expected Cloud Run job '{jobs[failing]}' is missing or unreadable\n"
@@ -709,8 +723,16 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
-                assert not {name.split(".")[0] for name in names} & CHILD_MODULES, (
+                forbidden = {name.split(".")[0] for name in names} & CHILD_MODULES
+                if module == FEEDBACK_RUNTIME and isinstance(node, ast.Import) and names == ["asyncio"]:
+                    assert all(alias.asname is None for alias in node.names)
+                    forbidden -= {"asyncio"}
+                assert not forbidden, (
                     f"{path}:{node.lineno}: {names} starts child processes this gate does not inspect")
+            if module == FEEDBACK_RUNTIME and isinstance(node, ast.Name) and node.id == "asyncio":
+                parent = parents.get(node)
+                assert isinstance(parent, ast.Attribute) and parent.attr in {"Lock", "timeout"}, (
+                    "the verification runtime's asyncio exception permits locks/deadlines, never subprocesses")
             if isinstance(node, ast.ImportFrom) and node.module in ("subprocess", "os", "pty"):
                 assert node.module == "os" and not any(OS_SPAWNERS.fullmatch(a.name) for a in node.names), path
             if isinstance(node, ast.Import):  # an alias would hide a call from this gate
@@ -756,17 +778,23 @@ def test_ops_modules_never_let_a_child_process_inherit_stderr():
 
 def test_ops_modules_import_only_the_standard_library():
     for path in _ops_modules():
+        module = path.relative_to(ROOT).as_posix()
         # A script's own directory is sys.path[0], so a file named like a standard module would shadow it.
         assert path.stem not in sys.stdlib_module_names, f"{path} shadows the standard library's {path.stem}"
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Import):
                 names = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
+                if module == "ops/feedback_media/verify_manage.py" and node.level == 1 and node.module is None:
+                    assert [(alias.name, alias.asname) for alias in node.names] == [("manage", "media")]
+                    continue  # The same reviewed sibling supports direct CLI and package loading.
                 assert node.level == 0, f"{path}: ops.yml runs this file as a script; no relative import"
                 names = [node.module]
             else:
                 continue
             for name in names:
+                if name in OPS_SIBLING_IMPORTS.get(module, set()) or (module == FEEDBACK_RUNTIME and name in FEEDBACK_RUNTIME_IMPORTS):
+                    continue
                 assert name.split(".")[0] in sys.stdlib_module_names, f"{path}: {name} is not in the standard library"
                 assert name.split(".")[0] not in REMOVED_AFTER_311, f"{path}: {name} is gone from Python 3.12 or 3.13"
 

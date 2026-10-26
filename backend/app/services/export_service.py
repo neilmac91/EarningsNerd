@@ -253,7 +253,8 @@ class ExportService:
         """Export summary as PDF"""
         try:
             from weasyprint import HTML
-            html_content = self.generate_pdf_html(summary, filing)
+            # The HTML projects the filing's text, over a second on a cache holding only raw HTML: off the loop.
+            html_content = await asyncio.to_thread(self.generate_pdf_html, summary, filing)
             # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
             return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS))
         except ImportError:

@@ -49,7 +49,7 @@ export default function WaitlistPage() {
               </Suspense>
             </div>
 
-            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               Joining the waitlist does not create an account or guarantee an invitation.
             </p>
 

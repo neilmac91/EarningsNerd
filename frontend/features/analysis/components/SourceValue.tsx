@@ -7,8 +7,9 @@ import type { AnalysisPoint } from '@/features/analysis/api/analysis-api'
 import { FCF_DEFINITION, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
 import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
+import { dataNoteIssue, markedNote, noteMarksFigure, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
+import GrowthText from './GrowthText'
 
 const sourceLinkClass = 'rounded text-brand-strong underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
 const legacyLineage = (value: number | null) => value == null
@@ -20,12 +21,17 @@ function Checks({ value, note, unavailable = false }: { value: QualityValue; not
   const review = !missing && (note ? note.kind === 'review' : needsSourceCheck(value))
   const passed = !missing && !note && value.provenance?.validation === 'passed'
   const status = missing ? 'Unavailable' : review ? 'Needs review' : passed ? 'Automated checks passed' : 'No validation record'
+  // A record-only concern (a calculation saved before its inputs were kept) still reads "Needs review", never passed,
+  // but in the ink of the words around it: warning ink and the note's letter belong to a concern about the number,
+  // the one kind of note that marks its figure (D-061).
+  const questioned = review && noteMarksFigure(note ?? dataNoteIssue(value))
+  const marked = markedNote(note)
   const passedExplanation = value.provenance?.method === 'reported'
     ? 'Taken from the figures the company filed with the SEC (its XBRL data).'
     : value.provenance?.method === 'calculated' ? 'Calculated from reported figures with compatible periods and units.' : null
   return <div className="space-y-1">
-    <p className={review ? 'font-medium text-warning-light dark:text-warning-dark' : 'font-medium'}>
-      {status}{note && <> · Note {note.letter}</>}
+    <p className={questioned ? 'font-medium text-warning-light dark:text-warning-dark' : 'font-medium'}>
+      {status}{marked && <> · Note {marked.letter}</>}
     </p>
     {passed && passedExplanation && <p>{passedExplanation}</p>}
     {!missing && !review && !passed && <p>No automated check result is recorded for this figure. No verification claim is made.</p>}
@@ -40,7 +46,7 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
   return (
     <li className="min-w-0 space-y-1 border-t border-border-light pt-2 [overflow-wrap:anywhere] dark:border-white/10">
       <p className="font-medium capitalize">{input.concept.replaceAll('_', ' ')}</p>
-      <p className="font-data">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
+      <p className="font-figure tabular-nums lining-nums">{input.value == null ? 'Unavailable' : exactFigure(input.value, input)}</p>
       <p>{[input.period_start, input.period_end].filter(Boolean).join(' to ')}</p>
       <p>{calculated ? (provenance?.inputs.length ? 'Calculated from recorded inputs.' : 'Calculated figure.') : provenance?.method === 'reported' ? 'Reported in the source filing.' : 'Source method is not recorded.'}</p>
       {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
@@ -64,6 +70,8 @@ export interface SourceComparison extends QualityValue {
 function inheritedComparisonNote(comparison: SourceComparison) {
   const note = comparison.note
   if (!note) return null
+  // Only a note that marks its figure has a letter the reader can see beside the comparison (D-061).
+  const letter = markedNote(note)?.letter
   const affected = new Map<string, FactInput>()
   const visit = (input: FactInput) => {
     const issue = dataNoteIssue(input)
@@ -73,17 +81,17 @@ function inheritedComparisonNote(comparison: SourceComparison) {
     input.provenance?.inputs.forEach(visit)
   }
   comparison.provenance?.inputs.forEach(visit)
-  if (!affected.size) return `Carries note ${note.letter}. The recorded inputs do not identify which input carries this note.`
+  if (!affected.size) return `${letter ? `Carries note ${letter}. ` : ''}The recorded inputs do not identify which input this note comes from.`
   const status = note.kind === 'review' ? 'needs review' : note.kind === 'unavailable' ? 'is unavailable' : 'has no validation record'
   const inputs = [...affected.values()].map(input => {
     const label = input.concept.replaceAll('_', ' ')
     const period = input.period_end ? ` (period ended ${formatLocalDate(input.period_end, 'd MMM yyyy')})` : ''
     return `${label}${period}, which ${status}`
   })
-  return `Carries note ${note.letter}: it uses ${inputs.join('; ')}.`
+  return letter ? `Carries note ${letter}: it uses ${inputs.join('; ')}.` : `It uses ${inputs.join('; ')}.`
 }
 
-export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false }: {
+export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false, largeMarks = false }: {
   point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value'>
   label: string
   concept?: string
@@ -91,6 +99,8 @@ export default function SourceValue({ point, label, concept, children, note, com
   note?: DataNote | null
   comparison?: SourceComparison
   compactMarks?: boolean
+  /** The KPI card's 24px value: its marks take the large raise (DataNoteMark large). */
+  largeMarks?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -101,25 +111,38 @@ export default function SourceValue({ point, label, concept, children, note, com
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
   const arithmetic = substitutedFormula(provenance)
-  const sharedNote = note && comparison?.note?.key === note.key
-  const description = [calculated ? 'calculated' : '', dataNoteDescription(note), sharedNote ? 'also applies to the comparison' : comparison?.note ? `comparison carries ${dataNoteDescription(comparison.note)}` : ''].filter(Boolean).join(', ')
+  // The name says "calculated" wherever the figure is, and names only the notes whose letters show (D-061): a
+  // record-only, unknown or unavailable note is read in the dialog.
+  const marked = markedNote(note)
+  const markedComparison = markedNote(comparison?.note)
+  const sharedNote = marked && markedComparison?.key === marked.key
+  const description = [calculated ? 'calculated' : '', dataNoteDescription(marked), sharedNote ? 'also applies to the comparison' : markedComparison ? `comparison carries ${dataNoteDescription(markedComparison)}` : ''].filter(Boolean).join(', ')
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`${label}, ${period}: ${point.value == null ? 'unavailable' : display}${description ? `, ${description}` : ''}. View source and calculation`}
-        className="rounded text-inherit underline decoration-border-light decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:shadow-ring-brand dark:decoration-border-dark dark:focus-visible:shadow-ring-brand-dark"
+        // In the metrics table the figure, its marks and the mark gutter are one baseline row the cell's width, justified
+        // to its right edge, so the gutter (DataNoteMark compact) fills only free space and gives way to a full figure.
+        // The figure re-declares its numerals here: a button's UA `font` shorthand resets font-variant-numeric, and
+        // preflight restores only the family, size and weight, so tabular lining figures set on the cell stop at it.
+        // The table's figures carry no underline: a dotted rule under every value parted it from its change line, and
+        // readers gave a period with no change the next column's (the metrics-table readout, dark at 1x). The KPI
+        // value keeps it.
+        className={`${compactMarks ? 'flex w-full items-baseline justify-end' : 'underline decoration-border-light decoration-dotted underline-offset-4 dark:decoration-border-dark'} tabular-nums lining-nums rounded text-inherit focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
       >
-        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} />
+        {children}<DataNoteMark note={note} compact={compactMarks} large={largeMarks} />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} labelledBy={id} size="lg">
         <ModalHeader id={id} onClose={() => setOpen(false)}>{label} · {period}</ModalHeader>
         <ModalBody className="space-y-4 text-sm text-text-secondary-light [overflow-wrap:anywhere] dark:text-text-secondary-dark">
           {point.period_end && <p>{/^\d{4}Q[1-4]$/.test(point.period) ? 'Quarter' : /^FY\d{4}$/.test(point.period) ? 'Fiscal year' : 'Period'} ended {formatLocalDate(point.period_end, 'd MMM yyyy')}.</p>}
           <div className="space-y-1">
-            <p className="font-data text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} /></p>
-            {point.value != null && <p className="font-data text-xs">As stored: {exactFigure(point.value, figure)}</p>}
+            {/* Figures take the figure face, as in the table and the cards: a minus is drawn, the text stays U+002D. An
+                accession or a raw tag keeps the data face, since its hyphens are not minus signs. */}
+            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark note={note} large /></p>
+            {point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">As stored: {exactFigure(point.value, figure)}</p>}
           </div>
           <section className="space-y-1">
             <h3 className="font-semibold">Checks</h3>
@@ -130,7 +153,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             <h3 className="font-semibold">Method</h3>
             <p>{provenance?.method === 'reported' ? 'Reported in the source filing.' : calculated ? (provenance?.inputs.length ? 'Calculated by EarningsNerd from recorded inputs.' : 'Calculated figure.') : 'Source method is not recorded for this saved figure.'}</p>
             {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
-            {arithmetic && point.value != null && <p className="font-data text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
+            {arithmetic && point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
           </section>
           <section className="space-y-2">
             <h3 className="font-semibold">{calculated ? 'Inputs and source filings' : 'Source filing'}</h3>
@@ -142,7 +165,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           </section>
           {comparison && <section className="space-y-2 border-t border-border-light pt-3 dark:border-white/10">
             <h3 className="font-semibold">{comparison.label} comparison</h3>
-            <p className="font-data">{comparison.display}</p>
+            <p className="relative font-figure tabular-nums lining-nums"><GrowthText text={comparison.display} /></p>
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}
             {comparison.provenance?.formula && <p>Calculation: {formulaWords(comparison.provenance.formula)}</p>}

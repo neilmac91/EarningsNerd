@@ -38,6 +38,8 @@ SITES: dict[tuple[str, str, str], str] = {
     ("app/routers/auth.py", "reset_password", "get_password_hash"): _BCRYPT,
     ("app/routers/auth.py", "change_password", "verify_password"): _BCRYPT,
     ("app/routers/auth.py", "change_password", "get_password_hash"): _BCRYPT,
+    ("app/routers/summaries.py", "export_summary_csv", "export_service.generate_csv"):
+        "the CSV from the rows the route's unit read and released; it opens no session",
     ("app/services/copilot_service.py", "_admit_not_disclosed", "_withhold_unsupported_quotations"):
         "string matching against the filing text already in memory; it opens no session",
     ("app/services/copilot_service.py", "_admit_answer", "_withhold_unsupported_quotations"):
@@ -46,6 +48,8 @@ SITES: dict[tuple[str, str, str], str] = {
         "WeasyPrint over HTML already rendered; it opens no session",
     ("app/services/export_service.py", "export_analysis_pdf", "lambda: HTML(string=html_content).write_pdf(**PDF_OPTIONS)"):
         "WeasyPrint over HTML already rendered; it opens no session",
+    ("app/services/export_service.py", "export_pdf", "self.generate_pdf_html"):
+        "the summary's HTML from the rows the route's unit read and released; it opens no session",
     ("main.py", "lifespan", "_validate_db_connection"):
         "the startup connection check, before the app serves a request, so no other work holds a slot",
 }

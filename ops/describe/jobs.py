@@ -20,6 +20,7 @@ expected_pools = {
     "earningsnerd-earnings-day-alerts": "1",
     "earningsnerd-notable-filings": "1",
     "earningsnerd-retention-purge": "1",
+    "earningsnerd-feedback-media-cleanup": "1",
 }
 # ci.yml restores this scheduled entrypoint on every deploy; only match/mismatch is printed.
 expected_entrypoints = {

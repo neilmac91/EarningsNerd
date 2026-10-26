@@ -126,7 +126,7 @@ export default function YourCompanies({ insights, isLoading, failure }: YourComp
                     </div>
                   </Link>
                   <div className="ml-auto flex flex-shrink-0 items-center gap-3">
-                    <span className="hidden text-xs text-text-tertiary-light sm:inline dark:text-text-secondary-dark">
+                    <span className="hidden text-xs text-text-tertiary-light sm:inline dark:text-text-tertiary-dark">
                       {latest
                         ? `Last filed ${latest.filing_type} · ${formatLocalDate(latest.filing_date, 'MMM d, yyyy')}`
                         : 'No filings synced yet'}

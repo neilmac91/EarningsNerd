@@ -74,6 +74,16 @@ export function moneyUnit(maxAbs: number): MoneyUnit {
   return { div: 1, suffix: '' }
 }
 
+/** `value.toFixed(digits)` rounded as the metrics table rounds, half away from zero on the decimal a value prints as
+ *  (Intl's halfExpand), never on its binary double: $143.35M is 143.3499… as a double, which toFixed prints "143.3"
+ *  where the table prints "143.4" (M15). Pinned to en-US, without grouping: `group` adds it. */
+const FIXED = new Map<number, Intl.NumberFormat>()
+export function fixed(value: number, digits: number): string {
+  let format = FIXED.get(digits)
+  if (!format) FIXED.set(digits, (format = new Intl.NumberFormat('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })))
+  return format.format(value)
+}
+
 /** |value| in its own unit at `significant` figures, at most `finest` decimals in a K, M, B or T unit and cents at the
  *  finest in dollars (F$): a mantissa that rounds to 1,000 steps up a unit, so 999,960 reads "1.00M", never "1000K". */
 function ownUnit(value: number, significant: number, finest = 2): string {
@@ -82,10 +92,10 @@ function ownUnit(value: number, significant: number, finest = 2): string {
     const mantissa = abs / unit.div
     const magnitude = Math.floor(Math.log10(mantissa))
     const digits = Math.max(0, Math.min(unit.suffix ? finest : 2, significant - 1 - magnitude))
-    const text = mantissa.toFixed(digits)
+    const text = fixed(mantissa, digits)
     // Rounding up to the next power of ten can add a figure ("9.996" → "10.00"): one decimal fewer keeps the count.
     const shown = digits + Math.floor(Math.log10(Number(text))) + 1
-    return digits > 0 && shown > significant ? mantissa.toFixed(digits - 1) : text
+    return digits > 0 && shown > significant ? fixed(mantissa, digits - 1) : text
   }
   let unit = moneyUnit(abs)
   if (Number(at(unit)) >= 1000 && unit.suffix !== 'T') unit = moneyUnit(abs * 1000)
@@ -102,18 +112,25 @@ const decimalsOf = (value: number) => {
   return 15
 }
 
-// en-US grouping without the locale-dependent formatters (earningsnerd/locale-pinned-numbers): the
-// digits are already fixed by toFixed.
+// en-US grouping on digits `fixed` has already rounded.
 const group = (text: string) => {
   const [whole, fraction] = text.split('.')
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '')
 }
 
+/** The currency signs past ASCII that Geist Mono draws: £ ¥ ¢ € ¤ in the latin face and ₪ ₱ ₴ ₹ ₽ in latin-ext, read by
+ *  hand from the faces' cmaps in a 2026-10-25 production build. It has no ₩ or ₫ in any subset. next/font fetches the
+ *  faces at build, so E203 holds a gate against the built files' cmaps. */
+export const DATA_FACE_SIGNS = '£¥¢€¤₪₱₴₹₽'
+
 /** The symbol an amount carries: the currency's own, a code-like symbol ("CHF") followed by a space, or
- *  nothing when the unit is no currency code. */
+ *  nothing when the unit is no currency code. A symbol with any glyph past ASCII that the data face does not draw
+ *  prints the code instead, so no plot paints a glyph in the fallback face (G2; E203): KRW's ₩, VND's ₫ and the
+ *  narrow no-break space inside XOF's "F CFA" ("KRW 120,000T", "XOF 2B"). */
 export function moneyPrefix(currency: string | null): string {
   const symbol = currencySymbol(currency)
   if (!symbol) return ''
+  if ([...symbol].some((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))) return `${currency} `
   return /^[A-Z]{2,}$/.test(symbol) ? `${symbol} ` : symbol
 }
 
@@ -143,13 +160,13 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
   // of ten (999.7M on a $B axis reads "$1.00B", not "$1.000B").
   const magnitude = Math.floor(Math.log10(Math.max(maxAbs / unit.div, 1e-9)))
   const fit = Math.max(0, 2 - magnitude)
-  const d0 = fit > 0 && Math.floor(Math.log10(Number((maxAbs / unit.div).toFixed(fit)) || 1)) > magnitude ? fit - 1 : fit
+  const d0 = fit > 0 && Math.floor(Math.log10(Number(fixed(maxAbs / unit.div, fit)) || 1)) > magnitude ? fit - 1 : fit
   const format = (value: number, digits: number, printed: boolean) => {
     if (value === 0) return `${prefix}0`
     const sign = value < 0 ? MINUS : ''
     const scaled = Math.abs(value / unit.div)
     if (printed && scaled < Math.pow(10, 1 - digits)) return `${sign}${prefix}${ownUnit(value, 3)}`
-    return `${sign}${prefix}${group(scaled.toFixed(digits))}${unit.suffix}`
+    return `${sign}${prefix}${group(fixed(scaled, digits))}${unit.suffix}`
   }
   return {
     kind: 'money',
@@ -191,9 +208,9 @@ export function percentFormat(step: number, signed: boolean): AxisFormat {
     if (value === 0) return signed ? `0${digits ? `.${'0'.repeat(digits)}` : ''}%` : '0%'
     const abs = Math.abs(value)
     // 0 dp from 1,000% as printed: 999.96% reads "1,000%", never "1,000.0%".
-    const shown = Number(abs.toFixed(digits)) >= 1000 ? 0 : digits
-    let text = group(abs.toFixed(shown))
-    if (Number(text.replace(/,/g, '')) === 0) text = abs.toFixed(Math.max(1, shown))
+    const shown = Number(fixed(abs, digits)) >= 1000 ? 0 : digits
+    let text = group(fixed(abs, shown))
+    if (Number(text.replace(/,/g, '')) === 0) text = fixed(abs, Math.max(1, shown))
     return `${value < 0 ? MINUS : signed ? '+' : ''}${text}%`
   }
   return {

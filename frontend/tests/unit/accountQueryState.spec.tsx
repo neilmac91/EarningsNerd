@@ -433,7 +433,7 @@ describe('account query ownership structural gate', () => {
     const accountOwned = [
       'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
       'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
-      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback',
+      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
     ]
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [

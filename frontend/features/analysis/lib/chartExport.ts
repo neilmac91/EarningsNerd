@@ -2,7 +2,7 @@ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/an
 import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { formatInstant } from '@/lib/format'
-import type { DataNotesModel } from './dataNotes'
+import { markedNote, type DataNotesModel } from './dataNotes'
 import { formatAnalysisPeriod } from './periodLabels'
 import { FCF_DEFINITION } from './provenance'
 
@@ -16,7 +16,9 @@ export function exportSourceText(dataset: AnalysisDataset): { sourceNote: string
   }
 }
 
-/** Notes for the plotted series only, with the report's stable letters and reason sentences. */
+/** Notes for the plotted series only, with the report's stable letters and reason sentences. Only a note that questions
+ *  the number marks the plot (D-061), so only those enter the panel's chip and the PNG footer; a gap whose note marks
+ *  nothing is a plain "unavailable for …" line, and the other notes stay in the page's data notes. */
 export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
   const references = new Map<string, Map<string, string[]>>()
   const addReference = (key: string, label: string, period: string) => {
@@ -32,14 +34,14 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
     const missingWithoutNote: string[] = []
     for (const period of dataset.periods) {
       const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
-      const note = notes.noteFor(point)
+      const note = markedNote(notes.noteFor(point))
       if (note) addReference(note.key, series.label, period.key)
       if (point.value == null) {
         missing.push(formatAnalysisPeriod(period.key))
         if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
       } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
       if (includeYoY && typeof point.yoy === 'number') {
-        const comparison = notes.noteForComparison(point, 'yoy')
+        const comparison = markedNote(notes.noteForComparison(point, 'yoy'))
         if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
       }
     }
@@ -248,14 +250,26 @@ export const MARK_STAMP = {
   wordmarkGap: 9, // mark → wordmark
 } as const
 
-/** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars) — the single source for
- *  every ink the header/footer paint. Gated in chart-export.spec against tailwind.config.js's
+/** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars): the footer's ink, and the header's and
+ *  notes' unless the card passes its own (ExportInk). Gated in chart-export.spec against tailwind.config.js's
  *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
  *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
 export const EXPORT_TEXT = {
-  primary: { light: '#1A1A17', dark: '#D7DADC' },
-  secondary: { light: '#374151', dark: '#9CA3AF' },
+  primary: { light: '#1A1A17', dark: '#EAECEF' },
+  secondary: { light: '#374151', dark: '#D1D5DB' },
 } as const
+
+/** The two inks the header and notes paint: the company in `primary`, the subtitle, legend names and notes in
+ *  `secondary`. A card whose own text takes other inks passes them (the trend charts' spec renderer passes its
+ *  legend values' and legend names' inks, spec §3.8, which equal these since E194); otherwise the export takes
+ *  EXPORT_TEXT for its theme. */
+export interface ExportInk {
+  primary: string
+  secondary: string
+}
+const exportInk = (dark: boolean): ExportInk => (dark
+  ? { primary: EXPORT_TEXT.primary.dark, secondary: EXPORT_TEXT.secondary.dark }
+  : { primary: EXPORT_TEXT.primary.light, secondary: EXPORT_TEXT.secondary.light })
 
 /** Draw the branded footer strip bottom-right, opaque, as the logo's lockup: the EN mark, then the
  *  "EarningsNerd" wordmark (like the site logo: upright ink "Earnings" + italic 600 sage "Nerd", so a
@@ -450,7 +464,8 @@ function fillSwatch(
 }
 
 /** Draw the company + "ticker · metric" subtitle + pre-laid-out legend rows into the top strip.
- *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary.
+ *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the card's own
+ *  inks (ExportInk).
  *  `maxWidth` on each fillText condenses (never clips) a pathologically long string — a no-op for
  *  real company/metric names. */
 function drawHeader(
@@ -458,10 +473,8 @@ function drawHeader(
   header: ChartExportHeader,
   rows: LaidOutItem[][],
   width: number,
-  dark: boolean
+  { primary, secondary }: ExportInk
 ): void {
-  const primary = dark ? EXPORT_TEXT.primary.dark : EXPORT_TEXT.primary.light
-  const secondary = dark ? EXPORT_TEXT.secondary.dark : EXPORT_TEXT.secondary.light
   const maxW = Math.max(1, width - 2 * HEADER_STAMP.padX)
 
   ctx.textBaseline = 'alphabetic'
@@ -519,7 +532,7 @@ function drawHeader(
 export async function exportPanelPng(
   container: HTMLElement,
   filename: string,
-  { dark = false, header }: { dark?: boolean; header?: ChartExportHeader } = {}
+  { dark = false, header, ink = exportInk(dark) }: { dark?: boolean; header?: ChartExportHeader; ink?: ExportInk } = {}
 ): Promise<boolean> {
   const svg = container.querySelector('svg')
   if (!svg) return false
@@ -583,10 +596,10 @@ export async function exportPanelPng(
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
-  if (header) drawHeader(ctx, header, legendRows, width, dark)
+  if (header) drawHeader(ctx, header, legendRows, width, ink)
   ctx.drawImage(image, 0, headH, width, height)
   ctx.font = font(400, HEADER_STAMP.subtitleSize)
-  ctx.fillStyle = dark ? EXPORT_TEXT.secondary.dark : EXPORT_TEXT.secondary.light
+  ctx.fillStyle = ink.secondary
   ctx.textBaseline = 'top'
   noteLines.forEach((line, index) => ctx.fillText(line, HEADER_STAMP.padX, headH + height + 8 + index * noteLineHeight))
   await drawBrandFooter(ctx, width, headH + height + noteHeight, dark)

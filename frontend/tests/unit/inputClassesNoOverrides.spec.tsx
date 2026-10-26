@@ -940,7 +940,7 @@ export const S = () => <div className={cx(inputClasses({ className: 'flex items-
     ])
     // A placeholder colour utility styles the ::placeholder the field's `placeholder:` class styles.
     expect(await at('placeholder-text-secondary-light')).toEqual([
-      'placeholder-text-secondary-light vs dark:placeholder:text-text-secondary-dark [color] (no dark twin)',
+      'placeholder-text-secondary-light vs dark:placeholder:text-text-tertiary-dark [color] (no dark twin)',
       'placeholder-text-secondary-light vs placeholder:text-text-tertiary-light [color] (same chain)',
     ])
   })

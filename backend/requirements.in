@@ -7,6 +7,10 @@
 fastapi>=0.143.3,<1.0.0
 uvicorn[standard]>=0.54.0,<1.0.0
 python-multipart>=0.0.28
+# Private feedback screenshots use the Cloud Run runtime identity; no browser storage keys.
+google-cloud-storage>=3.4,<4
+# Direct dependency: isolated, bounded screenshot normalization (also used by report rendering).
+pillow>=13,<14
 pydantic>=2.14.1,<3.0.0
 pydantic-settings>=2.16.0,<3.0.0
 email-validator>=2.3.0

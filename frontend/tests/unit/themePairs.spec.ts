@@ -152,6 +152,83 @@ function unpaired(own: string, shared = ''): string[] {
   })
 }
 
+/**
+ * The text ramp keeps its rung in dark (DESIGN_SYSTEM.md §2). Tertiary's twin is tertiary-dark, the de-emphasised
+ * gray-400; secondary's is secondary-dark, the reading gray-300. Twinned across rungs, de-emphasised copy reads as body
+ * copy in dark, or body copy fades: until the dark secondary rose to gray-300, 140 tertiary sites took secondary-dark as
+ * their twin because tertiary-dark (then gray-600) failed as text, and they would all have brightened with it.
+ */
+const CROSSED_RUNG: Record<string, string> = { 'text-tertiary-light': 'text-secondary-dark', 'text-secondary-light': 'text-tertiary-dark' }
+/** The classes of `own` on a light text rung whose `dark:` twin, in `own` or in `shared`, is the other rung's. */
+function crossedRungs(own: string, shared = ''): string[] {
+  const twins = new Map<string, Set<string>>()
+  for (const token of [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean)) {
+    const { variants, utility } = splitClass(token)
+    const match = PROPERTY.exec(utility)
+    if (!variants.includes('dark') || !match) continue
+    const key = `${variants.filter((v) => v !== 'dark').sort().join(':')}|${match[1]}`
+    twins.set(key, (twins.get(key) ?? new Set()).add(bare(match[2])))
+  }
+  return own.split(/\s+/).filter(Boolean).filter((token) => {
+    const { variants, utility } = splitClass(token)
+    const match = PROPERTY.exec(utility)
+    const crossed = match && !variants.includes('dark') ? CROSSED_RUNG[bare(match[2])] : undefined
+    return !!crossed && !!twins.get(`${[...variants].sort().join(':')}|${match![1]}`)?.has(crossed)
+  })
+}
+
+/**
+ * A hover the dark theme can see (DESIGN_SYSTEM.md §2). Dark primary (#EAECEF) and dark secondary (#D1D5DB) are 1.24:1
+ * apart (1.05:1 before primary rose from #D7DADC), so a control that rests in the secondary ink and only turns primary
+ * under the pointer barely shows a hover in dark (light keeps a 1.69:1 step; white is 1.47:1). Such a control steps to
+ * white in dark or carries another hover cue: a fill, a border, a ring, a shadow or an underline. Thirteen controls had
+ * only the ink step when the dark secondary rose to gray-300.
+ *
+ * The cue must change something in dark. A `dark:` variant compiles to `:is(.dark *)`, as specific as `:hover` and later
+ * in the stylesheet, so a `hover:` cue without `dark:` is overruled in dark by a `dark:` rest or `dark:` hover of the same
+ * property: the toast close button's light tint (`hover:!bg-brand-weak`) lost to its forced `dark:!bg-panel-dark`, and
+ * its `dark:hover:!bg-panel-dark` repeated the rest, so dark showed no hover while this gate passed it.
+ */
+/**
+ * The property a hover cue sets, so a dark rest of the same property can be read against it: a colour apart from the
+ * family's other properties (`dark:decoration-dotted` does not overrule `hover:decoration-brand`), and `no-underline`
+ * the same property as `underline` (`dark:no-underline` overrules `hover:underline`).
+ */
+const cueProperty = (utility: string) => {
+  if (utility === 'underline' || utility === 'no-underline') return 'underline'
+  const match = /^(bg|border(?:-[xytblrse])?|ring|shadow|outline|decoration)(?:-(.+))?$/.exec(utility)
+  if (!match) return undefined
+  // A colour is one property of its family; a width, a style or an image is another (`border-2`, `decoration-dotted`).
+  return `${match[1]}:${match[2] !== undefined && isColour(match[2]) ? 'colour' : 'other'}`
+}
+function faintHovers(own: string, shared = ''): string[] {
+  const all = [...own.split(/\s+/), ...shared.split(/\s+/)].filter(Boolean).map((token) => ({ token, ...splitClass(token), bare: splitClass(token).utility.replace(/^!/, '') }))
+  const at = (variants: string[], test: (utility: string) => boolean) =>
+    all.some((c) => c.variants.length === variants.length && variants.every((v) => c.variants.includes(v)) && test(c.bare))
+  const restsSecondary = at(['dark'], (u) => u === 'text-text-secondary-dark')
+  const hovered = (c: { variants: string[] }) => c.variants.includes('hover') || c.variants.includes('group-hover')
+  const darkRest = (property: string) => all.filter((c) => c.variants.length === 1 && c.variants[0] === 'dark' && cueProperty(c.bare) === property).map((c) => c.bare)
+  const darkHover = (property: string) => all.some((c) => hovered(c) && c.variants.includes('dark') && cueProperty(c.bare) === property)
+  // A dark rest that removes the whole family (`dark:border-0`, `dark:shadow-none`, `dark:no-underline`) leaves its colour
+  // nothing to paint.
+  const removed = (property: string) => {
+    const family = property.split(':')[0]
+    return all.some((c) => c.variants.length === 1 && c.variants[0] === 'dark'
+      && (c.bare === `${family}-0` || c.bare === `${family}-none` || (family === 'decoration' && c.bare === 'no-underline')))
+  }
+  const cue = all.some((c) => {
+    const property = hovered(c) ? cueProperty(c.bare) : undefined
+    if (!property || removed(property)) return false
+    // A dark hover is a cue when it differs from the dark rest; a plain hover only when nothing dark overrules it.
+    return c.variants.includes('dark') ? !darkRest(property).includes(c.bare) : !darkRest(property).length && !darkHover(property)
+  })
+  if (!restsSecondary || cue) return []
+  return own.split(/\s+/).filter(Boolean).filter((token) => {
+    const { variants, utility } = splitClass(token)
+    return variants.length === 2 && variants.includes('dark') && variants.includes('hover') && /^!?text-text-(?:primary|heading)-dark$/.test(utility)
+  })
+}
+
 const isPlus = (node: ts.Node): node is ts.BinaryExpression => ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken
 const isText = (node: ts.Node) => ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateExpression(node)
 
@@ -178,23 +255,41 @@ function joinedParts(node: ts.Node): readonly ts.Expression[] | undefined {
   return parts.some(isText) ? parts : undefined
 }
 
-/** A string's text, or the static text of a template (its slots apart). */
-function staticText(node: ts.Node): string | undefined {
+/**
+ * A string's text, or the static text of a template: its literal parts, and each slot that names a string constant of
+ * the same file (`${MUTED}`), which renders every time. Other slots are read apart.
+ */
+function staticText(node: ts.Node, consts: ReadonlyMap<string, string> = new Map()): string | undefined {
   if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
-  if (ts.isTemplateExpression(node)) return [node.head.text, ...node.templateSpans.map((span) => span.literal.text)].join(' ')
+  if (ts.isTemplateExpression(node)) {
+    return [node.head.text, ...node.templateSpans.flatMap((span) => [ts.isIdentifier(span.expression) ? consts.get(span.expression.text) ?? '' : '', span.literal.text])].join(' ')
+  }
   return undefined
 }
 
-function themePairFindings(source: string, rel: string): Finding[] {
+/** A file's `const NAME = '…'` strings, which a template slot naming one renders whole. */
+function stringConsts(sf: ts.SourceFile): Map<string, string> {
+  const consts = new Map<string, string>()
+  const collect = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer && (node.parent.flags & ts.NodeFlags.Const)
+      && (ts.isStringLiteral(node.initializer) || ts.isNoSubstitutionTemplateLiteral(node.initializer))) consts.set(node.name.text, node.initializer.text)
+    ts.forEachChild(node, collect)
+  }
+  collect(sf)
+  return consts
+}
+
+function themePairFindings(source: string, rel: string, check: (own: string, shared?: string) => string[] = unpaired): Finding[] {
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, scriptKind(rel))
+  const consts = stringConsts(sf)
   const findings: Finding[] = []
   const report = (node: ts.Node, own: string, shared: string) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
-    for (const className of unpaired(own, shared)) findings.push({ rel, line, className })
+    for (const className of check(own, shared)) findings.push({ rel, line, className })
   }
   /** One built className: its unconditional strings are one list, and each conditional string sits beside them. */
   const built = (node: ts.Node, parts: readonly ts.Node[], context: string) => {
-    const always = parts.map(staticText).filter((text): text is string => text !== undefined)
+    const always = parts.map((part) => staticText(part, consts)).filter((text): text is string => text !== undefined)
     report(node, always.join(' '), context)
     const shared = [context, ...always].join(' ')
     for (const part of parts) {
@@ -207,7 +302,7 @@ function themePairFindings(source: string, rel: string): Finding[] {
     const parts = joinedParts(node)
     if (parts) return built(node, parts, shared)
     if (ts.isTemplateExpression(node)) return built(node, [node], shared)
-    const text = staticText(node)
+    const text = staticText(node, consts)
     if (text !== undefined) return report(node, text, shared)
     // A call that is not a joiner (a helper building its own list) is read on its own.
     if (ts.isCallExpression(node)) return visit(node)
@@ -285,11 +380,11 @@ function applyBlocks(source: string): Apply[][] {
 }
 
 /** A stylesheet's rule blocks: the `@apply` statements directly inside one `{ … }` style one element, so they are one class list. */
-function applyFindings(source: string, rel: string): Finding[] {
+function applyFindings(source: string, rel: string, check: (own: string, shared?: string) => string[] = unpaired): Finding[] {
   return applyBlocks(source).flatMap((block) =>
     block.flatMap((apply) => {
       const shared = block.filter((other) => other !== apply).map((other) => other.classes).join(' ')
-      return unpaired(apply.classes, shared).map((className) => ({ rel, line: apply.line, className }))
+      return check(apply.classes, shared).map((className) => ({ rel, line: apply.line, className }))
     }),
   )
 }
@@ -410,6 +505,79 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
 
   it('every unpaired class is in the residue, and every residue count is current', () => {
     expect(residueProblems(findings, THEME_PAIR_RESIDUE, 'THEME_PAIR_RESIDUE', 'unpaired'), 'give each light-half class its dark: twin in the same class list').toEqual([])
+  })
+
+  it('keeps tertiary and secondary on their own rungs in dark: no tertiary-light twinned with secondary-dark, or the reverse', () => {
+    const crossed = FILES.flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      return file.endsWith('.css') ? applyFindings(source, rel(file), crossedRungs) : themePairFindings(source, rel(file), crossedRungs)
+    })
+    expect(crossed.map((f) => `${f.rel}:${f.line} ${f.className}`), 'twin text-text-tertiary-light with dark:text-text-tertiary-dark').toEqual([])
+  })
+
+  it('reads a crossed rung wherever a twin is read (a self-check on a fixed source)', () => {
+    const src = [
+      "const caption = 'text-xs text-text-tertiary-light dark:text-text-secondary-dark'",
+      "const body = 'text-text-secondary-light dark:text-text-tertiary-dark'",
+      "const field = cx('placeholder:text-text-tertiary-light', 'dark:placeholder:text-text-secondary-dark')",
+      // On its own rung, or twinned under another variant, nothing is crossed.
+      "const muted = 'text-text-tertiary-light dark:text-text-tertiary-dark'",
+      "const read = 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-tertiary-light dark:hover:text-text-tertiary-dark'",
+      "const other = 'text-text-tertiary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark'",
+    ].join('\n')
+    expect(themePairFindings(src, 'probe.tsx', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 text-text-tertiary-light',
+      '2 text-text-secondary-light',
+      '3 placeholder:text-text-tertiary-light',
+    ])
+    const css = ':is(.markdown-body) a { @apply underline decoration-text-tertiary-light;\n  @apply dark:decoration-text-secondary-dark; }'
+    expect(applyFindings(css, 'probe.css', crossedRungs).map((f) => `${f.line} ${f.className}`)).toEqual(['1 decoration-text-tertiary-light'])
+  })
+
+  it('gives every dark hover a visible step: secondary never turns only primary under the pointer', () => {
+    const faint = FILES.flatMap((file) => {
+      const source = readFileSync(file, 'utf8')
+      return file.endsWith('.css') ? applyFindings(source, rel(file), faintHovers) : themePairFindings(source, rel(file), faintHovers)
+    })
+    expect(faint.map((f) => `${f.rel}:${f.line} ${f.className}`), 'step to dark:hover:text-white, or add a hover fill, border or underline').toEqual([])
+  })
+
+  it('reads a faint dark hover wherever a twin is read (a self-check on a fixed source)', () => {
+    const src = [
+      "const link = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark'",
+      "const split = cx('text-text-secondary-light dark:text-text-secondary-dark', 'dark:hover:!text-text-heading-dark')",
+      // A brighter step, or a hover cue that is not ink, is visible in dark.
+      "const bright = 'text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-white'",
+      "const tinted = 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/5 dark:hover:text-text-primary-dark'",
+      "const lined = 'text-text-secondary-light dark:text-text-secondary-dark hover:underline dark:hover:text-text-primary-dark'",
+      // A control that rests in another ink is not this rule's.
+      "const quiet = 'text-text-tertiary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark'",
+      // A cue dark never shows: the toast close's light tint lost to its forced dark rest, and its dark hover fill
+      // repeated that rest; a plain hover fill loses to any dark rest fill.
+      "const toast = '!bg-panel-light !text-text-secondary-light hover:!bg-brand-weak hover:!text-text-primary-light dark:!bg-panel-dark dark:!text-text-secondary-dark dark:hover:!bg-panel-dark dark:hover:!text-text-primary-dark'",
+      "const lightTint = 'bg-panel-light dark:bg-panel-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:text-text-primary-dark'",
+      // The resting ink through a string constant's slot is read too.
+      "const MUTED = 'text-text-secondary-light dark:text-text-secondary-dark'",
+      "const nav = `rounded hover:text-text-primary-light dark:hover:text-text-primary-dark ${MUTED}`",
+      // A plain hover fill shows in dark when no dark rest or dark hover of that property overrules it.
+      "const plainTint = 'text-text-secondary-light dark:text-text-secondary-dark hover:bg-white/5 dark:hover:text-text-primary-dark'",
+      // A rest overrules only its own property: a dotted style leaves a hover colour standing, no-underline an underline not.
+      "const styled = 'text-text-secondary-light dark:text-text-secondary-dark dark:decoration-dotted hover:decoration-brand dark:hover:text-text-primary-dark'",
+      "const unlined = 'text-text-secondary-light dark:text-text-secondary-dark dark:no-underline hover:underline dark:hover:text-text-primary-dark'",
+      // A rest that removes the family leaves its hover colour nothing to paint.
+      "const borderless = 'text-text-secondary-light dark:text-text-secondary-dark dark:border-0 hover:border-brand dark:hover:text-text-primary-dark'",
+      "const bare = 'text-text-secondary-light dark:text-text-secondary-dark dark:no-underline hover:decoration-brand dark:hover:text-text-primary-dark'",
+    ].join('\n')
+    expect(themePairFindings(src, 'probe.tsx', faintHovers).map((f) => `${f.line} ${f.className}`)).toEqual([
+      '1 dark:hover:text-text-primary-dark',
+      '2 dark:hover:!text-text-heading-dark',
+      '7 dark:hover:!text-text-primary-dark',
+      '8 dark:hover:text-text-primary-dark',
+      '10 dark:hover:text-text-primary-dark',
+      '13 dark:hover:text-text-primary-dark',
+      '14 dark:hover:text-text-primary-dark',
+      '15 dark:hover:text-text-primary-dark',
+    ])
   })
 
   it('every dark half outside a dark: variant is in BARE_DARK_RESIDUE, and every count is current', () => {

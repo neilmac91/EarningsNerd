@@ -1,10 +1,12 @@
 /**
  * The trend charts' tokens, chart scope (docs/design/analysis-trend-charts-spec-2026-10.md §3.8). Every value is a
  * literal hex or rgba string, so no var(--…) reaches an SVG attribute and serialising the SVG for the PNG export
- * cannot lose a colour. Only the spec renderer behind CHARTS_V2 reads these. Today's Recharts charts keep
- * components/ui/Chart.tsx's chartTheme, and the shared Tailwind chart tokens move to these values with the step-6
- * and step-7 switch (E194, E195), so the new dark tokens reach no production chart while the flag is off.
- * tests/unit/chart-theme.spec.ts holds this file to the spec's table. Pure and SSR-safe.
+ * cannot lose a colour. Only the spec renderer behind CHARTS_V2 reads these. They mirror Tailwind's `chart.s1…s6`,
+ * `chart.tick`, `chart.value`, `chart.gridline` and `chart.review` pairs and the text and surface tokens (step 6,
+ * E194); today's Recharts charts keep components/ui/Chart.tsx's chartTheme, so the new dark tokens reach no production
+ * chart while the flag is off. designTokenParity holds every hex here to a token and keeps the pairs' own hexes out of
+ * every other mirror, tests/unit/chart-theme.spec.ts holds each field to the spec's table and its own token and keeps
+ * the pairs out of every class, and tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
  */
 export interface ChartTokens {
   /** Plot background, marker rings, break marks, export fill: the card's panel colour. */
@@ -49,13 +51,13 @@ const DARK: ChartTokens = {
   grid: '#525C6B', // Lc −15.0
   zero: '#9CA3AF', // Lc −48.6
   tick: '#B8BEC7', // Lc −63.6 (the DS's #9CA3AF is −48.6, under 60 for 11 px text)
-  value: '#D7DADC', // Lc −80.3
+  value: '#EAECEF', // Lc −91.8 (−88.5 under the wash): the figure ink, as the legend values' (D-063)
   review: '#FBBF24', // Lc −70.2 (the DS's #F59E0B is −56.9)
   series: ['#62B2A6', '#D3A55C', '#8CA6E3', '#E8927C', '#97A6C2', '#AFA2DE'], // Lc −49.7, −54.2, −50.9, −51.9, −50.1, −52.8
   cursor: 'rgba(62,142,132,.16)',
   note: '#B8BEC7', // Lc −63.6
-  name: '#B8BEC7', // Lc −63.6
-  figure: '#D7DADC', // Lc −80.3
+  name: '#D1D5DB', // Lc −77.3: the DS text.secondary.dark since #1606, as light's names take text.secondary (E194)
+  figure: '#EAECEF', // Lc −91.8: the DS text.primary.dark since #1606 (was #D7DADC, −80.3)
 }
 
 export const CHART_TOKENS = { light: LIGHT, dark: DARK } as const

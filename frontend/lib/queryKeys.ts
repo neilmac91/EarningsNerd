@@ -60,7 +60,13 @@ export const queryKeys = {
   filingFundamentals: (filingId: string | number) => ['filing-fundamentals', filingId] as const,
   // admin-feedback keeps a shared prefix so the prefix-invalidation in FeedbackRow catches every
   // filtered variant (TanStack partial-match): invalidate `all()`, query with `list(filters)`.
+  feedback: {
+    all: () => ['feedback'] as const,
+    capabilities: (readerId: number) => ['feedback', 'capabilities', readerId] as const,
+    submission: (readerId: number, generation: number, key: string | null) => ['feedback', 'submission', readerId, generation, key] as const,
+  },
   adminFeedback: {
+    attachment: (readerId: number, generation: number, id: string) => ['admin-feedback', 'attachment', readerId, generation, id] as const,
     all: () => ['admin-feedback'] as const,
     list: (filters: unknown) => ['admin-feedback', filters] as const,
   },

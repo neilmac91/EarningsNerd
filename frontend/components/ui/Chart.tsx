@@ -67,6 +67,9 @@ export interface ChartTheme {
   tipBg: string
   tipBorder: string
   tipShadow: string
+  /** The tooltip's series names (text.secondary) and values (text.primary). */
+  nameInk: string
+  valueInk: string
   /** Direction tones — GRAPHIC values (3:1 floor). Text labels use gainText/lossText. */
   gain: string
   loss: string
@@ -81,13 +84,15 @@ export function chartTheme(dark: boolean): ChartTheme {
     ? {
         grid: 'rgba(255,255,255,0.06)',
         axis: 'rgba(255,255,255,0.10)',
-        label: '#9CA3AF', // text.secondary.dark — tertiary fails on navy
+        label: '#9CA3AF', // text.tertiary.dark, chart chrome's de-emphasised ink (the light label is the flat ink)
         crosshair: 'rgba(156,163,175,0.4)',
         cursorFill: 'rgba(62,142,132,0.16)',
         ref: '#9CA3AF',
         tipBg: '#1F2937',
         tipBorder: 'rgba(255,255,255,0.10)',
         tipShadow: 'none', // dark cards/overlays separate by fill + hairline, never shadow
+        nameInk: '#D1D5DB', // text.secondary.dark
+        valueInk: '#EAECEF', // text.primary.dark
         gain: '#34D399',
         loss: '#FB7185',
         flat: '#9CA3AF',
@@ -104,6 +109,8 @@ export function chartTheme(dark: boolean): ChartTheme {
         tipBg: '#FBFAF6',
         tipBorder: '#E5E7EB',
         tipShadow: '0 1px 3px 0 rgba(16,24,40,0.10), 0 1px 2px -1px rgba(16,24,40,0.10)', // e2
+        nameInk: '#374151', // text.secondary.light
+        valueInk: '#1A1A17', // text.primary.light
         gain: '#16A34A', // gain.light — graphic only (3:1); never text
         loss: '#DC2626', // loss.light — graphic only
         flat: '#6B7280',
@@ -325,14 +332,14 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
               aria-hidden="true"
               style={{ width: 8, height: 8, borderRadius: 2, background: row.color ?? seriesColor(i), flex: 'none' }}
             />
-            <span style={{ fontSize: 12, color: dark ? '#9CA3AF' : '#374151', flex: 1 }}>{row.name}</span>
+            <span style={{ fontSize: 12, color: t.nameInk, flex: 1 }}>{row.name}</span>
             <span
               style={{
                 fontFamily: CHART_FONT,
                 fontVariantNumeric: 'tabular-nums',
                 fontSize: 12,
                 fontWeight: 500,
-                color: dark ? '#D7DADC' : '#1A1A17',
+                color: t.valueInk,
               }}
             >
               {fmt(row.value, row.name)}

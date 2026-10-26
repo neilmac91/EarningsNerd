@@ -126,6 +126,9 @@ function sitesReaching(source: string, fileName: string, attribute: RegExp, flag
     const visit = (n: ts.Node): void => {
       if (hit) return
       if (ts.isIdentifier(n)) {
+        // An options key such as useQuery({ retry: false }) is not an invoked retry handler.
+        // Keep shorthand properties and property reads: they still refer to the bound value.
+        if (ts.isPropertyAssignment(n.parent) && n.parent.name === n) return
         if (flag.test(n.text) || (direct && path.size === 0 && direct.test(n.text))) {
           hit = true
           return
@@ -1226,6 +1229,16 @@ describe('a Retry of a query is RetryButton (rule-12 gate)', () => {
       '14: () => client.refetchQueries()',
       '18: reload',
     ])
+    expect(retrySites([
+      'function Viewer() {',
+      '  const media = useQuery({ queryKey, queryFn, retry: false })',
+      '  const download = () => downloadBlob(media.data)',
+      '  return <>',
+      '    <Button onClick={download}>Download</Button>',
+      '    <Button onClick={() => media.refetch()}>Try again</Button>',
+      '  </>',
+      '}',
+    ].join('\n'), 'fixture.tsx').map((site) => site.expr)).toEqual(['() => media.refetch()'])
   })
 
   it('binds a function declaration in its own block, and an overloaded one to its implementation', () => {
