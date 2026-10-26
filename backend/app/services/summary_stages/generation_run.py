@@ -157,8 +157,8 @@ class GenerationRun:
             logger.warning(f"[stream:{filing_id}] Could not refund usage unit ({reason}): {refund_error}")
 
     def record_progress_sync(self, *args, **kwargs) -> None:
-        # record_progress refreshes its returned row after committing. Close that read
-        # transaction here too; the stream only needs the durable write, not the ORM row.
+        # A session of its own for the one statement record_progress writes and commits; the
+        # stream needs only the durable write, and the close returns the connection.
         with database.SessionLocal() as progress_session:
             pipeline.record_progress(progress_session, *args, **kwargs)
 
