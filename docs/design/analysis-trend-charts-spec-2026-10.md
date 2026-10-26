@@ -363,10 +363,13 @@ says so; everything else follows the spec.
   note letters nothing. A gap's footnote line leads with no letter. A calculated value has no glyph: the line
   `Calculated by EarningsNerd from reported figures: <series> <runs>.` names a partly calculated series' periods
   (PGR: `Premiums earned Q4 ’24, Q4 ’25`), and fully calculated series keep footnote line 3. The tooltip and the
-  values stop letter, and speak, only the same notes. The 16 px band stays reserved: M8 holds a card's height to its
-  view and mode, so a chart that gains a letter never grows past the card beside it. `chart.review` now paints
-  nothing, and E195's token fold retires it. The six golden datasets' notes are all gaps or record-only, so their
-  bands are empty; `chart-engine.spec.ts` holds every band letter to `noteMarksFigure`.
+  values stop letter, and speak, only the same notes, and the card's Notes chip names the letters its footnotes do
+  (an n/m comparison's included, which today's Recharts never draws). The 16 px band stays reserved: M8 holds a card's
+  height to its view and mode, so a chart that gains a letter never grows past the card beside it. `chart.review` now
+  paints nothing, and E195's token fold retires it. No stored fixture has a note that questions the number or one with
+  no check recorded, so the golden bands are empty, and the sweeps add one synthetic dataset that meets every kind
+  (`withMixedNotes` in `tests/unit/chartPlan.ts`). On it `chart-engine.spec.ts` holds every band letter to
+  `noteMarksFigure`, and `trend-charts-v2.spec.tsx` holds each chip to its footnotes' letters.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
@@ -386,11 +389,11 @@ says so; everything else follows the spec.
   preloads, and the root layout preloads them on every route; every subset's face is declared with its `unicode-range`
   either way. A `latin-ext` preload would put 14.7 KB more on every route's critical path for glyphs only the analysis
   surfaces print, and would make † likely, not certain, before first paint. G3's purpose is met by G4's wait instead:
-  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱` (`0₹₪₱` since E194, which drew the band's last †). The Font Loading API picks a family's faces by their
-  `unicode-range`, and with no text it takes a space, so G4's call as written waits for the latin face alone. With the
-  sample the plots paint once the latin face and the latin-ext one (†, and the ₹, ₪ and ₱ that `moneyPrefix` prints)
-  are both in, or 1,500 ms pass, so † never swaps after a plot's first paint, and no other route fetches latin-ext
-  before its text needs it. The export embeds the faces itself, so it needs no preload either.
+  it loads and checks `11px "Geist Mono"` with the text `0₹₪₱` (`0†₹₪₱` until E194, which drew the band's last †).
+  The Font Loading API picks a family's faces by their `unicode-range`, and with no text it takes a space, so G4's call
+  as written waits for the latin face alone. With the sample the plots paint once the latin face and the latin-ext one
+  (the ₹, ₪ and ₱ that `moneyPrefix` prints) are both in, or 1,500 ms pass, so no glyph swaps after a plot's first
+  paint, and no other route fetches latin-ext before its text needs it. The export embeds the faces itself, so it needs no preload either.
   - `trend-charts-v2.spec.tsx` holds the sample to every glyph outside the latin face that the engine prints over the
     ISO 4217 list, and `designSystemDoneGate.spec.ts` holds the loader's two options.
   - Outside the plots, a † or a foreign sign set in the data face (the KPI strip, the metrics table, the card's
@@ -656,7 +659,8 @@ gets a tick (D2 kept). There is no axis title in the SVG.
   `latin-ext`. ↑ and ↓ appear only in the off-scale band; † only in notes-band cells. Banned: U+2009 thin space,
   ▲ (U+25B2), ▼ (U+25BC), and any glyph absent from both subsets. Since E194 (D-061) the band draws no †, so † left
   the set: `chart-engine.spec.ts`'s M12 fails a planned one.
-- **G3. Preload.** Both subset files are preloaded on the analysis route, so † never swaps after first paint.
+- **G3. Preload.** Both subset files are preloaded on the analysis route, so † never swaps after first paint. G4's
+  wait meets it instead (§0.5, "Fonts (E199)"), and since E194 no plot prints †.
 - **G4. Wait for fonts.** The chart SVG paints after `document.fonts.load('11px "Geist Mono"')` resolves or 1,500 ms
   pass. The skeleton has the exact final height in the meantime (skeleton: specified, not yet verified).
 - **G5. Baselines.** Every text element has a numeric baseline from the planner (§3.7 text table). Do not use
@@ -1726,7 +1730,7 @@ errors, and sideways page scroll at 390 px. The other checks are specified for t
 | M9 | model | Colours = chart-1..k in order over present series; shapes circle, square, triangle by the same index; an absent series takes no slot; no gain, loss or brand token in any mark | colour misuse |
 | M10 | model | For every same-panel series pair and period, the drawn y order equals the true order (0 false orderings) | dual-axis misordering |
 | M11 | model | Clipping only on margins and growth panels; the clipped set equals the A3 output; no $ panel clipped | hidden dollars |
-| M12 | model | Every SVG string ⊆ G2; † only as a notes-band glyph (and as the key of its footnote line); no † in any legend item, caption, label or title; no `[0-9$%BMKT]\s?†` anywhere (SVG, legend, footnotes, KPI strip) | missing glyphs, † on names and numbers |
+| M12 | model | Every SVG string ⊆ G2; † only as a notes-band glyph (and as the key of its footnote line), and since E194 (D-061) nowhere: no band cell or footnote mark is †; no † in any legend item, caption, label or title; no `[0-9$%BMKT]\s?†` anywhere (SVG, legend, footnotes, KPI strip) | missing glyphs, † on names and numbers |
 | M13 | model | Bars and markers at slot centres; bars anchored at y(0); true length < 2 px → 2 px stub on the value's side; missing → no mark; every non-zero equity stub has an A13b label or a recorded drop | missing drawn as 0, invisible bars |
 | M14 | model | Footnote strings byte-identical across card, expanded, light and dark | drift between views |
 | M15 | model | Every printed chart value, rounded to the metrics-table precision, equals the table cell's number (minus code point ignored) | chart and table disagree |

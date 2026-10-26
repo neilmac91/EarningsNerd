@@ -53,7 +53,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import { plannedByRole, questioned } from './chartPlan'
+import { plannedByRole, questioned, withMixedNotes } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
 import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
@@ -66,9 +66,10 @@ import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
 import { toast } from 'sonner'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const NAMES = Object.keys(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 /** The width a card plans at before it is measured, and in jsdom, which lays nothing out (TrendChartCard). */
@@ -256,6 +257,10 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         const svg = card.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
         expect(svg.getAttribute('aria-label')).toBe(`${model.title} chart`)
         expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
+        // The Notes chip names exactly the letters the band and the footnotes show (D-061), or is absent.
+        const lettered = model.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark))
+        const chip = within(card).queryByRole('button', { name: /^Review data notes / })
+        expect(chip?.getAttribute('aria-label') ?? null, 'the chip and the footnotes name one set of letters').toBe(lettered.length ? `Review data notes ${lettered.join(', ')}` : null)
       })
     })
   }

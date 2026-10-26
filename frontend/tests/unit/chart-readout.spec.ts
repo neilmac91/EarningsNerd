@@ -17,10 +17,12 @@ import { chartReadouts, periodEndText } from '@/features/analysis/lib/charts/rea
 import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
+import { withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const DATASETS = Object.keys(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 

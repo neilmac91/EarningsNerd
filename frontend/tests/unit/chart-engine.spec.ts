@@ -20,11 +20,12 @@ import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { currencySymbol } from '@/lib/format'
-import { questioned } from './chartPlan'
+import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const DATASETS = Object.entries(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 const WIDTHS: Record<ChartView, number[]> = { card: [342, 502], expanded: [390, 1030] }
@@ -331,6 +332,21 @@ describe('the cases the step-1 data required', () => {
     expect(m.notesBand).toEqual({ FY2023: [{ text: 'a' }], FY2024: [{ text: 'a' }], FY2025: [{ text: 'a' }] })
     expect(m.footnotes[0].mark).toBe('a')
     expect(m.footnotes[0].text).toMatch(/^Operating margin and Net margin FY2023–FY2025: /)
+  })
+
+  it('MIXED_NOTES, the sweeps’ own dataset: only a questioned value or comparison letters, an n/m one included (D-061)', () => {
+    const ds = dataset(MIXED_NOTES)
+    expect(resolveDataNotes(ds).notes.map((note) => [note.letter, note.kind, noteMarksFigure(note)]), 'every kind a band can meet')
+      .toEqual([['a', 'review', true], ['b', 'review', false], ['c', 'review', true], ['d', 'unknown', false], ['e', 'unavailable', false]])
+    const band = (chart: ChartId) => Object.fromEntries(Object.entries(buildChartModel(chart, ds).notesBand ?? {}).map(([period, glyphs]) => [period, glyphs.map((glyph) => glyph.text)]))
+    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['c'] })
+    expect(buildChartModel('topline', ds).footnotes.slice(0, 2)).toEqual([
+      { mark: 'a', text: 'Revenue YoY FY2024: Available sources disagree on this figure.' },
+      { mark: 'c', text: 'Revenue YoY FY2025: The source inputs cover incompatible reporting periods.' },
+    ])
+    expect(band('margins'), 'operating margin’s questioned flags; net margin’s record-only ones letter nothing').toEqual({ FY2023: ['a'], FY2024: ['a'], FY2025: ['a'] })
+    expect(band('cash'), 'free cash flow’s unrecorded checks letter nothing').toEqual({})
+    expect(band('balance'), 'a gap letters nothing').toEqual({})
   })
 
   it('a gap in the window: the year after it is unavailable, not structural, and a zero base is found by its key', () => {

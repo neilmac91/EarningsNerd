@@ -20,6 +20,33 @@ export function questioned(dataset: AnalysisDataset): AnalysisDataset {
   return dataset
 }
 
+/** The synthetic dataset `withMixedNotes` adds to the fixture. */
+export const MIXED_NOTES = 'REGNPN_annual, mixed notes'
+
+/** The fixture with one more dataset, MIXED_NOTES, so the sweeps over every dataset meet each kind of note a band can:
+ *  no stored fixture has a note that questions the number, nor one with no check recorded. It is REGNPN_annual with
+ *  operating margin's flags questioning the number (letters), net margin's left record-only, free cash flow's checks
+ *  unrecorded (unknown notes), its gaps as they are, and two questioned revenue comparisons: FY2024's on a number and
+ *  FY2025's on an n/m, for a reason of its own, so its letter appears nowhere else (D-061). */
+export function withMixedNotes<F extends { datasets: Record<string, { dataset: AnalysisDataset }> }>(fixture: F): F {
+  const base = fixture.datasets.REGNPN_annual
+  const ds = structuredClone(base.dataset)
+  delete (ds as { data_notes?: unknown }).data_notes
+  const series = (concept: string) => ds.series.find((candidate) => candidate.concept === concept)!
+  const reflag = (concept: string, change: { validation?: 'unavailable'; reasons: string[] }) => {
+    for (const point of series(concept).points) {
+      if (point.provenance?.reasons.includes('legacy_calculation')) point.provenance = { ...point.provenance, ...change }
+    }
+  }
+  reflag('operating_margin', { reasons: ['source_conflict'] })
+  reflag('free_cash_flow', { validation: 'unavailable', reasons: [] })
+  const questionedYoY = (reason: string) => ({ version: 1 as const, method: 'calculated' as const, validation: 'needs_review' as const, reasons: [reason], formula: null, inputs: [] })
+  const revenue = (period: string) => series('revenue').points.find((point) => point.period === period)!
+  Object.assign(revenue('FY2024'), { yoy_provenance: questionedYoY('source_conflict') })
+  Object.assign(revenue('FY2025'), { yoy: 'nm', yoy_provenance: questionedYoY('period_mismatch') })
+  return { ...fixture, datasets: { ...fixture.datasets, [MIXED_NOTES]: { ...base, dataset: ds } } }
+}
+
 export function plannedByRole(model: ChartModel, layout: ChartLayout, tokens: ChartTokens): Partial<Record<TextRole, string[]>> {
   const planned: Partial<Record<TextRole, string[]>> = {}
   const add = (role: TextRole, text: string, ink: string) => (planned[role] ??= []).push(`${text}|${ink}`)
