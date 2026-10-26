@@ -34,16 +34,10 @@ class ModelConfig:
     json_mode: str = "schema"  # "schema" | "object" | "none"
 
 
-# Registry. `baseline` is handled specially by the runner (current openai_service pipeline) and nothing
-# reads this entry: its cost comes from the pipeline's own `ai_call` estimates (app/services/llm_pricing.py),
-# so the prices below are unused. The other entries' prices are their `$cost`.
+# Registry of the bake-off candidates; each entry's prices are its `$cost`. `baseline` is not here: the runner runs
+# the current openai_service pipeline for it, and its cost comes from that pipeline's own `ai_call` estimates
+# (app/services/llm_pricing.py).
 REGISTRY: Dict[str, ModelConfig] = {
-    "baseline": ModelConfig(
-        name="baseline", provider="openai_compat",
-        model_id=os.environ.get("AI_DEFAULT_MODEL", "gemini-3.1-pro-preview"),
-        input_price_per_1m=2.0, output_price_per_1m=12.0, price_verified=False,
-        base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY", json_mode="none",
-    ),
     "gemini-json": ModelConfig(
         name="gemini-json", provider="openai_compat", model_id="gemini-3.1-pro-preview",
         input_price_per_1m=2.0, output_price_per_1m=12.0, price_verified=False,

@@ -207,7 +207,8 @@ unavailable for any non-contract judge).
 5. **`judge_pass`** — secondary corroboration (faithfulness/insight); never the deciding number.
 6. `$cost`, `latency(s)` — tie-breakers / feasibility. The baseline's `$cost` prices every generation, retries
    included, at the pipeline's peak-aware estimate; another candidate's prices its successful final attempts at
-   `models.py` list prices, so the two are not like-for-like (the report says so under its table).
+   the per-token prices in `models.py` (Claude's verified, the others unverified placeholders), so the two are not
+   like-for-like (the report says so under its table).
 
 The `.json` has per-filing detail — use it to see which filings dragged a candidate down.
 
@@ -501,10 +502,13 @@ A baseline's `total_cost_usd` is the pipeline's own estimate: each `ai_call` rec
 judge's calls are in neither. The estimate comes from the price table (`app/services/llm_pricing.py`)
 and is peak-aware: inside DeepSeek's peak windows it is `AI_PEAK_PRICE_MULTIPLIER` (2 by default)
 times the off-peak figure, so two runs of the same set differ by when they ran. It is not the bill.
-The provider balance falls by the real charge, but for every caller of the shared key in the same
-window, so a balance difference brackets one run only when nothing else drew. A candidate's
-`total_cost_usd` is not like-for-like: its successful final attempts at `evals/models.py` list
-prices, with no retries, failed attempts, cache split, peak tariff or unpriced count. A report
+The provider balance falls by the real charge, but for every caller of the shared key, a debit can
+post after the next reading, and readings are cent-rounded: two readings around one run measure it
+only when nothing else drew in between and its debits have posted
+(`tasks/review-evidence/prompt-candidate-custody-2026-10-08/verification.md`). A candidate's
+`total_cost_usd` is not like-for-like: its successful final attempts at the per-token prices in
+`evals/models.py` (Claude's verified, the others unverified placeholders), with no retries, failed
+attempts, cache split, peak tariff or unpriced count. A report
 written before the estimate was summed shows `total_cost_usd=0` for the baseline: unmetered, not a
 free run.
 
@@ -1124,7 +1128,7 @@ A future `trends_golden_set.json` + scorer (validating selected IDs, rendered ob
 |---|---|
 | EDGAR 403 / empty filings | Valid SEC User-Agent in env; respect ~10 req/s |
 | Small-cap `verified:false` after build | Fill `ground_truth` manually from the filing |
-| Cost surprise | `--limit` + fewer `--runs`; a candidate's prices are `models.py` placeholders (fix them there); the baseline's are the pipeline's own (`app/services/llm_pricing.py`) |
+| Cost surprise | `--limit` + fewer `--runs`; a candidate's prices are in `models.py` (the non-Claude ones are unverified placeholders; fix them there); the baseline's are the pipeline's own (`app/services/llm_pricing.py`) |
 | `anthropic` ImportError / no key | `pip install anthropic`; judge/Claude degrade to a FAIL-with-error row, not a crash |
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |

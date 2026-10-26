@@ -673,7 +673,7 @@ def _write_report(
     lines += ["", "`$cost` is an estimate in USD, not like-for-like across rows: `baseline` prices every generation a "
               "result made, retries included, from the pipeline's own peak-aware `ai_call` estimates (`+N unpriced` "
               "counts calls with no estimate); any other candidate prices its successful final attempts at "
-              "`evals/models.py` list prices."]
+              "the per-token prices in `evals/models.py`."]
     lines += ["", "## Dollar-figure trace (advisory; raw v2 model prose)", "",
               "Mean counts use measured runs only; missing grounding is unavailable, not zero.",
               "| candidate | mean untraceable | measured | unavailable | errors |",

@@ -42,7 +42,8 @@ consistency — that's what to optimize for.
 
 ## Candidates (the bake-off)
 
-Registered in `models.py`. Claude is called via the official `anthropic` SDK (native
+Registered in `models.py`, except `baseline`, which runs the current `openai_service` pipeline. Claude is
+called via the official `anthropic` SDK (native
 structured outputs); the OpenAI-compatible providers via the `openai` SDK + per-provider base
 URLs.
 
