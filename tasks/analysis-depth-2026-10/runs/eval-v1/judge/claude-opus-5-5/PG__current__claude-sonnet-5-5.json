@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values. Its watch items lack thresholds and it gives no causes. B explains the FY2019 impairment, FY2026 margin drivers, other income, payout coverage, and peers. B has some grounding lapses: 'safety stock and new products', the $919m payables figure and 'tougher competition' come from truncated passages that do not show them. These are minor next to its well-supported depth."
+   },
+   "cost_usd": 0.099325,
+   "latency_s": 11.459,
+   "input_tokens": 11438,
+   "output_tokens": 675,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values. Its watch items lack thresholds and it gives no causes. B explains the FY2019 impairment, FY2026 margin drivers, other income, payout coverage, and peers. B has some grounding lapses: 'safety stock and new products', the $919m payables figure and 'tougher competition' come from truncated passages that do not show them. These are minor next to its well-supported depth.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully sourced but only restates table values, so it adds almost nothing. A explains the FY2019 Shave Care impairment, the FY2026 margin squeeze, the Glad gain, buyback mechanics and peer context. Some A claims go beyond truncated passages: safety stock, payables of $919m and competition. Its 'never exceeded window high' line is tautological. Even so, its interpretive value and threshold-based watch items clearly outweigh these lapses."
+   },
+   "cost_usd": 0.097293,
+   "latency_s": 9.885,
+   "input_tokens": 11434,
+   "output_tokens": 575,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully sourced but only restates table values, so it adds almost nothing. A explains the FY2019 Shave Care impairment, the FY2026 margin squeeze, the Glad gain, buyback mechanics and peer context. Some A claims go beyond truncated passages: safety stock, payables of $919m and competition. Its 'never exceeded window high' line is tautological. Even so, its interpretive value and threshold-based watch items clearly outweigh these lapses.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.196618
+}

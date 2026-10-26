@@ -1,0 +1,1202 @@
+{
+ "generated_from": {
+  "runs": 55,
+  "ok": 45,
+  "annual_ok": 40,
+  "quarterly_ok": 5,
+  "sentences": 785,
+  "llm_labelled_runs": 45,
+  "llm_labelled_sentences": 785,
+  "unmatched_sentences": 0
+ },
+ "classes_annual": {
+  "deterministic": {
+   "n": 705,
+   "restated_figure": {
+    "count": 293,
+    "share": 0.4156
+   },
+   "derived_comparison": {
+    "count": 412,
+    "share": 0.5844
+   },
+   "causal_claim": {
+    "count": 0,
+    "share": 0.0
+   },
+   "judgement": {
+    "count": 0,
+    "share": 0.0
+   }
+  },
+  "llm": {
+   "n": 705,
+   "restated_figure": {
+    "count": 229,
+    "share": 0.3248
+   },
+   "derived_comparison": {
+    "count": 469,
+    "share": 0.6652
+   },
+   "causal_claim": {
+    "count": 0,
+    "share": 0.0
+   },
+   "judgement": {
+    "count": 7,
+    "share": 0.0099
+   }
+  },
+  "directive": 115,
+  "missingness": 5
+ },
+ "classes_annual_without_operand_tails": {
+  "deterministic": {
+   "n": 658,
+   "restated_figure": {
+    "count": 246,
+    "share": 0.3739
+   },
+   "derived_comparison": {
+    "count": 412,
+    "share": 0.6261
+   },
+   "causal_claim": {
+    "count": 0,
+    "share": 0.0
+   },
+   "judgement": {
+    "count": 0,
+    "share": 0.0
+   }
+  },
+  "llm": {
+   "n": 658,
+   "restated_figure": {
+    "count": 182,
+    "share": 0.2766
+   },
+   "derived_comparison": {
+    "count": 469,
+    "share": 0.7128
+   },
+   "causal_claim": {
+    "count": 0,
+    "share": 0.0
+   },
+   "judgement": {
+    "count": 7,
+    "share": 0.0106
+   }
+  },
+  "directive": 115,
+  "missingness": 5
+ },
+ "classes_by_section_annual": {
+  "trajectory": {
+   "deterministic": {
+    "n": 118,
+    "restated_figure": {
+     "count": 80,
+     "share": 0.678
+    },
+    "derived_comparison": {
+     "count": 38,
+     "share": 0.322
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 118,
+    "restated_figure": {
+     "count": 80,
+     "share": 0.678
+    },
+    "derived_comparison": {
+     "count": 38,
+     "share": 0.322
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 0,
+   "missingness": 0
+  },
+  "growth_quality": {
+   "deterministic": {
+    "n": 131,
+    "restated_figure": {
+     "count": 2,
+     "share": 0.0153
+    },
+    "derived_comparison": {
+     "count": 129,
+     "share": 0.9847
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 131,
+    "restated_figure": {
+     "count": 6,
+     "share": 0.0458
+    },
+    "derived_comparison": {
+     "count": 125,
+     "share": 0.9542
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 0,
+   "missingness": 0
+  },
+  "margins": {
+   "deterministic": {
+    "n": 113,
+    "restated_figure": {
+     "count": 65,
+     "share": 0.5752
+    },
+    "derived_comparison": {
+     "count": 48,
+     "share": 0.4248
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 113,
+    "restated_figure": {
+     "count": 65,
+     "share": 0.5752
+    },
+    "derived_comparison": {
+     "count": 48,
+     "share": 0.4248
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 0,
+   "missingness": 5
+  },
+  "cash_balance_sheet": {
+   "deterministic": {
+    "n": 126,
+    "restated_figure": {
+     "count": 24,
+     "share": 0.1905
+    },
+    "derived_comparison": {
+     "count": 102,
+     "share": 0.8095
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 126,
+    "restated_figure": {
+     "count": 24,
+     "share": 0.1905
+    },
+    "derived_comparison": {
+     "count": 102,
+     "share": 0.8095
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 0,
+   "missingness": 0
+  },
+  "red_flags": {
+   "deterministic": {
+    "n": 102,
+    "restated_figure": {
+     "count": 47,
+     "share": 0.4608
+    },
+    "derived_comparison": {
+     "count": 55,
+     "share": 0.5392
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 102,
+    "restated_figure": {
+     "count": 54,
+     "share": 0.5294
+    },
+    "derived_comparison": {
+     "count": 41,
+     "share": 0.402
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 7,
+     "share": 0.0686
+    }
+   },
+   "directive": 0,
+   "missingness": 0
+  },
+  "watch_next": {
+   "deterministic": {
+    "n": 115,
+    "restated_figure": {
+     "count": 75,
+     "share": 0.6522
+    },
+    "derived_comparison": {
+     "count": 40,
+     "share": 0.3478
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 115,
+    "restated_figure": {
+     "count": 0,
+     "share": 0.0
+    },
+    "derived_comparison": {
+     "count": 115,
+     "share": 1.0
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 115,
+   "missingness": 0
+  }
+ },
+ "classes_by_profile_annual": {
+  "operating": {
+   "deterministic": {
+    "n": 578,
+    "restated_figure": {
+     "count": 235,
+     "share": 0.4066
+    },
+    "derived_comparison": {
+     "count": 343,
+     "share": 0.5934
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 578,
+    "restated_figure": {
+     "count": 178,
+     "share": 0.308
+    },
+    "derived_comparison": {
+     "count": 394,
+     "share": 0.6817
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 6,
+     "share": 0.0104
+    }
+   },
+   "directive": 94,
+   "missingness": 0
+  },
+  "loss_making": {
+   "deterministic": {
+    "n": 59,
+    "restated_figure": {
+     "count": 26,
+     "share": 0.4407
+    },
+    "derived_comparison": {
+     "count": 33,
+     "share": 0.5593
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 59,
+    "restated_figure": {
+     "count": 19,
+     "share": 0.322
+    },
+    "derived_comparison": {
+     "count": 39,
+     "share": 0.661
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 1,
+     "share": 0.0169
+    }
+   },
+   "directive": 10,
+   "missingness": 0
+  },
+  "bank": {
+   "deterministic": {
+    "n": 56,
+    "restated_figure": {
+     "count": 26,
+     "share": 0.4643
+    },
+    "derived_comparison": {
+     "count": 30,
+     "share": 0.5357
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 56,
+    "restated_figure": {
+     "count": 24,
+     "share": 0.4286
+    },
+    "derived_comparison": {
+     "count": 32,
+     "share": 0.5714
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 9,
+   "missingness": 4
+  },
+  "insurer": {
+   "deterministic": {
+    "n": 12,
+    "restated_figure": {
+     "count": 6,
+     "share": 0.5
+    },
+    "derived_comparison": {
+     "count": 6,
+     "share": 0.5
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 12,
+    "restated_figure": {
+     "count": 8,
+     "share": 0.6667
+    },
+    "derived_comparison": {
+     "count": 4,
+     "share": 0.3333
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "directive": 2,
+   "missingness": 1
+  }
+ },
+ "classes_by_mode_all": {
+  "annual": {
+   "deterministic": {
+    "n": 705,
+    "restated_figure": {
+     "count": 293,
+     "share": 0.4156
+    },
+    "derived_comparison": {
+     "count": 412,
+     "share": 0.5844
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 705,
+    "restated_figure": {
+     "count": 229,
+     "share": 0.3248
+    },
+    "derived_comparison": {
+     "count": 469,
+     "share": 0.6652
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 7,
+     "share": 0.0099
+    }
+   },
+   "directive": 115,
+   "missingness": 5
+  },
+  "quarterly": {
+   "deterministic": {
+    "n": 80,
+    "restated_figure": {
+     "count": 38,
+     "share": 0.475
+    },
+    "derived_comparison": {
+     "count": 42,
+     "share": 0.525
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 0,
+     "share": 0.0
+    }
+   },
+   "llm": {
+    "n": 80,
+    "restated_figure": {
+     "count": 35,
+     "share": 0.4375
+    },
+    "derived_comparison": {
+     "count": 43,
+     "share": 0.5375
+    },
+    "causal_claim": {
+     "count": 0,
+     "share": 0.0
+    },
+    "judgement": {
+     "count": 2,
+     "share": 0.025
+    }
+   },
+   "directive": 13,
+   "missingness": 2
+  }
+ },
+ "templates_annual": {
+  "growth_quality.growth": 81,
+  "trajectory.latest": 80,
+  "watch_next.metric": 75,
+  "cash_balance_sheet.level-comparison": 68,
+  "margins.latest": 60,
+  "growth_quality.comparison": 48,
+  "margins.change": 48,
+  "red_flags.signal.operands": 47,
+  "watch_next.growth": 40,
+  "trajectory.cagr": 38,
+  "cash_balance_sheet.ratio-threshold": 34,
+  "cash_balance_sheet.latest": 24,
+  "red_flags.signal.debt-build": 18,
+  "red_flags.signal.liquidity-squeeze": 12,
+  "red_flags.no-signals": 8,
+  "red_flags.signal.margin-compression": 6,
+  "red_flags.signal.fcf-ni-divergence": 6,
+  "red_flags.signal.growth-deceleration": 5,
+  "section.fallback": 5,
+  "growth_quality.latest-eps": 2
+ },
+ "agreement": {
+  "all": {
+   "n": 785,
+   "kappa_class": 0.714,
+   "raw_agreement": 0.8624,
+   "kappa_directive": 1.0,
+   "kappa_missingness": 1.0,
+   "confusion_det_by_llm": {
+    "derived_comparison -> derived_comparison": 429,
+    "derived_comparison -> judgement": 9,
+    "derived_comparison -> restated_figure": 16,
+    "restated_figure -> derived_comparison": 83,
+    "restated_figure -> restated_figure": 248
+   },
+   "kappa_class_without_watch_next_metric": 0.9245,
+   "disagreements_by_template": {
+    "watch_next.metric: restated_figure -> derived_comparison": 83,
+    "red_flags.no-signals: derived_comparison -> restated_figure": 8,
+    "growth_quality.growth: derived_comparison -> restated_figure": 8,
+    "red_flags.signal.fcf-ni-divergence: derived_comparison -> judgement": 7,
+    "red_flags.no-signals: derived_comparison -> judgement": 2
+   }
+  },
+  "annual": {
+   "n": 705,
+   "kappa_class": 0.723,
+   "raw_agreement": 0.8681,
+   "kappa_directive": 1.0,
+   "kappa_missingness": 1.0,
+   "confusion_det_by_llm": {
+    "derived_comparison -> derived_comparison": 394,
+    "derived_comparison -> judgement": 7,
+    "derived_comparison -> restated_figure": 11,
+    "restated_figure -> derived_comparison": 75,
+    "restated_figure -> restated_figure": 218
+   },
+   "kappa_class_without_watch_next_metric": 0.9386,
+   "disagreements_by_template": {
+    "watch_next.metric: restated_figure -> derived_comparison": 75,
+    "red_flags.no-signals: derived_comparison -> restated_figure": 7,
+    "red_flags.signal.fcf-ni-divergence: derived_comparison -> judgement": 6,
+    "growth_quality.growth: derived_comparison -> restated_figure": 4,
+    "red_flags.no-signals: derived_comparison -> judgement": 1
+   }
+  }
+ },
+ "disagreement_examples": [
+  {
+   "run": "REGN-annual",
+   "template": "watch_next.metric",
+   "det": "restated_figure",
+   "llm": "derived_comparison",
+   "text": "Watch how operating margin in the next reporting update compares with 24.9% in FY2025."
+  },
+  {
+   "run": "VRTX-annual",
+   "template": "red_flags.no-signals",
+   "det": "derived_comparison",
+   "llm": "judgement",
+   "text": "No trend flags detected in the selected data."
+  },
+  {
+   "run": "KO-annual",
+   "template": "red_flags.signal.fcf-ni-divergence",
+   "det": "derived_comparison",
+   "llm": "judgement",
+   "text": "Free-cash-flow conversion fell to 0.40\u00d7 net income in FY2025 vs a 1.31\u00d7 historical average \u2014 earnings and cash are diverging."
+  },
+  {
+   "run": "CB-annual",
+   "template": "growth_quality.growth",
+   "det": "derived_comparison",
+   "llm": "restated_figure",
+   "text": "Net interest income growth in FY2025 was -3.1%."
+  }
+ ],
+ "cause_word_sentences": {
+  "annual": 0,
+  "all": 0,
+  "words": {},
+  "examples": []
+ },
+ "mean_sentences_per_analysis": 17.625,
+ "sentences_per_analysis_range": [
+  12,
+  22
+ ],
+ "mean_distinct_metrics": 7.625,
+ "mean_distinct_metrics_in_dataset": 19.425,
+ "visibility_annual": {
+  "sentences": 705,
+  "numeric_sentences": 692,
+  "restated_figure_visible_in_table": 288,
+  "no_new_number_vs_table": 662,
+  "no_new_number_vs_kpi_strip": 222,
+  "restated_figure_visible_in_kpi_strip": 151
+ },
+ "visibility_quarterly": {
+  "numeric_sentences": 76,
+  "no_new_number_vs_table": 45
+ },
+ "tokens_cost_annual": {
+  "prompt_tokens": {
+   "mean": 2049.275,
+   "min": 1415,
+   "max": 2630
+  },
+  "completion_tokens": {
+   "mean": 265.35,
+   "min": 196,
+   "max": 292
+  },
+  "cache_hit_tokens": {
+   "mean": 1782.275,
+   "min": 128,
+   "max": 2432
+  },
+  "cache_miss_tokens": {
+   "mean": 267,
+   "min": 134,
+   "max": 1944
+  },
+  "estimated_cost_usd": {
+   "mean": 0.0002,
+   "min": 0.000142,
+   "max": 0.000462
+  },
+  "offpeak_usd": {
+   "mean": 0.0002,
+   "total": 0.008182
+  },
+  "peak_usd": {
+   "mean": 0.0004,
+   "total": 0.016368
+  },
+  "any_peak_logged": false,
+  "served_models": [
+   "deepseek-flash"
+  ],
+  "reasoning_tokens_nonzero": 0
+ },
+ "tokens_cost_all": {
+  "prompt_tokens": {
+   "mean": 2049.6889,
+   "min": 1415,
+   "max": 2630
+  },
+  "completion_tokens": {
+   "mean": 263.7556,
+   "min": 196,
+   "max": 292
+  },
+  "cache_hit_tokens": {
+   "mean": 1763.4444,
+   "min": 128,
+   "max": 2432
+  },
+  "cache_miss_tokens": {
+   "mean": 286.2444,
+   "min": 134,
+   "max": 1944
+  },
+  "estimated_cost_usd": {
+   "mean": 0.0002,
+   "min": 0.000142,
+   "max": 0.000462
+  },
+  "offpeak_usd": {
+   "mean": 0.0002,
+   "total": 0.009289
+  },
+  "peak_usd": {
+   "mean": 0.0004,
+   "total": 0.018583
+  },
+  "any_peak_logged": false,
+  "served_models": [
+   "deepseek-flash"
+  ],
+  "reasoning_tokens_nonzero": 0
+ },
+ "latency_annual": {
+  "total_s": {
+   "n": 40,
+   "p50": 1.8795,
+   "p90": 2.1746000000000003,
+   "mean": 1.9554,
+   "max": 4.557
+  },
+  "assemble_s": {
+   "n": 40,
+   "p50": 0.185,
+   "p90": 0.4258,
+   "mean": 0.2864,
+   "max": 2.326
+  },
+  "model_wall_s": {
+   "n": 40,
+   "p50": 1.6335,
+   "p90": 1.8155000000000001,
+   "mean": 1.6305,
+   "max": 2.202
+  },
+  "provider_total_ms": {
+   "n": 40,
+   "p50": 1630.5,
+   "p90": 1810.7000000000003,
+   "mean": 1627.925,
+   "max": 2198
+  },
+  "first_token_ms": {
+   "n": 40,
+   "p50": 379.5,
+   "p90": 441.3,
+   "mean": 404.525,
+   "max": 987
+  }
+ },
+ "latency_all": {
+  "total_s": {
+   "n": 45,
+   "p50": 1.908,
+   "p90": 2.2576,
+   "mean": 1.9686,
+   "max": 4.557
+  },
+  "assemble_s": {
+   "n": 45,
+   "p50": 0.193,
+   "p90": 0.448,
+   "mean": 0.2961,
+   "max": 2.326
+  },
+  "model_wall_s": {
+   "n": 45,
+   "p50": 1.629,
+   "p90": 1.7992000000000001,
+   "mean": 1.6305,
+   "max": 2.202
+  },
+  "provider_total_ms": {
+   "n": 45,
+   "p50": 1626.0,
+   "p90": 1795.4,
+   "mean": 1627.9556,
+   "max": 2198
+  },
+  "first_token_ms": {
+   "n": 45,
+   "p50": 380.0,
+   "p90": 447.8,
+   "mean": 403.7111,
+   "max": 987
+  }
+ },
+ "selection_annual": {
+  "runs": 40,
+  "retry_runs": 0,
+  "retry_rate": 0.0,
+  "all_six_empty_runs": 0,
+  "no_optional_pick_runs": 0,
+  "mean_picked": 15.725,
+  "mean_picked_optional": 6.425,
+  "mean_picked_required_redundant": 9.3,
+  "mean_optional_candidates": 26.725,
+  "mean_catalogue_size": 36.625,
+  "mean_rendered": 16.325,
+  "rendered_origin": {
+   "required": 396,
+   "selected": 257
+  },
+  "sections_with_empty_list": {
+   "trajectory": 0,
+   "growth_quality": 0,
+   "margins": 5,
+   "cash_balance_sheet": 0,
+   "red_flags": 0,
+   "watch_next": 0
+  },
+  "sections_with_candidates_but_no_optional_pick": {
+   "trajectory": 40,
+   "growth_quality": 0,
+   "margins": 0,
+   "cash_balance_sheet": 0,
+   "red_flags": 0,
+   "watch_next": 0
+  }
+ },
+ "selection_all": {
+  "runs": 45,
+  "retry_runs": 0,
+  "retry_rate": 0.0,
+  "all_six_empty_runs": 0,
+  "no_optional_pick_runs": 0,
+  "mean_picked": 15.5333,
+  "mean_picked_optional": 6.4667,
+  "mean_picked_required_redundant": 9.0667,
+  "mean_optional_candidates": 26.3778,
+  "mean_catalogue_size": 36.0667,
+  "mean_rendered": 16.1556,
+  "rendered_origin": {
+   "required": 436,
+   "selected": 291
+  },
+  "sections_with_empty_list": {
+   "trajectory": 0,
+   "growth_quality": 0,
+   "margins": 7,
+   "cash_balance_sheet": 0,
+   "red_flags": 0,
+   "watch_next": 0
+  },
+  "sections_with_candidates_but_no_optional_pick": {
+   "trajectory": 43,
+   "growth_quality": 0,
+   "margins": 0,
+   "cash_balance_sheet": 0,
+   "red_flags": 0,
+   "watch_next": 0
+  }
+ },
+ "mode_comparison": {
+  "annual": {
+   "runs": 5,
+   "mean_sentences": 16.2,
+   "classes": {
+    "deterministic": {
+     "n": 81,
+     "restated_figure": {
+      "count": 36,
+      "share": 0.4444
+     },
+     "derived_comparison": {
+      "count": 45,
+      "share": 0.5556
+     },
+     "causal_claim": {
+      "count": 0,
+      "share": 0.0
+     },
+     "judgement": {
+      "count": 0,
+      "share": 0.0
+     }
+    },
+    "llm": {
+     "n": 81,
+     "restated_figure": {
+      "count": 31,
+      "share": 0.3827
+     },
+     "derived_comparison": {
+      "count": 50,
+      "share": 0.6173
+     },
+     "causal_claim": {
+      "count": 0,
+      "share": 0.0
+     },
+     "judgement": {
+      "count": 0,
+      "share": 0.0
+     }
+    },
+    "directive": 14,
+    "missingness": 2
+   },
+   "table_visible_share": 0.974,
+   "red_flag_signals": 3,
+   "derived_q4_sentences": 0
+  },
+  "quarterly": {
+   "runs": 5,
+   "mean_sentences": 16,
+   "classes": {
+    "deterministic": {
+     "n": 80,
+     "restated_figure": {
+      "count": 38,
+      "share": 0.475
+     },
+     "derived_comparison": {
+      "count": 42,
+      "share": 0.525
+     },
+     "causal_claim": {
+      "count": 0,
+      "share": 0.0
+     },
+     "judgement": {
+      "count": 0,
+      "share": 0.0
+     }
+    },
+    "llm": {
+     "n": 80,
+     "restated_figure": {
+      "count": 35,
+      "share": 0.4375
+     },
+     "derived_comparison": {
+      "count": 43,
+      "share": 0.5375
+     },
+     "causal_claim": {
+      "count": 0,
+      "share": 0.0
+     },
+     "judgement": {
+      "count": 2,
+      "share": 0.025
+     }
+    },
+    "directive": 13,
+    "missingness": 2
+   },
+   "table_visible_share": 0.5921,
+   "red_flag_signals": 4,
+   "derived_q4_sentences": 17
+  }
+ },
+ "failures": [
+  {
+   "ticker": "XOM",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "UNH",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "PGR",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "PLD",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "PGR",
+   "mode": "quarterly",
+   "stage": "stream",
+   "reason": "not_enough_data"
+  },
+  {
+   "ticker": "ELV",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "CI",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "HUM",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "TRV",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  },
+  {
+   "ticker": "ALL",
+   "mode": "annual",
+   "stage": "window",
+   "reason": "no fiscal year with core data (top line and net income)"
+  }
+ ],
+ "substitutions": [
+  {
+   "ticker": "COP",
+   "mode": "annual",
+   "for": "XOM",
+   "status": "ok"
+  },
+  {
+   "ticker": "ELV",
+   "mode": "annual",
+   "for": "UNH",
+   "status": "failed"
+  },
+  {
+   "ticker": "CI",
+   "mode": "annual",
+   "for": "UNH",
+   "status": "failed"
+  },
+  {
+   "ticker": "HUM",
+   "mode": "annual",
+   "for": "UNH",
+   "status": "failed"
+  },
+  {
+   "ticker": "CVS",
+   "mode": "annual",
+   "for": "UNH",
+   "status": "ok"
+  },
+  {
+   "ticker": "TRV",
+   "mode": "annual",
+   "for": "PGR",
+   "status": "failed"
+  },
+  {
+   "ticker": "ALL",
+   "mode": "annual",
+   "for": "PGR",
+   "status": "failed"
+  },
+  {
+   "ticker": "CB",
+   "mode": "annual",
+   "for": "PGR",
+   "status": "ok"
+  },
+  {
+   "ticker": "SO",
+   "mode": "annual",
+   "for": "PLD",
+   "status": "ok"
+  },
+  {
+   "ticker": "CB",
+   "mode": "quarterly",
+   "for": "PGR",
+   "status": "ok"
+  }
+ ],
+ "windows_differing_from_bootstrap": [
+  {
+   "ticker": "NEE",
+   "used_ui_window": [
+    "FY2018",
+    "FY2025"
+   ],
+   "bootstrap": [
+    "FY2011",
+    "FY2025"
+   ]
+  },
+  {
+   "ticker": "DUK",
+   "used_ui_window": [
+    "FY2016",
+    "FY2025"
+   ],
+   "bootstrap": [
+    "FY2015",
+    "FY2025"
+   ]
+  }
+ ],
+ "llm_cost_usd": 0.5752,
+ "llm_calls": 45,
+ "llm_served_models": [
+  "claude-sonnet-5-5"
+ ]
+}

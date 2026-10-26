@@ -1,0 +1,106 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "189c714e56e75c1baf1cc9dfd564a907dbf8b4ed07b7df691765a4b6519363ba",
+ "y_sha256": "54418f520a55579422ebcdf0986d9d0d57cd97a7fa56d9a80eddde0049b60a30",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains more of what drove results: downstream segment drags, 12% production growth from Hess, cost-of-revenue and SG&A causes, interest expense, peer margins and 2026 capex guidance. It also discloses the net income sourcing issue. B misreads its source: operating costs fell 3.4%, but B says they grew. Both drafts stretch income-before-tax passages to explain revenue. A's 'funded partly by debt' is inference. B labels its judgments more clearly, but A's depth and fewer misreads decide it."
+   },
+   "cost_usd": 0.136781,
+   "latency_s": 14.276,
+   "backend": "claude_cli",
+   "input_tokens": 15220,
+   "cached_input_tokens": 727,
+   "output_tokens": 1035,
+   "reasoning_tokens": 789,
+   "meta": {
+    "duration_api_ms": 10526,
+    "cache_creation_input_tokens": 14491,
+    "list_cost_usd": 0.078817
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains more of what drove results: downstream segment drags, 12% production growth from Hess, cost-of-revenue and SG&A causes, interest expense, peer margins and 2026 capex guidance. It also discloses the net income sourcing issue. B misreads its source: operating costs fell 3.4%, but B says they grew. Both drafts stretch income-before-tax passages to explain revenue. A's 'funded partly by debt' is inference. B labels its judgments more clearly, but A's depth and fewer misreads decide it.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts pin revenue swings on income-before-tax passages. A misreads operating costs as growing 3.4% when they fell. B calls a subsidiary a 'segment' and presents net cash and a 60% debt drop without questioning them against $11.4bn of debt issued. B adds well-sourced drivers that A lacks: downstream drag, production up 12%, SG&A, interest expense and capex guidance. It also adds peer context and the proxy-sourced net income flag. Overall B is deeper and more complete."
+   },
+   "cost_usd": 0.142885,
+   "latency_s": 16.991,
+   "backend": "claude_cli",
+   "input_tokens": 15218,
+   "cached_input_tokens": 727,
+   "output_tokens": 1341,
+   "reasoning_tokens": 1097,
+   "meta": {
+    "duration_api_ms": 13220,
+    "cache_creation_input_tokens": 14489,
+    "list_cost_usd": 0.084929
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts pin revenue swings on income-before-tax passages. A misreads operating costs as growing 3.4% when they fell. B calls a subsidiary a 'segment' and presents net cash and a 60% debt drop without questioning them against $11.4bn of debt issued. B adds well-sourced drivers that A lacks: downstream drag, production up 12%, SG&A, interest expense and capex guidance. It also adds peer context and the proxy-sourced net income flag. Overall B is deeper and more complete.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.279666
+}

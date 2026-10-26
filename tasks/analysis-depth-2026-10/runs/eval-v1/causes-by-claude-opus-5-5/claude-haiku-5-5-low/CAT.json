@@ -1,0 +1,99 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "CAT",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue fell 22.4% in FY2020 as lower sales volume reflected weaker end-user demand, and operating margin dropped 4.5pp to 10.9% .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2020 were $41.748 billion, a decrease of $12.052 billion, or 22 percent, compared with $53.800 billion in 2019. The decline was due to lower sales volume driven by lower end-user demand for equipment and services and the impact from changes in dealer inventories across the three primary segments. Sales were lower across all regions and in the three primary segments. Profit per share was $5.46 in 2020, compared with profit per share of $10.74 in 2019. Profit was $2.998 billion in 2020, compared with $6.093 billion in 2019. The decrease was primarily due to lower sales volume, unfavorable price realization, lower profit from Financial Products and higher restructuring costs, partially offset by lower selling, general and administrative (SG&A) and research and development (R&D) expenses and favorable manufacturing costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P59 attributes the revenue decline to lower sales volume driven by lower end-user demand, plus dealer inventory changes."
+  },
+  {
+   "sentence": "FY2023's 6.0pp margin gain to 19.3% was attributed to favorable price realization and higher sales volume .",
+   "passages": [
+    {
+     "id": "P31",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $12.966 billion in 2023, an increase of $5.062 billion, or 64 percent, compared with $7.904 billion in 2022. The increase was primarily due to favorable price realization, higher sales volume and the absence of a 2022 goodwill impairment charge related to the Rail division, partially offset by higher SG&A/R&D expenses, unfavorable manufacturing costs and the impact of the divestiture of the company's Longwall business. The increase in SG&A/R&D expenses was primarily driven by investments aligned with strategic initiatives, higher short-term incentive compensation expense and an unfavorable change in fair value adjustments related to deferred compensation plans. Unfavorable manufacturing costs reflected lower freight being more than offset by higher material costs, increased period manufacturing costs, the impact of manufacturing inefficiencies and unfavorable cost absorption. Cost absorption was unfavorable as inventory increased more during 2022 than during 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "P31 names favorable price realization and higher sales volume as primary drivers of the operating profit increase."
+  },
+  {
+   "sentence": "The filing attributes the 4.3% rise to higher equipment volume sold to end users, though not Power Generation specifically .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2025 were $67.589 billion, an increase of $2.780 billion, or 4 percent, compared with $64.809 billion in 2024. The increase was primarily driven by higher sales volume of $3.389 billion, partially offset by unfavorable price realization of $817 million. The increase in sales volume was mainly driven by higher sales of equipment to end users."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 attributes the total increase to higher sales volume, mainly equipment sales to end users. The claim correctly notes no segment specificity."
+  },
+  {
+   "sentence": "Operating income fell from $13.1 billion to $11.2 billion, which the filing attributes to higher tariff-linked manufacturing costs and unfavorable price realization .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $11.151 billion in 2025, a decrease of $1.921 billion, or 15 percent, compared with $13.072 billion in 2024. The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion and unfavorable price realization of $817 million, partially offset by the profit impact of higher sales volume of $1.218 billion. Unfavorable manufacturing costs largely reflected the impact of higher tariffs."
+    },
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2025 were $67.589 billion, an increase of $2.780 billion, or 4 percent, compared with $64.809 billion for 2024. The increase reflected higher sales volume, partially offset by unfavorable price realization. Higher sales volume was primarily driven by higher sales of equipment to end users. Profit per share was $18.81 in 2025, compared with profit per share of $22.05 in 2024. Profit was $8.884 billion in 2025, compared with $10.792 billion in 2024. The decrease was mainly due to unfavorable manufacturing costs and unfavorable price realization, partially offset by the profit impact of higher sales volume. Unfavorable manufacturing costs largely reflected the impact of higher tariffs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 cites unfavorable manufacturing costs, largely from higher tariffs, and unfavorable price realization for the decrease."
+  },
+  {
+   "sentence": "Within Machinery, Power & Energy, operating cash flow rose on lower working capital needs and lower cash taxes .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $12.278 billion in 2025, compared with $11.437 billion in 2024. The increase was primarily due to lower working capital requirements and lower cash taxes paid. These were partially offset by lower profit before taxes, adjusted for non-cash items. Within working capital, changes in customer advances, accounts payable, and accrued wages, salaries, and employee benefits favorably impacted cash flow, partially offset by changes in inventories and  receivables."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the operating cash flow increase to lower working capital requirements and lower cash taxes paid."
+  },
+  {
+   "sentence": "Capex of $2.8 billion was 1.25x D&A and 4.2% of revenue, and the filing cites higher capital expenditures in MP&E investing outflows .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used by investing activities in 2025 was $2.870 billion, compared with net cash provided of $133 million in 2024. The change was primarily due to lower proceeds from maturities and sale of securities, primarily due to time deposit maturities in 2024; increased activity related to intercompany lending with Financial Products; and an increase in capital expenditures."
+    }
+   ],
+   "label": "supported",
+   "reason": "P3 lists an increase in capital expenditures among the causes of the investing outflow change."
+  },
+  {
+   "sentence": "Long-term debt rose 12.2% to $30.7 billion, and the filing attributes Financial Products' financing inflow to intercompany and external borrowings .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $1.074 billion in 2025, compared with $1.445 billion in 2024. Net cash used for investing activities was $3.870 billion in 2025, compared with $2.787 billion used in 2024. The change was primarily due to portfolio-related activity. Net cash provided by financing activities was $2.705 billion in 2025, compared with $1.206 billion in 2024. The change was primarily due to increased intercompany borrowings from MP&E and external borrowings."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 attributes the financing inflow change to increased intercompany borrowings from MP&E and external borrowings."
+  }
+ ],
+ "cost_usd": 0.044892
+}

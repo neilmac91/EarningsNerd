@@ -1,0 +1,106 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "26852538370d45a80c11e92b4bf4d627f39b77551e1c0e7d008cf456b3fdcd7a",
+ "y_sha256": "9cddc0e60719dbd2b18d0e117e159f097e63fbc3def735e1ddb7059f0119bb7e",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's $4.30bn net debt, $10.1bn cash-and-investments figure and net-cash peer rank appear to double-count short-term investments already inside cash, a problem Draft B flags and discloses. A also cites a FY2023 passage to explain FY2025 weakness. B explains the FY2022 inflection and separates analysis from fact. B's 'higher supply chain costs' is not in its truncated quote, and its cost-growth sentence is muddled."
+   },
+   "cost_usd": 0.133193,
+   "latency_s": 12.95,
+   "backend": "claude_cli",
+   "input_tokens": 15089,
+   "cached_input_tokens": 727,
+   "output_tokens": 908,
+   "reasoning_tokens": 681,
+   "meta": {
+    "duration_api_ms": 9027,
+    "cache_creation_input_tokens": 14360,
+    "list_cost_usd": 0.075753
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's $4.30bn net debt, $10.1bn cash-and-investments figure and net-cash peer rank appear to double-count short-term investments already inside cash, a problem Draft B flags and discloses. A also cites a FY2023 passage to explain FY2025 weakness. B explains the FY2022 inflection and separates analysis from fact. B's 'higher supply chain costs' is not in its truncated quote, and its cost-growth sentence is muddled.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful depth: tax rate, operating income and EPS CAGRs, the share-count effect, and a restatement note. But it reports net debt and $10.1bn cash-and-investments built on figures the pack flags as double-counted. It also applies a FY2023 passage to FY2025 discretionary weakness. A adds 'supply chain costs', which its truncated passage doesn't state. Otherwise A is well supported, discloses the data break, and labels its analysis."
+   },
+   "cost_usd": 0.136653,
+   "latency_s": 15.133,
+   "backend": "claude_cli",
+   "input_tokens": 15089,
+   "cached_input_tokens": 727,
+   "output_tokens": 1081,
+   "reasoning_tokens": 855,
+   "meta": {
+    "duration_api_ms": 10676,
+    "cache_creation_input_tokens": 14360,
+    "list_cost_usd": 0.079213
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful depth: tax rate, operating income and EPS CAGRs, the share-count effect, and a restatement note. But it reports net debt and $10.1bn cash-and-investments built on figures the pack flags as double-counted. It also applies a FY2023 passage to FY2025 discretionary weakness. A adds 'supply chain costs', which its truncated passage doesn't state. Otherwise A is well supported, discloses the data break, and labels its analysis.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.269846
+}

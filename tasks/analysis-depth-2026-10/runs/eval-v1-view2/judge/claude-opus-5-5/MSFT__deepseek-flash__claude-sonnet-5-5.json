@@ -1,0 +1,86 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A has two unsupported claims. It calls FY2026 the 'sharpest step' although FY2022 grew faster at 18.0%. It also cites $22.2bn of other investing for components to a passage that is truncated before that point. Draft B adds the FY2021 useful-life inflection, peer data on cash conversion and XBOX drag. It labels its interpretations as analysis and ties its watch items to segment thresholds."
+   },
+   "cost_usd": 0.138501,
+   "latency_s": 10.719,
+   "input_tokens": 16355,
+   "output_tokens": 667,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A has two unsupported claims. It calls FY2026 the 'sharpest step' although FY2022 grew faster at 18.0%. It also cites $22.2bn of other investing for components to a passage that is truncated before that point. Draft B adds the FY2021 useful-life inflection, peer data on cash conversion and XBOX drag. It labels its interpretations as analysis and ties its watch items to segment thresholds.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both rest unsupported capex detail on a truncated cash-flow passage. B adds more such claims: it pins FY2019's 136.8% rebound on the $2.6bn tax benefit and cites a '$22.2bn other investing' figure the passage lacks. A explains the FY2021 inflection, compares FCF conversion with peers and labels its analysis. B covers M365 and opex drivers more clearly but forecasts ('will likely remain')."
+   },
+   "cost_usd": 0.144389,
+   "latency_s": 14.313,
+   "input_tokens": 16356,
+   "output_tokens": 961,
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Both rest unsupported capex detail on a truncated cash-flow passage. B adds more such claims: it pins FY2019's 136.8% rebound on the $2.6bn tax benefit and cites a '$22.2bn other investing' figure the passage lacks. A explains the FY2021 inflection, compares FCF conversion with peers and labels its analysis. B covers M365 and opex drivers more clearly but forecasts ('will likely remain').\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.28289
+}

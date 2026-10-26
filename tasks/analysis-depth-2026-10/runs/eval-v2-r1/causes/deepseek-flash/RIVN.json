@@ -1,0 +1,92 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "RIVN",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "378610e41ab3c9203dbea2987271d06fd117a5b36e5ef04173da670f36b9f9f9",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2025 revenue growth came despite Automotive revenue falling 14.6% , as deliveries dropped 9,332 vehicles partly on the expiration of 45W tax credits .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive revenues decreased for the year ended December 31, 2025, primarily resulting from a decrease in deliveries of 9,332 vehicles, due in part to the expiration of 45W tax credits after September 30, 2025, as well as a decrease in sales of automotive regulatory credits, partially offset by higher average selling prices and a higher mix of R1 deliveries. The increase in average selling prices was driven by a consumer shift towards higher performance variants along with a decline in discounting."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 attributes the automotive revenue decline to 9,332 fewer deliveries, due in part to the 45W tax credit expiration."
+  },
+  {
+   "sentence": "That increase came primarily from vehicle electrical architecture and software development services, remarketing, and repair and maintenance .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Software and services revenues increased significantly for the year ended December 31, 2025 primarily due to an increase in vehicle electrical architecture and software development services, as well as increases in remarketing sales and vehicle repair and maintenance services."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 names electrical architecture and software development services, remarketing, and repair and maintenance as the drivers."
+  },
+  {
+   "sentence": "Automotive cost of revenue fell on fewer vehicles produced and lower raw material, component and conversion costs , and Automotive gross losses improved on higher average selling prices and lower cost per vehicle .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, Automotive cost of revenues included $484 million of depreciation and amortization expense and $43 million of stock-based compensation expense. The year-over-year decrease in Automotive cost of revenues was primarily due to fewer vehicles being produced and delivered, as well as reductions in the cost of raw materials, product components, and conversion costs, resulting in part from the cost of revenue efficiency initiatives and accelerated depreciation that occurred during the prior year."
+    },
+    {
+     "id": "P20",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive gross profit losses improved for the year ended December 31, 2025, primarily due to the higher average selling prices and reductions in the cost per vehicle noted above."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 cites fewer vehicles and lower material, component and conversion costs; P20 cites higher ASPs and lower cost per vehicle."
+  },
+  {
+   "sentence": "SG&A cost 0.5pp of margin  as go-to-market expansion raised payroll, stock-based compensation and facilities expenses .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, SG&A expenses included $221 million of depreciation and amortization expense and $324 million of stock-based compensation expense. SG&A expenses increased as a result of expanding our go-to-market operations and footprint, including higher payroll and related expenses primarily driven by increased headcount, stock-based compensation expenses primarily attributable to an increase in the total amount of accrued stock-based bonus incentives, and facilities expenses."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 attributes the SG&A increase to go-to-market expansion, with higher payroll, stock-based compensation and facilities expenses."
+  },
+  {
+   "sentence": "The improvement in operating cash use was primarily driven by a significant reduction in net loss .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in operating activities decreased during the year ended December 31, 2025 compared to the year ended December 31, 2024, primarily driven by a significant reduction in net loss."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 states the lower operating cash use was primarily driven by a significant reduction in net loss."
+  },
+  {
+   "sentence": "Financing brought in $886 million , primarily from $750 million of Class A shares issued to Volkswagen Group .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by financing activities during the year ended December 31, 2025 primarily resulted from the issuance of $750 million in shares of Class A common stock to Volkswagen Group in connection with the achievement of the Financial Milestone, as well as capital contributed by outside parties in the formation of Mind Robotics, Inc. and Mind Robotics, LLC (see Note 1 \"Presentation and Nature of Operations\" and Note 19 \u201cVariable Interest Entities\u201d to our consolidated financial statements included in this Form 10-K for more information). Net cash provided by financing activities during the year ended December 31, 2024 primarily resulted from the issuance of the 2026 Convertible Note (see Note 10 \u201cDebt\u201d to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 says financing primarily came from the $750 million Class A issuance to Volkswagen Group."
+  }
+ ],
+ "cost_usd": 0.033724,
+ "backend": "claude_cli",
+ "input_tokens": 3044,
+ "cached_input_tokens": 0,
+ "output_tokens": 469
+}

@@ -1,0 +1,94 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "VRTX",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2020 step came from the U.S. launch of TRIKAFTA in the fourth quarter of 2019 and KAFTRIO in the EU in the third quarter of 2020 .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2020, our net product revenues increased by $2.04 billion as compared to 2019. In 2019, our net product revenues increased by $1.12 billion as compared to 2018. The increase in total net product revenues in 2020 was primarily due to the launch of TRIKAFTA in the U.S in the fourth quarter of 2019 and KAFTRIO in the E.U. in the third quarter of 2020. Decreases in revenues for our other products were the result of patients in the U.S. switching from these medicines to TRIKAFTA, partially offset by label expansions and expanded access to our medicines in ex-U.S. markets. The increase in total net product revenues in 2019 was primarily due to the increasing number of patients being treated with SYMDEKO/SYMKEVI, the October 2019 approval of TRIKAFTA in the U.S., label expansions for KALYDECO and ORKAMBI and expanded access to our medicines in ex-U.S. markets. In 2020, 2019 and 2018, our net product revenues included product revenues of $1.4 billion, $1.1 billion and $682.4 million, respectively, from ex-U.S. markets."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 attributes the 2020 revenue increase primarily to the TRIKAFTA U.S. Q4 2019 launch and the KAFTRIO EU Q3 2020 launch."
+  },
+  {
+   "sentence": "FY2024 broke the trend with a $232.9 million operating loss, driven by $4.6 billion of AIPR&D including $4.4 billion for Alpine .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our total research and development (\u201cR&D\u201d), and selling, general and administrative (\u201cSG&A\u201d) expenses increased to $5.1 billion in 2024 as compared to $4.3 billion in 2023, primarily due to continued investment to support additional therapies in mid-to-late stage development and increased commercial investments to support launches of our therapies globally. In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d). Cost of sales were 14% of our net product revenues in 2024 as compared to 13% in 2023, with the increase primarily due to costs associated with CASGEVY."
+    }
+   ],
+   "label": "partial",
+   "reason": "P11 confirms $4.6B of AIPR&D, including $4.4B for Alpine, but never says it caused the operating loss."
+  },
+  {
+   "sentence": "Net product revenues rose $950.5 million, or 9%, in FY2025 on continued demand .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, our net product revenues increased $950.5 million, or 9%, as compared to 2024, primarily due to continued"
+    }
+   ],
+   "label": "partial",
+   "reason": "The passage is cut off at 'primarily due to continued'. 'Demand' is not actually stated."
+  },
+  {
+   "sentence": "Cost of sales held at 13.8% of revenue in FY2025 on a lower overall royalty rate for CF medicines .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "13.8% in 2025 as a result of a lower overall royalty rate for our CF medicines, partially offset by"
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the 13.8% cost of sales to a lower overall royalty rate for CF medicines."
+  },
+  {
+   "sentence": "The FY2024 net margin of -4.9% diverged from operating margin because the 315.5% effective tax rate reflected $4.4 billion of non-deductible AIPR&D .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our provision for income taxes was $784.1 million for 2024 and $760.2 million for 2023. In 2024, our 315.5% effective tax rate was materially different than the U.S. statutory rate primarily due to the $4.4\u00a0billion of non-deductible AIPR&D resulting from our acquisition of Alpine, which significantly lowered our pre-tax income. The non-deductible AIPR&D was partially offset by a benefit from a research and development tax credit study that was completed in 2024 and excess tax benefits related to stock-based compensation."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the 315.5% effective tax rate primarily to $4.4B of non-deductible Alpine AIPR&D."
+  },
+  {
+   "sentence": "Operating cash flow of $3.6 billion was primarily due to income from operations of $4.2 billion .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities was $3.6 billion in 2025, primarily due to income from operations of $4.2 billion"
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 states operating cash flow of $3.6B was primarily due to income from operations of $4.2B."
+  },
+  {
+   "sentence": "Cash and marketable securities rose from $6.0 billion at end-2024 primarily due to product revenue .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "from $6.0 billion as of December 31, 2024, primarily due to increased cash and marketable securities due to product revenue"
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 attributes the increase from $6.0B to product revenue."
+  }
+ ],
+ "cost_usd": 0.039224
+}

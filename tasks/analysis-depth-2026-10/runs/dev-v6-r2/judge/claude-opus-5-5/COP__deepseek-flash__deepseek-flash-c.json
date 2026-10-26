@@ -1,0 +1,106 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "57613d5f2b81f4b73cb30b74934decfe099c6998a3d36b86982352ad1374f427",
+ "y_sha256": "552221f0ddc524a2f65db190eaec5e6f8a817346565d9af2e034887dcddbb4c9",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A adds peer context on net cash and ROE. But it states unsupported points as fact: the tax rate 'rose' with no prior year cited, and 'capital intensity was rising' from a single year. B's claims trace to its sources, including FY2024 tax and D&A comparisons, cost-of-revenue growth and SG&A drivers. B also discloses the debt-data gaps and labels its interpretation as analysis. A reads more cleanly, but B's grounding and calibration edge it."
+   },
+   "cost_usd": 0.130073,
+   "latency_s": 15.9,
+   "backend": "claude_cli",
+   "input_tokens": 14154,
+   "cached_input_tokens": 727,
+   "output_tokens": 1126,
+   "reasoning_tokens": 895,
+   "meta": {
+    "duration_api_ms": 12026,
+    "cache_creation_input_tokens": 13425,
+    "list_cost_usd": 0.076373
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A adds peer context on net cash and ROE. But it states unsupported points as fact: the tax rate 'rose' with no prior year cited, and 'capital intensity was rising' from a single year. B's claims trace to its sources, including FY2024 tax and D&A comparisons, cost-of-revenue growth and SG&A drivers. B also discloses the debt-data gaps and labels its interpretation as analysis. A reads more cleanly, but B's grounding and calibration edge it.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper, with peer net-cash and ROE ranks and a breakdown of cost lines. But it adds causes its sources don't state: 'lower realized prices across all products', 'capital intensity was rising' from one year, and 'well below the operating result'. A's one overreach is calling every year recast while citing only FY2025. A also labels its interpretations as analysis and discloses data gaps. Weighting grounding first, A edges ahead."
+   },
+   "cost_usd": 0.125713,
+   "latency_s": 13.642,
+   "backend": "claude_cli",
+   "input_tokens": 14154,
+   "cached_input_tokens": 727,
+   "output_tokens": 908,
+   "reasoning_tokens": 691,
+   "meta": {
+    "duration_api_ms": 9615,
+    "cache_creation_input_tokens": 13425,
+    "list_cost_usd": 0.072013
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper, with peer net-cash and ROE ranks and a breakdown of cost lines. But it adds causes its sources don't state: 'lower realized prices across all products', 'capital intensity was rising' from one year, and 'well below the operating result'. A's one overreach is calling every year recast while citing only FY2025. A also labels its interpretations as analysis and discloses data gaps. Weighting grounding first, A edges ahead.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.255786
+}

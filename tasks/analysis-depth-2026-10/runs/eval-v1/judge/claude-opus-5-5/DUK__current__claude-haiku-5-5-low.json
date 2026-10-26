@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values. B mostly ties its causes to quoted filings: FY2020 CCR impairments and COVID, FY2022 fuel under-collection. It adds peer, segment, tax and debt context, labels its analysis, and flags where filings give no explanation. Minor slips: it calls segment revenue growth 'sales', and the FY2022 revenue cause comes from a net-income passage. These cost B grounding, but its depth and coverage clearly outweigh them."
+   },
+   "cost_usd": 0.095693,
+   "latency_s": 11.64,
+   "input_tokens": 10869,
+   "output_tokens": 721,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A is fully supported but only restates table values. B mostly ties its causes to quoted filings: FY2020 CCR impairments and COVID, FY2022 fuel under-collection. It adds peer, segment, tax and debt context, labels its analysis, and flags where filings give no explanation. Minor slips: it calls segment revenue growth 'sales', and the FY2022 revenue cause comes from a net-income passage. These cost B grounding, but its depth and coverage clearly outweigh them.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the drivers behind the numbers: the CCR impairments in FY2020, fuel under-collection in FY2022, segment mix, share dilution, peer ranks and debt-funded capex. Its main grounding flaw is citing a net-income passage for the FY2022 revenue jump; most other causes are sourced and analysis is labelled. B is fully supported but only restates table values, with generic watch items that have no thresholds. A's depth outweighs B's narrow grounding edge."
+   },
+   "cost_usd": 0.094237,
+   "latency_s": 11.98,
+   "input_tokens": 10867,
+   "output_tokens": 649,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the drivers behind the numbers: the CCR impairments in FY2020, fuel under-collection in FY2022, segment mix, share dilution, peer ranks and debt-funded capex. Its main grounding flaw is citing a net-income passage for the FY2022 revenue jump; most other causes are sourced and analysis is labelled. B is fully supported but only restates table values, with generic watch items that have no thresholds. A's depth outweighs B's narrow grounding edge.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.18993
+}

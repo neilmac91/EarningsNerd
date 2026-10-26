@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, with no causes, peers or context. B explains its drivers with filing quotes: segment contributions, export-control charges, the tax release and the inventory build. It also adds peer ranks and numeric watch thresholds. B has one unsupported cause: the quoted FY2022 passage does not attribute the margin fall to Xilinx amortization. That costs B grounding, but its large depth advantage still wins overall."
+   },
+   "cost_usd": 0.100425,
+   "latency_s": 11.716,
+   "input_tokens": 11553,
+   "output_tokens": 684,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values, with no causes, peers or context. B explains its drivers with filing quotes: segment contributions, export-control charges, the tax release and the inventory build. It also adds peer ranks and numeric watch thresholds. B has one unsupported cause: the quoted FY2022 passage does not attribute the margin fall to Xilinx amortization. That costs B grounding, but its large depth advantage still wins overall.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully sourced but mostly restates table values and offers weak watch items. A explains segment drivers, the FY2017 charge, tax and investment gains lifting net income, the inventory build, and peer context. A has grounding slips: the FY2022 Xilinx amortization cause is not in its cited passage, 'each year' inventory days is only partly cited, and 'medium-severity' is unexplained. These are outweighed by A's sourced, substantive interpretation."
+   },
+   "cost_usd": 0.103285,
+   "latency_s": 13.415,
+   "input_tokens": 11553,
+   "output_tokens": 827,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully sourced but mostly restates table values and offers weak watch items. A explains segment drivers, the FY2017 charge, tax and investment gains lifting net income, the inventory build, and peer context. A has grounding slips: the FY2022 Xilinx amortization cause is not in its cited passage, 'each year' inventory days is only partly cited, and 'medium-severity' is unexplained. These are outweighed by A's sourced, substantive interpretation.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.20371
+}

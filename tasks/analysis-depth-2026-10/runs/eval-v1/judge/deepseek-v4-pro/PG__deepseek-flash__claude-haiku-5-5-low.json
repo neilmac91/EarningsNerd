@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, well-supported analysis of drivers, margins, cash conversion, and balance sheet, with clear red flags and watch items. Draft B is solid but less comprehensive and has a data-quality caveat. Grounding is strong in both, but A's richer interpretation gives it the edge."
+   },
+   "cost_usd": 0.005447,
+   "latency_s": 2.571,
+   "input_tokens": 10456,
+   "output_tokens": 132,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, well-supported analysis of drivers, margins, cash conversion, and balance sheet, with clear red flags and watch items. Draft B is solid but less comprehensive and has a data-quality caveat. Grounding is strong in both, but A's richer interpretation gives it the edge.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A is more grounded: it flags a data-quality issue in FY2018 and avoids unsupported claims like Draft B's 'typical of the business model' for negative working capital. It also covers more red flags and watch items with numeric thresholds, and its analysis is clearly separated from facts."
+   },
+   "cost_usd": 0.005445,
+   "latency_s": 2.999,
+   "input_tokens": 10456,
+   "output_tokens": 131,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A is more grounded: it flags a data-quality issue in FY2018 and avoids unsupported claims like Draft B's 'typical of the business model' for negative working capital. It also covers more red flags and watch items with numeric thresholds, and its analysis is clearly separated from facts.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010892
+}

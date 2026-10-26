@@ -1,0 +1,106 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "f3d6c8796664b961667dcbe38e742492db8b995439888f214d77ce8b0ff5a541",
+ "y_sha256": "4f7ae065596fb6cc3d697e218596a36232c0186f94447e6c9ce725d336321f1a",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A builds its balance-sheet read and peer rank on cash-and-investments and net-cash figures that the pack flags as double-counted. It also adds 'supply-chain costs' to the FY2022 cause, which the cited passage does not state. A has more depth, including the food mix shift and capex/D&A. B stays within its sources, discloses the data breaks, labels its analysis as analysis, and adds useful context: digital comp growth and an ROE peer comparison."
+   },
+   "cost_usd": 0.137921,
+   "latency_s": 13.603,
+   "backend": "claude_cli",
+   "input_tokens": 15745,
+   "cached_input_tokens": 727,
+   "output_tokens": 882,
+   "reasoning_tokens": 659,
+   "meta": {
+    "duration_api_ms": 8730,
+    "cache_creation_input_tokens": 15016,
+    "list_cost_usd": 0.077857
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A builds its balance-sheet read and peer rank on cash-and-investments and net-cash figures that the pack flags as double-counted. It also adds 'supply-chain costs' to the FY2022 cause, which the cited passage does not state. A has more depth, including the food mix shift and capex/D&A. B stays within its sources, discloses the data breaks, labels its analysis as analysis, and adds useful context: digital comp growth and an ROE peer comparison.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B goes deeper, with the food mix shift, the FY2022 cost-of-revenue decomposition and the long-run share-count effect. But it builds net debt, the peer net-cash rank and burn coverage on cash-and-investments, which the pack flags as double-counted and unusable. It also adds 'supply-chain costs' to FY2022, which the cited passage does not state. A stays supported, discloses the data breaks, and labels its analysis as analysis."
+   },
+   "cost_usd": 0.137985,
+   "latency_s": 12.955,
+   "backend": "claude_cli",
+   "input_tokens": 15743,
+   "cached_input_tokens": 727,
+   "output_tokens": 886,
+   "reasoning_tokens": 665,
+   "meta": {
+    "duration_api_ms": 8450,
+    "cache_creation_input_tokens": 15014,
+    "list_cost_usd": 0.077929
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B goes deeper, with the food mix shift, the FY2022 cost-of-revenue decomposition and the long-run share-count effect. But it builds net debt, the peer net-cash rank and burn coverage on cash-and-investments, which the pack flags as double-counted and unusable. It also adds 'supply-chain costs' to FY2022, which the cited passage does not state. A stays supported, discloses the data breaks, and labels its analysis as analysis.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.275906
+}

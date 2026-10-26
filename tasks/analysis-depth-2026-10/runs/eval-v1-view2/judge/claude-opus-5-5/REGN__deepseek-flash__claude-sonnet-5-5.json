@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B's causal claims are tied to quoted passages: the REGEN-COV supply deal, its non-recurrence, FY2022 SG&A drivers and the FY2023 R&D amendments. A makes unsupported links, calling EYLEA erosion behind the margin slide 'structural' when its own figures show R&D drove it, and applying the FY2023 capex note to FY2025. B adds depth with the FY2022 margin inflection, the three-year EYLEA history and the R&D trend, and it flags the unexplained rise in other income."
+   },
+   "cost_usd": 0.146509,
+   "latency_s": 11.683,
+   "input_tokens": 17061,
+   "output_tokens": 785,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B's causal claims are tied to quoted passages: the REGEN-COV supply deal, its non-recurrence, FY2022 SG&A drivers and the FY2023 R&D amendments. A makes unsupported links, calling EYLEA erosion behind the margin slide 'structural' when its own figures show R&D drove it, and applying the FY2023 capex note to FY2025. B adds depth with the FY2022 margin inflection, the three-year EYLEA history and the R&D trend, and it flags the unexplained rise in other income.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "calibration": "A",
+     "clarity": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful depth: the EYLEA HD offset, the tax rate, SBC and ROE versus peers. But its sources do not support several claims: EYLEA erosion called 'structural', 2025 capex tied to a FY2023 forecast, a 'first' dividend, and the FY2023 collaboration jump attributed to the Sanofi profit share. A's causal claims match its cited passages. A also flags the unexplained rise in other income and ranks more red flags."
+   },
+   "cost_usd": 0.155925,
+   "latency_s": 15.578,
+   "input_tokens": 17063,
+   "output_tokens": 1255,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"calibration\": \"A\", \"clarity\": \"tie\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds useful depth: the EYLEA HD offset, the tax rate, SBC and ROE versus peers. But its sources do not support several claims: EYLEA erosion called 'structural', 2025 capex tied to a FY2023 forecast, a 'first' dividend, and the FY2023 collaboration jump attributed to the Sanofi profit share. A's causal claims match its cited passages. A also flags the unexplained rise in other income and ranks more red flags.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.302434
+}

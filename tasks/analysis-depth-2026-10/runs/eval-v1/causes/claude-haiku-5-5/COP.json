@@ -1,0 +1,104 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "COP",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue rose 76.5% in FY2022  on higher realized prices and volumes, mainly from the Shell Permian acquisition .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $32,666 million in 2022, mainly due to higher realized commodity prices and higher sales volumes, primarily due to our Shell Permian acquisition, partially offset by assets divested. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increase due to higher realized prices and volumes, primarily from Shell Permian acquisition."
+  },
+  {
+   "sentence": "Production rose 332 MBOED, mainly from new wells in the Delaware, Eagle Ford, Bakken and Midland basins and the Marathon Oil acquisition .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total average production increased 332 MBOED in 2025 compared with 2024, primarily due to new wells online from our development programs in the Delaware Basin, Eagle Ford, Bakken and Midland Basin and the impact from our acquisition of Marathon Oil. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes production increase to new wells in listed basins and Marathon Oil acquisition."
+  },
+  {
+   "sentence": "Lower realized crude prices offset much of the volume gain in revenue .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues increased $4,199 million in 2025, primarily due to higher volumes of $6,197 million, inclusive of sales volumes from our acquisition of Marathon Oil and higher realized gas prices of $824 million and the timing of sales as compared to 2024. These increases were partially offset by lower realized crude and bitumen prices of $4,615 million and $349 million, respectively. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage shows lower realized crude prices partially offset revenue increase from higher volumes."
+  },
+  {
+   "sentence": "Purchased commodities and production costs both rose on the Marathon Oil acquisition , lifting cost of revenue 11.6% .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production and operating expenses increased $1,580 million in 2025, primarily due to impacts from our acquisition of Marathon Oil in the fourth quarter of 2024 and $216 million of severance costs related to a restructuring. See Note 3 and See Note 14."
+    },
+    {
+     "id": "P25",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Purchased commodities increased $2,313 million in 2025, primarily due to higher purchased volumes associated with our acquisition of Marathon Oil, higher natural gas prices and higher purchased crude volumes, partly offset by lower crude prices. See Note 3"
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages attribute both purchased commodities and production cost increases to Marathon Oil acquisition."
+  },
+  {
+   "sentence": "Cash flow fell 1.6%  on lower commodity prices, mostly offset by Marathon Oil operations .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities in 2025 totaled $19.8 billion, compared with $20.1 billion for 2024, and $20.0 billion for 2023. The decrease in 2025 compared to 2024 resulted from lower commodity prices, mostly offset by operations from the 2024 Marathon Oil acquisition. See Note 3."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash flow decrease due to lower commodity prices, mostly offset by Marathon Oil operations."
+  },
+  {
+   "sentence": "Operating cash flow rose 66.6% in FY2022  on higher realized prices and Shell Permian volumes .",
+   "passages": [
+    {
+     "id": "P52",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities continued to increase in 2022 totaling $28.3 billion, compared with $17.0 billion for 2021, and $4.8 billion for 2020. The increase in cash provided by operating activities from 2021 is primarily due to higher realized commodity prices, higher sales volumes mostly due to our acquisition of Shell Permian assets and the absence of the 2021 settlement of oil and gas hedging positions acquired from Concho. The increase in cash provided by operating activities was partly offset by foreign tax and royalty payments in Libya and foreign tax payments in Norway in addition to U.S. tax payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating cash flow increase to higher realized prices and Shell Permian volumes."
+  },
+  {
+   "sentence": "Net income has fallen three years running, down 15.6% in FY2024  and 13.6% in FY2025 , which the filings tie to lower commodity prices .",
+   "passages": [
+    {
+     "id": "P34",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Decreases to earnings included lower revenues resulting from lower overall commodity prices of $904 million and the timing of sales as compared with 2023, partly offset by higher volumes of $1,003 million, which includes volumes added from our acquisition of Marathon Oil. Additional decreases to earnings included higher DD&A of $562\u00a0million, driven by higher production of $250 million, higher rates of $181 million and impacts from our acquisition of Marathon Oil of $139\u00a0million; higher production and operating expenses of $431 million, driven by higher transportation related costs of $132 million, expenses associated with our acquisition of Marathon Oil of $110 million and higher lease operating expenses of $100 million; as well as the absence of gains associated with the divestiture of an equity investment of $100 million. See Note 3."
+    },
+    {
+     "id": "P20",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Decreases to earnings included lower revenues resulting from lower commodity prices of $509 million, partly offset by higher produced volumes of $78 million. Additional decreases to earnings included higher production and operating expenses of $151 million, driven by higher lease operating expenses and well work activity and severance costs related to a restructuring, and higher DD&A of $73 million, primarily driven by higher rates. See Note 14."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passages tie earnings decreases to lower commodity prices, but not explicitly to net income decline."
+  }
+ ],
+ "cost_usd": 0.001457
+}

@@ -1,0 +1,68 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "output_sha256": "7a51e111b67ff985d816fd12071b7a46d96b0e7226fa296e58487b4fb184f53a",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2022 was the step change, with revenue up 17.1% on rate cases, favorable weather and volumes .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    },
+    {
+     "id": "P33",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "EU&I\u2019s higher segment income is due to higher retail sales volumes and favorable weather, partially offset by higher depreciation and higher interest expense. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 attributes higher revenues to rate cases in various jurisdictions, favorable weather and volumes in FY2022."
+  },
+  {
+   "sentence": "FY2020 was the trough, when operating income fell 19.9% on coal ash settlement charges and pandemic-driven volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "P60 gives these causes for the Electric Utilities segment variance, not consolidated operating income; it also cites unfavorable weather."
+  },
+  {
+   "sentence": "Interest expense rose to $3.6 billion in FY2025 on higher outstanding debt balances and rates .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest Expense. The increase was primarily due to higher outstanding debt balances and interest rates at Duke Energy Progress and Duke Energy Florida."
+    }
+   ],
+   "label": "partial",
+   "reason": "Same cause (higher debt balances and rates), but the passage is from the FY2024 10-K, not FY2025."
+  },
+  {
+   "sentence": "FY2022 conversion broke down to a -19.0% free-cash-flow margin as rising fuel costs drove undercollections and higher borrowings .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "P36 says rising fuel costs caused undercollections that hurt cash flows and increased borrowings."
+  }
+ ],
+ "cost_usd": 0.035748,
+ "backend": "claude_cli",
+ "input_tokens": 2512,
+ "cached_input_tokens": 0,
+ "output_tokens": 783
+}

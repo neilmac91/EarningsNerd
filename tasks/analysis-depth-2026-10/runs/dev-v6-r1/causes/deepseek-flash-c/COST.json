@@ -1,0 +1,92 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "COST",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "a0c38284a449ac358bfcc561eed082b4c25521595ba3b06f979218fae923e197",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2021's 17.5% revenue growth came from a 16% comparable sales increase, strong non-foods and e-commerce, plus gasoline and currency tailwinds .",
+   "passages": [
+    {
+     "id": "P56",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $28,832 or 18% during 2021. The improvement was attributable to an increase in comparable sales of 16%, and sales at new warehouses opened in 2020 and 2021. While sales in all core merchandise categories increased, sales were particularly strong in non-foods. Sales increases were also strong in our warehouse ancillary and other businesses, predominantly e-commerce and gasoline. Certain merchandise categories were impacted by inflation higher than what we have experienced in recent years."
+    },
+    {
+     "id": "P55",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Changes in foreign currencies relative to the U.S. dollar positively impacted net sales by approximately $2,759, or 169 basis points, compared to 2020, attributable to our Canadian and Other International operations. Changes in gasoline prices positively impacted net sales by $1,636, or 100 basis points, compared to 2020, due to a 12% increase in the average price per gallon. The volume of gasoline sold increased approximately 10%, positively impacting net sales by $1,469, or 90 basis points."
+    }
+   ],
+   "label": "supported",
+   "reason": "P56 and P55 cite 16% comparable sales, strong non-foods, e-commerce and gasoline, plus currency and gasoline price tailwinds."
+  },
+  {
+   "sentence": "FY2022's 15.8% growth was driven by a 14% comparable sales increase and inflation, with gasoline, business centers and travel strongest .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $30,678 or 16% during 2022. The improvement was attributable to an increase in comparable sales of 14%, and sales at new warehouses opened in 2021 and 2022. Sales increased $15,830 in core merchandise categories and $14,848 in warehouse ancillary and other businesses. The rate of increase was strongest in our gasoline, business centers, and travel businesses. Sales continued to be impacted by inflation, higher than what we experienced in previous fiscal years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 cites 14% comparable sales growth and inflation, with gasoline, business centers and travel growing fastest."
+  },
+  {
+   "sentence": "FY2026 net sales rose $27.3 billion, 10%, on an 8% comparable sales increase from 5% higher average ticket and 3% more shopping frequency .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $27,335 or 10% during 2026. The improvement was primarily attributable to an increase in comparable sales of $22,457 or 8%. Comparable sales were positively impacted by increases of 5% in average ticket and 3% in shopping frequency. The remaining increase in net sales was driven by sales at the 25 net new warehouses opened since the end of 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 attributes the gain to 8% comparable sales, driven by 5% higher average ticket and 3% more shopping frequency."
+  },
+  {
+   "sentence": "SG&A fell 10 basis points as a share of sales, though excluding gasoline price inflation it rose one basis point, with currency adding $126 million .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "SG&A expenses as a percentage of net sales decreased 10 basis points compared to 2025. SG&A expenses as a percentage of net sales excluding the impact of gasoline price inflation was 9.26%, an increase of one basis point. Changes in foreign currencies relative to the U.S. dollar increased SG&A expenses by $126, attributable to our Other International and Canadian operations. SG&A expenses as a percentage of net sales increased in our Canadian and Other International segments and were flat in our U.S. segment compared to 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 states the 10bp decrease, the one basis point increase excluding gasoline inflation, and the $126 currency effect on SG&A."
+  },
+  {
+   "sentence": "The increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts. Net cash provided by operating activities totaled $15,817 in 2026, compared to $13,335 in 2025. The increase was primarily due to higher operating income, as well as reduced net investment in merchandise inventories. The latter was a result of faster inventory turns and improved payment terms with suppliers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 attributes it to higher operating income and lower net inventory investment from faster turns and better supplier terms."
+  },
+  {
+   "sentence": "Buybacks plus dividends of $3.3 billion were 35.2% of free cash flow, and repurchases of $847 million retired 891,000 shares .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "On January 19, 2023, the Board of Directors authorized a share repurchase program in the amount of $4,000, which expires in January 2027. During 2026 and 2025, we repurchased 891,000 and 943,000 shares of common stock, at an average price per share of $950.90 and $957.66, totaling $847 and $903. These amounts may differ from the accompanying consolidated statements of cash flows due to changes in unsettled repurchases at the end of each fiscal year. Purchases are made from time to time, as conditions warrant, in the open market or in block purchases, pursuant to plans under SEC Rule 10b5-1. Repurchased shares are retired, in accordance with the Washington Business Corporation Act. The remaining amount available to be purchased under our approved plan was $1,115 at the end of 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "P3 supports $847 in repurchases retiring 891,000 shares; dividends, the $3.3B total and the free-cash-flow share are absent."
+  }
+ ],
+ "cost_usd": 0.039532,
+ "backend": "claude_cli",
+ "input_tokens": 3495,
+ "cached_input_tokens": 0,
+ "output_tokens": 579
+}

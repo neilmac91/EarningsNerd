@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A makes two misreadings. It sets OCF/NI of 1.77x against an FCF/NI median of 1.01x and calls it 'down'. It also calls net debt of 4.1% of revenue 'better' than the -3.5% peer median, when it is worse. Draft B uses the correct FCF/NI of 0.77x, adds the FY2022 cost-line effect, interest drivers and the net-debt trend, and labels its analysis. B's 'R3' jargon and its stretched SG&A causation are smaller faults."
+   },
+   "cost_usd": 0.137173,
+   "latency_s": 14.214,
+   "input_tokens": 15349,
+   "output_tokens": 1003,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A makes two misreadings. It sets OCF/NI of 1.77x against an FCF/NI median of 1.01x and calls it 'down'. It also calls net debt of 4.1% of revenue 'better' than the -3.5% peer median, when it is worse. Draft B uses the correct FCF/NI of 0.77x, adds the FY2022 cost-line effect, interest drivers and the net-debt trend, and labels its analysis. B's 'R3' jargon and its stretched SG&A causation are smaller faults.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B adds useful depth: the rising food share, apparel's drag, operating income's 0.6% CAGR and a clear stale-flag note. But it misreads two figures. It compares 1.77x OCF/net income with a 1.01x FCF/net income median and calls it 'down from'. It also calls -4.1% net cash 'better' than the -3.5% peer median, which is worse. A's claims mostly match its sources and it labels its analysis, though its 'R3' red-flag line is internal jargon."
+   },
+   "cost_usd": 0.136057,
+   "latency_s": 14.398,
+   "input_tokens": 15347,
+   "output_tokens": 948,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B adds useful depth: the rising food share, apparel's drag, operating income's 0.6% CAGR and a clear stale-flag note. But it misreads two figures. It compares 1.77x OCF/net income with a 1.01x FCF/net income median and calls it 'down from'. It also calls -4.1% net cash 'better' than the -3.5% peer median, which is worse. A's claims mostly match its sources and it labels its analysis, though its 'R3' red-flag line is internal jargon.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.27323
+}

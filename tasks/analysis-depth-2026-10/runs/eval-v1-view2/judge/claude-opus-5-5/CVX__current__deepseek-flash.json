@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values. B explains causes from filing passages (prices, Hess, TCO, DD&A), compares with peers, discloses the revenue recast and gives watch thresholds. It has slips: it compares OCF/net income with a median that is FCF/net income, its 8.8% FCF margin uses a different revenue basis, and some funding and offset claims are inference. These dent its grounding but do not outweigh its far greater substantive value."
+   },
+   "cost_usd": 0.095297,
+   "latency_s": 12.995,
+   "input_tokens": 10647,
+   "output_tokens": 790,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values. B explains causes from filing passages (prices, Hess, TCO, DD&A), compares with peers, discloses the revenue recast and gives watch thresholds. It has slips: it compares OCF/net income with a median that is FCF/net income, its 8.8% FCF margin uses a different revenue basis, and some funding and offset claims are inference. These dent its grounding but do not outweigh its far greater substantive value.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains drivers with filing passages: Hess and TCO volumes, price declines, D&A rates, and OCF lifted by TCO distributions. It adds a peer net-cash comparison and discloses the revenue recast. Flaws: it compares OCF/NI with an FCF/NI median, applies an income-before-tax passage to revenue, and asserts debt funded payouts. B is accurate but only restates table values, with vague watch items."
+   },
+   "cost_usd": 0.091813,
+   "latency_s": 10.829,
+   "input_tokens": 10649,
+   "output_tokens": 615,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains drivers with filing passages: Hess and TCO volumes, price declines, D&A rates, and OCF lifted by TCO distributions. It adds a peer net-cash comparison and discloses the revenue recast. Flaws: it compares OCF/NI with an FCF/NI median, applies an income-before-tax passage to revenue, and asserts debt funded payouts. B is accurate but only restates table values, with vague watch items.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.18711
+}

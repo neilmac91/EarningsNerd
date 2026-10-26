@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values, with no causes and no numeric watch thresholds. B explains segments, cost lines, cash conversion, capital returns, peers and credit losses, and discloses the missing FY2025 operating income. Its grounding slips: it inverts the FY2024 production-cost passage, which called costs favorable overall, and stretches the FY2021 causes to SG&A. These are modest against B's much greater substance."
+   },
+   "cost_usd": 0.092937,
+   "latency_s": 11.319,
+   "input_tokens": 10642,
+   "output_tokens": 674,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values, with no causes and no numeric watch thresholds. B explains segments, cost lines, cash conversion, capital returns, peers and credit losses, and discloses the missing FY2025 operating income. Its grounding slips: it inverts the FY2024 production-cost passage, which called costs favorable overall, and stretches the FY2021 causes to SG&A. These are modest against B's much greater substance.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully grounded but only restates table values; it gives no drivers, causes or thresholds. A explains segment drivers, regional volumes, credit-loss build, peer leverage and capital returns, mostly backed by cited passages. A has small stretches: it ties FY2021 SG&A gains and FY2024 SG&A/R&D effects to passages about production costs. Its 'R2 to R7' label is jargon. A discloses gaps (missing FY2025 operating income, unexplained C&F decline) and sets numeric watch thresholds."
+   },
+   "cost_usd": 0.096893,
+   "latency_s": 12.856,
+   "input_tokens": 10644,
+   "output_tokens": 871,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B is fully grounded but only restates table values; it gives no drivers, causes or thresholds. A explains segment drivers, regional volumes, credit-loss build, peer leverage and capital returns, mostly backed by cited passages. A has small stretches: it ties FY2021 SG&A gains and FY2024 SG&A/R&D effects to passages about production costs. Its 'R2 to R7' label is jargon. A discloses gaps (missing FY2025 operating income, unexplained C&F decline) and sets numeric watch thresholds.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.18983
+}

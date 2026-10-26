@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A offers deeper, better-supported analysis: it explains FY2017 and FY2020 drivers, quantifies segment contributions, and ties margin decline to tariffs with precise figures. Draft B adds Power Generation detail but mislabels net debt as 'net cash' and includes an unsupported 'dropped R2' flag. A's grounding is stronger."
+   },
+   "cost_usd": 0.005294,
+   "latency_s": 2.422,
+   "input_tokens": 10193,
+   "output_tokens": 142,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A offers deeper, better-supported analysis: it explains FY2017 and FY2020 drivers, quantifies segment contributions, and ties margin decline to tariffs with precise figures. Draft B adds Power Generation detail but mislabels net debt as 'net cash' and includes an unsupported 'dropped R2' flag. A's grounding is stronger.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A is more grounded and precise, with every claim tied to cited sources and no unsupported statements. It offers deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from analysis. Draft B contains an unsupported peer comparison and a misleading segment-sum flag."
+   },
+   "cost_usd": 0.005272,
+   "latency_s": 3.951,
+   "input_tokens": 10193,
+   "output_tokens": 131,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A is more grounded and precise, with every claim tied to cited sources and no unsupported statements. It offers deeper causal analysis, better coverage of red flags and watch items, and clearer separation of facts from analysis. Draft B contains an unsupported peer comparison and a misleading segment-sum flag.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010566
+}

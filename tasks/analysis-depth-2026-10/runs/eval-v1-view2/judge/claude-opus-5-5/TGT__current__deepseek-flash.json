@@ -1,0 +1,86 @@
+{
+ "ticker": "TGT",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully supported but only restates table values. B explains real drivers: FY2020 comps, FY2022 markdowns, FY2025 traffic, the SG&A interchange benefit, and capex guidance. B has errors: it calls 1.77x 'down from' a 1.01x median, which is also a different metric. It calls -4.1% net cash 'better than' -3.5%. It uses a FY2023 passage for FY2025 weakness. These hurt grounding and calibration, but B's sourced explanatory value still edges it ahead."
+   },
+   "cost_usd": 0.106065,
+   "latency_s": 14.966,
+   "input_tokens": 11488,
+   "output_tokens": 992,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is fully supported but only restates table values. B explains real drivers: FY2020 comps, FY2022 markdowns, FY2025 traffic, the SG&A interchange benefit, and capex guidance. B has errors: it calls 1.77x 'down from' a 1.01x median, which is also a different metric. It calls -4.1% net cash 'better than' -3.5%. It uses a FY2023 passage for FY2025 weakness. These hurt grounding and calibration, but B's sourced explanatory value still edges it ahead.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains causes with supporting filing passages: the FY2020 comp-sales surge, FY2022 markdowns, the interchange benefit to SG&A and capex on stores and remodels. It also flags the stale burn metric. But it misreads some figures: 1.77x is not 'down from' a 1.01x median of a different metric, and -4.1% net cash is worse than the -3.5% peer median, not better. B is accurate but only restates table values."
+   },
+   "cost_usd": 0.102609,
+   "latency_s": 14.315,
+   "input_tokens": 11486,
+   "output_tokens": 820,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"tie\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"A explains causes with supporting filing passages: the FY2020 comp-sales surge, FY2022 markdowns, the interchange benefit to SG&A and capex on stores and remodels. It also flags the stale burn metric. But it misreads some figures: 1.77x is not 'down from' a 1.01x median of a different metric, and -4.1% net cash is worse than the -3.5% peer median, not better. B is accurate but only restates table values.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "current",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.208674
+}

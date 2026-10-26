@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A only restates table values, offers no causes, and its watch items have no thresholds. Its debt comparison also mixes two different XBRL tags. B explains drivers, SBC, the one-off extinguishment gain, the shift to net debt, buybacks and peers. B has a few overreaches: the subscription cause and 'leased-facility' wording are not in the truncated quotes. Even so, its depth and calibrated, threshold-based watch items make it clearly more useful."
+   },
+   "cost_usd": 0.098441,
+   "latency_s": 11.231,
+   "input_tokens": 11340,
+   "output_tokens": 670,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A only restates table values, offers no causes, and its watch items have no thresholds. Its debt comparison also mixes two different XBRL tags. B explains drivers, SBC, the one-off extinguishment gain, the shift to net debt, buybacks and peers. B has a few overreaches: the subscription cause and 'leased-facility' wording are not in the truncated quotes. Even so, its depth and calibrated, threshold-based watch items make it clearly more useful.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A has two unsupported causal claims. Its cited passages are cut off before stating 'subscription revenue' as the driver of other revenue or 'leased-facility' as the capex purpose. B is mostly supported but only restates table figures. It also calls a shrinking loss '+34% net income growth' and mixes debt tags. A explains SBC, revenue mix, the debt-gain distortion, peers and buybacks, and sets numeric thresholds. That depth outweighs its two lapses."
+   },
+   "cost_usd": 0.100629,
+   "latency_s": 11.655,
+   "input_tokens": 11346,
+   "output_tokens": 777,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A has two unsupported causal claims. Its cited passages are cut off before stating 'subscription revenue' as the driver of other revenue or 'leased-facility' as the capex purpose. B is mostly supported but only restates table figures. It also calls a shrinking loss '+34% net income growth' and mixes debt tags. A explains SBC, revenue mix, the debt-gain distortion, peers and buybacks, and sets numeric thresholds. That depth outweighs its two lapses.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.19907
+}

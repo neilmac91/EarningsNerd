@@ -1,0 +1,106 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "72eaa103a151ea2ffa462fccf9b06a0be907dd439e6fd40eee7cb3247ad5355b",
+ "y_sha256": "18cb3eefeff05ef89a0bd8bfcf0e3e16da1920bffc88cafb07d814473c3eb1e5",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A attributes the FY2022 REGEN-COV collapse to new variants, citing a passage about Roche's ex-US Ronapreve sales, not US REGEN-COV. Its 'not a one-off charge' analysis also rests only on a screened flag. Draft B has one slip: capex was a window high, not 'highest since FY2020'. B labels its interpretations and adds the Bayer EYLEA profit decline, operating-cost growth, and peer free-cash-flow and ROE comparisons. A covers gross margin and EYLEA HD better."
+   },
+   "cost_usd": 0.133881,
+   "latency_s": 15.978,
+   "backend": "claude_cli",
+   "input_tokens": 14875,
+   "cached_input_tokens": 727,
+   "output_tokens": 1028,
+   "reasoning_tokens": 770,
+   "meta": {
+    "duration_api_ms": 10990,
+    "cache_creation_input_tokens": 14146,
+    "list_cost_usd": 0.077297
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A attributes the FY2022 REGEN-COV collapse to new variants, citing a passage about Roche's ex-US Ronapreve sales, not US REGEN-COV. Its 'not a one-off charge' analysis also rests only on a screened flag. Draft B has one slip: capex was a window high, not 'highest since FY2020'. B labels its interpretations and adds the Bayer EYLEA profit decline, operating-cost growth, and peer free-cash-flow and ROE comparisons. A covers gross margin and EYLEA HD better.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts have one grounding slip. A calls capex the 'highest since FY2020' when the table shows it is the window high. B applies a Roche passage about ex-US Ronapreve to the drop in US REGEN-COV sales, which is a larger causal stretch, so grounding edges A. B adds real depth: the product-to-collaboration mix inversion, EYLEA HD and Libtayo offsets, the cited gross-margin drivers, and buybacks lifting EPS above net income. A reads more cleanly, but B's extra explanation narrowly outweighs that."
+   },
+   "cost_usd": 0.135005,
+   "latency_s": 15.626,
+   "backend": "claude_cli",
+   "input_tokens": 14873,
+   "cached_input_tokens": 727,
+   "output_tokens": 1085,
+   "reasoning_tokens": 816,
+   "meta": {
+    "duration_api_ms": 11229,
+    "cache_creation_input_tokens": 14144,
+    "list_cost_usd": 0.078429
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"tie\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts have one grounding slip. A calls capex the 'highest since FY2020' when the table shows it is the window high. B applies a Roche passage about ex-US Ronapreve to the drop in US REGEN-COV sales, which is a larger causal stretch, so grounding edges A. B adds real depth: the product-to-collaboration mix inversion, EYLEA HD and Libtayo offsets, the cited gross-margin drivers, and buybacks lifting EPS above net income. A reads more cleanly, but B's extra explanation narrowly outweighs that.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.268886
+}

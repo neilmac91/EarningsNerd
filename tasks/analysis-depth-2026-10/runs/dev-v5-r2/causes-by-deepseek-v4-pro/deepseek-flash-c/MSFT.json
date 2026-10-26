@@ -1,0 +1,111 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "MSFT",
+ "split": "dev",
+ "claims": 8,
+ "output_sha256": "8a506143d804743f5a77f2c86575bfed98de748c2c9389125b26769361d61a96",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2026 revenue rose $50.1 billion or 18% driven by growth in Microsoft Cloud, with Intelligent Cloud led by Azure and Productivity and Business Processes by Microsoft 365 Commercial cloud .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue increased $50.1 billion or 18% driven by growth in Microsoft Cloud. Intelligent Cloud revenue increased driven by Azure. Productivity and Business Processes revenue increased driven by Microsoft 365 Commercial cloud. More Personal Computing revenue decreased driven by XBOX (formerly Gaming), offset in part by growth in Search advertising."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increased driven by Microsoft Cloud, Intelligent Cloud by Azure, and Productivity by Microsoft 365 Commercial cloud."
+  },
+  {
+   "sentence": "The FY2023 slowdown came as revenue rose 7% on Intelligent Cloud and Productivity and Business Processes growth offset by a decline in More Personal Computing .",
+   "passages": [
+    {
+     "id": "P39",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue increased $13.6 billion or 7% driven by growth in Intelligent Cloud and Productivity and Business Processes, offset in part by a decline in More Personal Computing. Intelligent Cloud revenue increased driven by Azure and other cloud services. Productivity and Business Processes revenue increased driven by Office 365 Commercial and LinkedIn. More Personal Computing revenue decreased driven by Windows  and Devices."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states revenue increased 7% driven by Intelligent Cloud and Productivity growth offset by More Personal Computing decline."
+  },
+  {
+   "sentence": "Server products and cloud services revenue rose $31.0 billion or 31% driven by Azure and other cloud services, whose revenue grew 41% .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Server products and cloud services revenue increased $31.0 billion or 31% driven by Azure and other cloud services. Azure and other cloud services revenue grew 41% driven by demand for services across the platform with continued growth across all workloads. Server products revenue increased 1% primarily driven by higher purchases of licenses running in multi-cloud environments, offset in part by continued customer shift to cloud."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states server products and cloud services revenue increased $31.0 billion or 31% driven by Azure and other cloud services, which grew 41%."
+  },
+  {
+   "sentence": "Microsoft 365 Commercial products and cloud services revenue rose $14.2 billion or 16%, with cloud revenue up 17% on Copilot and E5 and seats up 6% .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Microsoft 365 Commercial products and cloud services revenue increased $14.2 billion or 16%. Microsoft 365 Commercial cloud revenue grew 17% with growth in revenue per user driven by Microsoft 365 Copilot and Microsoft 365 E5. Microsoft 365 Commercial seats grew 6% driven by small and medium businesses and frontline worker offerings. Microsoft 365 Commercial products revenue grew 13% driven by growth in the Windows Commercial on-premises components of Microsoft 365 suite sales, as well as an increase in Office 2024 transactional purchasing."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states Microsoft 365 Commercial products and cloud services revenue increased $14.2 billion or 16%, cloud revenue grew 17% driven by Copilot and E5, seats grew 6%."
+  },
+  {
+   "sentence": "Intelligent Cloud gross margin percentage fell on continued AI infrastructure investment and mix shift to Azure, offset by Azure efficiency gains .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Gross margin increased $13.8 billion or 21% driven by growth in Azure. Gross margin percentage decreased driven by the continued investments in AI infrastructure as well as sales mix shift to Azure, offset in part by efficiency gains in Azure."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states gross margin percentage decreased driven by continued AI infrastructure investments and sales mix shift to Azure, offset by Azure efficiency gains."
+  },
+  {
+   "sentence": "Other income included $6.5 billion of net gains on OpenAI investments, primarily the dilution gain from the OpenAI Recapitalization .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income (expense), net included $6.5 billion of net gains and $4.8 billion of net losses for fiscal years 2026 and 2025, respectively, from investments in OpenAI, primarily net recognized gains (losses) on our equity method investment reflected in Other, net. The net gains recorded for fiscal year 2026 primarily relate to the dilution gain from the OpenAI Recapitalization."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states other income included $6.5 billion net gains from OpenAI investments, primarily dilution gain from OpenAI Recapitalization."
+  },
+  {
+   "sentence": "Cash used in investing rose $66.9 billion to $139.5 billion, primarily on a $51.4 billion increase in additions to property and equipment .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash from operations increased $46.8 billion to $182.9 billion for fiscal year 2026, primarily due to an increase in cash received from customers and a decrease in cash used to pay income taxes, offset in part by an increase in cash paid to suppliers. Cash used in financing increased $847 million to $52.5 billion for fiscal year 2026, primarily due to a $6.0 billion decrease in cash used for repayments of debt, offset in part by a $3.9 billion increase in common stock repurchases and a $2.4 billion increase in dividends paid. Cash used in investing increased $66.9 billion to $139.5 billion for fiscal year 2026, primarily due to a $51.4 billion increase in additions to property and equipment and a $22.2 billion increase in cash used in other investing primarily to facilitate the purchase of components, offset in part by a $4.2 billion decrease in cash used in the acquisition of companies, net of cash acquired and divestitures, and purchases of intangible and other assets and a $2.4 billion decrease in cash used in net investment purchases, sales, and maturities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash used in investing increased $66.9 billion to $139.5 billion primarily due to $51.4 billion increase in additions to property and equipment."
+  },
+  {
+   "sentence": "Cash from operations rose $46.8 billion to $182.9 billion on higher cash received from customers and lower income tax payments .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash from operations increased $46.8 billion to $182.9 billion for fiscal year 2026, primarily due to an increase in cash received from customers and a decrease in cash used to pay income taxes, offset in part by an increase in cash paid to suppliers. Cash used in financing increased $847 million to $52.5 billion for fiscal year 2026, primarily due to a $6.0 billion decrease in cash used for repayments of debt, offset in part by a $3.9 billion increase in common stock repurchases and a $2.4 billion increase in dividends paid. Cash used in investing increased $66.9 billion to $139.5 billion for fiscal year 2026, primarily due to a $51.4 billion increase in additions to property and equipment and a $22.2 billion increase in cash used in other investing primarily to facilitate the purchase of components, offset in part by a $4.2 billion decrease in cash used in the acquisition of companies, net of cash acquired and divestitures, and purchases of intangible and other assets and a $2.4 billion decrease in cash used in net investment purchases, sales, and maturities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash from operations increased $46.8 billion to $182.9 billion primarily due to increase in cash received from customers and decrease in income tax payments."
+  }
+ ],
+ "cost_usd": 0.001905,
+ "backend": "openai_compat",
+ "input_tokens": 1582,
+ "cached_input_tokens": 0,
+ "output_tokens": 435
+}

@@ -1,0 +1,527 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "COST",
+ "split": "dev",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.008301,
+ "items": [
+  {
+   "sentence": "Revenue compounded at 10.0% a year, from $129 billion in FY2017  to $303 billion in FY2026 , while operating margin rose from 3.2%  to 3.9% .",
+   "claim": "10.0%",
+   "match": "cited: F203 = Revenue CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Revenue CAGR 10.0% FY2017-FY2026 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 10.0% a year, from $129 billion in FY2017  to $303 billion in FY2026 , while operating margin rose from 3.2%  to 3.9% .",
+   "claim": "$129 billion",
+   "match": "cited: F1 = Revenue, FY2017",
+   "label": "consistent",
+   "reason": "Revenue $129B FY2017 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 10.0% a year, from $129 billion in FY2017  to $303 billion in FY2026 , while operating margin rose from 3.2%  to 3.9% .",
+   "claim": "$303 billion",
+   "match": "cited: F10 = Revenue, FY2026",
+   "label": "consistent",
+   "reason": "Revenue $303B FY2026 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 10.0% a year, from $129 billion in FY2017  to $303 billion in FY2026 , while operating margin rose from 3.2%  to 3.9% .",
+   "claim": "3.2%",
+   "match": "cited: F23 = Operating margin, FY2017",
+   "label": "consistent",
+   "reason": "Operating margin 3.2% FY2017 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 10.0% a year, from $129 billion in FY2017  to $303 billion in FY2026 , while operating margin rose from 3.2%  to 3.9% .",
+   "claim": "3.9%",
+   "match": "cited: F32 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 3.9% FY2026 matches."
+  },
+  {
+   "sentence": "The step change came in FY2021 and FY2022, when revenue grew 17.5%  and 15.8% , after 9.2% growth in FY2020 .",
+   "claim": "17.5%",
+   "match": "cited: D189 = Revenue growth, FY2021",
+   "label": "consistent",
+   "reason": "Revenue growth 17.5% FY2021 matches."
+  },
+  {
+   "sentence": "The step change came in FY2021 and FY2022, when revenue grew 17.5%  and 15.8% , after 9.2% growth in FY2020 .",
+   "claim": "15.8%",
+   "match": "cited: D238 = Revenue growth, FY2022",
+   "label": "consistent",
+   "reason": "Revenue growth 15.8% FY2022 matches."
+  },
+  {
+   "sentence": "The step change came in FY2021 and FY2022, when revenue grew 17.5%  and 15.8% , after 9.2% growth in FY2020 .",
+   "claim": "9.2%",
+   "match": "cited: D140 = Revenue growth, FY2020",
+   "label": "consistent",
+   "reason": "Revenue growth 9.2% FY2020 matches."
+  },
+  {
+   "sentence": "Management attributed FY2021 net sales growth to comparable sales up 16% and new warehouses , with higher gasoline prices also adding to sales .",
+   "claim": "16%",
+   "match": "passage P56: P56 = a figure in a FY2021 10-K passage",
+   "label": "consistent",
+   "reason": "Comparable sales up 16% FY2021 matches passage."
+  },
+  {
+   "sentence": "Growth then slowed to a 7.8% three-year revenue CAGR for FY2023 to FY2026 , before FY2026 accelerated to 10.1% .",
+   "claim": "7.8%",
+   "match": "cited: D705 = Revenue 3-year CAGR, FY2023..FY2026",
+   "label": "consistent",
+   "reason": "Revenue 3-year CAGR 7.8% FY2023-2026 matches."
+  },
+  {
+   "sentence": "Growth then slowed to a 7.8% three-year revenue CAGR for FY2023 to FY2026 , before FY2026 accelerated to 10.1% .",
+   "claim": "10.1%",
+   "match": "cited: D434 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Revenue growth 10.1% FY2026 matches."
+  },
+  {
+   "sentence": "Product net sales rose 10.1% , contributing 9.9pp of growth ; Warehouse ancillary and other businesses led at 3.7pp , growing 19.9%  with no cause in the cited passages.",
+   "claim": "10.1%",
+   "match": "cited: D534 = Net Sales \u2014 Product (product) growth, FY2026",
+   "label": "consistent",
+   "reason": "Product net sales growth 10.1% FY2026 matches."
+  },
+  {
+   "sentence": "Product net sales rose 10.1% , contributing 9.9pp of growth ; Warehouse ancillary and other businesses led at 3.7pp , growing 19.9%  with no cause in the cited passages.",
+   "claim": "9.9pp",
+   "match": "cited: D535 = Net Sales \u2014 Product (product) contribution to revenue growth (pp), FY2026",
+   "label": "consistent",
+   "reason": "Product contribution 9.9pp FY2026 matches."
+  },
+  {
+   "sentence": "Product net sales rose 10.1% , contributing 9.9pp of growth ; Warehouse ancillary and other businesses led at 3.7pp , growing 19.9%  with no cause in the cited passages.",
+   "claim": "3.7pp",
+   "match": "cited: D601 = Warehouse ancillary and other businesses (product) contribution to revenue growth (pp), FY2026",
+   "label": "consistent",
+   "reason": "Warehouse ancillary contribution 3.7pp FY2026 matches."
+  },
+  {
+   "sentence": "Product net sales rose 10.1% , contributing 9.9pp of growth ; Warehouse ancillary and other businesses led at 3.7pp , growing 19.9%  with no cause in the cited passages.",
+   "claim": "19.9%",
+   "match": "cited: D600 = Warehouse ancillary and other businesses (product) growth, FY2026",
+   "label": "consistent",
+   "reason": "Warehouse ancillary growth 19.9% FY2026 matches."
+  },
+  {
+   "sentence": "Net sales rose 10% on comparable sales up 8%, driven by 5% higher average ticket and 3% higher shopping frequency .",
+   "claim": "10%",
+   "match": "passage P14: P14 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Net sales rose 10% FY2026 matches passage."
+  },
+  {
+   "sentence": "Net sales rose 10% on comparable sales up 8%, driven by 5% higher average ticket and 3% higher shopping frequency .",
+   "claim": "8%",
+   "match": "passage P14: P14 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Comparable sales up 8% FY2026 matches passage."
+  },
+  {
+   "sentence": "Net sales rose 10% on comparable sales up 8%, driven by 5% higher average ticket and 3% higher shopping frequency .",
+   "claim": "5%",
+   "match": "passage P14: P14 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Average ticket up 5% FY2026 matches passage."
+  },
+  {
+   "sentence": "Net sales rose 10% on comparable sales up 8%, driven by 5% higher average ticket and 3% higher shopping frequency .",
+   "claim": "3%",
+   "match": "passage P14: P14 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Shopping frequency up 3% FY2026 matches passage."
+  },
+  {
+   "sentence": "Warehouse ancillary and other businesses contributed most in FY2022 at 7.6pp , where management said growth was strongest in gasoline, business centers and travel .",
+   "claim": "7.6pp",
+   "match": "cited: D589 = Warehouse ancillary and other businesses (product) contribution to revenue growth (pp), FY2022",
+   "label": "consistent",
+   "reason": "Warehouse ancillary contribution 7.6pp FY2022 matches."
+  },
+  {
+   "sentence": "Operating income grew 12.5% against 10.1% revenue growth in FY2026 , an incremental margin of 4.7%  above the 3.9% operating margin .",
+   "claim": "12.5%",
+   "match": "cited: D435 = Operating income growth, FY2026",
+   "label": "consistent",
+   "reason": "Operating income growth 12.5% FY2026 matches."
+  },
+  {
+   "sentence": "Operating income grew 12.5% against 10.1% revenue growth in FY2026 , an incremental margin of 4.7%  above the 3.9% operating margin .",
+   "claim": "10.1%",
+   "match": "cited: D434 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Revenue growth 10.1% FY2026 matches."
+  },
+  {
+   "sentence": "Operating income grew 12.5% against 10.1% revenue growth in FY2026 , an incremental margin of 4.7%  above the 3.9% operating margin .",
+   "claim": "4.7%",
+   "match": "cited: D457 = Incremental operating margin (change in operating income / change in revenue), FY2026",
+   "label": "consistent",
+   "reason": "Incremental operating margin 4.7% FY2026 matches."
+  },
+  {
+   "sentence": "Operating income grew 12.5% against 10.1% revenue growth in FY2026 , an incremental margin of 4.7%  above the 3.9% operating margin .",
+   "claim": "3.9%",
+   "match": "cited: F32 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 3.9% FY2026 matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 14.0%  against 13.9% net income growth , as diluted shares fell 0.1% .",
+   "claim": "14.0%",
+   "match": "cited: D438 = EPS (diluted) growth, FY2026",
+   "label": "consistent",
+   "reason": "EPS growth 14.0% FY2026 matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 14.0%  against 13.9% net income growth , as diluted shares fell 0.1% .",
+   "claim": "13.9%",
+   "match": "cited: D436 = Net income growth, FY2026",
+   "label": "consistent",
+   "reason": "Net income growth 13.9% FY2026 matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 14.0%  against 13.9% net income growth , as diluted shares fell 0.1% .",
+   "claim": "0.1%",
+   "match": "cited: D452 = Diluted share count change, FY2026",
+   "label": "consistent",
+   "reason": "Diluted share count change -0.1% FY2026 matches."
+  },
+  {
+   "sentence": "Operating margin of 3.9%  is the window high , against a window median of 3.4%  and a low of 3.1% in FY2019 .",
+   "claim": "3.9%",
+   "match": "cited: F32 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 3.9% FY2026 matches."
+  },
+  {
+   "sentence": "Operating margin of 3.9%  is the window high , against a window median of 3.4%  and a low of 3.1% in FY2019 .",
+   "claim": "3.4%",
+   "match": "cited: D692 = Operating margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window median 3.4% matches."
+  },
+  {
+   "sentence": "Operating margin of 3.9%  is the window high , against a window median of 3.4%  and a low of 3.1% in FY2019 .",
+   "claim": "3.1%",
+   "match": "cited: D690 = Operating margin window low (FY2019), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window low 3.1% FY2019 matches."
+  },
+  {
+   "sentence": "The retail peer median operating margin is 5.0% , placing the company at the 17th percentile .",
+   "claim": "5.0%",
+   "match": "cited: D710 = Operating margin: retail peer median (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Retail peer median operating margin 5.0% matches."
+  },
+  {
+   "sentence": "The retail peer median operating margin is 5.0% , placing the company at the 17th percentile .",
+   "claim": "17th percentile",
+   "match": "cited: D709 = Operating margin: percentile vs retail peers (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Percentile 17th vs retail peers matches."
+  },
+  {
+   "sentence": "The FY2026 bridge was flat: cost of revenue had no effect and SG&A added 0.1pp , for a 0.1pp total rise .",
+   "claim": "0.1pp",
+   "match": "cited: D460 = Operating-margin effect of SG&A (pp), FY2026",
+   "label": "consistent",
+   "reason": "SG&A effect 0.1pp FY2026 matches."
+  },
+  {
+   "sentence": "The FY2026 bridge was flat: cost of revenue had no effect and SG&A added 0.1pp , for a 0.1pp total rise .",
+   "claim": "0.1pp",
+   "match": "cited: D460 = Operating-margin effect of SG&A (pp), FY2026",
+   "label": "consistent",
+   "reason": "SG&A effect 0.1pp FY2026 matches."
+  },
+  {
+   "sentence": "The largest move was FY2022, when cost of revenue cut 0.7pp  as gross margin fell 65 basis points on core-category declines and a LIFO charge .",
+   "claim": "0.7pp",
+   "match": "cited: D263 = Operating-margin effect of cost of revenue (pp), FY2022",
+   "label": "consistent",
+   "reason": "Cost of revenue effect -0.7pp FY2022 matches."
+  },
+  {
+   "sentence": "The largest move was FY2022, when cost of revenue cut 0.7pp  as gross margin fell 65 basis points on core-category declines and a LIFO charge .",
+   "claim": "65 basis points",
+   "match": "passage P40: P40 = a figure in a FY2022 10-K passage",
+   "label": "consistent",
+   "reason": "Gross margin fell 65 bps FY2022 matches passage."
+  },
+  {
+   "sentence": "SG&A added back 0.7pp  as its ratio of sales fell 77 basis points, largely from leveraging increased sales .",
+   "claim": "0.7pp",
+   "match": "cited: D264 = Operating-margin effect of SG&A (pp), FY2022",
+   "label": "consistent",
+   "reason": "SG&A effect 0.7pp FY2022 matches."
+  },
+  {
+   "sentence": "SG&A added back 0.7pp  as its ratio of sales fell 77 basis points, largely from leveraging increased sales .",
+   "claim": "77 basis points",
+   "match": "passage P38: P38 = a figure in a FY2022 10-K passage",
+   "label": "consistent",
+   "reason": "SG&A ratio fell 77 bps FY2022 matches passage."
+  },
+  {
+   "sentence": "Operating cash flow of $15.8 billion was 1.71x net income of $9.23 billion ; free cash flow was 1.02x net income, near the 0.99x window median .",
+   "claim": "$15.8 billion",
+   "match": "cited: F82 = Operating cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Operating cash flow $15.8B FY2026 matches."
+  },
+  {
+   "sentence": "Operating cash flow of $15.8 billion was 1.71x net income of $9.23 billion ; free cash flow was 1.02x net income, near the 0.99x window median .",
+   "claim": "1.71x",
+   "match": "cited: D421 = Operating cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "OCF/NI 1.71x FY2026 matches."
+  },
+  {
+   "sentence": "Operating cash flow of $15.8 billion was 1.71x net income of $9.23 billion ; free cash flow was 1.02x net income, near the 0.99x window median .",
+   "claim": "$9.23 billion",
+   "match": "cited: F42 = Net income, FY2026",
+   "label": "consistent",
+   "reason": "Net income $9.23B FY2026 matches."
+  },
+  {
+   "sentence": "Operating cash flow of $15.8 billion was 1.71x net income of $9.23 billion ; free cash flow was 1.02x net income, near the 0.99x window median .",
+   "claim": "1.02x",
+   "match": "cited: D422 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI 1.02x FY2026 matches."
+  },
+  {
+   "sentence": "Operating cash flow of $15.8 billion was 1.71x net income of $9.23 billion ; free cash flow was 1.02x net income, near the 0.99x window median .",
+   "claim": "0.99x",
+   "match": "cited: D701 = Free cash flow / net income window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI window median 0.99x matches."
+  },
+  {
+   "sentence": "Operating cash flow rose 18.6% in FY2026 , which management linked to higher operating income and lower net inventory investment .",
+   "claim": "18.6%",
+   "match": "cited: D439 = Operating cash flow growth, FY2026",
+   "label": "consistent",
+   "reason": "OCF growth 18.6% FY2026 matches."
+  },
+  {
+   "sentence": "Conversion bottomed in FY2022 at 0.60x  as free cash flow fell 34.8% , and the cited FY2022 operating cash passage gives no cause .",
+   "claim": "0.60x",
+   "match": "cited: D699 = Free cash flow / net income window low (FY2022), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI window low 0.60x FY2022 matches."
+  },
+  {
+   "sentence": "Conversion bottomed in FY2022 at 0.60x  as free cash flow fell 34.8% , and the cited FY2022 operating cash passage gives no cause .",
+   "claim": "34.8%",
+   "match": "cited: D244 = Free cash flow growth, FY2022",
+   "label": "consistent",
+   "reason": "FCF growth -34.8% FY2022 matches."
+  },
+  {
+   "sentence": "Capital expenditure of $6.44 billion  was 2.41x depreciation and amortization  and 2.1% of revenue , tied by management to new and remodeled warehouses .",
+   "claim": "$6.44 billion",
+   "match": "cited: F92 = Capital expenditures, FY2026",
+   "label": "consistent",
+   "reason": "Capex $6.44B FY2026 matches."
+  },
+  {
+   "sentence": "Capital expenditure of $6.44 billion  was 2.41x depreciation and amortization  and 2.1% of revenue , tied by management to new and remodeled warehouses .",
+   "claim": "2.41x",
+   "match": "cited: D423 = Capex / D&A, FY2026",
+   "label": "consistent",
+   "reason": "Capex/D&A 2.41x FY2026 matches."
+  },
+  {
+   "sentence": "Capital expenditure of $6.44 billion  was 2.41x depreciation and amortization  and 2.1% of revenue , tied by management to new and remodeled warehouses .",
+   "claim": "2.1%",
+   "match": "cited: D417 = Capex % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Capex % revenue 2.1% FY2026 matches."
+  },
+  {
+   "sentence": "Net cash rose to $15.1 billion in FY2026 , or 5.0% of revenue , from $9.50 billion a year earlier .",
+   "claim": "$15.1 billion",
+   "match": "cited: D427 = Net cash (cash and investments less debt), FY2026",
+   "label": "consistent",
+   "reason": "Net cash $15.1B FY2026 matches."
+  },
+  {
+   "sentence": "Net cash rose to $15.1 billion in FY2026 , or 5.0% of revenue , from $9.50 billion a year earlier .",
+   "claim": "5.0%",
+   "match": "cited: D428 = Net cash % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Net cash % revenue 5.0% FY2026 matches."
+  },
+  {
+   "sentence": "Net cash rose to $15.1 billion in FY2026 , or 5.0% of revenue , from $9.50 billion a year earlier .",
+   "claim": "$9.50 billion",
+   "match": "cited: D378 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net cash $9.50B FY2025 matches."
+  },
+  {
+   "sentence": "The 5.0% ranks at the 100th percentile of six retail peers, against a peer median of -4.4% .",
+   "claim": "5.0%",
+   "match": "cited: D428 = Net cash % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Net cash % revenue 5.0% FY2026 matches."
+  },
+  {
+   "sentence": "The 5.0% ranks at the 100th percentile of six retail peers, against a peer median of -4.4% .",
+   "claim": "100th percentile",
+   "match": "cited: D715 = Net cash % of revenue: percentile vs retail peers (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Percentile 100th vs retail peers matches."
+  },
+  {
+   "sentence": "The 5.0% ranks at the 100th percentile of six retail peers, against a peer median of -4.4% .",
+   "claim": "-4.4%",
+   "match": "cited: D716 = Net cash % of revenue: retail peer median (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Peer median net cash % revenue -4.4% matches."
+  },
+  {
+   "sentence": "Buybacks and dividends took 35.2% of free cash flow : $848 million of repurchases  and $2.46 billion of dividends .",
+   "claim": "35.2%",
+   "match": "cited: D430 = Buybacks plus dividends % of free cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Buybacks+dividends % FCF 35.2% FY2026 matches."
+  },
+  {
+   "sentence": "Buybacks and dividends took 35.2% of free cash flow : $848 million of repurchases  and $2.46 billion of dividends .",
+   "claim": "$848 million",
+   "match": "cited: X110 = Share repurchases (cash), FY2026",
+   "label": "consistent",
+   "reason": "Repurchases $848M FY2026 matches."
+  },
+  {
+   "sentence": "Buybacks and dividends took 35.2% of free cash flow : $848 million of repurchases  and $2.46 billion of dividends .",
+   "claim": "$2.46 billion",
+   "match": "cited: X120 = Dividends paid (cash), FY2026",
+   "label": "consistent",
+   "reason": "Dividends $2.46B FY2026 matches."
+  },
+  {
+   "sentence": "Diluted shares rose from 440.9 million in FY2017  to 444.4 million , so per-share growth has tracked net income.",
+   "claim": "440.9 million",
+   "match": "cited: X91 = Diluted weighted-average shares, FY2017",
+   "label": "consistent",
+   "reason": "Diluted shares 440.9M FY2017 matches."
+  },
+  {
+   "sentence": "Diluted shares rose from 440.9 million in FY2017  to 444.4 million , so per-share growth has tracked net income.",
+   "claim": "444.4 million",
+   "match": "cited: X100 = Diluted weighted-average shares, FY2026",
+   "label": "consistent",
+   "reason": "Diluted shares 444.4M FY2026 matches."
+  },
+  {
+   "sentence": "Current debt rose to $2.25 billion from $75 million  while total debt grew 6.5% ; the cited passages do not explain the change.",
+   "claim": "$2.25 billion",
+   "match": "cited: X160 = Current portion of debt, FY2026",
+   "label": "consistent",
+   "reason": "Current debt $2.25B FY2026 matches."
+  },
+  {
+   "sentence": "Current debt rose to $2.25 billion from $75 million  while total debt grew 6.5% ; the cited passages do not explain the change.",
+   "claim": "$75 million",
+   "match": "cited: X159 = Current portion of debt, FY2025",
+   "label": "consistent",
+   "reason": "Current debt $75M FY2025 matches."
+  },
+  {
+   "sentence": "Current debt rose to $2.25 billion from $75 million  while total debt grew 6.5% ; the cited passages do not explain the change.",
+   "claim": "6.5%",
+   "match": "cited: D454 = Total debt growth, FY2026",
+   "label": "consistent",
+   "reason": "Total debt growth 6.5% FY2026 matches."
+  },
+  {
+   "sentence": "Tariff refunds flatter the latest year: $184 million was received in FY2026 , and part was invested in member price cuts , against a 3.9% operating margin .",
+   "claim": "$184 million",
+   "match": "passage P15 (x1e+06): P15 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Tariff refunds $184M FY2026 matches passage."
+  },
+  {
+   "sentence": "Tariff refunds flatter the latest year: $184 million was received in FY2026 , and part was invested in member price cuts , against a 3.9% operating margin .",
+   "claim": "3.9%",
+   "match": "cited: F32 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 3.9% FY2026 matches."
+  },
+  {
+   "sentence": "Free cash flow fell 34.8% in FY2022  to a 0.60x conversion low , and the cited FY2022 operating cash passage is truncated and gives no cause .",
+   "claim": "34.8%",
+   "match": "cited: D244 = Free cash flow growth, FY2022",
+   "label": "consistent",
+   "reason": "FCF growth -34.8% FY2022 matches."
+  },
+  {
+   "sentence": "Free cash flow fell 34.8% in FY2022  to a 0.60x conversion low , and the cited FY2022 operating cash passage is truncated and gives no cause .",
+   "claim": "0.60x",
+   "match": "cited: D699 = Free cash flow / net income window low (FY2022), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI window low 0.60x FY2022 matches."
+  },
+  {
+   "sentence": "Operating margin holding at or above the 3.9% FY2026 level  would confirm the trend; a fall to the 3.4% window median  would reverse it, shown in the FY2027 10-K.",
+   "claim": "3.9%",
+   "match": "cited: F32 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Operating margin 3.9% FY2026 matches."
+  },
+  {
+   "sentence": "Operating margin holding at or above the 3.9% FY2026 level  would confirm the trend; a fall to the 3.4% window median  would reverse it, shown in the FY2027 10-K.",
+   "claim": "3.4%",
+   "match": "cited: D692 = Operating margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Operating margin window median 3.4% matches."
+  },
+  {
+   "sentence": "Free cash flow to net income staying at or above the 0.99x window median , against 1.02x in FY2026 , would confirm conversion; a return toward the 0.60x low  would reverse it, in the FY2027 10-K.",
+   "claim": "0.99x",
+   "match": "cited: D701 = Free cash flow / net income window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI window median 0.99x matches."
+  },
+  {
+   "sentence": "Free cash flow to net income staying at or above the 0.99x window median , against 1.02x in FY2026 , would confirm conversion; a return toward the 0.60x low  would reverse it, in the FY2027 10-K.",
+   "claim": "1.02x",
+   "match": "cited: D422 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI 1.02x FY2026 matches."
+  },
+  {
+   "sentence": "Free cash flow to net income staying at or above the 0.99x window median , against 1.02x in FY2026 , would confirm conversion; a return toward the 0.60x low  would reverse it, in the FY2027 10-K.",
+   "claim": "0.60x",
+   "match": "cited: D699 = Free cash flow / net income window low (FY2022), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "FCF/NI window low 0.60x FY2022 matches."
+  },
+  {
+   "sentence": "Whether the $2.25 billion of current debt  is repaid or refinanced, and whether the $1.12 billion remaining buyback authority , expiring January 2027 , is renewed, will appear in the FY2027 10-K.",
+   "claim": "$2.25 billion",
+   "match": "cited: X160 = Current portion of debt, FY2026",
+   "label": "consistent",
+   "reason": "Current debt $2.25B FY2026 matches."
+  },
+  {
+   "sentence": "Whether the $2.25 billion of current debt  is repaid or refinanced, and whether the $1.12 billion remaining buyback authority , expiring January 2027 , is renewed, will appear in the FY2027 10-K.",
+   "claim": "$1.12 billion",
+   "match": "passage P3 (x1e+06): P3 = a figure in a FY2026 10-K passage",
+   "label": "consistent",
+   "reason": "Remaining buyback authority $1.12B matches passage."
+  }
+ ]
+}

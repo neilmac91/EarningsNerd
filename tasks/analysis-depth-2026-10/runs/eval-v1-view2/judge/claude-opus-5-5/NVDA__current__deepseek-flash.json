@@ -1,0 +1,86 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A mostly restates table values. Its debt red flag compares two different XBRL tags and ignores the recent decline. B explains the FY2023 inventory trough, the Data Center and Blackwell drivers, the H20 charge, other income and working capital, with cited passages. B has flaws: a likely undisclosed data error in the 75.5% cash-and-investments drop, an uncited 'product mix' claim, and some interpretation stated as fact. Its depth still clearly outweighs these."
+   },
+   "cost_usd": 0.110005,
+   "latency_s": 14.946,
+   "input_tokens": 12143,
+   "output_tokens": 927,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A mostly restates table values. Its debt red flag compares two different XBRL tags and ignores the recent decline. B explains the FY2023 inventory trough, the Data Center and Blackwell drivers, the H20 charge, other income and working capital, with cited passages. B has flaws: a likely undisclosed data error in the 75.5% cash-and-investments drop, an uncited 'product mix' claim, and some interpretation stated as fact. Its depth still clearly outweighs these.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains causes with cited filings: the FY2023 Ampere inventory charge, the Blackwell and networking ramp, the H20 charge, Intel gains and working-capital drag. But it states a $10.6bn 'cash and investments' net-cash collapse without flagging a likely data error, and calls Graphics 'one-period' as fact. B is mostly supported but restates the table. Its debt red flag mixes XBRL tags and ignores recent declines. A's depth outweighs its errors."
+   },
+   "cost_usd": 0.107717,
+   "latency_s": 12.418,
+   "input_tokens": 12137,
+   "output_tokens": 815,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains causes with cited filings: the FY2023 Ampere inventory charge, the Blackwell and networking ramp, the H20 charge, Intel gains and working-capital drag. But it states a $10.6bn 'cash and investments' net-cash collapse without flagging a likely data error, and calls Graphics 'one-period' as fact. B is mostly supported but restates the table. Its debt red flag mixes XBRL tags and ignores recent declines. A's depth outweighs its errors.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.217722
+}

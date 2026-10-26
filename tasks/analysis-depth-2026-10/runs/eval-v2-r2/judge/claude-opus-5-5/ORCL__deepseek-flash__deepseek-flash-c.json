@@ -1,0 +1,106 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "d4f8ae763339ee510a89026668a107e68039b843b2e42aab1c05843f5d64b96e",
+ "y_sha256": "1de563a1af1c970199e75cd95d3fbe8039ad117acb809eaa0f15f8f89cf2d42a",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A's tax explanation is unsupported. It attributes the lower effective tax rate to a $1.5bn stock-compensation tax benefit, but cited passage [39] describes unfavorable tax items instead. A adds real depth (FY2022 litigation charges, $260bn off-balance-sheet leases) and sharper watch thresholds. B's causal claims match their passages (customer prepayments, infrastructure-driven margin squeeze), and it labels interpretation as analysis. B's interest-expense forecast is a minor overreach. Its watch thresholds are weak."
+   },
+   "cost_usd": 0.147273,
+   "latency_s": 14.639,
+   "backend": "claude_cli",
+   "input_tokens": 16509,
+   "cached_input_tokens": 727,
+   "output_tokens": 1044,
+   "reasoning_tokens": 784,
+   "meta": {
+    "duration_api_ms": 10559,
+    "cache_creation_input_tokens": 15780,
+    "list_cost_usd": 0.084153
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A's tax explanation is unsupported. It attributes the lower effective tax rate to a $1.5bn stock-compensation tax benefit, but cited passage [39] describes unfavorable tax items instead. A adds real depth (FY2022 litigation charges, $260bn off-balance-sheet leases) and sharper watch thresholds. B's causal claims match their passages (customer prepayments, infrastructure-driven margin squeeze), and it labels interpretation as analysis. B's interest-expense forecast is a minor overreach. Its watch thresholds are weak.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper: it explains the FY2022 margin collapse with litigation charges, computes incremental margin and flags $260bn of off-balance-sheet data-center leases. But its tax claim of a $1.5bn stock-compensation benefit is not in the cited passage, which lists unfavourable tax items. B's watch items also overstate what outcomes would 'confirm'. A's causal claims all trace to its sources, and it labels its analysis separately. Grounding comes first, so A edges ahead."
+   },
+   "cost_usd": 0.146861,
+   "latency_s": 13.46,
+   "backend": "claude_cli",
+   "input_tokens": 16505,
+   "cached_input_tokens": 727,
+   "output_tokens": 1025,
+   "reasoning_tokens": 780,
+   "meta": {
+    "duration_api_ms": 9573,
+    "cache_creation_input_tokens": 15776,
+    "list_cost_usd": 0.083757
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"B goes deeper: it explains the FY2022 margin collapse with litigation charges, computes incremental margin and flags $260bn of off-balance-sheet data-center leases. But its tax claim of a $1.5bn stock-compensation benefit is not in the cited passage, which lists unfavourable tax items. B's watch items also overstate what outcomes would 'confirm'. A's causal claims all trace to its sources, and it labels its analysis separately. Grounding comes first, so A edges ahead.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.294134
+}

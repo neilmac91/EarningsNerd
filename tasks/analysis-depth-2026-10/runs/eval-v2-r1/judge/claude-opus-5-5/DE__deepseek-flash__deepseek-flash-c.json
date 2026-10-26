@@ -1,0 +1,106 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ac154262c1f96ffd43e72604e593a060f8d4d88231386b12ed9f84efb54f191e",
+ "y_sha256": "ee7da18a1974447a43ddc2aac868ea34bb31df6d1651406b25fd894dfa46e891",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A's deleveraging story (net debt falling from $35.8bn to $5.5bn, top peer rank) comes from total debt that drops long-term debt after FY2021. A also misreads a positive 41.1% incremental margin as negative. B discloses the debt-data break and grounds the FY2021 and FY2024 causes in filing passages. B has slips: an unsupported claim that Financial Services 'grew', and a cross-year tax-rate comparison. Both cite Wirtgen without support."
+   },
+   "cost_usd": 0.129753,
+   "latency_s": 13.196,
+   "backend": "claude_cli",
+   "input_tokens": 14769,
+   "cached_input_tokens": 727,
+   "output_tokens": 864,
+   "reasoning_tokens": 629,
+   "meta": {
+    "duration_api_ms": 8676,
+    "cache_creation_input_tokens": 14040,
+    "list_cost_usd": 0.073593
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A's deleveraging story (net debt falling from $35.8bn to $5.5bn, top peer rank) comes from total debt that drops long-term debt after FY2021. A also misreads a positive 41.1% incremental margin as negative. B discloses the debt-data break and grounds the FY2021 and FY2024 causes in filing passages. B has slips: an unsupported claim that Financial Services 'grew', and a cross-year tax-rate comparison. Both cite Wirtgen without support.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B claims net debt fell from $35.8bn to $5.5bn and ranks Deere top among peers on leverage. That is an artefact: long-term debt stops being reported after FY2021, which A discloses. B also labels a positive 41.1% incremental margin as 'turned negative'. A misattributes a FY2024 gap to the FY2025 tax rate and mixes net and operating margin in a watch item. Still, its errors are smaller. B has more peer and segment depth."
+   },
+   "cost_usd": 0.132569,
+   "latency_s": 14.254,
+   "backend": "claude_cli",
+   "input_tokens": 14771,
+   "cached_input_tokens": 727,
+   "output_tokens": 1004,
+   "reasoning_tokens": 772,
+   "meta": {
+    "duration_api_ms": 9853,
+    "cache_creation_input_tokens": 14042,
+    "list_cost_usd": 0.076401
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B claims net debt fell from $35.8bn to $5.5bn and ranks Deere top among peers on leverage. That is an artefact: long-term debt stops being reported after FY2021, which A discloses. B also labels a positive 41.1% incremental margin as 'turned negative'. A misattributes a FY2024 gap to the FY2025 tax rate and mixes net and operating margin in a watch item. Still, its errors are smaller. B has more peer and segment depth.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.262322
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A has several grounding errors. It calls -38.8% net cash 'better than' the -35.6% peer median. It says cash 'stayed flat' when cash rose 44.9%. It credits a higher tax rate for a smaller net-margin drop, and it compares OCF/NI against an FCF/NI median. Draft B labels its interpretation and explains the FY2023 inflection and debt funding. It also flags the limits of segment attribution, though internal jargon like 'R1' and 'Dropped R2' weakens clarity."
+   },
+   "cost_usd": 0.139817,
+   "latency_s": 13.22,
+   "input_tokens": 15697,
+   "output_tokens": 996,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A has several grounding errors. It calls -38.8% net cash 'better than' the -35.6% peer median. It says cash 'stayed flat' when cash rose 44.9%. It credits a higher tax rate for a smaller net-margin drop, and it compares OCF/NI against an FCF/NI median. Draft B labels its interpretation and explains the FY2023 inflection and debt funding. It also flags the limits of segment attribution, though internal jargon like 'R1' and 'Dropped R2' weakens clarity.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B has several grounding errors. It calls net debt at -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' after citing a 44.9% rise. It credits the higher tax rate for a smaller net-margin drop, which is backwards. It also compares OCF/NI to an FCF/NI median. B covers the cycle and peers more fully, but A's claims match its sources, and A labels its interpretations, though terms like 'R1/R2' leak through."
+   },
+   "cost_usd": 0.143233,
+   "latency_s": 14.659,
+   "input_tokens": 15699,
+   "output_tokens": 1166,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B has several grounding errors. It calls net debt at -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' after citing a 44.9% rise. It credits the higher tax rate for a smaller net-margin drop, which is backwards. It also compares OCF/NI to an FCF/NI median. B covers the cycle and peers more fully, but A's claims match its sources, and A labels its interpretations, though terms like 'R1/R2' leak through.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.28305
+}

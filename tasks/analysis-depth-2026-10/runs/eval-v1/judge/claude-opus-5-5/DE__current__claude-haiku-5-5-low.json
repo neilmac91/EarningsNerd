@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, with no causes, peers or thresholds. B explains segment drivers, margin decomposition, cash conversion, capital returns and credit risk, mostly backed by quoted filings. B has small stretches: FY2021 causes taken from a U.S./Canada-only passage, an oddly phrased 'provision still' line, and unflagged net-debt figures that look inconsistent with long-term debt. These dent its grounding but do not outweigh its far greater depth."
+   },
+   "cost_usd": 0.099825,
+   "latency_s": 15.258,
+   "input_tokens": 10583,
+   "output_tokens": 1042,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully sourced but only restates table values, with no causes, peers or thresholds. B explains segment drivers, margin decomposition, cash conversion, capital returns and credit risk, mostly backed by quoted filings. B has small stretches: FY2021 causes taken from a U.S./Canada-only passage, an oddly phrased 'provision still' line, and unflagged net-debt figures that look inconsistent with long-term debt. These dent its grounding but do not outweigh its far greater depth.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, with no causes, segments, peers or capital allocation. A explains segment volume drops, cost-line effects, cash-flow causes, credit stress and peer rankings, mostly backed by quoted passages. A has small flaws: it calls FY2022 the weakest conversion year by switching from FCF/NI to OCF/NI, and applies a U.S./Canada passage to the whole company. These do not outweigh its far greater usefulness."
+   },
+   "cost_usd": 0.099121,
+   "latency_s": 15.127,
+   "input_tokens": 10585,
+   "output_tokens": 1006,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values, with no causes, segments, peers or capital allocation. A explains segment volume drops, cost-line effects, cash-flow causes, credit stress and peer rankings, mostly backed by quoted passages. A has small flaws: it calls FY2022 the weakest conversion year by switching from FCF/NI to OCF/NI, and applies a U.S./Canada passage to the whole company. These do not outweigh its far greater usefulness.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.198946
+}

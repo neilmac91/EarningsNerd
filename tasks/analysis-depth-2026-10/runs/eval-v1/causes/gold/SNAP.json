@@ -1,0 +1,153 @@
+{
+ "system": "gold",
+ "ticker": "SNAP",
+ "split": "dev",
+ "claims": 9,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Operating margin hit \u2212422.5% in FY2017  as stock-based compensation rose $2.6 billion , mostly for the CEO award and IPO-triggered RSUs .",
+   "passages": [
+    {
+     "id": "P86",
+     "filing": "FY2017 10-K Item 7. Management's Discussion and Analysis",
+     "text": "General and administrative expenses for the year ended December 31, 2017 increased $1.4 billion compared to the same period in 2016. The increase was primarily due an increase in stock-based compensation expense of $1.2 billion, composed of an award granted to our CEO with an expense of $636.6 million and the remainder primarily related to the recognition of expense related to RSUs with a performance condition satisfied on the effectiveness of the registration statement for our IPO in March 2017. The increase for the year ended December 31, 2017 was also driven by increased personnel costs from an increase in general and administrative headcount of approximately 24%. Additionally, there was an increase in professional fees related to increased acquisition activity, legal, and general growth."
+    },
+    {
+     "id": "P74",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December 31, 2017 was $3.4 billion, compared to $514.6 million for the same period in 2016. Adjusted EBITDA loss for the year ended December 31, 2017 was $720.1 million, compared to $459.2 million for the same period in 2016. The increase in net loss for the period was driven by a $2.6 billion increase in stock-based compensation expense primarily related to the CEO award and the recognition of expense related to RSUs with a performance condition satisfied on the effectiveness of the registration statement for our IPO in March 2017. Additionally, the increase in net loss was also driven by $39.9 million for Spectacles inventory-related charges that occurred in the third quarter of 2017. The remaining increase in net loss and the increase in Adjusted EBITDA was driven by an increase in cost of revenue and operating expenses, which more than offset revenue growth during the period. The increase in cost of revenue was primarily related to higher infrastructure costs. The increase in operating expenses was primarily related to increased headcount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P74 attributes the FY2017 loss increase to a $2.6B stock-based compensation rise, mainly the CEO award and IPO-triggered RSUs."
+  },
+  {
+   "sentence": "Growth decelerated to 11.8% in FY2022  as ad demand growth slowed amid more competition and as platform policy changes, including Apple's iOS update, weakened targeting ; with costs still rising , operating margin fell 13.3pp to \u221230.3% .",
+   "passages": [
+    {
+     "id": "Q1",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In addition, competition for advertising dollars has increased and demand growth on our advertising platform has slowed. We expect to continue to experience increased competition, which may result in reduced advertising demand, and could adversely affect our revenue growth, pricing, business, financial condition, and results of operations."
+    },
+    {
+     "id": "Q2",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our revenue, particularly in North America, has further been impacted by platform policy changes and restrictions that affected our targeting, measurement, and optimization capabilities, and in turn our ability to measure the effectiveness of advertisements on our services. This has resulted in, and in the future is likely to continue to result in, reduced advertising revenue, especially if we are unable to mitigate these developments."
+    },
+    {
+     "id": "Q3",
+     "filing": "FY2022 10-K Item 1A. Risk Factors",
+     "text": "Furthermore, in April 2021, Apple issued an iOS update that imposes heightened restrictions on our access and use of user data by allowing users to more easily opt-out of tracking of activity across devices. Additionally, Google has announced that it will implement similar changes with respect to its Android operating system and major web browsers, like Firefox, Safari, and Chrome, have or plan to make similar changes as well. These changes have adversely affected our targeting, measurement, and optimization capabilities, and in turn affected our ability to target advertisements and measure the effectiveness of advertisements on our services. This has resulted in, and in the future is likely to continue to result in, reduced demand and pricing for our advertising products and could seriously harm our business. The longer-term impact of these changes on the overall mobile advertising ecosystem, our competitors, our business, and the developers, partners, and advertisers within our community is uncertain, and depending on how we, our competitors, and the overall mobile advertising ecos"
+    },
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December\u00a031, 2022 was $1,429.7 million, compared to $488.0 million for the same period in 2021. Adjusted EBITDA for the year ended December\u00a031, 2022 was $377.6 million, compared to $616.7 million for the same period in 2021. The decrease in Adjusted EBITDA was attributable to increased cost of revenue and overall operating expenses, partially offset by increased revenues."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q1 cites slowing ad demand amid competition; Q2/Q3 cite platform changes including Apple iOS hurting targeting; P42 cites rising costs."
+  },
+  {
+   "sentence": "Revenue was flat in FY2023 (0.1%)  as lower advertiser spend offset subscription growth ; margin then recovered to \u22129.0% in FY2025  on impression and subscriber growth  and lower stock-based compensation .",
+   "passages": [
+    {
+     "id": "Q4",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2023 increased $4.3 million compared to the same period in 2022. In 2023, subscription revenue increased, partially offset by a reduction in advertiser spend and auction-based advertising demand."
+    },
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    },
+    {
+     "id": "P35",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Research and development expenses for the year ended December\u00a031, 2024 decreased $219.2 million compared to the same period in 2023. The decrease was primarily driven by lower employee compensation, which included a $209.2\u00a0million decrease in stock-based compensation expenses. The lower employee compensation was due to a decrease in research and development headcount compared to the prior year as well as the diminished impact of refresh equity grants relative to the prior year. The decrease was partially offset by $38.8\u00a0million in restructuring charges related to the 2024 restructuring."
+    }
+   ],
+   "label": "partial",
+   "reason": "Q4 and P24 support the FY2023 and FY2025 revenue causes, but the lower stock-based compensation passage covers FY2024 R&D, not FY2025."
+  },
+  {
+   "sentence": "The 10-K credits about 17% more impressions, mainly in Sponsored Snaps and Spotlight, at a roughly 10% lower cost per impression, and more subscribers .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P24 states the ~17% impression growth from Sponsored Snaps and Spotlight, the ~10% lower cost per impression, and subscriber growth."
+  },
+  {
+   "sentence": "The 5.7pp FY2025 gain came 1.1pp from cost of revenue, 1.3pp from R&D and 3.3pp from other lines , chiefly lower sales and marketing on prior-year event timing and less advertising .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and marketing expenses for the year ended December\u00a031, 2025 decreased $42.4 million compared to the same period in 2024. The decrease was primarily driven by the timing of marketing events occurring in the prior year, lower advertising and marketing investments, as well as $19.9 million in restructuring charges recognized in 2024. The decrease was partially offset by higher employee compensation due to additional sales and marketing headcount."
+    }
+   ],
+   "label": "partial",
+   "reason": "P22 supports the sales and marketing decrease from event timing and lower advertising, but not that it chiefly drove the other-lines gain."
+  },
+  {
+   "sentence": "The largest move was FY2017's 293.9pp fall, with R&D taking 140.6pp and other lines 177.9pp ; it reversed in FY2018 as stock-based compensation fell $2.1 billion .",
+   "passages": [
+    {
+     "id": "P75",
+     "filing": "FY2018 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net loss for the year ended December 31, 2018 was $1.3 billion, compared to $3.4 billion for the same period in 2017. Adjusted EBITDA loss for the year ended December 31, 2018 was $575.6 million, compared to $720.1 million for the same period in 2017. The change in\u00a0Adjusted EBITDA loss for the year ended December 31, 2018 was driven by increased revenues primarily due to an increase in the number of advertisements delivered, partially offset by increased cost of revenue. The increase in cost of revenue was primarily related to increased infrastructure costs. The decrease in net loss was driven by a decrease in stock-based compensation expense of $2.1 billion for the year ended December 31, 2018."
+    }
+   ],
+   "label": "supported",
+   "reason": "P75 attributes the FY2018 decrease in net loss to a $2.1B drop in stock-based compensation expense."
+  },
+  {
+   "sentence": "Operating cash flow of $656 million mainly reflects the net loss plus non-cash items, chiefly $1.0 billion of stock-based compensation ; net of it, free cash flow was \u2212$580 million .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $656.2 million for the year ended December\u00a031, 2025, compared to net cash provided by operating activities of $413.5 million for the year ended December\u00a031, 2024, resulting primarily from our net loss, adjusted for non-cash items, including stock-based compensation expense of $1.0 billion, depreciation and amortization expense of $163.6 million and gains on debt extinguishment of $96.7 million. Net cash provided by operating activities for the year ended December\u00a031, 2025 was also driven by a $45.9 million increase in accounts payable and a $66.7 million increase in prepaid expenses and other current assets primarily due to the timing of payments, as well as a $31.8 million increase in accounts receivable due to the timing of collections."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 states operating cash reflects the net loss adjusted for non-cash items, including $1.0B of stock-based compensation."
+  },
+  {
+   "sentence": "Capex was 3.7% of revenue and 1.34x D&A in FY2025, up from 0.64x in FY2022, mainly for leased-facility improvements .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Free Cash Flow was $437.2 million for the year ended December\u00a031, 2025, compared to $218.7 million for the year ended December\u00a031, 2024. Free Cash Flow in all periods was composed of net cash provided by operating activities, resulting primarily from net loss, adjusted for non-cash items and changes in working capital. Free Cash Flow also included purchases of property and equipment of $219.0 million for the year ended December\u00a031, 2025, compared to $194.8\u00a0million for the year ended December\u00a031, 2024. Purchases of property and equipment in both periods are primarily related to improvements to our leased facilities to support our team workspaces. See \u201cNon-GAAP Financial Measures.\u201d"
+    }
+   ],
+   "label": "partial",
+   "reason": "P10 says capex in 2024-2025 was mainly leased-facility improvements, but does not explain the rise from FY2022."
+  },
+  {
+   "sentence": "**Falling ad prices (medium, two years):** cost per impression fell roughly 10% in FY2025 on strong impression growth , after falling in FY2024 as inventory outgrew demand .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2025 increased $570.0 million compared to the same period in 2024. The increase was driven by a $282.4 million increase in advertising revenue for the year ended December\u00a031, 2025. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 17% compared to the prior year, largely due to expanded advertising delivery within Sponsored Snaps and Spotlight. The increase in advertising revenue was partially offset by a decrease in the cost per advertising impression of approximately 10%, which is driven by strong growth in impressions delivery. The increase in total revenue was also driven by a $287.6 million increase in other revenue, which is predominantly due to higher subscription revenue from growth in the number of subscribers."
+    },
+    {
+     "id": "Q6",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue for the year ended December\u00a031, 2024 increased $755.3 million compared to the same period in 2023. The increase in advertising revenue was primarily driven by an increase in global advertising impressions volume of approximately 16% compared to the prior year, partially offset by a decrease in the cost per advertising impression of approximately 4%. The increase in global advertising impressions volume was driven by expanded advertising delivery within Spotlight and Creator Stories and the decrease in the cost per advertising impression was due to inventory growth exceeding advertising demand growth. The increase in revenue was also driven by higher subscription revenue due to an increase in the number of subscribers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P24 links FY2025's ~10% drop to impression growth; Q6 links FY2024's drop to inventory growth outpacing demand."
+  }
+ ],
+ "cost_usd": 0.038195
+}

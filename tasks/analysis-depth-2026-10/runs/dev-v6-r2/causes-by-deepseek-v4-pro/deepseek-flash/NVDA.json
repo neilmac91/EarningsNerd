@@ -1,0 +1,119 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 7,
+ "output_sha256": "ff22f96fca372d54a53bd975b5e10d56ab135a943be7fc678ea3909b32e9bf36",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2023 trough came from $2.17 billion of inventory provisions tied to excess Ampere supply against demand expectations, particularly China .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    },
+    {
+     "id": "P38",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin for fiscal year 2023 declined from a year ago, driven by $2.17 billion of inventory charges largely relating to excess supply of NVIDIA Ampere architecture Gaming and Data Center products as compared to the demand expectations for these products, particularly for the expected demand in China. The inventory charges were comprised of $1.04 billion for inventory on hand and $1.13 billion for inventory purchase obligations in excess of our demand expectations."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 states $2.17B inventory charges from excess Ampere supply vs demand expectations, particularly China."
+  },
+  {
+   "sentence": "The recovery was Data Center: FY2024 revenue rose 217% on Hopper shipments for LLM training and inference , and FY2026 growth came from Blackwell compute and networking .",
+   "passages": [
+    {
+     "id": "P23",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217% from fiscal year 2023. In Data Center, we launched AI inference platforms that combine our full-stack inference software with NVIDIA Ada, NVIDIA Hopper and NVIDIA Grace Hopper processors optimized for generative AI, LLMs and other AI workloads. We introduced NVIDIA DGX Cloud and AI Foundations to help businesses create and operate custom large language models and generative AI models. As AV algorithms move to video transformers, and more cars are equipped with cameras, we expect NVIDIA\u2019s automotive data center processing demand to grow significantly. We estimate that in fiscal year 2024, approximately 40% of Data Center revenue was for AI inference. In the fourth quarter of fiscal year 2024, large cloud providers represented more than half of our Data Center revenue, supporting both internal workloads and external customers. We announced NVIDIA Spectrum-X, an accelerated networking platform for AI."
+    },
+    {
+     "id": "P25",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was up 217%. Strong demand was driven by enterprise software and consumer internet applications, and multiple industry verticals including automotive, financial services, and healthcare. Customers across industry verticals access NVIDIA AI infrastructure both through the cloud and on-premises. Data Center compute revenue was up 244% in the fiscal year. Networking revenue was up 133% in the fiscal year."
+    },
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    },
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P23/P25 support FY2024 217% growth on Hopper for LLM; P8/P10 support FY2026 Blackwell compute and networking growth."
+  },
+  {
+   "sentence": "Within it, Data Center computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 directly states computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200/GB300."
+  },
+  {
+   "sentence": "The Compute & Networking operating-income increase was partly offset by a $4.5 billion H20 excess inventory and purchase-obligation charge in Q1 FY2026 .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Reportable segment operating income \u2013 The year over year increase in Compute & Networking segment operating income was driven by growth in revenue, partially offset by a $4.5 billion charge associated with H20 excess inventory and purchase obligations in the first quarter of fiscal year 2026. The year over year increase in Graphics segment operating income was driven by the growth in revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 states Compute & Networking operating income increase was partially offset by $4.5B H20 charge in Q1 FY2026."
+  },
+  {
+   "sentence": "Operating expenses rose 40.7% , driven by compensation and compute infrastructure , with R&D up 43.2%  and SG&A up 31.2% .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    }
+   ],
+   "label": "partial",
+   "reason": "P9 supports 41% increase driven by compensation and compute infrastructure, but does not provide R&D/SG&A breakdown."
+  },
+  {
+   "sentence": "Net margin held at 55.6% despite the operating-margin dip , because other income reached $11.1 billion on unrealized gains including the Intel stake .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net primarily consists of realized or unrealized gains and losses from investments in non-marketable equity securities, publicly-held equity securities, and the impact of changes in foreign currency rates. The change in Other income, net, compared to fiscal year 2025, was primarily driven by unrealized gains in non-marketable and publicly-held equity securities, including gains from our previously announced investment in Intel\u2019s common stock. Refer to Note 7 and 8 of the Notes to the Consolidated Financial Statements in Part\u00a0IV, Item\u00a015 of this Annual Report on Form\u00a010-K for additional information regarding our non-marketable equity securities."
+    }
+   ],
+   "label": "partial",
+   "reason": "P3 supports other income driven by unrealized gains including Intel stake, but does not mention net margin or $11.1B."
+  },
+  {
+   "sentence": "Investing outflow of $52.2 billion  rose on higher equity investment purchases and a non-exclusive license agreement with Groq .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 states investing outflow increased due to higher equity investment purchases and Groq license agreement."
+  }
+ ],
+ "cost_usd": 0.001749,
+ "backend": "openai_compat",
+ "input_tokens": 1597,
+ "cached_input_tokens": 0,
+ "output_tokens": 351
+}

@@ -1,0 +1,68 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "output_sha256": "5b559e8bf4842e0d1f6b460ddc3125c1283123df6eb42511850b8918b832a525",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2022 was the sharpest revenue inflection, up 17.1% , driven by rate cases, favorable weather and volumes .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    },
+    {
+     "id": "P34",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As discussed and shown in the table above, management also evaluates financial performance based on adjusted EPS. Duke Energy\u2019s adjusted EPS was $5.27 for the year ended December 31, 2022, compared to $4.99 for the year ended December 31, 2021. The increase in Adjusted Earnings/Adjusted EPS was primarily due to higher volumes, favorable weather and rate case contributions, partially offset by higher financing costs, higher depreciation and property taxes on a growing asset base, storm costs and unfavorable market impacts."
+    }
+   ],
+   "label": "partial",
+   "reason": "P26 links rate cases, weather and volumes to higher revenues, but in a net income and EPS context. No passage explains the overall 17.1% revenue growth."
+  },
+  {
+   "sentence": "FY2020 was the low point, with net income down 63.3%  on coal-ash settlement impairments and pandemic volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "P60 gives the coal-ash settlement impairments and COVID volume causes, but for the Electric Utilities segment variance, not consolidated net income."
+  },
+  {
+   "sentence": "Interest expense rose on higher outstanding debt balances and interest rates , and the effective tax rate was 11.2% .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Interest Expense. The increase was primarily due to higher outstanding debt balances and interest rates at Duke Energy Progress and Duke Energy Florida."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 attributes the interest expense increase to higher outstanding debt balances and interest rates. The tax rate is a figure, not a causal claim."
+  },
+  {
+   "sentence": "FY2022 conversion fell to 20.7% of revenue  as rising fuel costs created undercollections that increased borrowings .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "P36 says rising fuel costs created undercollections that hurt cash flows and increased borrowings."
+  }
+ ],
+ "cost_usd": 0.037144,
+ "backend": "claude_cli",
+ "input_tokens": 2619,
+ "cached_input_tokens": 0,
+ "output_tokens": 810
+}

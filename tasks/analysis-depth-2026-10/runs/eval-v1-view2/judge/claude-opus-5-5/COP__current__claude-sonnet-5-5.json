@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A is fully supported but only restates table values, with no causes and generic watch items. Draft B explains the drivers: Shell Permian, Marathon Oil, price versus volume, DD&A and SG&A, interest and buybacks. It also discloses the revenue recast and the debt data problem. It has one stretch: it attributes the D&A rise since FY2022 to Marathon when the filing explains only the 2025 move. That flaw is minor compared with its depth and calibration."
+   },
+   "cost_usd": 0.093477,
+   "latency_s": 10.967,
+   "input_tokens": 10767,
+   "output_tokens": 651,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A is fully supported but only restates table values, with no causes and generic watch items. Draft B explains the drivers: Shell Permian, Marathon Oil, price versus volume, DD&A and SG&A, interest and buybacks. It also discloses the revenue recast and the debt data problem. It has one stretch: it attributes the D&A rise since FY2022 to Marathon when the filing explains only the 2025 move. That flaw is minor compared with its depth and calibration.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the drivers from cited MD&A passages: the Shell Permian deal, Marathon Oil volumes, DD&A, SG&A transaction costs and interest. It also discloses the revenue recast and the unreliable debt figure. It has minor stretches, such as attributing the D&A rise versus FY2022 to Marathon and the 'recovered' remark. B is fully supported but only restates table values, with no causes, no data caveats and vague watch items."
+   },
+   "cost_usd": 0.096457,
+   "latency_s": 12.563,
+   "input_tokens": 10767,
+   "output_tokens": 800,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the drivers from cited MD&A passages: the Shell Permian deal, Marathon Oil volumes, DD&A, SG&A transaction costs and interest. It also discloses the revenue recast and the unreliable debt figure. It has minor stretches, such as attributing the D&A rise versus FY2022 to Marathon and the 'recovered' remark. B is fully supported but only restates table values, with no causes, no data caveats and vague watch items.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.189934
+}

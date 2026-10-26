@@ -1,0 +1,106 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ea80b95f873a49962e0390b729af47789958fdeb25ae2f0a02c5403286eba833",
+ "y_sha256": "babfb9c8f4e18eb676c235a48953ca5d05f861ded66034ca9e0fba0ad129559a",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A has the clearer grounding errors. It gives the peer median as 1.35x when its source says 1.42x, and that source measures FCF/net income, not OCF/net income. It also says debt issuance 'helped' net cash, which is backwards. B's slips are smaller: the tax rate is implied as the cause of the margin drop, and 'asset sales' is uncited, though labelled as analysis. A is clearer and its capex-guidance watch item is stronger."
+   },
+   "cost_usd": 0.139537,
+   "latency_s": 20.187,
+   "backend": "claude_cli",
+   "input_tokens": 14157,
+   "cached_input_tokens": 727,
+   "output_tokens": 1598,
+   "reasoning_tokens": 1376,
+   "meta": {
+    "duration_api_ms": 15383,
+    "cache_creation_input_tokens": 13428,
+    "list_cost_usd": 0.085825
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A has the clearer grounding errors. It gives the peer median as 1.35x when its source says 1.42x, and that source measures FCF/net income, not OCF/net income. It also says debt issuance 'helped' net cash, which is backwards. B's slips are smaller: the tax rate is implied as the cause of the margin drop, and 'asset sales' is uncited, though labelled as analysis. A is clearer and its capex-guidance watch item is stronger.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts misuse the FY2022 pre-tax income passage as a revenue driver. B is deeper: it cites the 2025 earnings-driver passage, U.S. upstream growth, net-cash peer ranking and 2026 capex guidance. But B misquotes the peer figure (1.35x vs the cited 1.42x), compares OCF/NI with FCF/NI, and says debt issuance helped net cash. A's unsupported tax-to-margin causation is milder, and A labels its interpretations as analysis. Grounding tips it to A."
+   },
+   "cost_usd": 0.136049,
+   "latency_s": 16.868,
+   "backend": "claude_cli",
+   "input_tokens": 14156,
+   "cached_input_tokens": 727,
+   "output_tokens": 1424,
+   "reasoning_tokens": 1162,
+   "meta": {
+    "duration_api_ms": 13120,
+    "cache_creation_input_tokens": 13427,
+    "list_cost_usd": 0.082341
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts misuse the FY2022 pre-tax income passage as a revenue driver. B is deeper: it cites the 2025 earnings-driver passage, U.S. upstream growth, net-cash peer ranking and 2026 capex guidance. But B misquotes the peer figure (1.35x vs the cited 1.42x), compares OCF/NI with FCF/NI, and says debt issuance helped net cash. A's unsupported tax-to-margin causation is milder, and A labels its interpretations as analysis. Grounding tips it to A.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.275586
+}

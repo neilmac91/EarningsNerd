@@ -1,0 +1,86 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A's figures check out, but it only restates the table, and calling a narrowing loss '+23.2% net income growth' misleads. B explains what drove growth (software, Volkswagen, falling deliveries), why margins moved, cash conversion, refinancing, peers and runway, mostly backed by its quotes. B slips in two places: no cited passage says gross profit may fall in 2028, and passage [16] does not mention the joint venture. Its depth still outweighs these lapses."
+   },
+   "cost_usd": 0.103121,
+   "latency_s": 13.916,
+   "input_tokens": 11495,
+   "output_tokens": 842,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A's figures check out, but it only restates the table, and calling a narrowing loss '+23.2% net income growth' misleads. B explains what drove growth (software, Volkswagen, falling deliveries), why margins moved, cash conversion, refinancing, peers and runway, mostly backed by its quotes. B slips in two places: no cited passage says gross profit may fall in 2028, and passage [16] does not mention the joint venture. Its depth still outweighs these lapses.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A explains the drivers: software/VW services, the automotive delivery drop, per-vehicle cost cuts, cash flow and refinancing. Nearly all of it is backed by quoted passages. One flaw: [69] does not support 'may reduce gross profit in 2028'. Draft B is mostly accurate restatement, but calling a narrowing loss '+23.2% growth' misleads readers. It adds no interpretation, and its watch items lack thresholds. A's depth outweighs its single unsupported claim."
+   },
+   "cost_usd": 0.102877,
+   "latency_s": 13.35,
+   "input_tokens": 11497,
+   "output_tokens": 829,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft A explains the drivers: software/VW services, the automotive delivery drop, per-vehicle cost cuts, cash flow and refinancing. Nearly all of it is backed by quoted passages. One flaw: [69] does not support 'may reduce gross profit in 2028'. Draft B is mostly accurate restatement, but calling a narrowing loss '+23.2% growth' misleads readers. It adds no interpretation, and its watch items lack thresholds. A's depth outweighs its single unsupported claim.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.205998
+}

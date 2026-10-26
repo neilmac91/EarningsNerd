@@ -1,0 +1,106 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "f8c9b1571e8dfb134cd6d49201b3c83bb876e4ed48e60041432b795018d38d45",
+ "y_sha256": "86edaf9711fc92a8e2bc4bcdba9412ff38b8950dc10c386db6ce7aba803b95ff",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts cite payables of $919m and safety stock from a truncated passage that does not show them. A's grounding errors weigh more: payouts 'funded partly by debt' while long-term debt fell 8.6%, a current ratio framed as following from cash versus debt, and a 'most of window' US claim resting on two years. B adds an unsupported 'tougher US competition' and a muddled tax sentence. B's sourced Argentina/Glad explanation offsets A's sharper peer context and watch thresholds."
+   },
+   "cost_usd": 0.145669,
+   "latency_s": 19.507,
+   "backend": "claude_cli",
+   "input_tokens": 15551,
+   "cached_input_tokens": 727,
+   "output_tokens": 1347,
+   "reasoning_tokens": 1106,
+   "meta": {
+    "duration_api_ms": 15388,
+    "cache_creation_input_tokens": 14822,
+    "list_cost_usd": 0.086381
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts cite payables of $919m and safety stock from a truncated passage that does not show them. A's grounding errors weigh more: payouts 'funded partly by debt' while long-term debt fell 8.6%, a current ratio framed as following from cash versus debt, and a 'most of window' US claim resting on two years. B adds an unsupported 'tougher US competition' and a muddled tax sentence. B's sourced Argentina/Glad explanation offsets A's sharper peer context and watch thresholds.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B shows more history (the US-to-non-US mix shift, the FY2025 margin mirror, peer margin and ROE), but it has more grounding faults. It applies a segment passage to company-wide FY2020 gross margin, says payouts were debt-funded while debt fell, claims a window-high capex/D&A ratio with no source, and links total debt to the current ratio. A's faults are smaller: 'US competition' and the $919m payables/safety-stock figures are absent from truncated passages."
+   },
+   "cost_usd": 0.138009,
+   "latency_s": 14.677,
+   "backend": "claude_cli",
+   "input_tokens": 15551,
+   "cached_input_tokens": 727,
+   "output_tokens": 964,
+   "reasoning_tokens": 732,
+   "meta": {
+    "duration_api_ms": 10331,
+    "cache_creation_input_tokens": 14822,
+    "list_cost_usd": 0.078721
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B shows more history (the US-to-non-US mix shift, the FY2025 margin mirror, peer margin and ROE), but it has more grounding faults. It applies a segment passage to company-wide FY2020 gross margin, says payouts were debt-funded while debt fell, claims a window-high capex/D&A ratio with no source, and links total debt to the current ratio. A's faults are smaller: 'US competition' and the $919m payables/safety-stock figures are absent from truncated passages.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.283678
+}

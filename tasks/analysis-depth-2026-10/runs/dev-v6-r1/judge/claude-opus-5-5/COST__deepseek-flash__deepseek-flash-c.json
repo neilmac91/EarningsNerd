@@ -1,0 +1,106 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "9c8e699ee20c39bb54e55366e10b6c99c9febee2491f3c01e773336deb002e13",
+ "y_sha256": "a0c38284a449ac358bfcc561eed082b4c25521595ba3b06f979218fae923e197",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts cite a truncated cash-flow passage for causes it never states. A also misreads the gross-margin passage: the 19bp/11bp items explain the ex-gasoline +10bp, not the -3bp decline. A's $1.1bn remaining authorization is unsupported. B wrongly calls 1.71x 'above' a 1.75x median. B adds sourced FY2021 currency and gasoline drivers and labels its analysis separately. A offers richer membership and tax insight and cleaner prose, but B's grounding edge prevails."
+   },
+   "cost_usd": 0.137497,
+   "latency_s": 14.796,
+   "backend": "claude_cli",
+   "input_tokens": 15407,
+   "cached_input_tokens": 727,
+   "output_tokens": 996,
+   "reasoning_tokens": 743,
+   "meta": {
+    "duration_api_ms": 10093,
+    "cache_creation_input_tokens": 14678,
+    "list_cost_usd": 0.078785
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts cite a truncated cash-flow passage for causes it never states. A also misreads the gross-margin passage: the 19bp/11bp items explain the ex-gasoline +10bp, not the -3bp decline. A's $1.1bn remaining authorization is unsupported. B wrongly calls 1.71x 'above' a 1.75x median. B adds sourced FY2021 currency and gasoline drivers and labels its analysis separately. A offers richer membership and tax insight and cleaner prose, but B's grounding edge prevails.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts attribute the FY2026 operating cash rise to causes the truncated passage never states. A also misreads 1.71x as 'above' a 1.75x median. B's '$1.1 billion left on the authorization' is unsupported. B explains more: the FY2023\u201324 slowdown, membership fees and renewals, the gross-margin mix, the tax bridge and the jump in current debt. Its watch items carry numeric thresholds. A separates analysis from fact more visibly."
+   },
+   "cost_usd": 0.135941,
+   "latency_s": 12.963,
+   "backend": "claude_cli",
+   "input_tokens": 15405,
+   "cached_input_tokens": 727,
+   "output_tokens": 919,
+   "reasoning_tokens": 689,
+   "meta": {
+    "duration_api_ms": 8927,
+    "cache_creation_input_tokens": 14676,
+    "list_cost_usd": 0.077237
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts attribute the FY2026 operating cash rise to causes the truncated passage never states. A also misreads 1.71x as 'above' a 1.75x median. B's '$1.1 billion left on the authorization' is unsupported. B explains more: the FY2023\u201324 slowdown, membership fees and renewals, the gross-margin mix, the tax bridge and the jump in current debt. Its watch items carry numeric thresholds. A separates analysis from fact more visibly.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.273438
+}

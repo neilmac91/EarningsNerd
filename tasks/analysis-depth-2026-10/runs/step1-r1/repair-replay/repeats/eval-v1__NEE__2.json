@@ -1,0 +1,2535 @@
+{
+ "ticker": "NEE",
+ "arm": "deepseek-flash",
+ "pipeline": "v2",
+ "source": "eval-v1/deepseek-flash/NEE",
+ "first_pass_prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 7.7% a year from FY2018 to FY2025, reaching $25.8 billion [F1][F8][F145]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: revenue fell 2.9% in FY2020 and 5.2% in FY2024, then rebounded 9.8% in FY2025 [D61][D201][D236]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2024 decline came from lower storm and fuel cost recovery revenues at FPL [P35]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating margin swung from 15.5% in FY2021 to 41.3% in FY2023, then settled at 32.1% in FY2025 [F20][F22][F24]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity [P63][P68]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FPL supplied 70.5% of FY2025 revenue and contributed 5.5pp of the 9.8% growth [D271][D273][D236]."
+     },
+     {
+      "type": "cause",
+      "text": "FPL's FY2025 revenue rose on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel recovery [P21]."
+     },
+     {
+      "type": "cause",
+      "text": "NEER's results increased on higher earnings from new investments, partly offset by higher financing costs [P26]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 9.9% a year against 7.7% for revenue, but net income compounded at only 0.4% [F146][F145][F147]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS fell 0.7% a year as the share count rose 0.6% in FY2025 [F149][D251]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 32.1% sits 1.8pp above the window median of 30.3% and well above the 15.5% low [F24][D300][D298]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating expenses grew 10.0% against 9.8% revenue growth in FY2025, so incremental operating margin was 34.8% [D249][D236][D256]."
+     },
+     {
+      "type": "cause",
+      "text": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton [P16]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin fell 3.1pp to 26.5% even as operating margin edged up 0.3pp [D248][F40][D247]."
+     },
+     {
+      "type": "cause",
+      "text": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances [P8]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $12.5 billion was 1.83x net income in FY2025, below the 2.16x of FY2019 [F64][F32][D227][D17]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating cash flow fell 5.8% in FY2025 while net income fell 1.6% [D241][D238]."
+     },
+     {
+      "type": "cause",
+      "text": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million [P19]."
+     },
+     {
+      "type": "comparison",
+      "text": "Investing outflow of $23.9 billion dwarfed operating cash flow, funded largely by $23.4 billion of debt issued [F72][F64][X90]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $92.2 billion in FY2025, down from net cash of -$34.3 billion in FY2018, a seventh straight year of deterioration [D231][D9][R2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash was -357.4% of revenue, worse than the utilities peer median of -228.4% and the 0th percentile of four peers [D232][D315][D314]."
+     },
+     {
+      "type": "comparison",
+      "text": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x [F156][F157][F128]."
+     },
+     {
+      "type": "comparison",
+      "text": "Dividends of $4.68 billion were the only capital return, with no buybacks, while the diluted share count rose 0.6% [X82][D233][D251]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high [F128][D305][R1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash has fallen for seven consecutive years, from -$34.3 billion in FY2018 to -$92.2 billion in FY2025 [D9][D231][R2]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER [D226][P11][R4]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2019 operating expenses were later restated to $14.3 billion from $13.9 billion, a data-quality caveat on that year's margin [X18][R5]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 30.3% window median in the FY2026 10-K, the FY2023 spike looks structural rather than cyclical [D300]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash falling below the FY2025 level of -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating cash flow below the FY2025 level of $12.5 billion would confirm the conversion decline from 2.16x in FY2019 [F64][D17]."
+     }
+    ]
+   }
+  ]
+ },
+ "attempts": [
+  {
+   "attempt": "repair",
+   "input_tokens": 27886,
+   "cached_input_tokens": 27648,
+   "output_tokens": 215,
+   "reasoning_tokens": 0,
+   "latency_s": 2.148,
+   "cost_usd": 0.000248,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 28101
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"red_flags\", \"original\": \"Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].\", \"type\": \"comparison\", \"text\": \"Net cash has fallen for seven consecutive years, from -$34.3 billion in FY2018 to -$92.2 billion in FY2025 [D9][D231][R2].\"}, {\"section\": \"watch\", \"original\": \"A further widening of net debt beyond -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].\", \"type\": \"comparison\", \"text\": \"Net cash falling below the FY2025 level of -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 27886,
+  "cached_input_tokens": 27648,
+  "output_tokens": 215,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 2.148,
+ "cost_usd": 0.000248,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 20,
+   "cause": 8
+  },
+  "claims": 60,
+  "verified": 60,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "red_flags",
+    "sentence": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$34.3 billion' net cash's minus sign printed under 'net debt' [D9]"
+   },
+   {
+    "section": "red_flags",
+    "sentence": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+   },
+   {
+    "section": "watch",
+    "sentence": "A further widening of net debt beyond -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 7.7% a year from FY2018 to FY2025, reaching $25.8 billion [F1][F8][F145].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F8",
+     "F145"
+    ],
+    "claims": [
+     {
+      "claim": "7.7%",
+      "value": 7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F145"
+      ]
+     },
+     {
+      "claim": "$25.8 billion",
+      "value": 25.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: revenue fell 2.9% in FY2020 and 5.2% in FY2024, then rebounded 9.8% in FY2025 [D61][D201][D236].",
+    "type": "comparison",
+    "citations": [
+     "D61",
+     "D201",
+     "D236"
+    ],
+    "claims": [
+     {
+      "claim": "2.9%",
+      "value": 2.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D61"
+      ]
+     },
+     {
+      "claim": "5.2%",
+      "value": 5.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D201"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2024 decline came from lower storm and fuel cost recovery revenues at FPL [P35].",
+    "type": "cause",
+    "citations": [
+     "P35"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating margin swung from 15.5% in FY2021 to 41.3% in FY2023, then settled at 32.1% in FY2025 [F20][F22][F24].",
+    "type": "comparison",
+    "citations": [
+     "F20",
+     "F22",
+     "F24"
+    ],
+    "claims": [
+     {
+      "claim": "15.5%",
+      "value": 15.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     },
+     {
+      "claim": "41.3%",
+      "value": 41.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F22"
+      ]
+     },
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F24"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity [P63][P68].",
+    "type": "cause",
+    "citations": [
+     "P63",
+     "P68"
+    ],
+    "claims": [
+     {
+      "claim": "$1.5 billion",
+      "value": 1.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P68",
+      "ids": [
+       "P68"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FPL supplied 70.5% of FY2025 revenue and contributed 5.5pp of the 9.8% growth [D271][D273][D236].",
+    "type": "comparison",
+    "citations": [
+     "D271",
+     "D273",
+     "D236"
+    ],
+    "claims": [
+     {
+      "claim": "70.5%",
+      "value": 70.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D271"
+      ]
+     },
+     {
+      "claim": "5.5pp",
+      "value": 5.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D273"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FPL's FY2025 revenue rose on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel recovery [P21].",
+    "type": "cause",
+    "citations": [
+     "P21"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "NEER's results increased on higher earnings from new investments, partly offset by higher financing costs [P26].",
+    "type": "cause",
+    "citations": [
+     "P26"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 9.9% a year against 7.7% for revenue, but net income compounded at only 0.4% [F146][F145][F147].",
+    "type": "comparison",
+    "citations": [
+     "F146",
+     "F145",
+     "F147"
+    ],
+    "claims": [
+     {
+      "claim": "9.9%",
+      "value": 9.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F146"
+      ]
+     },
+     {
+      "claim": "7.7%",
+      "value": 7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F145"
+      ]
+     },
+     {
+      "claim": "0.4%",
+      "value": 0.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F147"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS fell 0.7% a year as the share count rose 0.6% in FY2025 [F149][D251].",
+    "type": "comparison",
+    "citations": [
+     "F149",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "0.7%",
+      "value": 0.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F149"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of 32.1% sits 1.8pp above the window median of 30.3% and well above the 15.5% low [F24][D300][D298].",
+    "type": "comparison",
+    "citations": [
+     "F24",
+     "D300",
+     "D298"
+    ],
+    "claims": [
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F24"
+      ]
+     },
+     {
+      "claim": "1.8pp",
+      "value": 1.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F24-D300",
+      "ids": [
+       "F24",
+       "D300"
+      ]
+     },
+     {
+      "claim": "30.3%",
+      "value": 30.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     },
+     {
+      "claim": "15.5%",
+      "value": 15.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D298"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating expenses grew 10.0% against 9.8% revenue growth in FY2025, so incremental operating margin was 34.8% [D249][D236][D256].",
+    "type": "comparison",
+    "citations": [
+     "D249",
+     "D236",
+     "D256"
+    ],
+    "claims": [
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D249"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     },
+     {
+      "claim": "34.8%",
+      "value": 34.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D256"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton [P16].",
+    "type": "cause",
+    "citations": [
+     "P16"
+    ],
+    "claims": [
+     {
+      "claim": "$951 million",
+      "value": 951.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P16",
+      "ids": [
+       "P16"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin fell 3.1pp to 26.5% even as operating margin edged up 0.3pp [D248][F40][D247].",
+    "type": "comparison",
+    "citations": [
+     "D248",
+     "F40",
+     "D247"
+    ],
+    "claims": [
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D248"
+      ]
+     },
+     {
+      "claim": "26.5%",
+      "value": 26.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     },
+     {
+      "claim": "0.3pp",
+      "value": 0.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D247"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances [P8].",
+    "type": "cause",
+    "citations": [
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "$1,256 million",
+      "value": 1256.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $12.5 billion was 1.83x net income in FY2025, below the 2.16x of FY2019 [F64][F32][D227][D17].",
+    "type": "comparison",
+    "citations": [
+     "F64",
+     "F32",
+     "D227",
+     "D17"
+    ],
+    "claims": [
+     {
+      "claim": "$12.5 billion",
+      "value": 12.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F64"
+      ]
+     },
+     {
+      "claim": "1.83x",
+      "value": 1.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D227"
+      ]
+     },
+     {
+      "claim": "2.16x",
+      "value": 2.16,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D17"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow fell 5.8% in FY2025 while net income fell 1.6% [D241][D238].",
+    "type": "comparison",
+    "citations": [
+     "D241",
+     "D238"
+    ],
+    "claims": [
+     {
+      "claim": "5.8%",
+      "value": 5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "1.6%",
+      "value": 1.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D238"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million [P19].",
+    "type": "cause",
+    "citations": [
+     "P19"
+    ],
+    "claims": [
+     {
+      "claim": "$89 million",
+      "value": 89.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P19",
+      "ids": [
+       "P19"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing outflow of $23.9 billion dwarfed operating cash flow, funded largely by $23.4 billion of debt issued [F72][F64][X90].",
+    "type": "comparison",
+    "citations": [
+     "F72",
+     "F64",
+     "X90"
+    ],
+    "claims": [
+     {
+      "claim": "$23.9 billion",
+      "value": 23.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F72"
+      ]
+     },
+     {
+      "claim": "$23.4 billion",
+      "value": 23.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X90"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt reached $92.2 billion in FY2025, down from net cash of -$34.3 billion in FY2018, a seventh straight year of deterioration [D231][D9][R2].",
+    "type": "comparison",
+    "citations": [
+     "D231",
+     "D9",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "$92.2 billion",
+      "value": 92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     },
+     {
+      "claim": "-$34.3 billion",
+      "value": -34.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash was -357.4% of revenue, worse than the utilities peer median of -228.4% and the 0th percentile of four peers [D232][D315][D314].",
+    "type": "comparison",
+    "citations": [
+     "D232",
+     "D315",
+     "D314"
+    ],
+    "claims": [
+     {
+      "claim": "-357.4%",
+      "value": -357.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D232"
+      ]
+     },
+     {
+      "claim": "-228.4%",
+      "value": -228.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D315"
+      ]
+     },
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D314"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x [F156][F157][F128].",
+    "type": "comparison",
+    "citations": [
+     "F156",
+     "F157",
+     "F128"
+    ],
+    "claims": [
+     {
+      "claim": "18.8%",
+      "value": 18.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F156"
+      ]
+     },
+     {
+      "claim": "6.9%",
+      "value": 6.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F157"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Dividends of $4.68 billion were the only capital return, with no buybacks, while the diluted share count rose 0.6% [X82][D233][D251].",
+    "type": "comparison",
+    "citations": [
+     "X82",
+     "D233",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "$4.68 billion",
+      "value": 4.68,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X82"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high [F128][D305][R1].",
+    "type": "comparison",
+    "citations": [
+     "F128",
+     "D305",
+     "R1"
+    ],
+    "claims": [
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].",
+    "type": "comparison",
+    "citations": [
+     "D9",
+     "D231",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "-$34.3 billion",
+      "value": -34.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D9"
+      ]
+     },
+     {
+      "claim": "-$92.2 billion",
+      "value": -92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R2a: '-$34.3 billion' net cash's minus sign printed under 'net debt' [D9]",
+     "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+    ]
+   },
+   {
+    "section": "red_flags",
+    "text": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER [D226][P11][R4].",
+    "type": "cause",
+    "citations": [
+     "D226",
+     "P11",
+     "R4"
+    ],
+    "claims": [
+     {
+      "claim": "-17.7%",
+      "value": -17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     },
+     {
+      "claim": "$585 million",
+      "value": 585.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2019 operating expenses were later restated to $14.3 billion from $13.9 billion, a data-quality caveat on that year's margin [X18][R5].",
+    "type": "fact",
+    "citations": [
+     "X18",
+     "R5"
+    ],
+    "claims": [
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R5",
+      "ids": [
+       "R5"
+      ]
+     },
+     {
+      "claim": "$13.9 billion",
+      "value": 13.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X18"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating margin holds above the 30.3% window median in the FY2026 10-K, the FY2023 spike looks structural rather than cyclical [D300].",
+    "type": "comparison",
+    "citations": [
+     "D300"
+    ],
+    "claims": [
+     {
+      "claim": "30.3%",
+      "value": 30.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "A further widening of net debt beyond -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].",
+    "type": "comparison",
+    "citations": [
+     "D231",
+     "D314"
+    ],
+    "claims": [
+     {
+      "claim": "-$92.2 billion",
+      "value": -92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+    ]
+   },
+   {
+    "section": "watch",
+    "text": "Operating cash flow below the FY2025 level of $12.5 billion would confirm the conversion decline from 2.16x in FY2019 [F64][D17].",
+    "type": "comparison",
+    "citations": [
+     "F64",
+     "D17"
+    ],
+    "claims": [
+     {
+      "claim": "$12.5 billion",
+      "value": 12.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F64"
+      ]
+     },
+     {
+      "claim": "2.16x",
+      "value": 2.16,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D17"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 3
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 30,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 20,
+   "cause": 8
+  },
+  "claims": 60,
+  "verified": 60,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 7.7% a year from FY2018 to FY2025, reaching $25.8 billion [F1][F8][F145].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F8",
+     "F145"
+    ],
+    "claims": [
+     {
+      "claim": "7.7%",
+      "value": 7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F145"
+      ]
+     },
+     {
+      "claim": "$25.8 billion",
+      "value": 25.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: revenue fell 2.9% in FY2020 and 5.2% in FY2024, then rebounded 9.8% in FY2025 [D61][D201][D236].",
+    "type": "comparison",
+    "citations": [
+     "D61",
+     "D201",
+     "D236"
+    ],
+    "claims": [
+     {
+      "claim": "2.9%",
+      "value": 2.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D61"
+      ]
+     },
+     {
+      "claim": "5.2%",
+      "value": 5.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D201"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2024 decline came from lower storm and fuel cost recovery revenues at FPL [P35].",
+    "type": "cause",
+    "citations": [
+     "P35"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating margin swung from 15.5% in FY2021 to 41.3% in FY2023, then settled at 32.1% in FY2025 [F20][F22][F24].",
+    "type": "comparison",
+    "citations": [
+     "F20",
+     "F22",
+     "F24"
+    ],
+    "claims": [
+     {
+      "claim": "15.5%",
+      "value": 15.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     },
+     {
+      "claim": "41.3%",
+      "value": 41.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F22"
+      ]
+     },
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F24"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity [P63][P68].",
+    "type": "cause",
+    "citations": [
+     "P63",
+     "P68"
+    ],
+    "claims": [
+     {
+      "claim": "$1.5 billion",
+      "value": 1.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P68",
+      "ids": [
+       "P68"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FPL supplied 70.5% of FY2025 revenue and contributed 5.5pp of the 9.8% growth [D271][D273][D236].",
+    "type": "comparison",
+    "citations": [
+     "D271",
+     "D273",
+     "D236"
+    ],
+    "claims": [
+     {
+      "claim": "70.5%",
+      "value": 70.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D271"
+      ]
+     },
+     {
+      "claim": "5.5pp",
+      "value": 5.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D273"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "FPL's FY2025 revenue rose on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel recovery [P21].",
+    "type": "cause",
+    "citations": [
+     "P21"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "NEER's results increased on higher earnings from new investments, partly offset by higher financing costs [P26].",
+    "type": "cause",
+    "citations": [
+     "P26"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 9.9% a year against 7.7% for revenue, but net income compounded at only 0.4% [F146][F145][F147].",
+    "type": "comparison",
+    "citations": [
+     "F146",
+     "F145",
+     "F147"
+    ],
+    "claims": [
+     {
+      "claim": "9.9%",
+      "value": 9.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F146"
+      ]
+     },
+     {
+      "claim": "7.7%",
+      "value": 7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F145"
+      ]
+     },
+     {
+      "claim": "0.4%",
+      "value": 0.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F147"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS fell 0.7% a year as the share count rose 0.6% in FY2025 [F149][D251].",
+    "type": "comparison",
+    "citations": [
+     "F149",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "0.7%",
+      "value": 0.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F149"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of 32.1% sits 1.8pp above the window median of 30.3% and well above the 15.5% low [F24][D300][D298].",
+    "type": "comparison",
+    "citations": [
+     "F24",
+     "D300",
+     "D298"
+    ],
+    "claims": [
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F24"
+      ]
+     },
+     {
+      "claim": "1.8pp",
+      "value": 1.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F24-D300",
+      "ids": [
+       "F24",
+       "D300"
+      ]
+     },
+     {
+      "claim": "30.3%",
+      "value": 30.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     },
+     {
+      "claim": "15.5%",
+      "value": 15.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D298"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating expenses grew 10.0% against 9.8% revenue growth in FY2025, so incremental operating margin was 34.8% [D249][D236][D256].",
+    "type": "comparison",
+    "citations": [
+     "D249",
+     "D236",
+     "D256"
+    ],
+    "claims": [
+     {
+      "claim": "10.0%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D249"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     },
+     {
+      "claim": "34.8%",
+      "value": 34.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D256"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton [P16].",
+    "type": "cause",
+    "citations": [
+     "P16"
+    ],
+    "claims": [
+     {
+      "claim": "$951 million",
+      "value": 951.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P16",
+      "ids": [
+       "P16"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin fell 3.1pp to 26.5% even as operating margin edged up 0.3pp [D248][F40][D247].",
+    "type": "comparison",
+    "citations": [
+     "D248",
+     "F40",
+     "D247"
+    ],
+    "claims": [
+     {
+      "claim": "3.1pp",
+      "value": 3.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D248"
+      ]
+     },
+     {
+      "claim": "26.5%",
+      "value": 26.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     },
+     {
+      "claim": "0.3pp",
+      "value": 0.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D247"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances [P8].",
+    "type": "cause",
+    "citations": [
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "$1,256 million",
+      "value": 1256.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $12.5 billion was 1.83x net income in FY2025, below the 2.16x of FY2019 [F64][F32][D227][D17].",
+    "type": "comparison",
+    "citations": [
+     "F64",
+     "F32",
+     "D227",
+     "D17"
+    ],
+    "claims": [
+     {
+      "claim": "$12.5 billion",
+      "value": 12.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F64"
+      ]
+     },
+     {
+      "claim": "1.83x",
+      "value": 1.83,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D227"
+      ]
+     },
+     {
+      "claim": "2.16x",
+      "value": 2.16,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D17"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow fell 5.8% in FY2025 while net income fell 1.6% [D241][D238].",
+    "type": "comparison",
+    "citations": [
+     "D241",
+     "D238"
+    ],
+    "claims": [
+     {
+      "claim": "5.8%",
+      "value": 5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "1.6%",
+      "value": 1.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D238"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million [P19].",
+    "type": "cause",
+    "citations": [
+     "P19"
+    ],
+    "claims": [
+     {
+      "claim": "$89 million",
+      "value": 89.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P19",
+      "ids": [
+       "P19"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Investing outflow of $23.9 billion dwarfed operating cash flow, funded largely by $23.4 billion of debt issued [F72][F64][X90].",
+    "type": "comparison",
+    "citations": [
+     "F72",
+     "F64",
+     "X90"
+    ],
+    "claims": [
+     {
+      "claim": "$23.9 billion",
+      "value": 23.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F72"
+      ]
+     },
+     {
+      "claim": "$23.4 billion",
+      "value": 23.4,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X90"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt reached $92.2 billion in FY2025, down from net cash of -$34.3 billion in FY2018, a seventh straight year of deterioration [D231][D9][R2].",
+    "type": "comparison",
+    "citations": [
+     "D231",
+     "D9",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "$92.2 billion",
+      "value": 92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     },
+     {
+      "claim": "-$34.3 billion",
+      "value": -34.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash was -357.4% of revenue, worse than the utilities peer median of -228.4% and the 0th percentile of four peers [D232][D315][D314].",
+    "type": "comparison",
+    "citations": [
+     "D232",
+     "D315",
+     "D314"
+    ],
+    "claims": [
+     {
+      "claim": "-357.4%",
+      "value": -357.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D232"
+      ]
+     },
+     {
+      "claim": "-228.4%",
+      "value": -228.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D315"
+      ]
+     },
+     {
+      "claim": "0th percentile",
+      "value": 0.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D314"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x [F156][F157][F128].",
+    "type": "comparison",
+    "citations": [
+     "F156",
+     "F157",
+     "F128"
+    ],
+    "claims": [
+     {
+      "claim": "18.8%",
+      "value": 18.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F156"
+      ]
+     },
+     {
+      "claim": "6.9%",
+      "value": 6.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F157"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Dividends of $4.68 billion were the only capital return, with no buybacks, while the diluted share count rose 0.6% [X82][D233][D251].",
+    "type": "comparison",
+    "citations": [
+     "X82",
+     "D233",
+     "D251"
+    ],
+    "claims": [
+     {
+      "claim": "$4.68 billion",
+      "value": 4.68,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X82"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D251"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high [F128][D305][R1].",
+    "type": "comparison",
+    "citations": [
+     "F128",
+     "D305",
+     "R1"
+    ],
+    "claims": [
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     },
+     {
+      "claim": "0.60x",
+      "value": 0.6,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F128"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net cash has fallen for seven consecutive years, from -$34.3 billion in FY2018 to -$92.2 billion in FY2025 [D9][D231][R2].",
+    "type": "comparison",
+    "citations": [
+     "D9",
+     "D231",
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "-$34.3 billion",
+      "value": -34.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D9"
+      ]
+     },
+     {
+      "claim": "-$92.2 billion",
+      "value": -92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER [D226][P11][R4].",
+    "type": "cause",
+    "citations": [
+     "D226",
+     "P11",
+     "R4"
+    ],
+    "claims": [
+     {
+      "claim": "-17.7%",
+      "value": -17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     },
+     {
+      "claim": "$585 million",
+      "value": 585.0,
+      "unit": "usd",
+      "qualifier": "approx",
+      "status": "verified",
+      "matched": "passage P11",
+      "ids": [
+       "P11"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2019 operating expenses were later restated to $14.3 billion from $13.9 billion, a data-quality caveat on that year's margin [X18][R5].",
+    "type": "fact",
+    "citations": [
+     "X18",
+     "R5"
+    ],
+    "claims": [
+     {
+      "claim": "$14.3 billion",
+      "value": 14.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R5",
+      "ids": [
+       "R5"
+      ]
+     },
+     {
+      "claim": "$13.9 billion",
+      "value": 13.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X18"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating margin holds above the 30.3% window median in the FY2026 10-K, the FY2023 spike looks structural rather than cyclical [D300].",
+    "type": "comparison",
+    "citations": [
+     "D300"
+    ],
+    "claims": [
+     {
+      "claim": "30.3%",
+      "value": 30.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D300"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net cash falling below the FY2025 level of -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].",
+    "type": "comparison",
+    "citations": [
+     "D231",
+     "D314"
+    ],
+    "claims": [
+     {
+      "claim": "-$92.2 billion",
+      "value": -92.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating cash flow below the FY2025 level of $12.5 billion would confirm the conversion decline from 2.16x in FY2019 [F64][D17].",
+    "type": "comparison",
+    "citations": [
+     "F64",
+     "D17"
+    ],
+    "claims": [
+     {
+      "claim": "$12.5 billion",
+      "value": 12.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F64"
+      ]
+     },
+     {
+      "claim": "2.16x",
+      "value": 2.16,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D17"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "words": 559,
+ "repeat": 2,
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 60,
+  "verified": 60,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "red_flags",
+    "sentence": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$34.3 billion' net cash's minus sign printed under 'net debt' [D9]"
+   },
+   {
+    "section": "red_flags",
+    "sentence": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+   },
+   {
+    "section": "watch",
+    "sentence": "A further widening of net debt beyond -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-$92.2 billion' net cash's minus sign printed under 'net debt' [D231]"
+   }
+  ],
+  "backstop_failures": 3
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 7.7% a year from FY2018 to FY2025, reaching $25.8 billion [F1][F8][F145]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: revenue fell 2.9% in FY2020 and 5.2% in FY2024, then rebounded 9.8% in FY2025 [D61][D201][D236]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2024 decline came from lower storm and fuel cost recovery revenues at FPL [P35]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating margin swung from 15.5% in FY2021 to 41.3% in FY2023, then settled at 32.1% in FY2025 [F20][F22][F24]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2021 trough reflected a $1.5 billion Mountain Valley Pipeline impairment and unfavorable non-qualifying hedge activity [P63][P68]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FPL supplied 70.5% of FY2025 revenue and contributed 5.5pp of the 9.8% growth [D271][D273][D236]."
+     },
+     {
+      "type": "cause",
+      "text": "FPL's FY2025 revenue rose on higher storm cost recovery, retail base and storm protection plan revenues, partly offset by lower fuel recovery [P21]."
+     },
+     {
+      "type": "cause",
+      "text": "NEER's results increased on higher earnings from new investments, partly offset by higher financing costs [P26]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 9.9% a year against 7.7% for revenue, but net income compounded at only 0.4% [F146][F145][F147]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS fell 0.7% a year as the share count rose 0.6% in FY2025 [F149][D251]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 32.1% sits 1.8pp above the window median of 30.3% and well above the 15.5% low [F24][D300][D298]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating expenses grew 10.0% against 9.8% revenue growth in FY2025, so incremental operating margin was 34.8% [D249][D236][D256]."
+     },
+     {
+      "type": "cause",
+      "text": "Depreciation and amortization rose $951 million, mainly higher amortization of deferred storm costs from Hurricanes Debby, Helene and Milton [P16]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin fell 3.1pp to 26.5% even as operating margin edged up 0.3pp [D248][F40][D247]."
+     },
+     {
+      "type": "cause",
+      "text": "Corporate and Other results fell $1,256 million on unfavorable non-qualifying hedge activity and higher average debt balances [P8]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $12.5 billion was 1.83x net income in FY2025, below the 2.16x of FY2019 [F64][F32][D227][D17]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating cash flow fell 5.8% in FY2025 while net income fell 1.6% [D241][D238]."
+     },
+     {
+      "type": "cause",
+      "text": "The shift from net over-recovery to net under-recovery of cost recovery clauses cut FPL's operating cash flow by about $89 million [P19]."
+     },
+     {
+      "type": "comparison",
+      "text": "Investing outflow of $23.9 billion dwarfed operating cash flow, funded largely by $23.4 billion of debt issued [F72][F64][X90]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $92.2 billion in FY2025, down from net cash of -$34.3 billion in FY2018, a seventh straight year of deterioration [D231][D9][R2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash was -357.4% of revenue, worse than the utilities peer median of -228.4% and the 0th percentile of four peers [D232][D315][D314]."
+     },
+     {
+      "type": "comparison",
+      "text": "Long-term debt grew 18.8% a year against 6.9% for equity, and the current ratio of 0.60x is still below 1.0x [F156][F157][F128]."
+     },
+     {
+      "type": "comparison",
+      "text": "Dividends of $4.68 billion were the only capital return, with no buybacks, while the diluted share count rose 0.6% [X82][D233][D251]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The current ratio has stayed below 1.0x every year, at 0.60x in FY2025, though that is the window high [F128][D305][R1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt has deepened for seven consecutive years, from -$34.3 billion to -$92.2 billion, as capex outran cash flow [D9][D231][R2]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2025 effective tax rate of -17.7% reflects clean energy tax credits, which rose about $585 million at NEER [D226][P11][R4]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2019 operating expenses were later restated to $14.3 billion from $13.9 billion, a data-quality caveat on that year's margin [X18][R5]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 30.3% window median in the FY2026 10-K, the FY2023 spike looks structural rather than cyclical [D300]."
+     },
+     {
+      "type": "comparison",
+      "text": "A further widening of net debt beyond -$92.2 billion would extend the seven-year trend and pressure the 0th-percentile peer rank [D231][D314]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating cash flow below the FY2025 level of $12.5 billion would confirm the conversion decline from 2.16x in FY2019 [F64][D17]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch",
+ "measures": {
+  "repair_kind": "patch",
+  "calls": 1,
+  "latency_s": 2.148,
+  "input_tokens": 27886,
+  "cached_input_tokens": 27648,
+  "output_tokens": 215,
+  "reasoning_tokens": 0,
+  "cost_usd": 0.000248,
+  "cost_warm_usd": 0.0005,
+  "gate_passed": true,
+  "failures_after": 0,
+  "untouched_kept": [
+   28,
+   28
+  ],
+  "repair_failed": null,
+  "repair_error": null
+ }
+}

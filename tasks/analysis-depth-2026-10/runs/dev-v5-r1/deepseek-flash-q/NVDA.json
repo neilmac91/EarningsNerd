@@ -1,0 +1,2718 @@
+{
+ "ticker": "NVDA",
+ "arm": "deepseek-flash-q",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2017..FY2026",
+ "snapshot_id": "9ed547422aa0ba8fca82a3a6d4129ab7b742cec45d6648eb43dd993a7b4ceee1",
+ "prompt_sha256": "05f799a8cdcc892d0843a5987d9d8333cc1c81a02571d18d71a12a619ce0b33e",
+ "packs": "packs",
+ "pack_sha256": "31343b6f6c11be3e2e2cded214c26d789e12761db7b6fcc00124bd687c82ac5f",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 37284,
+   "cached_input_tokens": 2432,
+   "output_tokens": 1773,
+   "reasoning_tokens": 0,
+   "latency_s": 11.682,
+   "cost_usd": 0.006299,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 39057
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 46.6% a year from $6.91 billion in FY2017 to $215.9 billion in FY2026 [F1][F10][F211].\"},\n    {\"type\": \"comparison\", \"text\": \"The path was not smooth: revenue fell 6.8% in FY2020 and grew just 0.2% in FY2023, then jumped 125.9% in FY2024 and 114.2% in FY2025 [D130][D284][D338][D393].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2024 step change came from Data Center revenue up 217%, driven by Hopper GPU shipments for LLM training and inference [P22][P23].\"},\n    {\"type\": \"cause\", \"text\": \"FY2026 growth of 65.5% was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue [D448][P10].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Data Center was 89.7% of FY2026 revenue and contributed 60.2pp of the 65.5% growth [D620][D622][D448].\"},\n    {\"type\": \"cause\", \"text\": \"Within it, Data Center computing grew 59% on Blackwell demand and Data Center networking grew 142% on NVLink for GB200 and GB300 systems [P8].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating costs grew 24.8pp slower than revenue in FY2026, at 40.7%, and incremental operating margin was 57.3% [D476][D468][D475].\"},\n    {\"type\": \"comparison\", \"text\": \"Net income grew 64.7% against revenue growth of 65.5%, while diluted EPS grew 66.7% as the diluted share count fell 1.2% [D450][D448][D452][D470].\"},\n    {\"type\": \"judgement\", \"text\": \"Growth is now concentrated in one platform and two direct customers representing 22% and 14% of revenue, so the top line carries customer-concentration risk [P6].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 60.4% in FY2026 sits well above the 32.8% window median but below the 62.4% FY2025 high [F50][D813][D812].\"},\n    {\"type\": \"comparison\", \"text\": \"Gross margin fell 3.9pp to 71.1%, the cost-of-revenue line taking 3.9pp off operating margin, while R&D and SG&A added 1.3pp and 0.6pp [D462][F30][D477][D478][D479].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2026 cost-of-revenue drag included a $4.5 billion H20 excess inventory and purchase obligation charge in the first quarter [P7].\"},\n    {\"type\": \"comparison\", \"text\": \"In FY2026 net margin of 55.6% sat 4.8pp below the 60.4% operating margin, with other income of $11.1 billion partly offset by a 15.1% tax rate [F70][F50][X120][D434].\"},\n    {\"type\": \"cause\", \"text\": \"Other income rose on unrealized gains in non-marketable and publicly-held equity securities, including the Intel stake [P3].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $102.7 billion was 0.86x net income in FY2026, below the 1.00x of FY2017, and free cash flow was 0.81x [F100][F60][D435][D8][D436].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin of 44.8% is near the 44.4% window median, with capex at 2.8% of revenue and 2.13x D&A [D432][D822][D431][D437].\"},\n    {\"type\": \"comparison\", \"text\": \"Receivables grew 66.8% and inventory 112.3%, lifting days sales outstanding to 65 and days inventory to 125 [D473][D474][D445][D446].\"},\n    {\"type\": \"judgement\", \"text\": \"Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Net cash fell to $2.14 billion, or 1.0% of revenue, from $34.7 billion in FY2025, as cash and investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439].\"},\n    {\"type\": \"cause\", \"text\": \"Investing cash outflow of $52.2 billion rose on higher purchases of equity investment securities and a non-exclusive license agreement with Groq [F120][P1].\"},\n    {\"type\": \"comparison\", \"text\": \"Net cash of 1.0% of revenue still ranks at the 83rd percentile of six semis peers against a -13.9% median, and the current ratio is 3.91x [D442][D844][D845][F190].\"},\n    {\"type\": \"comparison\", \"text\": \"Buybacks and dividends of $41.1 billion were 42.5% of free cash flow, and return on average equity was 101.5% [D443][D444][D447].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Graphics was 44.1% of revenue and fell 25.0% in FY2023, a one-period decline [R1][D753][D754].\"},\n    {\"type\": \"judgement\", \"text\": \"That episode is now historical, with Graphics at 10.4% of FY2026 revenue, so it does not describe the current business [D746].\"},\n    {\"type\": \"fact\", \"text\": \"Product revenue members tagged on one axis sum to 190% of consolidated revenue in FY2026 because some members are totals of others [R2].\"},\n    {\"type\": \"judgement\", \"text\": \"Product-level shares must be read individually rather than added, which limits how finely the revenue mix can be decomposed.\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"If gross margin in the FY2027 10-K falls below the 71.1% of FY2026, the cost-of-revenue trend would confirm rather than reverse [F30].\"},\n    {\"type\": \"comparison\", \"text\": \"If net cash as a share of revenue stays below the 1.0% of FY2026, the investing outflow would be outpacing cash generation [D442].\"},\n    {\"type\": \"comparison\", \"text\": \"If operating cash flow to net income in the FY2027 10-K recovers above the 0.86x of FY2026, working capital absorption would be easing [D435].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 39231,
+   "cached_input_tokens": 37248,
+   "output_tokens": 82,
+   "reasoning_tokens": 0,
+   "latency_s": 2.731,
+   "cost_usd": 0.000458,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 39313
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"cash\", \"original\": \"Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.\", \"type\": \"judgement\", \"text\": \"Conversion at 0.86x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality [D435].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 76515,
+  "cached_input_tokens": 39680,
+  "output_tokens": 1855,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 14.413,
+ "cost_usd": 0.006757,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "5c8359a0ce25",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 46.6% a year from $6.91 billion in FY2017 to $215.9 billion in FY2026 [F1][F10][F211]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: revenue fell 6.8% in FY2020 and grew just 0.2% in FY2023, then jumped 125.9% in FY2024 and 114.2% in FY2025 [D130][D284][D338][D393]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2024 step change came from Data Center revenue up 217%, driven by Hopper GPU shipments for LLM training and inference [P22][P23]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 growth of 65.5% was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue [D448][P10]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Data Center was 89.7% of FY2026 revenue and contributed 60.2pp of the 65.5% growth [D620][D622][D448]."
+     },
+     {
+      "type": "cause",
+      "text": "Within it, Data Center computing grew 59% on Blackwell demand and Data Center networking grew 142% on NVLink for GB200 and GB300 systems [P8]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 24.8pp slower than revenue in FY2026, at 40.7%, and incremental operating margin was 57.3% [D476][D468][D475]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net income grew 64.7% against revenue growth of 65.5%, while diluted EPS grew 66.7% as the diluted share count fell 1.2% [D450][D448][D452][D470]."
+     },
+     {
+      "type": "judgement",
+      "text": "Growth is now concentrated in one platform and two direct customers representing 22% and 14% of revenue, so the top line carries customer-concentration risk [P6]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 60.4% in FY2026 sits well above the 32.8% window median but below the 62.4% FY2025 high [F50][D813][D812]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gross margin fell 3.9pp to 71.1%, the cost-of-revenue line taking 3.9pp off operating margin, while R&D and SG&A added 1.3pp and 0.6pp [D462][F30][D477][D478][D479]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 cost-of-revenue drag included a $4.5 billion H20 excess inventory and purchase obligation charge in the first quarter [P7]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 net margin of 55.6% sat 4.8pp below the 60.4% operating margin, with other income of $11.1 billion partly offset by a 15.1% tax rate [F70][F50][X120][D434]."
+     },
+     {
+      "type": "cause",
+      "text": "Other income rose on unrealized gains in non-marketable and publicly-held equity securities, including the Intel stake [P3]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $102.7 billion was 0.86x net income in FY2026, below the 1.00x of FY2017, and free cash flow was 0.81x [F100][F60][D435][D8][D436]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 44.8% is near the 44.4% window median, with capex at 2.8% of revenue and 2.13x D&A [D432][D822][D431][D437]."
+     },
+     {
+      "type": "comparison",
+      "text": "Receivables grew 66.8% and inventory 112.3%, lifting days sales outstanding to 65 and days inventory to 125 [D473][D474][D445][D446]."
+     },
+     {
+      "type": "judgement",
+      "text": "Conversion at 0.86x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality [D435]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash fell to $2.14 billion, or 1.0% of revenue, from $34.7 billion in FY2025, as cash and investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing cash outflow of $52.2 billion rose on higher purchases of equity investment securities and a non-exclusive license agreement with Groq [F120][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash of 1.0% of revenue still ranks at the 83rd percentile of six semis peers against a -13.9% median, and the current ratio is 3.91x [D442][D844][D845][F190]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks and dividends of $41.1 billion were 42.5% of free cash flow, and return on average equity was 101.5% [D443][D444][D447]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Graphics was 44.1% of revenue and fell 25.0% in FY2023, a one-period decline [R1][D753][D754]."
+     },
+     {
+      "type": "judgement",
+      "text": "That episode is now historical, with Graphics at 10.4% of FY2026 revenue, so it does not describe the current business [D746]."
+     },
+     {
+      "type": "fact",
+      "text": "Product revenue members tagged on one axis sum to 190% of consolidated revenue in FY2026 because some members are totals of others [R2]."
+     },
+     {
+      "type": "judgement",
+      "text": "Product-level shares must be read individually rather than added, which limits how finely the revenue mix can be decomposed."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If gross margin in the FY2027 10-K falls below the 71.1% of FY2026, the cost-of-revenue trend would confirm rather than reverse [F30]."
+     },
+     {
+      "type": "comparison",
+      "text": "If net cash as a share of revenue stays below the 1.0% of FY2026, the investing outflow would be outpacing cash generation [D442]."
+     },
+     {
+      "type": "comparison",
+      "text": "If operating cash flow to net income in the FY2027 10-K recovers above the 0.86x of FY2026, working capital absorption would be easing [D435]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 622,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 3,
+   "comparison": 16,
+   "cause": 6,
+   "judgement": 4
+  },
+  "claims": 70,
+  "verified": 69,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "cash",
+    "sentence": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.",
+    "type": "judgement",
+    "failure": "number(s) with no citation: 1.0x"
+   },
+   {
+    "section": "cash",
+    "sentence": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.",
+    "type": "judgement",
+    "failure": "'1.0x' matches nothing the sentence cites"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 46.6% a year from $6.91 billion in FY2017 to $215.9 billion in FY2026 [F1][F10][F211].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F211"
+    ],
+    "claims": [
+     {
+      "claim": "46.6%",
+      "value": 46.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F211"
+      ]
+     },
+     {
+      "claim": "$6.91 billion",
+      "value": 6.91,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$215.9 billion",
+      "value": 215.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: revenue fell 6.8% in FY2020 and grew just 0.2% in FY2023, then jumped 125.9% in FY2024 and 114.2% in FY2025 [D130][D284][D338][D393].",
+    "type": "comparison",
+    "citations": [
+     "D130",
+     "D284",
+     "D338",
+     "D393"
+    ],
+    "claims": [
+     {
+      "claim": "6.8%",
+      "value": 6.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D130"
+      ]
+     },
+     {
+      "claim": "0.2%",
+      "value": 0.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D284"
+      ]
+     },
+     {
+      "claim": "125.9%",
+      "value": 125.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D338"
+      ]
+     },
+     {
+      "claim": "114.2%",
+      "value": 114.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D393"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2024 step change came from Data Center revenue up 217%, driven by Hopper GPU shipments for LLM training and inference [P22][P23].",
+    "type": "cause",
+    "citations": [
+     "P22",
+     "P23"
+    ],
+    "claims": [
+     {
+      "claim": "217%",
+      "value": 217.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P23",
+      "ids": [
+       "P23"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2026 growth of 65.5% was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue [D448][P10].",
+    "type": "cause",
+    "citations": [
+     "D448",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Data Center was 89.7% of FY2026 revenue and contributed 60.2pp of the 65.5% growth [D620][D622][D448].",
+    "type": "comparison",
+    "citations": [
+     "D620",
+     "D622",
+     "D448"
+    ],
+    "claims": [
+     {
+      "claim": "89.7%",
+      "value": 89.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D620"
+      ]
+     },
+     {
+      "claim": "60.2pp",
+      "value": 60.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D622"
+      ]
+     },
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Within it, Data Center computing grew 59% on Blackwell demand and Data Center networking grew 142% on NVLink for GB200 and GB300 systems [P8].",
+    "type": "cause",
+    "citations": [
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "59%",
+      "value": 59.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     },
+     {
+      "claim": "142%",
+      "value": 142.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 24.8pp slower than revenue in FY2026, at 40.7%, and incremental operating margin was 57.3% [D476][D468][D475].",
+    "type": "comparison",
+    "citations": [
+     "D476",
+     "D468",
+     "D475"
+    ],
+    "claims": [
+     {
+      "claim": "24.8pp",
+      "value": 24.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D476",
+      "ids": [
+       "D476"
+      ]
+     },
+     {
+      "claim": "40.7%",
+      "value": 40.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D468"
+      ]
+     },
+     {
+      "claim": "57.3%",
+      "value": 57.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D475"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Net income grew 64.7% against revenue growth of 65.5%, while diluted EPS grew 66.7% as the diluted share count fell 1.2% [D450][D448][D452][D470].",
+    "type": "comparison",
+    "citations": [
+     "D450",
+     "D448",
+     "D452",
+     "D470"
+    ],
+    "claims": [
+     {
+      "claim": "64.7%",
+      "value": 64.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     },
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     },
+     {
+      "claim": "66.7%",
+      "value": 66.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     },
+     {
+      "claim": "1.2%",
+      "value": 1.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Growth is now concentrated in one platform and two direct customers representing 22% and 14% of revenue, so the top line carries customer-concentration risk [P6].",
+    "type": "judgement",
+    "citations": [
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "22%",
+      "value": 22.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     },
+     {
+      "claim": "14%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 60.4% in FY2026 sits well above the 32.8% window median but below the 62.4% FY2025 high [F50][D813][D812].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "D813",
+     "D812"
+    ],
+    "claims": [
+     {
+      "claim": "60.4%",
+      "value": 60.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "32.8%",
+      "value": 32.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D813"
+      ]
+     },
+     {
+      "claim": "62.4%",
+      "value": 62.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D812"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Gross margin fell 3.9pp to 71.1%, the cost-of-revenue line taking 3.9pp off operating margin, while R&D and SG&A added 1.3pp and 0.6pp [D462][F30][D477][D478][D479].",
+    "type": "comparison",
+    "citations": [
+     "D462",
+     "F30",
+     "D477",
+     "D478",
+     "D479"
+    ],
+    "claims": [
+     {
+      "claim": "3.9pp",
+      "value": 3.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D462"
+      ]
+     },
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "3.9pp",
+      "value": 3.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D462"
+      ]
+     },
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D478"
+      ]
+     },
+     {
+      "claim": "0.6pp",
+      "value": 0.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D479"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 cost-of-revenue drag included a $4.5 billion H20 excess inventory and purchase obligation charge in the first quarter [P7].",
+    "type": "cause",
+    "citations": [
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "$4.5 billion",
+      "value": 4.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2026 net margin of 55.6% sat 4.8pp below the 60.4% operating margin, with other income of $11.1 billion partly offset by a 15.1% tax rate [F70][F50][X120][D434].",
+    "type": "comparison",
+    "citations": [
+     "F70",
+     "F50",
+     "X120",
+     "D434"
+    ],
+    "claims": [
+     {
+      "claim": "55.6%",
+      "value": 55.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F70"
+      ]
+     },
+     {
+      "claim": "4.8pp",
+      "value": 4.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F70-F50",
+      "ids": [
+       "F70",
+       "F50"
+      ]
+     },
+     {
+      "claim": "60.4%",
+      "value": 60.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "$11.1 billion",
+      "value": 11.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X120"
+      ]
+     },
+     {
+      "claim": "15.1%",
+      "value": 15.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Other income rose on unrealized gains in non-marketable and publicly-held equity securities, including the Intel stake [P3].",
+    "type": "cause",
+    "citations": [
+     "P3"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $102.7 billion was 0.86x net income in FY2026, below the 1.00x of FY2017, and free cash flow was 0.81x [F100][F60][D435][D8][D436].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "F60",
+     "D435",
+     "D8",
+     "D436"
+    ],
+    "claims": [
+     {
+      "claim": "$102.7 billion",
+      "value": 102.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "1.00x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D8"
+      ]
+     },
+     {
+      "claim": "0.81x",
+      "value": 0.81,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin of 44.8% is near the 44.4% window median, with capex at 2.8% of revenue and 2.13x D&A [D432][D822][D431][D437].",
+    "type": "comparison",
+    "citations": [
+     "D432",
+     "D822",
+     "D431",
+     "D437"
+    ],
+    "claims": [
+     {
+      "claim": "44.8%",
+      "value": 44.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D432"
+      ]
+     },
+     {
+      "claim": "44.4%",
+      "value": 44.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D822"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     },
+     {
+      "claim": "2.13x",
+      "value": 2.13,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D437"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Receivables grew 66.8% and inventory 112.3%, lifting days sales outstanding to 65 and days inventory to 125 [D473][D474][D445][D446].",
+    "type": "comparison",
+    "citations": [
+     "D473",
+     "D474",
+     "D445",
+     "D446"
+    ],
+    "claims": [
+     {
+      "claim": "66.8%",
+      "value": 66.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D473"
+      ]
+     },
+     {
+      "claim": "112.3%",
+      "value": 112.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D474"
+      ]
+     },
+     {
+      "claim": "65",
+      "value": 65.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "125",
+      "value": 125.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "no_match"
+     }
+    ],
+    "failures": [
+     "number(s) with no citation: 1.0x",
+     "'1.0x' matches nothing the sentence cites"
+    ]
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash fell to $2.14 billion, or 1.0% of revenue, from $34.7 billion in FY2025, as cash and investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439].",
+    "type": "comparison",
+    "citations": [
+     "D441",
+     "D442",
+     "D386",
+     "D471",
+     "D439"
+    ],
+    "claims": [
+     {
+      "claim": "$2.14 billion",
+      "value": 2.14,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "$34.7 billion",
+      "value": 34.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D386"
+      ]
+     },
+     {
+      "claim": "75.5%",
+      "value": 75.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D471"
+      ]
+     },
+     {
+      "claim": "$10.6 billion",
+      "value": 10.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D439"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Investing cash outflow of $52.2 billion rose on higher purchases of equity investment securities and a non-exclusive license agreement with Groq [F120][P1].",
+    "type": "cause",
+    "citations": [
+     "F120",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$52.2 billion",
+      "value": 52.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F120"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash of 1.0% of revenue still ranks at the 83rd percentile of six semis peers against a -13.9% median, and the current ratio is 3.91x [D442][D844][D845][F190].",
+    "type": "comparison",
+    "citations": [
+     "D442",
+     "D844",
+     "D845",
+     "F190"
+    ],
+    "claims": [
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "83rd percentile",
+      "value": 83.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D844"
+      ]
+     },
+     {
+      "claim": "-13.9%",
+      "value": -13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D845"
+      ]
+     },
+     {
+      "claim": "3.91x",
+      "value": 3.91,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F190"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks and dividends of $41.1 billion were 42.5% of free cash flow, and return on average equity was 101.5% [D443][D444][D447].",
+    "type": "comparison",
+    "citations": [
+     "D443",
+     "D444",
+     "D447"
+    ],
+    "claims": [
+     {
+      "claim": "$41.1 billion",
+      "value": 41.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D443"
+      ]
+     },
+     {
+      "claim": "42.5%",
+      "value": 42.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "101.5%",
+      "value": 101.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Graphics was 44.1% of revenue and fell 25.0% in FY2023, a one-period decline [R1][D753][D754].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "D753",
+     "D754"
+    ],
+    "claims": [
+     {
+      "claim": "44.1%",
+      "value": 44.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D753"
+      ]
+     },
+     {
+      "claim": "25.0%",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D754"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "That episode is now historical, with Graphics at 10.4% of FY2026 revenue, so it does not describe the current business [D746].",
+    "type": "judgement",
+    "citations": [
+     "D746"
+    ],
+    "claims": [
+     {
+      "claim": "10.4%",
+      "value": 10.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D746"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Product revenue members tagged on one axis sum to 190% of consolidated revenue in FY2026 because some members are totals of others [R2].",
+    "type": "fact",
+    "citations": [
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "190%",
+      "value": 190.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R2",
+      "ids": [
+       "R2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Product-level shares must be read individually rather than added, which limits how finely the revenue mix can be decomposed.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If gross margin in the FY2027 10-K falls below the 71.1% of FY2026, the cost-of-revenue trend would confirm rather than reverse [F30].",
+    "type": "comparison",
+    "citations": [
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If net cash as a share of revenue stays below the 1.0% of FY2026, the investing outflow would be outpacing cash generation [D442].",
+    "type": "comparison",
+    "citations": [
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating cash flow to net income in the FY2027 10-K recovers above the 0.86x of FY2026, working capital absorption would be easing [D435].",
+    "type": "comparison",
+    "citations": [
+     "D435"
+    ],
+    "claims": [
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 3,
+   "comparison": 16,
+   "cause": 6,
+   "judgement": 4
+  },
+  "claims": 70,
+  "verified": 70,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 46.6% a year from $6.91 billion in FY2017 to $215.9 billion in FY2026 [F1][F10][F211].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F211"
+    ],
+    "claims": [
+     {
+      "claim": "46.6%",
+      "value": 46.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F211"
+      ]
+     },
+     {
+      "claim": "$6.91 billion",
+      "value": 6.91,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$215.9 billion",
+      "value": 215.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The path was not smooth: revenue fell 6.8% in FY2020 and grew just 0.2% in FY2023, then jumped 125.9% in FY2024 and 114.2% in FY2025 [D130][D284][D338][D393].",
+    "type": "comparison",
+    "citations": [
+     "D130",
+     "D284",
+     "D338",
+     "D393"
+    ],
+    "claims": [
+     {
+      "claim": "6.8%",
+      "value": 6.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D130"
+      ]
+     },
+     {
+      "claim": "0.2%",
+      "value": 0.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D284"
+      ]
+     },
+     {
+      "claim": "125.9%",
+      "value": 125.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D338"
+      ]
+     },
+     {
+      "claim": "114.2%",
+      "value": 114.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D393"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2024 step change came from Data Center revenue up 217%, driven by Hopper GPU shipments for LLM training and inference [P22][P23].",
+    "type": "cause",
+    "citations": [
+     "P22",
+     "P23"
+    ],
+    "claims": [
+     {
+      "claim": "217%",
+      "value": 217.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P23",
+      "ids": [
+       "P23"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2026 growth of 65.5% was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue [D448][P10].",
+    "type": "cause",
+    "citations": [
+     "D448",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Data Center was 89.7% of FY2026 revenue and contributed 60.2pp of the 65.5% growth [D620][D622][D448].",
+    "type": "comparison",
+    "citations": [
+     "D620",
+     "D622",
+     "D448"
+    ],
+    "claims": [
+     {
+      "claim": "89.7%",
+      "value": 89.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D620"
+      ]
+     },
+     {
+      "claim": "60.2pp",
+      "value": 60.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D622"
+      ]
+     },
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Within it, Data Center computing grew 59% on Blackwell demand and Data Center networking grew 142% on NVLink for GB200 and GB300 systems [P8].",
+    "type": "cause",
+    "citations": [
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "59%",
+      "value": 59.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     },
+     {
+      "claim": "142%",
+      "value": 142.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating costs grew 24.8pp slower than revenue in FY2026, at 40.7%, and incremental operating margin was 57.3% [D476][D468][D475].",
+    "type": "comparison",
+    "citations": [
+     "D476",
+     "D468",
+     "D475"
+    ],
+    "claims": [
+     {
+      "claim": "24.8pp",
+      "value": 24.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "reversed D476",
+      "ids": [
+       "D476"
+      ]
+     },
+     {
+      "claim": "40.7%",
+      "value": 40.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D468"
+      ]
+     },
+     {
+      "claim": "57.3%",
+      "value": 57.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D475"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Net income grew 64.7% against revenue growth of 65.5%, while diluted EPS grew 66.7% as the diluted share count fell 1.2% [D450][D448][D452][D470].",
+    "type": "comparison",
+    "citations": [
+     "D450",
+     "D448",
+     "D452",
+     "D470"
+    ],
+    "claims": [
+     {
+      "claim": "64.7%",
+      "value": 64.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     },
+     {
+      "claim": "65.5%",
+      "value": 65.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D448"
+      ]
+     },
+     {
+      "claim": "66.7%",
+      "value": 66.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     },
+     {
+      "claim": "1.2%",
+      "value": 1.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Growth is now concentrated in one platform and two direct customers representing 22% and 14% of revenue, so the top line carries customer-concentration risk [P6].",
+    "type": "judgement",
+    "citations": [
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "22%",
+      "value": 22.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     },
+     {
+      "claim": "14%",
+      "value": 14.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P6",
+      "ids": [
+       "P6"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 60.4% in FY2026 sits well above the 32.8% window median but below the 62.4% FY2025 high [F50][D813][D812].",
+    "type": "comparison",
+    "citations": [
+     "F50",
+     "D813",
+     "D812"
+    ],
+    "claims": [
+     {
+      "claim": "60.4%",
+      "value": 60.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "32.8%",
+      "value": 32.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D813"
+      ]
+     },
+     {
+      "claim": "62.4%",
+      "value": 62.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D812"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Gross margin fell 3.9pp to 71.1%, the cost-of-revenue line taking 3.9pp off operating margin, while R&D and SG&A added 1.3pp and 0.6pp [D462][F30][D477][D478][D479].",
+    "type": "comparison",
+    "citations": [
+     "D462",
+     "F30",
+     "D477",
+     "D478",
+     "D479"
+    ],
+    "claims": [
+     {
+      "claim": "3.9pp",
+      "value": 3.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D462"
+      ]
+     },
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "3.9pp",
+      "value": 3.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D462"
+      ]
+     },
+     {
+      "claim": "1.3pp",
+      "value": 1.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D478"
+      ]
+     },
+     {
+      "claim": "0.6pp",
+      "value": 0.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D479"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2026 cost-of-revenue drag included a $4.5 billion H20 excess inventory and purchase obligation charge in the first quarter [P7].",
+    "type": "cause",
+    "citations": [
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "$4.5 billion",
+      "value": 4.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In FY2026 net margin of 55.6% sat 4.8pp below the 60.4% operating margin, with other income of $11.1 billion partly offset by a 15.1% tax rate [F70][F50][X120][D434].",
+    "type": "comparison",
+    "citations": [
+     "F70",
+     "F50",
+     "X120",
+     "D434"
+    ],
+    "claims": [
+     {
+      "claim": "55.6%",
+      "value": 55.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F70"
+      ]
+     },
+     {
+      "claim": "4.8pp",
+      "value": 4.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F70-F50",
+      "ids": [
+       "F70",
+       "F50"
+      ]
+     },
+     {
+      "claim": "60.4%",
+      "value": 60.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "$11.1 billion",
+      "value": 11.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X120"
+      ]
+     },
+     {
+      "claim": "15.1%",
+      "value": 15.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D434"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Other income rose on unrealized gains in non-marketable and publicly-held equity securities, including the Intel stake [P3].",
+    "type": "cause",
+    "citations": [
+     "P3"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $102.7 billion was 0.86x net income in FY2026, below the 1.00x of FY2017, and free cash flow was 0.81x [F100][F60][D435][D8][D436].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "F60",
+     "D435",
+     "D8",
+     "D436"
+    ],
+    "claims": [
+     {
+      "claim": "$102.7 billion",
+      "value": 102.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     },
+     {
+      "claim": "1.00x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D8"
+      ]
+     },
+     {
+      "claim": "0.81x",
+      "value": 0.81,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D436"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow margin of 44.8% is near the 44.4% window median, with capex at 2.8% of revenue and 2.13x D&A [D432][D822][D431][D437].",
+    "type": "comparison",
+    "citations": [
+     "D432",
+     "D822",
+     "D431",
+     "D437"
+    ],
+    "claims": [
+     {
+      "claim": "44.8%",
+      "value": 44.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D432"
+      ]
+     },
+     {
+      "claim": "44.4%",
+      "value": 44.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D822"
+      ]
+     },
+     {
+      "claim": "2.8%",
+      "value": 2.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D431"
+      ]
+     },
+     {
+      "claim": "2.13x",
+      "value": 2.13,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D437"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Receivables grew 66.8% and inventory 112.3%, lifting days sales outstanding to 65 and days inventory to 125 [D473][D474][D445][D446].",
+    "type": "comparison",
+    "citations": [
+     "D473",
+     "D474",
+     "D445",
+     "D446"
+    ],
+    "claims": [
+     {
+      "claim": "66.8%",
+      "value": 66.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D473"
+      ]
+     },
+     {
+      "claim": "112.3%",
+      "value": 112.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D474"
+      ]
+     },
+     {
+      "claim": "65",
+      "value": 65.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D445"
+      ]
+     },
+     {
+      "claim": "125",
+      "value": 125.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D446"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Conversion at 0.86x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality [D435].",
+    "type": "judgement",
+    "citations": [
+     "D435"
+    ],
+    "claims": [
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash fell to $2.14 billion, or 1.0% of revenue, from $34.7 billion in FY2025, as cash and investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439].",
+    "type": "comparison",
+    "citations": [
+     "D441",
+     "D442",
+     "D386",
+     "D471",
+     "D439"
+    ],
+    "claims": [
+     {
+      "claim": "$2.14 billion",
+      "value": 2.14,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D441"
+      ]
+     },
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "$34.7 billion",
+      "value": 34.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D386"
+      ]
+     },
+     {
+      "claim": "75.5%",
+      "value": 75.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D471"
+      ]
+     },
+     {
+      "claim": "$10.6 billion",
+      "value": 10.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D439"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Investing cash outflow of $52.2 billion rose on higher purchases of equity investment securities and a non-exclusive license agreement with Groq [F120][P1].",
+    "type": "cause",
+    "citations": [
+     "F120",
+     "P1"
+    ],
+    "claims": [
+     {
+      "claim": "$52.2 billion",
+      "value": 52.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F120"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash of 1.0% of revenue still ranks at the 83rd percentile of six semis peers against a -13.9% median, and the current ratio is 3.91x [D442][D844][D845][F190].",
+    "type": "comparison",
+    "citations": [
+     "D442",
+     "D844",
+     "D845",
+     "F190"
+    ],
+    "claims": [
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     },
+     {
+      "claim": "83rd percentile",
+      "value": 83.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D844"
+      ]
+     },
+     {
+      "claim": "-13.9%",
+      "value": -13.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D845"
+      ]
+     },
+     {
+      "claim": "3.91x",
+      "value": 3.91,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F190"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks and dividends of $41.1 billion were 42.5% of free cash flow, and return on average equity was 101.5% [D443][D444][D447].",
+    "type": "comparison",
+    "citations": [
+     "D443",
+     "D444",
+     "D447"
+    ],
+    "claims": [
+     {
+      "claim": "$41.1 billion",
+      "value": 41.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D443"
+      ]
+     },
+     {
+      "claim": "42.5%",
+      "value": 42.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D444"
+      ]
+     },
+     {
+      "claim": "101.5%",
+      "value": 101.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Graphics was 44.1% of revenue and fell 25.0% in FY2023, a one-period decline [R1][D753][D754].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "D753",
+     "D754"
+    ],
+    "claims": [
+     {
+      "claim": "44.1%",
+      "value": 44.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D753"
+      ]
+     },
+     {
+      "claim": "25.0%",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D754"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "That episode is now historical, with Graphics at 10.4% of FY2026 revenue, so it does not describe the current business [D746].",
+    "type": "judgement",
+    "citations": [
+     "D746"
+    ],
+    "claims": [
+     {
+      "claim": "10.4%",
+      "value": 10.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D746"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Product revenue members tagged on one axis sum to 190% of consolidated revenue in FY2026 because some members are totals of others [R2].",
+    "type": "fact",
+    "citations": [
+     "R2"
+    ],
+    "claims": [
+     {
+      "claim": "190%",
+      "value": 190.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage R2",
+      "ids": [
+       "R2"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Product-level shares must be read individually rather than added, which limits how finely the revenue mix can be decomposed.",
+    "type": "judgement",
+    "citations": [],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If gross margin in the FY2027 10-K falls below the 71.1% of FY2026, the cost-of-revenue trend would confirm rather than reverse [F30].",
+    "type": "comparison",
+    "citations": [
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If net cash as a share of revenue stays below the 1.0% of FY2026, the investing outflow would be outpacing cash generation [D442].",
+    "type": "comparison",
+    "citations": [
+     "D442"
+    ],
+    "claims": [
+     {
+      "claim": "1.0%",
+      "value": 1.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D442"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating cash flow to net income in the FY2027 10-K recovers above the 0.86x of FY2026, working capital absorption would be easing [D435].",
+    "type": "comparison",
+    "citations": [
+     "D435"
+    ],
+    "claims": [
+     {
+      "claim": "0.86x",
+      "value": 0.86,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D435"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 70,
+  "verified": 69,
+  "failed_claims": 1,
+  "failures": [
+   {
+    "section": "cash",
+    "sentence": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.",
+    "type": "judgement",
+    "failure": "number(s) with no citation: 1.0x"
+   },
+   {
+    "section": "cash",
+    "sentence": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality.",
+    "type": "judgement",
+    "failure": "'1.0x' matches nothing the sentence cites"
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 46.6% a year from $6.91 billion in FY2017 to $215.9 billion in FY2026 [F1][F10][F211]."
+     },
+     {
+      "type": "comparison",
+      "text": "The path was not smooth: revenue fell 6.8% in FY2020 and grew just 0.2% in FY2023, then jumped 125.9% in FY2024 and 114.2% in FY2025 [D130][D284][D338][D393]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2024 step change came from Data Center revenue up 217%, driven by Hopper GPU shipments for LLM training and inference [P22][P23]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2026 growth of 65.5% was driven by data center compute and networking platforms, with Blackwell the majority of Data Center revenue [D448][P10]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Data Center was 89.7% of FY2026 revenue and contributed 60.2pp of the 65.5% growth [D620][D622][D448]."
+     },
+     {
+      "type": "cause",
+      "text": "Within it, Data Center computing grew 59% on Blackwell demand and Data Center networking grew 142% on NVLink for GB200 and GB300 systems [P8]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating costs grew 24.8pp slower than revenue in FY2026, at 40.7%, and incremental operating margin was 57.3% [D476][D468][D475]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net income grew 64.7% against revenue growth of 65.5%, while diluted EPS grew 66.7% as the diluted share count fell 1.2% [D450][D448][D452][D470]."
+     },
+     {
+      "type": "judgement",
+      "text": "Growth is now concentrated in one platform and two direct customers representing 22% and 14% of revenue, so the top line carries customer-concentration risk [P6]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 60.4% in FY2026 sits well above the 32.8% window median but below the 62.4% FY2025 high [F50][D813][D812]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gross margin fell 3.9pp to 71.1%, the cost-of-revenue line taking 3.9pp off operating margin, while R&D and SG&A added 1.3pp and 0.6pp [D462][F30][D477][D478][D479]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2026 cost-of-revenue drag included a $4.5 billion H20 excess inventory and purchase obligation charge in the first quarter [P7]."
+     },
+     {
+      "type": "comparison",
+      "text": "In FY2026 net margin of 55.6% sat 4.8pp below the 60.4% operating margin, with other income of $11.1 billion partly offset by a 15.1% tax rate [F70][F50][X120][D434]."
+     },
+     {
+      "type": "cause",
+      "text": "Other income rose on unrealized gains in non-marketable and publicly-held equity securities, including the Intel stake [P3]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $102.7 billion was 0.86x net income in FY2026, below the 1.00x of FY2017, and free cash flow was 0.81x [F100][F60][D435][D8][D436]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin of 44.8% is near the 44.4% window median, with capex at 2.8% of revenue and 2.13x D&A [D432][D822][D431][D437]."
+     },
+     {
+      "type": "comparison",
+      "text": "Receivables grew 66.8% and inventory 112.3%, lifting days sales outstanding to 65 and days inventory to 125 [D473][D474][D445][D446]."
+     },
+     {
+      "type": "judgement",
+      "text": "Conversion below 1.0x reflects working capital absorbing cash as the balance sheet scales, not a deterioration in earnings quality."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash fell to $2.14 billion, or 1.0% of revenue, from $34.7 billion in FY2025, as cash and investments dropped 75.5% to $10.6 billion [D441][D442][D386][D471][D439]."
+     },
+     {
+      "type": "cause",
+      "text": "Investing cash outflow of $52.2 billion rose on higher purchases of equity investment securities and a non-exclusive license agreement with Groq [F120][P1]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash of 1.0% of revenue still ranks at the 83rd percentile of six semis peers against a -13.9% median, and the current ratio is 3.91x [D442][D844][D845][F190]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks and dividends of $41.1 billion were 42.5% of free cash flow, and return on average equity was 101.5% [D443][D444][D447]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Graphics was 44.1% of revenue and fell 25.0% in FY2023, a one-period decline [R1][D753][D754]."
+     },
+     {
+      "type": "judgement",
+      "text": "That episode is now historical, with Graphics at 10.4% of FY2026 revenue, so it does not describe the current business [D746]."
+     },
+     {
+      "type": "fact",
+      "text": "Product revenue members tagged on one axis sum to 190% of consolidated revenue in FY2026 because some members are totals of others [R2]."
+     },
+     {
+      "type": "judgement",
+      "text": "Product-level shares must be read individually rather than added, which limits how finely the revenue mix can be decomposed."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If gross margin in the FY2027 10-K falls below the 71.1% of FY2026, the cost-of-revenue trend would confirm rather than reverse [F30]."
+     },
+     {
+      "type": "comparison",
+      "text": "If net cash as a share of revenue stays below the 1.0% of FY2026, the investing outflow would be outpacing cash generation [D442]."
+     },
+     {
+      "type": "comparison",
+      "text": "If operating cash flow to net income in the FY2027 10-K recovers above the 0.86x of FY2026, working capital absorption would be easing [D435]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}

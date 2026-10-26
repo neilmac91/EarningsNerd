@@ -1,0 +1,106 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "8d17b181542bd0a6e3e28530b59978f36f6519b8a2f8499a0faefe846a66e83f",
+ "y_sha256": "71b425234cd10274e5e60f488172c37779a05ce6d5d9c27772ceb9883262c429",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts misapply passage [9], a segment's $8.0bn net revenue, to explain firmwide FY2023 growth. Draft A states one unsupported cause: pandemic deposits explaining the loan-to-deposit shift. Draft B makes a factual error, calling 4.2% cost growth '1.4pp slower' than 2.8% revenue growth, and makes a meaningless net-margin versus NII-share comparison. B is better calibrated, with labelled analysis and restatement detail, but its errors outweigh that. A's watch items carry clearer numeric thresholds."
+   },
+   "cost_usd": 0.132936,
+   "latency_s": 15.699,
+   "backend": "claude_cli",
+   "input_tokens": 13873,
+   "cached_input_tokens": 0,
+   "output_tokens": 1098,
+   "reasoning_tokens": 824,
+   "meta": {
+    "duration_api_ms": 11240,
+    "cache_creation_input_tokens": 13871,
+    "list_cost_usd": 0.077452
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts misapply passage [9], a segment's $8.0bn net revenue, to explain firmwide FY2023 growth. Draft A states one unsupported cause: pandemic deposits explaining the loan-to-deposit shift. Draft B makes a factual error, calling 4.2% cost growth '1.4pp slower' than 2.8% revenue growth, and makes a meaningless net-margin versus NII-share comparison. B is better calibrated, with labelled analysis and restatement detail, but its errors outweigh that. A's watch items carry clearer numeric thresholds.\"}\n```",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts have errors. A says costs grew 'slower' than revenue when they grew faster, and its net-margin-versus-NII-share comparison is meaningless. B has more grounding faults: it misstates the prior-year capital return (actually $33.6bn), wrongly calls the incremental margin negative, gives an uncited pandemic cause for the loan/deposit shift, and names criticized-exposure drivers beyond the truncated quote. B's noninterest-income and provision drivers add real depth, and A separates analysis from fact more visibly."
+   },
+   "cost_usd": 0.135045,
+   "latency_s": 18.054,
+   "backend": "claude_cli",
+   "input_tokens": 13873,
+   "cached_input_tokens": 727,
+   "output_tokens": 1487,
+   "reasoning_tokens": 1235,
+   "meta": {
+    "duration_api_ms": 13733,
+    "cache_creation_input_tokens": 13144,
+    "list_cost_usd": 0.082469
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both drafts have errors. A says costs grew 'slower' than revenue when they grew faster, and its net-margin-versus-NII-share comparison is meaningless. B has more grounding faults: it misstates the prior-year capital return (actually $33.6bn), wrongly calls the incremental margin negative, gives an uncited pandemic cause for the loan/deposit shift, and names criticized-exposure drivers beyond the truncated quote. B's noninterest-income and provision drivers add real depth, and A separates analysis from fact more visibly.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.267981
+}

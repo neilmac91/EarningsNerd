@@ -1,0 +1,97 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "TGT",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "f3d6c8796664b961667dcbe38e742492db8b995439888f214d77ce8b0ff5a541",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2020 surge came from a 19.3% comparable sales increase , and FY2025's decline reflected comparable sales down 2.6% on a 2.2% traffic drop .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in 2020 sales compared to 2019 is due to a 19.3 percent comparable sales increase and the contribution from new stores. The COVID-19 pandemic has affected the amount and mix of sales across channels and categories."
+    },
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Comparable sales decreased 2.6 percent, driven by a 2.2 percent decrease in traffic and a 0.4 percent decrease in average transaction amount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 attributes the 2020 increase to 19.3% comparable sales. P14 attributes the 2.6% comp decline to a 2.2% traffic decrease."
+  },
+  {
+   "sentence": "The FY2025 margin fell 0.3pp , with cost of revenue a 0.3pp drag  as the gross margin rate slipped to 27.9% from 28.2% .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross margin rate was 27.9\u00a0percent in 2025 and 28.2\u00a0percent in 2024. The decrease reflected the net impact of:"
+    }
+   ],
+   "label": "partial",
+   "reason": "P12 confirms the gross margin rate fell from 28.2% to 27.9%. Its list of drivers is cut off, and it never links this to operating margin."
+  },
+  {
+   "sentence": "SG&A was 20.6% of revenue, flat on FY2024, including a 0.6pp benefit from interchange fee settlements offset by 0.2pp of business transformation costs .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our SG&A expense rate was 20.6\u00a0percent in 2025, consistent with 2024. The 2025 rate included a 0.6 percentage point benefit from interchange fee settlements, partially offset by 0.2 percentage points of business transformation costs. Excluding these items, our Adjusted SG&A expense rate was 20.9 percent in 2025, compared with 20.6 percent in 2024, reflecting the deleveraging impact of lower Net Sales and the net impact of other costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P11 states the flat 20.6% rate, the 0.6pp interchange fee benefit and the 0.2pp transformation cost offset."
+  },
+  {
+   "sentence": "The largest move was FY2022, when operating margin fell 4.9pp  as cost of revenue was a 4.6pp drag , driven by markdowns, excess inventory and supply-chain costs .",
+   "passages": [
+    {
+     "id": "P38",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2022, our comparable sales growth slowed significantly, reflecting sales decreases in our Discretionary categories (Apparel & Accessories, Hardlines, and Home Furnishings & Decor) that substantially offset growth in our Frequency categories (Beauty & Household Essentials and Food & Beverage). In response to this shift in demand, we took several actions to address our inventory position and create additional flexibility in a rapidly changing environment, including increasing promotional and clearance markdowns, removing excess inventory, and cancelling purchase orders. In addition, during the second half of 2022, port congestion, shipping container availability, and other supply chain pressures improved. This resulted in some inventory arriving earlier than anticipated, which resulted in increased costs of managing elevated inventory levels and an increased working capital investment. These factors, net of the impact of retail price increases taken to address merchandise and freight cost inflation, resulted in decreased profitability compared to the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 attributes lower 2022 profitability to markdowns, removing excess inventory and the costs of managing elevated inventory and supply chains."
+  },
+  {
+   "sentence": "Operating cash flow fell from $7.37 billion in FY2024  on lower net earnings and lower accounts payable leverage .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash flows provided by operating activities were $6.6 billion in 2025 compared with $7.4 billion in 2024. The operating cash flow decrease reflects lower net earnings, as well as the net impact of lower accounts payable leverage and inventory purchases in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 attributes the operating cash flow decrease to lower net earnings and lower accounts payable leverage."
+  },
+  {
+   "sentence": "Capex rose 28.9% in FY2025  on increased investment in new stores and remodels , and management guides to about $5 billion in FY2026 .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Capital expenditures in 2025 reflect continued investment in our strategic initiatives, including investments in both stores and in our supply chain, enhancing our capabilities and guest experience across stores and digital channels. The increase in capital expenditures in 2025 compared with 2024 primarily reflects an increased investment in both new stores and remodels."
+    },
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "We expect capital expenditures in 2026 of approximately $5 billion to support our store experience and remodel program, continued investment in supply chain and technology projects, and investment in new stores. We expect to open about 30 new stores during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the capex increase to new stores and remodels. P4 guides 2026 capex to about $5 billion."
+  }
+ ],
+ "cost_usd": 0.040192,
+ "backend": "claude_cli",
+ "input_tokens": 3145,
+ "cached_input_tokens": 0,
+ "output_tokens": 752
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "B gives real depth: filing-cited drivers (Shell Permian, Marathon Oil, DD&A, severance), the revenue recast disclosure, peer context and capital-return data. But it has grounding errors. It reports the FY2022\u201325 CAGR as +5.3% when the source shows -5.3%, calls FY2026 a 'fifth year' of decline when it would be the fourth, and asserts tax and ROE 'rose/fell' without cited prior values. A is accurate but mostly restates table values."
+   },
+   "cost_usd": 0.095697,
+   "latency_s": 13.035,
+   "input_tokens": 10632,
+   "output_tokens": 816,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"B gives real depth: filing-cited drivers (Shell Permian, Marathon Oil, DD&A, severance), the revenue recast disclosure, peer context and capital-return data. But it has grounding errors. It reports the FY2022\u201325 CAGR as +5.3% when the source shows -5.3%, calls FY2026 a 'fifth year' of decline when it would be the fourth, and asserts tax and ROE 'rose/fell' without cited prior values. A is accurate but mostly restates table values.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but mostly restates table values. A has real slips: the -5.3% three-year CAGR is shown without its minus sign, 'tax rate rose' is unsourced, and 'fifth year' miscounts the decline. Still, most of A's causal claims match their quoted passages: Shell Permian, Marathon Oil, the drivers of DD&A and operating costs, and the 46% capital return against the 30% framework. A also discloses the revenue recast and segment-sum problems and gives numeric watch thresholds."
+   },
+   "cost_usd": 0.095441,
+   "latency_s": 13.93,
+   "input_tokens": 10630,
+   "output_tokens": 804,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but mostly restates table values. A has real slips: the -5.3% three-year CAGR is shown without its minus sign, 'tax rate rose' is unsourced, and 'fifth year' miscounts the decline. Still, most of A's causal claims match their quoted passages: Shell Permian, Marathon Oil, the drivers of DD&A and operating costs, and the 46% capital return against the 30% framework. A also discloses the revenue recast and segment-sum problems and gives numeric watch thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.191138
+}

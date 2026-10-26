@@ -1,0 +1,104 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "PG",
+ "split": "dev",
+ "claims": 7,
+ "output_sha256": "6244f034850cf243c520630e4a282d101d5b61efcf189b4488e7a559e1e5dd03",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2019 collapse came from an $8.3 billion asset impairment charge, including $6.8 billion of Shave Care goodwill, driven by currency devaluations, slowing category growth and tougher US competition .",
+   "passages": [
+    {
+     "id": "P62",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During fiscal 2019, a non-cash before- and after-tax impairment charge of $6.8 billion was recognized to reduce the carrying amount of goodwill for the Shave Care reporting unit, and a non-cash, before-tax impairment charge of $1.6 billion ($1.2 billion after-tax) was recognized to reduce the carrying amount of the Gillette indefinite-lived intangible asset to its fair value. The underlying reductions in fair values were due in large part to significant currency devaluations in a number of countries relative to the U.S. dollar, a deceleration of category growth caused by changing grooming habits, primarily in the developed markets, and an increased competitive market environment in the U.S. and certain other markets. As a result of the fiscal 2019 impairment determined by the step two testing, the Shave Care fair value exceeded the carrying value by approximately 20% as of June 30, 2019. Because the impairment testing for intangible assets is a one-step process, the Gillette indefinite-lived intangible asset fair value approximated its carrying value at that date."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states impairment charges and attributes them to currency devaluations, category deceleration, and increased competition."
+  },
+  {
+   "sentence": "FY2020's rebound reflected $8.3 billion of that base-period charge not repeating, plus a 5% sales increase on 4% volume growth .",
+   "passages": [
+    {
+     "id": "P71",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income increased 186% or $10.2 billion to $15.7 billion. $8.3 billion of the increase was due to the base period charge for the Shave Care impairment. The remaining $1.9 billion increase was due to the net sales increase and the increase in gross margin partially offset by the increase in SG&A, all of which are discussed above."
+    },
+    {
+     "id": "P73",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Net sales increased 5% to $71.0 billion on a 4% increase in unit volume. Foreign exchange had a negative 2% impact on net sales. Net sales growth was driven by a double digit increase in Health Care, a high single digit increase in Fabric & Home Care, a mid-single digit increase in Beauty and a low single digit increase in Baby, Feminine & Family Care. Grooming net sales"
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage P71 states $8.3 billion increase due to base period charge, and P73 states 5% net sales increase on 4% volume."
+  },
+  {
+   "sentence": "In FY2026 Non-US rebounded 6.1% and contributed 3.1pp of the 3.3% total growth, with net sales up 3% on 2% favorable foreign exchange and 1% pricing .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased 3% to $87.0 billion in fiscal 2026 driven by favorable foreign exchange of 2% and pricing of 1%. Unit volume and mix were unchanged versus the prior year."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports 3% net sales increase with 2% FX and 1% pricing, but does not mention Non-US or contribution to total growth."
+  },
+  {
+   "sentence": "The 1.6pp operating-margin decline came from a 1.0pp cost-of-revenue drag and a 0.6pp SG&A drag, as gross margin fell on unfavorable category mix and SG&A rose on marketing spending .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net earnings decreased 2% to $3.9 billion due to a 50 basis-point decline in net earnings margin, partially offset by an increase in net sales. Net earnings margin decreased due to a decrease in gross margin and an increase in SG&A as a percentage of net sales. Gross margin decreased 40 basis points due to unfavorable category mix, partially offset by lower commodity costs and productivity savings. SG&A as a percentage of net sales increased due to an increase in marketing spending, partially offset by a reduction in overhead spending."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states gross margin decreased due to unfavorable category mix and SG&A increased due to marketing spending."
+  },
+  {
+   "sentence": "The larger FY2019 move was the 11.9pp margin drop to 8.1%, driven by the 12.1pp residual impairment effect rather than operating costs .",
+   "passages": [
+    {
+     "id": "P62",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During fiscal 2019, a non-cash before- and after-tax impairment charge of $6.8 billion was recognized to reduce the carrying amount of goodwill for the Shave Care reporting unit, and a non-cash, before-tax impairment charge of $1.6 billion ($1.2 billion after-tax) was recognized to reduce the carrying amount of the Gillette indefinite-lived intangible asset to its fair value. The underlying reductions in fair values were due in large part to significant currency devaluations in a number of countries relative to the U.S. dollar, a deceleration of category growth caused by changing grooming habits, primarily in the developed markets, and an increased competitive market environment in the U.S. and certain other markets. As a result of the fiscal 2019 impairment determined by the step two testing, the Shave Care fair value exceeded the carrying value by approximately 20% as of June 30, 2019. Because the impairment testing for intangible assets is a one-step process, the Gillette indefinite-lived intangible asset fair value approximated its carrying value at that date."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports impairment charge but does not quantify margin drop or attribute it to residual impairment effect."
+  },
+  {
+   "sentence": "Capex rose 16.9% to $4.4 billion, 5.1% of revenue and 1.40x D&A, as investing cash use grew to $4.6 billion on capital expenditures and hedge settlements .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net investing activities used $4.6 billion of cash in 2026, primarily due to capital expenditures and the settlement of net investment hedges, partially offset by proceeds from the dissolution of the Glad joint venture business."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports investing cash use due to capital expenditures and hedge settlements, but does not provide capex figures or ratios."
+  },
+  {
+   "sentence": "Operating cash flow rose 10% as net earnings plus non-cash items generated about $19.5 billion, with inventory consuming $641 million on higher safety stock and new products .",
+   "passages": [
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating cash flow was $19.6 billion in 2026, a 10% increase versus the prior year. Net earnings, adjusted for certain non-cash items (depreciation and amortization, share-based compensation expense, deferred income taxes and (gain)/loss on sale of assets) generated approximately $19.5 billion of operating cash flow. Working capital and other impacts generated $29 million of cash in the period. Accounts receivable decreased, resulting in $84 million of cash flow help. Days sales outstanding decreased by one day. Total inventories increased, consuming $641 million of cash, driven primarily by increased safety stock levels and new product initiatives. Days inventory on hand increased by two days. Accounts payable increased, generating $919 million of cash, driven primarily by increased supply chain activity in line with the increase in inventory and increased marketing support activity. Other impacts reduced cash by $333 million primarily driven by the final payment of the transitional tax related to the 2017 U.S."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow increased 10%, net earnings plus non-cash items generated $19.5 billion, and inventory consumed $641 million."
+  }
+ ],
+ "cost_usd": 0.001806,
+ "backend": "openai_compat",
+ "input_tokens": 1683,
+ "cached_input_tokens": 0,
+ "output_tokens": 351
+}

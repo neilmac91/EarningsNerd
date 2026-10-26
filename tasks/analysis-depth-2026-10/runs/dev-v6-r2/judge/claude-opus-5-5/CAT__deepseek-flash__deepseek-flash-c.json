@@ -1,0 +1,106 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "4dd145dd347adf2393b40828fe8cc019bf0f3f2aa640f4a0869d5d2a6fad950a",
+ "y_sha256": "fd5f4a62577174943ea757dd1a0105784234e67946a82b40fec136ec607cbd82",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "B discloses that net debt omits $7.1bn of current long-term debt, which materially qualifies every leverage claim; A misses this. A garbles the capex citation: it attributes the capex rise to 'an increase in capital expenditures', a circular reading of a passage about investing cash flow. A also states the other-income and tax cushion as cause without support. B labels its analysis separately. A adds the FY2021 rebound and segment-overlap flag, but neither offsets these problems."
+   },
+   "cost_usd": 0.141665,
+   "latency_s": 13.6,
+   "backend": "claude_cli",
+   "input_tokens": 16283,
+   "cached_input_tokens": 727,
+   "output_tokens": 854,
+   "reasoning_tokens": 627,
+   "meta": {
+    "duration_api_ms": 9607,
+    "cache_creation_input_tokens": 15554,
+    "list_cost_usd": 0.079449
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"B discloses that net debt omits $7.1bn of current long-term debt, which materially qualifies every leverage claim; A misses this. A garbles the capex citation: it attributes the capex rise to 'an increase in capital expenditures', a circular reading of a passage about investing cash flow. A also states the other-income and tax cushion as cause without support. B labels its analysis separately. A adds the FY2021 rebound and segment-overlap flag, but neither offsets these problems.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A wrongly says operating cash flow rose; the table shows it fell, and the cited passage covers only Machinery. B scopes that claim correctly but credits other income for cushioning net margin without support. B ignores the screened flag that omitted current debt understates net debt. A uses that flag well. B adds depth: the FY2021 rebound, the goodwill effect, Power Generation, incremental margin and cost-of-revenue share. Its watch items are also more concrete."
+   },
+   "cost_usd": 0.148921,
+   "latency_s": 17.754,
+   "backend": "claude_cli",
+   "input_tokens": 16285,
+   "cached_input_tokens": 727,
+   "output_tokens": 1216,
+   "reasoning_tokens": 992,
+   "meta": {
+    "duration_api_ms": 13213,
+    "cache_creation_input_tokens": 15556,
+    "list_cost_usd": 0.086697
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A wrongly says operating cash flow rose; the table shows it fell, and the cited passage covers only Machinery. B scopes that claim correctly but credits other income for cushioning net margin without support. B ignores the screened flag that omitted current debt understates net debt. A uses that flag well. B adds depth: the FY2021 rebound, the goodwill effect, Power Generation, incremental margin and cost-of-revenue share. Its watch items are also more concrete.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.290586
+}

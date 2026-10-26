@@ -1,0 +1,106 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "9f80316762a4949d6b477d1fd95a015258194e6285eeb3874b36cefac2a8b543",
+ "y_sha256": "5a20a66fcbd12e8c0304982affd9b25e0e6b426fb6f904934693885f6cacaad2",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite subscriptions as the cause of Other revenue growth, which the truncated passage never states. A also invents 'leased facilities to support team workspaces'. B stretches an Adjusted EBITDA explanation onto the FY2022 net loss, a lesser slip. B adds more depth: the FY2022 cause, the R&D driver, the residual margin bridge and the net-cash path. It labels its analysis separately from fact. A garbles its capex and FCF-margin sentence."
+   },
+   "cost_usd": 0.148281,
+   "latency_s": 15.103,
+   "backend": "claude_cli",
+   "input_tokens": 16360,
+   "cached_input_tokens": 727,
+   "output_tokens": 1154,
+   "reasoning_tokens": 920,
+   "meta": {
+    "duration_api_ms": 11045,
+    "cache_creation_input_tokens": 15631,
+    "list_cost_usd": 0.085757
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite subscriptions as the cause of Other revenue growth, which the truncated passage never states. A also invents 'leased facilities to support team workspaces'. B stretches an Adjusted EBITDA explanation onto the FY2022 net loss, a lesser slip. B adds more depth: the FY2022 cause, the R&D driver, the residual margin bridge and the net-cash path. It labels its analysis separately from fact. A garbles its capex and FCF-margin sentence.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts claim subscriber-driven subscription growth that their truncated passage does not state. A ties the FY2022 net loss to an Adjusted EBITDA explanation, and B invents the leased-facility capex purpose, so grounding is even. B goes further on margins, with cost ratios by line and the $96.7m extinguishment gain, and its watch items set two-sided thresholds. A labels its analysis more clearly but adds less interpretation."
+   },
+   "cost_usd": 0.153609,
+   "latency_s": 16.861,
+   "backend": "claude_cli",
+   "input_tokens": 16361,
+   "cached_input_tokens": 727,
+   "output_tokens": 1420,
+   "reasoning_tokens": 1199,
+   "meta": {
+    "duration_api_ms": 12930,
+    "cache_creation_input_tokens": 15632,
+    "list_cost_usd": 0.091081
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts claim subscriber-driven subscription growth that their truncated passage does not state. A ties the FY2022 net loss to an Adjusted EBITDA explanation, and B invents the leased-facility capex purpose, so grounding is even. B goes further on margins, with cost ratios by line and the $96.7m extinguishment gain, and its watch items set two-sided thresholds. A labels its analysis more clearly but adds less interpretation.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.30189
+}

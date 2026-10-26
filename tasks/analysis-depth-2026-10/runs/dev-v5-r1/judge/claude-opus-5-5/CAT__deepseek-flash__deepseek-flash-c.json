@@ -1,0 +1,106 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "c1095c81638182536a89b8454742f9b5d2b414d4c414db706870c83d966ad31f",
+ "y_sha256": "fb5b5c8600636dc10d63278845fafe747c1b68ec9e4d418e52ac05709edafedd",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has several grounding errors. It calls FY2023 the margin peak, though FY2024 was the high. It says the EPS fall 'matched' net income (-14.7% vs -17.7%). It pairs a free-cash-flow peer median with an operating-cash-flow ratio. It also asserts unsourced causes: other income cushioning margin and debt funding buybacks. B's causal claims match their passages. B also discloses that total debt omits $7.1bn of current maturities and labels its judgements as analysis."
+   },
+   "cost_usd": 0.141933,
+   "latency_s": 13.481,
+   "backend": "claude_cli",
+   "input_tokens": 16099,
+   "cached_input_tokens": 727,
+   "output_tokens": 941,
+   "reasoning_tokens": 702,
+   "meta": {
+    "duration_api_ms": 9538,
+    "cache_creation_input_tokens": 15370,
+    "list_cost_usd": 0.080453
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has several grounding errors. It calls FY2023 the margin peak, though FY2024 was the high. It says the EPS fall 'matched' net income (-14.7% vs -17.7%). It pairs a free-cash-flow peer median with an operating-cash-flow ratio. It also asserts unsourced causes: other income cushioning margin and debt funding buybacks. B's causal claims match their passages. B also discloses that total debt omits $7.1bn of current maturities and labels its judgements as analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B has misreadings: it says EPS's 14.7% fall 'matches' net income, which fell 17.7%. It labels a FCF/NI peer median as OCF/NI. It states unsupported causes: other income cushioning net margin, debt funding buybacks. B also omits the $7.1bn current-maturities gap that understates net debt, which A discloses and labels as analysis. B adds Power Generation detail and reads smoothly, but A is better grounded and calibrated."
+   },
+   "cost_usd": 0.147049,
+   "latency_s": 15.708,
+   "backend": "claude_cli",
+   "input_tokens": 16101,
+   "cached_input_tokens": 727,
+   "output_tokens": 1196,
+   "reasoning_tokens": 960,
+   "meta": {
+    "duration_api_ms": 11429,
+    "cache_creation_input_tokens": 15372,
+    "list_cost_usd": 0.085561
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B has misreadings: it says EPS's 14.7% fall 'matches' net income, which fell 17.7%. It labels a FCF/NI peer median as OCF/NI. It states unsupported causes: other income cushioning net margin, debt funding buybacks. B also omits the $7.1bn current-maturities gap that understates net debt, which A discloses and labels as analysis. B adds Power Generation detail and reads smoothly, but A is better grounded and calibrated.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.288982
+}
