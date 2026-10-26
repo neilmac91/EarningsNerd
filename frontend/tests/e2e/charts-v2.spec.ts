@@ -12,7 +12,10 @@ import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
  * rest keep to CI's e2e-charts-v2 job, whose build still sets NEXT_PUBLIC_CHARTS_V2 (read by nothing now), until
  * E195's follow-up folds that job into the main one and drops `enabled`.
  */
+// No build reads NEXT_PUBLIC_CHARTS_V2 since E195: CI's e2e-charts-v2 job sets it in this process alone, so these cases
+// run there, once each, until E195's follow-up moves them into e2e-tests and drops the guard (F67).
 const enabled = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
+const CHARTS_JOB_ONLY = 'Runs in CI’s e2e-charts-v2 job (NEXT_PUBLIC_CHARTS_V2=true in the test process) until E195’s follow-up.'
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 test.describe.configure({ mode: 'parallel' })
 // Full font hinting, headless Chrome's default (CI's) and some desktops': at 1x it snaps every advance to a whole
@@ -36,7 +39,7 @@ test.describe('trend charts v2 when the renderer’s chunk fails to load', () =>
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
   test('the grid says the charts could not be drawn, and the rest of the analysis stands', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     // A stale client after a deploy: every script that carries the renderer fails to arrive.
     const aborted: string[] = []
     await page.route('**/_next/static/**/*.js', async (route) => {
@@ -88,7 +91,7 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test('one values stop a chart: Tab enters, reads the newest period, leaves and returns, under the brand ring', async ({ page, baseURL }) => {
-      test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+      test.skip(!enabled, CHARTS_JOB_ONLY)
       test.setTimeout(90_000)
       await openAnalysis(page, baseURL!, 'captured', theme)
       for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
@@ -137,7 +140,7 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
     })
 
     test('the period walk keeps its column and tooltip in view; a pointer reads without scrolling; Escape in two steps', async ({ page, baseURL }) => {
-      test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+      test.skip(!enabled, CHARTS_JOB_ONLY)
       test.setTimeout(120_000)
       await openAnalysis(page, baseURL!, 'captured', theme)
       const card = page.locator('section:has([data-analysis-chart])').first()
@@ -237,7 +240,7 @@ for (const theme of THEMES) for (const width of [1280, 390]) {
     })
 
     test('the tooltip’s text clears 4.5:1 on its surface, and under 200% text it stays inside the chart', async ({ page, baseURL }) => {
-      test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+      test.skip(!enabled, CHARTS_JOB_ONLY)
       test.setTimeout(90_000)
       await openAnalysis(page, baseURL!, 'captured', theme, 2)
       for (const viewport of await page.locator('[data-analysis-chart-scroll]').all()) {
@@ -263,7 +266,7 @@ test.describe('trend charts v2 / 900px: a card that scrolls, with an expanded vi
   test.use({ viewport: { width: 900, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
   test('collapsing opens the card at its newest period again (spec §3.10)', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     await openAnalysis(page, baseURL!, 'captured', 'light')
     const card = page.locator('section:has([data-analysis-chart])').first()
     const viewport = card.locator('[data-analysis-chart-scroll]')
@@ -284,7 +287,7 @@ test.describe('trend charts v2 / a tap pins a tooltip', () => {
   test.use({ viewport: { width: 390, height: 900 }, hasTouch: true, isMobile: true, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
   test('a tap shows its period’s tooltip, a second tap or a tap outside closes it', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     await openAnalysis(page, baseURL!, 'captured', 'light')
     const card = page.locator('section:has([data-analysis-chart])').first()
     const viewport = card.locator('[data-analysis-chart-scroll]')
@@ -308,7 +311,7 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
   test('a plot holds its bones, busy, while its font loads, and draws once it arrives', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     // Hold every font file the page does not preload (next/font marks a preloaded one ".p.") until the bones have been
     // read: the preloads pass, so the page loads, and the latin-ext face the plots wait for (G3, E199) does not, though
     // the page asks for it before the run. The wait's 1,500 ms cap paints regardless.
@@ -371,7 +374,7 @@ test.describe('trend charts v2 / the states while a chart is not ready (spec §3
   })
 
   test('the export is busy while its PNG is drawn, then ready again', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     await openAnalysis(page, baseURL!, 'captured', 'light')
     const button = page.locator('[data-trend-chart="margins"]').getByRole('button', { name: 'Download chart as PNG', exact: true })
     await button.evaluate((element) => {
@@ -390,7 +393,7 @@ test.describe('trend charts v2 / the grid while the renderer’s chunk loads, at
   test.use({ viewport: { width: 320, height: 1000 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
   test('four cards of bones under one status, inside the page, then the charts', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     // Hold the renderer's own chunk (its panel attribute names it, as the flag-off case reads) until the skeleton is read.
     let release!: () => void
     const held = new Promise<void>((resolve) => { release = resolve })
@@ -417,7 +420,7 @@ for (const motion of ['no-preference', 'reduce'] as const) test.describe(`trend 
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: motion, serviceWorkers: 'block' })
 
   test(motion === 'reduce' ? 'the plot row takes its new height at once' : 'the plot row runs to its expanded height, then sizes itself again', async ({ page, baseURL }) => {
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     await openAnalysis(page, baseURL!, 'captured', 'light')
     const row = page.locator('[data-trend-chart="margins"] [data-analysis-chart-scroll]').locator('xpath=../..')
     const run = await row.evaluate(async (element) => {

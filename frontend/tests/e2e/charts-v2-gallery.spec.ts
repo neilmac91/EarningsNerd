@@ -22,7 +22,10 @@ import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixt
  * own ticker (analysisLayoutApi's datasetFixture). D4, D7, D11, D12 and D13 run elsewhere: the first four on every fixture
  * in jsdom (trend-charts-v2.spec.tsx), D13 in charts-v2.spec.ts.
  */
+// No build reads NEXT_PUBLIC_CHARTS_V2 since E195: CI's e2e-charts-v2 job sets it in this process alone, so these cases
+// run there, once each, until E195's follow-up moves them into e2e-tests and drops the guard (F67).
 const enabled = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
+const CHARTS_JOB_ONLY = 'Runs in CI’s e2e-charts-v2 job (NEXT_PUBLIC_CHARTS_V2=true in the test process) until E195’s follow-up.'
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 const FIXTURE = JSON.parse(readFileSync(path.join(__dirname, '../unit/fixtures/chart-datasets.json'), 'utf8')) as {
   datasets: Record<string, { dataset: AnalysisDataset }>
@@ -113,7 +116,7 @@ test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 for (const [name, source, why] of GALLERY) for (const theme of THEMES) for (const width of [1280, 390]) {
   test.describe(`trend charts v2 gallery / ${name} / ${theme} / ${width}px`, () => {
     // Skipped as a group, before any page opens: the main e2e job lists the gallery with the flag unset.
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
+    test.skip(!enabled, CHARTS_JOB_ONLY)
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test(`every chart draws its plan and passes the DOM checks, card and expanded (${why})`, async ({ page, baseURL }) => {

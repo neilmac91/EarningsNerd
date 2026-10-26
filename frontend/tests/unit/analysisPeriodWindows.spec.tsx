@@ -6,19 +6,6 @@ import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 
-// recharts measures the DOM, which jsdom can't do: stub it, as analysis-teaser.spec.tsx does.
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
 // PeekLocked's UpgradeModal calls useRouter; no app router is mounted under vitest.
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
