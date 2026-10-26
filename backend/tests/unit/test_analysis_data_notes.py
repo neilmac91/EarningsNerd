@@ -216,7 +216,7 @@ NOTES_PROBE_CITATIONS = [
 # saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest; a version not
 # yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
-    2: "3e734882bea75dbde33ff0be9b45aa7f84fb63142ee38fdbc469e38366e49fcc",
+    2: "c5dde3d9257c9c6e14312aaa22aba8ab5764a14849cb1b92eea8a4fe82984fff",
 }
 
 

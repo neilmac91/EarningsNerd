@@ -25,6 +25,7 @@ from app.services import universe_seed_service
 from app.services.edgar import xbrl_instance
 from app.services.edgar import xbrl_service as xbrl
 from app.services.edgar.fiscal_periods import fiscal_label
+from app.services.trend_analysis.data_notes import REASONS
 
 
 @pytest.fixture
@@ -216,9 +217,9 @@ def test_growth_citations_and_excel_keep_input_reconciliation(sessions):
     citations = analysis.resolve_narrative_citations("Revenue [F1]. Growth [F3].", index)[1]
     assert all(c["reconciled"] is False and c["verified"] for c in citations)
     wb = load_workbook(BytesIO(build_analysis_workbook(dataset)))
-    assert wb["Metrics"]["D2"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
-    assert wb["Metrics"]["F2"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
-    assert wb["Revenue & growth"]["C3"].comment.text.startswith("Data note a: Not yet matched to the filing: ")
+    assert wb["Metrics"]["D2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Metrics"]["F2"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
+    assert wb["Revenue & growth"]["C3"].comment.text.startswith(f"Data note a: {REASONS['source_check_needed']}")
 
 
 def test_universe_seed_previews_then_is_idempotent_without_generation(sessions, monkeypatch):
@@ -372,7 +373,6 @@ def test_refresh_existing_amendments_repairs_links_and_locks_company(sessions):
 
 def test_pdf_retains_value_and_citation_quality():
     from app.services.export_service import export_service
-    from app.services.trend_analysis.data_notes import REASONS
     record = SimpleNamespace(mode="annual", period_key="FY2025", narrative_md="Revenue grew [1].",
         dataset_json={"mode": "annual", "period_key": "FY2025", "periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
         "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},

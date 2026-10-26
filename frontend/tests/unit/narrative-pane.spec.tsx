@@ -278,7 +278,7 @@ describe('NarrativePane readable evidence', () => {
     expect(source).not.toHaveTextContent('Calculated figure')
     expect(source).not.toHaveTextContent('Calculated from filing figures')
     expect(source).not.toHaveTextContent('Calculated from recorded inputs')
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.')
   })
 })
 

@@ -8,8 +8,8 @@
     "clauses": {
       "source_check_needed": "not yet matched to the filing",
       "source_conflict": "the filings report different values (the most recent shown)",
-      "calculation_mismatch": "does not match our calculation from the filed inputs",
-      "missing_calculation_inputs": "inputs not found in the same filing, so not checked"
+      "calculation_mismatch": "not confirmed by our calculation from the filed inputs",
+      "missing_calculation_inputs": "no compatible inputs in the same filing, so not checked"
     },
     "fallback": "questioned by an automated check",
     "joined": [
@@ -31,7 +31,7 @@
           "calculation_mismatch",
           "missing_calculation_inputs"
         ],
-        "summary": "does not match our calculation from the filed inputs; inputs not found in the same filing, so not checked"
+        "summary": "not confirmed by our calculation from the filed inputs; no compatible inputs in the same filing, so not checked"
       },
       {
         "reasons": [
@@ -313,7 +313,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "legacy",
@@ -453,7 +453,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -621,7 +621,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "legacy",
@@ -761,7 +761,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -983,7 +983,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Not yet matched to the filing by our automated check.",
             "values": [],
             "comparisons": [
               {
@@ -2186,7 +2186,7 @@
             "key": "[\"review\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -2210,7 +2210,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2810,7 +2810,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Does not match our calculation from the filed inputs.",
+            "message": "Not confirmed by our calculation from the filed inputs.",
             "values": [
               {
                 "concept": "reason_27",
@@ -2834,7 +2834,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "Not checked: the inputs were not found in the same filing.",
+            "message": "Not checked: no compatible inputs in the same filing.",
             "values": [
               {
                 "concept": "reason_28",
@@ -2858,7 +2858,7 @@
             "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
             "id": "analysis-data-note-ac",
             "letter": "ac",
-            "message": "Zero where the previous period had a value.",
+            "message": "Zero where the previous period was not zero.",
             "values": [
               {
                 "concept": "reason_29",
@@ -3002,7 +3002,7 @@
             "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
             "id": "analysis-data-note-ai",
             "letter": "ai",
-            "message": "Withdrawn and unavailable: an input was moved to its correct period.",
+            "message": "Withdrawn and unavailable: an input was corrected or withdrawn.",
             "values": [
               {
                 "concept": "reason_35",
@@ -3026,7 +3026,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-aj",
             "letter": "aj",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "reason_1",
@@ -3096,7 +3096,7 @@
             "key": "[\"review\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -3120,7 +3120,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "reason_2",
@@ -3720,7 +3720,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Does not match our calculation from the filed inputs.",
+            "message": "Not confirmed by our calculation from the filed inputs.",
             "values": [
               {
                 "concept": "reason_27",
@@ -3744,7 +3744,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "Not checked: the inputs were not found in the same filing.",
+            "message": "Not checked: no compatible inputs in the same filing.",
             "values": [
               {
                 "concept": "reason_28",
@@ -3768,7 +3768,7 @@
             "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
             "id": "analysis-data-note-ac",
             "letter": "ac",
-            "message": "Zero where the previous period had a value.",
+            "message": "Zero where the previous period was not zero.",
             "values": [
               {
                 "concept": "reason_29",
@@ -3912,7 +3912,7 @@
             "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
             "id": "analysis-data-note-ai",
             "letter": "ai",
-            "message": "Withdrawn and unavailable: an input was moved to its correct period.",
+            "message": "Withdrawn and unavailable: an input was corrected or withdrawn.",
             "values": [
               {
                 "concept": "reason_35",
@@ -3936,7 +3936,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-aj",
             "letter": "aj",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "reason_1",
@@ -3996,7 +3996,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-am",
             "letter": "am",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [],
             "comparisons": [],
             "counts": {
@@ -4290,7 +4290,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked. Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4338,7 +4338,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",
@@ -4398,7 +4398,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -4464,7 +4464,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked. Not yet matched to the filing by our automated check.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4512,7 +4512,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",
@@ -4572,7 +4572,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Not in our data; never shown as zero.",
+            "message": "Not in our data. Never shown as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -4597,7 +4597,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"unit_mismatch\"]]",
             "id": "analysis-data-note-f",
             "letter": "f",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. The source inputs use different units or currencies.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs. Shown as stored, with its inputs not linked. The source inputs use different units or currencies.",
             "values": [],
             "comparisons": [],
             "counts": {

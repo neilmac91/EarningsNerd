@@ -866,7 +866,7 @@ workbook's lists, the chart footnotes). So each sentence:
 - names no one figure. "Different values for this figure" printed above three places in the open
   detail (chief design's review of #1659), and "The figure's period ends …" above "(4 figures)" in
   the PDF (the third review round). Every sentence reads alike above one figure and above many: a
-  fragment that names nothing ("Zero where the previous period had a value."), a plural, or
+  fragment that names nothing ("Zero where the previous period was not zero."), a plural, or
   "calculation" as a mass noun;
 - asks for nothing only the page does. "Select it to compare" stops `source_conflict` and
   `source_check_needed` short: nothing can be selected in an export. On the page, the detail's
@@ -878,8 +878,9 @@ workbook's lists, the chart footnotes). So each sentence:
   in the page's summary line ("3 not in our data, shown as —"), drawn beside the table's own dash,
   and the voice rule keeps "—" out of a sentence anyway.
 
-A summary clause has no semicolon of its own, since the summary lists places with "; ".
-`backend/tests/unit/test_analysis_data_notes.py` holds all four rules, each tested both ways. WP5's
+Neither a sentence nor a summary clause has a semicolon of its own, since the summary and a chart's
+footnotes list places with "; " ("Revenue FY2021; Net income FY2023: Not in our data. Never shown as
+zero."). `backend/tests/unit/test_analysis_data_notes.py` holds all four rules, each tested both ways. WP5's
 "select it to see both filings" therefore belongs to the page, not to a reason's sentence.
 
 The final words, beside main's (`data_notes.REASONS` and `provenance.ts` REASONS, held equal by the
@@ -887,9 +888,9 @@ shared notes fixture):
 
 | Reason | On main | Shipped |
 |---|---|---|
-| `not_in_dataset` | "Not available in this dataset." | "Not in our data; never shown as zero." |
-| `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked." |
-| `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing: our automated check could not confirm a match in the company’s filed data." |
+| `not_in_dataset` | "Not available in this dataset." | "Not in our data. Never shown as zero." |
+| `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked." |
+| `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing by our automated check." |
 | `unsupported_eps_calculation` | "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure." | "Calculated quarterly earnings per share is not supported. Use a reported quarterly EPS figure." |
 | `legacy_calculation_not_supported` | "This saved calculation could not be reproduced from compatible source inputs and is unavailable." | "Could not be reproduced from compatible source inputs, so unavailable." |
 | `repair_rolled_back` | "This figure was withdrawn during a data correction and is unavailable." | "Withdrawn during a data correction and unavailable." |
@@ -905,23 +906,23 @@ shared notes fixture):
 | `mixed_vintage` | "The calculation combines figures from different filing versions." | "Calculated from figures in different filing versions." |
 | `mixed_vintages` | "The calculation combines figures from different filing versions." | "Calculated from figures in different filing versions." |
 | `period_mismatch` | "The source inputs cover incompatible reporting periods." | "Period ends on a different date from its filing’s reporting period." |
-| `calculation_mismatch` | the generic sentence | "Does not match our calculation from the filed inputs." |
-| `missing_calculation_inputs` | the generic sentence | "Not checked: the inputs were not found in the same filing." |
-| `zero_where_prior_nonzero` | the generic sentence | "Zero where the previous period had a value." |
+| `calculation_mismatch` | the generic sentence | "Not confirmed by our calculation from the filed inputs." |
+| `missing_calculation_inputs` | the generic sentence | "Not checked: no compatible inputs in the same filing." |
+| `zero_where_prior_nonzero` | the generic sentence | "Zero where the previous period was not zero." |
 | `magnitude_vs_prior` | the generic sentence | "More than ten times the previous period’s value, or less than a tenth of it." |
 | `eps_sign_vs_net_income` | the generic sentence | "Earnings per share and net income have opposite signs for the period." |
 | `diluted_gt_basic` | the generic sentence | "Diluted earnings per share is higher than basic earnings per share for the period." |
 | `legacy_period_label_mismatch` | the generic sentence | "Saved with the wrong fiscal period and replaced by a corrected figure." |
 | `rolling_duration_not_fiscal_year` | the generic sentence | "Saved as a rolling twelve months, not the company’s fiscal year, so unavailable." |
-| `calculation_parent_period_corrected` | the generic sentence | "Withdrawn and unavailable: an input was moved to its correct period." |
+| `calculation_parent_period_corrected` | the generic sentence | "Withdrawn and unavailable: an input was corrected or withdrawn." |
 | `source_conflict` | "Available sources disagree on this figure." | "The company’s filings report different values. We show the most recent filing’s value." |
 
 | Summary clause | Shipped |
 |---|---|
 | `source_check_needed` | "not yet matched to the filing" |
 | `source_conflict` | "the filings report different values (the most recent shown)" |
-| `calculation_mismatch` | "does not match our calculation from the filed inputs" |
-| `missing_calculation_inputs` | "inputs not found in the same filing, so not checked" |
+| `calculation_mismatch` | "not confirmed by our calculation from the filed inputs" |
+| `missing_calculation_inputs` | "no compatible inputs in the same filing, so not checked" |
 
 ### 3.4 Comprehension test
 

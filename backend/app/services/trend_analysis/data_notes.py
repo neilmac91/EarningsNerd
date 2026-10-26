@@ -20,11 +20,12 @@ _FALLBACK_MESSAGE = "The source or calculation basis needs review. Check the ori
 # names no one figure (no "the figure", "the saved calculation" or "this value"), asks for nothing only the page does
 # ("select it") and says nothing of how a gap is drawn, which differs by surface: a dash in the table, the PDF's tables
 # and the page's and PNG's bar charts, a break in a line chart, an empty cell and an empty chart slot in the workbook,
-# "Unavailable" in the PDF's Sources & methods. test_analysis_data_notes.py holds all three.
+# "Unavailable" in the PDF's Sources & methods. Nor does a sentence carry a semicolon: a chart's footnote lists a note's
+# places with "; " before its words. test_analysis_data_notes.py holds all four.
 REASONS = {
-    "not_in_dataset": "Not in our data; never shown as zero.",
-    "legacy_calculation": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
-    "source_check_needed": "Not yet matched to the filing: our automated check could not confirm a match in the company’s filed data.",
+    "not_in_dataset": "Not in our data. Never shown as zero.",
+    "legacy_calculation": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.",
+    "source_check_needed": "Not yet matched to the filing by our automated check.",
     "unsupported_eps_calculation": "Calculated quarterly earnings per share is not supported. Use a reported quarterly EPS figure.",
     "legacy_calculation_not_supported": "Could not be reproduced from compatible source inputs, so unavailable.",
     "repair_rolled_back": "Withdrawn during a data correction and unavailable.",
@@ -48,15 +49,15 @@ REASONS = {
     "eps_not_additive": "Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.",
     "eps_requires_reported_quarter": "A reported quarterly earnings-per-share figure is unavailable.",
     "rounded_share_count": "Rounded weighted-average share counts do not establish an exact quarterly EPS figure.",
-    "calculation_mismatch": "Does not match our calculation from the filed inputs.",
-    "missing_calculation_inputs": "Not checked: the inputs were not found in the same filing.",
-    "zero_where_prior_nonzero": "Zero where the previous period had a value.",
+    "calculation_mismatch": "Not confirmed by our calculation from the filed inputs.",
+    "missing_calculation_inputs": "Not checked: no compatible inputs in the same filing.",
+    "zero_where_prior_nonzero": "Zero where the previous period was not zero.",
     "magnitude_vs_prior": "More than ten times the previous period’s value, or less than a tenth of it.",
     "eps_sign_vs_net_income": "Earnings per share and net income have opposite signs for the period.",
     "diluted_gt_basic": "Diluted earnings per share is higher than basic earnings per share for the period.",
     "legacy_period_label_mismatch": "Saved with the wrong fiscal period and replaced by a corrected figure.",
     "rolling_duration_not_fiscal_year": "Saved as a rolling twelve months, not the company’s fiscal year, so unavailable.",
-    "calculation_parent_period_corrected": "Withdrawn and unavailable: an input was moved to its correct period.",
+    "calculation_parent_period_corrected": "Withdrawn and unavailable: an input was corrected or withdrawn.",
     "source_conflict": "The company’s filings report different values. We show the most recent filing’s value.",
 }
 # Reasons that describe a figure's record, not its value (D-061): their notes put no mark beside the figure. Closed: any
@@ -66,13 +67,13 @@ RECORD_ONLY_REASONS = frozenset({"legacy_calculation"})
 # The fine print's words for a note that marks its figure ("Revenue FY2024: not yet matched to the filing"). The page
 # prints them from provenance.ts REASON_SUMMARIES, which the fixture's summaries holds equal to these. No backend
 # surface prints them yet: the PDF's and the workbook's summary line counts the notes
-# (analysis_export_metadata.notes_summary) until WP3 takes these words. A clause has no semicolon of its own: the fine
-# print lists a note's places, and joins its clauses, with "; ".
+# (analysis_export_metadata.notes_summary) until WP3 takes these words. A clause has no semicolon of its own, as a
+# sentence has none: the fine print lists a note's places, and joins its clauses, with "; ".
 SUMMARIES = {
     "source_check_needed": "not yet matched to the filing",
     "source_conflict": "the filings report different values (the most recent shown)",
-    "calculation_mismatch": "does not match our calculation from the filed inputs",
-    "missing_calculation_inputs": "inputs not found in the same filing, so not checked",
+    "calculation_mismatch": "not confirmed by our calculation from the filed inputs",
+    "missing_calculation_inputs": "no compatible inputs in the same filing, so not checked",
 }
 SUMMARY_FALLBACK = "questioned by an automated check"
 

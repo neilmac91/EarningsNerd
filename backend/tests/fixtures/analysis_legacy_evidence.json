@@ -150,7 +150,7 @@
           "key": "[\"review\",[\"legacy_calculation\"]]",
           "id": "analysis-data-note-a",
           "letter": "a",
-          "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
+          "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.",
           "values": [
             {
               "concept": "operating_margin",
@@ -319,7 +319,7 @@
             "key": "[\"review\",[\"legacy_calculation\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.",
             "values": [
               {
                 "concept": "operating_margin",

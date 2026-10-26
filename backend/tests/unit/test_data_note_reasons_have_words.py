@@ -644,7 +644,7 @@ def _drive(monkeypatch) -> set[str]:
                 "accession": "0000000001-25-000001", "raw_tag": raw_tag, "source": "companyfacts"}
 
     batch = [
-        fact("revenue", 0.0),  # zero where the prior period had a value
+        fact("revenue", 0.0),  # zero where the prior period was not zero
         fact("net_income", 5000.0),  # 500 times the prior period's
         fact("earnings_per_share", -1.0, unit="USD/shares"),  # opposite sign to net income
         fact("eps_diluted", 2.0, unit="USD/shares"),  # above basic EPS

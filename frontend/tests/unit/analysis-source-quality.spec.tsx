@@ -287,7 +287,7 @@ describe('Financial origin and source checks', () => {
     expect(dialog).toHaveTextContent(`As stored: ${exact}`)
     expect(dialog).toHaveTextContent('Needs review')
     expect(dialog).not.toHaveTextContent('Automated checks passed')
-    expect(dialog).toHaveTextContent('shown as stored, with its inputs not linked.')
+    expect(dialog).toHaveTextContent(reasonText('legacy_calculation'))
   })
 
   it('substitutes margin operands by concept rather than input order, and retains real source links', async () => {
@@ -384,7 +384,7 @@ describe('Financial origin and source checks', () => {
     expect(document.getElementById('analysis-data-note-a')).toHaveTextContent(reasonText('not_in_dataset'))
     await userEvent.click(value)
     const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
-    expect(within(dialog).getByText(/Not in our data; never shown as zero/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Not in our data\. Never shown as zero\./)).toBeInTheDocument()
     expect(within(dialog).queryByText(/Automated checks passed/)).not.toBeInTheDocument()
   })
 
@@ -410,7 +410,7 @@ describe('Financial origin and source checks', () => {
     expect(within(checks).getByText('Needs review')).not.toHaveClass('text-warning-light')
     expect(checks).not.toHaveTextContent('Automated checks passed')
     expect(checks).not.toHaveTextContent('Note a')
-    expect(checks).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.')
+    expect(checks).toHaveTextContent('Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.')
   })
 
   it('opens and focuses the report note from its keyboard-activated note control', async () => {

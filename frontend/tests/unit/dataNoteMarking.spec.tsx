@@ -14,7 +14,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import '@/features/analysis/components/TrendChartsV2'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
 
 /**
@@ -241,7 +241,7 @@ describe('every surface marks and names only the notes that question the number 
     // record-only sentence its message opens with.
     const mixed = example.expected.notes.find((note) => note.letter === 'a')!
     expect(mixed.reasons).toEqual(['legacy_calculation', 'source_check_needed'])
-    expect(mixed.message).toMatch(/^Calculated before 10 October 2026, .*\. Not yet matched to the filing: /)
+    expect(mixed.message).toBe(`${reasonText('legacy_calculation')} ${reasonText('source_check_needed')}`)
     expect(fine.querySelector('summary')).toHaveTextContent('Note a: a Free cash flow FY2024: not yet matched to the filing')
     expect(fine.querySelector('summary')).not.toHaveTextContent('Calculated before 10 October 2026')
 
