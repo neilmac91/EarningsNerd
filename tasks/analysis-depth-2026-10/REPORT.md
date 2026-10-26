@@ -46,13 +46,46 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     - almost no interpretation marked as judgement, after the frozen prompt dropped the words "one judgement"
       from the red-flag section;
     - equal support for its causes (76% for both).
-  - Most of the fixes are code, pack or prompt changes that cost no model call. They are being built and
-    measured on DeepSeek: development half first, then held out, two runs each (`DEEPSEEK-ERRORS.md` §3).
+  - The fixes are code, pack and prompt changes that cost no model call. They were built on 25–26 October and
+    measured on 26 October: two development rounds, then two runs on the 10 held-out companies, all off-peak.
+    The candidate ran beside the frozen prompt and beside the version-1 procedure this report describes, the
+    same evening (`DEEPSEEK-ERRORS.md` §5). Pack version 2 with the frozen prompt (P) ran twice more on those
+    companies afterwards. On the held-out half:
+    - **The numbers said about the wrong metric, period or sign did not fall.** Read by hand, every build made
+      3–5 per 1,000 verified claims: the candidate 3.6, P 5.1, the frozen prompt 3.4 and the version-1
+      procedure 4.1. Sonnet made 1.4 in eval-v1.
+    - **The code and pack fixes did what they were for, at today's cost and a shorter wait.** P stated no
+      broken net cash as fact, and no probe-detected mislabel reaches a reader. Its p50 was 10.9 s and its p90
+      12.1 s pooled, at $0.0066–0.0067 an analysis, against the version-1 procedure's 12.8 s, 17.8 s and $0.0071.
+      By run, its p50 was 10.54 and 10.9 s, just over the plan's 10.5 s target in both. It wrote as many cause
+      sentences as the frozen prompt; no judge read it. Peak hours are not measured yet.
+    - **The candidate prompt fixed calibration but cost depth.** It brought judgement share, evaluative words and
+      watch forecasts within their targets, and the judge preferred it to the frozen prompt overall, 10 pairs
+      to 5. It also wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on
+      average and under the plan's guard, and lost depth in 9 of 20 pairs.
+    - **First tries:** 40% of P's analyses and 45% of the candidate's passed without a repair (target 85%).
+  - **Proposed (§10):** once the grounding rule is approved, adopt the code and pack fixes as measured, with a
+    deadline on each DeepSeek call.
+    - Two judgements are in this. The pack is kept although the plan's guard rule, read strictly, fires on it
+      once, within the frozen prompt's own spread from run to run. And the backstops go on without the net-debt
+      prompt line the plan paired them with (`DEEPSEEK-ERRORS.md` §5.10).
+    - Hold the candidate prompt back, as the plan's guard rule requires. Either run one calibration round that
+      keeps the guard, or adopt the prompt under a recorded exception.
+    - Then add deterministic checks for the error classes that remain.
   - The judge evidence on Sonnet against DeepSeek (§7.6) stays on record. Opus preferred Sonnet 18–1, mostly
-    on grounding and calibration, which are the classes the fixes target.
+    on grounding and calibration.
+    - On the deterministic calibration measures, the candidate is now within its targets, where Sonnet's
+      eval-v1 outputs on the same held-out companies were: judgement share 11.6% (Sonnet 3.8%), evaluative
+      words in data sentences 0.0% (2.6%), forecasts in watch items 0 (2 per 60). P, the proposed build, is
+      within target on evaluative words (2.8% pooled), but not on judgement share (1.5%) or watch forecasts (10
+      per 60).
+    - On wrong-metric numbers and first-try passes, no build is.
+    - No judge compared the candidate or P with Sonnet.
 - **Still open:**
-  - the DeepSeek fixes and their measurement (`DEEPSEEK-ERRORS.md`);
-  - the blind human pack (§9c) is built but not yet rated;
+  - the founder's decision on the grounding rule, on the proposed build and on the candidate prompt (§10);
+  - the peak-hour latency run (`eval-v2-peak`), scheduled for 2026-10-27 06:05 UTC, not yet run;
+  - the next DeepSeek fixes (`DEEPSEEK-ERRORS.md` §5.10);
+  - the blind human pack (§9c), which is built but not yet rated, and holds no DeepSeek analysis yet;
   - the long-term-debt mapping breaks in 6 of 20 packs, which probably also affect production's metrics
     table (a separate production decision);
   - the Gemini arm and the Claude API run were set aside with the decision.
@@ -551,15 +584,35 @@ Gate figures here use the current gate.
    most one repair naming the failed sentences, then fall back to today's code-written narrative if the
    repair also fails. Nothing reaches the cache or the page before the gate passes. The pack's inputs come
    through the existing SEC transports and are cached per accession.
-2. **Prompt and pack.** The frozen prompt (sha256 `d558d371…`, archived at `prompts/frozen-d558d371.md`) is the
-   baseline; `backend/prompts/trends-depth-analyst-agent.md` is now the candidate. The candidate fixes in `DEEPSEEK-ERRORS.md` §2 change it and the pack:
-   - restore a judgement slot;
+2. **Prompt and pack.** The proposed build keeps the frozen prompt (sha256 `d558d371…`, archived at
+   `prompts/frozen-d558d371.md`) and moves to pack version 2 (`packs-v2/`). The pack's fixes, from
+   `DEEPSEEK-ERRORS.md` §2:
    - add a typical operating-cash-flow-to-net-income level;
-   - word net debt without a minus sign;
-   - keep net-versus-operating margin within one year;
-   - suppress net cash built on a broken debt series.
+   - explain net debt in the pack's legend and red flags;
+   - give the net-versus-operating margin gap within one year;
+   - withhold net cash built on a broken debt series, behind a data check.
 
-   The candidate ships under a new `PROMPT_VERSION` only if it meets the targets in §3 of that file.
+   Keeping the pack is a judgement. The plan's guard rule, read strictly, fires on it once: in one development round
+   it wrote fewer cause sentences than the frozen prompt's pack in both runs, by amounts within that prompt's own
+   spread from run to run. Over six runs the two match (`DEEPSEEK-ERRORS.md` §5.2).
+
+   The backstop checks (item 4) are a second judgement. They go on without the candidate's net-debt prompt line,
+   which the plan named among their conditions. Measured on P, the cost was two repairs in 20 analyses for
+   backstop hits alone, and one repair that removed a minus sign but left net cash's direction
+   (`DEEPSEEK-ERRORS.md` §5.10).
+
+   **The candidate prompt is held back.** It is `backend/prompts/trends-depth-analyst-agent.md` (sha256
+   `fc5b808c…`). It restores a judgement slot, words net debt without a minus sign and keeps the margin
+   comparison within one year.
+   - On the held-out half it met its calibration targets, and the judge preferred it to the frozen prompt overall,
+     10 pairs to 5.
+   - But it wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on average, and
+     fewer than the plan's guard of 6 in every run.
+     The plan's pre-registered rule drops a fix that does that.
+   - You choose between one calibration round that keeps the guard and adopting it under a recorded exception
+     (`DEEPSEEK-ERRORS.md` §5.10).
+
+   A prompt ships under a new `PROMPT_VERSION` only with your approval.
 3. **Grounding rule.** The four tiers in `GROUNDING-RULE.md`, enforced by the gate in the request path. Add
    the causal audit and the semantic audit as a weekly sampled check, the way `backend/evals/RUNBOOK.md` runs
    the Copilot citation audit. They cost about $0.01 a sample with V4 Pro, or about $0.14 with Opus at API
@@ -576,10 +629,20 @@ Gate figures here use the current gate.
      - backstop checks for the remaining mislabels;
      - a patch-style repair that returns only the failed sentences.
    - **Pack and prompt fixes,** tested against the frozen baseline, with each half tested apart as well.
-   - **Expected effect:** companies needing a repair fall from 7 of 20 to 1–4, and mislabelled numbers from
-     about 14 to 2–4, at about the same cost. p90 latency falls from 16 s to about 11–13 s, because repairs
-     become rarer and shorter.
-   - **Evidence and plan:** `DEEPSEEK-ERRORS.md`.
+   - **Expected:** companies needing a repair would fall from 7 of 20 to 1–4, and mislabelled numbers from about
+     14 to 2–4, at about the same cost.
+   - **Measured** on the held-out half, two runs per build, all off-peak, with the version-1 procedure as the
+     same-day control:
+     - Repairs became shorter but not rarer. A patch takes about 2.5 s, against the control's full repair of 7 s.
+       60% of P's analyses and 55% of the candidate's needed a repair, against the control's 50%.
+     - Mislabelled numbers in the final text stayed about where the control's are. Read by hand, P had 7 in 1,364
+       verified claims (5.1 per 1,000) and the candidate 5 in 1,405 (3.6), against the control's 3 in 735 (4.1).
+       Each figure rests on a handful of sentences.
+     - p90 fell to 11.4–12.8 s, from the control's 17.8 s, and the cost to $0.0065–0.0067. Peak hours are not
+       measured yet.
+   - **Next:** deterministic checks in place of the prompt lines the model ignored, first "above or below a
+     reference level". Then the calibration round, the bank profile, period slips and net-debt signs.
+   - **Evidence and plan:** `DEEPSEEK-ERRORS.md`, §5 for the results.
 5. **Fix the facts-layer defects in §3 regardless.** They affect today's page:
    - recast rows beside first-reported ones;
    - proxy-statement net income;
@@ -587,10 +650,15 @@ Gate figures here use the current gate.
    - the unmapped long-term debt tags (6 of 20 packs lose long-term debt partway through the window);
    - the XOM CIK.
 6. **Before switching on:**
-   - run the human pack (§9c) on the final DeepSeek outputs;
-   - measure the DeepSeek candidate on the held-out half, two runs, with nothing changed after the results
-     are seen (`DEEPSEEK-ERRORS.md` §3);
-   - measure p90 latency at production hours and at DeepSeek's peak price.
+   - your approval of the grounding rule (item 3), and your decision on the candidate prompt (item 2);
+   - the peak-hour latency run (`eval-v2-peak`), now for P and the candidate, scheduled for 2026-10-27 06:05 UTC
+     and not yet run, against p50 10.5 s and p90 13 s;
+   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 442 recorded calls waited out a 600 s
+     client timeout (`DEEPSEEK-ERRORS.md` §5.7);
+   - run the human pack (§9c), rebuilt on the adopted build's outputs.
+
+   The held-out measurements are done: two runs each of the candidate, the frozen prompt and P, with nothing
+   changed after the results were seen (`DEEPSEEK-ERRORS.md` §5.2).
 
    The Claude API run (`eval-v2-api`) and the Gemini arm were set aside with the decision. The harness keeps
    both paths.
