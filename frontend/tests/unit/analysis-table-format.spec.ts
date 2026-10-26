@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import { formatTableGrowth, formatTableValue, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import type { DataNote } from '@/features/analysis/lib/dataNotes'
 
 const series = (unit: string, percent = false): AnalysisSeries => ({ concept: 'test', label: 'Test', unit, percent, points: [], cagr: null })
 
@@ -39,9 +39,10 @@ describe('fixed-column display formatting', () => {
   })
 
   it('reserves space for marks without changing source data or currency identity', () => {
+    // A calculated figure carries no dagger, so only a note letter takes room from the nine glyphs.
     expect(tableTokenBudget()).toBe(9)
-    expect(tableTokenBudget(true, 'a')).toBe(7)
-    expect(tableTokenBudget(false, 'ab')).toBe(7)
+    expect(tableTokenBudget('a')).toBe(8)
+    expect(tableTokenBudget('ab')).toBe(7)
     expect(tableCurrencyLabel(series('CAD/shares'))).toBe('CAD per share')
     expect(tableCurrencyLabel(series('CAD'))).toBe('CAD')
     expect(tableCurrencyLabel(series('USD/shares'))).toBeNull()
@@ -49,18 +50,21 @@ describe('fixed-column display formatting', () => {
     expect(formatTableValue(-1e25, series('CAD'))).toBe('-1e25')
   })
 
-  it('prints a figure cell at the budget its calculated mark and note letter leave, as MetricsTable does (M15)', () => {
+  it('prints a figure cell at the budget a marked note leaves, as MetricsTable does (M15)', () => {
     const usd = series('USD')
-    const provenance = (method: FactProvenance['method']): FactProvenance => ({ version: 1, method, validation: 'passed', reasons: [], formula: null, inputs: [] })
-    // Nine glyphs for a reported figure: "-$999.9M" fits; a calculated mark and a letter leave seven, so "-$1B".
-    expect(tableFigureText(-999_900_000, {}, usd)).toBe('-$999.9M')
-    expect(tableFigureText(-999_900_000, { provenance: provenance('calculated') }, usd, 'a')).toBe('-$1B')
-    // With no provenance a derived figure is calculated; a figure's provenance outranks its derived flag.
-    expect(tableFigureText(-999_900_000, { derived: true, provenance: null }, usd, 'a')).toBe('-$1B')
-    expect(tableFigureText(-999_900_000, { derived: true, provenance: provenance('reported') }, usd, 'a')).toBe('-$999.9M')
-    // The change line takes no calculated mark: only its own note letter narrows it.
+    const note = (kind: DataNote['kind'], reasons: string[], letter: string) => ({ kind, reasons, letter })
+    // Nine glyphs with no mark: "-$999.9M" fits, calculated or not, since a calculated figure draws no dagger (D-061).
+    expect(tableFigureText(-999_900_000, usd)).toBe('-$999.9M')
+    // A note that questions the number takes its letter's glyphs: one leaves eight, two leave seven, so "-$1B".
+    expect(tableFigureText(-999_900_000, usd, note('review', ['source_conflict'], 'a'))).toBe('-$999.9M')
+    expect(tableFigureText(-999_900_000, usd, note('review', ['source_conflict'], 'ab'))).toBe('-$1B')
+    // A note that marks nothing (record-only, unknown, unavailable) takes no glyph.
+    expect(tableFigureText(-999_900_000, usd, note('review', ['legacy_calculation'], 'ab'))).toBe('-$999.9M')
+    expect(tableFigureText(-999_900_000, usd, note('unknown', ['legacy_unknown'], 'ab'))).toBe('-$999.9M')
+    // The change line follows the same rule with its own comparison note.
     expect(tableComparisonText(1234.567, false)).toBe('+123,457%')
-    expect(tableComparisonText(1234.567, false, 'a')).toBe('+123.5K%')
-    expect(tableComparisonText(1234.567, false, 'ab')).toBe('+123K%')
+    expect(tableComparisonText(1234.567, false, note('review', ['unit_mismatch'], 'a'))).toBe('+123.5K%')
+    expect(tableComparisonText(1234.567, false, note('review', ['unit_mismatch'], 'ab'))).toBe('+123K%')
+    expect(tableComparisonText(1234.567, false, note('review', ['legacy_calculation'], 'ab'))).toBe('+123,457%')
   })
 })

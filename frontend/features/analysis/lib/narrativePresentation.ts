@@ -28,7 +28,8 @@ export interface NarrativeEvidence {
 export interface NarrativePresentation {
   format_version: typeof NARRATIVE_FORMAT_VERSION
   snapshot_id: string
-  data_notes_version: 1
+  /** The notes envelope's version: 1, or 2 once the server's copy and letter order change (the shape is the same). */
+  data_notes_version: DataNotesWire['version']
   notes: DataNotesWire
   offset_encoding: 'utf-16'
   evidence: NarrativeEvidence[]
@@ -74,7 +75,7 @@ export function decodeNarrativePresentation(
   dataset?: AnalysisDataset,
 ): NarrativePresentation {
   if (!record(value) || value.format_version !== NARRATIVE_FORMAT_VERSION
-    || value.offset_encoding !== 'utf-16' || value.data_notes_version !== 1
+    || value.offset_encoding !== 'utf-16' || (value.data_notes_version !== 1 && value.data_notes_version !== 2)
     || !text(value.snapshot_id) || value.snapshot_id !== completion.snapshot_id
     || !dataset || value.snapshot_id !== dataset.snapshot_id || !Array.isArray(value.evidence)) return invalid()
   if (completion.citations.some((citation) => !record(citation)
@@ -120,7 +121,7 @@ export function decodeNarrativePresentation(
   })
   return {
     format_version: NARRATIVE_FORMAT_VERSION, snapshot_id: value.snapshot_id,
-    data_notes_version: 1, offset_encoding: 'utf-16', notes, evidence,
+    data_notes_version: value.data_notes_version, offset_encoding: 'utf-16', notes, evidence,
   }
 }
 

@@ -77,19 +77,85 @@ describe('MetricsTable', () => {
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
 
-  it('renders values, deltas, the derived dagger, and — for missing points', () => {
-    render(<MetricsTable dataset={dataset} />)
+  it('renders values, deltas and — for missing points, and no dagger on a calculated figure', () => {
+    const { container } = render(<MetricsTable dataset={dataset} />)
 
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('EPS (diluted)')).toBeInTheDocument()
-    // Derived Q4 revenue carries the computed dagger; the badge explains it.
+    // Derived Q4 revenue says "calculated" in its name and draws no dagger (D-061); no "† calculated" label explains one.
     expect(screen.getByRole('button', { name: /Revenue, Q4 2024:.*calculated/ })).toBeInTheDocument()
-    expect(screen.getByText('† calculated')).toBeInTheDocument()
-    // The never-derived EPS Q4 renders an em-dash placeholder.
-    expect(screen.getAllByRole('button', { name: /unavailable.*data note/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/† calculated/)).not.toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    expect(screen.getByText(/^Figures are rounded for display\. Select any value for its source and full precision\.$/)).toBeInTheDocument()
+    // The never-derived EPS Q4 renders an em-dash placeholder; its gap note marks nothing, so its name names none.
+    expect(screen.getByRole('button', { name: /^EPS \(diluted\), Q4 2024: unavailable\. View source/ })).toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
     // Quarterly mode shows QoQ deltas.
     expect(screen.getByText('+2.0%').parentElement).toHaveTextContent('Change vs prior quarter')
+  })
+
+  it('gives a figure and its change line the whole budget unless a note that marks them takes a glyph (D-061)', () => {
+    const fact = { version: 1 as const, method: 'reported' as const, validation: 'needs_review' as const, formula: null, inputs: [] }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    // Nine glyphs each: "$1,234.56" and "+123,457%". A record-only note marks nothing and takes no glyph; the source
+    // conflict's letter takes one, so its figure drops to "$1.2K".
+    const budgets: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [{
+      concept: 'eps_diluted', label: 'EPS (diluted)', unit: 'USD/shares', percent: false, cagr: null, points: [
+        { period: 'FY2023', value: 1234.56, provenance: { ...fact, reasons: ['legacy_calculation'] } },
+        { period: 'FY2024', value: 1234.56, provenance: { ...fact, reasons: ['source_conflict'] }, yoy: 1234.567, yoy_provenance: { ...fact, method: 'calculated' as const, reasons: ['legacy_calculation'] } },
+      ],
+    }] }
+    render(<MetricsTable dataset={budgets} />)
+    const cell = (period: string) => screen.getByRole('button', { name: new RegExp(`^EPS \\(diluted\\), ${period}: `) })
+    expect(cell('FY2023').querySelector('span')!.textContent).toBe('$1,234.56')
+    expect(cell('FY2023').querySelector('[data-note-letter]')).toBeNull()
+    expect(cell('FY2024').querySelector('span')!.textContent).toBe('$1.2K')
+    expect(cell('FY2024').querySelector('[data-note-letter]')).toHaveTextContent(/^[a-z]$/)
+    expect(screen.getByText('+123,457%')).toBeInTheDocument()
+  })
+
+  it('names the metrics the run calculates in the sentence above the table, as the dataset labels them', () => {
+    const calculated = { version: 1 as const, method: 'calculated' as const, validation: 'passed' as const, reasons: [], formula: null, inputs: [] }
+    const reported = { ...calculated, method: 'reported' as const }
+    const years = [{ key: 'FY2023', fiscal_year: 2023, fiscal_period: 'FY', period_end: '2023-12-31' }, { key: 'FY2024', fiscal_year: 2024, fiscal_period: 'FY', period_end: '2024-12-31' }]
+    const row = (concept: string, label: string, provenance: typeof calculated, percent = false) => ({
+      concept, label, unit: percent ? 'pure' : 'USD', percent, cagr: null,
+      points: years.map((year, index) => ({ period: year.key, value: 10 + index, provenance })),
+    })
+    const annual: AnalysisDataset = { ...dataset, mode: 'annual', period_key: 'FY2023..FY2024', periods: years, series: [
+      row('revenue', 'Revenue', reported),
+      row('operating_margin', 'Operating margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated),
+      // An abbreviation keeps its capitals inside the sentence.
+      row('eps_diluted', 'EPS (diluted)', calculated),
+    ] }
+    const { container, rerender } = render(<MetricsTable dataset={annual} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, free cash flow and EPS (diluted) are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    expect(container.querySelector('tbody')?.textContent).not.toContain('†')
+    // A row calculated in only one year is not named; one name takes "is".
+    const partly = structuredClone(annual)
+    partly.series = [annual.series[0], annual.series[2], { ...annual.series[1], points: [annual.series[1].points[0], { ...annual.series[1].points[1], provenance: reported }] }]
+    rerender(<MetricsTable dataset={partly} />)
+    expect(screen.getByText('Figures are rounded for display; free cash flow is calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+
+    // Every margin of the run calculated reads as "margins", where the first margin stands; a ratio takes "the".
+    const regn = structuredClone(annual)
+    regn.series = [
+      row('revenue', 'Revenue', reported), row('operating_margin', 'Operating margin', calculated, true), row('net_margin', 'Net margin', calculated, true),
+      row('free_cash_flow', 'Free cash flow', calculated), row('working_capital', 'Working capital', calculated), row('current_ratio', 'Current ratio', calculated),
+    ]
+    rerender(<MetricsTable dataset={regn} />)
+    expect(screen.getByText('Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // A reported margin keeps the calculated ones named one by one: "margins" would claim it too.
+    const gross = structuredClone(regn)
+    gross.series.splice(1, 0, row('gross_margin', 'Gross margin', reported, true))
+    rerender(<MetricsTable dataset={gross} />)
+    expect(screen.getByText('Figures are rounded for display; operating margin, net margin, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
+    // The margins alone still take "are".
+    const marginsOnly = structuredClone(regn)
+    marginsOnly.series = regn.series.slice(0, 3)
+    rerender(<MetricsTable dataset={marginsOnly} />)
+    expect(screen.getByText('Figures are rounded for display; margins are calculated from filed figures. Select any value for its source and full precision.')).toBeInTheDocument()
   })
 
   it('hides the CAGR column entirely in quarterly mode (dead UI otherwise)', () => {
@@ -138,7 +204,7 @@ describe('MetricsTable', () => {
     const figure = screen.getByRole('button', { name: /EPS \(diluted\), Q3 2024:/ })
     expect(figure).toHaveTextContent('-$15.2K')
     expect(figure.closest('td')).toHaveTextContent('+123.5K%')
-    expect(screen.getByText('Figures are rounded for display. Select a value for full precision.')).toBeVisible()
+    expect(screen.getByText('Figures are rounded for display. Select any value for its source and full precision.')).toBeVisible()
     await userEvent.click(figure)
     const detail = screen.getByRole('dialog')
     expect(within(detail).getByText('As stored: -15,154 USD per share')).toBeVisible()
@@ -417,9 +483,10 @@ describe('MetricsTable periods', () => {
 /**
  * The column arithmetic (DESIGN_SYSTEM.md, Data note mark): a figure is 12px Geist Mono (DataTable's compact text-xs),
  * a mark 11px (text-data-xs), each glyph 0.6em wide (Geist Mono's 600-unit advance, which the e2e "analysis phone
- * marks" gate measures on the real glyphs), and every mark keeps 2px (ml-0.5) from what precedes it; a note's letters
- * share one box. The gutter is one mark and its gap, so a marked and an unmarked figure share one edge, and a period
- * column holds the widest line tableTokenBudget allows inside its inset (1px a side on a phone, 4px from md).
+ * marks" gate measures on the real glyphs), and the mark keeps 2px (ml-0.5) from its figure; a note's letters share
+ * one box. A figure carries no dagger (D-061), so its one mark is a note letter where the note questions the number.
+ * The gutter is one mark and its gap, so a marked and an unmarked figure share one edge, and a period column holds
+ * the widest line tableTokenBudget allows inside its inset (1px a side on a phone, 4px from md).
  */
 describe('MetricsTable column widths', () => {
   const source = readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../features/analysis/components/MetricsTable.tsx'), 'utf8')
@@ -432,13 +499,12 @@ describe('MetricsTable column widths', () => {
   const FIGURE = parseFloat(TAILWIND_FONT_SIZE.xs[0]) // rem, text-xs
   const MARK = parseFloat(TAILWIND_FONT_SIZE['data-xs'][0]) // rem, text-data-xs
   const GAP = 0.125 // rem, ml-0.5
-  /** Each line the budget allows: [label, width in rem], over a dagger or none and a note of none, one or two letters. */
-  const lines = [false, true].flatMap((calculated) => ['', 'a', 'ab'].map((letter) => {
-    const glyphs = tableTokenBudget(calculated, letter)
-    const marks = [calculated, letter !== ''].filter(Boolean).length
-    const width = glyphs * ADVANCE * FIGURE + marks * GAP + (Number(calculated) + letter.length) * ADVANCE * MARK
-    return [`${glyphs} glyphs${calculated ? ' †' : ''}${letter ? ` ${letter}` : ''}`, width] as const
-  }))
+  /** Each line the budget allows: [label, width in rem], over a note of none, one or two letters. */
+  const lines = ['', 'a', 'ab'].map((letter) => {
+    const glyphs = tableTokenBudget(letter)
+    const width = glyphs * ADVANCE * FIGURE + (letter ? GAP : 0) + letter.length * ADVANCE * MARK
+    return [`${glyphs} glyphs${letter ? ` ${letter}` : ''}`, width] as const
+  })
   const widest = Math.max(...lines.map(([, width]) => width))
 
   it('lets the metric column give up to 6px only below md, where that buys a phone its third whole period', () => {
@@ -460,7 +526,8 @@ describe('MetricsTable column widths', () => {
   })
 
   it('gives every period column room for its widest line inside its inset, at the default and a doubled text size', () => {
-    expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(67.6, 6)
+    // An eight-glyph figure and a one-letter note: 8 × 7.2 + 2 + 6.6px.
+    expect(widest * 16, lines.map(([label, width]) => `${label}: ${(width * 16).toFixed(1)}px`).join(', ')).toBeCloseTo(66.2, 6)
     for (const root of [16, 32]) {
       expect(rem('period-col') * root - 2, `phone, ${root}px root`).toBeGreaterThanOrEqual(widest * root)
       expect(rem('period-col', 'md:') * root - 0.5 * root, `md, ${root}px root`).toBeGreaterThanOrEqual(widest * root) // px-1 a side

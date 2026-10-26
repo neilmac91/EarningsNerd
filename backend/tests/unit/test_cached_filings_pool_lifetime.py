@@ -9,7 +9,8 @@ One rule, three parts in this one module:
   with a slow wording diff must wait for its slots in the thread pool, not on the loop; the
   analysis stream must release its connection before its body streams, alone and in a burst; the
   generate stream's Pro force branch must read nothing its commit expired, so its one checkout is
-  in the thread pool; each auth session route (logout signed in, with only the refresh cookie and
+  in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
+  filing or summary; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
@@ -17,7 +18,8 @@ One rule, three parts in this one module:
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert
   preferences, the bell, the data export and the account deletion), the Copilot ask stream (a Pro
-  and a Free question, a missing filing and the admission's three refusals), the summary exports (the PDF
+  and a Free question, a missing filing and the admission's three refusals), the summary generate stream (a
+  replay, a generation, an unready row, a Pro and a Free force, and a missing filing), the summary exports (the PDF
   and the CSV, a Free reader's 403, and a missing summary's and filing's 404), the admin feedback triage and
   filing and summary maintenance routes (their 404s, and the bulk routes' and the stale-summary refresh's dry and
   real runs) and the admin invite routes (the list, mint with and without mail, revoke and re-send, their 404s and
@@ -510,6 +512,243 @@ async def test_force_regeneration_refreshes_no_expired_row_on_the_loop(monkeypat
         assert (call["user_id"], call["force_regenerate"], call["current_user"].is_pro) == (user_id, True, True)
         assert call["refresh_xbrl"] is True
         assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "FORCE")
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["replay", "generate", "unready", "force_pro", "force_free", "missing"])
+async def test_generate_stream_releases_its_connection_off_the_loop_before_it_streams(monkeypatch, tmp_path, case):
+    """The generate stream's admission (the filing and summary reads, the served body, the readiness and Pro
+    checks, the progress clear and the generation snapshot) runs in one thread-pool unit that releases the
+    request session before the response streams, its 403 and 404 included, so eight readers on four slots make
+    no checkout, statement or release on the loop and leave nothing for the finalizer. On the loop, each case
+    ran its statements there, the served body was built there (its Risks projected over the filing's own text),
+    and a missing filing or a Free reader's force left its transaction for the finalizer. Each admitted request
+    reaches the one orchestrator with the admission's inputs; a replay or a refusal reaches none. Each reader's
+    plan comes from its Subscription row while its ``is_pro`` mirror says the opposite, so a Pro check that reads
+    the mirror answers wrong, and so does one moved after the release, on the detached reader, which falls back
+    to the mirror or, once the force's commit has expired the reader, fails. That the release comes before the
+    response starts is the route cases' check in ``test_summary_provider_lifecycle.py``."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-stream.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    pro = case != "force_free"
+    shown = "# Summary\n\nStored analysis the filing page shows."
+    # An empty body is one the filing page cannot show, so it is regenerated in place.
+    stored = {"replay": shown, "unready": "", "force_pro": shown, "force_free": shown}.get(case)
+    with sessions() as db:
+        company = Company(cik="0000000006", ticker="STREAM", name="Stream fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000006-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/stream/",
+                        document_url="https://example.test/stream.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        if stored is not None:
+            db.add(Summary(filing_id=filing.id, business_overview=stored, raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        for i in range(8):
+            reader = User(email=f"stream-reader-{i}@example.com", is_active=True, is_pro=not pro)
+            db.add(reader)
+            db.flush()
+            db.add(Subscription(user_id=reader.id, plan="pro", status="active") if pro else Subscription(
+                user_id=reader.id, plan="pro", status="trialing", trial_end=utcnow() - timedelta(days=1)))
+        db.commit()
+        filing_id = 999 if case == "missing" else filing.id
+        reader_ids = sorted(user_id for (user_id,) in db.query(User.id))
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    loop_checkouts: list[bool] = []
+    event.listen(engine, "checkout", lambda *_: loop_checkouts.append(threading.get_ident() == loop_thread))
+    loop_statements: list[bool] = []
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: loop_statements.append(threading.get_ident() == loop_thread))
+    # The statements that touch the progress row: the force branch's clear is one DELETE, with no read before it.
+    progress_statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: progress_statements.append(
+        statement.split()[0].upper()) if "summary_generation_progress" in statement else None)
+    loop_checkins: list[bool] = []
+    event.listen(engine, "checkin", lambda *_: loop_checkins.append(threading.get_ident() == loop_thread))
+    # The served body projects the summary's Risks over the filing's text, CPU work that runs no SQL: where it ran.
+    built_on_loop: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built_on_loop.append(threading.get_ident() == loop_thread)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        await asyncio.sleep(0.05)  # the other readers' admissions run while this one streams
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    path = f"/api/summaries/filing/{filing_id}/generate-stream" + ("?force=true" if case.startswith("force") else "")
+
+    async def send(i: int) -> httpx.Response:
+        token = auth.create_access_token({"sub": f"stream-reader-{i}@example.com"})
+        async with httpx.AsyncClient(transport=transport, base_url="http://test",
+                                     headers={"Authorization": f"Bearer {token}"}) as client:
+            return await client.post(path)
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(8)])
+        # Every checkout, statement and release ran in the thread pool (read before this test's own reads below).
+        assert loop_checkouts and loop_checkouts == [False] * len(loop_checkouts)
+        assert loop_statements and loop_statements == [False] * len(loop_statements)
+        assert loop_checkins and loop_checkins == [False] * len(loop_checkins)
+        assert built_on_loop == ([False] * 8 if stored is not None and case != "missing" else [])
+        # With the orchestrator stubbed, only a Pro force touches the progress row, with one DELETE each and no read
+        # before it: run off the loop, a read, then a delete, let a force find a row another was deleting.
+        assert progress_statements == (["DELETE"] * 8 if case == "force_pro" else [])
+        assert engine.pool.checkedout() == 0
+        # Each route released its own connection; the dependency's finalizer found nothing open. A generation's
+        # snapshot that left the subscription unloaded reads it in a session of its own, which closes once.
+        own = [session for session in request_sessions if len(session.open_at_close) == 1]
+        assert len(own) == (8 if case in ("generate", "unready") else 0)
+        assert [request.open_at_close[-1:] for request in request_sessions if request not in own] == [[False]] * 8
+        expected = {"replay": 200, "generate": 200, "unready": 200, "force_pro": 200, "force_free": 403,
+                    "missing": 404}[case]
+        assert [response.status_code for response in responses] == [expected] * 8
+        if case == "replay":
+            assert all("Stored analysis the filing page shows." in response.text for response in responses)
+        elif expected == 200:
+            assert all("Generated." in response.text for response in responses)
+        else:
+            detail = {"force_free": "Regenerating a summary is a Pro feature.", "missing": "Filing not found"}[case]
+            assert [response.json()["detail"] for response in responses] == [detail] * 8
+        # Each admitted request reached the orchestrator once, with the admission's inputs and its own reader.
+        admitted = case in ("generate", "unready", "force_pro")
+        assert len(pipeline_calls) == (8 if admitted else 0)
+        assert sorted(call["user_id"] for call in pipeline_calls) == (reader_ids if admitted else [])
+        flags = {"generate": (False, False, False), "unready": (True, True, False), "force_pro": (True, False, True)}
+        for call in pipeline_calls:
+            snapshot = call["current_user"]
+            assert (snapshot.id, snapshot.subscription.status) == (call["user_id"], "active")
+            assert (call["force_regenerate"], call["replace_unready_only"], call["refresh_xbrl"]) == flags[case]
+            assert (call["telemetry_ctx"]["filing_type"], call["telemetry_ctx"]["ticker"]) == ("10-K", "STREAM")
+        with sessions() as db:
+            progress = db.query(SummaryGenerationProgress).count()
+        # The force branch cleared the progress row, and nothing else wrote it.
+        assert progress == (0 if case == "force_pro" else 1)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_generate_stream_refuses_a_throttled_request_before_its_admission(monkeypatch, tmp_path):
+    """The route's rate limit answers its 429 before the admission's unit runs: a throttled Pro force reads no
+    filing or summary, builds no served body (its Risks projected over the filing's text, about a second for a
+    raw-HTML cache) and leaves the progress row, as it did on the loop. Its auth lookup's transaction is left for
+    the finalizer, as a 422's is."""
+    from app.models import User
+    from app.models.subscription import Subscription
+    from app.routers import auth
+    from app.routers import summaries as summaries_router
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'generate-throttled.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=5.0,
+    )
+    database.Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        company = Company(cik="0000000007", ticker="THROT", name="Throttle fixture")
+        db.add(company)
+        db.flush()
+        filing = Filing(company_id=company.id, accession_number="0000000007-26-000001", filing_type="10-K",
+                        filing_date=utcnow(), sec_url="https://example.test/throttle/",
+                        document_url="https://example.test/throttle.htm")
+        db.add(filing)
+        db.flush()
+        db.add(FilingContentCache(filing_id=filing.id, critical_excerpt="Revenue was $100.0 million."))
+        db.add(Summary(filing_id=filing.id, business_overview="# Summary\n\nStored analysis the filing page shows.",
+                       raw_summary={}))
+        db.add(SummaryGenerationProgress(filing_id=filing.id, stage="completed", started_at=utcnow(),
+                                         updated_at=utcnow()))
+        reader = User(email="throttled-reader@example.com", is_active=True, is_pro=False)
+        db.add(reader)
+        db.flush()
+        db.add(Subscription(user_id=reader.id, plan="pro", status="active"))
+        db.commit()
+        filing_id = filing.id
+
+    statements: list[str] = []
+    event.listen(engine, "before_cursor_execute", lambda _conn, _cursor, statement, *_: statements.append(statement))
+    built: list[bool] = []
+    served_body = summaries_router.source_safe_business_overview
+
+    def recorded_served_body(summary: Any, filing: Any) -> str:
+        built.append(True)
+        return served_body(summary, filing)
+
+    pipeline_calls: list[dict[str, Any]] = []
+
+    async def pipeline(**kwargs: Any):
+        pipeline_calls.append(kwargs)
+        yield {"type": "complete", "summary": "# Summary\n\nGenerated.", "summary_id": 1}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(summaries_router, "SUMMARY_LIMITER", RateLimiter(limit=0, window_seconds=60))
+    monkeypatch.setattr(summaries_router, "stream_filing_summary", pipeline)
+    monkeypatch.setattr(summaries_router, "source_safe_business_overview", recorded_served_body)
+    token = auth.create_access_token({"sub": "throttled-reader@example.com"})
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+                                     base_url="http://test", headers={"Authorization": f"Bearer {token}"}) as client:
+            response = await client.post(f"/api/summaries/filing/{filing_id}/generate-stream?force=true")
+        assert response.status_code == 429
+        assert response.json()["detail"] == "Too many summary requests. Try again shortly."
+        # The auth lookup's read ran, and nothing after it: no filing, summary or progress statement.
+        assert statements
+        assert [statement for statement in statements if "filing" in statement or "summar" in statement] == []
+        assert built == [] and pipeline_calls == []
+        with sessions() as db:
+            assert db.query(SummaryGenerationProgress).count() == 1
     finally:
         engine.dispose()
 
@@ -3159,8 +3398,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
                 ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)
                 for i, count in enumerate(counted) if count == 8)
         elif case == "refresh_stale":
-            kept = (("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5), ("schema_version_lt", None),
-                    ("stale_total", 8), ("updated_count", 0))
+            kept = (("deferred_count", 0), ("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5),
+                    ("schema_version_lt", None), ("stale_total", 8), ("updated_count", 0))
             assert audits == sorted(("summaries_refresh_stale", admin_ids[email], email, "", kept) for email in emails)
         else:
             assert audits == []
@@ -3242,7 +3481,7 @@ async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch,
             audits = [details for (details,) in db.query(AuditLog.details).filter(
                 AuditLog.action == "summaries_refresh_stale")]
         assert audits == [{"filing_type": None, "schema_version_lt": None, "stale_total": 2, "updated_count": 1,
-                           "kept_by_gate_count": 1, "failed_count": 0}]
+                           "kept_by_gate_count": 1, "failed_count": 0, "deferred_count": 0}]
     finally:
         engine.dispose()
 
@@ -3544,8 +3783,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     try:
         outcomes = await admin_summary_service.regenerate_in_place(
             [filing_id], actor_id=7, actor_email="admin@example.com", filing_type=None, schema_version_lt=None,
-            stale_total=1)
-        assert outcomes == ([], [filing_id], [])
+            stale_total=1, start_by=float("inf"))
+        assert outcomes == ([], [filing_id], [], [])
         with sessionmaker(bind=engine)() as db:
             assert [tuple(row) for row in db.query(AuditLog.action, AuditLog.user_id)] == [("summaries_refresh_stale", "7")]
         # One failed close for the stamp re-read and one for the audit row, each with its traceback.
@@ -3670,8 +3909,9 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # (router file relative to backend/, function name) -> its ceiling. Counted by this file's own walk
 # when the ratchet landed (2026-10-16), after its PR took the summary read and its progress poll off
 # the loop, and recounted when the walk began counting the session handed to a call (2026-10-24):
-# each entry is a route E121 (``auth.py``) or E171 names in ``tasks/todo.md``. The blank line between
-# entries keeps in-place number edits on different entries mergeable in any order.
+# each entry is a route E121 (``auth.py``) names in ``tasks/todo.md``, E171's last route having left on
+# 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
+# any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "apple_callback"): 6,
 
@@ -3696,8 +3936,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
-
-    ("app/routers/summaries.py", "generate_summary_stream"): 7,
 }
 
 # The walk must keep seeing the routers' async session routes; fewer means a broken walk.

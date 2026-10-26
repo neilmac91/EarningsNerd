@@ -15,8 +15,9 @@
    expanded plot's width: bar and growth labels, A13b's near-zero labels, the off-scale values, the expanded strip's
    cells, the legend's latest values (and the period a stale one names), and the tooltip's readouts. The table's cell
    is read through the helpers MetricsTable prints with (tableFigureText, tableComparisonText), so a change to its
-   rule reaches this check; its growth is the YoY the table prints: the chart's growth panel is always YoY, where a
-   quarterly table shows QoQ when it has it, so the agreement is with the YoY the table prints beside or in place of it.
+   rule (only a marked note's letter takes a glyph; a calculated figure takes none) reaches this check; its growth is
+   the YoY the table prints: the chart's growth panel is always YoY, where a quarterly table shows QoQ when it has it,
+   so the agreement is with the YoY the table prints beside or in place of it.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
@@ -28,10 +29,12 @@ import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { tableComparisonText, tableFigureText } from '@/features/analysis/lib/tableFormat'
+import { withMixedNotes } from './chartPlan'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { dataset: AnalysisDataset }>
-}
+})
 const NAMES = Object.keys(FIXTURE.datasets)
 
 const UNIT: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 }
@@ -55,10 +58,10 @@ function tableCell(dataset: AnalysisDataset, notes: DataNotesModel, key: string,
   if (!point) return null
   if (basis === 'yoy') {
     if (typeof point.yoy !== 'number') return null
-    return { text: tableComparisonText(point.yoy, series.percent, notes.noteForComparison(point, 'yoy')?.letter), truth: series.percent ? point.yoy : point.yoy * 100 }
+    return { text: tableComparisonText(point.yoy, series.percent, notes.noteForComparison(point, 'yoy')), truth: series.percent ? point.yoy : point.yoy * 100 }
   }
   if (point.value == null) return null
-  return { text: tableFigureText(point.value, point, series, notes.noteFor(point)?.letter), truth: point.value }
+  return { text: tableFigureText(point.value, series, notes.noteFor(point)), truth: point.value }
 }
 
 /** Whether two printed numbers could be one value's: each prints the values less than half its unit from it. */

@@ -82,8 +82,8 @@ file instead.
   the `design-docs-maintenance` skill or to `DESIGN_SYSTEM.md` §4 also runs
   `tests/unit/designRecipeRoute.spec.ts`; a
   `CLAUDE.md` change also runs `tests/unit/testHomesAllowlist.spec.ts`; a `.claude/settings.json`
-  or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`
-  and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
+  or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`,
+  `test_ops_readback_allow_rules.py` and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
   `test_codex_mention_guard.py`, `test_secret_scan_guard.py` and `test_ops_approval_guard.py` (both
   hooks reuse the first one's shell reader); a `tasks/todo.md`, `lessons/` or `.claude/workflows/`
   change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that

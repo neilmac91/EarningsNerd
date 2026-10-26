@@ -6,7 +6,8 @@ operation as `inputs.operation` and may open with the main-ref check. `pg_settin
 PGOPTIONS string as the Postgres backend parses it: split on unescaped spaces; `-c name=value`,
 `-cname=value` or `--name=value`; a name's `-` reads as `_` and its case does not count; the last
 setting wins; a bare number is milliseconds. A form either reader does not know fails the calling
-gate rather than being skipped. `cloud_sql_reach` lists the steps that can reach Cloud SQL, from
+gate rather than being skipped, and so does an `if:` with any text around a single `${{ }}`, which GitHub
+reads as a string template and so as always true. `cloud_sql_reach` lists the steps that can reach Cloud SQL, from
 their position and selection rather than their command text.
 """
 import re
@@ -28,6 +29,8 @@ QUARTERLY = "Run quarterly fact repair script"
 LINEAGE = "Run filing lineage backfill script"
 OPERAND = r"(?:steps\.request\.outputs|inputs)\.operation"  # a step's resolved operation, or a job's input
 NO_DATABASE = {DEPS}  # runs after the proxy for its operations, but opens no database session
+# An `if:` that is one `${{ }}` and nothing else, with no `${{` or `}}` inside it.
+TEMPLATE_FREE = re.compile(r"\$\{\{(?:(?!\$\{\{|\}\}).)*\}\}", re.DOTALL)
 UNIT_MS = {"ms": 1, "s": 1_000, "min": 60_000, "h": 3_600_000, "d": 86_400_000}
 
 
@@ -36,6 +39,9 @@ def selected(step) -> set[str]:
     condition = step.get("if")
     if condition is None:
         return set(OPTIONS)
+    if "${{" in condition and not TEMPLATE_FREE.fullmatch(condition):
+        raise AssertionError(f"{step.get('name')!r}: text around ${{{{ }}}} makes GitHub read this if: as always true: "
+                             f"{condition!r}")
     condition = re.sub(r"^\$\{\{\s*(.*?)\s*\}\}$", r"\1", condition.strip())
     condition = re.sub(r"^(?:always\(\)|github\.ref == 'refs/heads/main') && ", "", condition)
     operand = OPERAND if "steps" in step else r"steps\.request\.outputs\.operation"  # a step reads the resolved one

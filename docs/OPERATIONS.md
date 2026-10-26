@@ -525,7 +525,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 | `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
-| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`) when the run finishes inside the request-timeout middleware's 30 s default, which this path takes (`main.py`). A longer run, one generation can be, answers 504: its remaining generations and audit row run after the response, under the API's request-based CPU (the deploy's `--cpu-throttling` while durable tasks are on), where they can be slowed or cut short, and the audit row keeps only counts. A row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
+| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrading a summary the filing page shows (a stored row the page cannot show is always replaced), `dry_run` reports the staleness count. A real run regenerates up to 10 rows (`limit`, default 5) one at a time in its request, which keeps its CPU allocated (the deploy runs the API with `--cpu-throttling` while durable tasks are on), and returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`/`deferred`). The path's request timeout is 570 s (`main.py`), inside the service's 600 s, and a run starts no generation more than 350 s after the route begins, leaving the last one its allowance (its 120 s pipeline backstop and a minute for its setup and cleanup) and 40 s for the work around the batch; the rows it does not start are `deferred`, still stale, for a later call. The allowance is not a bound: while durable tasks are on, a generation's cleanup waits for its worker threads, so one started near the bound that outlasts it can take the run past 570 s, and the run answers 504. That generation's tail, its re-read and the audit row then finish after the response under that throttling, the audit row keeping only counts; no other generation starts. A row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
 
 ### Test accounts
 
@@ -678,6 +678,78 @@ source, with its key held in an environment only `main` can use, or a ruleset-re
 GitHub configures in an organization's or an enterprise's rulesets (a personal account owns this
 repository). Neither is in place, and the gap is accepted (the founder left this call to the agent on
 2026-10-16); closing it starts with that App.
+
+### Agent production readbacks (F51)
+
+After a backend deploy has concluded, a Claude Code session may read production through two read-only
+Ops operations. `.claude/settings.json` allows exactly these three commands, each as an exact-match rule:
+
+```sh
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=describe-service
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=logs-probe
+gh run list -R neilmac91/EarningsNerd --workflow ops.yml --branch main --event workflow_dispatch -L 5 --json databaseId,status,conclusion,createdAt,headSha
+```
+
+**When the rules apply.** Only in a session that applies this checkout's project settings: a
+single-repository session (a cloud thread in a project reads no project permission rules, nor does a
+cloud session with several repositories in an Anthropic-hosted environment), in a workspace whose trust
+is recorded (a `-p` or SDK run uses project allow rules only when `~/.claude.json` records
+`hasTrustDialogAccepted` for the repository's main checkout root, where a worktree's trust is keyed),
+with no managed `allowManagedPermissionRulesOnly` and no `autoMode.classifyAllShell` (which suspends
+every Bash allow rule in Auto mode), and, under the Bash sandbox, with GitHub's API on the sandbox's
+allowlist (a command that carries hosts of its own goes to the classifier). There, in Auto mode, a
+matching command runs without a prompt and without the auto-mode classifier. Anywhere else it goes to the
+prompt, the classifier or the session's own tool allowance, as before.
+
+**No command proves the route on its own.** In Auto mode a silent run shows only that the command was
+allowed, by these rules or by the classifier, which may approve a read of run metadata, or even a read
+dispatch, by itself; in Accept edits, or under a harness that allows every Bash command, any command
+that runs proves nothing about these rules
+(`lessons/ops-prove-the-permission-route-before-a-gated-session.md`). The conclusive result is the
+other one: a prompt or a classifier denial of one of the three exact commands means the rules did not
+apply, so record it verbatim and stop, never reshape a command. `/permissions` lists each rule and the
+file it comes from; the operator checks the conditions above beside it.
+
+**What a rule admits.** A rule without `*` matches only its own text, so another operation, input, ref
+or repository, a variable, or a wrapper or assignment the matcher does not strip falls outside it.
+Two of the allowed commands chained together (`&&`, `;`, a newline) are each allowed; issue each alone
+anyway. A read cannot replace a queued run: `ops.yml` runs `describe-service` and `logs-probe` each in
+a concurrency group of its own run, so neither queues behind, nor replaces, a pending operation, an
+approved apply's included. A read can overlap an Ops run that is in progress, though: a
+`describe-service` that overlaps a `feedback-media` enable or disable apply can stop on a revision that
+is not ready yet, as a describe during a deploy does, and one during or after `rollback-traffic` stops on
+the traffic check until traffic is moved back to the latest revision. So dispatch a read when the list
+shows no Ops run in progress, one read at a time, and wait until the list shows it `completed` before
+the next. The list covers the newest five Ops dispatches.
+
+**What the runs print** is the projection their steps already make ([Read-only release configuration
+audit](DEPLOYMENT.md#read-only-release-configuration-audit)):
+- `describe-service`: the traffic and revision names, `SENTRY_RELEASE`, the allow-listed values (the two
+  AI base URLs among them) and SEC pins, each container's image reference, the sizing lines and the
+  worker's invoker verdict; never the service, traffic or worker URLs, another environment value or
+  gcloud's error text. A required read that fails stops the step, with no verdict line, on an
+  `Unresolved production configuration: …` line that ends `cannot describe <kind> <name> (<class>).`
+  after any defect found before it; the optional invoker-policy read prints `UNVERIFIED (<class>)`.
+- `logs-probe`: whether `logging.read` is permitted, or `DENIED` with its failure class; the
+  `company_upsert_conflict` count, which is absent when its read fails; and which revisions printed each
+  Sentry start line, with counts, or `UNVERIFIED (<class>; gcloud's error text withheld)` for a kind it
+  could not read; never a log line or gcloud's error text.
+
+A record marks each of those failures Unverified (`lessons/ops-denied-reads-report-unverified.md`;
+gates `test_prod_flag_visibility.py`, `test_ops_stderr_withheld.py`,
+`test_capacity_projection_privacy.py`). The run log itself is read with `gh run view <run id> -R
+neilmac91/EarningsNerd --log`, which stays outside the allow list: an exact rule cannot carry a run id,
+and the whole job log also holds the authentication step's identity lines. A record keeps only the
+operation step's verdict, revision, flag and Sentry lines.
+
+**Nothing here allows an apply.** Every other operation, a dispatch through the REST API, a re-run, the
+deployment-review and environment calls and any `gcloud` command stay outside the allow list; an
+`-apply` still waits for the founder's approval of `ops-apply` and the workflow's owner-approval check,
+and `.claude/hooks/ops_approval_guard.py` refuses a session the approval and rejection calls whatever
+the allow list says ([DEPLOYMENT.md](DEPLOYMENT.md)). Gate:
+`backend/tests/unit/test_ops_readback_allow_rules.py` (the three rules, the forbidden corpus, and the
+jobs, steps, environment, runner and concurrency group a read dispatch runs, with the resolve script's
+vocabulary); `ops/describe/service.py`, the Python every describe runs, is review-checked.
 
 ### Persisted audits and weekly judged readout (WS-6 measurement)
 

@@ -139,7 +139,7 @@ ALLOWED_SIDE_EFFECTING_GETS: dict[tuple[str, str], str] = {
     ),
     ("app/routers/summaries.py", "get_summary_progress"): (
         "progress heartbeat: marks an orphaned/stalled generation row as a retryable error on read "
-        "(db.commit) so the client never sees an eternal 'generating'"
+        "(one conditional UPDATE and its commit) so the client never sees an eternal 'generating'"
     ),
     ("app/routers/users.py", "get_notification_preferences"): (
         "lazy create: get_or_create_preferences inserts the default preferences row on first read "
@@ -209,7 +209,8 @@ ALLOWED_WRITE_SITES: dict[tuple[str, str], dict[str, dict[str, int]]] = {
         "app/services/filing_scan_service.py::upsert_filings": {"add": 1, "commit": 1},
     },
     ("app/routers/summaries.py", "get_summary_progress"): {
-        "app/routers/summaries.py::get_summary_progress": {"commit": 1},
+        "app/services/summary_generation_service.py::mark_stale_progress_as_error": {"query.update": 1},
+        "app/services/summary_generation_service.py::progress_poll_answer": {"commit": 1},
     },
     ("app/routers/users.py", "get_notification_preferences"): {
         "app/services/notification_service.py::get_or_create_preferences": {"add": 1, "commit": 1, "flush": 2},

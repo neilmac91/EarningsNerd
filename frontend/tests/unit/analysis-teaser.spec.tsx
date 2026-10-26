@@ -76,4 +76,14 @@ describe('AnalysisTeaser (free-user lock)', () => {
     expect(container.querySelectorAll('[data-analysis-metrics] thead th')).toHaveLength(9)
     expect(container.querySelector('[role="group"][aria-label="Table window"]')).toBeNull()
   })
+
+  it.each([['teaser', AnalysisTeaser], ['landing demo', AnalysisDemo]] as const)('sets the %s data notes as the table\'s fine print, directly under its card', (_, Component) => {
+    const { container } = render(<Component />)
+    // As on the analysis page (analysis-layout.spec.ts, "analysis data notes placement"): the data notes follow the
+    // metrics table card, the pair a column 8px apart (gap-2).
+    const table = container.querySelector('[data-analysis-metrics]')!
+    const notes = container.querySelector('[data-analysis-data-notes]')!
+    expect(table.nextElementSibling).toBe(notes)
+    expect(table.parentElement).toHaveClass('flex', 'flex-col', 'gap-2')
+  })
 })

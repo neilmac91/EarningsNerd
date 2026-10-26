@@ -27,17 +27,25 @@ their sessions inside the worker, returning plain snapshots or scalar IDs. Progr
 writes also close the read transaction opened by their post-commit refresh. Neither
 admission/provider waits nor the background drain retain preflight connections; the
 SSE route copies loaded primitive identity/subscription inputs before releasing its request
-session; missing subscription fields are loaded in a fresh worker session. Inspect ORM state
-without triggering lazy loads, including expired fields on an already-loaded relationship.
-Pass the frozen snapshot across threads, never the request session or its ORM objects. The pinned FastAPI runtime otherwise keeps yielded request dependencies open
-until the streaming response finishes. A cancelled coroutine must not close a session
+session; missing subscription fields are loaded in a fresh worker session. Since 2026-10-25
+(E171) the route's admission (its filing and summary reads, the plan check, the force
+branch's clear and that copy) is one thread-pool unit that releases the request session in
+its `finally` before the stream starts (`lessons/ops-release-cached-filing-reads-before-yield.md`).
+Inspect ORM state without triggering lazy loads, including expired fields on an already-loaded
+relationship. Pass the frozen snapshot to the pipeline's workers and the stream, never the
+request session or its ORM objects: the request session goes only to the route's own
+admission unit. Without that release, the pinned FastAPI runtime keeps yielded request
+dependencies open until the streaming response finishes. A cancelled coroutine must not close a session
 that its worker is still using.
 
 Gate: `backend/tests/unit/test_summary_provider_lifecycle.py::test_generation_waits_release_database_connections`
 uses a real one-connection pool across leader, follower, queue, drain and SSE waits,
 including cancellation while a DB worker owns its transaction. Real User/Subscription cases
-record SQL thread identity; standalone fixtures alone cannot prove lazy-load safety. The health-probe
-worker ownership gate lives in `backend/tests/smoke/test_critical_paths.py`.
+record SQL thread identity; standalone fixtures alone cannot prove lazy-load safety. A DB
+unit's session must close in the thread that opened it; the request session, the route's to
+release, is exempt from that check, and its route cases assert instead that the route
+released it off the event loop. The health-probe worker ownership gate lives in
+`backend/tests/smoke/test_critical_paths.py`.
 
 
 **Local leader handoff (2026-09-06)**: Joining another generation includes awaits, including

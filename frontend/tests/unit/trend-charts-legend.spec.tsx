@@ -126,13 +126,14 @@ describe('TrendCharts legends', () => {
     const { rerender } = render(<TrendCharts dataset={flagged} exportEnabled />)
     expect(screen.getAllByRole('button', { name: /^Review data notes a(?:,|$)/ })).toHaveLength(1)
     const panel = screen.getByRole('heading', { name: 'Revenue & growth' }).closest('section')!
-    expect(within(panel).getByRole('button', { name: 'Review data notes a, b' })).toBeInTheDocument()
+    // The panel's other note (b) records no check: it marks nothing, so the chip names a alone (D-061).
+    expect(within(panel).getByRole('button', { name: 'Review data notes a' })).toBeInTheDocument()
     fireEvent.click(within(panel).getByRole('button', { name: 'Download chart as PNG' }))
     expect(exportPanelPng).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({
       header: expect.objectContaining({ title: 'Revenue & growth', notes: expect.arrayContaining([expect.stringContaining('Note a: A source check remains unresolved')]) }),
     }))
     rerender(<TrendCharts dataset={dataset} />)
-    expect(within(panel).queryByRole('button', { name: 'Review data notes a, b' })).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: /^Review data notes/ })).not.toBeInTheDocument()
   })
 
   it('shows a legend naming each line for a multi-series panel (Margins)', () => {
@@ -222,12 +223,14 @@ describe('TrendCharts PNG export wiring', () => {
     return vi.mocked(exportPanelPng).mock.calls.at(-1)?.[2]?.header
   }
 
-  it('passes company, ticker, metric, and a multi-series legend to the export', () => {
+  it('passes company, ticker, metric, period range and a multi-series legend to the export', () => {
     render(<TrendCharts dataset={dataset} exportEnabled />)
     const header = clickExport('Margins')
     expect(header?.company).toBe('Test Co')
     expect(header?.ticker).toBe('TST')
     expect(header?.title).toBe('Margins')
+    expect(header?.period).toBe('FY2023–FY2024')
+    expect(header?.periodShort).toBe('FY2023–FY2024')
     expect(header?.legend.map((i) => i.label)).toEqual(['Gross', 'Operating'])
   })
 
