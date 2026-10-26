@@ -1118,8 +1118,9 @@ because they delay readout and complicate export timing. A theme switch swaps to
    - `TICKER · chart title`;
      - as built (#1627, `frontend/DESIGN_SYSTEM.md` §10), the export carries the period on this line in its own form,
        `TICKER · chart title · FY2016–FY2025`, and in this card's short form (`Q3 ’24–Q4 ’25`) when the long one is
-       wider than the strip (the image less its 16 px pads); what still does not fit is condensed, as a bank's
-       quarterly short form is, to about 97% at 390 px;
+       wider than the strip (the image less its 16 px pads) and the short one fits; otherwise the range takes a line
+       of its own in the same size and ink, as a bank's subtitle does on a phone; only a line that still does not
+       fit is condensed;
    - subtitle;
    - legend: the same inline items, same strings, same item x positions, drawn on the canvas with `measureText` in
      the page's body font stack;

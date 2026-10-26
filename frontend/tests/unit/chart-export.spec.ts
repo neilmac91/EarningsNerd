@@ -14,6 +14,7 @@ import {
   headerHeight,
   layoutLegend,
   layoutExportNotes,
+  layoutSubtitle,
   MARK_STAMP,
   parseUnicodeRange,
   withPngResolution,
@@ -331,6 +332,24 @@ describe('headerHeight', () => {
     expect(headerHeight(2)).toBeGreaterThan(headerHeight(1))
     expect(headerHeight(1)).toBeGreaterThan(headerHeight(0))
   })
+
+  it('grows by one subtitle line where the range takes its own', () => {
+    for (const rows of [0, 2]) {
+      expect(headerHeight(rows, 2) - headerHeight(rows)).toBe(HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize)
+    }
+  })
+})
+
+describe('layoutSubtitle', () => {
+  const measure = (text: string) => text.length
+  it('leaves a range with nothing before it on its one line, for maxWidth to condense', () => {
+    expect(layoutSubtitle(measure, { ticker: '', title: '', period: 'FY2016–FY2025' }, 5)).toEqual(['FY2016–FY2025'])
+  })
+  it('leaves a subtitle with no range on its one line', () => {
+    expect(layoutSubtitle(measure, { ticker: 'JPM', title: 'Net interest income & growth' }, 5)).toEqual([
+      'JPM · Net interest income & growth',
+    ])
+  })
 })
 
 describe('standalone export qualification layout', () => {
@@ -533,6 +552,9 @@ describe('exportPanelPng header', () => {
 
   let fillTexts: string[]
   let fillArgs: { text: string; maxWidth?: number }[]
+  /** Each text drawn and each text measured, with the canvas state it was drawn or measured in. */
+  let drawn: { text: string; y: number; maxWidth?: number; font: string; fill: string }[]
+  let measured: { text: string; font: string }[]
   let ctx: Record<string, unknown>
 
   beforeEach(() => {
@@ -540,17 +562,23 @@ describe('exportPanelPng header', () => {
     vi.stubGlobal('Image', FakeImage)
     fillTexts = []
     fillArgs = []
+    drawn = []
+    measured = []
     ctx = {
       fillStyle: '',
       font: '',
       textBaseline: '',
       globalAlpha: 1,
       fillRect: vi.fn(),
-      fillText: vi.fn((text: string, _x: number, _y: number, maxWidth?: number) => {
+      fillText: vi.fn((text: string, _x: number, y: number, maxWidth?: number) => {
         fillTexts.push(text)
         fillArgs.push({ text, maxWidth })
+        drawn.push({ text, y, maxWidth, font: ctx.font as string, fill: ctx.fillStyle as string })
       }),
-      measureText: (t: string) => ({ width: t.length * halfEm(ctx.font as string) }),
+      measureText: (t: string) => {
+        measured.push({ text: t, font: ctx.font as string })
+        return { width: t.length * halfEm(ctx.font as string) }
+      },
       scale: vi.fn(),
       drawImage: vi.fn(),
       save: vi.fn(),
@@ -607,27 +635,65 @@ describe('exportPanelPng header', () => {
   })
 
   describe('at a narrow width', () => {
-    // A bank's longest chart at quarterly range; the stub measures half an em a character in the font set when it
-    // measures, and the strip is the plot's width less its two pads.
+    // A bank's longest chart; the stub measures half an em a character in the font set when it measures, and the
+    // strip is the plot's width less its two pads.
     const BANK = { ...HEADER, ticker: 'JPM', title: 'Net interest income & growth', legend: [], ...exportSourceText({ ...quarterly, period_key: '2024Q3..2025Q4' }) }
-    const LONG = 'JPM · Net interest income & growth · Q3 2024–Q4 2025'
-    const SHORT = 'JPM · Net interest income & growth · Q3 ’24–Q4 ’25'
+    const LEAD = 'JPM · Net interest income & growth'
+    const LONG = `${LEAD} · Q3 2024–Q4 2025`
+    const SHORT = `${LEAD} · Q3 ’24–Q4 ’25`
     const plotFor = (subtitle: string) => (subtitle.length * HEADER_STAMP.subtitleSize) / 2 + 2 * HEADER_STAMP.padX
-    const subtitles = () => fillArgs.filter((call) => call.text.startsWith('JPM · '))
+    /** Each subtitle line drawn, with its baseline and maxWidth. */
+    const subtitles = () =>
+      (ctx.fillText as ReturnType<typeof vi.fn>).mock.calls
+        .filter(([text]) => text.startsWith('JPM · ') || /^(Q\d \d{4}|FY\d{4})/.test(text))
+        .map(([text, , y, maxWidth]) => ({ text, y, maxWidth }))
+    const plotTop = () => (ctx.drawImage as ReturnType<typeof vi.fn>).mock.calls.find((call) => call[1] === 0)?.[2]
+    const firstBaseline = HEADER_STAMP.padTop + HEADER_STAMP.companySize + HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize
+    const nextBaseline = firstBaseline + HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize
 
     it.each([
-      { width: plotFor(LONG), case: 'where the long form fits', drawn: LONG },
-      { width: plotFor(LONG) - 1, case: 'where only the short form fits', drawn: SHORT },
-      { width: plotFor(SHORT) - 40, case: 'where neither fits, condensed by maxWidth', drawn: SHORT },
-    ])('draws the subtitle once, $case', async ({ width, drawn }) => {
+      { width: plotFor(LONG), case: 'where the long form fits', line: LONG },
+      { width: plotFor(LONG) - 1, case: 'where only the short form fits', line: SHORT },
+      { width: plotFor(SHORT), case: 'where the short form just fits', line: SHORT },
+    ])('draws the subtitle on one line, $case', async ({ width, line }) => {
       await exportPanelPng(makeContainer(width), 'x.png', { header: BANK })
-      expect(subtitles()).toEqual([{ text: drawn, maxWidth: width - 2 * HEADER_STAMP.padX }])
+      expect(subtitles()).toEqual([{ text: line, y: firstBaseline, maxWidth: width - 2 * HEADER_STAMP.padX }])
+      expect(plotTop()).toBe(headerHeight(0))
     })
 
-    it('without a short form, condenses the long one', async () => {
-      const width = plotFor(LONG) - 1
-      await exportPanelPng(makeContainer(width), 'x.png', { header: { ...BANK, periodShort: undefined } })
-      expect(subtitles()).toEqual([{ text: LONG, maxWidth: width - 2 * HEADER_STAMP.padX }])
+    it.each([
+      { case: 'a quarterly range whose short form does not fit', header: BANK, width: plotFor(SHORT) - 1, range: 'Q3 2024–Q4 2025' },
+      { case: 'a quarterly range with no short form', header: { ...BANK, periodShort: undefined }, width: plotFor(LONG) - 1, range: 'Q3 2024–Q4 2025' },
+      // A 360 px phone's annual card exports at 290 px (chief design on d5afd593 and c152be6f), and an annual range
+      // has no shorter form.
+      { case: 'an annual range on a phone', header: { ...BANK, ...exportSourceText({ ...quarterly, period_key: 'FY2016..FY2025' }) }, width: 290, range: 'FY2016–FY2025' },
+      { case: 'a lead that itself does not fit, which maxWidth condenses', header: BANK, width: plotFor(LEAD) - 1, range: 'Q3 2024–Q4 2025' },
+    ])('sets the range on a line of its own for $case, and the plot a line lower', async ({ header, width, range }) => {
+      await exportPanelPng(makeContainer(width), 'x.png', { header })
+      const maxWidth = width - 2 * HEADER_STAMP.padX
+      expect(subtitles()).toEqual([
+        { text: LEAD, y: firstBaseline, maxWidth },
+        { text: range, y: nextBaseline, maxWidth },
+      ])
+      expect(plotTop()).toBe(headerHeight(0, 2))
+    })
+
+    it('sets the range line in the subtitle’s font and ink, measured in that font, with the legend below it', async () => {
+      // The bank's top-line card on a 360 px phone: an annual range, its two-item legend, a card's own inks.
+      const legend = [{ label: 'Net interest income', color: '#111111' }, { label: 'YoY growth', color: '#222222' }]
+      const header = { ...BANK, legend, ...exportSourceText({ ...quarterly, period_key: 'FY2016..FY2025' }) }
+      await exportPanelPng(makeContainer(290), 'x.png', { header, ink: { primary: '#123456', secondary: '#654321' } })
+      const [lead, range] = [LEAD, 'FY2016–FY2025'].map((text) => drawn.find((call) => call.text === text))
+      expect(lead).toMatchObject({ y: firstBaseline, fill: '#654321', font: expect.stringMatching(`^500 ${HEADER_STAMP.subtitleSize}px `) })
+      expect(range).toMatchObject({ y: nextBaseline, fill: lead?.fill, font: lead?.font })
+      // The subtitle's widths came from the font it is drawn in.
+      const subtitleMeasures = measured.filter(({ text }) => text.startsWith('JPM · '))
+      expect(subtitleMeasures.length).toBeGreaterThan(0)
+      for (const { font } of subtitleMeasures) expect(font).toBe(lead?.font)
+      // One legend row, its labels centred in a row that starts a legend gap below the range line.
+      const rowMiddle = nextBaseline + HEADER_STAMP.legendGap + Math.max(HEADER_STAMP.legendSize, HEADER_STAMP.swatch) / 2
+      expect(legend.map(({ label }) => drawn.find((call) => call.text === label)?.y)).toEqual([rowMiddle, rowMiddle])
+      expect(plotTop()).toBe(headerHeight(1, 2))
     })
   })
 

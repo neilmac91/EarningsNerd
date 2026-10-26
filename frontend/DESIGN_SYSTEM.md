@@ -2479,9 +2479,10 @@ returns without a trap. The viewport carries the brand focus ring for either key
 source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
 and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`);
 a subtitle wider than the strip (the image less its 16 px pads) takes the range's short form ("Q3 ’24–Q4 ’25", as
-the spec renderer's card subtitle prints it; today's Recharts card prints no range), and only what still does not
-fit is condensed. The file declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px
-a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
+the spec renderer's card subtitle prints it; today's Recharts card prints no range) where that fits, and otherwise
+the range takes a line of its own in the same size and ink (an annual range has no shorter form: "JPM · Net interest
+income & growth" / "FY2016–FY2025" on a phone); only a line that still does not fit is condensed. The file
+declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
 file's chunk).
 The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the

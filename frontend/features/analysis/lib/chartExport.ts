@@ -351,7 +351,7 @@ export interface ChartExportHeader {
   /** The run's period range (e.g. "FY2016–FY2025"), last in the subtitle; exportSourceText supplies it. */
   period?: string
   /** The range's short form (e.g. "Q3 ’24–Q4 ’25"), drawn instead when the subtitle with `period` is wider than the
-   *  strip; exportSourceText supplies it. */
+   *  strip and the short form fits; exportSourceText supplies it. */
   periodShort?: string
   legend: ChartLegendItem[]
   sourceNote?: string
@@ -369,7 +369,7 @@ export const HEADER_STAMP = {
   padBottom: 14,
   companySize: 15,
   subtitleSize: 12,
-  lineGap: 4, // company → subtitle
+  lineGap: 4, // company → subtitle, and subtitle → the range's own line
   legendGap: 11, // subtitle → first legend row
   legendSize: 12,
   swatch: 9,
@@ -415,14 +415,34 @@ export function layoutLegend(
   return rows
 }
 
-/** Total header-strip height: the company + subtitle lines are always present; `numRows` of legend
- *  add on top (0 = header without a legend, mirroring a single-series panel). */
-export function headerHeight(numRows: number): number {
+/**
+ * The subtitle's lines. "{ticker} · {metric} · {period}" on one line where it fits `maxWidth`; else with the period's
+ * short form ("Q3 ’24–Q4 ’25") where that fits; else the range breaks onto a line of its own, in the same size and ink,
+ * since an annual range has no shorter form ("JPM · Net interest income & growth" / "FY2016–FY2025"). A line still
+ * wider than the strip is condensed by fillText's maxWidth. Pure (measurement injected); exported for tests.
+ */
+export function layoutSubtitle(
+  measure: (text: string) => number,
+  header: Pick<ChartExportHeader, 'ticker' | 'title' | 'period' | 'periodShort'>,
+  maxWidth: number
+): string[] {
+  const subtitleWith = (period?: string) => [header.ticker, header.title, period].filter(Boolean).join(' · ')
+  const long = subtitleWith(header.period)
+  if (measure(long) <= maxWidth) return [long]
+  const short = subtitleWith(header.periodShort)
+  if (header.periodShort && measure(short) <= maxWidth) return [short]
+  const lead = subtitleWith()
+  return header.period && lead ? [lead, header.period] : [long]
+}
+
+/** Total header-strip height: the company line and `subtitleLines` subtitle lines (one, or two where the range takes
+ *  its own line) are always present; `numRows` of legend add on top (0 = header without a legend, mirroring a
+ *  single-series panel). */
+export function headerHeight(numRows: number, subtitleLines = 1): number {
   let h =
     HEADER_STAMP.padTop +
     HEADER_STAMP.companySize +
-    HEADER_STAMP.lineGap +
-    HEADER_STAMP.subtitleSize
+    subtitleLines * (HEADER_STAMP.lineGap + HEADER_STAMP.subtitleSize)
   if (numRows > 0) {
     h += HEADER_STAMP.legendGap + numRows * LEGEND_ROW_H + (numRows - 1) * HEADER_STAMP.rowGap
   }
@@ -473,14 +493,14 @@ function fillSwatch(
   }
 }
 
-/** Draw the company + "ticker · metric · period" subtitle + pre-laid-out legend rows into the top strip.
- *  Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the card's own
- *  inks (ExportInk). A subtitle wider than the strip takes the period's short form when the header has one.
- *  `maxWidth` on each fillText is the last resort: it condenses (never clips) what is still wider than the strip,
- *  such as a long company name, or a bank's subtitle at a phone's width even in its short form. */
+/** Draw the company + the pre-laid-out "ticker · metric · period" subtitle lines (layoutSubtitle) + legend rows into
+ *  the top strip. Colors mirror the on-screen tokens: company = text.primary, subtitle/legend = text.secondary, or the
+ *  card's own inks (ExportInk). `maxWidth` on each fillText is the last resort: it condenses (never clips) what is
+ *  still wider than the strip, such as a long company name. */
 function drawHeader(
   ctx: CanvasRenderingContext2D,
   header: ChartExportHeader,
+  subtitle: string[],
   rows: LaidOutItem[][],
   width: number,
   { primary, secondary }: ExportInk
@@ -496,14 +516,13 @@ function drawHeader(
   ctx.fillText(header.company, HEADER_STAMP.padX, top + HEADER_STAMP.companySize, maxW)
   top += HEADER_STAMP.companySize + HEADER_STAMP.lineGap
 
-  // Subtitle — "{ticker} · {metric} · {period}" ("REGN · Margins · FY2016–FY2025"); a part not given is left out.
-  // Wider than the strip, it takes the period's short form ("Q3 ’24–Q4 ’25") before maxWidth condenses it.
+  // Subtitle — "{ticker} · {metric} · {period}" ("REGN · Margins · FY2016–FY2025"), or its range on a line of its own.
   ctx.font = font(500, HEADER_STAMP.subtitleSize)
-  const subtitleWith = (period?: string) => [header.ticker, header.title, period].filter(Boolean).join(' · ')
-  let subtitle = subtitleWith(header.period)
-  if (header.periodShort && ctx.measureText(subtitle).width > maxW) subtitle = subtitleWith(header.periodShort)
   ctx.fillStyle = secondary
-  ctx.fillText(subtitle, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
+  subtitle.forEach((line, index) => {
+    if (index > 0) top += HEADER_STAMP.subtitleSize + HEADER_STAMP.lineGap
+    ctx.fillText(line, HEADER_STAMP.padX, top + HEADER_STAMP.subtitleSize, maxW)
+  })
   top += HEADER_STAMP.subtitleSize
 
   if (rows.length === 0) return
@@ -650,19 +669,22 @@ export async function exportPanelPng(
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
 
-  // Lay the legend out first (needs a font-set ctx to measure) so the header height — and thus the
-  // canvas height — is known before we size the canvas. Sizing the canvas resets ctx state, so
+  // Lay the subtitle and legend out first (each needs a font-set ctx to measure) so the header height — and thus
+  // the canvas height — is known before we size the canvas. Sizing the canvas resets ctx state, so
   // everything below re-applies scale + fonts.
   let headH = 0
+  let subtitleLines: string[] = []
   let legendRows: LaidOutItem[][] = []
   if (header) {
+    ctx.font = font(500, HEADER_STAMP.subtitleSize)
+    subtitleLines = layoutSubtitle((text) => ctx.measureText(text).width, header, Math.max(1, width - 2 * HEADER_STAMP.padX))
     ctx.font = font(400, HEADER_STAMP.legendSize)
     legendRows = layoutLegend(
       (label) => ctx.measureText(label).width,
       header.legend,
       width - 2 * HEADER_STAMP.padX
     )
-    headH = headerHeight(legendRows.length)
+    headH = headerHeight(legendRows.length, subtitleLines.length)
   }
   ctx.font = font(400, HEADER_STAMP.subtitleSize)
   const notes = header ? [header.sourceNote, ...(header.notes ?? []), header.disclosure].filter((note): note is string => !!note) : []
@@ -675,7 +697,7 @@ export async function exportPanelPng(
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
-  if (header) drawHeader(ctx, header, legendRows, width, ink)
+  if (header) drawHeader(ctx, header, subtitleLines, legendRows, width, ink)
   ctx.drawImage(image, 0, headH, width, height)
   ctx.font = font(400, HEADER_STAMP.subtitleSize)
   ctx.fillStyle = ink.secondary
