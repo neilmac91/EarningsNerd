@@ -66,16 +66,17 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  * 2. Every place a letter renders or is named. The whole report (KPI cards, trend charts, narrative, metrics table and
  *    the data notes) renders the fixture's record_only_and_mixed_marking case; every letter drawn (data-note-letter,
  *    a chart's "Data note x" mark), named (a control's or chip's accessible name, a chart tooltip's "· note x", the
- *    fold's "figures carry notes x"), set in the fine print's summary or in a chart's PNG footer (chartDataNotes) is one
- *    of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
+ *    fold's "figures carry notes x"), set in the fine print's summary, the open lists' letter column or a chart's PNG
+ *    footer (chartDataNotes) is one of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
  *    record-only a, the unknown d or the gap's e. The same render holds the notation's two other clauses at their full
  *    width: no † anywhere in an annual report (a † marks only a period: the Q4 header, the period picker), the fold's
  *    derived row included, and no drawn, listed or charted letter in warning ink.
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
  *    supplement); the record-only note's entry keeps its words and counts; the summary never says "No figures need
- *    review" beside it, even where it sits on a growth figure alone and every value passed, and the legacy figure's
- *    dialog says "Needs review", never that checks passed. Filtering the notes model instead of the render sites fails
- *    here.
+ *    review" beside it, even where it sits on a growth figure alone and every value passed, and gives the mixed note's
+ *    questioning clause, not the record-only sentence its words open with; the legacy figure's dialog says "Needs
+ *    review", never that checks passed, and names no letter the page does not show. Filtering the notes model instead
+ *    of the render sites fails here.
  */
 
 interface GoldenCase {
@@ -168,6 +169,9 @@ describe('every surface marks and names only the notes that question the number 
       (/figures carry notes? ([a-z, ]+)$/.exec(summary.textContent ?? '')?.[1] ?? '').split(', ').filter(Boolean)))
     const fine = container.querySelector('[data-analysis-data-notes] > details > summary')!
     saw('the data notes summary', [...(fine.textContent ?? '').matchAll(/Note ([a-z]+):/g)].map((match) => match[1]))
+    // The open lists' letter column, under the table and under the narrative's sources.
+    saw('the open data notes', [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')]
+      .flatMap((cell) => /([a-z]+)\.$/.exec(cell.textContent ?? '')?.[1] ?? []))
     expect(tooltips.contents.length, 'the charts drew their tooltips').toBeGreaterThan(0)
     for (const text of tooltipTexts()) saw('a chart tooltip', [...text.matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
     // A chart's PNG footer and its chip read chartDataNotes; the footer is drawn only on export, so read it here.
@@ -180,7 +184,7 @@ describe('every surface marks and names only the notes that question the number 
     // The fixture's marked letters all show: b on the KPI card, the table and the cash chart, c on the table and the
     // balance sheet, f on its citation chip.
     expect([...seen.keys()].sort()).toEqual([...example.marked_letters].sort())
-    for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
+    for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'the open data notes', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
       expect([...seen.values()].some((places) => places.has(where)), `no ${where} was read: the scan went blind`).toBe(true)
     }
   })
@@ -231,6 +235,13 @@ describe('every surface marks and names only the notes that question the number 
     // Every populated figure that is not legacy, missing its record or the conflict passed: still never "No figures
     // need review" while the record-only note stands.
     expect(fine.querySelector('summary')).not.toHaveTextContent('No figures need review')
+    // The mixed note b marks for its other reason: the summary gives that clause, never the record-only sentence its
+    // words open with.
+    const mixed = example.expected.notes.find((note) => note.letter === 'b')!
+    expect(mixed.reasons).toEqual(['legacy_calculation', 'source_check_needed'])
+    expect(mixed.message).toMatch(/^This saved calculation predates the current source checks\. .*A source check remains unresolved\./)
+    expect(fine.querySelector('summary')).toHaveTextContent('Note b: b Free cash flow FY2024: A source check remains unresolved')
+    expect(fine.querySelector('summary')).not.toHaveTextContent('predates the current source checks')
 
     const figure = within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getByRole('button', { name: /^Operating margin, FY2024: .*, calculated\. View source/ })
     expect(figure.querySelector('[data-note-letter]')).toBeNull()
@@ -239,6 +250,14 @@ describe('every surface marks and names only the notes that question the number 
     expect(checks).toHaveTextContent('Needs review')
     expect(checks).toHaveTextContent(legacy.message)
     expect(checks).not.toHaveTextContent('Automated checks passed')
+    // The figure's YoY carries the record-only note too: the dialog reads it in words and names no letter the page does
+    // not show, in its text or its accessible names.
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog).toHaveTextContent('The recorded inputs do not identify which input this note comes from.')
+    const unmarked = notesOf(example).filter((note) => !noteMarksFigure(note)).map((note) => note.letter)
+    const naming = new RegExp(`\\b[Nn]otes? (?:${unmarked.join('|')})\\b`)
+    expect([dialog.textContent ?? '', ...[...dialog.querySelectorAll('[aria-label]')].map((element) => element.getAttribute('aria-label')!)]
+      .filter((text) => naming.test(text)), 'the dialog names a letter the page does not show').toEqual([])
   })
 })
 
