@@ -328,6 +328,35 @@ def test_an_interruption_or_a_ledger_error_after_a_cut_carries_its_cost(monkeypa
     assert caught.value.result.cost_usd == pytest.approx(one) and caught.value.result.meta["cut_attempts"] == 1
 
 
+def test_a_cut_then_an_attempt_interrupted_mid_stream_carry_both(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """A cut, then Ctrl-C after the retry's stream started: _call_anthropic logs the interrupted attempt at its worst
+    case and marks the interruption with it, so the caller's carried cost is both, as the ledger's is."""
+    one = list_cost(ARMS["claude-sonnet-5-5"], 1000, 0, 16000)
+    _api(monkeypatch, tmp_path, 0.0, {})
+    sent: list = []
+
+    async def attempt(arm, system, user, max_tokens, timeout_s, tag=""):
+        sent.append(tag)
+        if len(sent) == 1:
+            raise _started()
+        stop = KeyboardInterrupt()
+        cut = _cut(one)
+        providers._log_spend(arm, cut, f"{tag} (interrupted)", providers.CUT_ESTIMATE)  # as the real attempt does
+        setattr(stop, providers.CUT_LOGGED, True)
+        setattr(stop, providers.CUT_RESULT, cut)
+        raise stop
+
+    async def no_wait(seconds: float) -> None:
+        pass
+
+    monkeypatch.setattr(providers, "_call_anthropic", attempt)
+    monkeypatch.setattr(providers, "_sleep", no_wait)
+    with pytest.raises(KeyboardInterrupt) as caught:
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", tag="t"))
+    assert providers.anthropic_spend() == pytest.approx(2 * one)
+    assert caught.value.result.cost_usd == pytest.approx(2 * one) and caught.value.result.meta["cut_attempts"] == 2
+
+
 def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})
@@ -557,11 +586,13 @@ def test_an_attempt_interrupted_mid_stream_is_logged_at_its_worst_case(monkeypat
     _api(monkeypatch, tmp_path, 0.0, {})
     monkeypatch.setattr(providers, "_call_anthropic", _REAL_ATTEMPT)
     _fake_sdk(monkeypatch, _FakeStream(started=True, error=asyncio.CancelledError()))
-    with pytest.raises(asyncio.CancelledError):
+    with pytest.raises(asyncio.CancelledError) as caught:
         asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", max_tokens=64000, tag="t"))
     rows = _paid(tmp_path)
     assert [row["tag"] for row in rows] == ["t (interrupted)"] and rows[0]["output_tokens"] == 64000
-    assert providers.anthropic_spend() == pytest.approx(list_cost(ARMS["claude-sonnet-5-5"], 50000, 0, 64000))
+    worst = list_cost(ARMS["claude-sonnet-5-5"], 50000, 0, 64000)
+    assert providers.anthropic_spend() == pytest.approx(worst)
+    assert caught.value.result.cost_usd == pytest.approx(worst)  # the caller carries what the ledger holds
 
 
 def test_an_attempt_interrupted_before_it_started_keeps_its_reservation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

@@ -716,6 +716,11 @@ TRIPLED = _pack(("F1", "Revenue", "FY2024", 10_000_000_000.0, "usd"), ("F2", "Re
          "'doubled' matches nothing"),
         ("Revenue in its reported form tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple",
          None),
+        # A citation before the multiple: blanking it must keep every start where it was.
+        ("Revenue was $10 billion in FY2024 [F1] and more than doubled to $30 billion in FY2025 [F2].", "at_least", None),
+        # A letter whose lower case is longer ("İ"): the multiple's start still indexes the sentence.
+        ("İstanbul-listed peers aside, revenue tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].",
+         "multiple", None),
     ],
 )
 def test_a_worded_multiple_beside_figures_is_checked(text: str, qualifier: str, fragment: str | None) -> None:
@@ -736,3 +741,13 @@ def test_a_worded_multiple_without_figures_after_form_is_read() -> None:
     result = factcheck.check([{"section": "growth", "text": "Revenue in its current form doubled [F1][F2].", "type": "comparison"}],
                              TRIPLED)
     assert any("'doubled' matches nothing" in f["failure"] for f in result["failures"]), result["failures"]
+
+
+def test_a_passages_worded_multiple_licenses_only_a_worded_multiple() -> None:
+    """A passage that says "doubled" grounds a sentence's "doubled", never a ratio or a bare number of 2."""
+    pack = _pack(("F1", "Net debt / EBITDA", "FY2025", 1.4, "x"),
+                 passages=(("P1", "Revenue doubled to $5.0 billion in fiscal 2025."),))
+    leverage = factcheck.check([{"section": "s", "text": "Net leverage was 2.0x in FY2025 [F1][P1].", "type": "fact"}], pack)
+    assert any("'2.0x' matches nothing" in f["failure"] for f in leverage["failures"]), leverage["failures"]
+    restated = factcheck.check([{"section": "s", "text": "Revenue doubled to $5.0 billion in FY2025 [P1].", "type": "fact"}], pack)
+    assert restated["failures"] == [] and restated["verified"] == 2, restated["failures"]

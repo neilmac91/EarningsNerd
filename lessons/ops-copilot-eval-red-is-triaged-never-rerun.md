@@ -33,9 +33,10 @@ Never draw again on the same code to get a green result:
   a later run on a head that already drew reports that draw's verdict and spends nothing. Nothing in
   the PR body exempts a head.
 - **A toggle right after a push.** A draft-to-ready toggle or a re-run made while a push's own draw is still
-  running cancels that draw, and a cancelled draw counts as the head's draw, never as a green one. On #1673,
-  b1a8587 was pushed at 21:29:18Z. A toggle at 21:29:27Z, made to request Codex's review, started run 40404785082,
-  which cancelled the push's draw (run 40404764572) and then refused to draw. After a push, let `copilot-eval`
+  running cancels that draw, and a cancelled draw counts as the head's draw, never as a green one. On #1673, the
+  push of b1a8587 started its draw (run 40404764572, created 21:29:18Z). A toggle at 21:29:23-24Z, made to request
+  Codex's review, started run 40404785082 (created 21:29:27Z), which cancelled the push's draw and then refused to
+  draw. After a push, let `copilot-eval`
   finish before any toggle, one made to request a Codex review included.
 - **A push only to draw again.** Never push a commit that changes nothing under `backend/` or
   `.github/` just to draw again, outside a predeclared protocol. The gate does not catch this, because

@@ -968,18 +968,25 @@ The pass row is the record as run, so it does not move.
 **The pull request's review (Codex, after the results).** Its fixes to the harness move no reported verdict:
 - **The judge's forfeit:** no recorded pair had a failed generation.
 - **Partial audits:** none of the 1,191 recorded audits holds an unlabelled item.
-- **The production arm's ingest:** no run here generated the current arm.
+- **The production arm's ingest:** the recorded current-arm outputs (dev-v3 and eval-v1) were generated in a store
+  that already held the companies, so the fix changes none of them; no run since has generated the arm.
 - **Cut Claude attempts' cost:** no recorded call used the Claude API.
 - **Overload retries' latency:** the records cannot show whether any call retried (§5.7).
-- **Worded multiples beside figures** ("more than doubled to $1.2 billion"). The gate now reads these. A replay of
-  every recorded output, first and final, with and without backstops, changes no verdict and no failure. Four
-  sentences gain one verified claim each, so a report re-run today prints one more verified claim:
+- **Worded multiples beside figures** ("more than doubled to $1.2 billion"). The gate now reads these, and a
+  passage's own "doubled" licenses only a sentence's "doubled", never a ratio or a bare number (no passage in
+  `packs/` or `packs-v2/` holds one). A replay of every recorded output, first and final, with and without
+  backstops, changes no verdict and no failure. Four sentences gain one verified claim each: dev-v4 K0's SNAP
+  ("revenue more than doubled in FY2017"), eval-v1 Haiku 5.5 low's SNAP ("operating loss nearly doubled"), eval-v2-r1
+  K0's CVX ("interest expense more than doubled") and eval-v2-r1 C's AMD (its first output only). A report re-run
+  today prints one more verified claim for two of them:
   - eval-v2-r1 K0: 752 becomes 753 (CVX), so the held-out pool reads 1,479 and all six runs 4,442. Every rate in §5
     rounds the same: 1.3, 3.4 and 4.5;
   - eval-v1 Haiku 5.5 (low effort): 677 becomes 678 on the development half (its rate there prints 2.9, not 3.0),
     and 1,356 becomes 1,357 in all.
 
-  The committed reports keep the earlier counts, and no auditor read the added claims.
+  C's AMD sentence is in a first output, which the report's verified claims do not count. dev-v4's re-run report also
+  counts one more claim (SNAP's), which moves none of the rows this section takes from it. The committed reports keep
+  the earlier counts, and no auditor read the added claims.
 
 ### When to stop
 

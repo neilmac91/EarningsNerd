@@ -153,8 +153,9 @@ worst case is the prompt at one token per byte, plus a full `max_tokens` of outp
   failed is kept and logged at its own cost. The ledger can overstate what the key spent, never understate
   it. The call's cost counts the cut attempts too: a retry that returns adds their worst case to the reply's own
   (`cut_cost_usd`), and a call that fails or is interrupted after them carries it, so a record and the report's cost
-  count them once, as the ledger does. A judge order interrupted after a cut keeps it; a generation interrupted
-  mid-call writes no record, so only the ledger holds that call's cuts.
+  count them once, as the ledger does (an attempt interrupted mid-stream is one of them). A judge order interrupted
+  after a cut keeps it; a generation or an audit interrupted mid-call writes no record, so only the ledger holds that
+  call's cuts.
 - **One process at a time.** A process holds a lock on the ledger while it spends on the key, so a second one
   (two steps run at once) is refused. Run the Claude API steps one after another.
 - **Other sessions.** A session in another checkout keeps a ledger of its own. So also set a spend limit on the

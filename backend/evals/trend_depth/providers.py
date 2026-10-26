@@ -444,6 +444,7 @@ class _AttemptFailed(Exception):
 
 CUT_ESTIMATE = "worst case: the stream failed after it started, so the output so far is not known"
 CUT_LOGGED = "trend_depth_cut_logged"  # set on an interruption once _call_anthropic has logged its cut
+CUT_RESULT = "trend_depth_cut_result"  # and the cut itself, which the caller's cost carries with the earlier ones
 
 
 RESERVED = "reserved: the worst case of an attempt in flight, released when it settles"
@@ -500,6 +501,8 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
                 settled = True
             except BaseException as exc:
                 settled = getattr(exc, CUT_LOGGED, False)  # an interruption: released only if its cut was logged
+                if getattr(exc, CUT_RESULT, None) is not None:  # the ledger holds it, so the caller's cost does too
+                    cuts.append(getattr(exc, CUT_RESULT))
                 raise
             finally:
                 if settled:  # otherwise the reservation stays counted, which overstates rather than understates
@@ -567,6 +570,7 @@ async def _call_anthropic(arm: Arm, system: str, user: str, max_tokens: int, tim
         if cut is not None:  # before message_start the attempt's cost is unknown: its reservation stays counted
             _log_spend(arm, cut, f"{tag} (interrupted)", CUT_ESTIMATE)
             setattr(exc, CUT_LOGGED, True)
+            setattr(exc, CUT_RESULT, cut)
         raise
     if message.stop_reason is None:  # the stream ended before message_delta: a partial reply, its output uncounted
         raise _AttemptFailed(RuntimeError("the stream ended before the message did"),

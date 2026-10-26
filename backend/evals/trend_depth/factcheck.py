@@ -198,9 +198,9 @@ def parse_claims(text: str) -> list[Claim]:
     # text as the figures' (a figure's own printed text once stood in for the sentence here, so a sentence with any
     # figure was never read for its multiple). Not in ``clean``: it also blanks the word after "form", which would
     # hide "in its current form doubled".
-    low = CITATION_RE.sub(lambda m: " " * len(m.group(0)), text).lower()
+    low = CITATION_RE.sub(lambda m: " " * len(m.group(0)), text)  # case kept: lower() can change a string's length
     for word, factor in _MULTIPLE_WORDS.items():
-        for found in re.finditer(rf"\b{word}\b", low):
+        for found in re.finditer(rf"\b{word}\b", low, re.I):
             qualifier = ""
             prefix = low[max(0, found.start() - 30):found.start()]
             for name, pattern in _QUALIFIERS:
@@ -268,8 +268,10 @@ def _passage_numbers(passage: dict[str, Any]) -> list[Candidate]:
             # Filings print table-scale dollars in prose ("Net sales increased $27,335", in millions).
             for scale in (1e3, 1e6):
                 out.append(Candidate(claim.value * scale, "usd", f"passage {passage['id']} (x{scale:g})", (passage["id"],), ()))
-        # No period constraint: a FY2025 10-K quotes 2026 guidance and prior-year comparatives.
-        out.append(Candidate(claim.value * claim.scale, claim.unit, f"passage {passage['id']}", (passage["id"],), ()))
+        # No period constraint: a FY2025 10-K quotes 2026 guidance and prior-year comparatives. A passage's own worded
+        # multiple ("revenue doubled") licenses only the sentence's worded multiple, never a ratio or a bare number.
+        unit = "worded_multiple" if claim.unit == "multiple" else claim.unit
+        out.append(Candidate(claim.value * claim.scale, unit, f"passage {passage['id']}", (passage["id"],), ()))
     return out
 
 
@@ -356,7 +358,7 @@ def candidates(ids: Iterable[str], pack: dict[str, Any]) -> list[Candidate]:
 
 _COMPATIBLE = {
     "usd": {"usd", "usd_per_share"}, "usd_per_share": {"usd_per_share", "usd"}, "pct": {"pct"}, "pp": {"pp"},
-    "x": {"x", "multiple"}, "multiple": {"multiple", "x"}, "days": {"days"}, "years": {"years"},
+    "x": {"x", "multiple"}, "multiple": {"multiple", "x", "worded_multiple"}, "days": {"days"}, "years": {"years"},
     "shares": {"shares", "plain"}, "plain": {"x", "plain", "pct", "pp", "days", "years", "usd_per_share", "shares", "usd", "multiple"},
 }
 
