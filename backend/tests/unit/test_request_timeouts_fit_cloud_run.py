@@ -46,8 +46,8 @@ def _service_pool_timeout() -> float:
     which already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
     environment (which ``load_dotenv`` may fill) sets it. Both files' shapes are checked whichever layer wins, and
     fail with a message: a Dockerfile instruction naming the value other than as an ``ENV`` this reads, a
-    ``database.py`` that binds the name anywhere but its one default line (a parse of the module finds every binding:
-    augmented, annotated, unpacked or chained), or a ``pool_timeout`` keyword other than the bare name. Code that
+    ``database.py`` that binds the name anywhere but its one default line (``_bindings`` names every kind of binding
+    it finds), or a ``pool_timeout`` keyword other than the bare name. Code that
     sets the pool's timeout another way (keyword arguments spread from a mapping, a change at run time), and a value
     set on the service by hand (which outlives ``--update-env-vars``), are out of this reading's reach."""
     # The Dockerfile's instructions as Docker reads them: comment lines dropped (Docker never continues one), then
@@ -58,22 +58,43 @@ def _service_pool_timeout() -> float:
     images = [re.fullmatch(r"(?i:ENV)\s+(?:\S+=\S+\s+)*DB_POOL_TIMEOUT[= ](\d+)(?:\s+\S+=\S+)*", line) for line in named]
     assert all(images), f"backend/Dockerfile names DB_POOL_TIMEOUT in a form this reading does not know: {named}"
     source = (ROOT / "backend/app/database.py").read_text()
-    defaults = re.findall(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$', source, re.M)
+    defaults = list(re.finditer(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$', source, re.M))
     module = ast.parse(source)
-    bindings = [node for node in ast.walk(module)
-                if isinstance(node, ast.Name) and node.id == "DB_POOL_TIMEOUT" and isinstance(node.ctx, ast.Store)]
+    bindings = _bindings(module, "DB_POOL_TIMEOUT")
     engine_arguments = [keyword.value for keyword in ast.walk(module)
                         if isinstance(keyword, ast.keyword) and keyword.arg == "pool_timeout"]
     assert len(defaults) == 1 and len(bindings) == 1 and engine_arguments and all(
         isinstance(value, ast.Name) and value.id == "DB_POOL_TIMEOUT" for value in engine_arguments), (
         "database.py sets its pool timeout in a form this reading does not know; teach it the new form")
+    # The one binding is the default line itself, not a copy of it quoted in a string.
+    assert bindings[0].lineno == source.count("\n", 0, defaults[0].start()) + 1, (
+        "database.py binds DB_POOL_TIMEOUT on another line than its default; teach this reading the new form")
     [env] = re.findall(r"--update-env-vars=(\S+)", _service_deploy())
     pairs = dict(item.split("=", 1) for item in env.split(","))
     if "DB_POOL_TIMEOUT" in pairs:
         return float(pairs["DB_POOL_TIMEOUT"])
     if images:
         return float(images[-1].group(1))
-    return float(defaults[0])
+    return float(defaults[0].group(1))
+
+
+def _bindings(module: ast.Module, name: str) -> list[ast.AST]:
+    """Every node of a parsed module that binds ``name``: an assignment target of any kind (plain, augmented,
+    annotated, unpacked, chained, a ``for`` or ``with`` target, a walrus), an import, an ``except`` clause, a match
+    capture, a ``def`` or a ``class``."""
+    found: list[ast.AST] = []
+    for node in ast.walk(module):
+        if isinstance(node, ast.Name) and node.id == name and isinstance(node.ctx, ast.Store):
+            found.append(node)
+        elif isinstance(node, ast.alias) and (node.asname or node.name.split(".")[0]) == name:
+            found.append(node)
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name == name:
+            found.append(node)
+        elif isinstance(node, ast.MatchMapping) and node.rest == name:
+            found.append(node)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+            found.append(node)
+    return found
 
 
 def test_every_request_timeout_ends_before_the_services():
