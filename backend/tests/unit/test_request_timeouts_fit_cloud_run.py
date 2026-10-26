@@ -40,15 +40,25 @@ def _service_request_timeout() -> int:
 
 
 def _service_pool_timeout() -> float:
-    """The pool timeout the API service is deployed with: the deploy's ``DB_POOL_TIMEOUT``, else ``database.py``'s
-    default as written there, not as this process's environment (which ``load_dotenv`` may fill) sets it. A value
-    set on the service by hand outlives ``--update-env-vars`` and is out of this reading's reach."""
+    """The pool timeout the API service is deployed with, in the order the service resolves it: the deploy's
+    ``DB_POOL_TIMEOUT`` (``--update-env-vars``), else the image's (an ``ENV`` line in ``backend/Dockerfile``, which
+    already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
+    environment (which ``load_dotenv`` may fill) sets it. A value set on the service by hand outlives
+    ``--update-env-vars`` and is out of this reading's reach."""
     [env] = re.findall(r"--update-env-vars=(\S+)", _service_deploy())
     pairs = dict(item.split("=", 1) for item in env.split(","))
     if "DB_POOL_TIMEOUT" in pairs:
         return float(pairs["DB_POOL_TIMEOUT"])
-    [default] = re.findall(r'os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)', (ROOT / "backend/app/database.py").read_text())
-    return float(default)
+    image = [line for line in (ROOT / "backend/Dockerfile").read_text().splitlines()
+             if line.lstrip().upper().startswith("ENV") and "DB_POOL_TIMEOUT" in line]
+    if image:
+        values = [re.search(r"\bDB_POOL_TIMEOUT[= ]+(\d+)\b", line) for line in image]
+        assert all(values), f"backend/Dockerfile sets DB_POOL_TIMEOUT in a form this reading does not know: {image}"
+        return float(values[-1].group(1))
+    defaults = re.findall(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$',
+                          (ROOT / "backend/app/database.py").read_text(), re.M)
+    assert len(defaults) == 1, "database.py's DB_POOL_TIMEOUT assignment changed shape; teach this reading its form"
+    return float(defaults[0])
 
 
 def test_every_request_timeout_ends_before_the_services():
