@@ -302,6 +302,8 @@ def test_an_audit_reply_with_no_usable_label_is_a_failed_audit(harness: Any) -> 
             harness.causes.labels_or_raise(result, entries, 1)
     assert harness.causes.labels_or_raise(result, [{"n": "1.", "label": "partial"}], 1)[1]["label"] == "partial"
     assert harness.causes.labels_or_raise(result, [], 0) == {}  # nothing to label, nothing asked
+    with pytest.raises(harness.causes.NoLabels, match="labelled 1 of 2"):  # a partial reply is no finished audit
+        harness.causes.labels_or_raise(result, [{"n": 1, "label": "supported"}], 2)
 
 
 def test_a_first_pass_is_kept_while_its_repair_is_in_flight(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -712,3 +714,41 @@ def test_a_failed_generation_is_judged_a_forfeit_not_an_error(harness: Any, monk
     assert record["forfeit"] == "deepseek-flash" and "error" not in record and record["cost_usd"] == 0  # the side that failed
     path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
     assert json.loads(path.read_text())["forfeit"] == "deepseek-flash"
+
+
+def test_an_audit_that_leaves_an_item_unlabelled_is_failed_and_retried(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The report counts every verified claim of an audited analysis in its denominator, so a reply that labels one
+    of two items must not stand as a finished audit: it is written as failed, with its cost, and bought again."""
+    attempted = _auditable(harness, monkeypatch)
+    item = {"sentence": "Revenue grew because demand rose.", "passages": [{"id": "P1", "filing": "10-K", "text": "Demand rose."}]}
+    monkeypatch.setattr(harness.causes, "cause_items", lambda sentences, pack: [item, dict(item)])  # the reply labels 1
+    _generation(harness, "claude-sonnet-5-5")
+    out = harness.generate.RUNS / LABEL / "causes" / "claude-sonnet-5-5" / f"{TICKER}.json"
+    for run in (1, 2):
+        asyncio.run(harness.causes.run(LABEL, ["claude-sonnet-5-5"], [TICKER], 1))
+        written = json.loads(out.read_text())
+        assert len(attempted) == run and "labelled 1 of 2" in written["error"] and "items" not in written
+
+
+def test_the_production_arm_ingests_its_company_before_it_generates(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A fresh harness store holds no company, and the committed packs put none there: generate_current ingests the
+    ticker (as the packs' builder does) and hands the production pipeline the id that returns."""
+    from app.services.trend_analysis import narrative
+
+    _packs(harness, window="FY2021..FY2025")
+    ingested: list = []
+    seen: dict = {}
+
+    async def ingest(ticker: str) -> int:
+        ingested.append(ticker)
+        return 7
+
+    async def pipeline(**kwargs: Any):
+        seen.update(kwargs)
+        yield {"type": "complete", "narrative": "Revenue grew.", "citations": [], "usage": {"estimated_cost_usd": 0.001}}
+
+    monkeypatch.setattr(harness.generate.bootstrap, "ingest", ingest, raising=False)
+    monkeypatch.setattr(narrative, "stream_trend_narrative", pipeline)
+    record = asyncio.run(harness.generate.generate_current(TICKER))
+    assert ingested == [TICKER] and seen["company_id"] == 7
+    assert (seen["start_period"], seen["end_period"]) == ("FY2021", "FY2025") and record["generation_ok"]

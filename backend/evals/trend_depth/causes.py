@@ -47,13 +47,16 @@ def _auditor(system: str) -> Optional[str]:
 
 
 class NoLabels(ValueError):
-    """The auditor's reply labelled nothing; nothing is written, so the next run retries it."""
+    """The auditor's reply left an item unlabelled; it is written as a failed audit, so the next run retries it."""
 
 
 def labels_or_raise(result: Any, entries: Any, expected: int) -> dict[int, dict[str, Any]]:
+    """Every requested item's label, or NoLabels. A partial reply is not a finished audit: the report counts each
+    verified claim of an audited analysis in its denominator, so an item the auditor skipped would read as checked."""
     labels = labelled(entries, expected)
-    if expected and not labels:
-        raise NoLabels(f"the auditor's reply labelled none of {expected} items (${result.cost_usd:.4f} spent): {result.text[:160]!r}")
+    if len(labels) < expected:
+        raise NoLabels(f"the auditor's reply labelled {len(labels)} of {expected} items (${result.cost_usd:.4f} spent): "
+                       f"{result.text[:160]!r}")
     return labels
 
 
@@ -94,8 +97,8 @@ def earlier_audit(out_path: Any, sha: str) -> tuple[Optional[dict[str, Any]], fl
 
 
 def write_failed(record: dict[str, Any], result: Any, exc: Exception, out_path: Any) -> None:
-    """Record an audit call that was paid for but labelled nothing, with its reply and cost, so the next run retries
-    it knowing what it already spent."""
+    """Record an audit call that was paid for but left an item unlabelled, with its reply and cost, so the next run
+    retries it knowing what it already spent."""
     record.update({"error": f"{type(exc).__name__}: {exc}"[:400], "raw": excerpt(result.text), "cost_usd": result.cost_usd,
                    "backend": result.backend, "input_tokens": result.input_tokens,
                    "cached_input_tokens": result.cached_input_tokens, "output_tokens": result.output_tokens})
@@ -105,7 +108,7 @@ def write_failed(record: dict[str, Any], result: Any, exc: Exception, out_path: 
 async def audit_call(auditor: str, system_prompt: str, user: str, tag: str, record: dict[str, Any], out_path: Any,
                      key: str, expected: int) -> Optional[tuple[Any, dict[int, dict[str, Any]]]]:
     """The auditor's call and its labels. A refusal is written as the outcome (None is returned); a reply that
-    stopped at its cap or labelled nothing is written as a failed audit and raised, so the next run retries it."""
+    stopped at its cap or left any item unlabelled is written as a failed audit and raised, so the next run retries it."""
     try:
         result = await call(ARMS[auditor], system_prompt, user, max_tokens=16000, tag=tag)
     except Exception as exc:

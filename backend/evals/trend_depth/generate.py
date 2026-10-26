@@ -515,16 +515,13 @@ async def _repair_v2(arm: Any, system: str, user: str, parsed: dict[str, Any], r
 
 async def generate_current(ticker: str) -> dict[str, Any]:
     """The production pipeline end to end (real deepseek-flash selection), over the pack's window."""
-    from app.models import Company
     from app.services.trend_analysis.narrative import stream_trend_narrative
 
     pack = load_pack(ticker, "current")
     start, end = pack["window"].split("..")
-    db = bootstrap.SessionLocal()
-    try:
-        company_id = db.query(Company).filter(Company.ticker == ticker).one().id
-    finally:
-        db.close()
+    # A fresh harness store holds no company: the committed packs do not put one there, so ingest it first, as
+    # the packs' own builder does (from the SEC cache when it holds the company's facts).
+    company_id = await bootstrap.ingest(ticker)
     started = time.monotonic()
     complete: Optional[dict[str, Any]] = None
     error = None

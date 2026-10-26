@@ -32,6 +32,7 @@ import asyncio
 import gzip
 import importlib
 import json
+import re
 import shutil
 import sys
 import types
@@ -994,8 +995,11 @@ def _auditor_replies(harness: Any, monkeypatch: pytest.MonkeyPatch) -> list[str]
 
     async def auditor(arm: Any, system: str, user: str, **kwargs: Any) -> CallResult:
         sent.append(user)
-        return CallResult('{"items": [{"n": 1, "label": "consistent", "reason": "r"}]}', 1000, 0, 100, 0, 1.0, 0.25,
-                          "claude_cli", "m", {"stop_reason": "end_turn"})
+        # Every item the prompt numbers gets a label: a reply that leaves one unlabelled is a failed audit.
+        asked = len(re.findall(r"^\[\d+\] Sentence", user, flags=re.M))
+        items = [{"n": n, "label": "consistent", "reason": "r"} for n in range(1, asked + 1)]
+        return CallResult(json.dumps({"items": items}), 1000, 0, 100, 0, 1.0, 0.25, "claude_cli", "m",
+                          {"stop_reason": "end_turn"})
 
     monkeypatch.setattr(harness.causes, "call", auditor)
     return sent
