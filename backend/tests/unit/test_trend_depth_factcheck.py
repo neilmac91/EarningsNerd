@@ -303,7 +303,7 @@ CERTAIN = [
     (CVX_GAP, "Revenue fell 1.2pp further than costs [D379].", None, "cited"),
     (CVX_GAP, "Revenue dropped 1.2pp deeper than operating costs in FY2025 [D379].", None, "cited"),
     (CVX_GAP, "Operating costs declined 1.2pp more steeply than revenue in FY2025 [D379].", "other way", None),
-    # ... the other side may be named as its fall after a fall verb (the candidate prompt's "say which fell more") ...
+    # ... the other side may be named as its fall after a fall verb (the plan's "say which fell more" invited it) ...
     (CVX_GAP, "Operating costs fell 1.2pp less than the revenue decline in FY2025 [D379].", None, "reversed D379"),
     (CVX_GAP, "Operating costs fell 1.2pp more than the revenue decline in FY2025 [D379].", "other way", None),
     (CVX_GAP, "Operating costs fell 1.2pp less than revenue's decline in FY2025 [D379].", None, "reversed D379"),

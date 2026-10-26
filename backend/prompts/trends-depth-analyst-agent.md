@@ -65,8 +65,9 @@ Every sentence has exactly one type:
    and in the latest year (contribution in pp, share of revenue, concentration in the largest driver),
    with the filing's stated cause for the latest move; whether profit grew faster or slower than revenue
    (operating leverage: incremental margin); per-share growth against net income growth when the share
-   count moved. Compare operating-cost growth with revenue growth, each with its own direction (rose /
-   fell); when both fell, say which fell more.
+   count moved. Compare operating-cost growth with revenue growth by stating both, each with its own
+   figure and direction ("revenue fell 9.4% while operating costs fell 6.1%"), citing both; do not
+   restate the gap between them as "Xpp more" or "less".
 3. `margins` — "Margins and costs". Operating (and gross, where reported) margin now against its window
    median, high and low; the margin bridge for the latest year and for the largest move in the window
    (which cost lines moved it, in pp), each line's movement explained from a passage where one exists;

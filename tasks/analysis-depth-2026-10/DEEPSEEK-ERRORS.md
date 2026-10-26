@@ -533,6 +533,14 @@ preposition. The other side follows the comparative in the same clause.
   dev-v4, plant-sem and the gold examples) no probe verdict changes either. One match label does: Sonnet's dev-v4 REGN
   "operating costs outgrew it by 4.4pp" is now read by magnitude ("it" names no side), still verified.
 
+**Fix 10: the drivers instruction asks for both growths, not their gap** (after wave 5). The plan's wording, "when
+both fell, say which fell more", invited the appositive "Revenue fell 4.6% in FY2025, 1.2pp less than operating
+costs", whose false mirror fix 7 can only read by magnitude (§4). The candidate now says: "Compare operating-cost
+growth with revenue growth by stating both, each with its own figure and direction ('revenue fell 9.4% while
+operating costs fell 6.1%'), citing both; do not restate the gap between them as 'Xpp more' or 'less'." Each growth
+then carries its own direction word, which the gate has always checked against the cited growth's sign. The frozen
+prompt (K0, P) keeps its wording, so a gap mirror there is measured by the Opus audit alone.
+
 **Fix 8: debt and cash breaks in pack version 2** (`packs-v2/README.md`).
 - **Withheld, not dropped.** Every ID built on a broken year stays in the pack, so a version-1 output still checks against it, but the render does not show it (`withheld`).
 - **Debt breaks.** These are found by line tests:
@@ -768,7 +776,7 @@ an audit grew with its input instead, step 0 would cost about $7.2.
 - **Calibration may not move the judge as far as the measures suggest.** Opus's calibration notes also cite uncited "so / as" inferences, and the word lexicon is only a proxy. DeepSeek's sentence-type mix also turns on single words in section instructions, so any prompt edit can shift types elsewhere. Watch the full type mix every run.
 - **Unconfirmed record.** The earlier prompt texts in `calibration/prompt_v*.md` are reconstructions; the dev-v3 records carry no prompt hash. The "one judgement" finding rests on that reconstruction.
 - **The gate's judgement tier** is described in `factcheck.py` but not enforced, and the prompt's rule is stricter than the grounding rule's Tier 4. This needs a decision.
-- **Growth-gap mirrors the gate passes by magnitude** (fix 7). A false sign in a form the gate does not read with certainty passes it, for every arm alike: "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs" on CVX (the gap is -1.22pp), and its mirrors on DE and TGT, all held out. That appositive is a form the candidate prompt's "when both fell, say which fell more" invites. Only the Opus audit of K0 and C, which sees the signed value under view 2, can catch them; P and Q have no audit. Older, and untouched: a false sign in any form passes when the sentence also cites both growth rates, as their unsigned difference settles the claim.
+- **Growth-gap mirrors the gate passes by magnitude** (fix 7). A false sign in a form the gate does not read with certainty passes it, for every arm alike: "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs" on CVX (the gap is -1.22pp), and its mirrors on DE and TGT, all held out. The plan's drivers wording ("when both fell, say which fell more") invited that appositive; the candidate prompt now asks for both growths instead (As built, fix 10), and the frozen prompt keeps it. Only the Opus audit of K0 and C, which sees the signed value under view 2, can catch them; P and Q have no audit. Older, and untouched: a false sign in any form passes when the sentence also cites both growth rates, as their unsigned difference settles the claim.
 - **Production data.** Long-term debt mapping breaks in 6 of 20 packs, and TGT's long-term tag already holds the current portion its total debt adds (FY2016–FY2018, which version 2 names). It probably also affects peers' net cash, the peer medians and the production metrics table. Version 2 also finds lines the pack never sums:
   - CAT's long-term debt due within one year and KO's short-term investments (`unmapped_line`);
   - others no test sees, among those `packs-v2/README.md` lists under "Not detected": TGT's FY2019 double count, AMD's FY2023 and FY2025 current portion counted twice (its FY2025 net cash reads $6,456m against $7,330m), CVX's and COP's long-term lines (CVX FY2016–FY2017 and FY2020–FY2021, COP FY2017–FY2020), and PG's available-for-sale securities. Every arm sees them alike, and the broken-net-cash measure does not count them. A test that reads one tag's meaning fails on another filer, so only the shape the filer's own figures decide is named.
