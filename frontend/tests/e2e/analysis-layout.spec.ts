@@ -998,11 +998,19 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
       const table = document.querySelector('[data-analysis-metrics]')!
       const notes = document.querySelector('[data-analysis-data-notes]')!
       const summary = notes.querySelector(':scope > details > summary')!
-      const range = document.createRange(); range.selectNodeContents(summary)
+      // The lines it paints: the sr-only words a screen reader hears in place of a mark or the dash (MissingValue's "a
+      // dash") sit in a clipped 1px box that wraps them onto lines no reader sees, so they are left out.
+      const bottoms = new Set<number>()
+      const walker = document.createTreeWalker(summary, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const rect of range.getClientRects()) if (rect.width && rect.height) bottoms.add(Math.round(rect.bottom))
+      }
       return {
         follows: table.nextElementSibling === notes,
         gap: notes.getBoundingClientRect().top - table.getBoundingClientRect().bottom,
-        lines: new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.bottom))).size,
+        lines: bottoms.size,
       }
     })
     expect(placement.follows, 'the data notes follow the metrics table').toBe(true)
