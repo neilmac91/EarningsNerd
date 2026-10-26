@@ -475,10 +475,6 @@ def _with_null_provenance(db, filing):
     db.commit()
 
 
-def _then_a_fixed_sync(db, company, payload):
-    svc._persist_companyfacts_payload(db, company, payload)
-
-
 @pytest.mark.parametrize(("shape", "kept"), [
     ("scale_up", False), ("scale_up_no_authority", False), ("amendment", False),
     ("holds_10k", True), ("holds_10k_no_record", True), ("holds_10k_report_backed", False),
@@ -497,8 +493,8 @@ def test_legitimate_replacements_are_left_alone(db, monkeypatch, shape, kept):
         company, payload, filing = _holds_the_10k_figure(db, monkeypatch)
         if shape == "holds_10k_no_record":  # a replacement before #1191 records nothing
             _with_null_provenance(db, filing)
-        elif shape == "holds_10k_report_backed":
-            _then_a_fixed_sync(db, company, payload)
+        elif shape == "holds_10k_report_backed":  # a fixed sync has since stored the 10-K's row
+            svc._persist_companyfacts_payload(db, company, payload)
     row = _filing_row(db, filing)
     assert row.source == "companyfacts"  # the precondition: the old cross-check replaced the parse
     stored = repair.snapshot(row)
@@ -513,6 +509,8 @@ def test_legitimate_replacements_are_left_alone(db, monkeypatch, shape, kept):
         assert set(filing_counts.values()) == {0} and entries == []
     _apply(db, company, payload)
     assert repair.snapshot(_filing_row(db, filing)) == stored
+    if kept:  # the 10-K winner the apply stored now backs the row, so the next run passes it silently
+        assert _preview(db, company, payload)["proxy"]["filing_rows_kept"] == 0
 
 
 def _with_operating_cash_flow(payload):
@@ -613,8 +611,8 @@ def _detection(db, payloads):
                 ratio = value / original if isinstance(original, (int, float)) and original and value * original > 0 else None
                 scaled = ratio is not None and min(abs(ratio / 1e3 - 1), abs(ratio / 1e6 - 1)) <= 0.01
                 shrunk = ratio is not None and min(abs(ratio * 1e3 - 1), abs(ratio * 1e6 - 1)) <= 0.01
-                if (witnessed(row, value) and not scaled) or (not witnessed(row, value) and shrunk):
-                    listed[4].add((company.ticker, row.id))
+                if (witnessed(row, value) and not scaled) or (not witnessed(row, value, payload_too=False) and shrunk):
+                    listed[4].add((company.ticker, row.id))  # why = proxy row, or why = scale
             witness = check.get("authoritative_value")
             if (row.filing_id is not None and row.source != "companyfacts" and check.get("outcome") == "confirmed"
                     and isinstance(witness, (int, float)) and witnessed(row, witness, payload_too=False)
