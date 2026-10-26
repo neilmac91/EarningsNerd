@@ -164,7 +164,7 @@ async def generate(run: GenerationRun) -> AsyncIterator[dict]:
         # during local parsing or admission), so it is served uncounted.
         await run.charge_lease()
     if run.summary_status == "error":
-        error_message = run.summary_payload.get("message", "Error generating summary")
+        error_message = run.summary_payload.get("message", "We could not generate this summary. Try again shortly.")
         await run.refund_charge("provider returned an error payload")
         # Persist the error state so the /progress endpoint reports a retryable error
         # immediately, instead of leaving "summarizing" to age out via the stale check.
