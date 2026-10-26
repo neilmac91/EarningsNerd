@@ -6,6 +6,7 @@ import json
 import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from urllib.parse import urlsplit
 
 import httpx
 import jwt
@@ -156,8 +157,9 @@ async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_
     monkeypatch, caplog, enabled, keys, status, detail, line, raised,
 ):
     # The real identity check, its Google key read answered in memory. The 503s fail every delivery until someone
-    # acts, so each logs an ERROR with its exception (Sentry's event, F50); a refused token is the caller's fault and
-    # logs nothing. Neither line carries the token or a TASKS_* value: the traceback renders each exception's text.
+    # acts, so each logs one ERROR with its exception (Sentry's event, F50); a refused token is the caller's fault and
+    # nothing in the app logs it. No line carries the token or a TASKS_* value, whole or in part: the traceback renders
+    # each exception's text.
     from app.services import oauth_verify
 
     for key, value in {**SENTINELS, "DURABLE_TASKS_ENABLED": enabled}.items():
@@ -190,19 +192,20 @@ async def test_a_worker_that_cannot_check_identity_logs_an_error_a_refusal_does_
     work = AsyncMock()
     monkeypatch.setattr(tasks, "run_background_task", work)
     body = {"kind": "companyfacts", "payload": {"company_id": 7}}
-    with caplog.at_level(logging.INFO, logger="app.routers.tasks"):
+    with caplog.at_level(logging.INFO, logger="app"):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post("/internal/tasks/execute", json=body, headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == status and response.json()["detail"] == detail
     assert [type(error) for error in seen] == [raised]  # each case reaches its branch for the reason it names
     work.assert_not_awaited()
-    records = [record for record in caplog.records if record.name == "app.routers.tasks"]
+    records = [record for record in caplog.records if record.name.startswith("app.")]
     if line is None:
         assert records == []
     else:
-        assert [(record.levelno, record.getMessage()) for record in records] == [(logging.ERROR, line)]
+        assert [(record.name, record.levelno, record.getMessage()) for record in records] == [
+            ("app.routers.tasks", logging.ERROR, line)]
         assert records[0].exc_info[1] is seen[0]
-    for secret in (token, *SENTINELS.values()):
+    for secret in (token, *token.split("."), *SENTINELS.values(), urlsplit(SENTINELS["TASKS_WORKER_URL"]).hostname):
         assert secret not in caplog.text
 
 
