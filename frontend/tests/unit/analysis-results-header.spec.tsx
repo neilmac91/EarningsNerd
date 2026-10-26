@@ -192,6 +192,11 @@ describe('the sample surfaces', () => {
   it("the Free teaser's preview stands its modules as the page does: 16px apart on a phone, 24px from sm", () => {
     const { container } = render(<AnalysisTeaser />)
     const strip = container.querySelector('[data-analysis-kpi]')!.closest('[data-launcher-keep-clear]')!
-    expect(strip.parentElement).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
+    const modules = strip.parentElement!
+    expect(modules).toHaveClass('flex', 'flex-col', 'gap-4', 'sm:gap-6')
+    // One child per module, in the page's order: the strip, the chart grid, the commentary, the table with its notes.
+    const childHolding = (selector: string) => [...modules.children].findIndex((child) => child.matches(selector) || child.querySelector(selector) !== null)
+    expect(modules.children).toHaveLength(4)
+    expect(['[data-launcher-keep-clear]', '[data-analysis-chart]', '[data-analysis-print-scope]', '[data-analysis-metrics]'].map(childHolding)).toEqual([0, 1, 2, 3])
   })
 })

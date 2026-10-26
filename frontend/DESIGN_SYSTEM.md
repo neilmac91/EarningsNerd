@@ -525,7 +525,8 @@ Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:sha
                  theme, for an input area that is not content, today the analysis page's company and period form
                  (§6; Analysis results). Set it through the prop, never a shadow class on top: cx does no
                  tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
-                 eslint.config.mjs fails a shadow class in a Card's className; designRules.spec.ts plants it).
+                 eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
+                 className; designRules.spec.ts plants it).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -895,7 +896,7 @@ Analysis results <ResultsHeader>, AnalysisPageClient's results column and Analys
                  aside from the run's name as from its figures (tests/e2e/feedback-launcher-keep-clear.spec.ts).
                  Gates: tests/unit/analysis-results-header.spec.tsx (the clauses and their separators, the
                  region's name and its h2s, the control card's classes, Card's elevations, no header on the sample
-                 surfaces), tests/unit/analysis-source-date.spec.tsx (the source day on both surfaces) and
+                 surfaces, the Free teaser's module gaps), tests/unit/analysis-source-date.spec.tsx (the source day on both surfaces) and
                  tests/e2e/analysis-layout.spec.ts "analysis results header" (both themes, at 320, 390, 768 and
                  1480px and under 200% text at 320 and 390px: 12px over the strip, the module gaps, every clause
                  whole where the line holds it, no line opening on “·”, no sideways scroll, the control card's
