@@ -4,7 +4,8 @@
    What the spec renderer's tooltip prints and its values stop says for each period (docs/design/analysis-trend-
    charts-spec-2026-10.md §3.9, §3.13; DESIGN_SYSTEM.md §10): the period and its end date, one row per drawn series in
    legend order, each value at tooltip precision (§3.1), its state text, "Calculated" for a calculated point, and its
-   own note letter, value and YoY notes independent. Every fixture dataset and chart, plus synthetic notes. The golden
+   own note letter where that note questions the number (D-061), value and YoY notes independent. Every fixture dataset
+   and chart, plus synthetic notes. The golden
    plans (chart-engine.spec.ts) carry the six golden datasets' announcements.
 ============================================================================= */
 import { readFileSync } from 'node:fs'
@@ -14,7 +15,7 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { buildChartModel, CHART_IDS, isCalculated } from '@/features/analysis/lib/charts/model'
 import { chartReadouts, periodEndText } from '@/features/analysis/lib/charts/readout'
 import { tooltipMoney } from '@/features/analysis/lib/charts/scale'
-import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { markedNote, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
@@ -98,16 +99,16 @@ describe.each(DATASETS)('%s: every chart’s readout', (name) => {
           : point.nm ? 'not-meaningful' : point.structural ? 'no-prior-year' : 'unavailable')
         expect(row.calculated, '"Calculated" marks a calculated value, never a growth rate').toBe(!growth && isCalculated(source))
         const note = growth ? source && notes.noteForComparison(source, 'yoy') : notes.noteFor(source ?? { value: null })
-        expect(row.note).toBe(note?.letter ?? null)
-        expect(row.noteTone, 'a review note takes the review ink, as in the band').toBe(note?.kind === 'review' ? 'review' : 'neutral')
+        // D-061: a letter only where the note questions the number; a gap and a record-only note give none.
+        expect(row.note).toBe(markedNote(note)?.letter ?? null)
         expect(row.text).toBe([row.figure, row.calculated ? '· Calculated' : null, row.note ? `(${row.note})` : null].filter(Boolean).join(' '))
         expect(row.text, 'never the † glyph: the word Calculated stands for it').not.toContain('†')
         if (row.note) expect(readout.announcement).toContain(`data note ${row.note}`)
       })
-      // §3.13: the announcement carries the period's band notes, each in the row it belongs to.
+      expect(readout.announcement.match(/data note/g)?.length ?? 0, 'a note is spoken only where a letter shows').toBe(readout.rows.filter((row) => row.note).length)
+      // §3.13: the announcement carries the period's band letters, each in the row it belongs to.
       const band = (model.notesBand?.[readout.period] ?? []).map((glyph) => glyph.text)
-      expect(new Set(readout.rows.flatMap((row) => (row.note ? [row.note] : [])))).toEqual(new Set(band.filter((glyph) => glyph !== '†')))
-      if (band.includes('†')) expect(readout.rows.some((row) => row.calculated), '† in the band: a row says Calculated').toBe(true)
+      expect(new Set(readout.rows.flatMap((row) => (row.note ? [row.note] : [])))).toEqual(new Set(band))
     }
   })
 })
@@ -116,8 +117,9 @@ describe('the rows’ text, as the tooltip prints it and the status says it', ()
   it('a missing value, a structural and an n/m growth slot, and a zero', () => {
     const { readouts: all } = readouts(dataset('RIVN_annual'), 'topline')
     const at = (period: string) => all.find((readout) => readout.period === period)!
-    expect(at('FY2018').rows.map((row) => row.text)).toEqual(['Unavailable (a)', 'Unavailable'])
-    expect(at('FY2018').announcement).toBe('FY2018, year ended December 31, 2018. Revenue: unavailable, data note a. Year-over-year growth: unavailable.')
+    // A gap's note marks nothing (D-061): the footnote line says why the value is missing.
+    expect(at('FY2018').rows.map((row) => row.text)).toEqual(['Unavailable', 'Unavailable'])
+    expect(at('FY2018').announcement).toBe('FY2018, year ended December 31, 2018. Revenue: unavailable. Year-over-year growth: unavailable.')
     expect(at('FY2020').rows.map((row) => row.text)).toEqual(['$0', 'n/m · not meaningful'])
     expect(at('FY2020').announcement).toBe('FY2020, year ended December 31, 2020. Revenue: $0. Year-over-year growth: not meaningful.')
     const lcid = readouts(dataset('LCID_annual'), 'topline').readouts

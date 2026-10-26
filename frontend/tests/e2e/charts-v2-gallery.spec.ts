@@ -38,11 +38,21 @@ function inSwissFrancs(dataset: AnalysisDataset) {
   return dataset
 }
 
+/** REGNPN's nine simulated flags with a reason that questions the number, so the band letters them; as stored they
+ *  are record-only (legacy_calculation) and letter nothing (D-061). */
+function questioned(dataset: AnalysisDataset) {
+  delete (dataset as { data_notes?: unknown }).data_notes
+  for (const series of dataset.series) for (const point of series.points) {
+    if (point.provenance?.reasons.includes('legacy_calculation')) point.provenance = { ...point.provenance, reasons: ['source_conflict'] }
+  }
+  return dataset
+}
+
 /** name → the dataset as the page receives it, and why it is in the gallery. */
 const GALLERY: Array<[string, () => AnalysisDataset | 'captured', string]> = [
   ['META quarterly', () => 'captured', 'the captured production dataset, its notes'],
   ['REGN annual in CHF', () => inSwissFrancs(unit('REGN_annual')), 'a code-prefixed currency: values that may not fit'],
-  ['REGN annual, nine review notes', () => unit('REGNPN_annual'), 'the notes band in three charts, the review ink'],
+  ['REGN annual, nine review notes', () => questioned(unit('REGNPN_annual')), 'the notes band in three charts, its letters in the note ink'],
   ['LCID annual', () => unit('LCID_annual'), 'off-scale margins, clipped growth, a 340× top-line range'],
   ['RIVN annual', () => unit('RIVN_annual'), 'a zero top line: n/m and gaps on the zero rule, growth of +2,915%'],
   ['PLUG annual', () => unit('PLUG_annual'), 'debt 119× below cash, near-zero equity labels'],

@@ -7,7 +7,7 @@
  * SSR-safe, like the model it reads; a renderer prints these strings and computes none.
  */
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import type { DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { markedNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { isCalculated, MONTHS, type ChartModel, type Marker, type ModelMark, type ModelPanel, type ModelPoint } from './model'
 import { tooltipMoney } from './scale'
@@ -26,9 +26,9 @@ export interface ReadoutRow {
   state: 'unavailable' | 'not-meaningful' | 'no-prior-year' | 'off-scale' | null
   /** This value is calculated (never on a growth row: every growth rate is a calculated comparison). */
   calculated: boolean
-  /** This point's own note letter, or null; a review-kind note takes the review ink, as in the notes band. */
+  /** This point's own note letter where its note questions the number (D-061, `markedNote`), or null, as in the
+   *  notes band. */
   note: string | null
-  noteTone: 'review' | 'neutral'
   /** The value and its state as the tooltip prints them: "$14.34B", "Unavailable", "+581.9% (off scale)". */
   figure: string
   /** The whole row after the name: the figure, then " · Calculated" and " (a)" where they apply. */
@@ -41,8 +41,8 @@ export interface PeriodReadout {
   header: string
   rows: ReadoutRow[]
   /** The period as a screen reader says it, the values stop's value text: no glyph or abbreviation a reader garbles
-   *  ("·", "—", "n/m", "B", "YoY", "Dec", U+2212). "FY2021, year ended December 31, 2021. Long-term debt: unavailable,
-   *  data note b. Cash: $1.234 billion, calculated." */
+   *  ("·", "—", "n/m", "B", "YoY", "Dec", U+2212). "FY2021, year ended December 31, 2021. Long-term debt: unavailable.
+   *  Cash: $1.234 billion, calculated, data note a." */
   announcement: string
 }
 
@@ -88,13 +88,13 @@ function rowOf(mark: ModelMark, panel: ModelPanel, point: ModelPoint, dataset: A
   const state: ReadoutRow['state'] = point.value != null
     ? point.offscale ? 'off-scale' : null
     : point.nm ? 'not-meaningful' : point.structural ? 'no-prior-year' : 'unavailable'
-  // The band's rule (model.ts notesBandOf): a period the series has no point for is unavailable and carries that note.
-  const note = (growth ? source && notes.noteForComparison(source, 'yoy') : notes.noteFor(source ?? { value: null })) ?? null
+  // The band's rule (model.ts notesBandOf): only a note that questions the number gives a letter.
+  const note = markedNote(growth ? source && notes.noteForComparison(source, 'yoy') : notes.noteFor(source ?? { value: null }))
   const calculated = !growth && isCalculated(source)
   const figure = [value, state && STATE_TEXT[state].shown].filter(Boolean).join(' ')
   return {
     seriesKey: mark.seriesKey, label: mark.label, color: mark.color, swatch: mark.kind === 'line' ? 'line' : 'bar', marker: mark.marker,
-    value, state, calculated, note: note?.letter ?? null, noteTone: note?.kind === 'review' ? 'review' : 'neutral', figure,
+    value, state, calculated, note: note?.letter ?? null, figure,
     text: [figure, calculated ? '· Calculated' : null, note ? `(${note.letter})` : null].filter(Boolean).join(' '),
   }
 }

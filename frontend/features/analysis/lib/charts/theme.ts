@@ -15,18 +15,18 @@ export interface ChartTokens {
   grid: string
   /** The zero tick's gridline, every panel, 1 px. */
   zero: string
-  /** Tick and x labels, captions, neutral band glyphs, "—", "n/m", "Notes", strip names, the off-scale edge rule,
+  /** Tick and x labels, captions, "—", "n/m", "Notes", strip names, the off-scale edge rule,
    *  the absent series' swatch. */
   tick: string
   /** Bar labels, near-zero labels, off-scale values, strip cells. */
   value: string
-  /** Review-kind band letters. */
+  /** Review-kind band letters until E194: since D-061 no chart text takes it, and E195's token fold retires it. */
   review: string
   /** chart-1…6, taken in order over the series present (A8). */
   series: readonly [string, string, string, string, string, string]
   /** The hover and focus column wash (TrendChartPlot, E193). */
   cursor: string
-  /** The card's HTML text: subtitle and footnotes, legend names, legend values. */
+  /** The card's HTML text (subtitle and footnotes), the notes band's letters and the tooltip's. */
   note: string
   name: string
   figure: string

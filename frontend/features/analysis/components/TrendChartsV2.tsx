@@ -16,13 +16,13 @@ const CHART_FACE = '11px "Geist Mono"'
 /** The text the wait loads and checks the face for. The Font Loading API picks a family's faces by their
  *  unicode-range, and with no text it takes a space, so the latin face alone; no route preloads latin-ext (app/fonts.ts,
  *  spec §0.5). So the sample names the latin face ("0") and every glyph past it that the plot can print and Geist Mono
- *  draws, all in latin-ext: † (G2) and the ₹, ₪ and ₱ that moneyPrefix prints. Geist Mono has no ₩ or ₫, so
- *  moneyPrefix prints KRW's and VND's codes instead (E203). */
-const CHART_TEXT = '0†₹₪₱'
+ *  draws, all in latin-ext: the ₹, ₪ and ₱ that moneyPrefix prints (no plot prints † since E194, D-061). Geist Mono
+ *  has no ₩ or ₫, so moneyPrefix prints KRW's and VND's codes instead (E203). */
+const CHART_TEXT = '0₹₪₱'
 const FONT_WAIT_MS = 1500
 
 /** Spec G4: the plots paint once Geist Mono's latin and latin-ext faces have loaded, or after 1,500 ms, so no text
- *  paints at the planner's positions in a fallback face, and † never swaps after a plot's first paint (G3). Until then
+ *  paints at the planner's positions in a fallback face, and no glyph swaps after a plot's first paint (G3). Until then
  *  each card holds its plot's exact box, on the server and through hydration (D9). A browser without the Font Loading
  *  API paints at once. */
 function useChartFont() {

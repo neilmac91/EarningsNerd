@@ -30,7 +30,7 @@ export function plannedByRole(model: ChartModel, layout: ChartLayout, tokens: Ch
     for (const period of model.periods) add('strip', row.cells[period.key], tokens.value)
   }
   if (model.notesBand) add('notes', 'Notes', tokens.tick)
-  for (const glyph of noteGlyphs(model, layout)) add('note', glyph.text, glyph.tone === 'review' ? tokens.review : tokens.tick)
+  for (const glyph of noteGlyphs(model, layout)) add('note', glyph.text, tokens.note)
   for (const list of Object.values(planned)) list.sort()
   return planned
 }

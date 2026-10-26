@@ -1005,13 +1005,9 @@
         ["Cash", "$3.12B", 1, "line", "square", false],
         ["Equity", "$31.3B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2016", "a", "neutral", 58.9],
-        ["FY2017", "a", "neutral", 104.7],
-        ["FY2018", "a", "neutral", 150.5]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2016–FY2018: Not available in this dataset."]
+        ["", "Long-term debt FY2016–FY2018: Not available in this dataset."]
       ],
       "strip": []
     },
@@ -1160,13 +1156,9 @@
         ["Cash", "$3.12B", 1, "line", "square", false],
         ["Equity", "$31.3B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2016", "a", "neutral", 102.4],
-        ["FY2017", "a", "neutral", 199.2],
-        ["FY2018", "a", "neutral", 296]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2016–FY2018: Not available in this dataset."]
+        ["", "Long-term debt FY2016–FY2018: Not available in this dataset."]
       ],
       "strip": [
         [
@@ -1226,9 +1218,9 @@
       ]
     },
     "readout": [
-      ["FY2016 · year ended Dec 31, 2016", "Long-term debt: Unavailable (a)", "Cash: $535.2M", "Equity: $4.449B", "FY2016, year ended December 31, 2016. Long-term debt: unavailable, data note a. Cash: $535.2 million. Equity: $4.449 billion."],
-      ["FY2017 · year ended Dec 31, 2017", "Long-term debt: Unavailable (a)", "Cash: $812.7M", "Equity: $6.144B", "FY2017, year ended December 31, 2017. Long-term debt: unavailable, data note a. Cash: $812.7 million. Equity: $6.144 billion."],
-      ["FY2018 · year ended Dec 31, 2018", "Long-term debt: Unavailable (a)", "Cash: $1.468B", "Equity: $8.757B", "FY2018, year ended December 31, 2018. Long-term debt: unavailable, data note a. Cash: $1.468 billion. Equity: $8.757 billion."],
+      ["FY2016 · year ended Dec 31, 2016", "Long-term debt: Unavailable", "Cash: $535.2M", "Equity: $4.449B", "FY2016, year ended December 31, 2016. Long-term debt: unavailable. Cash: $535.2 million. Equity: $4.449 billion."],
+      ["FY2017 · year ended Dec 31, 2017", "Long-term debt: Unavailable", "Cash: $812.7M", "Equity: $6.144B", "FY2017, year ended December 31, 2017. Long-term debt: unavailable. Cash: $812.7 million. Equity: $6.144 billion."],
+      ["FY2018 · year ended Dec 31, 2018", "Long-term debt: Unavailable", "Cash: $1.468B", "Equity: $8.757B", "FY2018, year ended December 31, 2018. Long-term debt: unavailable. Cash: $1.468 billion. Equity: $8.757 billion."],
       ["FY2019 · year ended Dec 31, 2019", "Long-term debt: $0", "Cash: $1.618B", "Equity: $11.09B", "FY2019, year ended December 31, 2019. Long-term debt: $0. Cash: $1.618 billion. Equity: $11.09 billion."],
       ["FY2020 · year ended Dec 31, 2020", "Long-term debt: $1.979B", "Cash: $2.194B", "Equity: $11.03B", "FY2020, year ended December 31, 2020. Long-term debt: $1.979 billion. Cash: $2.194 billion. Equity: $11.03 billion."],
       ["FY2021 · year ended Dec 31, 2021", "Long-term debt: $1.980B", "Cash: $2.886B", "Equity: $18.77B", "FY2021, year ended December 31, 2021. Long-term debt: $1.980 billion. Cash: $2.886 billion. Equity: $18.77 billion."],

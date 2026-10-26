@@ -358,6 +358,15 @@ says so; everything else follows the spec.
     every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
     unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
     Lc −60.3 and the zero rule at −45.4.
+- **The notes band (step 6, E194).** The band takes D-061's rule (§3.3's note) through WP1's `markedNote`
+  (`lib/dataNotes.ts`): a cell letters only a note that questions the number, in the `note` ink, and a record-only
+  note letters nothing. A gap's footnote line leads with no letter. A calculated value has no glyph: the line
+  `Calculated by EarningsNerd from reported figures: <series> <runs>.` names a partly calculated series' periods
+  (PGR: `Premiums earned Q4 ’24, Q4 ’25`), and fully calculated series keep footnote line 3. The tooltip and the
+  values stop letter, and speak, only the same notes. The 16 px band stays reserved: M8 holds a card's height to its
+  view and mode, so a chart that gains a letter never grows past the card beside it. `chart.review` now paints
+  nothing, and E195's token fold retires it. The six golden datasets' notes are all gaps or record-only, so their
+  bands are empty; `chart-engine.spec.ts` holds every band letter to `noteMarksFigure`.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
@@ -377,7 +386,7 @@ says so; everything else follows the spec.
   preloads, and the root layout preloads them on every route; every subset's face is declared with its `unicode-range`
   either way. A `latin-ext` preload would put 14.7 KB more on every route's critical path for glyphs only the analysis
   surfaces print, and would make † likely, not certain, before first paint. G3's purpose is met by G4's wait instead:
-  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱`. The Font Loading API picks a family's faces by their
+  it loads and checks `11px "Geist Mono"` with the text `0†₹₪₱` (`0₹₪₱` since E194, which drew the band's last †). The Font Loading API picks a family's faces by their
   `unicode-range`, and with no text it takes a space, so G4's call as written waits for the latin face alone. With the
   sample the plots paint once the latin face and the latin-ext one (†, and the ₹, ₪ and ₱ that `moneyPrefix` prints)
   are both in, or 1,500 ms pass, so † never swaps after a plot's first paint, and no other route fetches latin-ext
@@ -645,7 +654,8 @@ gets a tick (D2 kept). There is no axis title in the SVG.
 - **G2. SVG glyph whitelist.** Printable ASCII U+0020–U+007E, plus ’ (U+2019), − (U+2212), — (U+2014),
   ↑ (U+2191), ↓ (U+2193), · (U+00B7) and † (U+2020). All are in the `latin` subset except †, which is in
   `latin-ext`. ↑ and ↓ appear only in the off-scale band; † only in notes-band cells. Banned: U+2009 thin space,
-  ▲ (U+25B2), ▼ (U+25BC), and any glyph absent from both subsets.
+  ▲ (U+25B2), ▼ (U+25BC), and any glyph absent from both subsets. Since E194 (D-061) the band draws no †, so † left
+  the set: `chart-engine.spec.ts`'s M12 fails a planned one.
 - **G3. Preload.** Both subset files are preloaded on the analysis route, so † never swaps after first paint.
 - **G4. Wait for fonts.** The chart SVG paints after `document.fonts.load('11px "Geist Mono"')` resolves or 1,500 ms
   pass. The skeleton has the exact final height in the meantime (skeleton: specified, not yet verified).
@@ -656,14 +666,16 @@ gets a tick (D2 kept). There is no axis title in the SVG.
   calculated, and its key is the footnote line that starts with `†`. It never follows a series name, legend item,
   caption, title or number. A fully calculated series gets a footnote sentence and no symbol. Regex check: no
   `[0-9$%BMKT]\s?†`. The KPI strip is outside chart scope, but the check runs there too: a large † beside a big
-  number is the defect the user flagged.
+  number is the defect the user flagged. Since E194 (§3.3's note, D-061) a chart draws and keys no † at all, and the
+  calculated series' footnote names their periods instead.
 
 ### 3.3 Notes a/b and †: footnote band algorithm (A5)
 
 > **2026-10-25: what the band marks is superseded** by the approved quiet scheme
 > (`docs/mpa-improvements/coherence.md` §2.6, D-061): a cell shows only the letters of notes that question the number,
 > in the `note` ink; no † glyph, since the footnote lines already name the calculated series; and a gap gets its
-> sentence and no letter. The band's geometry below stands. E194 builds it through WP1's `lib/dataNotes.ts` helper.
+> sentence and no letter. The band's geometry below stands. E194 built it through WP1's `lib/dataNotes.ts` helper
+> (2026-10-26; "The notes band (step 6, E194)" in §0.5).
 
 Nothing note-related is drawn inside a plot rectangle: no hollow markers and no letters. A note attaches to a data
 point through **two coordinated places**.
@@ -733,9 +745,8 @@ The card, the expanded view and the export show every line. A "+n more notes" tr
 optional for production and is not part of the verified build.
 
 **2026-10-25, D-061:** today's charts already mark a point only where its note questions the number (`noteMarksFigure`,
-`features/analysis/lib/dataNotes.ts`). This band takes the rule as the note at the head of §3.3 states it, in the
-charts plan's step 6 (E194), before F66. Until then it letters every note, drawn only behind `NEXT_PUBLIC_CHARTS_V2`,
-which is off.
+`features/analysis/lib/dataNotes.ts`). This band takes the rule as the note at the head of §3.3 states it, since the
+charts plan's step 6 (E194, 2026-10-26), before F66.
 
 ### 3.4 Missing, zero, negative, outlier
 

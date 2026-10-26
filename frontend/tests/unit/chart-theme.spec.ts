@@ -77,7 +77,7 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
     }
   })
 
-  it('the inks: tick and the card’s subtitle in chart.tick, printed values in chart.value, review letters in chart.review', () => {
+  it('the inks: tick and the card’s subtitle in chart.tick, printed values in chart.value, and chart.review, which paints nothing since E194 (D-061)', () => {
     expect(both((tokens) => tokens.tick)).toEqual(pair(colors.chart.tick))
     expect(both((tokens) => tokens.note)).toEqual(pair(colors.chart.tick))
     expect(colors.chart.tick.light, 'the light tick ink is the tertiary text ink').toBe(colors.text.tertiary.light)

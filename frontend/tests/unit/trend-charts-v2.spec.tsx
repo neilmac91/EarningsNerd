@@ -14,7 +14,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 
 const flags = vi.hoisted(() => ({ v2: true }))
@@ -61,7 +61,7 @@ import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/f
 import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
 import { toast } from 'sonner'
@@ -448,7 +448,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     const load = vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) }))
     withFonts({ check: () => false, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} exportEnabled />)
-    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('†'))
+    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('₹'))
     expect(plots(container)).toBe(0)
     const box = container.querySelector<HTMLElement>('[data-analysis-chart]')!
     expect(box.style.height).toBe('320px')
@@ -513,7 +513,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
 
   it('paints at once when the face is already loaded, latin-ext included', () => {
     const load = vi.fn()
-    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('†')), load })
+    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('₹')), load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
     expect(plots(container)).toBe(CHART_IDS.length)
     expect(load).not.toHaveBeenCalled()
@@ -523,7 +523,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
   })
 
   it('waits for latin-ext while the latin face alone is in (G3)', () => {
-    // A check with no text asks for a space, so the latin face alone; with † it asks for latin-ext too.
+    // A check with no text asks for a space, so the latin face alone; with ₹ it asks for latin-ext too.
     const load = vi.fn(() => new Promise<FontFace[]>(() => {}))
     withFonts({ check: (_face: string, text?: string) => text === undefined, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
@@ -539,7 +539,8 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     // The unicode-range next/font emits for Geist Mono's latin face, the one file app/fonts.ts preloads.
     const latin = parseUnicodeRange('U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD')
     const inLatin = (glyph: string) => latin.some(([start, end]) => glyph.codePointAt(0)! >= start && glyph.codePointAt(0)! <= end)
-    const printable = ['†', ...Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])]
+    // No plot prints † (D-061, E194), so the currency signs are all that reach past latin.
+    const printable = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
     expect([...text].some(inLatin), 'the sample names the latin face').toBe(true)
     expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !text.includes(glyph))).toEqual([])
   })
@@ -801,18 +802,31 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect(stop).toHaveAttribute('aria-valuenow', '0')
   })
 
-  it('a review note’s letter takes the review ink in the tooltip, as in the notes band; a calculated value says so', () => {
+  it('a note that questions the number gives the tooltip its letter in the note ink, as in the notes band (D-061); a calculated value says so', () => {
+    const fcfRow = (ds: AnalysisDataset) => {
+      const { container } = render(<TrendChartsV2 dataset={ds} />)
+      const card = cards(container)[CHART_IDS.indexOf('cash')]
+      tabTo(within(card).getByRole('slider'))
+      const row = [...card.querySelectorAll('[data-chart-tooltip] li')].find((item) => item.textContent?.startsWith('Free cash flow'))!
+      cleanup()
+      return row
+    }
+    // REGNPN's simulated flags are record-only (legacy_calculation): they question nothing, so no letter shows.
+    const recorded = dataset('REGNPN_annual')
+    expect(resolveDataNotes(recorded).notes.every((note) => !noteMarksFigure(note))).toBe(true)
+    expect(fcfRow(recorded).textContent).toMatch(/· Calculated$/)
+    // The same flags with a reason that questions the number letter it.
     const ds = dataset('REGNPN_annual')
-    const { container } = render(<TrendChartsV2 dataset={ds} />)
-    const card = cards(container)[CHART_IDS.indexOf('cash')]
-    const stop = within(card).getByRole('slider')
-    tabTo(stop)
-    const row = [...card.querySelectorAll('[data-chart-tooltip] li')].find((item) => item.textContent?.startsWith('Free cash flow'))!
-    expect(row).toHaveTextContent('· Calculated (a)')
-    const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ' (a)')!
-    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.letter === 'a')!
-    expect(note.kind, 'REGNPN’s simulated flags are review notes').toBe('review')
-    expect(letter.style.color).toBe(css('color', CHART_TOKENS.light.review))
+    delete (ds as { data_notes?: unknown }).data_notes
+    for (const point of ds.series.find((series) => series.concept === 'free_cash_flow')!.points) {
+      if (point.provenance) point.provenance = { ...point.provenance, reasons: ['value_reason'] }
+    }
+    const row = fcfRow(ds)
+    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.reasons.includes('value_reason'))!
+    expect(noteMarksFigure(note)).toBe(true)
+    expect(row).toHaveTextContent(`· Calculated (${note.letter})`)
+    const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ` (${note.letter})`)!
+    expect(letter.style.color, 'no letter takes a status colour').toBe(css('color', CHART_TOKENS.light.note))
   })
 
   it('Escape dismisses the tooltip first, then collapses an expanded card and returns focus to its toggle', () => {

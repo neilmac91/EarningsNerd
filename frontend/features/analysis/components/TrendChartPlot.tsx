@@ -302,7 +302,7 @@ export default function TrendChartPlot({ model, layout, readouts, tokens, fontRe
                 <span className="font-data">
                   <span style={{ color: tokens.figure }}>{row.figure}</span>
                   {row.calculated && <span style={{ color: tokens.note }}> · Calculated</span>}
-                  {row.note && <span style={{ color: row.noteTone === 'review' ? tokens.review : tokens.note }}> ({row.note})</span>}
+                  {row.note && <span style={{ color: tokens.note }}> ({row.note})</span>}
                 </span>
               </li>
             ))}
