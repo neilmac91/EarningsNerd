@@ -10,6 +10,8 @@ import KpiStrip from '@/features/analysis/components/KpiStrip'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
 import NarrativePane from '@/features/analysis/components/NarrativePane'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
+// Load the real renderer before the test clock starts: this gate checks notation, while the chunk spec checks loading.
+import '@/features/analysis/components/TrendChartsV2'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
@@ -92,9 +94,6 @@ const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: 
 const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]${citation.derived ? ' (derived Q4)' : ''}`).join('; ')}.`
 
 async function renderReport() {
-  // This gate reads notation after the real chart chunk loads. Await its module before mounting so a cold
-  // transform cannot consume waitFor's rendering deadline; the separate chunk spec covers loading and failure.
-  await import('@/features/analysis/components/TrendChartsV2')
   const view = render(
     <DataNotesProvider dataset={report}>
       <KpiStrip dataset={report} />
