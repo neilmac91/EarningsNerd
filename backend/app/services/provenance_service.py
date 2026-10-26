@@ -216,14 +216,15 @@ def _whitespace_exact_source_span(evidence: Any, source_text: Any) -> Optional[s
     This is intentionally stricter than :func:`verify_excerpt_in_text`, whose typography and case
     folds serve the broader citation product. Risks display the retained decoded filing span, not model text:
     the candidate only selects a span and the returned value is sliced from the same-filing source.
+    The shared floor counts the words with the whitespace between them collapsed, as the excerpt verifiers count
+    an excerpt after normalization. The span returned has the candidate's words, so padding on neither side
+    carries a short excerpt over the floor, and a stored span projected again is kept again (E180).
     """
     if not isinstance(evidence, str) or not isinstance(source_text, str):
         return None
     candidate = evidence.strip()
-    if len(candidate) < _MIN_VERIFIABLE_LEN:
-        return None
     words = candidate.split()
-    if not words:
+    if len(" ".join(words)) < _MIN_VERIFIABLE_LEN:
         return None
     pattern = r"\s+".join(re.escape(word) for word in words)
     if candidate[0].isalnum() or candidate[0] == "_":
@@ -1334,9 +1335,9 @@ def enrich_summary_provenance(
         and isinstance(stored_raw.get("sections"), dict)
         and bool(stored_raw["sections"])
     )
-    projected_raw = project_summary_risks(summary, filing)
+    # enrich_raw_summary projects Risks once, from the row as the exports read it (export_raw_summary, E180).
     enriched_raw = enrich_raw_summary(
-        projected_raw,
+        _summary_raw_container(summary),
         filing,
         normalized_source,
         xbrl_standardized,

@@ -247,6 +247,33 @@ class TestEnrichRawSummary:
         assert "source_url" not in raw["sections"]["results_that_matter"]["table"][0]
 
 
+class TestRiskExcerptFloor:
+    """The floor counts an excerpt after normalization, as the excerpt verifiers count it. Risks match
+    whitespace-exact, so it counts their words with the whitespace between them collapsed, which the model's evidence
+    and the filing span it selects share: padding on neither side carries a short excerpt over, and a stored
+    projection, which every read projects again, keeps what generation kept (E180)."""
+
+    SHORT = "Supply chain risk rose."
+    LONG = "Our business depends on a limited number of suppliers."
+
+    @pytest.mark.parametrize("evidence, filed", [
+        (SHORT.replace(" ", "  "), SHORT),
+        (SHORT, SHORT.replace(" ", "\n  ")),
+        (SHORT.replace(" ", "  "), SHORT.replace(" ", "\n  ")),
+    ], ids=["the model's padding", "the filing's padding", "both"])
+    def test_padding_carries_no_short_excerpt_over_the_floor(self, evidence, filed):
+        assert len(self.SHORT) == prov._MIN_VERIFIABLE_LEN - 1
+        assert max(len(evidence), len(filed)) > prov._MIN_VERIFIABLE_LEN
+        filing = _filing(critical_excerpt=f"{filed}\n{self.LONG}")
+        raw = {"sections": {"risk_factors": [{"supporting_evidence": evidence}, {"supporting_evidence": self.LONG}]}}
+
+        stored = prov.project_raw_summary_risks(raw, filing, summary_filing_id=filing.id)
+        assert [risk["supporting_evidence"] for risk in stored["sections"]["risk_factors"]] == [self.LONG]
+        assert stored["sections"][prov.RISK_PROJECTION_KEY]["withheld_count"] == 1
+        read = prov.project_raw_summary_risks(stored, filing, summary_filing_id=filing.id)
+        assert read["sections"] == stored["sections"]
+
+
 class TestEnrichSummaryProvenance:
     def test_shapes_response_and_enriches_both_paths(self):
         risk = {
