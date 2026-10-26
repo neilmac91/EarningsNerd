@@ -65,11 +65,13 @@ A change of more than one kind below takes the widest reading. Any of them adds
   - the recipe of each existing component or surface the change uses or edits, whatever its list.
     A recipe's name need not be its component's, so search §4's recipe block for the component's
     name: `<NarrativePane>` is under Analysis reading, `<PeriodPicker>` under Analysis periods,
-    `<SourceValue>` under Analysis evidence, `<SourceTrace>` under Provenance chip and
+    `<SourceValue>` under Analysis evidence, `<ResultsHeader>`, the analysis page's results
+    column and the Free teaser's preview (`<AnalysisTeaser>`, its module gaps) under Analysis
+    results, `<SourceTrace>` under Provenance chip and
     `<Button reserveLoadingText>` under Steady loading. This is the only way these recipes are
-    read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Callout, Chat
-    composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example, Input,
-    Password field, Provenance chip, Steady loading, Toast and Trust strip;
+    read: Analysis evidence, Analysis periods, Analysis reading, Analysis reflow, Analysis results,
+    Callout, Chat composer, Checkbox, Data note mark, Data notes strip, Ghost button, Hero example,
+    Input, Password field, Provenance chip, Steady loading, Toast and Trust strip;
   - the triggered recipes, for what the change adds or changes:
     - a keyboard shortcut: Source pane, Wording changes and Search field (the filing page binds
       ⌘K and "/", its wording review list j, k, 1, 2 and the arrows; company search binds "/"

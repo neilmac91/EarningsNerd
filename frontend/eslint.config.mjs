@@ -260,6 +260,16 @@ const DESIGN_SHARED_RULES = [
     selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='alert']",
     message: 'window.alert — render a Notice or toast.',
   },
+  // A Card's elevation is its `elevation` prop (DESIGN_SYSTEM.md Card / panel, MPA WP4b): cx does no tailwind-merge,
+  // so a shadow class passed on top competes with the prop's by stylesheet order. Read in a Card's className as a
+  // string, a template chunk or a cx() argument, under any variant or `!`, and as an arbitrary property
+  // (`[box-shadow:none]`, `[--tw-shadow:…]`), which lands in the same cascade; `drop-shadow-` is a filter and passes.
+  // Written out on both node types: withTemplates twins only a selector that opens on a Literal.
+  // Planted: tests/unit/designRules.spec.ts.
+  ...['Literal[value=', 'TemplateElement[value.raw='].map((node) => ({
+    selector: `JSXOpeningElement[name.name='Card'] > JSXAttribute[name.name='className'] ${node}/(?:^|[\\s:!\\[])(?:box-|--tw-)?shadow(?:$|[\\s:-])/]`,
+    message: "A Card's shadow is its elevation prop (elevation=\"none\" for none), never a shadow class on top.",
+  })),
 ]
 /** Each class-string rule gets a twin on template-literal chunks (`… ${x} …` is not a Literal). */
 const withTemplates = (rules) =>

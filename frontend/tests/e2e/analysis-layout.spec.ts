@@ -1009,6 +1009,126 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
   })
 })
 
+/**
+ * The results header and the surface levels (MPA WP4b; coherence §4.1 N1, §4.4). After Run the results open with one
+ * line on the page ground, no box, that names their run (ResultsHeader) and names their region, 12px over the KPI strip
+ * so the two read as one block. The content modules after that block (the charts, the commentary, the table with its
+ * fine print) stand 16px apart below sm and 24px from sm. The company and period form is the control level: its
+ * hairline and no shadow, where the content cards keep their lift in light. Every gap is read in rem at the page's text
+ * size, since 200% text doubles it. On a phone the header breaks between its clauses: each clause lies on one line, and
+ * where one alone is wider than the header (Regeneron's name and the date at 200% text) it wraps inside itself and
+ * nowhere else; no line starts with "·"; nothing scrolls sideways. The run is the legacy state renamed as the plan's
+ * example, Regeneron's conformed name and its ticker, so the longest clause is a real one.
+ */
+for (const theme of THEMES) for (const { width, textScale } of [
+  { width: 320, textScale: 1 }, { width: 390, textScale: 1 }, { width: 768, textScale: 1 }, { width: 1480, textScale: 1 },
+  { width: 320, textScale: 2 }, { width: 390, textScale: 2 },
+]) test.describe(`analysis results header / ${theme} / ${width}px / text ${textScale}`, () => {
+  test.use({ viewport: { width, height: 1000 }, isMobile: width <= 390, hasTouch: width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block', timezoneId: 'America/New_York' })
+  test('names the run 12px above the KPI strip, sets the modules apart by the scale and the form at the control level', async ({ page, baseURL }) => {
+    test.setTimeout(60_000)
+    await openAnalysis(page, baseURL!, 'legacy', theme, textScale, false, (dataset) => {
+      dataset.company_name = 'REGENERON PHARMACEUTICALS, INC.'
+      dataset.ticker = 'REGN'
+    })
+    // The fixture's run: synced 18:29 UTC on October 10, 2026, the afternoon of the 10th in New York.
+    const name = /^Regeneron Pharmaceuticals, Inc\.\s·\sREGN\s·\sQuarterly Q3 2023–Q2 2026\s·\sdata as of October 10, 2026$/
+    await expect(page.locator('[data-analysis-results-header]')).toHaveText(name)
+    await expect(page.getByRole('region', { name })).toBeVisible()
+    const layout = await page.evaluate(() => {
+      const box = (el: Element) => el.getBoundingClientRect()
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const results = document.querySelector('[data-analysis-results]')!
+      const header = document.querySelector('[data-analysis-results-header]')!
+      // The strip by its structure, the dl's parent, never by a mark.
+      const strip = document.querySelector('dl:has([data-analysis-kpi])')!.parentElement!
+      const modules = [...results.children].map(box)
+      const style = getComputedStyle(header)
+      // Each line of an element as painted: its characters grouped by the line they sit on, read by their middles, since
+      // the ticker's data face and the words' face draw boxes of different heights on one line.
+      const linesOf = (element: Element) => {
+        const lines: { middle: number; text: string }[] = []
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.textContent ?? ''
+          for (let index = 0; index < text.length; index++) {
+            const range = document.createRange()
+            range.setStart(node, index)
+            range.setEnd(node, index + 1)
+            const rect = range.getBoundingClientRect()
+            if (!rect.width) continue
+            const middle = (rect.top + rect.bottom) / 2
+            const line = lines.find((candidate) => Math.abs(candidate.middle - middle) < rect.height / 2)
+            if (line) line.text += text[index]
+            else lines.push({ middle, text: text[index] })
+          }
+        }
+        return lines.map((line) => line.text)
+      }
+      const clauses = [...header.querySelectorAll('[data-results-clause]')].map((clause) => {
+        const lines = linesOf(clause).length
+        // Its width on one line, measured unwrapped and then restored: whether the header could hold it whole.
+        const element = clause as HTMLElement
+        element.style.whiteSpace = 'nowrap'
+        element.style.maxWidth = 'none'
+        const natural = box(clause).width
+        element.style.whiteSpace = ''
+        element.style.maxWidth = ''
+        return { text: clause.textContent, lines, fits: natural <= box(header).width + 1 }
+      })
+      const controls = getComputedStyle(document.querySelector('[data-analysis-controls]')!)
+      // Whether a computed box-shadow paints: `none`, or layers each transparent or with no offset, blur or spread, do not
+      // (Tailwind's shadow-none and ring variables compute to transparent zero layers).
+      const paints = (shadow: string) => shadow !== 'none' && shadow.split(/,(?![^(]*\))/).some((layer) => {
+        const color = /rgba?\(([^)]*)\)/.exec(layer)
+        const alpha = color ? Number(color[1].split(',')[3] ?? 1) : 1
+        const lengths = layer.replace(color?.[0] ?? '', '').replace('inset', '').trim().split(/\s+/).map(parseFloat)
+        return alpha > 0 && lengths.some((length) => length !== 0)
+      })
+      return {
+        rem,
+        follows: header.nextElementSibling === strip && header.parentElement === results.firstElementChild,
+        headerGap: box(strip).top - box(header).bottom,
+        moduleGaps: modules.slice(1).map((module, index) => module.top - modules[index].bottom),
+        ground: { background: style.backgroundColor, border: style.borderTopWidth, shadow: paints(style.boxShadow) },
+        lines: linesOf(header),
+        clauses,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        controls: {
+          shadow: paints(controls.boxShadow),
+          widths: [controls.borderTopWidth, controls.borderRightWidth, controls.borderBottomWidth, controls.borderLeftWidth],
+          color: controls.borderTopColor,
+        },
+        kpiShadow: paints(getComputedStyle(document.querySelector('[data-analysis-kpi]')!).boxShadow),
+      }
+    })
+    expect(layout.rem).toBeCloseTo(16 * textScale, 1)
+    expect(layout.follows, 'the header opens the results, directly above the KPI strip').toBe(true)
+    expect(Math.abs(layout.headerGap - 0.75 * layout.rem), `12px at this text size between the header and the KPI strip (${layout.headerGap}px)`).toBeLessThanOrEqual(1)
+    expect(layout.ground, 'the header sits on the page ground: no fill, border or shadow').toEqual({ background: 'rgba(0, 0, 0, 0)', border: '0px', shadow: false })
+    // The header's block, the charts, the commentary and the table with its fine print.
+    expect(layout.moduleGaps).toHaveLength(3)
+    const moduleGap = (width >= 640 ? 1.5 : 1) * layout.rem
+    for (const gap of layout.moduleGaps) expect(Math.abs(gap - moduleGap), `modules ${moduleGap}px apart at ${width}px (${layout.moduleGaps})`).toBeLessThanOrEqual(1)
+    // Whole clauses, broken between: one line each wherever the header can hold it, and no line opens on a separator.
+    expect(layout.clauses).toHaveLength(4)
+    for (const clause of layout.clauses) {
+      if (textScale === 1) expect(clause.fits, `"${clause.text}" fits a ${width}px phone's line`).toBe(true)
+      if (clause.fits) expect(clause.lines, `"${clause.text}" lies on one line (${layout.lines.join(' | ')})`).toBe(1)
+    }
+    for (const line of layout.lines) expect(line.trimStart().startsWith('·'), `no line starts with the separator: "${line}"`).toBe(false)
+    expect(layout.overflow, 'nothing scrolls sideways').toBeLessThanOrEqual(0)
+    // The control level: the hairline on all four sides and no shadow painted, in both themes; the content cards keep
+    // their lift in light (a dark card paints none).
+    expect(layout.controls).toEqual({
+      shadow: false,
+      widths: ['1px', '1px', '1px', '1px'],
+      color: theme === 'light' ? 'rgb(229, 231, 235)' : 'rgba(255, 255, 255, 0.1)',
+    })
+    expect(layout.kpiShadow, theme === 'light' ? 'a KPI card keeps its lift' : 'a dark KPI card paints no shadow').toBe(theme === 'light')
+  })
+})
+
 /** Every amount in Swiss francs: a currency code makes the longest tick labels ("CHF 150B"). */
 const inSwissFrancs = (dataset: AnalysisDataset) => {
   for (const series of dataset.series) if (!series.percent) {
