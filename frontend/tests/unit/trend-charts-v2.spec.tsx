@@ -639,7 +639,7 @@ describe('the PNG export', () => {
 })
 
 describe('TrendCharts draws the spec renderer', () => {
-  it('draws every chart, as its own chunk', async () => {
+  it('draws every chart once its chunk loads', async () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)

@@ -471,7 +471,7 @@ function drawHeader(
 /**
  * Rasterize the panel's rendered SVG to a 2× PNG and download it: a company/metric/legend header,
  * the plot, then a branded footer — so the shared image is self-describing and sourced. Pass
- * `header` (company + ticker + metric title + the panel's shared `legendItems`) to draw the frame;
+ * `header` (company + ticker + metric title + the card's legend, from its chart model) to draw the frame;
  * omit it and the export degrades to the bare plot + footer.
  *
  * The SVG plot is rasterized in an isolated image document, where the page's CSS variables and

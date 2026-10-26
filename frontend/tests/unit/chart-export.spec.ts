@@ -347,7 +347,7 @@ describe('embeddedFontFaces', () => {
 
 /* -------------------------------------------------------------------------
    exportPanelPng — the regression guard for the "no legend / no identity in
-   exports" bug. The Recharts SVG carries the plot only; the export must redraw
+   exports" bug. The chart's SVG carries the plot only; the export must redraw
    the company, ticker · metric, and every legend label onto the canvas, plus
    the "EarningsNerd" wordmark footer. jsdom has no real 2d context, so both
    the canvas and the SVG/mark <img> decode are stubbed.

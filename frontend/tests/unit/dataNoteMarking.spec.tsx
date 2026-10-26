@@ -112,7 +112,8 @@ async function renderReport() {
 function readCharts(container: HTMLElement) {
   const tooltips: HTMLElement[] = []
   const spoken: string[] = []
-  for (const stop of container.querySelectorAll<HTMLElement>('[role="slider"][data-chart-values]')) {
+  const stops = [...container.querySelectorAll<HTMLElement>('[role="slider"][data-chart-values]')]
+  for (const stop of stops) {
     const card = stop.closest('section[data-trend-chart]')!
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Tab' })
     act(() => stop.focus())
@@ -128,7 +129,7 @@ function readCharts(container: HTMLElement) {
   const footnotes = [...container.querySelectorAll('section[data-trend-chart] [data-chart-text="footnote"]')].map((line) => ({
     mark: line.querySelector('span')?.textContent ?? '', text: line.textContent ?? '',
   }))
-  return { tooltips, spoken, footnotes }
+  return { stops: stops.length, tooltips, spoken, footnotes }
 }
 
 describe('every surface marks and names only the notes that question the number (D-061)', () => {
@@ -154,7 +155,9 @@ describe('every surface marks and names only the notes that question the number 
     saw('a chart chip', [...container.querySelectorAll('section[data-trend-chart] [aria-label^="Review data notes "]')]
       .flatMap((chip) => chip.getAttribute('aria-label')!.slice('Review data notes '.length).split(', ')))
     const charts = readCharts(container)
-    expect(charts.tooltips.length, 'the charts raised their tooltips').toBeGreaterThan(0)
+    // Blind to no chart and no period: every drawn chart has its values stop, and every period it steps to its tooltip.
+    expect(charts.stops, 'a drawn chart without its values stop').toBe(container.querySelectorAll('[data-analysis-chart] > svg').length)
+    expect(charts.tooltips, 'a period that raised no tooltip').toHaveLength(charts.spoken.length)
     saw('a chart tooltip', charts.tooltips.flatMap((tooltip) => [...(tooltip.textContent ?? '').matchAll(/\(([a-z]+)\)/g)].map((match) => match[1])))
     saw('a chart value text', charts.spoken.flatMap((text) => [...text.matchAll(/data note ([a-z]+)/g)].map((match) => match[1])))
     saw('a chart footnote', charts.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark)))
@@ -189,8 +192,8 @@ describe('every surface marks and names only the notes that question the number 
     expect(within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getAllByRole('button', { name: /, calculated\. View source/ }).length).toBeGreaterThan(0)
 
     // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
-    // sources), a chart's band letters and its tooltip's, by a class on the letter or around it, an SVG fill or an inline
-    // colour (the tooltip's), which the browser reads back as rgb().
+    // sources), a chart's band letters and its tooltip's, by a class, an SVG fill or an inline colour (the tooltip's,
+    // which the browser reads back as rgb()) on the letter or on anything around it it could inherit the ink from.
     const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
     const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
     const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
@@ -201,9 +204,11 @@ describe('every surface marks and names only the notes that question the number 
       tooltip: charts.tooltips.flatMap((tooltip) => [...tooltip.querySelectorAll<HTMLElement>('span')].filter((span) => /^ \([a-z]+\)$/.test(span.textContent ?? ''))),
     }
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
+    const inked = (element: Element) => warningInks.has((element.getAttribute('fill') ?? '').toUpperCase())
+      || warningInks.has((element as HTMLElement).style?.color ?? '')
+    const around = (letter: Element) => { const chain: Element[] = []; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
     const inWarning = Object.values(letters).flat().filter((letter) =>
-      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || warningInks.has((letter.getAttribute('fill') ?? '').toUpperCase())
-      || warningInks.has((letter as HTMLElement).style?.color ?? ''))
+      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || around(letter).some(inked))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 

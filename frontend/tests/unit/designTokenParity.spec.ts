@@ -50,7 +50,7 @@ describe('JS color mirrors stay token-true', () => {
   // Plain white/black are legal literals (export canvas ground, on-fill ink).
   tokens.add('#ffffff')
   tokens.add('#000000')
-  // The hexes only the renderer's pairs hold: its new dark series and inks, which wait for the founder's F66 decision.
+  // The hexes only the renderer's pairs hold: its new dark series and inks, its own until the token fold (E195's follow-up).
   const { chart, ...others } = config.theme.extend.colors
   const elsewhere = collect(config.theme.extend.boxShadow, collect({ ...others, chart: Object.fromEntries(Object.entries(chart).filter(([key]) => !RENDERER_PAIRS.includes(key))) }, new Set<string>()))
   const rendererOnly = [...collect(RENDERER_PAIRS.map((key) => chart[key]), new Set<string>())].filter((hex) => !elsewhere.has(hex))

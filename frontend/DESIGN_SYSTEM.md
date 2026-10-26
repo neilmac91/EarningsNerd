@@ -2501,7 +2501,7 @@ one line. Cash generation has one axis, the balance sheet draws equity in a pane
 percent axis clips an extreme value and prints its true value at the plot edge (spec A3b; gates:
 `chart-engine.spec.ts`, "a clipped bar is an off-scale value", and `chart-readout.spec.ts`, "an off-scale value prints
 its true value"). Tick labels stay inside their axis on one line, and no chart scrolls at a desktop card's width (e2e
-`analysis-layout.spec.ts`, "analysis chart axes", and the export gate's Swiss-franc case). The engine's
+`analysis-layout.spec.ts`, "analysis chart axes", its Swiss-franc cases included). The engine's
 formats round as the metrics table rounds, half away from zero on the decimal; the spec's M15
 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
