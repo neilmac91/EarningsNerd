@@ -238,6 +238,13 @@ def test_no_code_selects_a_filings_facts_by_filing_id():
     )
 
 
+def test_the_scan_reads_every_top_level_module():
+    """A process entry point beside ``main.py`` (the task worker's) can query the table too."""
+    scanned = set(_python_files())
+    assert {BACKEND_DIR / "main.py", BACKEND_DIR / "task_worker_main.py"} <= scanned
+    assert set(BACKEND_DIR.glob("*.py")) <= scanned
+
+
 def test_the_scan_scores_every_planted_form():
     planted = mentions(
         '"""FinancialFact.filing_id in a docstring is prose."""\n'

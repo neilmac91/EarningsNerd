@@ -69,12 +69,13 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     Read at the filing's company and accession (another company's rows under a combined report's
     accession stay out). The rows the per-filing writer stored count always. A row another writer
     stored there stands in for the filing's (``_stands_in``) only once that writer has run
-    (``processed_facts_at``), and only in a line that reaches the filing's own period end
-    (``_lines_reaching``): short of either, the rows stored there are only the cells this filing
-    reported last (an older report's oldest year and older balance; an interim report's prior
-    year-end balance, which the sync labels FY although the per-filing writer stores no FY row for
-    an interim report), and a line of those alone would read as all it disclosed. No ``is_latest``
-    filter: a later restatement demotes the rows, never removes them from their filing's chart.
+    (``processed_facts_at``), so the chart never lacks the lines and years it adds, and only in a line
+    that reaches the filing's own period end (``_lines_reaching``): short of it, the rows stored there
+    are only the cells this filing reported last (an older report's oldest year and older balance; an
+    interim report's prior year-end balance, which the sync labels FY although the per-filing writer
+    stores no FY row for an interim report), and a line of those alone would read as all it
+    disclosed. No ``is_latest`` filter: a later restatement demotes the rows, never removes them from
+    their filing's chart.
     """
     rows = (
         db.query(FinancialFact)

@@ -269,9 +269,10 @@ def test_a_retired_or_unproven_row_never_stands_in_and_a_legacy_reported_one_doe
     plant("cash_and_equivalents", 55.0, raw_tag="us-gaap:CashAndCashEquivalentsAtCarryingValue")
     plant("free_cash_flow", 66.0, source="derived", raw_tag=None)
     plant("operating_margin", 7.0, raw_tag=None)  # an early companyfacts calculation
-    # A row the audited repair retired: an FY label on a span that is not a fiscal year.
-    retired = plant("operating_income", 77.0, end=date(2024, 9, 30), start=date(2023, 10, 1))
-    state = quarterly_fact_repair._quarantine(quarterly_fact_repair.snapshot(retired), "rolling_duration_not_fiscal_year")
+    # A row the audited repair retired: an FY label on the year's fourth quarter, at the report's own
+    # period end, so only its retirement keeps it off the chart.
+    retired = plant("operating_income", 77.0, start=date(2024, 10, 1))
+    state = quarterly_fact_repair._quarantine(quarterly_fact_repair.snapshot(retired), "legacy_period_label_mismatch")
     retired.provenance, retired.reconciled, retired.is_latest = state["provenance"], False, False
     db.commit()
     _process(db, filing, reports[2024])
@@ -318,18 +319,21 @@ def test_a_stand_in_takes_the_year_the_reports_own_rows_count_to_its_period(db, 
     assert db.query(FinancialFact).filter_by(company_id=company.id, period_end=end).one().fiscal_year == end.year
 
 
-def test_an_unprocessed_report_charts_nothing_until_its_own_writer_runs(db):
+@pytest.mark.parametrize("fy", [2024, 2023], ids=["newest-report", "older-report"])
+def test_an_unprocessed_report_charts_nothing_until_its_own_writer_runs(db, fy):
     company = _company(db)
     reports = _calendar(company)
-    filing = _filing(db, company, reports[2023])
+    filing = _filing(db, company, reports[fy])
     _sync(db, company, *reports.values())
-    # Only its oldest year and older balance are stored under its accession; a chart of those alone
-    # would read as all the report disclosed.
+    # The sync holds the cells the report reported last: every one of the newest report's, whose lines
+    # reach its own year, and an older one's oldest year and older balance. Until the per-filing writer
+    # has run, the lines and years it adds are missing, and a chart without them would read as all the
+    # report disclosed.
     assert filing.processed_facts_at is None
     assert _chart(db, filing) == {}
 
-    _process(db, filing, reports[2023])
-    assert _chart(db, filing)["revenue"] == _own(reports[2023], REV)
+    _process(db, filing, reports[fy])
+    assert _chart(db, filing)["revenue"] == _own(reports[fy], REV)
 
 
 # --- A stand-in shows only in a line that reaches the filing's own period end ------------------------
