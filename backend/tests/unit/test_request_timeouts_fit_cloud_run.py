@@ -8,6 +8,7 @@ one the middleware never reaches, and one just short of it can lose the race to 
 ``HEADROOM_SECONDS`` before. The stale-summary refresh holds its request through its batch's generations, so its
 path keeps an entry of its own, inside the service's.
 """
+import ast
 import re
 from pathlib import Path
 
@@ -44,21 +45,27 @@ def _service_pool_timeout() -> float:
     ``DB_POOL_TIMEOUT`` (``--update-env-vars``), else the image's (an ``ENV`` instruction in ``backend/Dockerfile``,
     which already sets four of its siblings), else ``database.py``'s default as written there, not as this process's
     environment (which ``load_dotenv`` may fill) sets it. Both files' shapes are checked whichever layer wins, and
-    fail with a message: a Dockerfile instruction naming the value other than as an ``ENV`` this reads, or a
-    ``database.py`` with another assignment of it (augmented ones included) or an engine argument other than the
-    bare name. Code that changes the value some other way at run time, and a value set on the service by hand (which
-    outlives ``--update-env-vars``), are out of this reading's reach."""
+    fail with a message: a Dockerfile instruction naming the value other than as an ``ENV`` this reads, a
+    ``database.py`` that binds the name anywhere but its one default line (a parse of the module finds every binding:
+    augmented, annotated, unpacked or chained), or a ``pool_timeout`` keyword other than the bare name. Code that
+    sets the pool's timeout another way (keyword arguments spread from a mapping, a change at run time), and a value
+    set on the service by hand (which outlives ``--update-env-vars``), are out of this reading's reach."""
     # The Dockerfile's instructions as Docker reads them: comment lines dropped (Docker never continues one), then
-    # each continued line joined to the one before it.
+    # each line ending in a backslash, trailing spaces or tabs allowed, joined to the next.
     lines = [line for line in (ROOT / "backend/Dockerfile").read_text().splitlines() if not line.lstrip().startswith("#")]
-    named = [line.strip() for line in re.sub(r"\\\n", " ", "\n".join(lines)).splitlines() if "DB_POOL_TIMEOUT" in line]
+    joined = re.sub(r"\\[ \t]*\n", " ", "\n".join(lines))
+    named = [line.strip() for line in joined.splitlines() if "DB_POOL_TIMEOUT" in line]
     images = [re.fullmatch(r"(?i:ENV)\s+(?:\S+=\S+\s+)*DB_POOL_TIMEOUT[= ](\d+)(?:\s+\S+=\S+)*", line) for line in named]
     assert all(images), f"backend/Dockerfile names DB_POOL_TIMEOUT in a form this reading does not know: {named}"
     source = (ROOT / "backend/app/database.py").read_text()
     defaults = re.findall(r'^DB_POOL_TIMEOUT = int\(os\.getenv\("DB_POOL_TIMEOUT", "(\d+)"\)\)$', source, re.M)
-    assignments = re.findall(r"^\s*DB_POOL_TIMEOUT\s*(?::[^=\n]*)?(?://|\*\*|>>|<<|[-+*/%@&|^])?=(?!=)", source, re.M)
-    engine_arguments = [argument.strip() for argument in re.findall(r"\bpool_timeout\s*=\s*([^,)]+)", source)]
-    assert len(defaults) == 1 and len(assignments) == 1 and set(engine_arguments) == {"DB_POOL_TIMEOUT"}, (
+    module = ast.parse(source)
+    bindings = [node for node in ast.walk(module)
+                if isinstance(node, ast.Name) and node.id == "DB_POOL_TIMEOUT" and isinstance(node.ctx, ast.Store)]
+    engine_arguments = [keyword.value for keyword in ast.walk(module)
+                        if isinstance(keyword, ast.keyword) and keyword.arg == "pool_timeout"]
+    assert len(defaults) == 1 and len(bindings) == 1 and engine_arguments and all(
+        isinstance(value, ast.Name) and value.id == "DB_POOL_TIMEOUT" for value in engine_arguments), (
         "database.py sets its pool timeout in a form this reading does not know; teach it the new form")
     [env] = re.findall(r"--update-env-vars=(\S+)", _service_deploy())
     pairs = dict(item.split("=", 1) for item in env.split(","))
