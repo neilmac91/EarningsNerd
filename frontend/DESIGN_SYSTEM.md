@@ -943,7 +943,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  summary words (noteSummary: each reason's clause from provenance.ts REASON_SUMMARIES,
                  “not yet matched to the filing”, a record-only reason passed over and any other reason on
                  SUMMARY_FALLBACK, “questioned by an automated check”, each clause once, joined by “; ”; the
-                 backend's data_notes.note_summary writes the same words); then “ · N not in our data,
+                 backend's data_notes.SUMMARIES and note_summary hold the same words for the exports, which
+                 print none of them yet: their summary line counts the notes until WP3); then “ · N not in our data,
                  shown as —”, the table's dash itself, alone in a MissingValue whose words are “a dash”;
                  “ · N figures with no check recorded” and, kept apart, “ · N growth figures with no
                  check recorded”; “ · N calculated from filed figures”; and, for a
@@ -953,7 +954,9 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  A record-only note (legacy_calculation) appears only in the open detail.
                  Open, the detail lists every note, marked ones first, each an li with its stable id
                  (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
-                 only for a note that marks a figure, the track kept for alignment), then its message,
+                 only for a note that marks a figure, the track kept for alignment), then its message (its
+                 reasons' words, the same sentence the dialog, the PDF, the workbook and the chart PNG print,
+                 so none asks for a selection or says how a figure is drawn),
                  its metrics and periods, its counts in the data face (“11 figures; 16 growth figures
                  built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
                  figures alone, each distinct and never added to by a repeated appearance) and
@@ -974,7 +977,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
                  marked letters), tests/unit/data-notes.spec.ts and the backend's
                  tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
-                 summary words held to the shared notes fixture; marked notes lettered first), the
+                 summary words held to the shared notes fixture; marked notes lettered first; no reason's
+                 words ask for a selection or name a dash), the
                  backend's tests/unit/test_data_note_reasons_have_words.py (every reason the backend writes
                  has words: a new one cannot fall back to the generic sentence unseen, rule 12),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,

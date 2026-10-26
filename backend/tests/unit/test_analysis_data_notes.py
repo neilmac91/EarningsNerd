@@ -1,5 +1,6 @@
 """Shared presentation contract: exact financial concerns, no new verification claims."""
 import json
+import re
 import uuid
 from copy import deepcopy
 from datetime import date
@@ -8,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from app.services.trend_analysis.data_notes import (
+    _FALLBACK_MESSAGE,
     DATA_NOTES_VERSION,
     REASONS,
     RECORD_ONLY_REASONS,
@@ -83,6 +85,23 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
     for case in CASES:
         notes = case.get("expected_citation_notes", case["expected"])["notes"]
         assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
+
+
+def test_reason_words_hold_on_every_surface_that_prints_them():
+    """A note's message prints in the page's data notes and evidence dialog, the PDF, the workbook's comments and
+    Overview and the chart PNG's footnotes, and provenance.ts holds the same words (the fixture above). So no sentence
+    asks for what only the page can do ("Select it to compare"), and none says how a figure is drawn: the page, the PDF
+    and the charts print a gap as a dash, but the workbook leaves its cell empty. The fine print's summary clauses are
+    held alike, since WP3 prints them in the exports too."""
+    sentences = {**REASONS, "(fallback)": _FALLBACK_MESSAGE,
+                 **{f"(summary) {reason}": clause for reason, clause in SUMMARIES.items()},
+                 "(summary fallback)": SUMMARY_FALLBACK}
+    asks = sorted(reason for reason, words in sentences.items()
+                  if re.search(r"\b(select|click|tap|hover)\b", words, re.IGNORECASE))
+    draws = sorted(reason for reason, words in sentences.items()
+                   if re.search(r"\b(dash|blank|empty)\b|[\u2013\u2014]", words, re.IGNORECASE))
+    assert asks == [], f"words that ask for a page action the PDF, workbook and PNG cannot offer: {asks}"
+    assert draws == [], f"words that say how a figure is drawn, which differs by surface: {draws}"
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda case: case["name"])

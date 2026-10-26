@@ -858,6 +858,20 @@ Each sentence promises only what the code enforces:
   one found "the company's filings disagree" alarming and both found it unresolved, so that
   sentence names what is shown and how to compare.
 
+**As shipped (WP2, #1659).** A reason's words print on every surface: the page's detail, the
+dialog, the PDF, the workbook and the chart PNG. Three proposed sentences changed for that:
+- `not_in_dataset` reads "Not in our data for these periods; never shown as zero." The workbook
+  leaves a gap's cell empty where the page, the PDF and the charts print the dash, so "shown as —"
+  stays in the page's summary line ("3 not in our data, shown as —"), drawn beside the table's own
+  dash. The voice rule also keeps "—" out of a sentence.
+- `source_conflict` and `source_check_needed` stop before "select it to compare": nothing can be
+  selected in an export. On the page, the detail's closing line ("Select any figure to see its
+  source filing, method and inputs") and the dialog give the way to compare.
+
+`backend/tests/unit/test_analysis_data_notes.py` fails a reason's words that ask for a selection or
+say how a figure is drawn. WP5's "select it to see both filings" therefore belongs to the page, not
+to a reason's sentence.
+
 ### 3.4 Comprehension test
 
 These rounds tested the ring design's words, before the founder's review. Two of their findings

@@ -6,7 +6,7 @@ import DataNotes, { DataNotesList } from '@/features/analysis/components/DataNot
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import SourceValue from '@/features/analysis/components/SourceValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import DataNotesLink from '@/features/analysis/components/DataNotesLink'
 import { groupDataNotes } from '@/features/analysis/lib/dataNotes'
@@ -183,8 +183,8 @@ describe('Financial origin and source checks', () => {
     const { container } = render(withProvider ? <DataNotesProvider dataset={admitted}>{children}</DataNotesProvider> : children)
     expect(screen.getByRole('button', { name: /Revenue, Q4 2023:.*comparison carries data note z/ })).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-z')).toHaveTextContent('The server retained the original currency concern.')
-    // The summary takes the note's summary words, the ones the backend's note_summary writes for its reasons (a unit
-    // mismatch has no clause of its own); the detail above keeps the server's message.
+    // The summary takes the note's summary words, noteSummary's for its reasons (a unit mismatch has no clause of its
+    // own); the detail above keeps the server's message.
     expect(container.querySelector('[data-analysis-data-notes] summary')).toHaveTextContent('Revenue QoQ Q4 2023: questioned by an automated check')
     expect(screen.getByText(/No figures need review · 2 checked/)).toBeInTheDocument()
     expect(document.getElementById('analysis-data-note-a')).not.toBeInTheDocument()
@@ -304,7 +304,7 @@ describe('Financial origin and source checks', () => {
     rerender(<SourceValue point={{ period: '2026Q2', value: 27, unit: 'pure', provenance: { ...provenance, validation: 'needs_review', reasons: ['source_conflict'] } }} label="Net margin" concept="net_margin">27.0%</SourceValue>)
     expect(dialog).toHaveTextContent('Recorded inputs: 15,848,000,000 ÷ 60,801,000,000 × 100')
     expect(dialog).not.toHaveTextContent('× 100 = 27%')
-    expect(dialog).toHaveTextContent('The company’s filings report different values for this figure. We show the most recent filing’s value; select it to compare.')
+    expect(dialog).toHaveTextContent(reasonText('source_conflict'))
   })
 
   it('substitutes current-ratio operands by concept when their input order is reversed', async () => {
@@ -381,7 +381,7 @@ describe('Financial origin and source checks', () => {
     // The gap shows its dash; its note is counted and listed, and marks nothing (D-061).
     const value = screen.getByRole('button', { name: /^Revenue, Q4 2023: unavailable\. View source/ })
     expect(value.querySelector('[data-note-kind]')).toBeNull()
-    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent('Not in our data for these periods; shown as a dash, never as zero.')
+    expect(document.getElementById('analysis-data-note-a')).toHaveTextContent(reasonText('not_in_dataset'))
     await userEvent.click(value)
     const dialog = screen.getByRole('dialog', { name: 'Revenue · Q4 2023' })
     expect(within(dialog).getByText(/Not in our data for these periods/)).toBeInTheDocument()

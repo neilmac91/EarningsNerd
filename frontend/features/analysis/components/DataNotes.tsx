@@ -64,7 +64,7 @@ export function DataNotesList({ notes }: { notes: DataNote[] }) {
 }
 
 /** The data notes: one line of fine print under the metrics table, the detail one click away (D-061). The summary names
- *  each note that marks a figure, with its places and its summary words (noteSummary, the backend's note_summary), and
+ *  each note that marks a figure, with its places and its summary words (noteSummary), and
  *  counts the gaps, the figures with no check recorded and the calculated figures; the open detail lists every note
  *  with its message and counts. Nothing here is in warning ink. */
 export default function DataNotes({ dataset, sample = false }: { dataset: AnalysisDataset; sample?: boolean }) {

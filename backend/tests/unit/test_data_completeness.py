@@ -372,6 +372,7 @@ def test_refresh_existing_amendments_repairs_links_and_locks_company(sessions):
 
 def test_pdf_retains_value_and_citation_quality():
     from app.services.export_service import export_service
+    from app.services.trend_analysis.data_notes import REASONS
     record = SimpleNamespace(mode="annual", period_key="FY2025", narrative_md="Revenue grew [1].",
         dataset_json={"mode": "annual", "period_key": "FY2025", "periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
         "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},
@@ -379,8 +380,7 @@ def test_pdf_retains_value_and_citation_quality():
     html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
     assert '$123<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
     assert 'Revenue grew [1]<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup>' in html
-    assert html.count("Not yet matched to the filing: our automated check could not confirm this figure against "
-                      "the company’s filed data. Select it to compare with the filing.") == 1
+    assert html.count(REASONS["source_check_needed"]) == 1
     assert "Citation verification confirms traceability, not financial reconciliation." in html
 
 

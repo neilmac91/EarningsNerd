@@ -18,6 +18,7 @@ import pytest
 from openpyxl import load_workbook
 
 from app.services.excel_export_service import build_analysis_workbook
+from app.services.trend_analysis.data_notes import REASONS
 
 EXPORTED_AT = datetime(2026, 7, 6, tzinfo=timezone.utc)
 
@@ -207,6 +208,16 @@ class TestMetricsSheet:
         assert ws["E3"].value is None  # missing point stays empty
         assert ws["D4"].value == 1.11 and ws["D4"].number_format == "#,##0.00"
         assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
+
+    def test_a_gap_stays_empty_and_its_note_says_no_dash(self, workbook):
+        # The page, the PDF and the charts print a gap as a dash; the workbook leaves its cell empty, so the note it
+        # carries here and in the Overview says only that the figure is not in our data, never zero (data notes v2).
+        cell = workbook["Metrics"]["E3"]
+        assert cell.value is None
+        note = f"Data note b: {REASONS['not_in_dataset']}"
+        assert cell.comment.text == note
+        assert note in [row[0] for row in workbook["Overview"].iter_rows(values_only=True)]
+        assert "dash" not in note and "\u2014" not in note
 
     def test_derived_q4_gets_a_comment_never_a_fill(self, workbook):
         ws = workbook["Metrics"]

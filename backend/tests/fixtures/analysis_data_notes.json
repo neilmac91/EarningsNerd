@@ -282,7 +282,7 @@
             "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare. The source inputs use different units or currencies.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value. The source inputs use different units or currencies.",
             "values": [
               {
                 "concept": "revenue",
@@ -313,7 +313,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "legacy",
@@ -337,7 +337,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [],
             "comparisons": [
               {
@@ -453,7 +453,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -590,7 +590,7 @@
             "key": "[\"review\",[\"source_conflict\",\"unit_mismatch\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare. The source inputs use different units or currencies.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value. The source inputs use different units or currencies.",
             "values": [
               {
                 "concept": "revenue",
@@ -621,7 +621,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "legacy",
@@ -645,7 +645,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [],
             "comparisons": [
               {
@@ -761,7 +761,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "legacy",
@@ -983,7 +983,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [],
             "comparisons": [
               {
@@ -1039,7 +1039,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "The source inputs cover incompatible reporting periods.",
+            "message": "This figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
             "values": [],
             "comparisons": [
               {
@@ -2186,7 +2186,7 @@
             "key": "[\"review\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -2210,7 +2210,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2666,7 +2666,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-u",
             "letter": "u",
-            "message": "The source inputs cover incompatible reporting periods.",
+            "message": "This figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
             "values": [
               {
                 "concept": "reason_21",
@@ -2786,7 +2786,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-z",
             "letter": "z",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [
               {
                 "concept": "reason_26",
@@ -2810,7 +2810,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
+            "message": "Our calculation from the filed inputs does not match the stored figure.",
             "values": [
               {
                 "concept": "reason_27",
@@ -2834,7 +2834,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked.",
             "values": [
               {
                 "concept": "reason_28",
@@ -2858,7 +2858,7 @@
             "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
             "id": "analysis-data-note-ac",
             "letter": "ac",
-            "message": "This figure is zero where the previous period had a value. Select it to compare with the filing.",
+            "message": "This figure is zero where the previous period had a value.",
             "values": [
               {
                 "concept": "reason_29",
@@ -2882,7 +2882,7 @@
             "key": "[\"review\",[\"magnitude_vs_prior\"]]",
             "id": "analysis-data-note-ad",
             "letter": "ad",
-            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it. Select it to compare with the filing.",
+            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it.",
             "values": [
               {
                 "concept": "reason_30",
@@ -2906,7 +2906,7 @@
             "key": "[\"review\",[\"eps_sign_vs_net_income\"]]",
             "id": "analysis-data-note-ae",
             "letter": "ae",
-            "message": "Earnings per share and net income have opposite signs for this period. Select it to compare with the filing.",
+            "message": "Earnings per share and net income have opposite signs for this period.",
             "values": [
               {
                 "concept": "reason_31",
@@ -2930,7 +2930,7 @@
             "key": "[\"review\",[\"diluted_gt_basic\"]]",
             "id": "analysis-data-note-af",
             "letter": "af",
-            "message": "Diluted earnings per share is higher than basic earnings per share for this period. Select it to compare with the filing.",
+            "message": "Diluted earnings per share is higher than basic earnings per share for this period.",
             "values": [
               {
                 "concept": "reason_32",
@@ -3096,7 +3096,7 @@
             "key": "[\"review\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "reason_0",
@@ -3120,7 +3120,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "reason_2",
@@ -3576,7 +3576,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-u",
             "letter": "u",
-            "message": "The source inputs cover incompatible reporting periods.",
+            "message": "This figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
             "values": [
               {
                 "concept": "reason_21",
@@ -3696,7 +3696,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-z",
             "letter": "z",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [
               {
                 "concept": "reason_26",
@@ -3720,7 +3720,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Our calculation from the filed inputs does not match the stored figure. Select it to see the inputs.",
+            "message": "Our calculation from the filed inputs does not match the stored figure.",
             "values": [
               {
                 "concept": "reason_27",
@@ -3744,7 +3744,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked. Select it to compare with the filing.",
+            "message": "The inputs for this calculation were not found in the same filing, so it could not be checked.",
             "values": [
               {
                 "concept": "reason_28",
@@ -3768,7 +3768,7 @@
             "key": "[\"review\",[\"zero_where_prior_nonzero\"]]",
             "id": "analysis-data-note-ac",
             "letter": "ac",
-            "message": "This figure is zero where the previous period had a value. Select it to compare with the filing.",
+            "message": "This figure is zero where the previous period had a value.",
             "values": [
               {
                 "concept": "reason_29",
@@ -3792,7 +3792,7 @@
             "key": "[\"review\",[\"magnitude_vs_prior\"]]",
             "id": "analysis-data-note-ad",
             "letter": "ad",
-            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it. Select it to compare with the filing.",
+            "message": "This figure is more than ten times the previous period\u2019s, or less than a tenth of it.",
             "values": [
               {
                 "concept": "reason_30",
@@ -3816,7 +3816,7 @@
             "key": "[\"review\",[\"eps_sign_vs_net_income\"]]",
             "id": "analysis-data-note-ae",
             "letter": "ae",
-            "message": "Earnings per share and net income have opposite signs for this period. Select it to compare with the filing.",
+            "message": "Earnings per share and net income have opposite signs for this period.",
             "values": [
               {
                 "concept": "reason_31",
@@ -3840,7 +3840,7 @@
             "key": "[\"review\",[\"diluted_gt_basic\"]]",
             "id": "analysis-data-note-af",
             "letter": "af",
-            "message": "Diluted earnings per share is higher than basic earnings per share for this period. Select it to compare with the filing.",
+            "message": "Diluted earnings per share is higher than basic earnings per share for this period.",
             "values": [
               {
                 "concept": "reason_32",
@@ -3996,7 +3996,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-am",
             "letter": "am",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [],
             "comparisons": [],
             "counts": {
@@ -4290,7 +4290,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4314,7 +4314,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -4398,7 +4398,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -4464,7 +4464,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data. Select it to compare with the filing.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm this figure against the company\u2019s filed data.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4488,7 +4488,7 @@
             "key": "[\"review\",[\"source_conflict\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value; select it to compare.",
+            "message": "The company\u2019s filings report different values for this figure. We show the most recent filing\u2019s value.",
             "values": [
               {
                 "concept": "long_term_debt",
@@ -4572,7 +4572,7 @@
             "key": "[\"unavailable\",[\"not_in_dataset\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Not in our data for these periods; shown as a dash, never as zero.",
+            "message": "Not in our data for these periods; never shown as zero.",
             "values": [
               {
                 "concept": "long_term_debt",
