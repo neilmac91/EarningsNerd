@@ -55,6 +55,8 @@ class GenerationRun:
 
     # A3: set when this request becomes the generation leader; released in ``release``.
     inflight_event: Optional[asyncio.Event] = None
+    # Set once the fetch stage's progress write, which starts this run's clock (E216), has returned.
+    progress_clock_started: bool = False
     generation_semaphore: Optional[asyncio.Semaphore] = None
     generation_slot_held: bool = False
     usage_reservation_token: Optional[str] = None
@@ -161,6 +163,13 @@ class GenerationRun:
         # commit returns the connection); the stream needs only the durable write.
         with database.SessionLocal() as progress_session:
             pipeline.record_progress(progress_session, *args, **kwargs)
+
+    def error_starts_clock(self) -> bool:
+        """Whether this run's error progress write starts the row's clock (E217): only a leader's, the run holding the
+        filing's claim, before its fetch stage's write has returned, since the error is then the run's first write. A
+        follower's error lands on the live leader's row, and a run that failed before its claim cannot tell a live
+        leader's row from an earlier run's, so both keep the clock, as does a leader whose fetch stage has written."""
+        return self.inflight_event is not None and not self.progress_clock_started
 
     # Metering point: a held admission lease becomes a counted unit when the provider request
     # is ISSUED — the `provider_start_signal` the request dispatcher fires immediately before

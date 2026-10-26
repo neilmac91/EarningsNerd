@@ -295,7 +295,8 @@ async def test_integrity_error_without_a_winner_row_fails_the_stream_generically
     assert [r.getMessage() for r in error_records] == [f"[stream:{filing_id}] Error in streaming summary: {duplicate}"]
     assert error_records[0].exc_info is not None and error_records[0].exc_info[1] is duplicate
     assert _stages(record_progress) == ["fetching", "parsing", "analyzing", "summarizing", "summarizing", "error"]
-    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error=str(duplicate)[:200])
+    assert record_progress.call_args_list[-1] == call(
+        ANY, filing_id, "error", error=str(duplicate)[:200], starts_run=False)  # past its fetch stage: E217
     assert funnel.call_args_list == [
         call("offline", EVENT_GENERATION_STARTED, entry_point=None),
         call("offline", EVENT_GENERATION_FAILED, duration_ms=ANY, result_type="error", entry_point=None,

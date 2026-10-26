@@ -1,0 +1,163 @@
+"""E217: a run's error progress write starts the row's clock only when the error is a leader's first write.
+
+E216 starts a run's clock (``started_at``, ``elapsed_seconds``) at the fetch stage's write, an admitted run's first. A
+run that failed before that write wrote only its error (``failure.timed_out``, ``failure.failed``), which kept the clock
+of the row an earlier run left: a leader that timed out waiting for a generation slot left the watchlist reading
+7,200 s beside its error on a two-hour-old row. ``GenerationRun.error_starts_clock`` now asks the writer to start the
+clock for a leader, the run holding the filing's claim, whose fetch stage has not written. A follower's error lands on
+the live leader's row, and a run that failed before its claim cannot tell a live leader's row from an earlier run's, so
+both keep the clock, as does a leader whose fetch stage has written. The error still marks a live leader's row as
+before; only the clock is this change's.
+
+Each case drives the one orchestrator offline (``stream_boundaries``) with the real writer and reads the row after. The
+service's clock is pinned, so each elapsed time is exact; SQLite's date functions keep milliseconds, which the tolerance
+allows for. The case past the fetch stage moves the clock on when the provider is called.
+"""
+import asyncio
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import pytest
+
+from app.database import Base, SessionLocal, engine
+from app.models import SummaryGenerationProgress
+from app.services import summary_generation_service, summary_pipeline
+from tests.support.summary_stream_harness import reset_inflight, seed_company_filing, stream_boundaries
+
+NOW = datetime(2026, 10, 26, 6, 0, tzinfo=timezone.utc)
+# An earlier run's error row, two hours old; and a live leader's row, 30 s into its run.
+EARLIER = NOW - timedelta(hours=2)
+LIVE_START = NOW - timedelta(seconds=30)
+
+
+@pytest.fixture
+def clock(monkeypatch):
+    """The service's clock, pinned to ``NOW``; a case moves it on by assigning ``clock.now``."""
+    clock = SimpleNamespace(now=NOW)
+    monkeypatch.setattr(summary_generation_service, "utcnow", lambda: clock.now)
+    return clock
+
+
+@pytest.fixture(autouse=True)
+def pipeline_tables():
+    """The test database the one orchestrator runs on, as its anchors set it up."""
+    Base.metadata.create_all(bind=engine)
+    reset_inflight()
+    yield
+    reset_inflight()
+
+
+def _seed(filing_id, *, stage, started_at, error=None):
+    with SessionLocal() as db:
+        db.add(SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=started_at,
+                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0,
+                                         error=error))
+        db.commit()
+
+
+def _aware(value):
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _row(filing_id):
+    with SessionLocal() as db:
+        row = db.get(SummaryGenerationProgress, filing_id)
+        return row.stage, _aware(row.started_at), row.elapsed_seconds, row.error
+
+
+async def _drain(filing_id):
+    return [event async for event in summary_pipeline.stream_filing_summary(
+        filing_id=filing_id, current_user=None, user_id=None, telemetry_distinct_id="offline",
+        telemetry_entry_point=None, telemetry_ctx={}, emit_funnel_telemetry=False)]
+
+
+def _no_free_slot(monkeypatch):
+    """Every generation slot held, and the pipeline's backstop firing as the leader starts to wait for one: a real
+    deadline, armed at that moment rather than after a budget that would race the stages before it."""
+    deadline = asyncio.timeout(None)
+
+    class NoFreeSlot(asyncio.Semaphore):
+        async def acquire(self):
+            deadline.reschedule(asyncio.get_running_loop().time())
+            return await super().acquire()
+
+    monkeypatch.setattr(summary_pipeline, "asyncio", SimpleNamespace(
+        **{**vars(asyncio), "timeout": lambda _seconds: deadline}))
+    monkeypatch.setattr(summary_pipeline, "_get_generation_semaphore", lambda: NoFreeSlot(0))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["slot_timeout", "admission_raises"])
+async def test_a_leaders_error_before_its_fetch_stage_starts_the_clock(clock, monkeypatch, failure):
+    """A leader that times out waiting for a generation slot, or whose admission raises, fails with the error as its
+    first write: the row an earlier run left counts from that error, not from two hours before."""
+    filing_id = seed_company_filing()
+    _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
+    if failure == "slot_timeout":
+        _no_free_slot(monkeypatch)
+        expected = "Pipeline timeout"
+    else:
+        monkeypatch.setattr(summary_pipeline, "_get_generation_semaphore", _raise("no slot table"))
+        expected = "no slot table"
+    with stream_boundaries() as summarize:
+        events = await _drain(filing_id)
+    assert events[-1]["type"] == "error"
+    summarize.assert_not_called()
+    assert _row(filing_id) == ("error", NOW, 0.0, expected)
+
+
+@pytest.mark.asyncio
+async def test_a_followers_error_keeps_the_live_leaders_clock(clock):
+    """A follower whose wait budget runs out writes its timeout onto the live leader's row, which keeps counting from
+    the leader's start."""
+    filing_id = seed_company_filing()
+    _seed(filing_id, stage="analyzing", started_at=LIVE_START)
+    leader = summary_pipeline._claim_inflight(filing_id)
+    try:
+        with stream_boundaries() as summarize, patch.object(summary_pipeline, "INFLIGHT_WAIT_CAP_SECONDS", 0):
+            events = await _drain(filing_id)
+        assert summary_pipeline._inflight_generations.get(filing_id) is leader
+    finally:
+        summary_pipeline._release_inflight(filing_id, leader)
+    assert events[-1]["type"] == "error"
+    summarize.assert_not_called()
+    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), "Pipeline timeout")
+
+
+@pytest.mark.asyncio
+async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock):
+    """A leader whose provider fails 5 s after its fetch stage started the clock counts its error from that start."""
+    filing_id = seed_company_filing()
+    _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
+
+    def provider_down(*args, **kwargs):
+        clock.now = NOW + timedelta(seconds=5)
+        raise RuntimeError("provider down")
+
+    with stream_boundaries() as summarize:
+        summarize.side_effect = provider_down
+        events = await _drain(filing_id)
+    assert events[-1]["type"] == "error"
+    summarize.assert_called_once()
+    assert _row(filing_id) == ("error", NOW, pytest.approx(5.0, abs=1e-3), "provider down")
+
+
+@pytest.mark.asyncio
+async def test_a_run_that_fails_before_its_claim_keeps_the_rows_clock(clock, monkeypatch):
+    """A run that raises before it claims the filing holds no claim, so its error cannot tell this row, a live leader's
+    on another instance, from an earlier run's: the row keeps counting from the leader's start."""
+    filing_id = seed_company_filing()
+    _seed(filing_id, stage="analyzing", started_at=LIVE_START)
+    monkeypatch.setattr(summary_pipeline, "_claim_inflight", _raise("registry down"))
+    with stream_boundaries() as summarize:
+        events = await _drain(filing_id)
+    assert events[-1]["type"] == "error"
+    summarize.assert_not_called()
+    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), "registry down")
+
+
+def _raise(message):
+    def raises(*args, **kwargs):
+        raise RuntimeError(message)
+    return raises
