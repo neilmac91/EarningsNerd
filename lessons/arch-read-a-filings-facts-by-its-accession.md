@@ -17,7 +17,9 @@ prior year-end balance FY and stores it under the 10-Q's accession while the 10-
 an older 10-K a lone oldest-year bar for each line the per-filing writer read no current year of,
 and a 20-F, older or newest, a lone current-year USD bar beside its CNY lines for such a line: an
 early sync's convenience row, or the current sync's at a filer that switched reporting currency
-(Hello Group, Vipshop, JOYY), whose USD list `currency.series_unit` keeps.
+(Hello Group, Vipshop, JOYY), whose USD list `currency.series_unit` keeps. Condition 4 closes that
+wherever the writer stored an annual row of the report; a report it stored no annual row of keeps
+the bar (below).
 
 **Rule**: select one filing's facts with `company_id == filing.company_id` and
 `accession == filing.accession_number`, current or not; for its annual figures, call
@@ -70,27 +72,37 @@ gives none, as across a transition period): writer generations name a year diffe
 
 Known shapes outside the rule. Reaching the period end does not make a line whole. Condition 4
 closes the shape reachable today: a sync of 2026-10-10 to #1365 read the USD lists alone and stored
-under each 20-F's accession a margin over its own-year convenience figures, operands recorded, so an
-older report's margin line reached through it and charted its oldest year and own year without the
-one between. The same rows keep the newest report's margin line off its chart (the native sync skips
-the identity they hold, so its own year has no CNY margin) until the quarterly repair recomputes
-them from native operands (`docs/quarterly-data-repair.md`). Once WP5b's own-report rows land, an
-older report whose own year a later one restated holds that own-report row, in its own currency,
-beside its oldest year, while the middle year's winner sits under the later report's accession: for
-a line the per-filing writer read nothing of, the chart again shows the oldest year and its own
-without the one between, side by side on the categorical axis. No writer on main stores such a row
-yet; whoever lands the WP5b writer settles it, there or with a rule here. A report the writer read
-nothing annual from takes the stand-ins' own currency (condition 4), so at a switched filer it
-charts its USD translations, one year a line. And a 40-F is never processed: the summary pipeline
-fetches XBRL for 10-K, 10-Q and 20-F only (`summary_stages/enrichment.py`), so a 40-F's processed
-gate stays shut and its chart empty, as before this reader; its test case holds for when one is.
+under each 20-F's accession a ratio (a margin, the current ratio) over its own-year convenience
+figures, operands recorded, so an older report's ratio line reached through it and charted its
+oldest year and own year without the one between. The same rows cost the newest 20-F its ratio lines
+in one processing order: when the per-filing writer first ran on it after the native sync, which
+skipped the identity those rows hold, it owns no row of the line and its own year has no CNY ratio,
+so the line falls short. Had the writer run before the native sync, it owns the CNY ratios of the
+two earlier years, the line is owned, and every year shows. The quarterly repair recomputes those
+rows from native operands (`docs/quarterly-data-repair.md`), but only as the Ops
+`repair-quarterly-apply` the founder approves for named tickers; nothing schedules it, and
+`tasks/todo.md` F61 (2) records whether it has run. Few filings can be in that state: only
+summarized filings are processed, and F61 (1)'s count of 2026-10-23 found one classified CNY summary
+and 5 with no recorded currency. Once WP5b's own-report rows land, an older report whose own year a
+later one restated holds that own-report row, in its own currency, beside its oldest year, while the
+middle year's winner sits under the later report's accession: for a line the per-filing writer read
+nothing of, the chart again shows the oldest year and its own without the one between, side by side
+on the categorical axis. No writer on main stores such a row yet; whoever lands the WP5b writer
+settles it, there or with a rule here. A report the writer stored no annual row of takes the
+stand-ins' own currency (condition 4), so at a switched filer, or at a foreign filer not re-synced
+since #1365 whose only stand-ins are the early sync's USD rows, it charts its USD translations, one
+year a line, on the older and the newest 20-F alike (main charted nothing for it). And a 40-F is
+never processed: the summary pipeline fetches XBRL for 10-K, 10-Q and 20-F only
+(`summary_stages/enrichment.py`), so a 40-F's processed gate stays shut and its chart empty, as
+before this reader; its test case holds for when one is.
 
 **Evidence**: `backend/app/services/facts/filing_scope.py::annual_filing_rows` and `filing_years`,
 read by `facts/fundamentals.get_filing_fundamentals`; the Copilot already scoped by accession
 (`copilot_tools._scope`). Each condition is pinned on the bad case by
 `backend/tests/unit/test_filing_fundamentals_by_accession.py`, condition 4's currency shapes
-(an early sync's rows alone and beside a native sync, a switched filer, a ratio's operands, own
-rows in two currencies) and condition 5's distance in days included. Partly gated by
+(an early sync's rows alone and beside a native sync, a switched filer, a ratio's operands in a
+line the report owns no row of and in one it owns, a per-share line, own rows in two currencies
+tied and not, the stand-ins' own tie) and condition 5's distance in days included. Partly gated by
 `backend/tests/unit/test_filing_facts_read_by_accession.py`, which counts the mentions of
 `FinancialFact.filing_id` through the model it can see (the column, an ownership test, a lookup by
 name, a join with no onclause to or from the model or `Filing` in its method, function or table
