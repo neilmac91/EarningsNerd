@@ -171,7 +171,7 @@ frontend/
 | Service | Purpose |
 |---|---|
 | `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
-| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
+| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) + the progress row: a run's write (`record_progress`, one upsert) and the progress poll's answer (`progress_poll_answer`, whose stale mark is one conditional UPDATE) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |

@@ -52,7 +52,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # own walk; summaries.py's lowered to 30, its count since #1286, by E105, to 28 by E171's export slice, whose
 # two exports share one lookup, to 25 by its generate-stream slice, whose guarded release replaced the
 # stream's two closes and whose progress clear is one DELETE, and to 22 by E215, which moved the progress
-# poll's reads, stale mark and commit into summary_generation_service. Lower an entry when a PR moves work into
+# poll's two reads and its commit into summary_generation_service. Lower an entry when a PR moves work into
 # app/services/, and set it to 0 (do not delete it) when the router is done. Git conflicts on edits to adjacent
 # lines: the blank line between entries keeps in-place number edits on different entries mergeable in any order,
 # which deleting a line (with or without its blank line) would not be. A cleanup PR prunes the zero rows once no

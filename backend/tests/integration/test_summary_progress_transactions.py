@@ -30,7 +30,8 @@ the row after it.
   write, and after a clear's it matched no row.
 
 ``tests/unit/test_progress_write_is_one_upsert.py`` holds the write's columns, and E214's first two races, on SQLite;
-``tests/unit/test_orphaned_progress.py`` holds the mark's criteria, and E215's first two races, on SQLite.
+``tests/unit/test_orphaned_progress.py`` holds the mark's criteria, E215's first two races and a clear just after
+the mark's commit, on SQLite.
 PROGRESS_CONCURRENCY_TEST_DATABASE_URL enables these cases in CI ("Verify summary progress concurrency on
 PostgreSQL"); each case owns a disposable schema, and without the variable they skip.
 """

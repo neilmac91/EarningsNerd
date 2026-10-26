@@ -338,12 +338,13 @@ the loop, each answer and each admitted request's orchestrator inputs, each read
 row its `is_pro` mirror contradicts, and the progress row touched only by the Pro forces' DELETEs, one each; a
 case of its own holds the 429 before the unit (no filing or summary read, no served body, no clear); and
 `test_summary_provider_lifecycle.py`'s route cases hold the request's release off the loop, before the response
-starts (2026-10-25, E171). The progress poll's unit held a read-modify-write too: it read the row, flipped a stalled
-one to an error in memory and committed, so a clear landing between the read and the commit answered that poll 500
-(`StaleDataError`), and a run's write landing there was overwritten with the stall's error. Since E215 the mark is
-one UPDATE by filing on a non-terminal stage whose last write is past the cutoff, which a clear or a fresh write
-leaves matching nothing, and the poll reads the row after it (`backend/tests/unit/test_orphaned_progress.py`, and
-`backend/tests/integration/test_summary_progress_transactions.py` on PostgreSQL) (2026-10-26).
+starts (2026-10-25, E171). The progress poll's unit was a read-modify-write: it read the row, flipped a stalled one
+to an error in memory and committed, so a clear landing between the read and the commit answered that poll 500
+(`StaleDataError`), a clear after the commit did too as the answer read the row the commit had expired
+(`ObjectDeletedError`), and a run's write landing before the commit was overwritten with the stall's error. Since
+E215 the mark is one UPDATE by filing on a non-terminal stage whose last write is past the cutoff, which a clear or a
+fresh write leaves matching nothing, and the poll reads the row after it (`backend/tests/unit/test_orphaned_progress.py`,
+and `backend/tests/integration/test_summary_progress_transactions.py` on PostgreSQL) (2026-10-26).
 A unit run with `run_in_threadpool`, as every E171 unit is, takes one of anyio's default thread tokens (40 a
 process), and an auth lookup blocked on the pool holds one while it waits; the dependency's finalizer had a
 one-token limiter of FastAPI's own (`contextmanager_in_threadpool`), and the feedback router's units run on

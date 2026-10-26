@@ -10,11 +10,13 @@ criteria.
 Before E215 the poll flipped the row it had read in memory and committed. A clear landing between the read
 and the commit (an admin reset, say) left that UPDATE matching no row, and the poll answered 500
 (``StaleDataError``); a write landing there (a new run's first, or the run's own last) was overwritten with
-the stall's error. Each race here runs the other write, committed in a session of its own, just before the
-poll's UPDATE. The service's clock is pinned, so a row's age is exact, and a seeded row starts 600 s before
-its last write, so a check of the start instead of the last write shows.
-``tests/integration/test_summary_progress_transactions.py`` runs the races, and a write that holds the row
-while the mark waits, on PostgreSQL.
+the stall's error; and a clear landing after the commit, before the answer read the row the commit had
+expired, answered 500 too (``ObjectDeletedError``). Each race here runs the other write, committed in a
+session of its own, just before the poll's UPDATE or, for the last, just before its first read after it.
+The service's clock is pinned, so a row's age is exact, and a seeded row starts 600 s before its last write,
+so a check of the start instead of the last write shows.
+``tests/integration/test_summary_progress_transactions.py`` runs the first two races, and a write or a clear
+that holds the row while the mark waits, on PostgreSQL.
 """
 import re
 from contextlib import contextmanager
@@ -37,6 +39,8 @@ from app.services.summary_generation_service import (
 
 # The poll's one write: the stale mark's UPDATE.
 MARK = re.compile(r"\s*UPDATE summary_generation_progress\b")
+# A read of the progress table: the poll's, or the ORM's refresh of an expired row.
+READ = re.compile(r"\s*SELECT\b.*\bFROM summary_generation_progress\b", re.DOTALL)
 # The service's clock in every case, pinned so a row's age is exact.
 NOW = datetime(2026, 10, 26, 6, 0, tzinfo=timezone.utc)
 STALLED = STALE_PROGRESS_SECONDS + 3600
@@ -146,6 +150,35 @@ def _just_before_the_mark(engine, other_write):
         event.remove(engine, "before_cursor_execute", before)
 
 
+@contextmanager
+def _just_after_the_mark(engine, other_write):
+    """Run ``other_write`` once, committed in a session of its own, just before the first read of the progress table
+    after the mark's UPDATE (the poll's re-read; before E215, the refresh of the row the commit expired); yields the
+    statements it ran before, so a case can check that it ran."""
+    marked: list[str] = []
+    ran: list[str] = []
+
+    def before(conn, cursor, statement, parameters, context, executemany):
+        if MARK.match(statement):
+            marked.append(statement)
+        elif marked and not ran and READ.match(statement):
+            ran.append(statement)
+            with _session(engine) as other:
+                other_write(other)
+                other.commit()
+
+    event.listen(engine, "before_cursor_execute", before)
+    try:
+        yield ran
+    finally:
+        event.remove(engine, "before_cursor_execute", before)
+
+
+def _clear(other, filing_id):
+    other.query(SummaryGenerationProgress).filter(
+        SummaryGenerationProgress.filing_id == filing_id).delete(synchronize_session=False)
+
+
 def test_the_poll_marks_a_stalled_row_and_answers_the_error(engine, filing_id):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
     answer = _poll(engine, filing_id)
@@ -175,14 +208,20 @@ def test_the_mark_matches_the_rows_the_check_calls_stalled(engine, filing_id, st
 
 def test_a_clear_just_before_the_mark_answers_pending(engine, filing_id):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
-
-    def clear(other):
-        other.query(SummaryGenerationProgress).filter(
-            SummaryGenerationProgress.filing_id == filing_id).delete(synchronize_session=False)
-
-    with _just_before_the_mark(engine, clear) as ran:
+    with _just_before_the_mark(engine, lambda other: _clear(other, filing_id)) as ran:
         answer = _poll(engine, filing_id)
     assert ran, "the clear did not run before the mark"
+    assert answer == {"stage": "pending", "elapsedSeconds": 0}
+    assert _row(engine, filing_id) is None
+
+
+def test_a_clear_just_after_the_marks_commit_answers_pending(engine, filing_id):
+    """Before E215 the answer read the row the commit had expired, and a clear in between raised
+    ``ObjectDeletedError``: the poll answered 500."""
+    _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
+    with _just_after_the_mark(engine, lambda other: _clear(other, filing_id)) as ran:
+        answer = _poll(engine, filing_id)
+    assert ran, "the clear did not run after the mark"
     assert answer == {"stage": "pending", "elapsedSeconds": 0}
     assert _row(engine, filing_id) is None
 
