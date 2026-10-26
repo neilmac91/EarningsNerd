@@ -312,6 +312,20 @@ async def test_record_progress_failure_on_the_error_payload_path_is_logged_and_t
     assert filing_id not in summary_pipeline._inflight_generations
 
 
+@pytest.mark.asyncio
+async def test_an_error_payload_with_no_message_streams_the_generic_failure_sentence():
+    """A provider error payload with no message of its own ends the stream with the generic failure sentence, which
+    the ``error`` progress write carries too (E92)."""
+    filing_id = seed_company_filing()
+    record_progress = MagicMock(wraps=summary_pipeline.record_progress)
+    with stream_boundaries(payload={"status": "error"}), patch.object(summary_pipeline, "record_progress", record_progress):
+        events = await _drain(filing_id)
+    generic = "We could not generate this summary. Try again shortly."
+    assert events[-1] == {"type": "error", "message": generic}
+    assert _terminals(events) == [events[-1]]
+    assert record_progress.call_args_list[-1] == call(ANY, filing_id, "error", error=generic)
+
+
 # ------------------------------------------------------------- D5: summarizing heartbeat shape
 
 @pytest.mark.asyncio

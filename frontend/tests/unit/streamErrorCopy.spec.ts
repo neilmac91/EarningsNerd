@@ -12,8 +12,9 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
 /**
  * The summary stream's error sentences are written in the backend pipeline (summary_stages, and the
  * payload messages services/ai/summary_finalize.py writes for generation.py and finalize.py to stream),
- * whose sentences change with the next functional change there (F35, D-046, E92); until then the filing page
- * maps each one to the product's words (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48).
+ * whose sentences took the product's words with E217's functional change there (F35, D-046, E92), all but the two
+ * the matchers route on; the filing page maps each sentence to the product's words
+ * (features/summaries/lib/streamErrorCopy.ts, brand sweep filing/F48), a sentence already in them to itself.
  * This gate reads every module under summary_stages plus ai/summary_finalize.py, read only, and holds the
  * map to that Python source:
  *
@@ -48,16 +49,17 @@ import { STREAM_ERROR_COPY, streamErrorCopy } from '@/features/summaries/lib/str
  *     endpoint's 401 (a retry after a refresh or a sign-in can help), its 404 (kept retryable since round 3)
  *     and its 429 must not, and a status the table does not classify fails. A reworded sentence fails here
  *     until the matcher follows it.
- *  4. Voice: what the page shows has no em-dash, no exclamation mark, and reads as a sentence, a line of the map
+ *  4. Voice: what the page shows has no em-dash, no exclamation mark and no "please", and reads as a sentence, a line of the map
  *     or an endpoint answer the map passes through as the backend wrote it (the account check's, since E45); a
  *     key's only fields are bare `{name}` ones, the only kind streamErrorCopy matches.
- *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file's raw text for the character, so a dash
- *     spelled any other way passes it: a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
- *     radix, a const or arithmetic resolved to its value), an escape (`'\u2014'`, `` `\u{2014}` ``) or a
- *     JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX text or an attribute string). App source (every
- *     tracked script under app, components, features, hooks and lib) may spell it that way only in
- *     streamErrorCopy.ts, by char code, whose keys are matched, never shown. Out of reach: a code computed
- *     at run time from a value the file does not state.
+ *  5. The hidden em-dash: no-em-dash-copy.spec.ts reads a file only when its raw text holds the character, and then
+ *     its literals with their escapes decoded. So a char code (`String.fromCharCode(0x2014)`, `fromCodePoint`, any
+ *     radix, a const or arithmetic resolved to its value) or a JSX entity (`&mdash;`, `&#8212;`, `&#x2014;`, in JSX
+ *     text or an attribute string) passes it in any file, and an escape (`'\u2014'`, `` `\u{2014}` ``) in a file
+ *     with no literal one. App source (every
+ *     tracked script under app, components, features, hooks and lib) spells it no such way: streamErrorCopy.ts
+ *     did, by char code, for the backend's em-dash keys, until the backend took the voice (E92). Out of reach: a
+ *     code computed at run time from a value the file does not state.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -597,25 +599,23 @@ describe('the summary stream error sentences the filing page maps', () => {
     // backend wrote it (the account check's since E45), so its own words are held here, read from the Python.
     const offVoice = endpointErrors()
       .map((answer) => ({ answer, shown: streamErrorCopy(answer.text) }))
-      .filter(({ shown }) => shown.includes(EM_DASH) || shown.includes('!') || !/^[A-Z].*[.…]$/.test(shown))
+      .filter(({ shown }) => shown.includes(EM_DASH) || shown.includes('!') || /\bplease\b/i.test(shown) || !/^[A-Z].*[.…]$/.test(shown))
       .map(({ answer, shown }) => `${answer.file}:${answer.line} ${answer.status} "${shown}"`)
     expect(
       offVoice,
-      'what the card prints for an endpoint answer reads as a sentence, with no em-dash and no exclamation mark: ' +
+      'what the card prints for an endpoint answer reads as a sentence, with no em-dash, no exclamation mark and no "please": ' +
         'reword the backend detail, or map it in STREAM_ERROR_COPY',
     ).toEqual([])
   })
 
-  it('spells a displayed em-dash only as the character, the char code in streamErrorCopy.ts aside', () => {
+  it('spells a displayed em-dash only as the character', () => {
     const users = execFileSync('git', ['ls-files', 'app', 'components', 'features', 'hooks', 'lib'], { cwd: FRONTEND, encoding: 'utf8' })
       .split('\n')
       .filter((rel) => /\.(?:[cm]?js|jsx|ts|tsx)$/.test(rel) && !/\.d\.ts$/.test(rel))
     expect(users.length, 'the walk found the app').toBeGreaterThan(300)
-    // By file and spelling, not line: the one allowed site may move within its file.
+    // By file and spelling, not line, so a failure names each site wherever it moves.
     const found = users.flatMap((rel) => hiddenDashes(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel)).map((site) => site.replace(/:\d+ /, ' '))
-    expect(found, 'spell no displayed em-dash any way but the character; no-em-dash-copy.spec.ts cannot see the others').toEqual([
-      'features/summaries/lib/streamErrorCopy.ts a char code',
-    ])
+    expect(found, 'spell no displayed em-dash any way but the character; no-em-dash-copy.spec.ts cannot see the others').toEqual([])
     // Each spelling, planted; a code computed from a value the file does not state is out of reach.
     const spellings: Record<string, string> = {
       'a hex char code': 'const d = String.fromCharCode(0x2014)',
@@ -646,13 +646,15 @@ describe('the summary stream error sentences the filing page maps', () => {
     for (const [key, shown] of Object.entries(STREAM_ERROR_COPY)) {
       expect(shown, 'no em-dash in what the page shows').not.toContain(EM_DASH)
       expect(shown).not.toContain('!')
+      expect(shown, 'no "please" in what the page shows').not.toMatch(/\bplease\b/i)
       expect(shown).toMatch(/^[A-Z].*[.…]$/)
       expect(key, 'a key field is a bare {name}: a format spec or an expression never matches at runtime').not.toMatch(/\{(?!\w+\})/)
     }
     expect(streamErrorCopy("You've reached your monthly limit of 5 summaries. Upgrade to Pro for unlimited summaries.")).toBe(
       "You've used this month's 5 free summaries. Upgrade to Pro for unlimited summaries.",
     )
-    expect(streamErrorCopy(`Unable to retrieve this filing at the moment ${EM_DASH} please try again shortly.`)).toBe(
+    expect(streamErrorCopy('Filing not found')).toBe('This filing could not be found.')
+    expect(streamErrorCopy('We could not generate this summary. Try again shortly.')).toBe(
       'We could not generate this summary. Try again shortly.',
     )
     expect(streamErrorCopy('The filing could not be summarized right now.')).toBe('The filing could not be summarized right now.')
