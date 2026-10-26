@@ -16,6 +16,10 @@ E214: ``summary_generation_service.record_progress`` writes the row in one
 
 A seeded row's last write comes 10 s after its start, so a count from the last write, not from the start, shows.
 
+E216: an admitted run's first write (``starts_run``, the pipeline's fetch stage) restarts the clock on the error row
+an earlier run left, and clears its error; before E216 it kept that row's ``started_at``. Production runs PostgreSQL,
+so the restart is held there as well as on SQLite.
+
 E215: the progress poll (``progress_poll_answer``) marks a stalled row, one whose stage is not terminal and whose last
 write is older than ``STALE_PROGRESS_SECONDS``, a retryable error in one UPDATE by filing on those criteria, and reads
 the row after it.
@@ -104,11 +108,12 @@ def filing_id(postgres_engine) -> int:
         return filing.id
 
 
-def _seed(engine, filing_id, *, age_seconds):
+def _seed(engine, filing_id, *, age_seconds, stage="fetching", error=None):
     started_at = NOW - timedelta(seconds=age_seconds)
     with _session(engine) as db:
-        db.add(SummaryGenerationProgress(filing_id=filing_id, stage="fetching", started_at=started_at,
-                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0))
+        db.add(SummaryGenerationProgress(filing_id=filing_id, stage=stage, started_at=started_at,
+                                         updated_at=started_at + timedelta(seconds=10), elapsed_seconds=10.0,
+                                         error=error))
         db.commit()
     return started_at
 
@@ -236,6 +241,14 @@ def test_writers_of_a_filing_with_no_row_each_succeed_on_one_row(postgres_engine
         event.remove(postgres_engine, "before_cursor_execute", before)
     [row] = _rows(postgres_engine, filing_id)
     assert row["stage"] in stages and row["started_at"] == NOW
+
+
+def test_a_runs_first_write_restarts_the_clock_on_an_earlier_runs_row(postgres_engine, filing_id):
+    _seed(postgres_engine, filing_id, age_seconds=7200, stage="error", error="Pipeline timeout")
+    with _session(postgres_engine) as db:
+        summary_generation_service.record_progress(db, filing_id, "fetching", starts_run=True)
+    assert _rows(postgres_engine, filing_id) == [{"stage": "fetching", "started_at": NOW, "elapsed_seconds": 0.0}]
+    assert _states(postgres_engine, filing_id) == [{"stage": "fetching", "error": None}]
 
 
 # E215: the progress poll's stale mark.

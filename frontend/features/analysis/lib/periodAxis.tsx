@@ -20,10 +20,16 @@ import { annualTickLabel, quarterlyTickLines } from './periodLabels'
 // (features/analysis/lib/charts) reads the same ones without importing this React module.
 export { annualTickLabel, quarterlyTickLines } from './periodLabels'
 
+/** How far the caption's baseline sits above the band's bottom, which is the SVG's. Geist Mono's text box runs its
+ *  descent, 0.295em (3.2px at 11px, which Chromium lays out as 3px), below the baseline, so at 0 the SVG cut the box
+ *  and the "y" in "Fiscal year" ("Fiscal vear"). At 4 the whole box stays inside the SVG with under a pixel to spare,
+ *  D1's rule for every chart text (the box inside its SVG, to the edge). */
+export const AXIS_CAPTION_OFFSET = 4
+
 /** XAxis band heights: the tick row (one line annual / two stacked quarterly) plus the axis
- *  caption line underneath (Recharts default height is 30, ticks only). */
-export const ANNUAL_AXIS_HEIGHT = 46
-export const QUARTERLY_AXIS_HEIGHT = 58
+ *  caption line underneath and its descent (Recharts default height is 30, ticks only). */
+export const ANNUAL_AXIS_HEIGHT = 46 + AXIS_CAPTION_OFFSET
+export const QUARTERLY_AXIS_HEIGHT = 58 + AXIS_CAPTION_OFFSET
 
 /** The axis caption rendered below the tick row — pass as the XAxis `label` prop. Names what
  *  the compact ticks mean ("Fiscal year" under "'16 '17 …"), the owner-requested pattern. */
@@ -31,7 +37,7 @@ export function periodAxisLabel(mode: AnalysisMode, dark: boolean) {
   return {
     value: mode === 'annual' ? 'Fiscal year' : 'Fiscal quarter',
     position: 'insideBottom' as const,
-    offset: 0,
+    offset: AXIS_CAPTION_OFFSET,
     style: { fill: chartTheme(dark).label, fontSize: 11, fontFamily: CHART_FONT },
   }
 }

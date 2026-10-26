@@ -254,15 +254,16 @@ def test_a_clear_just_after_the_marks_commit_answers_pending(engine, filing_id, 
     assert _row(engine, neighbour_id) == NEIGHBOUR
 
 
-@pytest.mark.parametrize(("stage", "error"), [
-    ("fetching", None),  # a new run's first write
-    ("error", "Pipeline timeout"),  # the run's own last write
+@pytest.mark.parametrize(("stage", "error", "starts_run"), [
+    ("fetching", None, True),  # a new run's first write
+    ("error", "Pipeline timeout", False),  # the run's own last write
 ])
-def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, neighbour_id, stage, error):
+def test_a_write_just_before_the_mark_is_kept_and_answered(engine, filing_id, neighbour_id, stage, error,
+                                                           starts_run):
     _seed(engine, filing_id, stage="analyzing", age_seconds=STALLED)
 
     def write(other):
-        summary_generation_service.record_progress(other, filing_id, stage, error=error)
+        summary_generation_service.record_progress(other, filing_id, stage, error=error, starts_run=starts_run)
 
     with _just_before_the_mark(engine, write) as ran:
         answer = _poll(engine, filing_id)

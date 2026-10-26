@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
-import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
+import { CHARTS_V2, RECHARTS, drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
 /**
  * The one browser geometry gate for the analysis redesign (proposal Phase 1, item 10).
@@ -1064,6 +1064,24 @@ for (const theme of THEMES) {
     }
   })
 }
+
+// Every text a chart draws sits inside its SVG, descenders included: Recharts' axis caption, set on the SVG's bottom
+// edge, read "Fiscal vear" at every width. The spec renderer holds the same rule (D1); its panels print captions of
+// their own but no axis caption, so only Recharts' is counted.
+for (const width of [360, 390, 1280]) test.describe(`analysis chart text / ${width}px`, () => {
+  test.use({ viewport: { width, height: 900 }, colorScheme: 'light', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  for (const state of ['annual', 'captured'] as const) {
+    test(`${state === 'annual' ? 'annual' : 'quarterly'}: every chart text, its caption included, lies inside the chart`, async ({ page, baseURL }) => {
+      await openAnalysis(page, baseURL!, state, 'light')
+      const charts = await (await drawnCharts(page)).evaluateAll(readTextOutsideSvg, CHARTS_V2)
+      for (const chart of charts) {
+        expect(chart.texts, `${chart.name}: its texts are drawn`).toBeGreaterThan(4)
+        if (!CHARTS_V2) expect(chart.captions, `${chart.name}: the axis caption`).toEqual([state === 'annual' ? 'Fiscal year' : 'Fiscal quarter'])
+        expect(chart.outside, `${chart.name}: texts the SVG cuts`).toEqual([])
+      }
+    })
+  }
+})
 
 for (const theme of THEMES) for (const width of [390, 1480]) {
   test.describe(`analysis chart notes / ${theme} / ${width}px`, () => {
