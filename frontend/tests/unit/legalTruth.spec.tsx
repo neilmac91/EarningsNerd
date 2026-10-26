@@ -365,11 +365,11 @@ import {
  *    every session within 30 minutes" passes, and every promise they refuse in main's spec is refused here too. Since
  *    E162's stage 4b each clause is read alone as well (clauseByClause, through tests/unit/clauseReader.ts): a clause
  *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on, a clause of time, cause or contrast
- *    and the clause a verb takes after "that", without the relative clauses, participles and asides on its subject, so
- *    a negation outside a clause or nested in its subject denies nothing there ("Logging out does not take long before
- *    it ends every session.", "Logging out of a device you do not own ends every session within 30 minutes." and
- *    "Nobody doubts that logging out ends every session." fail), while "until", "as long as", "or", "nor" and a
- *    denied verb that asserts its clause still govern it ("Nothing guarantees that logging out ends every session."
+ *    and a clause after "that", without the relative clauses, participles and asides on its subject, so a negation
+ *    outside a clause or nested in its subject denies nothing there ("Logging out does not take long before it ends
+ *    every session.", "Logging out of a device you do not own ends every session within 30 minutes." and "Nobody doubts
+ *    that logging out ends every session." fail), while "until", "if", "as long as", "or", "nor" and a verb that
+ *    asserts the clause after "that" still govern it ("Nothing guarantees that logging out ends every session."
  *    passes). The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
@@ -2044,26 +2044,16 @@ const deniable = (re: RegExp) => new RegExp(String.raw`${AFFIRMED}(?![\w'’-]+$
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
-/** Whether a relative clause has a verb of its own (E162 stage 4b): its verb group, after its relative word and its
-    subject, ends at a word no closed class holds ("you do not own", "that you do not keep open"), not at a
-    preposition, an auxiliary or a mark, as a gerund's object and its clause's verb group the reader reads as one do
-    ("Changing your password does not on its own end every session.": gerundAt). */
-const hasItsOwnVerb = (tokens: Token[], relative: Postmodifier) => {
-  const after = /^(?:that|which|who|whom|whose|where)$/i.test(tokens[relative.start]?.text ?? '') ? relative.start + 1 : relative.start
-  const { verb } = verbGroupAt(tokens, startsVerbGroup(tokens, after) ? after : (nounPhraseAt(tokens, after)?.end ?? after))
-  return verb < relative.end && knowsVerb(tokens[verb], /./)
-}
-/** The spans a noun phrase nests (E162 stage 4b): the relative clauses with a verb of their own (hasItsOwnVerb), the
-    participles and the asides after its head, and after the head of a phrase a preposition after it takes ("you do not
-    own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb. */
-const nestedIn = (tokens: Token[], phrase: NounPhrase | null): Array<[number, number]> =>
-  (phrase?.postmodifiers ?? []).flatMap((m): Array<[number, number]> =>
-    m.kind === 'preposition' ? nestedIn(tokens, m.object) : m.kind !== 'relative' || hasItsOwnVerb(tokens, m) ? [[m.start, m.end]] : [],
-  )
+/** The spans a noun phrase nests (E162 stage 4b): the relative clauses, participles and asides after its head, and
+    after the head of a phrase a preposition after it takes ("you do not own" in "Logging out of a device you do not
+    own"), which restrict it and deny nothing of its clause's verb. */
+const nestedIn = (phrase: NounPhrase | null): Array<[number, number]> =>
+  (phrase?.postmodifiers ?? []).flatMap((m): Array<[number, number]> => (m.kind === 'preposition' ? nestedIn(m.object) : [[m.start, m.end]]))
 /** A gerund's object (E162 stage 4b): the noun phrase after an -ing word no closed class holds, the lexicon's verb or
-    not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it ("Changing
-    your password ends every session." reads "your password ends every session" as one). null where none stands there,
-    or a verb group does. */
+    not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it, its object
+    and its clause's verb group ("Changing your password ends every session." reads "your password ends every session"
+    as one, and "Changing your password does not on its own end every session." "your password does not on its own").
+    null where none stands there, or a verb group does. */
 const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase | null => {
   const first = phrase.postmodifiers[0]
   const gerund = phrase.head === tokens[at] && /^[a-z]+ing$/.test(phrase.head.lower) && knowsVerb(phrase.head, /./)
@@ -2074,7 +2064,7 @@ const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase |
 const subjectAt = (tokens: Token[], at: number): { end: number; nests: Array<[number, number]> } | null => {
   const phrase = nounPhraseAt(tokens, at)
   const read = (phrase && gerundAt(tokens, at, phrase)) ?? phrase
-  return read && { end: read.end, nests: nestedIn(tokens, read) }
+  return read && { end: read.end, nests: nestedIn(read) }
 }
 /** A clause's words read alone, from a token to the token before another, without the spans its subject nests. */
 const readAlone = (reading: Reading, from: number, to: number) => {
@@ -2095,6 +2085,9 @@ const readAlone = (reading: Reading, from: number, to: number) => {
     "unless", "as long as", "provided that" and "so that" only suppose their clause or aim at it, and "until" and "till"
     only bound a wait ("Logging out does not wait until every session ends."). */
 const HAPPENS = /^(?:because|although|though|whereas|while|when|whenever|once|since|before|after)$/i
+/** The word before "that" in a purpose or a supposition ("so that", "provided that"), whose clause the sentence does not
+    say (E162 stage 4b). */
+const SUPPOSES = /^(?:so|provided|providing|assuming|supposing|order)$/i
 /** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings read
     the sentence as before, and each clause in it alone too, so a negation in another clause, or nested in a clause's
     subject, denies nothing in a clause read alone. Read alone are: a clause with a subject of its own, opened at the
@@ -2102,43 +2095,37 @@ const HAPPENS = /^(?:because|although|though|whereas|while|when|whenever|once|si
     carries a predicate on to counts: "..., and logging out of a device you do not own ends ..."); a predicate those
     words but the comma carry on, where main's reach stops too ("Logging out does not clear cookies and revokes your
     session tokens."; a comma may close an aside inside one verb group: "does not, as a rule, end"); a clause of time,
-    cause or contrast (HAPPENS, or after "as soon as"); and the clause a verb takes after "that" (complementAt), unless
-    a verb that asserts it is denied (ASSERTS, deniedPlainly and deniesItsClause, as the consent family reads it:
-    "Nothing guarantees that logging out ends every session." passes, while "Nobody doubts that ..." asserts it). "Or"
-    and "nor" say neither clause ("Neither logging out nor a password change ends every session."). Each runs from its
-    subject to the end of the clauses carried on from the clause it stands in, without the spans its subject nests
-    (subjectAt). So "Logging out does not take long before it ends every session.", "Logging out of a device you do
-    not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every session." fail, as
-    main refuses them, while a denial on a clause's own verb, subject or object reads as before. The readings only gain
-    texts, so nothing main refuses passes. */
+    cause or contrast (HAPPENS, or after "as soon as"); and a clause after "that", wherever it stands, after a verb the
+    lexicon lacks too ("Passwords are hashed, and nobody doubts that logging out ends every session."), but not within
+    two words of a verb that asserts it, which a denial governs (ASSERTS, as the consent family reads it: "Nothing
+    guarantees that logging out ends every session." and "Nobody can promise you that ..." pass, while "Nobody doubts
+    that ..." asserts it; undenied, the sentence says the clause itself), nor in a purpose or a supposition (SUPPOSES),
+    nor inside a clause's subject, where "that" opens a relative clause. "Or" and "nor" say neither clause ("Neither
+    logging out nor a password change ends every session."). Each runs from its subject to the end of the clause the
+    reader reads it in, without the spans its subject nests (subjectAt). So "Logging out does not take long before it
+    ends every session.", "Logging out of a device you do not own ends every session within 30 minutes." and "Nobody
+    doubts that logging out ends every session." fail, as main refuses them, while a denial on a clause's own verb,
+    subject or object reads as before. The readings only gain texts, so nothing main refuses passes. */
 const clauseByClause = (sentence: string): string[] => {
   const reading = readSentence(sentence)
   const { tokens, clauses } = reading
-  const through = clauses.map((_, i) => {
-    let last = i
-    while (clauses[last + 1]?.carried) last++
-    return clauses[last].end
-  })
-  const endAfter = (k: number) => through[clauses.findIndex((c) => k >= c.start && k < c.end)] ?? tokens.length
+  const endOf = (k: number) => clauses.find((c) => k >= c.start && k < c.end)?.end ?? tokens.length
   const holdsAClause = (at: number, to: number) => {
     const subject = subjectAt(tokens, at)
     return !!subject && subject.end < to && startsVerbGroup(tokens, subject.end)
   }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
-    const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, through[i]))
+    const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, clause.end))
     const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ','))
-    if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), through[i]))
-    const group = verbGroupAt(tokens, clause.predicate)
-    const complement = complementAt(tokens, group)
-    const fromOutside = !!complement && ASSERTS.test(complement.verb.text) && deniedPlainly(reading, group) !== deniesItsClause(clause.subject)
-    if (complement && !fromOutside) texts.add(readAlone(reading, complement.that + 1, endAfter(complement.that + 1)))
+    if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), clause.end))
   })
   const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
   tokens.forEach((token, k) => {
     const opens = HAPPENS.test(token.lower) || (token.lower === 'as' && tokens[k - 1]?.lower === 'soon' && tokens[k - 2]?.lower === 'as')
+    const that = token.lower === 'that' && ![tokens[k - 1], tokens[k - 2]].some((t) => ASSERTS.test(t?.text ?? '')) && !SUPPOSES.test(tokens[k - 1]?.text ?? '')
     const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
-    if (opens && !inASubject(k) && (gerund || holdsAClause(k + 1, endAfter(k + 1)))) texts.add(readAlone(reading, k + 1, endAfter(k + 1)))
+    if ((opens || that) && !inASubject(k) && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
   })
   return [...texts].filter(Boolean)
 }
@@ -4148,15 +4135,22 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // new password policy is documented and idle sessions end after 30 minutes."
       ['<li>Our new password policy is documented and every session you do not close ends within 30 minutes.</li>', true],
       ['<li>Nobody doubts that changing your password ends every session.</li>', true],
+      ['<li>Passwords are hashed, and nobody doubts that logging out ends every session.</li>', true],
+      ['<li>No setup is needed, logging out of a device you do not own ends every session.</li>', true],
+      ['<li>Resetting any password you do not use ends every session.</li>', true],
       ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
       ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
       // ... while what governs a clause from outside still denies it: "until" bounds a wait, "after" in a subject is its
-      // preposition, "as long as" supposes its clause, a denied verb that asserts the clause after "that" governs it
-      // (ASSERTS), "or" and "nor" say neither clause, and a clause the reader opens without "that" is not read alone.
+      // preposition, "as long as" and "provided that" suppose their clause, a verb that asserts the clause after "that"
+      // governs it (ASSERTS), "or" and "nor" say neither clause, and a participle after "once" or a clause the reader
+      // opens without "that" is not read alone.
       ['<li>Logging out does not wait until every session ends.</li>', false],
       ['<li>No session after a logout ends within 30 minutes.</li>', false],
       ['<li>Nothing is stored as long as logging out ends every session.</li>', false],
       ['<li>Nothing guarantees that logging out ends every session.</li>', false],
+      ['<li>Nobody can promise you that logging out ends every session.</li>', false],
+      ['<li>Nothing is stored provided that logging out ends every session.</li>', false],
+      ['<li>Nothing changes once logged out of every device.</li>', false],
       ['<li>Neither logging out nor a password change ends every session.</li>', false],
       ['<li>Logging out ends no session, nor does a password change end every session.</li>', false],
       ['<li>No password reset or password change ends every session.</li>', false],
