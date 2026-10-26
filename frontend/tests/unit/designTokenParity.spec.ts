@@ -41,7 +41,7 @@ const MIRRORS = [
   'app/layout.tsx',
 ]
 
-/** The trend-chart spec renderer's own pairs (tailwind.config.js), behind NEXT_PUBLIC_CHARTS_V2 until F66 (E194). */
+/** The trend-chart spec renderer's own pairs (tailwind.config.js, E194), its own until E195's token fold names them. */
 const RENDERER_PAIRS = ['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review']
 const RENDERER_MIRROR = 'features/analysis/lib/charts/theme.ts'
 

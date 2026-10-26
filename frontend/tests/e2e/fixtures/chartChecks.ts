@@ -3,8 +3,8 @@ import type { TextRole } from '../../../features/analysis/components/TrendChartS
 import { apcaLc } from '../../unit/apca'
 
 /**
- * The trend charts' DOM checks in a browser (docs/design/analysis-trend-charts-spec-2026-10.md §6), on the spec renderer
- * (NEXT_PUBLIC_CHARTS_V2), for charts-v2-gallery.spec.ts. measurePlots reads each plot in the page; expectSound and
+ * The trend charts' DOM checks in a browser (docs/design/analysis-trend-charts-spec-2026-10.md §6), on the spec renderer,
+ * for charts-v2-gallery.spec.ts. measurePlots reads each plot in the page; expectSound and
  * expectInks hold it to the checks that need real text metrics, layout and computed colours:
  * - D1: every text box lies inside its SVG (at its edge: the spec's own layout sets captions and "Notes" at x = 0);
  * - D2: no two text boxes intersect;

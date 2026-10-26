@@ -1,5 +1,5 @@
 /* =============================================================================
-   trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
+   trend-charts-v2.spec.tsx — the spec renderer (E192; the trend charts since E195) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
    fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-

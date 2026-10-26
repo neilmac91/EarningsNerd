@@ -14,10 +14,9 @@ import { drawnCharts, readAxes, readSlots, readTicksAndShapes, tickText } from '
  * AND the configured viewport. Off-screen sr-only text still counts in that check.
  * 200% text changes root font size; 200% zoom is explicitly viewport/DPR emulation.
  *
- * The trend charts are read through fixtures/trendChartDom.ts, from whichever renderer the build draws: today's
- * Recharts charts in the e2e-tests job, the spec renderer's (NEXT_PUBLIC_CHARTS_V2) in e2e-charts-v2, which runs this
- * file too (step 6 of the trend-chart migration, E194). Recharts' keyboard and notes case runs on Recharts alone;
- * charts-v2.spec.ts holds the renderer's, and step 7 (E195) retires it.
+ * The trend charts are read through fixtures/trendChartDom.ts, on the spec renderer, the only one since step 7 of the
+ * trend-chart migration (E195). CI's e2e-charts-v2 job runs this file too until the job goes (E195's follow-up);
+ * charts-v2.spec.ts holds the renderer's keyboard and notes cases.
  */
 const EPSILON = 1 // Fractional CSS-pixel rounding, never a visual overflow allowance.
 const STATES: AnalysisState[] = ['clean', 'legacy', 'discrepancy']
