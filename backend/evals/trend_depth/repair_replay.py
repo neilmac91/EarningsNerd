@@ -5,10 +5,11 @@
 
 A case is a ``deepseek-flash`` first pass recorded under ``--sources`` (eval-v1, dev-v4 and dev-v3 by default): the
 model's own output (a repaired record's ``first_pass_output``, else its ``output``) that version 2 would still send
-to a repair after its code fixes (``generate.fix_first_pass``: retyping and auto-citation, then the gate with its
-backstops, on the pack the arm reads). Each case goes ``--repeats`` times (default 2) through generate's own
+to a repair after its code's retyping (``generate.fix_first_pass``: the retyping, then the gate with its backstops, on
+the pack the arm reads; no code adds an ID). Each case goes ``--repeats`` times (default 2) through generate's own
 version-2 repair (``generate.repair_or_mark``: the patch request, then the full repair if the patches are
-unusable), through the real provider call, as the control arm ``deepseek-flash`` (the frozen prompt on packs/).
+unusable), through the real provider call, as the control arm ``deepseek-flash`` (the frozen prompt on packs/), whose
+client here retries nothing within a call (``REPLAY_ARM``: a timeout or a dropped connection is a provider error).
 The user message is the one the first pass was sent, with no nonce, as the recorded first passes had none. dev-v3's
 first passes ran an earlier prompt that no record keeps; they are repaired under the frozen one.
 
@@ -20,10 +21,10 @@ may or may not still hold the recorded prompt, and a case's repeats may run at o
 reads the other's, while a later case of the same company may read an earlier one's system prompt and pack. Each
 row's cached tokens show which.
 
-The dry run lists the cases and the most one run can send and bill (``ceiling``): two calls a repeat (the patch and
-the full repair), each prompt read cold at one token per byte and each reply at the arm's ``max_tokens``, off-peak
-and at DeepSeek's peak price (``PEAK``). A repeat interrupted between the two (a kill, a provider error) is resumed
-with the full repair alone (``generate._repair_v2``), so a re-run adds no patch call.
+The dry run lists the cases and the most one run can bill (``ceiling``): two calls a repeat (the patch and the full
+repair), each billed at most once, each prompt read cold at one token per byte and each reply at the arm's
+``max_tokens``, off-peak and at DeepSeek's peak price (``PEAK``). A repeat interrupted between the two (a kill, a
+provider error) is resumed with the full repair alone (``generate._repair_v2``), so a re-run adds no patch call.
 
 Each repeat is written to ``runs/<label>/repair-replay/repeats/<source>__<TICKER>__<n>.json`` as soon as it
 returns, and the paid patch call before any full repair is sent; the folder is a level deeper than any stage reads
@@ -35,6 +36,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import copy
+import dataclasses
 import difflib
 import hashlib
 import json
@@ -46,6 +48,10 @@ from evals.trend_depth.providers import ARMS, list_cost, max_tokens_for
 from evals.trend_depth.records import quantile, unsettled, write_json
 
 ARM = "deepseek-flash"
+# The control arm with no client retry inside a call: a request dropped after DeepSeek finished it is billed, and a
+# retry the client sent unseen would bill it again past the ceiling. Failed in the open, it is a provider error the
+# next run retries (``repair``). The arms of a generate run keep the client's retries.
+REPLAY_ARM = dataclasses.replace(ARMS[ARM], max_retries=0)
 PEAK = 2.0  # DeepSeek's peak hours double every price (providers' price note for deepseek-flash)
 SOURCES = ("eval-v1", "dev-v4", "dev-v3")
 FOLDER = "repair-replay"
@@ -84,7 +90,7 @@ def cases(sources: list[str], tickers: Optional[set[str]] = None) -> tuple[list[
                       "usage": {key: 0 for key in USAGE}, "latency_s": 0.0, "cost_usd": 0.0}
             generate.fix_first_pass(record, pack)
             if record["gate"]["passed"]:
-                raw = "passes the gate as written" if record["raw_first_pass_gate"]["passed"] else "passes after the code fixes"
+                raw = "passes the gate as written" if record["raw_first_pass_gate"]["passed"] else "passes after retyping"
                 notes.append(f"{source}/{ticker}: {raw}")
                 continue
             found.append({"name": f"{source}__{ticker}", "record": record, "pack": pack, "warm_prefix": warm.get(ticker)})
@@ -112,7 +118,7 @@ def untouched(first: dict[str, Any], repaired: dict[str, Any], failures: list[di
 def measures(case: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
     """One repeat's repair: its kind, calls, latency, tokens, cost (billed, and warm when the prefix is known), the
     gate's verdict and the untouched sentences kept."""
-    arm, prefix = ARMS[ARM], case["warm_prefix"]
+    arm, prefix = REPLAY_ARM, case["warm_prefix"]
     warm = None if prefix is None else round(sum(
         list_cost(arm, a["input_tokens"], min(a["input_tokens"], prefix), a["output_tokens"]) for a in record["attempts"]), 6)
     done = "repair_error" not in record and "repair_failed" not in record
@@ -132,7 +138,7 @@ async def repair(case: dict[str, Any], n: int, label: str, semaphore: asyncio.Se
     record = existing or {**copy.deepcopy(case["record"]), "repeat": n}
     pack, system = case["pack"], generate.system_prompt(ARM)
     async with semaphore:
-        await generate.repair_or_mark(ARMS[ARM], system, generate.user_message(pack), record, pack,
+        await generate.repair_or_mark(REPLAY_ARM, system, generate.user_message(pack), record, pack,
                                       f"{label}/repair-replay/{case['name']}/{n}", checkpoint=lambda r: write_json(path, r))
     record["measures"] = measures(case, record)
     write_json(path, record)
@@ -140,11 +146,15 @@ async def repair(case: dict[str, Any], n: int, label: str, semaphore: asyncio.Se
 
 
 def ceiling(found: list[dict[str, Any]], repeats: int) -> tuple[int, float]:
-    """The most one run can send and bill, as (calls, USD off-peak): per repeat of each case, the patch request and the
-    full repair, each prompt (the frozen system prompt and the repair message ``repair`` sends) read cold at one token
-    per UTF-8 byte, the most a byte-level tokenizer makes, and each reply at the arm's ``max_tokens``. A re-run that
-    retries a provider error sends more; a reply cut off at ``max_tokens`` is one."""
-    arm = ARMS[ARM]
+    """The most one run can bill, as (calls, USD off-peak): per repeat of each case, the patch request and the full
+    repair, each prompt (the frozen system prompt and the repair message ``repair`` sends) read cold at one token per
+    UTF-8 byte, the most a byte-level tokenizer makes, and each reply at the arm's ``max_tokens``.
+
+    Each call is billed at most once. ``REPLAY_ARM``'s client retries nothing, so a timeout or a dropped connection
+    (which DeepSeek may have billed) ends the call as a provider error; within a call only a reply of 429 or 5xx, an
+    error that carries no completion, is sent again (``providers._call_openai_compat``, up to four sends). A re-run
+    that retries a provider error bills more; a reply cut off at ``max_tokens`` is one."""
+    arm = REPLAY_ARM
     system, cap = generate.system_prompt(ARM), max_tokens_for(arm)
     cost = 0.0
     for case in found:
@@ -213,7 +223,8 @@ def main(argv: Optional[list[str]] = None) -> None:
         print(f"  case {case['name']}: {len(failures)} failure(s): " + "; ".join(f["failure"] for f in failures)[:300])
     calls, most = ceiling(found, args.repeats)
     print(f"{len(found)} cases, {len(found) * args.repeats} repairs, at most {calls} calls and USD {most:.2f} off-peak "
-          f"(USD {most * PEAK:.2f} at peak): every prompt read cold, every patch falling back, every reply at max_tokens")
+          f"(USD {most * PEAK:.2f} at peak): every prompt read cold, every patch falling back, every reply at max_tokens, "
+          "each call billed once (no client retry within a call; a re-run's retries bill more)")
     if args.dry_run:
         return
     rows = asyncio.run(replay(args.label, found, args.repeats, args.concurrency))

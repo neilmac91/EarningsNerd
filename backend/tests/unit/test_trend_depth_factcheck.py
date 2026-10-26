@@ -2,6 +2,10 @@
 class and per accepted claim form, on a small synthetic evidence pack."""
 from __future__ import annotations
 
+import gzip
+import json
+from pathlib import Path
+
 import pytest
 
 from evals.trend_depth import factcheck
@@ -137,15 +141,25 @@ CVX_NET_MARGIN = _pack(("D613", "Net margin window median", "FY2016..FY2025", 7.
                        ("F28", "Net margin", "FY2023", 10.8677, "pct"),
                        ("F29", "Net margin", "FY2024", 9.1513540902, "pct"), ("F30", "Net margin", "FY2025", 6.6691246638, "pct"))
 # Revenue growth minus operating-cost growth when both fell: costs fell less than revenue (CVX: its two growths, which
-# DeepSeek's eval-v1 sentence cites beside it), and DE held out.
+# DeepSeek's eval-v1 sentence cites beside it), and the held-out DE and TGT, each with its two growths.
 CVX_GAP = _pack(("D379", "Revenue growth minus operating-cost growth", "FY2025", -1.2221, "pp"),
-                ("D373", "Operating expenses growth", "FY2025", -3.4218, "pct"), ("D358", "Revenue growth", "FY2025", -4.6439, "pct"))
-DE_GAP = _pack(("D431", "Revenue growth minus operating-cost growth", "FY2025", -4.4113, "pp"))
+                ("D373", "Operating expenses growth", "FY2025", -3.4218, "pct"), ("D358", "Revenue growth", "FY2025", -4.6439, "pct"),
+                ("F10", "Revenue", "FY2025", 184_432_000_000.0, "usd"), ("F9", "Revenue", "FY2024", 193_414_000_000.0, "usd"))
+DE_GAP = _pack(("D431", "Revenue growth minus operating-cost growth", "FY2025", -4.4113, "pp"),
+               ("D425", "Operating expenses growth", "FY2025", -7.2524, "pct"), ("D412", "Revenue growth", "FY2025", -11.6637, "pct"))
+TGT_GAP = _pack(("D439", "Revenue growth minus operating-cost growth", "FY2025", -0.3522, "pp"),
+                ("D416", "Revenue growth", "FY2025", -1.6760, "pct"))
 # The same label where the recorded outputs state it with standing verbs: costs outgrew sales (PG, MSFT), revenue's
-# growth trailed by 4.4pp (REGN).
+# growth trailed by 4.4pp (REGN, with its revenue growth).
 PG_GAP = _pack(("D482", "Revenue growth minus operating-cost growth", "FY2026", -2.1459, "pp"))
-REGN_GAP = _pack(("D464", "Revenue growth minus operating-cost growth", "FY2025", -4.4303, "pp"))
+REGN_GAP = _pack(("D464", "Revenue growth minus operating-cost growth", "FY2025", -4.4303, "pp"),
+                 ("D440", "Revenue growth", "FY2025", 0.9921, "pct"),
+                 ("F10", "Revenue", "FY2025", 14_342_900_000.0, "usd"), ("F9", "Revenue", "FY2024", 14_202_000_000.0, "usd"))
 MSFT_GAP = _pack(("D499", "Revenue growth minus operating-cost growth", "FY2026", 10.3489, "pp"))
+# A gap's inputs, as derived records them: the year's revenue and the year before's, first. CVX's two lines fell in
+# FY2025 (revenue -4.6%, costs -3.4%); REGN's rose (revenue +1.0%, costs +5.4%). ORCL's and the rest name none here.
+CVX_GAP["values"]["D379"]["inputs"] = ["F10", "F9", None, None]
+REGN_GAP["values"]["D464"]["inputs"] = ["F10", "F9", "F20", "F19"]
 # packs-v2's same-year net margin minus operating margin (CAT: net margin is 3.4pp below operating margin; TGT 1.3pp).
 CAT_MARGIN_GAP = _pack(("D1168", "Net margin minus operating margin (pp, same year)", "FY2025", -3.3541, "pp"))
 TGT_MARGIN_GAP = _pack(("D629", "Net margin minus operating margin (pp, same year)", "FY2025", -1.3476, "pp"))
@@ -202,59 +216,6 @@ def test_a_minus_sign_after_the_dollar_sign_is_parsed() -> None:
         # ... and only those words: a plain rise or fall of the ratio reads as it is.
         (USB_EFFICIENCY, "The efficiency ratio fell 3.9pp in FY2025 [D195][D220].", None),
         (USB_EFFICIENCY, "The efficiency ratio rose 3.9pp in FY2025 [D195][D220].", "other way"),
-        # A difference labelled "A minus B", said as B against A (Sonnet ORCL): costs did grow 0.35pp faster.
-        (ORCL_GAP, "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was "
-                   "29.4% against 52.4% in FY2025 [D443][D442][D395].", None),
-        (ORCL_GAP, "Revenue grew 0.3pp faster than operating costs in FY2026 [D443].", "other way"),
-        # The comparative decides with the naming order: "slower" or "less" says the side named first trails.
-        (ORCL_GAP, "Operating costs grew 0.3pp slower than revenue in FY2026 [D443].", "other way"),
-        (ORCL_GAP, "Operating costs rose 0.3pp less than revenue in FY2026 [D443].", "other way"),
-        (ORCL_GAP, "Revenue grew 0.3pp slower than operating costs in FY2026 [D443].", None),
-        (ORCL_GAP, "Operating costs grew faster than revenue by 0.3pp in FY2026 [D443].", None),
-        (CVX_GAP, "Operating costs grew 1.2pp slower than revenue in FY2025 [D379].", "other way"),
-        (CVX_GAP, "Operating costs fell 1.2pp less than revenue in FY2025 [D379].", None),
-        (CVX_GAP, "Operating costs fell 1.2pp more than revenue in FY2025 [D379].", "other way"),
-        (CVX_GAP, "Revenue fell 1.2pp more than operating costs in FY2025 [D379].", None),
-        (DE_GAP, "Operating costs fell 4.4pp less than revenue in FY2025 [D431].", None),
-        # The sides go by their key nouns, as a sentence names them: costs, expenses or spending, and sales (review 7:
-        # with "costs" unread, "slower" reversed the wrong side, and the false sentences passed) ...
-        (ORCL_GAP, "Costs grew 0.3pp faster than revenue in FY2026 [D443].", None),
-        (ORCL_GAP, "Costs grew 0.3pp slower than revenue in FY2026 [D443].", "other way"),
-        (PG_GAP, "In FY2026 expenses rose 2.1pp faster than sales [D482].", None),
-        (PG_GAP, "In FY2026 costs grew 2.1pp slower than sales [D482].", "other way"),
-        (PG_GAP, "In FY2026 expenses rose 2.1pp more slowly than sales [D482].", "other way"),
-        (CVX_GAP, "Costs fell 1.2pp less than revenue in FY2025 [D379].", None),
-        (CVX_GAP, "Costs fell 1.2pp more than revenue in FY2025 [D379].", "other way"),
-        (ORCL_GAP, "Operating costs grew 0.3pp more slowly than revenue in FY2026 [D443].", "other way"),
-        (ORCL_GAP, "Operating expenses grew 0.3pp faster than revenue in FY2026 [D443].", None),
-        (ORCL_GAP, "Sales grew 0.3pp slower than operating costs in FY2026 [D443].", None),
-        # ... the side named first is the last one before the comparative, and one is enough; a first side the label
-        # does not have keeps the cited sign, as the gate read it before; "more than 0.3pp" is a bound.
-        (ORCL_GAP, "Operating costs grew 0.3pp faster in FY2026 [D443].", None),
-        (ORCL_GAP, "Operating income grew 0.3pp slower than revenue in FY2026 [D443].", "other way"),
-        (ORCL_GAP, "Operating costs grew more than 0.3pp in FY2026 [D443].", "other way"),
-        (ORCL_GAP, "Operating-cost growth rose more than 0.3pp above revenue growth in FY2026 [D443].", None),
-        # A standing gives the sign whatever the direction word: an outpacing before the figure or a position after it
-        # (the recorded forms: "outgrew", "trailed", "ran ahead of"; "top-line" is no verb) ...
-        (REGN_GAP, "Revenue growth beat operating-cost growth by 4.4pp in FY2025 [D464].", "other way"),
-        (REGN_GAP, "Revenue outgrew operating costs by 4.4pp in FY2025 [D464].", "other way"),
-        (REGN_GAP, "Revenue growth ran 4.4pp ahead of operating-cost growth in FY2025 [D464].", "other way"),
-        (REGN_GAP, "Revenue growth trailed operating-cost growth by 4.4pp in FY2025 [D464].", None),
-        (REGN_GAP, "Operating-cost growth outran revenue growth by 4.4pp in FY2025 [D464].", None),
-        (REGN_GAP, "Top-line growth trailed operating costs by 4.4pp in FY2025 [D464].", None),
-        (REGN_GAP, "Operating costs trailed top-line growth by 4.4pp in FY2025 [D464].", "other way"),
-        (REGN_GAP, "Revenue, which exceeded guidance, trailed operating-cost growth by 4.4pp in FY2025 [D464].", None),
-        # With no direction word, "more" or "less" says where the side named first stands.
-        (REGN_GAP, "Revenue growth was 4.4pp more than operating-cost growth in FY2025 [D464].", "other way"),
-        (REGN_GAP, "Revenue growth was 4.4pp less than operating-cost growth in FY2025 [D464].", None),
-        (MSFT_GAP, "Operating costs outgrew revenue by 10.3pp in FY2026 [D499].", "other way"),
-        (MSFT_GAP, "Operating cost growth trailed revenue growth by 10.3pp in FY2026 [D499].", None),
-        (PG_GAP, "In FY2026 costs outgrew sales by 2.1pp [D482].", None),
-        # ... said the other way of a side named as its fall (DeepSeek CVX's "cost reduction"); a move's fall noun is
-        # its direction word.
-        (CVX_GAP, "The revenue decline outran cost reduction by 1.2pp in FY2025 [D379].", None),
-        (CVX_GAP, "Cost reduction outran the revenue decline by 1.2pp in FY2025 [D379].", "other way"),
-        (CVX_GAP, "The revenue decline was 1.2pp more than the cost reduction in FY2025 [D379].", None),
         # A side is its whole phrase: "operating income" or "operating expenses" before "net margin" is not
         # operating margin named first.
         (CAT_MARGIN_GAP, "Below operating income, net margin fell 3.4pp under operating margin in FY2025 [D1168].", None),
@@ -315,6 +276,202 @@ def test_gate_artefact_fixes_keep_their_mutations_failing(pack: dict, text: str,
         assert any(fragment in failure for failure in failures), failures
 
 
+# The sign of a cited "A minus B" value (factcheck.compared_sides), checked only in the forms the reading is certain of:
+# each true sentence passes, read as the side named first minus the other (matched), and its false mirror fails.
+CERTAIN = [
+    # A move: the side named first, without "growth", is the subject of a rise or fall verb right before the figure,
+    # and a comparative and "than" the other side follow it (Sonnet ORCL, eval-v1: costs did grow 0.35pp faster) ...
+    (ORCL_GAP, "Operating costs grew 0.3pp faster than revenue in FY2026, and incremental operating margin was 29.4% "
+               "against 52.4% in FY2025 [D443][D442][D395].", None, "reversed D443"),
+    (ORCL_GAP, "Revenue grew 0.3pp faster than operating costs in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Operating costs grew 0.3pp slower than revenue in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Operating costs rose 0.3pp less than revenue in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Revenue grew 0.3pp slower than operating costs in FY2026 [D443].", None, "cited"),
+    (ORCL_GAP, "Operating costs grew 0.3pp more slowly than revenue in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Revenue grew 0.3pp more slowly than operating costs in FY2026 [D443].", None, "cited"),
+    # ... the direction the verb's, so "fell less" is ahead (review 6) ...
+    (CVX_GAP, "Operating costs grew 1.2pp slower than revenue in FY2025 [D379].", "other way", None),
+    (CVX_GAP, "Operating costs fell 1.2pp less than revenue in FY2025 [D379].", None, "reversed D379"),
+    (CVX_GAP, "Operating costs fell 1.2pp more than revenue in FY2025 [D379].", "other way", None),
+    (CVX_GAP, "Revenue fell 1.2pp more than operating costs in FY2025 [D379].", None, "cited"),
+    (DE_GAP, "Operating costs fell 4.4pp less than revenue in FY2025 [D431].", None, "reversed D431"),
+    (DE_GAP, "In FY2025 revenue fell 4.4pp less than operating expenses [D431].", "other way", None),
+    (TGT_GAP, "Sales fell 0.4pp more than operating costs in FY2025 [D439].", None, "cited"),
+    (TGT_GAP, "Sales fell 0.4pp less than operating costs in FY2025 [D439].", "other way", None),
+    # ... "further", "deeper" and "steeper" are "more" (review 8: "costs fell 1.2pp further than revenue" passed) ...
+    (CVX_GAP, "Costs fell 1.2pp further than revenue [D379].", "other way", None),
+    (CVX_GAP, "Revenue fell 1.2pp further than costs [D379].", None, "cited"),
+    (CVX_GAP, "Revenue dropped 1.2pp deeper than operating costs in FY2025 [D379].", None, "cited"),
+    (CVX_GAP, "Operating costs declined 1.2pp more steeply than revenue in FY2025 [D379].", "other way", None),
+    # ... the other side may be named as its fall after a fall verb (the candidate prompt's "say which fell more") ...
+    (CVX_GAP, "Operating costs fell 1.2pp less than the revenue decline in FY2025 [D379].", None, "reversed D379"),
+    (CVX_GAP, "Operating costs fell 1.2pp more than the revenue decline in FY2025 [D379].", "other way", None),
+    (CVX_GAP, "Operating costs fell 1.2pp less than revenue's decline in FY2025 [D379].", None, "reversed D379"),
+    # ... with "by", a qualifier, an adverb between, or the comparative before "than ... by" the figure ...
+    (CVX_GAP, "Revenue fell by 1.2pp less than operating costs in FY2025 [D379].", "other way", None),
+    (ORCL_GAP, "Revenue grew about 0.3pp faster than operating costs in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Revenue also grew 0.3pp faster than operating costs in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Operating costs also grew 0.3pp faster than revenue in FY2026 [D443].", None, "reversed D443"),
+    (ORCL_GAP, "Operating costs grew faster than revenue by 0.3pp in FY2026 [D443].", None, "reversed D443"),
+    (ORCL_GAP, "Revenue grew faster than operating costs by 0.3pp in FY2026 [D443].", "other way", None),
+    # ... each side by its key nouns: costs, expenses or spending, sales (review 7) ...
+    (ORCL_GAP, "Costs grew 0.3pp faster than revenue in FY2026 [D443].", None, "reversed D443"),
+    (ORCL_GAP, "Costs grew 0.3pp slower than revenue in FY2026 [D443].", "other way", None),
+    (ORCL_GAP, "Operating expenses grew 0.3pp faster than revenue in FY2026 [D443].", None, "reversed D443"),
+    (ORCL_GAP, "Sales grew 0.3pp slower than operating costs in FY2026 [D443].", None, "cited"),
+    (PG_GAP, "In FY2026 expenses rose 2.1pp faster than sales [D482].", None, "reversed D482"),
+    (PG_GAP, "In FY2026 costs grew 2.1pp slower than sales [D482].", "other way", None),
+    (PG_GAP, "In FY2026 expenses rose 2.1pp more slowly than sales [D482].", "other way", None),
+    (CVX_GAP, "Costs fell 1.2pp less than revenue in FY2025 [D379].", None, "reversed D379"),
+    (CVX_GAP, "Costs fell 1.2pp more than revenue in FY2025 [D379].", "other way", None),
+    # A standing: the side named first with "growth", a rate, placed by a verb that only places, a position or "more" /
+    # "less than" after the figure (review 7: these went unchecked; Haiku TGT, recorded) ...
+    (REGN_GAP, "Revenue growth ran 4.4pp ahead of operating-cost growth in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue growth ran 4.4pp behind operating-cost growth in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Revenue growth was 4.4pp more than operating-cost growth in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue growth was 4.4pp less than operating-cost growth in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Revenue growth was 4.4pp higher than operating-cost growth in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue growth ran 4.4pp over operating-cost growth in FY2025 [D464].", "other way", None),
+    (MSFT_GAP, "Revenue growth came in 10.3pp short of operating-cost growth in FY2026 [D499].", "other way", None),
+    (REGN_GAP, "Revenue growth came in 4.4pp short of operating-cost growth in FY2025 [D464].", None, "cited"),
+    (TGT_GAP, "Operating-cost growth ran 0.4pp ahead of revenue [D439].", None, "reversed D439"),
+    (TGT_GAP, "Revenue growth ran 0.4pp ahead of operating-cost growth [D439].", "other way", None),
+    # ... "of <figure>" between the side and its verb (Sonnet REGN, recorded) ...
+    (REGN_GAP, "Revenue growth of 1.0% ran 4.4pp below operating-cost growth in FY2025 [D440][D464].", None, "cited"),
+    (REGN_GAP, "Revenue growth of 1.0% ran 4.4pp above operating-cost growth in FY2025 [D440][D464].", "other way", None),
+    # ... or the subject of an active outpacing verb before "<other side> by" the figure, "top-line" no verb ...
+    (REGN_GAP, "Revenue growth beat operating-cost growth by 4.4pp in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue growth exceeded operating-cost growth by 4.4pp in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue growth trailed operating-cost growth by 4.4pp in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Revenue growth fell short of operating-cost growth by 4.4pp in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Operating-cost growth outran revenue growth by 4.4pp in FY2025 [D464].", None, "reversed D464"),
+    (REGN_GAP, "Operating-cost growth has outpaced revenue growth by 4.4pp in FY2025 [D464].", None, "reversed D464"),
+    (REGN_GAP, "Top-line growth trailed operating costs by 4.4pp in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Operating-cost growth trailed top-line growth by 4.4pp in FY2025 [D464].", "other way", None),
+    (MSFT_GAP, "Operating cost growth trailed revenue growth by 10.3pp in FY2026 [D499].", None, "reversed D499"),
+    (MSFT_GAP, "Revenue growth trailed operating-cost growth by 10.3pp in FY2026 [D499].", "other way", None),
+    (MSFT_GAP, "Operating leverage is strong, with revenue growth exceeding operating-cost growth by 10.3pp [D499].", None,
+     "cited"),  # DeepSeek MSFT, dev-v3
+    # ... and a line named without "growth" in a year the pack shows the two lines did not both fall (REGN's rose), where
+    # its place can only be its rate's (review 7) ...
+    (REGN_GAP, "Revenue exceeded operating costs by 4.4pp in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue trailed operating costs by 4.4pp in FY2025 [D464].", None, "cited"),
+    (REGN_GAP, "Revenue ran 4.4pp ahead of operating costs in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Revenue was 4.4pp higher than operating costs in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Operating costs trailed top-line growth by 4.4pp in FY2025 [D464].", "other way", None),
+    (REGN_GAP, "Operating costs outpaced revenue by 4.4pp in FY2025 [D464].", None, "reversed D464"),
+    # ... and "outgrew", which says grew more, whatever the side is called (DeepSeek PG, Sonnet MSFT and CAT).
+    (REGN_GAP, "Revenue outgrew operating costs by 4.4pp in FY2025 [D464].", "other way", None),
+    (MSFT_GAP, "Operating costs outgrew revenue by 10.3pp in FY2026 [D499].", "other way", None),
+    (PG_GAP, "In FY2026 costs outgrew sales by 2.1pp [D482].", None, "reversed D482"),
+]
+
+
+@pytest.mark.parametrize("pack, text, fragment, matched", CERTAIN)
+def test_a_compared_gap_has_its_sign_checked_in_each_certain_form(pack: dict, text: str, fragment: str, matched: str) -> None:
+    result = factcheck.check_sentence({"text": text, "type": "comparison"}, pack)
+    gap = next(c for c in result.claims if c["unit"] == "pp")
+    if fragment is None:
+        assert (result.failures, gap["status"], gap["matched"]) == ([], "verified", matched)
+    else:
+        assert any(fragment in failure for failure in result.failures), result.failures
+
+
+# In every other form the value is read by magnitude, with no direction verdict: no reading, its cited sign kept for the
+# auditor (semantics._describe shows it signed). Review 8's true sentences, which the reading failed: an appositive or
+# an elided verb after a comma, a participle whose subject is another clause's, the passive, a side named as its fall
+# (possessive or not), a side after a preposition ...
+BY_MAGNITUDE = [
+    (CVX_GAP, "Revenue fell 4.6% in FY2025, 1.2pp more than operating costs [D358][D379]."),
+    (CVX_GAP, "Revenue fell 4.6% in FY2025 [D358], 1.2pp more than operating costs [D379]."),
+    (CVX_GAP, "Operating costs fell 3.4% in FY2025, 1.2pp less than revenue [D373][D379]."),
+    (CVX_GAP, "In FY2025 operating costs fell 3.4%, 1.2pp less than the revenue decline [D373][D379]."),
+    (CVX_GAP, "Revenue and operating costs both fell in FY2025, revenue by 1.2pp more [D379]."),
+    (CVX_GAP, "Operating costs fell 3.4% in FY2025, lagging the revenue decline by 1.2pp [D373][D379]."),
+    (CVX_GAP, "Revenue fell 4.6% in FY2025 and outran the decline in operating costs by 1.2pp [D358][D379]."),
+    (DE_GAP, "Revenue fell 11.7% in FY2025, 4.4pp more than operating costs [D412][D431]."),
+    (DE_GAP, "Operating expenses fell 7.3% in FY2025, 4.4pp less than revenue [D425][D431]."),
+    (TGT_GAP, "Sales fell 1.7% in FY2025, 0.4pp more than operating costs [D416][D439]."),
+    (TGT_GAP, "Sales fell 1.7% in FY2025, outpacing the cost decline by 0.4pp [D416][D439]."),
+    (ORCL_GAP, "Revenue growth was outpaced by operating-cost growth by 0.3pp in FY2026 [D443]."),
+    (ORCL_GAP, "Revenue growth was beaten by cost growth by 0.3pp in FY2026 [D443]."),
+    (ORCL_GAP, "In FY2026 revenue growth was exceeded by cost growth by 0.3pp [D443]."),
+    (CVX_GAP, "Cost growth was lagged by revenue growth by 1.2pp [D379]."),
+    (CVX_GAP, "In FY2025 revenue's decline outran the cost decline by 1.2pp [D379]."),
+    (CVX_GAP, "In FY2025 revenue’s drop exceeded the cost drop by 1.2pp [D379]."),
+    (CVX_GAP, "The revenue decline outran cost reduction by 1.2pp in FY2025 [D379]."),  # DeepSeek CVX, eval-v1
+    (CVX_GAP, "The revenue decline was 1.2pp more than the cost reduction in FY2025 [D379]."),
+    (CVX_GAP, "The decline in revenue outran the cut in costs by 1.2pp in FY2025 [D379]."),
+    (ORCL_GAP, "Cost of revenue grew 0.3pp faster than operating expenses in FY2026 [D443]."),
+    (ORCL_GAP, "Operating costs, at a rising share of revenue, grew 0.3pp faster in FY2026 [D443]."),
+    # ... a sentence that names one side, or another noun after "than", or another verb's object, or a bound ...
+    (ORCL_GAP, "Operating costs grew 0.3pp faster in FY2026 [D443]."),
+    (ORCL_GAP, "Operating costs grew 0.3pp faster than revenue-linked fees in FY2026 [D443]."),
+    (REGN_GAP, "Revenue growth exceeded guidance with a 4.4pp gap to operating-cost growth in FY2025 [D464]."),
+    (REGN_GAP, "Revenue, which exceeded guidance, trailed operating-cost growth by 4.4pp in FY2025 [D464]."),
+    (ORCL_GAP, "Operating-cost growth rose more than 0.3pp above revenue growth in FY2026 [D443]."),
+    # ... a standing of two lines without "growth" in a year both fell (CVX), which may compare the size of two falls, or
+    # in one the pack does not tell (ORCL here names no inputs); a move of a growth rate, which may be the change in
+    # each rate; a fall noun after a rise verb ...
+    (CVX_GAP, "Revenue trailed operating costs by 1.2pp in FY2025 [D379]."),
+    (CVX_GAP, "Revenue outpaced operating costs by 1.2pp in FY2025 [D379]."),
+    (CVX_GAP, "Operating costs outpaced revenue by 1.2pp in FY2025 [D379]."),
+    (CVX_GAP, "Revenue was 1.2pp below operating costs in FY2025 [D379]."),
+    (ORCL_GAP, "Operating costs outpaced revenue by 0.3pp in FY2026 [D443]."),
+    (CVX_GAP, "Revenue growth fell 1.2pp more than cost growth in FY2025 [D379]."),
+    (CVX_GAP, "Revenue growth fell faster than cost growth by 1.2pp in FY2025 [D379]."),
+    (CVX_GAP, "Costs rose 1.2pp more than the revenue decline in FY2025 [D379]."),
+    (CVX_GAP, "Revenue growth trailed the cost decline by 1.2pp in FY2025 [D379]."),
+    (CVX_GAP, "Revenue growth ran 1.2pp behind the cost decline in FY2025 [D379]."),
+    # ... and their false mirrors, which therefore pass: accepted misses, each in front of the auditor with its sign.
+    (CVX_GAP, "Revenue fell 4.6% in FY2025, 1.2pp less than operating costs [D358][D379]."),
+    (CVX_GAP, "Operating costs fell 3.4% in FY2025, 1.2pp more than revenue [D373][D379]."),
+    (CVX_GAP, "Operating costs fell 3.4% in FY2025, outpacing the revenue decline by 1.2pp [D373][D379]."),
+    (DE_GAP, "Revenue fell 11.7% in FY2025, 4.4pp less than operating costs [D412][D431]."),
+    (TGT_GAP, "Sales fell 1.7% in FY2025, 0.4pp less than operating costs [D416][D439]."),
+    (ORCL_GAP, "Operating-cost growth was outpaced by revenue growth by 0.3pp in FY2026 [D443]."),
+    (CVX_GAP, "In FY2025 revenue's decline trailed the cost decline by 1.2pp [D379]."),
+    (CVX_GAP, "Cost reduction outran the revenue decline by 1.2pp in FY2025 [D379]."),
+    (ORCL_GAP, "Revenue exceeded operating costs by 0.3pp in FY2026 [D443]."),
+    (ORCL_GAP, "Revenue growth rose 0.3pp above operating-cost growth in FY2026 [D443]."),
+    (ORCL_GAP, "Operating income grew 0.3pp slower than revenue in FY2026 [D443]."),  # another metric's growth
+    (ORCL_GAP, "Operating costs grew more than 0.3pp in FY2026 [D443]."),  # a bound, not a comparison
+]
+
+
+@pytest.mark.parametrize("pack, text", BY_MAGNITUDE)
+def test_a_compared_gap_is_read_by_magnitude_in_every_other_form(pack: dict, text: str) -> None:
+    result, resolved = factcheck.analyse_sentence({"text": text, "type": "comparison"}, pack)
+    gap = next(r for r in resolved if r.best is not None and " minus " in pack["values"][r.best.ids[0]]["label"])
+    value = pack["values"][gap.best.ids[0]]
+    sides = factcheck._MINUS_LABEL.match(value["label"])
+    clean = factcheck.CITATION_RE.sub(lambda m: " " * len(m.group(0)), text)
+    fell = factcheck.both_fell(value, pack["values"])
+    assert factcheck.compared_sides(clean, gap.claim, sides["a"], sides["b"], fell) is None
+    assert (result.failures, gap.status, gap.best.how) == ([], "verified", "cited")
+
+
+def test_both_lines_fell_by_each_committed_gap_s_own_revenue_inputs() -> None:
+    # A standing of a line named without "growth" is read only in a year the two lines did not both fall
+    # (factcheck.both_fell), from the revenue the gap's first two inputs name: so every committed gap must name them.
+    # Both fell in FY2025 for the held-out CVX, DE and TGT (review 8's cases), not for REGN, ORCL or MSFT. A same-year
+    # margin gap, whose inputs are the two margins, has no such record.
+    packs = Path(__file__).resolve().parents[3] / "tasks" / "analysis-depth-2026-10"
+    fell: dict[tuple[str, str], bool] = {}
+    for version in ("packs", "packs-v2"):
+        for path in sorted((packs / version).glob("*.json.gz")):
+            values = json.loads(gzip.decompress(path.read_bytes()))["values"]
+            for vid, value in values.items():
+                if value["label"] == "Revenue growth minus operating-cost growth":
+                    answer = factcheck.both_fell(value, values)
+                    assert answer is not None, (version, path.name, vid)
+                    fell[(path.name.split(".")[0], vid)] = answer
+                elif value["label"] == "Net margin minus operating margin (pp, same year)":
+                    assert value["inputs"] and factcheck.both_fell(value, values) is None, (version, path.name, vid)
+    assert all(fell[key] for key in (("CVX", "D379"), ("DE", "D431"), ("TGT", "D439")))
+    assert not any(fell[key] for key in (("REGN", "D464"), ("ORCL", "D443"), ("MSFT", "D499")))
+
+
 @pytest.mark.parametrize(
     "pack, text, claim, matched",
     [
@@ -322,9 +479,9 @@ def test_gate_artefact_fixes_keep_their_mutations_failing(pack: dict, text: str,
         # shown (semantics._computed): eval-v1's DeepSeek PG and Sonnet MSFT, which name costs first ...
         (PG_GAP, "In FY2026 costs outgrew sales by 2.1pp [D482].", "2.1pp", "reversed D482"),
         (MSFT_GAP, "Operating cost growth trailed revenue growth by 10.3pp in FY2026 [D499].", "10.3pp", "reversed D499"),
-        # ... a side found once its label's parenthesis is dropped ...
+        # ... a side found once its label's parenthesis is dropped, a standing of two levels of one year ...
         (CAT_MARGIN_GAP, "Operating margin was 3.4pp above net margin in FY2025 [D1168].", "3.4pp", "reversed D1168"),
-        # ... and DeepSeek CVX's sentence as eval-v1 read it: revenue's fall, named first, outran the costs' fall.
+        # ... and DeepSeek CVX's sentence, its side named as its fall: read by magnitude, its cited value kept.
         (CVX_GAP, "Operating costs fell 3.4% while revenue fell 4.6%, so the revenue decline outran cost reduction by 1.2pp "
                   "[D373][D358][D379].", "1.2pp", "cited"),
     ],

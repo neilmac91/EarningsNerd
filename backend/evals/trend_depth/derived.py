@@ -812,6 +812,43 @@ def double_counted(reg: Registry, periods: list[str], combined: dict[str, float]
     return years
 
 
+DOUBLE_COUNT_MARGIN = 0.25  # of the current line: how near the filer's noncurrent figure must be to the line less it
+# The opening words of a debt double count's data check (``debt_checks``), the one wording: ``probes.debt_breaks`` reads
+# a version-2 pack's double-count years by them, as no other debt break's check opens so, and in those years only the
+# sum of the two lines is broken, not one line under a total's name (the long-term line alone is the right total).
+DEBT_COUNTED_TWICE = "The current portion of debt is already inside long-term debt"
+
+
+def debt_double_counted(reg: Registry, periods: list[str], split: dict[str, tuple[float, float]]) -> list[str]:
+    """Years whose long-term line already holds the current line total debt adds to it, so total debt and net cash
+    count the current portion twice (fix 8). The filer's own noncurrent figure decides (``split``: us-gaap
+    LongTermDebtAndCapitalLeaseObligations by period, which holds the noncurrent finance leases, with those leases as
+    the same 10-K reports them, else zero): less its leases, it equals the long-term line less the current line, within
+    ``DOUBLE_COUNT_MARGIN`` of the current line. Had the long-term line left the current portion out, the two would
+    differ by the current line itself, so a match within a quarter of it reads one way only. Only a long-term line
+    whose tag may hold its current portion is read (LongTermDebt and the like, or the metrics table's), never a
+    noncurrent tag, which leaves it out by definition, and only beside a current line above 1% of it, as
+    ``double_counted`` reads short-term investments beside cash.
+
+    TGT's LongTermDebt is its debt note's "Total notes and debentures", from which the "Amounts due within one year"
+    are subtracted after its leases: at FY2016, $11,715m less the $1,718m current line is $9,997m, and its $11,031m of
+    noncurrent debt and leases less $1,025m of capital leases is $10,006m, so its total debt of $13,433m [D14] counts
+    $1,718m twice; FY2017 and FY2018 read the same. Among the peers it names BA FY2020-FY2025, UPS FY2023-FY2025 and PH
+    FY2024 and FY2026. A long-term line that leaves the current portion out misses by about the current line (TSLA,
+    MU), and so does a year whose untagged adjustment is about as large: TGT's FY2019 swap valuation adjustment of $137m
+    beside a $161m current line leaves $204m, a year no test names (packs-v2/README.md, "Not detected")."""
+    years = []
+    for period in periods:
+        line, current, own = _long_term_debt(reg, period), reg.get("debt_current", period), split.get(period)
+        if (line is None or current is None or own is None or line.formula.endswith("Noncurrent") or line.value <= 0
+                or current.value <= 0.01 * line.value):
+            continue
+        noncurrent, leases = own
+        if abs(noncurrent - leases - (line.value - current.value)) <= DOUBLE_COUNT_MARGIN * current.value:
+            years.append(period)
+    return years
+
+
 UNMAPPED_LINE_SHARE = 0.10  # an unmapped line counts at this share or more of the total it is missing from
 # A line the filer reports that this pack maps nowhere (``unmapped_lines``): what it is, and the totals that omit it.
 # The one wording of the omission, for its data check and for the net-debt red flag that quotes no level beside it.
@@ -822,18 +859,22 @@ UNMAPPED = {"debt_current": ("long-term debt due within one year", "total debt a
 def unmapped_lines(reg: Registry, periods: list[str], due: dict[str, float],
                    combined: dict[str, float]) -> list[tuple[str, str, float]]:
     """(line, year, amount) for a line the filer reports and this pack sums nowhere, at ``UNMAPPED_LINE_SHARE`` or more
-    of the total it is missing from, in a year no break check names already (fix 8). Each test reads a figure the
-    filer reports itself, against the lines the pack sums; a break test cannot see such a line, as the pack's own
-    basis stays the same in every year:
+    of the total it is missing from, in a year no break check of the same kind names already (fix 8): the debt test
+    skips the years a debt break or onset names, the cash test the years a liquidity gap or double count names, so the
+    cash test still reads KO's FY2024-FY2025, whose debt break leaves its cash and investments [D440] shown. A debt
+    double count (``debt_double_counted``) needs a current line, which this debt test never reads. Each test reads a
+    figure the filer reports itself, against the lines the pack sums; a break test cannot see such a line, as the
+    pack's own basis stays the same in every year:
 
     - ``debt_current``: long-term debt maturing within one year (``due``: us-gaap
       LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths by period) while total debt sums no current-debt
       line and its long-term line is a noncurrent tag, which leaves the current portion out by definition. CAT's
       balance sheet shows "Long-term debt due within one year" of $7,120m at FY2025 under no tag the pack maps, and its
       maturities within twelve months are the same $7,120m; its total debt [D455] is $30,696m of noncurrent long-term
-      debt plus $5,514m of short-term borrowings. A long-term line tagged LongTermDebt is not tested: that tag holds the
-      current portion for DUK (FY2016 $47.9bn: $45.6bn noncurrent plus $2.3bn current) and not for TGT (FY2025
-      $14.4bn, with the $2,130m current portion its 10-K shows beside it in no line of the pack).
+      debt plus $5,514m of short-term borrowings. A long-term line tagged LongTermDebt is not tested: that tag holds
+      the current portion, as for DUK (FY2016 $47.9bn: $45.6bn noncurrent plus $2.3bn current) and TGT (FY2025
+      $14,398m, its debt note's "Total notes and debentures", with the $2,000m due in FY2026 inside it), so a figure
+      due within one year beside it is no omission: TGT's $1.5bn and $2.0bn at FY2024-FY2025 would read as one.
     - ``short_term_investments``: the filer's own cash, cash equivalents and short-term investments total (``combined``)
       above the pack's cash plus short-term investments. The amount is a floor on what is left out: KO's FY2016 total
       of $18,150m exceeds $8,555m of cash and $4,051m of marketable securities by $5,544m, while its $9,595m of
@@ -899,18 +940,21 @@ def unmapped_checks(reg: Registry, periods: list[str], found: tuple[tuple[str, s
 UNMAPPED_SHARE = 0.10  # debt the interest implies, against the peer's cash and investments (fix 8 for peers)
 
 
-def peer_left_out(reg: Registry, periods: list[str], period: str, combined: Optional[dict[str, float]] = None) -> Optional[str]:
+def peer_left_out(reg: Registry, periods: list[str], period: str, combined: Optional[dict[str, float]] = None,
+                  split: Optional[dict[str, tuple[float, float]]] = None) -> Optional[str]:
     """Why a peer's net cash for ``period`` (its comparable year) stays out of a version-2 peer median and rank, else
-    None. ``reg`` holds the peer's own window, as its pack would, and every test of its pack runs on it: a debt break
-    or onset ("debt line broken"), a liquidity gap or double count ("cash line broken"). A peer has no data check to
-    disclose a doubt, so one more test leaves it out: no long-term debt line that year while the window shows
-    borrowing, as another debt line in any year or interest expense implying, at ``IMPLIED_RATE_CEILING``, debt of
-    ``UNMAPPED_SHARE`` or more of its cash and investments ("no long-term debt line"). Each was a broken value in a
-    version-1 peer median: KO, KMB and MDLZ (staples), DE (industrials), CVX and COP, MPC and PSX (energy), SO
-    (utilities), DG and TGT (retail), F and GM (autos; GM's interest implies $37bn of debt it maps no line for), NVDA's
-    FY2026 (semis). A peer that never borrowed (PINS, RDDT, TTD, VRTX: interest implying at most 5% of its cash) stays
-    in."""
-    if period in debt_breaks(reg, periods) or any(period in years for _, years in debt_onsets(reg, periods)):
+    None. ``reg`` holds the peer's own window, as its pack would, and every test of its pack runs on it: a debt break,
+    onset or double count (``split``) ("debt line broken"), a liquidity gap or double count ("cash line broken"). A
+    peer has no data check to disclose a doubt, so one more test leaves it out: no long-term debt line that year while
+    the window shows borrowing, as another debt line in any year or interest expense implying, at
+    ``IMPLIED_RATE_CEILING``, debt of ``UNMAPPED_SHARE`` or more of its cash and investments ("no long-term debt
+    line"). Each was a broken value in a version-1 peer median: KO, KMB and MDLZ (staples), DE (industrials), CVX and
+    COP, MPC and PSX (energy), SO (utilities), DG and TGT (retail), F and GM (autos; GM's interest implies $37bn of debt
+    it maps no line for), NVDA's FY2026 (semis), BA FY2025, PH FY2026 and UPS FY2025 (industrials, whose LongTermDebt
+    already holds the current line their total debt adds). A peer that never borrowed (PINS,
+    RDDT, TTD, VRTX: interest implying at most 5% of its cash) stays in."""
+    if (period in debt_breaks(reg, periods) or any(period in years for _, years in debt_onsets(reg, periods))
+            or period in debt_double_counted(reg, periods, split or {})):
         return "debt line broken"
     if period in {p for _, p in liquidity_gaps(reg, periods)} or period in double_counted(reg, periods, combined or {}):
         return "cash line broken"
@@ -970,11 +1014,14 @@ def _where(periods: list[str], span: list[str]) -> tuple[str, str]:
 def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[str],
                 onsets: tuple[tuple[str, list[str]], ...] | list[tuple[str, list[str]]] = (),
                 gaps: tuple[tuple[str, str], ...] | list[tuple[str, str]] = (),
-                double: tuple[str, ...] | list[str] = ()) -> list[dict[str, Any]]:
+                double: tuple[str, ...] | list[str] = (),
+                debt_double: tuple[str, ...] | list[str] = ()) -> list[dict[str, Any]]:
     """Data checks for fix 8: one naming each span of years whose long-term debt line is broken (``broken``), each
     debt line's onset (``onsets``, kind ``debt_break`` too), each liquidity gap (``gaps``) and the years whose
-    short-term investments sit inside cash (``double``), both kind ``liquidity_break``, then the
-    implied-interest-rate test.
+    short-term investments sit inside cash (``double``), both kind ``liquidity_break``, each span whose long-term line
+    already holds the current line (``debt_double``, ``debt_double_counted``, kind ``debt_break``), then the
+    implied-interest-rate test. The double count comes after the liquidity checks so that no earlier version-2 flag
+    is renumbered (TGT's R7).
 
     The rate test (interest expense over average total debt, the year-end balance alone where the prior year is
     missing or broken) runs outside the debt-break spans, where it would only repeat them (COP, CVX, DE and KO
@@ -1027,8 +1074,18 @@ def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[st
                         if vid]
             checks.append({"kind": "liquidity_break", "severity": "high", "period": ",".join(span), "detail": detail,
                            "evidence": evidence})
+        for span in _spans(periods, list(debt_double)):
+            # Worded as the cash double count is, whose words a disclosure echoes ("count them twice").
+            where = f"in {span[0]}" if len(span) == 1 else f"in {span[0]}-{span[-1]}"
+            detail = (f"{DEBT_COUNTED_TWICE} {where} (the filer's noncurrent "
+                      "long-term debt is the long-term line less the current portion); total debt and net cash there "
+                      "count it twice, " + _left_out(reg, periods, span, "debt growth across the break"))
+            last = _long_term_debt(reg, span[-1])
+            evidence = [vid for vid in ((last.id if last else None), reg.ref("debt_current", span[-1])) if vid]
+            checks.append({"kind": "debt_break", "severity": "high", "period": ",".join(span), "detail": detail,
+                           "evidence": evidence})
         rates = []
-        skip = set(broken) | {p for _, years in onsets for p in years}
+        skip = set(broken) | {p for _, years in onsets for p in years} | set(debt_double)
         for i, period in enumerate(periods):
             debt, interest = reg.get("total_debt", period), reg.get("interest_expense", period)
             if period in skip or debt is None or interest is None or debt.value <= 0 or interest.value <= 0:
@@ -1076,9 +1133,10 @@ def _built_on(reg: Registry, seeds: set[str]) -> set[str]:
 def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]], short: tuple[str, ...] | list[str] = (),
              replaced: Optional[dict[str, str]] = None) -> dict[str, str]:
     """IDs the render leaves out, each with its reason: ``debt_break`` for what is built on a broken debt year
-    (``broken``: a long-term line's break or a line's onset), ``liquidity_break`` for what is built on a year whose
-    cash and investments are broken (``short``: a gap or a double count), and ``replaced``'s own reason for a
-    version-1 value a checked one replaces (a peer rank or median built on a peer's broken year, ``peer_break``).
+    (``broken``: a long-term line's break, a line's onset, or a current line the long-term line already holds),
+    ``liquidity_break`` for what is built on a year whose cash and investments are broken (``short``: a gap or a double
+    count), and ``replaced``'s own reason for a version-1 value a checked one replaces (a peer rank or median built on
+    a peer's broken year, ``peer_break``).
 
     Withheld rather than labelled: a label leaves a broken figure for the model to state, and in eval-v1 DeepSeek
     stated COP's, CVX's and KO's net cash as fact and read DE's dropped line as deleveraging (Sonnet, given the same
@@ -1089,7 +1147,9 @@ def withheld(reg: Registry, broken: list[str], flags: list[dict[str, Any]], shor
     (net cash % of revenue, growth across the break, runway, the net-cash peer rank) and every red flag's evidence. A
     peer median goes with its withheld peer rank: alone, it invites a comparison with a level the pack no longer shows.
     A positive long-term line of a broken year stays (DE's FY2016-FY2019 onset span: the line is right, the total
-    lacks another)."""
+    lacks another; TGT's FY2016-FY2018 double count: the line is right, the total adds its current portion again), and
+    so does the current line. A year broken both ways is a ``debt_break``: TGT's FY2016-FY2018 net cash, inside its
+    liquidity break too."""
     zero = {v.id for period in broken for key in ("debt_noncurrent", "long_term_debt")
             if (v := reg.get(key, period)) is not None and v.value <= 0}
     debt = _built_on(reg, zero | {vid for period in broken for key in ("total_debt", "net_cash") if (vid := reg.ref(key, period))})

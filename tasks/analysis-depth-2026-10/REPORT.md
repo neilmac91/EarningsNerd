@@ -568,8 +568,8 @@ Gate figures here use the current gate.
    Claude Sonnet 5.5 was more accurate on these measures but is not adopted: about 30 times the cost and a
    minute's wait (§7.6, §8). The work now goes into DeepSeek's errors:
    - **Code in the repair loop and the gate** (no model call):
-     - add a figure's missing own ID by code before any repair;
-     - a clearer repair message;
+     - a clearer repair message (adding a figure's missing own ID by code was built, tested and removed: it let
+       wrong numbers through, `DEEPSEEK-ERRORS.md` §2);
      - retype a figure-only "cause" sentence;
      - narrow gate fixes;
      - backstop checks for the remaining mislabels;

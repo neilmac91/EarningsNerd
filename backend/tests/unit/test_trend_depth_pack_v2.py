@@ -4,8 +4,9 @@
 Pins: the added values (an operating cash flow / net income median and low, a same-year net-minus-operating margin)
 and the debt-break checks register after every version-1 ID; the net-debt red flag says "net debt rose" when the
 company was in net debt throughout; a long-term debt line that stops, or reads zero, while debt is still evident
-is a break, and so is a debt line's onset (DE) and a one-year cash gap or a double count (MSFT, NVDA, ORCL, COP,
-TGT), with no false one in the 20; everything built on a broken year is withheld from the render, a peer's broken
+is a break, and so is a debt line's onset (DE), a long-term line that already holds the current line total debt adds
+to it, by the filer's own noncurrent figure (TGT FY2016-FY2018), and a one-year cash gap or a double count (MSFT, NVDA,
+ORCL, COP, TGT), with no false one in the 20; everything built on a broken year is withheld from the render, a peer's broken
 year included (a checked peer rank and median replace version 1's), and so is a long-term line reported as zero
 there (ORCL); a check names the net-cash peer rank only when it withholds it; a line the filer reports and the pack
 maps nowhere (CAT's current portion of long-term debt, KO's short-term investments) is a data check that withholds
@@ -300,7 +301,7 @@ BREAKS = {
     "MSFT": {("liquidity_break", "FY2017")},
     "NVDA": {("liquidity_break", "FY2026")},
     "ORCL": {("debt_break", "FY2022"), ("liquidity_break", "FY2017")},
-    "TGT": {("liquidity_break", ",".join(TEN))},
+    "TGT": {("liquidity_break", ",".join(TEN)), ("debt_break", "FY2016,FY2017,FY2018")},
     "USB": {("debt_break", "FY2023,FY2024,FY2025")},
 }
 
@@ -384,6 +385,118 @@ def test_short_term_investments_inside_cash_are_a_double_count() -> None:
     assert {"D410", "D411"} <= set(pack["withheld"]) and pack["values"]["D410"]["value"] == pytest.approx(-4.299e9, rel=1e-3)
 
 
+# --- A long-term line that already holds the current line: a debt double count ----------------------------------
+
+# TGT's own noncurrent long-term debt and lease obligations (LongTermDebtAndCapitalLeaseObligations) and the noncurrent
+# capital or finance leases the same 10-K reports, FY2016-FY2019, as evidence._debt_split reads them.
+TGT_SPLIT = {"FY2016": (11031e6, 1025e6), "FY2017": (11317e6, 1152e6), "FY2018": (10223e6, 1021e6),
+             "FY2019": (11338e6, 1303e6)}
+
+
+def test_a_long_term_line_that_holds_the_current_line_is_a_double_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    # TGT's LongTermDebt is its "Total notes and debentures" [X175 $11,715m at FY2016], and its total debt [D14] adds the
+    # $1,718m due within one year [X171] again: $13,433m. Its noncurrent debt and leases less the leases is the line less
+    # the current line ($10,006m against $9,997m); FY2017 and FY2018 the same.
+    reg, years = _pack_registry(_load("packs", "TGT"))
+    assert reg.val("total_debt", "FY2016") == reg.val("debt_noncurrent", "FY2016") + reg.val("debt_current", "FY2016")
+    assert derived.debt_double_counted(reg, years, TGT_SPLIT) == ["FY2016", "FY2017", "FY2018"]
+    # FY2019: the $137m swap adjustment, tagged nowhere, beside a $161m current line leaves $204m ($10,035m against
+    # $9,831m), outside a quarter of it, so the margin, not a missing figure, keeps the year out of every check
+    # (packs-v2/README.md, "Not detected").
+    monkeypatch.setattr(derived, "DOUBLE_COUNT_MARGIN", 1.3)
+    assert derived.debt_double_counted(reg, years, TGT_SPLIT) == ["FY2016", "FY2017", "FY2018", "FY2019"]
+    monkeypatch.undo()
+    # The leases come out of the filer's figure: with them, FY2016 misses by $1,034m.
+    assert derived.debt_double_counted(reg, years, {"FY2016": (11031e6, 0.0)}) == []
+    # Without the filer's figure, nothing is named: the tag alone does not tell (TSLA's LongTermDebt is its noncurrent line).
+    assert derived.debt_double_counted(reg, years, {}) == []
+
+
+def test_a_line_that_leaves_the_current_portion_out_is_no_double_count() -> None:
+    # TSLA FY2018: LongTermDebt $8,410.5m beside $2,222.0m of current debt, and noncurrent debt and leases of $9,403.7m
+    # less $993.2m of capital leases is the line itself: the figures differ by the current line, not within a quarter.
+    tsla = _registry({"debt_noncurrent": {"FY2023": 8410.49e6}, "debt_current": {"FY2023": 2221.985e6}})
+    assert derived.debt_double_counted(tsla, YEARS, {"FY2023": (9403.7e6, 993.2e6)}) == []
+    assert derived.debt_double_counted(tsla, YEARS, {"FY2023": (8410.49e6 - 2221.985e6, 0.0)}) == ["FY2023"]
+    # A current line of 1% of the long-term line or less is no finding (PH FY2025: $7m beside $7,501m).
+    ph = _registry({"debt_noncurrent": {"FY2023": 7501e6}, "debt_current": {"FY2023": 7e6}})
+    assert derived.debt_double_counted(ph, YEARS, {"FY2023": (7494e6, 0.0)}) == []
+    # A noncurrent tag leaves the current portion out by definition: DUK's LongTermDebtNoncurrent [X171] is not read, even
+    # where a figure equal to the line less the current line is given.
+    reg, years = _pack_registry(_load("packs", "DUK"))
+    line, current = reg.get("debt_noncurrent", "FY2016"), reg.get("debt_current", "FY2016")
+    assert line.formula == "us-gaap:LongTermDebtNoncurrent"
+    assert derived.debt_double_counted(reg, years, {"FY2016": (line.value - current.value, 0.0)}) == []
+
+
+def test_a_debt_double_count_is_a_debt_break_check_after_the_liquidity_checks() -> None:
+    reg, years = _pack_registry(_load("packs", "TGT"))
+    double = derived.debt_double_counted(reg, years, TGT_SPLIT)
+    checks = derived.debt_checks(reg, years, "operating", [], (), (), years, double)
+    assert [c["kind"] for c in checks] == ["liquidity_break", "debt_break"]  # TGT's R7 keeps its number
+    assert checks[1] == {
+        "kind": "debt_break", "severity": "high", "period": "FY2016,FY2017,FY2018",
+        "detail": ("The current portion of debt is already inside long-term debt in FY2016-FY2018 (the filer's noncurrent "
+                   "long-term debt is the long-term line less the current portion); total debt and net cash there count it "
+                   "twice, so this pack leaves them out, with the values built on them (net cash % of revenue, debt growth "
+                   "across the break)."),
+        "evidence": ["X177", "X173"]}  # FY2018's long-term and current lines, which stay shown
+    assert probes.discloses(checks[1]["detail"])  # its own words disclose it
+    assert derived.debt_checks(reg, years, "bank", [], debt_double=double) == []  # no total debt to count twice
+    # The implied-rate test stays out of a double-counted year, as out of any debt break.
+    rated = _with_total_debt([10e9] * 5, [5e8, 5e8, 2.5e9, 5e8, 5e8])
+    assert [c["kind"] for c in derived.debt_checks(rated, YEARS, "operating", [], debt_double=["FY2021"])] == ["debt_break"]
+
+
+def test_a_debt_double_count_withholds_total_debt_and_what_is_built_on_it() -> None:
+    # TGT's total debt [D14, D33, D82] and its growth [D62 -20.3%, D109 +5.5%, D156 -10.1%: -10.9%, -1.8% and -2.5% on
+    # the notes alone] go; the lines stay. Net cash there, inside the liquidity break too, is withheld as a debt break.
+    reg, years = _pack_registry(_load("packs", "TGT"))
+    out = derived.withheld(reg, ["FY2016", "FY2017", "FY2018"], [], years)
+    assert {vid: out[vid] for vid in ("D14", "D33", "D82", "D62", "D109", "D156", "D15", "D34", "D83")} == dict.fromkeys(
+        ("D14", "D33", "D82", "D62", "D109", "D156", "D15", "D34", "D83"), "debt_break")
+    assert reg.values["D109"].value == pytest.approx(5.50, abs=0.01) and reg.values["D156"].value == pytest.approx(-10.14, abs=0.01)
+    for kept in ("X175", "X171", "X177", "X173", "F185", "D129", "D203"):  # D129, D203: FY2019, which no test names
+        assert kept not in out
+
+
+def test_a_peers_double_counted_year_stays_out_of_its_rank() -> None:
+    # BA FY2025: LongTermDebt $53,848m holds the $8,461m of current debt its total adds again; its noncurrent debt and
+    # leases are $45,637m. Its net cash then reads $8.5bn too low in CAT's industrials median.
+    ba = _peer({"debt_noncurrent": {"FY2025": 53848e6}, "debt_current": {"FY2025": 8461e6}}, {"FY2025": 23e9})
+    assert derived.peer_left_out(ba, TEN, "FY2025", {}, {"FY2025": (45637e6, 0.0)}) == "debt line broken"
+    assert derived.peer_left_out(ba, TEN, "FY2025", {}) is None
+
+
+def test_cats_checked_rank_leaves_out_the_peers_that_count_debt_twice() -> None:
+    # BA FY2025, PH FY2026 and UPS FY2025 entered CAT's industrials median with net cash short by their current debt
+    # ($8,461m, $706m, $608m); three peers remain.
+    checked = _load("packs-v2", "CAT")["peers"]["checked"]["net_cash_to_revenue"]
+    assert checked["left_out"] == {"BA": "debt line broken", "DE": "debt line broken", "PH": "debt line broken",
+                                   "UPS": "debt line broken"}
+    assert checked["n"] == 3
+
+
+def test_debt_split_reads_the_leases_of_the_same_10k(evidence: Any) -> None:
+    def rows(*facts: tuple[str, float, str, str]) -> list[dict[str, Any]]:
+        return [{"end": end, "val": val, "accn": accn, "filed": filed, "form": "10-K"} for end, val, accn, filed in facts]
+
+    first, later = "0000027419-18-000010", "0000027419-19-000006"
+    tags = {
+        "LongTermDebtAndCapitalLeaseObligations": rows(("2018-02-03", 11317e6, first, "2018-03-14"),
+                                                       ("2019-02-02", 10223e6, later, "2019-03-13")),
+        "CapitalLeaseObligationsNoncurrent": rows(("2018-02-03", 1152e6, first, "2018-03-14")),
+        # The later 10-K's figures for FY2017, on its own basis, are not read beside the FY2017 10-K's.
+        "FinanceLeaseLiabilityNoncurrent": rows(("2018-02-03", 885e6, later, "2019-03-13")),
+    }
+    payload = {"facts": {"us-gaap": {tag: {"units": {"USD": facts}} for tag, facts in tags.items()}}}
+    split = evidence._debt_split(payload, {"2018-02-03": "FY2017", "2019-02-02": "FY2018"})
+    assert split == {"FY2017": (11317e6, 1152e6), "FY2018": (10223e6, 0.0)}
+    del tags["CapitalLeaseObligationsNoncurrent"]  # FY2017 then has only a later 10-K's lease figure: none is read
+    payload = {"facts": {"us-gaap": {tag: {"units": {"USD": facts}} for tag, facts in tags.items()}}}
+    assert evidence._debt_split(payload, {"2018-02-03": "FY2017"}) == {"FY2017": (11317e6, 0.0)}
+
+
 # --- Lines the pack maps nowhere: a data check, nothing withheld -------------------------------------------------
 
 # The filer's own figures (companyfacts, first reported) by the packs' fiscal years: CAT's long-term debt maturing within
@@ -416,7 +529,8 @@ def test_cats_current_portion_of_long_term_debt_is_an_unmapped_line() -> None:
 
 def test_a_long_term_debt_tag_that_may_hold_the_current_portion_is_not_tested() -> None:
     # TGT FY2024-FY2025: $1.5bn and $2.0bn due within a year beside a long-term line tagged LongTermDebt and no current
-    # line. That tag holds the current portion for some filers (DUK), not for TGT, so the test cannot tell them apart.
+    # line. That tag holds the current portion, for TGT as for DUK: its FY2025 $14,398m is the debt note's "Total notes
+    # and debentures", the $2,000m due in FY2026 inside it. Read as an omission, these years would be false findings.
     reg, years = _pack_registry(_load("packs", "TGT"))
     assert reg.get("debt_current", "FY2025") is None and reg.get("debt_noncurrent", "FY2025").formula == "us-gaap:LongTermDebt"
     assert reg.val("total_debt", "FY2025") * derived.UNMAPPED_LINE_SHARE < TGT_DUE["FY2025"]
@@ -433,7 +547,8 @@ def test_a_year_a_break_check_names_is_not_tested_again() -> None:
 def test_kos_short_term_investments_are_an_unmapped_line() -> None:
     # KO's own total ($18,150m at FY2016) exceeds its $8,555m of cash and $4,051m of marketable securities: its $9,595m
     # of short-term investments are in no line of the pack. FY2018-FY2020 the marketable securities, which KO's total
-    # leaves out, cover the gap, so those years are no finding.
+    # leaves out, cover the gap, so those years are no finding. FY2024-FY2025 are debt-break years, which the cash test
+    # still reads: a break of the other kind leaves cash and investments [D440] shown.
     reg, years = _pack_registry(_load("packs", "KO"))
     found = derived.unmapped_lines(reg, years, {}, KO_TOTAL)
     assert [(line, year) for line, year, _ in found] == [("short_term_investments", y) for y in
@@ -518,6 +633,9 @@ def test_committed_version_2_packs_withhold_what_their_checks_name(ticker: str) 
                             (pack["peers"] or {}).get("replaced")) == pack["withheld"]
     if ticker == "DE":
         assert pack["withheld"]["D205"] == "debt_break" and pack["values"]["D205"]["value"] == pytest.approx(36.68, abs=0.01)
+    if ticker == "TGT":  # its FY2016-FY2018 double count: total debt and its growth, and net cash there
+        ids = ("D14", "D33", "D82", "D62", "D109", "D156", "D15")
+        assert {vid: pack["withheld"].get(vid) for vid in ids} == dict.fromkeys(ids, "debt_break")
 
 
 @pytest.mark.parametrize("ticker", sorted(V1_RENDERS))
@@ -827,6 +945,17 @@ def test_readme_states_the_implied_rate_inside_each_long_term_debt_break() -> No
                (("above", above), ("under", under))}
     readme = " ".join((RECORDS / "packs-v2" / "README.md").read_text().split())
     assert f"is above 12% in {listing['above']}, and under it in {listing['under']}." in readme
+
+
+def test_readme_names_each_debt_double_count_the_packs_check() -> None:
+    readme = " ".join((RECORDS / "packs-v2" / "README.md").read_text().split())
+    found = []
+    for ticker in sorted(V1_RENDERS):
+        for check in _load("packs-v2", ticker)["data_checks"]:
+            if check["kind"] == "debt_break" and check["detail"].startswith(derived.DEBT_COUNTED_TWICE):
+                found.append(ticker)
+                assert f"{ticker} {_years(check['period'].split(','))}" in readme, ticker
+    assert found == ["TGT"]
 
 
 def test_readme_names_each_unmapped_line_the_packs_check() -> None:
