@@ -49,7 +49,11 @@ outputs:
     $5.5 billion net debt position"), else the nearest before it, else the first after it ("$8.8 billion more cash
     than debt"). Plain "debt" or "borrowings" is the total; a qualified line ("short-term borrowings", "the current
     portion of debt", "long-term debt", "debt due within one year", "debt maturities"), or a figure said to fall due
-    ("Of Deere's debt, $13.8 billion falls due within a year"), is that line, correct under its own name.
+    ("Of Deere's debt, $13.8 billion falls due within a year"), is that line, correct under its own name. All this is
+    for a line missing from total debt; in a year whose long-term line already holds the current line total debt adds
+    again (TGT FY2016-FY2018, ``derived.debt_double_counted``) the long-term line alone is the right total under any
+    name, and only a sum holding both lines is broken, whatever it is called ("Total debt was $13.4 billion", from
+    $11.7 billion and $1.7 billion), as cash and short-term investments summed are below.
   - ``liquidity_break``: cash and investments or net cash, or a figure built on them, of a year a
     ``liquidity_break`` check names. Rebuilt: a cash or investment line of such a year, alone, in a sum or in a
     difference, beside a total of another year ("cash fell 75.5%": FY2026's cash against FY2025's cash and
@@ -86,7 +90,7 @@ from __future__ import annotations
 import re
 from typing import Any, NamedTuple, Optional
 
-from evals.trend_depth import factcheck
+from evals.trend_depth import derived, factcheck
 from evals.trend_depth.factcheck import CITATION_RE, Candidate, Resolution
 
 GATE_KINDS = ("R1", "R2a", "R2c", "R3", "U1", "unitless_dollars", "gap_direction", "broken_debt")
@@ -473,10 +477,16 @@ _WHY = {"debt_break": "built on a debt-break year", "liquidity_break": "built on
 
 class Breaks(NamedTuple):
     """What a version-2 pack records as broken: the years its ``debt_break`` and its ``liquidity_break`` data checks
-    name, and every ID it withholds with the reason (``BREAK_KINDS``)."""
+    name, every ID it withholds with the reason (``BREAK_KINDS``), and the debt-break years whose only break is a debt
+    double count (``counted_twice``: the long-term line already holds the current line total debt adds to it)."""
     debt_years: frozenset[str]
     cash_years: frozenset[str]
     ids: dict[str, str]
+    counted_twice: frozenset[str] = frozenset()
+
+
+def _years(checks: list[dict[str, Any]]) -> frozenset[str]:
+    return frozenset(p.strip() for c in checks for p in str(c.get("period", "")).split(",") if p.strip())
 
 
 def debt_breaks(pack: dict[str, Any]) -> Breaks:
@@ -484,12 +494,13 @@ def debt_breaks(pack: dict[str, Any]) -> Breaks:
     the pack's own record is the one rule (``derived.withheld``), so the probe counts exactly what the render leaves
     out. A version-1 pack records none. Version 2 only appends to version 1 (each version-1 ID keeps its value), so a
     version-2 pack's breaks also read a version-1 output: every ID it withholds is a version-1 ID with the same value,
-    and both versions cover the same fiscal years."""
-    def years(kind: str) -> frozenset[str]:
-        return frozenset(p.strip() for c in pack.get("data_checks", []) if c.get("kind") == kind
-                         for p in str(c.get("period", "")).split(",") if p.strip())
-
-    return Breaks(years("debt_break"), years("liquidity_break"), dict(pack.get("withheld") or {}))
+    and both versions cover the same fiscal years. A debt double count is the ``debt_break`` check that opens with
+    ``derived.DEBT_COUNTED_TWICE`` (TGT FY2016-FY2018); a year another debt break also names keeps that break's rule."""
+    checks = pack.get("data_checks", [])
+    debt = [c for c in checks if c.get("kind") == "debt_break"]
+    twice = [c for c in debt if str(c.get("detail", "")).startswith(derived.DEBT_COUNTED_TWICE)]
+    return Breaks(_years(debt), _years([c for c in checks if c.get("kind") == "liquidity_break"]),
+                  dict(pack.get("withheld") or {}), _years(twice) - _years([c for c in debt if c not in twice]))
 
 
 def _named(names: re.Pattern[str], clean: str, claim: factcheck.Claim, start: int, end: int) -> Optional[str]:
@@ -515,7 +526,11 @@ def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks,
     liquidity-break year. In a year whose short-term investments sit inside cash (both lines reported: TGT), cash alone
     is the right figure, so only a figure on both lines is the broken one, and their sum ("held cash of $10.1 billion")
     counts them twice whatever it is called; in a year a line is missing from (MSFT FY2017), any figure on the lines
-    left falls short. The words are the same for every arm: a line of a break year is on either pack version."""
+    left falls short. A debt double count (``Breaks.counted_twice``: TGT FY2016-FY2018, whose long-term line already
+    holds its current line) is the debt side of the first: the long-term line alone is the right total under any name
+    ("Debt was $11.7 billion in FY2016"), so only a sum holding both lines is broken, whatever it is called; the current
+    line alone, or the long-term line less it, is no figure of the break. The words are the same for every arm: a line
+    of a break year is on either pack version."""
     values, ids = pack["values"], r.best.ids
     built = [i for i in ids if i in breaks.ids]
     if built:
@@ -523,7 +538,13 @@ def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks,
         return why, (f"rests on {built[0]}" + (f" ({what['label']}, {what['period']})" if what else "")
                      + f", {_WHY.get(why, why)}")
     start, end = factcheck.clause_span(clean, r.claim)
-    debt = [i for i in ids if keys.get(i) in DEBT_LINES and values[i].get("period") in breaks.debt_years]
+    lines = [i for i in ids if keys.get(i) in DEBT_LINES and values[i].get("period") in breaks.debt_years]
+    for year in dict.fromkeys(values[i]["period"] for i in lines if values[i]["period"] in breaks.counted_twice):
+        held = {keys[i] for i in lines if values[i]["period"] == year}
+        if r.best.how.startswith("sum") and "debt_current" in held and held & {"debt_noncurrent", "long_term_debt"}:
+            return "debt_break", (f"from {r.best.how}, the long-term and current debt lines of {year}, inside a debt "
+                                  "break, where the long-term line already holds the current one: counted twice")
+    debt = [i for i in lines if values[i]["period"] not in breaks.counted_twice]
     if debt:
         across = [i for i in ids if keys.get(i) in _DEBT_TOTALS]
         due = _FALLS_DUE.match(clean, r.claim.start + len(r.claim.text))

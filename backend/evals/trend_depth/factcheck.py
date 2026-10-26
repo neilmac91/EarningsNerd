@@ -475,7 +475,7 @@ _NOUN_FROM = re.compile(
 # part of, so it binds that figure as well as the one after it.
 _PARTITIVE = (["of", "the"], ["in", "the"])
 # "5.7pp better than FY2024": a year right after one of these words is a comparison's base, not the period of the
-# figure before it (``bind_periods``). The one list: auto-citation dates no figure by such a year (autocite._BASE_WORD).
+# figure before it (``bind_periods``, its one reader).
 BASE_WORDS = ("than", "from", "since", "versus", "vs", "vs.")
 
 

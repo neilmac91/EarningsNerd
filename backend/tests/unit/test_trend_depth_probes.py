@@ -384,6 +384,10 @@ RESTATED = [
     # (gate-and-probes [2]).
     ("DE", "Debt due to acquisitions reached $13.8 billion in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
     ("DE", "Deere carried $13.8 billion of debt, all due within a year, in FY2025 [X185].", [("debt_break", "$13.8 billion")]),
+    # TGT's debt double count (review 8 pack-v2 [0]): its long-term line [X175] already holds the current line [X171],
+    # so their sum is the withheld total [D14] counted twice, whatever the sentence calls it.
+    ("TGT", "Total debt was $13.4 billion in FY2016 [X175][X171].", [("debt_break", "$13.4 billion")]),
+    ("TGT", "Debt and its current portion summed to $13.4 billion in FY2016 [X175][X171].", [("debt_break", "$13.4 billion")]),
 ]
 # The same figures through the IDs version 2 withholds, as the frozen arms state them, one per reason (eval-v1
 # DeepSeek KO, DE, NVDA, TGT, CAT, PG): only an arm reading version 1 sees them.
@@ -496,6 +500,18 @@ SPARED = [
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], ignoring unreported long-term debt."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but FY2023 is the last year the pack carries long-term debt."),
     ("KO", "Net cash was $8.8 billion in FY2025 [D440][X186], but the pack carries FY2023 long-term debt and none for FY2025."),
+    # TGT's debt double count (FY2016-FY2018): the long-term line alone is the right total under any name, as is cash
+    # alone less it, and the current line, the long-term line less it, or two years' lines of one kind summed are no
+    # figure of the break (the pack fixer's reproduction, wave 5: these failed P's and C's gate once the check landed).
+    ("TGT", "Debt was $11.7 billion in FY2016 [X175]."),
+    ("TGT", "Total debt was $11.7 billion in FY2016 [F185]."),
+    ("TGT", "Total debt fell from $11.7 billion in FY2016 [X175] to $10.2 billion in FY2018 [X177]."),
+    ("TGT", "Net debt was $9.2 billion in FY2016 [X175][F135]."),
+    ("TGT", "The current portion of debt was $1.7 billion in FY2016 [X171]."),
+    ("TGT", "Debt net of its current portion was $10.0 billion in FY2016 [X175][X171]."),
+    ("TGT", "Long-term debt in FY2016 and FY2017 came to $22.2 billion together [X175][X176]."),
+    ("TGT", "Debt due within a year in FY2016 and FY2017 came to $2.0 billion together [X171][X172]."),
+    ("TGT", "Total debt was $13.4 billion in FY2016 [X175][X171], though that counts the current portion twice."),
 ]
 
 
@@ -583,6 +599,23 @@ def test_broken_ids_follow_the_withheld_rule_on_both_pack_versions() -> None:
             assert v1["values"].get(vid, flags.get(vid)) == v2["values"].get(vid, flags.get(vid)) is not None, (ticker, vid)
         assert probes.debt_breaks(v1) == probes.Breaks(frozenset(), frozenset(), {})
     assert reasons == set(probes.BREAK_KINDS)
+
+
+def test_a_debt_double_count_is_read_from_its_own_check_and_fails_only_the_sum() -> None:
+    # The double count's years are its data check's (derived.DEBT_COUNTED_TWICE), on TGT alone of the twenty packs.
+    counted = {t: probes.debt_breaks(_committed(t, "packs-v2")).counted_twice for t in TICKERS}
+    assert {t: years for t, years in counted.items() if years} == {"TGT": {"FY2016", "FY2017", "FY2018"}}
+    # True TGT sentences pass P's and C's gate, the long-term line alone being the right total ...
+    tgt = _committed("TGT", "packs-v2")
+    for text in ("Debt was $11.7 billion in FY2016 [X175].",
+                 "Total debt fell from $11.7 billion in FY2016 [X175] to $10.2 billion in FY2018 [X177]."):
+        assert factcheck.check([{"section": "balance_sheet", "type": "fact", "text": text}], tgt, backstops=True)["passed"]
+    # ... and a year another debt break also names keeps that break's rule: one line under a total's name falls short.
+    onset = {"kind": "debt_break", "period": "FY2016", "detail": "Short-term borrowings not reported before FY2017."}
+    both = {**tgt, "data_checks": [*tgt["data_checks"], onset]}
+    assert probes.debt_breaks(both).counted_twice == {"FY2017", "FY2018"}
+    assert _found([{"section": "balance_sheet", "type": "fact", "text": "Debt was $11.7 billion in FY2016 [X175]."}],
+                  both) == [("debt_break", "$11.7 billion")]
 
 
 # Series keys: "<series>|<period>", a segment's series holding bars of its own, and version 2's "<series>|<period>|checked".

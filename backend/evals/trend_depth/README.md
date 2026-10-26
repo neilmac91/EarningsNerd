@@ -42,26 +42,33 @@ cd backend
 ARMS=deepseek-flash,deepseek-flash-p,deepseek-flash-q,deepseek-flash-c   # P and C need packs-v2/
 V4PRO=deepseek-v4-pro  # judge and auditor only, under the ADR-0008 addendum
 # 0. A like-for-like baseline: eval-v1's DeepSeek and Sonnet outputs re-audited by Opus under the auditor's view 2
-#    (40 audits, about USD 5.4 at view 1's rate; view 2's messages are about 9% longer, so up to about USD 5.9), then
-#    the report that prints the view-2 mislabel baseline. The copy carries eval-v1's view-1 audits; semantics redoes
-#    each one under view 2.
+#    (40 audits, USD 5.40 at view 1's recorded cost), then the report that prints the view-2 mislabel baseline. View
+#    2's user message is about 22% longer than view 1's (20,169 against 16,596 characters on average; passage text
+#    adds 7% to view 2 without it) and its SYSTEM 2,114 characters longer (2,900 against 786), about 33% more input in
+#    all. Input is about a third of an audit's bill (a fit of the recorded Opus audits' cost on their
+#    characters and items), so about USD 6.0; USD 7.2 if every dollar grew with the input. The copy carries eval-v1's
+#    view-1 audits; semantics redoes each one under view 2.
 python -m evals.trend_depth.generate --label eval-v1-view2 --arms current,deepseek-flash,claude-sonnet-5-5 --split all --copy-from eval-v1
 python -m evals.trend_depth.semantics --label eval-v1-view2 --systems deepseek-flash,claude-sonnet-5-5 --auditor claude-opus-5-5
 python -m evals.trend_depth.report --label eval-v1-view2 --systems deepseek-flash,claude-sonnet-5-5
 # 0b. DEEPSEEK-ERRORS.md §3 step 1, the patch repair on its own: every recorded deepseek-flash first pass of eval-v1,
-#     dev-v4 and dev-v3 that version 2 would still repair after its code fixes, twice each: 21 cases (eval-v1 11,
-#     dev-v4 4, dev-v3 6), 42 repairs, 42 to 84 calls. About USD 0.26 off-peak if every patch is read cold and none
-#     falls back; USD 0.56 (1.12 at peak) if every prompt is read cold and every patch falls back. The dry run prints
-#     the most one run can bill, USD 2.37 off-peak (4.75 at peak): every prompt at one token per byte and every reply
-#     at max_tokens. It reports repair latency (p50 and p90 linear between the two nearest ranks, as the report's),
-#     tokens, cost (billed and warm), full repairs, the gate's verdict and the untouched sentences kept byte for
-#     byte, under runs/step1-r1/repair-replay/. List the cases first; a re-run retries only a repeat that holds a
-#     provider error.
+#     dev-v4 and dev-v3 that version 2 would still repair after its retyping (retype.first_pass: the retyping, then
+#     the gate with its backstops), twice each: 21 cases (eval-v1 11: CAT, COP, COST, CVX, DE, DUK, NEE, NVDA, ORCL,
+#     PG, TGT; dev-v4 4: COST, JPM, NVDA, SNAP; dev-v3 6: CAT, COST, MSFT, NVDA, PG, REGN), 42 repairs, 42 to 84 calls.
+#     About USD 0.26 off-peak if every patch is read cold and none falls back; USD 0.56 (1.12 at peak) if every prompt
+#     is read cold and every patch falls back. The dry run prints the most one run can bill, USD 2.38 off-peak (4.75 at
+#     peak): every prompt at one token per byte, every reply at max_tokens, each call billed at most once, as the
+#     replay's client retries nothing within a call (a timeout or a dropped connection ends the call as a
+#     repair_error, which the next run retries in the open). It reports repair latency (p50 and p90 linear between the
+#     two nearest ranks, as the report's), tokens, cost (billed and warm), full repairs, the gate's verdict and the
+#     untouched sentences kept byte for byte, under runs/step1-r1/repair-replay/. List the cases first; a re-run
+#     retries only a repeat that holds a provider error.
 python -m evals.trend_depth.repair_replay --label step1-r1 --dry-run
 python -m evals.trend_depth.repair_replay --label step1-r1
 # 1. Development half only, never reading held-out outputs: two independent runs of every arm, one label each.
-#    --pipeline v2 gives every arm the same new gate and repair code (auto-citation, retyping, backstops, patch
-#    repairs), so the arms differ only in pack and prompt; K0 on v2 measures the code fixes alone. It also opens
+#    --pipeline v2 gives every arm the same new gate and repair code (retyping, backstops, the rewritten repair
+#    message, patch repairs; no auto-citation: a figure stated without its own ID goes to the repair in every arm),
+#    so the arms differ only in pack and prompt; K0 on v2 measures the code fixes alone. It also opens
 #    each user message with a nonce of the label, arm and ticker (the record's `nonce`), so no run's first request
 #    reads an earlier run's pack from DeepSeek's prompt cache: r2 and K0 start as cold as a company's first analysis.
 #    Repeat each command until no line reports an error or a repair_error: each repeat retries only what a provider
@@ -85,6 +92,12 @@ python -m evals.trend_depth.report --labels dev-v5-r1,dev-v5-r2 --systems $ARMS 
 #    2's audits, judge and report.
 python -m evals.trend_depth.generate --label eval-v2-r1 --arms deepseek-flash,deepseek-flash-c --split holdout --pipeline v2
 python -m evals.trend_depth.generate --label eval-v2-r2 --arms deepseek-flash,deepseek-flash-c --split holdout --pipeline v2
+# 4. §3's peak-hour latency: one more held-out run of C under its own label, started inside DeepSeek's peak window
+#    (01-04 or 06-10 UTC on a weekday, providers' price note) and finished inside it. Only its latency counts, against
+#    the p50 and p90 targets; it needs no audit or judge. The report prices every run at the off-peak list price, so
+#    a peak run's bill is twice the cost it prints (about USD 0.14 for 10 analyses).
+python -m evals.trend_depth.generate --label eval-v2-peak --arms deepseek-flash-c --split holdout --pipeline v2
+python -m evals.trend_depth.report --label eval-v2-peak --systems deepseek-flash-c
 ```
 
 `--copy-from eval-v1` still copies any arm on the frozen prompt and `packs/`, `current` and `deepseek-flash`
@@ -231,22 +244,22 @@ moves a gold example's citations to the new IDs, and `gold check` then re-verifi
 | `sec_inputs.py` | 10-K list, documents (with the EX-13 and Item 7 fallbacks), XBRL dimensional facts, full-text search |
 | `xfacts.py` | extended companyfacts lines (cost lines, cash uses, balances, bank and insurer lines), first-reported against latest |
 | `dimensions.py` | revenue and segment-profit disaggregation from each 10-K's instance, subtotals, coverage |
-| `derived.py` | the driver tree as values: common-size, margin bridge, operating leverage, cash conversion, net cash, capital returns, bank metrics, window levels, red-flag candidates; version 2's values, data checks (debt and liquidity breaks, debt onsets, unmapped lines, the implied rate) and withheld IDs |
+| `derived.py` | the driver tree as values: common-size, margin bridge, operating leverage, cash conversion, net cash, capital returns, bank metrics, window levels, red-flag candidates; version 2's values, data checks (debt and liquidity breaks, debt onsets, debt and cash double counts, unmapped lines, the implied rate) and withheld IDs |
 | `passages.py` | MD&A and note passages that state causes or guidance, with EDGAR locations |
 | `evidence.py` | assembles a pack, including data checks and peer percentiles from the store |
 | `render.py` | the pack as the generator reads it |
-| `factcheck.py` | the gate (`backstops=True` adds the probes' gate checks) |
-| `probes.py` | backstop checks for the mislabels the gate misses (R1, R2a, R2c, R3, U1, unitless dollars, `gap_direction`), `broken_debt` (a figure built on a debt or cash break, unless its sentence discloses the break: `discloses`, the one rule the gate and the report read; the gate reads the arm's own pack's breaks, the report's measure `packs-v2/`'s for every arm), and logic measures |
+| `factcheck.py` | the gate (`backstops=True` adds the probes' gate checks); the sign of an "A minus B" growth gap is read only in the forms `compared_sides` reads with certainty, every other form by magnitude |
+| `probes.py` | backstop checks for the mislabels the gate misses (R1, R2a, R2c, R3, U1, unitless dollars, `gap_direction`, which reads the gate's certain forms), `broken_debt` (a figure built on a debt or cash break, unless its sentence discloses the break: `discloses`, the one rule the gate and the report read, in the data checks' words or the break said plainly of its line; in a debt or cash double count only the sum of the two lines is broken; the gate reads the arm's own pack's breaks, the report's measure `packs-v2/`'s for every arm), and logic measures |
 | `replay.py` | re-checks every recorded output under the gate as it was at `b3ed8ef` and as it is now, with and without backstops |
-| `autocite.py` | adds a figure's missing own ID by code before any repair, and retypes a figures-only `cause` sentence (`generate --pipeline v2`); `python -m evals.trend_depth.autocite` runs its substitution test |
+| `retype.py` | the code step before any repair (`generate --pipeline v2`): fix 5's retyping of a figures-only `cause` sentence, then the gate with its backstops (`first_pass`); `python -m evals.trend_depth.retype` replays DeepSeek's recorded first passes through it. Fix 1's auto-citation was removed (DEEPSEEK-ERRORS.md §2) |
 | `repair_replay.py` | DEEPSEEK-ERRORS.md §3 step 1: version 2's repair alone over DeepSeek's recorded failing first passes; `--dry-run` lists the cases and the most one run can bill |
 | `calibration.py` | judgement share outside the watch list, evaluative words in data sentences, watch-item forecasts, form |
-| `providers.py` | model arms (each pinned to its prompt and pack directory), usage, latency and list-price cost, the spend ledger and its ceiling |
+| `providers.py` | model arms (each pinned to its prompt and pack directory, and its client's retries within a call, `max_retries`), usage, latency and list-price cost, the spend ledger and its ceiling |
 | `records.py` | the rules every stage shares over run records: when an output is final, whether a record awaits only its repair, the hash an audit or verdict keeps, whether a first pass came from this prompt and pack, the cost a first analysis would bill, the latency quantile |
-| `generate.py` | proposed and current generations, the one-repair step, the gate; `--pipeline v2`: the code fixes, the patch repair and the nonce |
+| `generate.py` | proposed and current generations, the one-repair step, the gate; `--pipeline v2`: the retyping, the rewritten repair message, the patch repair and the nonce |
 | `judge.py`, `readable.py` | pairwise position-swapped judging in a neutral reader format |
 | `causes.py` | does each cited passage state the cause its sentence gives? |
-| `semantics.py` | is each verified number said about the metric and period it matched? (view 2: signed values, bounds, twins, the passage sentences that print a figure) |
+| `semantics.py` | is each verified number said about the metric and period it matched? (view 2: signed values, bounds, twins, the passage sentences that print a figure); `classify_flag` counts a flag as ambiguous only when two differently labelled quantities match (a cited derived value and the calculation it equals are one) |
 | `report.py` | the bake-off report and the §3 measures, for one label or several runs (`--labels`); `--out` writes it outside `runs/` |
 | `human_pack.py` | the blind preference pack and scoring sheet |
 | `gold.py`, `drivers.py`, `census.py` | gold examples, driver evidence, the census of the current pipeline |

@@ -728,7 +728,7 @@ def test_broken_net_cash_rows_read_packs_v2_s_breaks_for_every_arm(harness: Any)
 def test_a_figure_counts_under_its_own_break_kind_alone(harness: Any) -> None:
     """Review 7 tests-and-gates [5]: COP names a debt and a liquidity break; eval-v1 DeepSeek's sentence states only
     the debt break's FY2025 net cash, so it counts under the debt break and never under the liquidity break (§3's
-    "debt break 4 of 6; liquidity break 2 of 5" rests on this)."""
+    "debt break 4 of 7; liquidity break 2 of 5" rests on this)."""
     _company(harness, "COP")
     cop = ("Net cash was $7.1 billion, or 12.1% of revenue, in FY2025, in the 100th percentile of six energy peers "
            "[D337][D338][D850][D851].")

@@ -813,6 +813,10 @@ def double_counted(reg: Registry, periods: list[str], combined: dict[str, float]
 
 
 DOUBLE_COUNT_MARGIN = 0.25  # of the current line: how near the filer's noncurrent figure must be to the line less it
+# The opening words of a debt double count's data check (``debt_checks``), the one wording: ``probes.debt_breaks`` reads
+# a version-2 pack's double-count years by them, as no other debt break's check opens so, and in those years only the
+# sum of the two lines is broken, not one line under a total's name (the long-term line alone is the right total).
+DEBT_COUNTED_TWICE = "The current portion of debt is already inside long-term debt"
 
 
 def debt_double_counted(reg: Registry, periods: list[str], split: dict[str, tuple[float, float]]) -> list[str]:
@@ -1073,7 +1077,7 @@ def debt_checks(reg: Registry, periods: list[str], profile: str, broken: list[st
         for span in _spans(periods, list(debt_double)):
             # Worded as the cash double count is, whose words a disclosure echoes ("count them twice").
             where = f"in {span[0]}" if len(span) == 1 else f"in {span[0]}-{span[-1]}"
-            detail = (f"The current portion of debt is already inside long-term debt {where} (the filer's noncurrent "
+            detail = (f"{DEBT_COUNTED_TWICE} {where} (the filer's noncurrent "
                       "long-term debt is the long-term line less the current portion); total debt and net cash there "
                       "count it twice, " + _left_out(reg, periods, span, "debt growth across the break"))
             last = _long_term_debt(reg, span[-1])

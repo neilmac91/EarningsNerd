@@ -952,7 +952,7 @@ def test_readme_names_each_debt_double_count_the_packs_check() -> None:
     found = []
     for ticker in sorted(V1_RENDERS):
         for check in _load("packs-v2", ticker)["data_checks"]:
-            if check["kind"] == "debt_break" and check["detail"].startswith("The current portion of debt is already inside"):
+            if check["kind"] == "debt_break" and check["detail"].startswith(derived.DEBT_COUNTED_TWICE):
                 found.append(ticker)
                 assert f"{ticker} {_years(check['period'].split(','))}" in readme, ticker
     assert found == ["TGT"]

@@ -8,8 +8,9 @@ temporary module), so the comparison needs no frozen copy in the tree. Every fir
 of every system in ``runs/<label>/`` is checked against the pack that system reads (``packs-v2/`` for the ``-p``
 and ``-c`` arms), and so are the gold examples (``gold.py``); ``current`` keeps no sentences and is skipped. A
 version-2 record's first pass is the model's own first output (``report.first_output``), before the code's
-retyping and auto-citation. A version-2 run decides with the gate now and ``backstops=True``, a version-1 run made
-today with the gate now alone, and eval-v1 decided with the base gate. Printed:
+retyping (and, in a record made before fix 1 was removed, its auto-citation). A version-2 run decides with the gate
+now and ``backstops=True``, a version-1 run made today with the gate now alone, and eval-v1 decided with the base
+gate. Printed:
 
 1. Every sentence whose result flips between the base gate and the gate now, either way, with its failures.
 2. The same between the gate now and the gate now with ``backstops=True``.
@@ -61,7 +62,7 @@ def base_gate(commit: str) -> ModuleType:
 
 def _first_pass(record: dict[str, Any]) -> Optional[dict[str, Any]]:
     """The model's first output when it differs from the final one: a repaired version-1 record's first pass, or a
-    version-2 record's own first reply (its recorded first pass already carries the code's fixes); None otherwise."""
+    version-2 record's own first reply (its recorded first pass already carries the code's retyping); None otherwise."""
     if record.get("pipeline") == "v2":
         first = first_output(record)
         return first if first is not None and first != record["output"] else None
