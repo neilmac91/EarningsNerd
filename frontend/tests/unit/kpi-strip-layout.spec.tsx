@@ -206,6 +206,16 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     // flow) carries no dagger (D-061).
     expect(Math.max(...drawn(chf))).toBeCloseTo(kpiValueWidth('CHF\u00a059.9B'), 9)
     expect(strip().style.getPropertyValue('--kpi-cols')).toBe('3')
+    // A note that questions a value marks it with a letter, and the width counts it: "CHF 22.8B" and its letter outgrow
+    // the unmarked nine-glyph values.
+    const questioned = dataset('CHF', [59_893_000_000, 22_768_000_000, 14_831_000_000])
+    questioned.series[1].points[1].reconciled = false
+    rerender(<KpiStrip dataset={questioned} />)
+    const letters = [...container.querySelectorAll('[data-kpi-value] [data-note-letter]')]
+    expect(letters).toHaveLength(1)
+    covers(drawn(questioned))
+    expect(Math.max(...drawn(questioned))).toBeCloseTo(kpiValueWidth('CHF 22.8B', letters[0].getAttribute('data-note-letter')), 9)
+    expect(Math.max(...drawn(questioned))).toBeGreaterThan(kpiValueWidth('CHF 59.9B'))
     const usd = dataset('USD', [281_700_000_000, 101_800_000_000])
     rerender(<KpiStrip dataset={usd} />)
     expect(drawn(usd)).toHaveLength(2)
