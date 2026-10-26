@@ -1,43 +1,21 @@
 /* =============================================================================
-   trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
+   trend-charts-v2.spec.tsx — the spec renderer (E192; the trend charts since E195) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
    fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
    trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
-   dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
+   dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 
-const flags = vi.hoisted(() => ({ v2: true }))
-vi.mock('@/lib/featureFlags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/featureFlags')>()
-  return { ...actual, get CHARTS_V2() { return flags.v2 } }
-})
-// The Recharts grid is the flag-off branch only; jsdom cannot measure it (same stub as trend-charts-legend.spec.tsx).
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-recharts>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Rectangle: () => null,
-  usePlotArea: () => null,
-  useXAxisScale: () => null,
-  useYAxisScale: () => null,
-}))
 vi.mock('@/features/analysis/lib/chartExport', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/analysis/lib/chartExport')>()
   return { ...actual, exportPanelPng: vi.fn().mockResolvedValue(true) }
@@ -76,7 +54,6 @@ const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset
 const DEFAULT_WIDTH = 502
 
 afterEach(() => {
-  flags.v2 = true
   vi.mocked(exportPanelPng).mockClear().mockResolvedValue(true)
   vi.mocked(analytics.exportGenerated).mockClear()
   vi.mocked(toast.error).mockClear()
@@ -655,24 +632,25 @@ describe('the PNG export', () => {
     expect(analytics.exportGenerated).not.toHaveBeenCalled()
     expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
   })
+
+  it('says so too when the export throws (a canvas the browser will not read back), and the control comes back', async () => {
+    vi.mocked(exportPanelPng).mockRejectedValueOnce(new DOMException('tainted', 'SecurityError'))
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} exportEnabled />)
+    const button = within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })
+    await act(async () => fireEvent.click(button))
+    expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
+    expect(analytics.exportGenerated).not.toHaveBeenCalled()
+    expect(button, 'no longer busy').not.toHaveAttribute('aria-busy')
+    await act(async () => fireEvent.click(button))
+    expect(exportPanelPng, 'a second press exports again').toHaveBeenCalledTimes(2)
+  })
 })
 
-describe('the CHARTS_V2 switch in TrendCharts', () => {
-  it('production builds with the flag unset: no committed build config sets it (F66)', () => {
-    // vercel.json's env and build.env reach every deployment; next.config's env and a committed .env file are inlined
-    // into every build. A preview sets the flag in Vercel's Preview environment instead. The examples document it.
-    const tracked = execFileSync('git', ['ls-files', 'vercel.json', 'next.config.*', '.env*'], { encoding: 'utf8' }).split('\n').filter(Boolean)
-    expect(tracked).toContain('vercel.json')
-    expect(tracked.some((file) => file.startsWith('next.config.'))).toBe(true)
-    const setting = tracked.filter((file) => !file.endsWith('.example') && readFileSync(file, 'utf8').includes('NEXT_PUBLIC_CHARTS_V2'))
-    expect(setting).toEqual([])
-  })
-
-  it('on, the spec renderer draws every chart', async () => {
+describe('TrendCharts draws the spec renderer', () => {
+  it('draws every chart once its chunk loads', async () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)
-    expect(container.querySelector('[data-recharts]')).toBeNull()
   })
 
   it('the grid holds four cards of bones while the renderer’s chunk loads (§3.9 loading; E200)', () => {
@@ -695,13 +673,6 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
     }
     // TrendChartBones keeps layout.ts out of the route's chunk, so its card plan names the height itself.
     expect(CARD_BONES.height).toBe(CARD_HEIGHT)
-  })
-
-  it('off, today’s Recharts grid draws and the spec renderer is not loaded', () => {
-    flags.v2 = false
-    const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
-    expect(container.querySelector('[data-recharts]')).not.toBeNull()
-    expect(container.querySelector('g[data-panel]')).toBeNull()
   })
 })
 

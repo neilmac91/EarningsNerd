@@ -584,8 +584,12 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
     expect(bare.subtitle).toBe('FY2016–FY2025 · fiscal years end Dec')
   })
 
-  it('amounts in two currencies never share a scale', () => {
-    const mixed = model('REGN_annual', 'cash', (ds) => { ds.series.find((s) => s.concept === 'net_income')!.points[3].unit = 'EUR' })
+  it.each([
+    ['topline', 'revenue'],
+    ['cash', 'net_income'],
+    ['balance', 'cash_and_equivalents'],
+  ] as const)('amounts in two currencies never share a scale: %s', (chart, concept) => {
+    const mixed = model('REGN_annual', chart, (ds) => { ds.series.find((s) => s.concept === concept)!.points[3].unit = 'EUR' })
     expect(mixed.panels).toEqual([])
     expect(mixed.unavailable).toMatch(/more than one currency/)
   })

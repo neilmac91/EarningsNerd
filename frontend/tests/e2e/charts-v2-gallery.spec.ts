@@ -12,7 +12,7 @@ import { datasetFixture, geometryDataset, openAnalysis, openDataset, type Analys
 import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixtures/chartChecks'
 
 /**
- * The trend charts' gallery (step 6 of the migration plan, E194): the spec renderer (NEXT_PUBLIC_CHARTS_V2) on twelve
+ * The trend charts' gallery (step 6 of the migration plan, E194): the production renderer on twelve
  * datasets chosen for their cases, in both themes, at 1280 and 390 px, card and expanded. Each chart is held to the plan
  * the engine makes at the width the page measured, its SVG's size and every text by role, and to the spec's DOM checks
  * (docs/design/analysis-trend-charts-spec-2026-10.md §6; fixtures/chartChecks.ts): D1, D2, D3, D5, D6 on the computed
@@ -20,9 +20,8 @@ import { expectInks, expectSound, hexOf, measurePlots, type Paint } from './fixt
  * it is drawn, a grid row's cards and plots line up, the page never scrolls sideways); and M19 (the legend wraps by whole
  * items). The unit fixtures (tests/unit/fixtures/chart-datasets.json) keep their values; the page receives each under its
  * own ticker (analysisLayoutApi's datasetFixture). D4, D7, D11, D12 and D13 run elsewhere: the first four on every fixture
- * in jsdom (trend-charts-v2.spec.tsx), D13 in charts-v2.spec.ts.
+ * in jsdom (trend-charts-v2.spec.tsx), D13 in charts-v2.spec.ts. CI's standard e2e-tests job runs the whole gallery.
  */
-const enabled = process.env.NEXT_PUBLIC_CHARTS_V2 === 'true'
 const THEMES: AnalysisTheme[] = ['light', 'dark']
 const FIXTURE = JSON.parse(readFileSync(path.join(__dirname, '../unit/fixtures/chart-datasets.json'), 'utf8')) as {
   datasets: Record<string, { dataset: AnalysisDataset }>
@@ -112,8 +111,6 @@ test.use({ launchOptions: { args: ['--font-render-hinting=full'] } })
 
 for (const [name, source, why] of GALLERY) for (const theme of THEMES) for (const width of [1280, 390]) {
   test.describe(`trend charts v2 gallery / ${name} / ${theme} / ${width}px`, () => {
-    // Skipped as a group, before any page opens: the main e2e job lists the gallery with the flag unset.
-    test.skip(!enabled, 'Build and serve with NEXT_PUBLIC_CHARTS_V2=true, and set it for this test process.')
     test.use({ viewport: { width, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
 
     test(`every chart draws its plan and passes the DOM checks, card and expanded (${why})`, async ({ page, baseURL }) => {

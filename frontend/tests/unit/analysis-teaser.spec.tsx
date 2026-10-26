@@ -1,19 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-// recharts measures the DOM, which jsdom can't do — stub it (same as fundamentals-trend-chart).
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
 // react-markdown is ESM-heavy; the teaser only needs the text to land in the DOM.
 vi.mock('react-markdown', () => ({
   default: ({ children }: { children: string }) => <div>{children}</div>,

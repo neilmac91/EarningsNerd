@@ -17,7 +17,7 @@ const AXIS_LABEL = 'font-data tnum text-data-xs leading-none text-chart-label-li
 
 /**
  * The Multi-Period screen's revenue bar chart, drawn as plain DOM (design "Revenue · USD,
- * billions"). Deliberately NOT TrendCharts: that component pulls recharts into the route, and the
+ * billions"). Deliberately NOT TrendCharts: that component pulls the chart renderer into the route, and the
  * landing page carries a JS budget the marketing screens must not spend. Server-safe: no hooks,
  * no theme context; chart chrome uses the chart.axis / chart.label tokens, the single series uses
  * chart-1 (the first colour of the sequence, DESIGN_SYSTEM §10).
