@@ -460,7 +460,8 @@ Latency is about 3.2 ms per output token.
 
 ### As built
 
-Where the built fixes differ from the plan above, after reviews 5 to 9. The code is the harness (`backend/evals/trend_depth/`, README there). The packs are `packs-v2/` (its README) and the candidate prompt is `backend/prompts/trends-depth-analyst-agent.md`. Each figure below is reproduced by the command named beside it, run with the code at this commit; none calls a model. Fix 1's figures of what auto-citation did are those of its last build (e505700), before it was removed.
+Where the built fixes differ from the plan above, after reviews 5 to 9, and what round 2 changed after dev-v5 (last
+entry). The code is the harness (`backend/evals/trend_depth/`, README there). The packs are `packs-v2/` (its README) and the candidate prompt is `backend/prompts/trends-depth-analyst-agent.md`. Each figure below is reproduced by the command named beside it, run with the code at this commit; none calls a model. Fix 1's figures of what auto-citation did are those of its last build (e505700), before it was removed.
 
 **Fix 1: built, tested and removed** (wave 5, after review 8). The code step before a repair is fix 5's retyping
 alone (`retype.py`; `retype.first_pass` is the retyping, then the gate with its backstops). A figure stated without its
@@ -651,6 +652,99 @@ therefore leaves out the in-call retries the arms' runs keep.
   Before, a sentence that also cited what a figure is computed from shielded every flag on the figure, while the same sentence citing less counted: K0's recorded gap sentence with both growths (eval-v1 DeepSeek CVX "...outran cost reduction by 1.2pp [D373][D358][D379]") and its false mirror, a CAGR cited with its two levels, a margin with its numerator and denominator, and C's year value beside the window low packs-v2 appends; wave 5 had merged only a cited value into a calculation over exactly its recorded inputs. Different metrics that print one number stay two labels: USB's two 2.8% CAGRs, VRTX's buybacks and its buybacks plus dividends (it pays none), MSFT's bridge residual, PG's and TGT's gap against cost-of-revenue growth. Of the 146 recorded mismatch flags one changes class: plant-sem's planted relabel at REGN, "Operating cash flow compounded at 12.8% a year" [F1][F10][F198], flagged by V4 Pro, from ambiguous to substantive; no eval-v1 flag moves. Over every recorded output 315 of 9,755 verified claims would class differently if flagged, all from ambiguous to substantive (eval-v1 DeepSeek's ambiguous claims 163 to 114 of 1,459, Sonnet's 157 to 118 of 1,458).
 - **No record carries a view yet.** Step 0's re-audit is the first under view 2.
 
+**Round 2: from dev-v5's first-try failures** (after §3 step 2's first development round; from 17c5d4b). Every
+first-try failure of dev-v5 (`dev-v5-r1` and `dev-v5-r2`, all four arms: the gate with its backstops on the model's own
+first output) was read by hand, 116 in all: 10 false positives of the gate, 63 induced by a prompt line, 43 true
+errors. C holds 23 of them, in 13 failing analyses (5 in run 1, 8 in run 2): 3 false positives, 16 prompt-induced, 4
+true errors. Two of the 116 (P's COST, Q's NVDA) are retyped by `retype.first_pass` and never sent a repair. The round
+adds six prompt lines to the candidate and seven gate, probe and retype rules; the true errors keep their repair. The
+frozen prompt is not edited, so K0 and P are unchanged.
+- **The candidate's new lines** (sha256 `05f799a8…` → `fc5b808c…`, about 140 words longer; every section count is
+  unchanged, and `copied()` finds no new example figure in any committed pack):
+  - **P1, net debt in one form** (38 rows, 13 of C's 23: CAT, NEE ×3 and PG ×2 in run 1; CAT, COP, NEE ×2, PG ×2 and
+    SNAP in run 2). Every R2a hit was the old line's two examples merged into "net debt of $X, or -Y% of revenue". The
+    line now gives one form: the amount as net debt with no sign, and every share of revenue, window level or peer
+    median as net cash with its sign ("net debt of $12.6 billion, net cash of -27.4% of revenue against a -19.2% peer
+    median"); a minus sign never follows "net debt", and a watch item's metric is "net cash as a share of revenue".
+    `tests/unit/test_trend_depth_prompt_examples.py` reads the form from the prompt and runs it on every committed pack
+    whose latest net cash is shown (18 of `packs/` and 17 of `packs-v2/`: JPM and USB have none, version 2 withholds
+    TGT's): the form and the watch item pass the gate with and without the backstops, the merged form fails on R2a on
+    all 8 and 10 packs in net debt, and the example's three figures are no pack's net cash.
+  - **P2, no operating-cost comparison without the gap** (rows 33, 50, 88 and 105, all COP; C's 50 and 105): "Where
+    the pack has no 'revenue growth minus operating-cost growth' value, write no operating-cost comparison." Without
+    the value C filled the drivers slot with cost-of-revenue growth called operating costs (and, in run 2, cut 6.689 to
+    6.6pp). Only COP, JPM and USB lack the value, in both versions; the drivers form of the other 17 is unchanged (its
+    test pins the three).
+  - **P3, a contribution with no passage is a comparison** (rows 12, 23, 44, 67, 84, 100 and 114, all REGN's
+    REGEN-COV; C's 114): "A margin bridge, or a product's or segment's contribution to growth, with no passage is a
+    comparison." Q's row 44 keeps an explanatory "as" clause, so only this line reaches it; G6 is the code backstop for
+    the other six.
+  - **P4, rounded, never cut** (JPM's truncated revenue in K0, P and Q: rows 3, 16, 37 and 91; none of C's):
+    "rounded, never cut ('$46,782 million' is '$46.8 billion')".
+  - **Depth: give the stated cause.** In a section that asks for causes, where a passage that states the cause of a
+    move for that line and year explains a move the analysis describes, the line asks for that cause, cited in that
+    sentence. The judge gave K0 depth over C in 11 of 20 pairs (4 in run 1, 7 in run 2; §3 allows 5), and most of
+    those rationales credit K0's causes or drivers (NVDA's H20 charge, NEE's NEER, REGN's mix inversion, COST's
+    product mix); C wrote 5.8 cause sentences per analysis in both runs, under the guard of 6 (K0 6.2–7.3, Q
+    5.5–5.9).
+    The line is tied to "such a passage", and the sentence after it still says to describe a move no passage explains
+    and not to guess why, so it invites no cause a passage does not state.
+  - **Above or below a reference, by its numbers.** "Before you write that a value is above or below a reference
+    level (a window median, high or low, or a peer median), compare the two numbers with their signs, and write the
+    smaller as below the larger, however close they are ('1.48x, below the 1.52x window median')." Opus found C's COST
+    in both runs ("1.71x net income in FY2026, above the 1.75x window median's level") and its PG in run 1 ("1.22x net
+    income, above the 1.25x window median only marginally below it"); the judge also caught K0's REGN in run 2 ("0.91x
+    'below' a 0.88x median"). No gate check reads the side: R1 checks only whose reference it is.
+- **The gate, probe and retype rules** (`tests/unit/test_trend_depth_dev_v5_rules.py`: each rule's recorded sentence,
+  its false mirrors and a true sentence for each word it reads, on the committed packs; a hand mutation of each rule,
+  and of each of its guards, fails at least one of them):
+
+  | Rule | Where | Rows | Recorded sentence, now passing | Mirror that fails (passed before where marked) |
+  |---|---|---|---|---|
+  | G1: a figure's own movement noun after it, after "a" or "an", overrides a direction word before it, which belongs to another noun. Read only where such a word stands before: unrestricted, it failed eval-v1 Haiku CVX's true "…from 58.8%, a 1.6pp gain" | `factcheck._direction` | 49 (C) | "Rising debt alongside a 14.7% operating-income decline is the balance-sheet pressure to watch [R1][D464]" | "Falling debt alongside a 14.7% operating-income rise" (passed before); "…a 14.7% operating-income rise" |
+  | G2: a position against the year before right after a change ("above", "over", "higher than", "ahead of"; "below", "under", "lower than", "short of"; then "the prior / previous / preceding year", "a year earlier / before / ago" or "the year before") gives its direction | `factcheck._direction` | 51 (C) | "…net margin of 15.4% sat 3.3pp below the prior year [D332][D298][F30][D351]" (a U1 hit before) | "sat 3.3pp higher than the prior year" (passed before); "sat 3.3pp above the prior year" (failed only U1 before; the gate now fails it alone) |
+  | G3: "collapse", "plummet" and "tumble" say a fall, so U1 spares the figure | `probes._FALL_WORDS` | 72 | P's CAT "a 22.4% collapse in FY2020 to $41.7 billion" | "a 22.4% rebound in FY2020" (fails U1) |
+  | G4(a): a from-level right after a bare "from", with no year written after it and bound to one year, may be that year's level or the year before's; not after a source verb ("came from") or where "<year> <metric> fell from" already dated it (both narrower than the prototype), and a year after a citation still counts as written after the figure (the prototype read only 14 characters, so "from 23.7% [D154] in FY2024" passed) | `factcheck.bind_periods` | 36, 109 (C) | C's NEE "…as D&A rose to 25.5% of revenue from 23.2%" in FY2025; Q's COST "…in FY2026 from $9,496 million a year earlier" | a level two years back ("from $5,247 million a year earlier", FY2024's); "from 23.7% [D154] in FY2024"; "The FY2026 gain came from 0.3pp of R&D", FY2025's; "FY2025 D&A rose from 23.7%", FY2023's; SNAP's false "improved every year since" sentences (13, 85) still fail |
+  | G4(b): a year followed by "and", "but", "while" or "whereas" binds no figure after it | `factcheck.bind_periods` | 24 | P's REGN "R&D reached 40.8% of revenue, the highest since FY2016 and far above the 20.1% peer median" | "R&D reached 40.8% of revenue in FY2016 and …" (the year still binds back) |
+  | G6: spike, surge, reversal, collapse, collapsed, collapsing, zero, disappearance, whose, the possessive "s" and sale are figure talk | `retype._FIGURE_TALK` | 114 (C), 12, 23, 67, 84, 100 | C's REGN "The FY2021 surge came from REGEN-COV, which contributed 66.4pp of the 89.1% growth…", retyped to a comparison | rows 44 and 108 (an explanatory "as") and 46 and 68 ("lifting": Q's DSO sentence is wrong) stay causes; "lift" stays out |
+  | G7: a cost line's operating-margin effect said through the line's own move (the line as the subject of a rise or fall verb, or after "lower", "higher", "reduced", "increased", "falling" or "rising") reads the inverse of the direction word | `factcheck.line_moved` | 25 | P's SNAP "Cost of revenue fell 1.1pp to 45.0% of revenue…" | "Cost of revenue rose 1.1pp to 45.0%" and "Higher cost of revenue added 1.1pp" (both passed before); "Operating margin fell 1.1pp on cost of revenue" |
+
+  **Not built:** G5 (a net-cash label between a level and its reference governs the reference; row 80, P's NEE),
+  low priority, as P1 removes the form; the sentence still fails R2a. Nor, as the reading advised against them, the
+  "from X to Y in FYn" chain (13, 85, both false), "on" and "over" as base words (69), ratios built from a passage's
+  figures (14), skipping an "as" clause in the retyping (17, frozen prompt only), or any citing by a neighbouring
+  sentence or by code.
+- **On the records** (`python -m evals.trend_depth.replay --base 17c5d4b`, with its default labels and with every
+  label; and the round's own replay of the gate with and without the backstops, every probe and `broken_debt`, and the
+  retyping, before and after, over every recorded output: the nine labels under `runs/`, finals and first passes, and
+  the gold examples, 503 outputs and 6,300 distinct sentences):
+  - 14 sentences go from failing to passing, all true: 7 of dev-v5 (C's CAT, COP and NEE; P's CAT, REGN and SNAP; Q's
+    COST) and 7 older (dev-v3 Haiku-low COST and REGN, Sonnet PG and REGN; eval-v1 Haiku-low JPM, ORCL and USB). The
+    working table had 15: the 15th is P's NEE, G5's.
+  - 2 false sentences change only their failure text: SNAP's "improved every year since FY2017, from -422.5%" (K0,
+    run 1) and "since FY2022, from -30.3%" (P, run 2) are now read against FY2024 and FY2025 and still fail.
+  - Nothing passing starts failing. Two U1 hits go, both on the true sentences above (C's COP, P's CAT); no other probe,
+    `broken_debt` or disclosure verdict moves. The retyping changes 6 first-pass sentences from cause to comparison,
+    all REGEN-COV contributions (K0 and P in run 1; K0, P, Q and C in run 2), and no other. Every planted sentence of
+    `plant-sem` keeps its verdict, and the gold examples pass.
+  - C's first passes through the code step: run 1 stays at 5 of 10, run 2 goes from 2 to 3 (REGN). P's REGN (both
+    runs) and K0's REGN (run 1) also pass now, and so do the first passes of dev-v3 Haiku-low REGN and eval-v1
+    Haiku-low JPM, ORCL and USB; C's CAT in run 1, whose repair had kept the false positive, now passes as its final
+    output too.
+- **What it can do for C.** On C's recorded first outputs, with the new lines obeyed and the rules in, 9 of 10 would
+  pass in run 1 and 7 of 10 in run 2 (16 of 20, 80%). The 4 left are true errors that the repair fixes: SNAP's "That
+  -10.1%" without D400 (run 1); COP's D342 and COST's D238 uncited, and JPM's "higher rates lifted interest income"
+  with no passage (run 2). A new run regenerates every sentence, so about 13 to 16 of 20 is the realistic range, below
+  §3's 85%: passing those four without a repair would mean citing by a neighbouring sentence or by code, which fix 1's
+  removal ruled out.
+- **Limits left** (each checked on the committed packs, unchanged by the round unless said):
+  - A from-level that no year binds: "In FY2025 D&A rose to 25.5% of revenue from 23.7%" passes (23.7% is FY2023's),
+    as the opening year binds forward to the first figure only and the default applies only when nothing else binds.
+  - A year written after a from-level dates it, so "rose to 25.5% from 23.2% in FY2025", where FY2025 is the move's
+    year, still fails.
+  - G4(b) unties a figure after "<year> and" from that year: where the sentence opens with no year, such a figure is
+    checked by value alone.
+
 ### Tested separately, not in the candidate
 - **Sentence key order: "text" before "type"** in the output schema. Both models currently write the type first, so the expected effect is unclear.
 - **Temperature 0.** This might reduce run-to-run spread, but there is no evidence either way.
@@ -790,6 +884,15 @@ any recorded output (377 outputs, 11,284 sentences). Of the 146 recorded mismatc
 (§2, "As built", fix 14) is plant-sem's, under the V4 Pro auditor, which no row reads. `repair_replay --dry-run` lists
 the same 21 cases, 11 of them eval-v1's, and `python -m evals.trend_depth.retype` prints the same counts (eval-v1:
 20 first passes, 12 failing, 11 after retyping, 6 and 5 by the gate alone; dev-v4: 5, 4, 4, 4, 4).
+
+Round 2 (§2, "As built") changes no baseline. `report --label eval-v1 --systems deepseek-flash,claude-sonnet-5-5`
+prints a `summary.json` and a `REPORT.md` identical, byte for byte, to 17c5d4b's: none of the 14 sentences the round
+turns to passing is DeepSeek's or Sonnet's in eval-v1 or dev-v4 (eval-v1's are Haiku-low's), and `repair_replay
+--dry-run` and `python -m evals.trend_depth.retype` print the same as at 17c5d4b. Development rows move, as the round
+reads dev-v5's first outputs: in `report --labels dev-v5-r1,dev-v5-r2`, first-try gate failures per analysis fall for
+C from 0.30 and 0.60 to 0.20 and 0.50 (CAT, NEE), for P from 0.90 to 0.70 in run 1 (REGN, SNAP) and for Q from 0.80
+to 0.70 in run 1 (COST), and first-try backstop hits for C from 0.70 to 0.60 in run 1 (COP) and for P from 0.60 to
+0.50 in run 2 (CAT). The pass row is the record as run, so it does not move.
 
 ### When to stop
 

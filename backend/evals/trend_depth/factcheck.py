@@ -387,10 +387,47 @@ def matches(claim: Claim, cand: Candidate) -> bool:
     return abs(value - target) <= tol
 
 
+# A figure's own movement noun after it, at most two words on ("a 14.7% operating-income decline", "a 14.7% fall in
+# operating income"), after "a" or "an" before it (dev-v5: C's CAT "Rising debt alongside a 14.7% operating-income
+# decline", where the rise is debt's).
+_NOUN_STOP = r"(?:to|in|of|from|on|for|by|at|after|before|against|despite|with|than|and|or|while|as|alongside|amid)"
+_NOUN_UP = r"rises?|gains?|increases?|jumps?|rebounds?|recover(?:y|ies)|expansions?|surges?|climbs?"
+_NOUN_DOWN = r"declines?|drops?|falls?|decreases?|slumps?|collapses?|contractions?|plunges?|reductions?|dips?|slides?"
+_OWN_NOUN = re.compile(rf"^\s*(?:(?!{_NOUN_STOP}\b)[a-z&-]+\s+){{0,2}}(?:({_NOUN_UP})|({_NOUN_DOWN}))\b", re.I)
+_ARTICLE_BEFORE = re.compile(r"\b(?:a|an)\s+(?:further\s+|combined\s+|cumulative\s+)?$", re.I)
+# A change placed against the year before right after it ("net margin of 15.4% sat 3.3pp below the prior year": dev-v5,
+# C's COP).
+_PRIOR_YEAR = r"(?:the\s+)?(?:prior|previous|preceding)\s+year|a\s+year\s+(?:earlier|before|ago)|the\s+year\s+before"
+_AGAINST_PRIOR = re.compile(
+    rf"^\s*(?:(above|over|higher\s+than|ahead\s+of)|(below|under|lower\s+than|short\s+of))\s+(?:{_PRIOR_YEAR})\b", re.I)
+
+
 def _direction(text: str, claim: Claim) -> tuple[Optional[int], bool]:
     """(+1 / -1 if a direction word governs the claim, else None; whether every such word is evaluative, so a
     lower-is-better metric reads it inverted): the six words before the number, within its clause (a
-    direction word further back usually belongs to another figure)."""
+    direction word further back usually belongs to another figure). Two readings after the number come first:
+
+    - a position against the year before, right after it ("3.3pp below the prior year", "1.2pp higher than a year
+      earlier"), gives the direction whatever the words before say;
+    - where a direction word stands before it, the figure's own movement noun after it, after "a" or "an" ("Rising
+      debt alongside a 14.7% operating-income decline", "a 14.7% fall in operating income"), overrides that word,
+      which belongs to another noun. With no word before, the noun is not read: "a 1.6pp gain" may be a gain in
+      a lower-is-better ratio (eval-v1 Haiku CVX's cost-of-revenue share), so its sign is left to the magnitude."""
+    end = claim.start + len(claim.text)
+    after = CITATION_RE.sub(" ", text[end:end + 80])
+    against = _AGAINST_PRIOR.match(after)
+    if against:
+        return (1 if against.group(1) else -1), False
+    found, evaluative = _words_before(text, claim)
+    if found is not None and _ARTICLE_BEFORE.search(text[max(0, claim.start - 20):claim.start]):
+        noun = _OWN_NOUN.match(after)
+        if noun:
+            return (1 if noun.group(1) else -1), False
+    return found, evaluative
+
+
+def _words_before(text: str, claim: Claim) -> tuple[Optional[int], bool]:
+    """``_direction``'s reading of the words before the number."""
     window = text[max(0, claim.start - 70):claim.start]
     window = re.split(r"[;:,.]\s|\bwhile\b|\bwhereas\b|\bbut\b|\band\b", window)[-1]
     window = re.split(r"\d", window)[-1]  # a word before an earlier figure belongs to that figure
@@ -415,6 +452,36 @@ def _said_otherwise(cand: Candidate, said: dict[tuple[str, tuple[str, ...]], Opt
     (``said``; None outside the certain forms, read by magnitude), else the direction word's."""
     sign = said.get((cand.how, cand.ids), direction)
     return sign is not None and _contradicts(cand, sign, evaluative and (cand.how, cand.ids) not in said, values)
+
+
+# A cost line's effect on operating margin: positive when the line's share of revenue fell. Said through the line's own
+# move ("Cost of revenue fell 1.1pp to 45.0% of revenue", "lower SG&A adding 2.0pp"), its sign is the inverse of the
+# direction word's (dev-v5: P's SNAP; dev-v3 Sonnet REGN; eval-v1 Haiku-low ORCL).
+_EFFECT_LABEL = re.compile(r"^Operating-margin effect of (?P<line>.+?) \(pp\)$")
+_LINE_MOVED = (r"(?:rose|risen|rising|rises|grew|increased|climbed|jumped|fell|fallen|falling|falls|declined|decreased|"
+               r"dropped|slipped|shrank|eased)")
+_LINE_SAID = r"(?:lower|higher|reduced|increased|falling|rising)"
+
+
+def line_moved(text: str, claim: Claim, cand: Candidate, values: dict[str, Any]) -> bool:
+    """Whether the direction word before a cited operating-margin effect is said of its cost line, not of the margin:
+    the line is the word's subject ("Cost of revenue fell 1.1pp", "R&D has risen 0.4pp") or the word qualifies it
+    ("lower SG&A adding 2.0pp", "higher R&D took 4.7pp"), in the figure's clause. "Operating margin fell 1.1pp on cost
+    of revenue" says the margin's move, so the effect's own sign reads it."""
+    if cand.how != "cited" or cand.ids[0] not in values:
+        return False
+    found = _EFFECT_LABEL.match(values[cand.ids[0]]["label"])
+    if not found:
+        return False
+    line = re.escape(found.group("line")).replace(r"\ ", r"[\s-]+")
+    window = re.split(r"[;:,.]\s|\bwhile\b|\bwhereas\b|\bbut\b|\band\b", text[max(0, claim.start - 70):claim.start])[-1]
+    return bool(re.search(rf"\b{line}\s+(?:has\s+|have\s+)?{_LINE_MOVED}\b", window, re.I)
+                or re.search(rf"\b{_LINE_SAID}\s+{line}\b", window, re.I))
+
+
+def _read(text: str, claim: Claim, cand: Candidate, direction: Optional[int], values: dict[str, Any]) -> Optional[int]:
+    """The direction the words before ``claim`` give ``cand``: the inverse where they say its cost line's move."""
+    return -direction if direction is not None and line_moved(text, claim, cand, values) else direction
 
 
 def lower_is_better(cand: Candidate, values: dict[str, Any]) -> bool:
@@ -477,6 +544,17 @@ _PARTITIVE = (["of", "the"], ["in", "the"])
 # "5.7pp better than FY2024": a year right after one of these words is a comparison's base, not the period of the
 # figure before it (``bind_periods``, its one reader).
 BASE_WORDS = ("than", "from", "since", "versus", "vs", "vs.")
+# A year followed by one of these words opens another clause, so it binds no figure after it (dev-v5: P's REGN "the
+# highest since FY2016 and far above the 20.1% peer median"; dev-v3 Haiku-low REGN "after none in FY2024 and diluted
+# shares down 5.6%").
+_JOINED = (["and"], ["but"], ["while"], ["whereas"])
+# A figure right after a bare "from" is a level the metric moved from (dev-v5: C's NEE "D&A rose to 25.5% of revenue
+# from 23.2%" in FY2025); after these words "from" names a source ("the FY2026 gain came from 1.2pp of pricing").
+_FROM_BEFORE = re.compile(r"(?:\b([a-z]+)\s+)?\bfrom\s*$", re.I)
+_SOURCE_VERBS = frozenset("came come comes coming derived derives stemmed stems resulted results arose arises benefited "
+                          "benefitted benefits benefiting".split())
+# A year written right after a from-level dates it ("from 23.2% in FY2024").
+_YEAR_AFTER = re.compile(r"\s*(?:(?:in|for|at)\s+)?(?:fiscal\s+(?:year\s+)?|FY\s?)?(?:19|20)\d{2}\b", re.I)
 
 
 def _forward_years(years: set[str], gap_after: str) -> set[str]:
@@ -508,10 +586,15 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
     ("$14.3 billion was the FY2025 high"). After "of the" or "in the" the year names the whole a figure is part
     of and binds the figures on both sides ("1.7pp of the FY2023 gain of 6.0pp"). A figure after "<year>
     <metric> fell from" is the year before's level; after "<year> <movement noun> from" ("the FY2025 slide from
-    9.2%") it is the year's or the year before's (``_forward_years``).
+    9.2%") it is the year's or the year before's (``_forward_years``). A year followed by "and", "but", "while" or
+    "whereas" binds nothing forward ("the highest since FY2016 and far above the 20.1% peer median"). A from-level
+    right after a bare "from", with no year written after it and bound to one year, may be that year's or the
+    year before's ("D&A rose to 25.5% of revenue from 23.2%" in FY2025, "in FY2026 from $9,496 million a year
+    earlier"), unless "from" names a source ("came from") or the year's "fell from" already dated it.
     """
     bound: dict[int, set[str]] = {}
     default: set[str] = set()
+    moved_from: set[int] = set()  # dated by "<year> <metric> fell from": the year before, nothing else
     spans = [(c.start, c.start + len(c.text)) for c in claims]
     for a, b, years in year_mentions(text):
         if latest_year is not None:
@@ -529,6 +612,7 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
         close_after = gap_after is not None and len(gap_after) <= 24 and "," not in gap_after and ";" not in gap_after
         partitive = gap_before is not None and gap_before.lower().split()[-2:] in _PARTITIVE
         names_next = close_after and not partitive and gap_before is not None and gap_before.lower().split()[-1:] == ["the"]
+        joined = (gap_after or "").lower().split()[:1] in _JOINED  # "since FY2016 and far above the 20.1% ...": not its year
         if close_before and not base_year and not names_next:
             chain = [before[-1]]
             for i in reversed(before[:-1]):
@@ -539,15 +623,24 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
                     break
             for i in chain:
                 bound.setdefault(i, set()).update(years)
-            if partitive and close_after:
+            if partitive and close_after and not joined:
                 bound.setdefault(after[0], set()).update(_forward_years(years, gap_after or ""))
         elif close_after:
-            bound.setdefault(after[0], set()).update(_forward_years(years, gap_after or ""))
+            if not joined:
+                bound.setdefault(after[0], set()).update(_forward_years(years, gap_after or ""))
+                if _VERB_FROM.fullmatch(gap_after or ""):
+                    moved_from.add(after[0])
         elif not before and a <= 12:
             default = years
     if default:
         for i in range(len(claims)):
             bound.setdefault(i, set(default))
+    for i, (start, end) in enumerate(spans):
+        years = bound.get(i, set())
+        source = _FROM_BEFORE.search(text[max(0, start - 40):start])
+        if (len(years) == 1 and i not in moved_from and source and (source.group(1) or "").lower() not in _SOURCE_VERBS
+                and not _YEAR_AFTER.match(text[end:])):
+            bound[i] = years | {str(int(next(iter(years))) - 1)}  # a from-level: the year's or the year before's
     return bound
 
 
@@ -902,9 +995,10 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             # (the same quantity, "pp D373-D358") cannot settle a sign the clause gives the other way (review 9: the
             # candidate prompt's comparison with both growths added).
             certain = [c for c in ranked if said.get((c.how, c.ids)) is not None]
-            best = next((c for c in certain or ranked if not _said_otherwise(c, said, direction, evaluative, values)),
+            best = next((c for c in certain or ranked
+                         if not _said_otherwise(c, said, _read(text, claim, c, direction, values), evaluative, values)),
                         (certain or ranked)[0])
-            if _said_otherwise(best, said, direction, evaluative, values) and claim.value >= 0:
+            if _said_otherwise(best, said, _read(text, claim, best, direction, values), evaluative, values) and claim.value >= 0:
                 record["status"] = "direction_mismatch"
                 record["matched"] = best.how
                 result.failures.append(f"'{claim.text}' matches {best.how} = {best.value:.4g} but the sentence says it went the other way")

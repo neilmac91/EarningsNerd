@@ -87,6 +87,10 @@ for label in dev-v5-r1 dev-v5-r2; do
   python -m evals.trend_depth.report --label $label --systems $ARMS
 done
 python -m evals.trend_depth.report --labels dev-v5-r1,dev-v5-r2 --systems $ARMS   # each measure per run, and the range
+# 2b. DEEPSEEK-ERRORS.md §3's one further development round, on the candidate as round 2 left it (§2, "As built":
+#     dev-v5 ran sha256 05f799a8..., round 2's candidate is fc5b808c..., and the gate gained round 2's rules): steps 1
+#     and 2 again under the labels dev-v6-r1 and dev-v6-r2. A label holds one prompt per arm, so generate refuses Q's
+#     and C's new records in dev-v5's labels.
 # 3. Freeze: stop editing the candidate and packs-v2/ (every record carries their hashes), then run K0 and C on
 #    the held-out half, two runs each (each repeated until no line reports an error or a repair_error), with step
 #    2's audits, judge and report.
