@@ -18,7 +18,9 @@ registered source operand is positively relabeled or excluded and no canonical c
 exists for their identity. Their journal retains the corrected parent evidence. Every correction
 and selection change is journaled and reversible.
 Newly eligible filing-owned calculations
-require an authoritative filing-scoped repair and are outside this tool. New inserts remain
+require an authoritative filing-scoped repair and are outside this tool: the lineage backfill
+(`docs/filing-lineage-repair.md`) records their lineage, journaled in the same table and reverted by
+this tool's rollback. New inserts remain
 quarterly except for positively identified reported calendar replacements. Deploying the schema does not execute the repair.
 
 ## Prepare a bounded cohort

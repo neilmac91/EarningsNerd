@@ -11,8 +11,9 @@ import { describe, expect, it } from 'vitest'
  * 1. Scope. The figure surfaces' tokens stay on those surfaces. The data inks amend CLAUDE.md rule 11's "chip/delta
  *    text = the 700-level tokens" for these surfaces alone (green-800 for a light gain, rose-200 for a dark loss), so
  *    the gain/loss data inks are written once, in lib/financialTone's dataDirectionText, and dataDirectionText is read
- *    only by the two surfaces; every other delta keeps directionText and the 700 level. The sheet, rule, figure, note
- *    and data-dark warning tokens and the figure face are named only by the files that draw those surfaces.
+ *    only by the two surfaces; every other delta keeps directionText and the 700 level. The sheet, rule, figure and
+ *    note tokens and the figure face are named only by the files that draw those surfaces. No mark takes warning ink
+ *    (D-061): a note letter is the note ink, on the surfaces and in the data notes under the table.
  * 2. Contrast. Every pair the surfaces draw meets its APCA tier (apca-w3 0.1.9's SA98G constants, below): figures
  *    and metric names |Lc| >= 90; change lines, headings and labels >= 75; marks and the missing-value dash >= 60;
  *    rules >= 15 and a hovered row's rules >= 30. The app-wide secondary ink is held here too: it reads in dark as
@@ -32,7 +33,6 @@ const FIGURE_SURFACES = [
 const SCOPE: { what: string; pattern: RegExp; files: string[] }[] = [
   { what: 'the gain/loss data inks', pattern: /(?<!\w)(?:gain|loss)-data(?:-dark)?(?![\w-])/, files: ['lib/financialTone.ts'] },
   { what: 'dataDirectionText', pattern: /\bdataDirectionText\b/, files: ['lib/financialTone.ts', 'features/analysis/components/MetricsTable.tsx', 'features/analysis/components/KpiStrip.tsx'] },
-  { what: 'the data-dark warning ink', pattern: /(?<!\w)warning-data-dark(?![\w-])/, files: ['features/analysis/components/DataNoteMark.tsx'] },
   { what: 'the figure and note inks', pattern: /(?<!\w)(?:figure|note)-(?:light|dark)(?![\w-])/, files: [...FIGURE_SURFACES, 'lib/financialTone.ts'] },
   { what: 'the sheet and its rules', pattern: /(?<!\w)(?:well|rule|rule-strong)-(?:light|dark)(?![\w-])/, files: ['components/ui/DataTable.tsx'] },
   // The figure face also sets the evidence dialog's figures (SourceValue), where the minus must draw as it does in the cell.
@@ -105,7 +105,6 @@ const PAIRS: [string, string, string, number][] = [
     const panel = `panel.${theme}`
     const gain = theme === 'light' ? 'gain.data' : 'gain.data-dark'
     const loss = theme === 'light' ? 'loss.data' : 'loss.data-dark'
-    const review = theme === 'light' ? 'warning.light' : 'warning.data-dark'
     const flat = theme === 'light' ? 'text.secondary.light' : 'note.dark'
     return [
       [`${theme} table value`, `figure.${theme}`, sheet, 90],
@@ -116,13 +115,13 @@ const PAIRS: [string, string, string, number][] = [
       [`${theme} table loss`, loss, sheet, 75],
       [`${theme} table flat change`, flat, sheet, 75],
       [`${theme} table mark`, `note.${theme}`, sheet, 60],
-      [`${theme} table review letter`, review, sheet, 60],
       [`${theme} KPI value`, `figure.${theme}`, panel, 75],
       [`${theme} KPI label and period`, `text.secondary.${theme}`, panel, 75],
       [`${theme} KPI gain`, gain, panel, 75],
       [`${theme} KPI loss`, loss, panel, 75],
       [`${theme} KPI mark`, `note.${theme}`, panel, 60],
-      [`${theme} KPI review letter`, review, panel, 60],
+      // The data notes' summary line sits on the page ground under the table, its letter DataNoteMark's.
+      [`${theme} data notes letter on the page`, `note.${theme}`, `background.${theme}`, 60],
       [`${theme} rule on the sheet`, `rule.${theme}`, sheet, 15],
       [`${theme} rule on the panel frame`, `rule.${theme}`, panel, 15],
       [`${theme} hovered rule on the sheet`, `rule.strong-${theme}`, sheet, 30],

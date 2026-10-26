@@ -6,9 +6,10 @@ import { FileXlsIcon } from '@/lib/icons'
 import { dataDirectionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
-import { formatTableGrowth, formatTableValue, tableCurrencyLabel, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
+import { formatTableGrowth, tableComparisonText, tableCurrencyLabel, tableFigureText, tableTokenBudget } from '@/features/analysis/lib/tableFormat'
 import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
-import { reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
+import { calculatedMetricsSentence, reportIdentity, tableComparisonBasis, tablePresentation } from '@/features/analysis/lib/reportPresentation'
+import { markedNote } from '@/features/analysis/lib/dataNotes'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 import DataNoteMark from './DataNoteMark'
 import { useDataNotes } from './DataNotesContext'
@@ -22,8 +23,9 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
 // A figure cell: value over change, each line the cell's full width and right-justified onto one figure edge (the mark
 // gutter to its right, DataNoteMark compact: --mark-gutter is one 11px mark, 0.4125rem, and its 2px gap), in the figure
 // face (Geist Mono with a drawn minus), whose fixed 600-unit advance gives tabular lining figures; no tracking, as the
-// data annotation size has none. A period column holds its widest line inside its 1px phone inset: a seven-glyph figure,
-// a dagger and a one-letter note, 7 × 7.2 + 2 + 6.6 + 2 + 6.6 = 67.6px, so 4.375rem (70px, 68px inside) on a phone and
+// data annotation size has none. A period column holds its widest line inside its 1px phone inset. A figure carries no
+// dagger (D-061), so that line is an eight-glyph figure and a one-letter note, 8 × 7.2 + 2 + 6.6 = 66.2px (a nine-glyph
+// figure alone is 64.8px, seven glyphs and a two-letter note 65.6px), so 4.375rem (70px, 68px inside) on a phone and
 // 4.75rem (68px inside its 4px inset) from md. metrics-table.spec.tsx derives both from tableTokenBudget. Those 2px a
 // column cost a 375px phone its third whole period (a 309px content box, 104 + 3 × 70 > 309), so below md, where the
 // card's content box is 19.25rem to 19.625rem wide, the metric column gives up to 0.375rem (6px at the default text
@@ -87,7 +89,7 @@ export default function MetricsTable({
         const currencyLabel = tableCurrencyLabel(row.series)
         const sourceLabel = `${row.series.label}${currencyLabel ? ` (${currencyLabel})` : ''}`
         // A missing figure is MissingValue in its source control; the control's own name reads "unavailable" too. Its
-        // dash stands on the figure edge in the note ink, its letter in the mark gutter.
+        // dash stands on the figure edge in the note ink, the mark gutter beside it empty: a gap marks nothing (D-061).
         if (point.value == null) return <div className={FIGURE_CELL}><SourceValue compactMarks point={point} label={sourceLabel} concept={row.series.concept} note={notes.noteFor(point)}><MissingValue className="text-note-light dark:text-note-dark" /></SourceValue></div>
         const growthBasis = tableComparisonBasis(dataset.mode, point)
         const growth = point[growthBasis]
@@ -97,13 +99,13 @@ export default function MetricsTable({
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
         const tone = applySeriesTone(row.series.tone, direction)
         const note = notes.noteFor(point)
-        const calculated = point.provenance?.method === 'calculated' || (!point.provenance && point.derived)
         const growthNote = notes.noteForComparison(point, growthBasis)
-        const compactGrowth = formatTableGrowth(growth, row.series.percent, tableTokenBudget(false, growthNote?.letter))
+        // Only a note that questions the number draws a letter, so only its letter takes a glyph from the budget.
+        const compactGrowth = tableComparisonText(growth, row.series.percent, growthNote)
         return (
           <div className={FIGURE_CELL}>
             <span className="block">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{formatTableValue(point.value, row.series, tableTokenBudget(calculated, note?.letter))}</span></SourceValue>
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
             </span>
             {growthText && (
               <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>
@@ -152,7 +154,7 @@ export default function MetricsTable({
         const note = notes.noteForWindow(row.series)
         const provenance = win.isPercent ? row.series.window_pp_provenance : row.series.cagr_provenance
         const reconciled = win.isPercent ? row.series.window_pp_reconciled : row.series.cagr_reconciled
-        const compactText = formatTableGrowth(win.value, win.isPercent, tableTokenBudget(provenance?.method === 'calculated', note?.letter))
+        const compactText = formatTableGrowth(win.value, win.isPercent, tableTokenBudget(markedNote(note)?.letter))
         // cursor-help only when the tooltip actually exists — same condition for both.
         const windowTooltip =
           win.isPercent && row.series.window_pp_range
@@ -179,7 +181,6 @@ export default function MetricsTable({
   }, [dataset, notes, periods, basis, showsCagr])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
-  const hasDerived = dataset.series.some((s) => s.points.some((p) => p.provenance?.method === 'calculated' || (!p.provenance && p.derived)) || s.cagr_provenance?.method === 'calculated' || s.window_pp_provenance?.method === 'calculated')
 
   return (
     <Card as="section" className="[--mark-gutter:0.5375rem] [container-type:inline-size] min-w-0 p-4 sm:p-cap-6" data-analysis-metrics>
@@ -189,14 +190,6 @@ export default function MetricsTable({
             Metrics by period
           </Heading>
           <DataNotesLink notes={visibleNotes} />
-          {hasDerived && (
-            <span
-              className="text-xs text-text-secondary-light dark:text-text-secondary-dark"
-              title="Calculated from source figures. Select a value to inspect its inputs and method."
-            >
-              † calculated
-            </span>
-          )}
         </div>
         {onExportXlsx && (
           <Button
@@ -210,7 +203,8 @@ export default function MetricsTable({
           </Button>
         )}
       </div>
-      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Figures are rounded for display. Select a value for full precision.</p>
+      {/* The figures carry no dagger: this sentence names the metrics the run calculates (D-061). */}
+      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">{calculatedMetricsSentence(dataset)}</p>
       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful.{dataset.mode === 'quarterly'
         ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
         : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>

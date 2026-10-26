@@ -47,6 +47,7 @@ def test_the_guard_runs_before_every_bash_command():
 
 @pytest.mark.parametrize("command", [
     f"gh api -X POST {RUNS}/pending_deployments -F 'environment_ids[]=1' -f state=approved -f comment=ok",
+    f"gh api -X POST {RUNS}/pending_deployments -F 'environment_ids[]=1' -f state=rejected -f comment=no",
     f"gh api {RUNS}/pending_deployments",  # reading one is refused too
     f"cd /tmp && gh api --method POST {RUNS}/pending_'deploy'ments -f state=rejected",  # quotes split the name
     f"curl -sS -X POST -H 'Authorization: Bearer x' https://api.github.com/{RUNS}/pending_deployments -d @body.json",
@@ -62,6 +63,7 @@ def test_the_guard_runs_before_every_bash_command():
     f"gh api -X POST {RUNS}/pending%255Fdeployments -f state=approved",
     "gh api -X DELETE repos/neilmac91/EarningsNerd/%65nvironments/ops-apply",
     "gh api -X PUT repos/neilmac91/EarningsNerd/environments/ops-apply -F wait_timer=0",
+    "gh api -X PUT repos/neilmac91/EarningsNerd/environments/ops-apply -F 'reviewers[][id]=1'",  # a reviewer swap
     "gh api graphql -f query='mutation { approveDeployments(input: {workflowRunId: \"x\", environmentIds: [\"y\"]}) { clientMutationId } }'",
     "gh api graphql -f query=\"$(cat <<'EOF'\nmutation { approveDeployments(input: {}) { clientMutationId } }\nEOF\n)\"",
     "gh api graphql -F query=@- <<'EOF'\nmutation { rejectDeployments(input: {}) { clientMutationId } }\nEOF",

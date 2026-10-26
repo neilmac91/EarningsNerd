@@ -127,7 +127,7 @@ def test_a_regenerate_that_ends_before_fresh_xbrl_keeps_the_snapshot_and_its_ver
         _at_the_fair_use_ceiling(pro_user.id, monkeypatch)
         fetch, expected = AsyncMock(return_value=FRESH), "temporarily paused new summary generation"
     else:
-        fetch, expected = _still_fetching, "Unable to retrieve this filing"
+        fetch, expected = _still_fetching, "We could not generate this summary"
 
     with TestClient(app) as client:
         before = _revenue_row(client, filing_id)

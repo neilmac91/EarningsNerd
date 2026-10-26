@@ -5,7 +5,7 @@
  * a position or a colour. Pure and SSR-safe.
  */
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import { resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
+import { markedNote, resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
 import { annualTickLabel, formatAnalysisPeriod, formatAnalysisWindow, quarterlyTickLines } from '@/features/analysis/lib/periodLabels'
 import { currencySymbol } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
@@ -57,10 +57,9 @@ export interface ModelPanel {
   currency: string | null
 }
 
+/** A note letter in the band, in the note ink: no letter takes a status colour (D-061). */
 export interface NoteGlyph {
   text: string
-  /** Review-kind letters take warning ink; every other glyph the chart's label ink. */
-  tone: 'review' | 'neutral'
 }
 
 export interface LegendItem {
@@ -77,7 +76,7 @@ export interface LegendItem {
 }
 
 export interface Footnote {
-  /** The glyph the line explains ("a", "†", "—", "n/m", "↓↑"), or '' for a plain sentence. */
+  /** The glyph the line explains ("a", "—", "n/m", "↓↑"), or '' for a plain sentence. */
   mark: string
   text: string
 }
@@ -101,8 +100,8 @@ export interface ChartModel {
   periods: ChartPeriod[]
   panels: ModelPanel[]
   legend: LegendItem[]
-  /** Glyphs per period: the union of the plotted series' note letters, plus † where a partly calculated
-   *  series was calculated. Null when no period has one. */
+  /** Letters per period: the plotted series' notes that question the number (D-061, `markedNote`). Null when no period
+   *  has one. */
   notesBand: Record<string, NoteGlyph[]> | null
   footnotes: Footnote[]
   /** Set when the chart does not apply to this dataset: one sentence, at the card's full height. */
@@ -246,15 +245,21 @@ function percentPanel(id: string, caption: string | null, weight: number, nmax: 
 /** Note letters run a, b, …, z, aa, ab, …: shorter first, then alphabetical. */
 const letterOrder = (a: string, b: string) => (a.length - b.length) || a.localeCompare(b)
 
-/** A5: the notes band's glyphs and the letters the chart's footnotes explain. Value notes come from every
- *  plotted series; comparison notes only from the series whose YoY the chart draws. */
+/** A5 under D-061 (spec §3.3's note; E194): the notes band's letters and the notes the chart's footnotes explain. A
+ *  cell letters only a note that questions the number (`markedNote`), in the note ink. A gap gets its footnote
+ *  sentence and no letter, and a calculated value no glyph, since a footnote names the calculated periods. Value notes
+ *  come from every plotted series; comparison notes only from the series whose YoY the chart draws. */
 function notesBandOf(ds: AnalysisDataset, notes: DataNotesModel, series: AnalysisSeries[], yoyOf?: AnalysisSeries) {
   const keys = new Set(ds.periods.map((period) => period.key))
   const cells = new Map<string, Set<string>>()
-  const dagger = new Set<string>()
   const letters = new Map<string, DataNote>()
+  const gaps = new Map<string, DataNote>()
   const add = (period: string, note: DataNote | null) => {
     if (!note || !keys.has(period)) return
+    if (!markedNote(note)) {
+      if (note.kind === 'unavailable') gaps.set(note.key, note)
+      return
+    }
     const cell = cells.get(period) ?? new Set<string>()
     cell.add(note.letter)
     cells.set(period, cell)
@@ -270,7 +275,6 @@ function notesBandOf(ds: AnalysisDataset, notes: DataNotesModel, series: Analysi
     for (const { key } of ds.periods) {
       // A period the series has no point for is unavailable too; it carries that note like any gap.
       add(key, notes.noteFor(byPeriod.get(key) ?? { value: null }))
-      if (partly.includes(s) && isCalculated(byPeriod.get(key))) dagger.add(key)
     }
   }
   // A comparison the chart prints, as a bar or as "n/m" on the 0% rule, carries its note in the band, as the
@@ -278,15 +282,13 @@ function notesBandOf(ds: AnalysisDataset, notes: DataNotesModel, series: Analysi
   if (yoyOf) for (const point of yoyOf.points) {
     if (point.yoy != null) add(point.period, notes.noteForComparison(point, 'yoy'))
   }
-  const tone = new Map([...letters.values()].map((note) => [note.letter, note.kind === 'review' ? 'review' as const : 'neutral' as const]))
   const band: Record<string, NoteGlyph[]> = {}
   for (const { key } of ds.periods) {
-    const glyphs: NoteGlyph[] = [...(cells.get(key) ?? [])].sort(letterOrder).map((letter) => ({ text: letter, tone: tone.get(letter) ?? 'neutral' }))
-    if (dagger.has(key)) glyphs.push({ text: '†', tone: 'neutral' })
+    const glyphs: NoteGlyph[] = [...(cells.get(key) ?? [])].sort(letterOrder).map((letter) => ({ text: letter }))
     if (glyphs.length) band[key] = glyphs
   }
-  const ordered = [...letters.values()].sort((a, b) => letterOrder(a.letter, b.letter))
-  return { band: Object.keys(band).length ? band : null, letters: ordered, partly }
+  const byLetter = (a: DataNote, b: DataNote) => letterOrder(a.letter, b.letter)
+  return { band: Object.keys(band).length ? band : null, letters: [...letters.values()].sort(byLetter), gaps: [...gaps.values()].sort(byLetter), partly }
 }
 
 /** The fiscal period after `key` (FY2023 → FY2024, 2023Q4 → 2024Q1). */
@@ -310,9 +312,14 @@ function periodRuns(ds: AnalysisDataset, periods: string[]): string {
 
 const joinNames = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`)
 
-/** Footnotes name only this chart's series and periods for each letter; series sharing the same period
- *  runs are named together, and YoY comparisons only where the chart draws YoY. */
-function letterFootnotes(ds: AnalysisDataset, letters: DataNote[], concepts: string[], withYoY: boolean): Footnote[] {
+/** Footnotes name only this chart's series and periods for each note; series sharing the same period runs are named
+ *  together, and YoY comparisons only where the chart draws YoY. A lettered note's line leads with its letter, a gap's
+ *  with none (D-061). */
+function noteFootnotes(ds: AnalysisDataset, notesOf: { letters: DataNote[]; gaps: DataNote[] }, concepts: string[], withYoY: boolean): Footnote[] {
+  return [...lineFootnotes(ds, notesOf.letters, concepts, withYoY, true), ...lineFootnotes(ds, notesOf.gaps, concepts, withYoY, false)]
+}
+
+function lineFootnotes(ds: AnalysisDataset, letters: DataNote[], concepts: string[], withYoY: boolean, lettered: boolean): Footnote[] {
   const keys = new Set(ds.periods.map((period) => period.key))
   return letters.map((note) => {
     const refs = [
@@ -327,20 +334,23 @@ function letterFootnotes(ds: AnalysisDataset, letters: DataNote[], concepts: str
       byRun.set(run, [...(byRun.get(run) ?? []), label])
     }
     const where = [...byRun].map(([run, labels]) => `${joinNames(labels)} ${run}`).join('; ')
-    return { mark: note.letter, text: where ? `${where}: ${note.message}` : note.message }
+    return { mark: lettered ? note.letter : '', text: where ? `${where}: ${note.message}` : note.message }
   })
 }
 
-/** †: a fully calculated series carries no symbol (every value is calculated, so there is nothing to
- *  mark) and gets a sentence instead; † marks only the band cells of a partly calculated series. */
-function calculatedFootnotes(partly: AnalysisSeries[], fully: string[]): Footnote[] {
+/** A calculated value carries no glyph (D-061): a fully calculated series gets a sentence, and a partly calculated one a
+ *  line naming its calculated periods. */
+function calculatedFootnotes(ds: AnalysisDataset, partly: AnalysisSeries[], fully: string[]): Footnote[] {
+  const keys = new Set(ds.periods.map((period) => period.key))
+  const calculatedIn = (s: AnalysisSeries) => periodRuns(ds, s.points.filter((point) => keys.has(point.period) && isCalculated(point)).map((point) => point.period))
   return [
-    ...(partly.length ? [{ mark: '†', text: `Calculated by EarningsNerd from reported figures in the marked periods (${joinNames(partly.map((s) => s.label))}).` }] : []),
+    ...(partly.length ? [{ mark: '', text: `Calculated by EarningsNerd from reported figures: ${partly.map((s) => `${s.label} ${calculatedIn(s)}`).join('; ')}.` }] : []),
     ...(fully.length ? [{ mark: '', text: `${joinNames(fully)} ${fully.length > 1 ? 'are' : 'is'} calculated by EarningsNerd from reported figures.` }] : []),
   ]
 }
 
-const fullyCalculated = (series: AnalysisSeries, ds: AnalysisDataset) => {
+/** Every value the series has in the window is calculated (the sentence above the metrics table names these). */
+export const fullyCalculated = (series: AnalysisSeries, ds: AnalysisDataset) => {
   const keys = new Set(ds.periods.map((period) => period.key))
   const valued = series.points.filter((point) => keys.has(point.period) && point.value != null)
   return valued.length > 0 && valued.every(isCalculated)
@@ -404,7 +414,8 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const growth = growthOf(ds, top)
   const growthMark: ModelMark = { kind: 'growth', seriesKey: `${top.concept}:yoy`, label: 'YoY growth', color: 1, points: growth.points, labelled: true }
   const growthPanel = percentPanel('growth', 'YoY growth', 0.4, AXIS_CAPS.growth, [growthMark], true)
-  const { band, letters, partly } = notesBandOf(ds, notes, [top], top)
+  const notesOf = notesBandOf(ds, notes, [top], top)
+  const { band, partly } = notesOf
   const statePeriods = (...states: GrowthState[]) => ds.periods.filter((_, i) => states.includes(growth.states[i])).map((period) => period.key)
   // One line for every growth slot printed "—", structural or unavailable, and one for every "n/m" (spec §3.3).
   const dashed = statePeriods('structural', 'unavailable')
@@ -419,8 +430,8 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
     panels: [moneyPanel('value', top.label, 0.6, AXIS_CAPS.topline, [bars], currency), growthPanel],
     legend: [], notesBand: band, unavailable: null, strip: [],
     footnotes: [
-      ...letterFootnotes(ds, letters, [top.concept], true),
-      ...calculatedFootnotes(partly, [...(fullyCalculated(top, ds) ? [top.label] : []), 'YoY growth']),
+      ...noteFootnotes(ds, notesOf, [top.concept], true),
+      ...calculatedFootnotes(ds, partly, [...(fullyCalculated(top, ds) ? [top.label] : []), 'YoY growth']),
       ...growthNotes,
     ],
   }
@@ -445,7 +456,8 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
   }
   const panel = percentPanel('margins', null, 1, AXIS_CAPS.margins, marks, false)
   const series = marks.map((mark) => by[mark.seriesKey])
-  const { band, letters, partly } = notesBandOf(ds, notes, series)
+  const notesOf = notesBandOf(ds, notes, series)
+  const { band, partly } = notesOf
   const format = panel.axis.format
   const fully = marks.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)
   return {
@@ -455,9 +467,9 @@ export function buildMarginsModel(ds: AnalysisDataset, notes: DataNotesModel = r
     ],
     notesBand: band, unavailable: null, strip: stripOf(marks, () => format),
     footnotes: [
-      ...letterFootnotes(ds, letters, marks.map((mark) => mark.seriesKey), false),
+      ...noteFootnotes(ds, notesOf, marks.map((mark) => mark.seriesKey), false),
       // "Gross, Operating and Net margin", not "Gross margin, Operating margin and Net margin".
-      ...calculatedFootnotes(partly, fully.length ? [...fully.slice(0, -1), `${fully.at(-1)} margin`] : []),
+      ...calculatedFootnotes(ds, partly, fully.length ? [...fully.slice(0, -1), `${fully.at(-1)} margin`] : []),
       ...(marks.some((mark) => mark.points.some((point) => point.offscale)) ? [{ mark: '↓↑', text: 'Values beyond the axis range are printed in the band at the plot edge.' }] : []),
     ],
   }
@@ -473,7 +485,8 @@ export function buildCashModel(ds: AnalysisDataset, notes: DataNotesModel = reso
   const { currency, mixed } = currencyOf(ds, series)
   if (mixed) return unavailableModel(ds, 'cash', 'Cash generation', null, MIXED_CURRENCY)
   const panel = moneyPanel('cash', null, 1, AXIS_CAPS.cash, marks, currency)
-  const { band, letters, partly } = notesBandOf(ds, notes, series)
+  const notesOf = notesBandOf(ds, notes, series)
+  const { band, partly } = notesOf
   const format = panel.axis.format
   return {
     id: 'cash', title: 'Cash generation', subtitle: subtitleOf(ds, currency), mode: ds.mode, periods: periodsOf(ds), panels: [panel],
@@ -482,8 +495,8 @@ export function buildCashModel(ds: AnalysisDataset, notes: DataNotesModel = reso
     ],
     notesBand: band, unavailable: null, strip: stripOf(marks, () => format),
     footnotes: [
-      ...letterFootnotes(ds, letters, marks.map((mark) => mark.seriesKey), false),
-      ...calculatedFootnotes(partly, marks.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
+      ...noteFootnotes(ds, notesOf, marks.map((mark) => mark.seriesKey), false),
+      ...calculatedFootnotes(ds, partly, marks.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
     ],
   }
 }
@@ -503,7 +516,8 @@ export function buildBalanceModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const panelA = moneyPanel('debtcash', lines.length ? `${joinNames(lines.map((mark) => mark.label))}` : null, 0.6, AXIS_CAPS.debtcash, lines, currency)
   const panelB = moneyPanel('equity', 'Shareholders’ equity', 0.4, AXIS_CAPS.equity, equitySeries ? [equity] : [], currency)
   const panels = [...(lines.length ? [panelA] : []), ...(equitySeries ? [panelB] : [])]
-  const { band, letters, partly } = notesBandOf(ds, notes, series)
+  const notesOf = notesBandOf(ds, notes, series)
+  const { band, partly } = notesOf
   const drawn = [...lines, ...(equitySeries ? [equity] : [])]
   const debtAbsent = !present(by.long_term_debt, ds)
   return {
@@ -516,8 +530,8 @@ export function buildBalanceModel(ds: AnalysisDataset, notes: DataNotesModel = r
     notesBand: band, unavailable: null,
     strip: stripOf(drawn, (mark) => (mark.kind === 'signedBar' ? panelB.axis.format : panelA.axis.format)),
     footnotes: [
-      ...letterFootnotes(ds, letters, series.map((s) => s.concept), false),
-      ...calculatedFootnotes(partly, drawn.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
+      ...noteFootnotes(ds, notesOf, series.map((s) => s.concept), false),
+      ...calculatedFootnotes(ds, partly, drawn.filter((mark) => fullyCalculated(by[mark.seriesKey], ds)).map((mark) => mark.label)),
       ...(debtAbsent ? [ABSENT_DEBT_NOTE] : []),
     ],
   }

@@ -105,7 +105,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
   if (kpis.length === 0) return null
 
   return (
-    <div className="[container-type:inline-size]">
+    <div className="[container-type:inline-size]" data-launcher-keep-clear>
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4 [@container(width<17em)]:grid-cols-1">
         {kpis.map((kpi) => (
           <KpiTile key={kpi.label} kpi={kpi} />

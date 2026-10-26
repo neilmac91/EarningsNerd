@@ -2,8 +2,11 @@ import time
 import json
 from app.services.excerpt_provenance import excerpt_provenance
 from app.utils.datetimes import utcnow
-from datetime import timezone
+from datetime import timedelta, timezone
 from typing import Optional, Dict, Any, List, Tuple
+from sqlalchemy import DateTime, extract, func, literal
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.services.request_work import run_owned_sync as run_in_threadpool
@@ -401,45 +404,46 @@ def record_progress(
     *,
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
-) -> SummaryGenerationProgress:
+    starts_run: bool = False,
+) -> None:
+    """Write the filing's progress row in one statement, and commit (E214).
+
+    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write sets the stage,
+    the error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
+    ``elapsed_seconds`` from it in SQL. The fetch stage's write, an admitted run's first, passes ``starts_run`` and
+    restarts the clock instead, so a retry after an error, or the unready summary's regeneration, does not count from
+    the run that left the row (E216). A leader that fails before that write passes it on its error, the run's first
+    write; a follower's error, or one from a run that failed before its claim, keeps the clock (E217). With no read
+    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
+    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
+    fresh row, and after an insert it updates that row."""
     now = utcnow()
-    progress = (
-        db.query(SummaryGenerationProgress)
-        .filter(SummaryGenerationProgress.filing_id == filing_id)
-        .first()
-    )
-
-    if not progress:
-        progress = SummaryGenerationProgress(
-            filing_id=filing_id,
-            stage=stage,
-            started_at=now,
-            updated_at=now,
-            elapsed_seconds=0.0,
-            error=error,
-        )
-        db.add(progress)
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
+    dialect = db.get_bind().dialect.name
+    insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
+    if insert is None:
+        raise ValueError(f"Unsupported progress database dialect: {dialect}")
+    values: Dict[str, Any] = {"filing_id": filing_id, "stage": stage, "started_at": now, "updated_at": now,
+                              "elapsed_seconds": 0.0, "error": error}
+    if section_coverage is not None:
+        # Left out when not given: the column then stays SQL NULL, where a None would store JSON null.
+        values["section_coverage"] = section_coverage
+    statement = insert(SummaryGenerationProgress).values(**values)
+    # In the conflict's SET, the table's own columns are the stored row's, and ``excluded`` holds this write's values.
+    moment = literal(now, DateTime(timezone=True))
+    started_at = SummaryGenerationProgress.started_at
+    if dialect == "postgresql":
+        elapsed = extract("epoch", moment - started_at)
     else:
-        progress.stage = stage
-        if progress.started_at is None:
-            progress.started_at = now
-        progress.updated_at = now
-        # Handle timezone-aware vs timezone-naive datetime comparison
-        started_at = progress.started_at
-        if started_at.tzinfo is None:
-            # Convert timezone-naive to UTC if needed
-            started_at = started_at.replace(tzinfo=timezone.utc)
-        progress.elapsed_seconds = float((now - started_at).total_seconds())
-        progress.error = error
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
-
-    db.flush()
+        elapsed = (func.julianday(moment) - func.julianday(started_at)) * 86400.0
+    updates: Dict[str, Any] = {"stage": statement.excluded.stage, "updated_at": statement.excluded.updated_at,
+                               "elapsed_seconds": elapsed, "error": statement.excluded.error}
+    if section_coverage is not None:
+        updates["section_coverage"] = statement.excluded.section_coverage
+    if starts_run:
+        updates["started_at"] = statement.excluded.started_at
+        updates["elapsed_seconds"] = statement.excluded.elapsed_seconds
+    db.execute(statement.on_conflict_do_update(index_elements=[SummaryGenerationProgress.filing_id], set_=updates))
     db.commit()
-    db.refresh(progress)
-    return progress
 
 def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
     elapsed = progress.elapsed_seconds
@@ -655,13 +659,16 @@ TERMINAL_STAGES = {"completed", "error", "partial"}
 STALE_PROGRESS_SECONDS = 180
 
 
-def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
-    """Detect an orphaned (stuck) progress row and flip it to a retryable error in-place.
+STALLED_ERROR = "Generation stalled and was abandoned. Please retry."
 
-    Fire-and-forget background generation can die without recording a terminal state if it
-    crashes before its inner guard runs. Rather than leave the UI spinning forever, surface
-    a stale non-terminal row as an error the user can retry. Returns True if it mutated the
-    row (caller is responsible for committing)."""
+
+def progress_is_stalled(progress: SummaryGenerationProgress) -> bool:
+    """Whether a progress row looks orphaned: a non-terminal stage whose last write is older than
+    ``STALE_PROGRESS_SECONDS``.
+
+    Fire-and-forget background generation can die without recording a terminal state if it crashes
+    before its inner guard runs. Rather than leave the UI spinning forever, the progress poll marks
+    such a row a retryable error (``mark_stale_progress_as_error``)."""
     if progress.stage in TERMINAL_STAGES:
         return False
 
@@ -671,9 +678,57 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     if last_update.tzinfo is None:
         last_update = last_update.replace(tzinfo=timezone.utc)
 
-    if (utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
-        return False
+    return (utcnow() - last_update).total_seconds() > STALE_PROGRESS_SECONDS
 
-    progress.stage = "error"
-    progress.error = "Generation stalled and was abandoned. Please retry."
-    return True
+
+def mark_stale_progress_as_error(db: Session, filing_id: int) -> bool:
+    """Mark the filing's progress row a retryable error if it is stalled, in one UPDATE by filing on
+    the criteria ``progress_is_stalled`` checks: a non-terminal stage whose last write is older than
+    ``STALE_PROGRESS_SECONDS`` (E215). A clear, or a write that leaves the row terminal or fresh,
+    landing after the caller read the row leaves the UPDATE matching nothing. Returns whether it
+    marked the row; the caller commits."""
+    cutoff = utcnow() - timedelta(seconds=STALE_PROGRESS_SECONDS)
+    last_write = func.coalesce(SummaryGenerationProgress.updated_at, SummaryGenerationProgress.started_at)
+    marked = (
+        db.query(SummaryGenerationProgress)
+        .filter(
+            SummaryGenerationProgress.filing_id == filing_id,
+            SummaryGenerationProgress.stage.not_in(TERMINAL_STAGES),
+            last_write < cutoff,
+        )
+        .update(
+            {SummaryGenerationProgress.stage: "error", SummaryGenerationProgress.error: STALLED_ERROR},
+            synchronize_session=False,
+        )
+    )
+    return marked > 0
+
+
+def progress_poll_answer(db: Session, filing_id: int) -> Dict[str, Any]:
+    """The progress poll's answer for a filing: "completed" while a summary exists, the progress
+    row's state while one does, else "pending". A row that looks stalled is marked a retryable
+    error and read again after the mark, so the answer is the row as it then stands: the error, a
+    new run's stage, or "pending" after a clear (E215)."""
+    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+    if summary:
+        return {"stage": "completed", "elapsedSeconds": 0}
+
+    progress = (
+        db.query(SummaryGenerationProgress)
+        .filter(SummaryGenerationProgress.filing_id == filing_id)
+        .first()
+    )
+    if progress is not None and progress_is_stalled(progress):
+        if mark_stale_progress_as_error(db, filing_id):
+            db.commit()
+        # Read the row again: the mark, a clear or a run's write may have changed it since the read, and
+        # the UPDATE bypassed this session, so populate_existing() replaces the values it loaded then.
+        progress = (
+            db.query(SummaryGenerationProgress)
+            .populate_existing()
+            .filter(SummaryGenerationProgress.filing_id == filing_id)
+            .first()
+        )
+    if progress is None:
+        return {"stage": "pending", "elapsedSeconds": 0}
+    return progress_as_dict(progress)

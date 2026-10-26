@@ -71,7 +71,7 @@ if [ $? -eq 0 ]; then
   echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
 fi
 # Sentry at startup: main.py prints one of four lines as an API-service revision starts (the task worker
-# runs task_worker_main.py, which starts no Sentry and prints none). Name the revisions that printed each in
+# runs task_worker_main.py, which starts Sentry but prints none of them). Name the revisions that printed each in
 # the last seven days, with a count from the newest 500 entries per kind; never a line itself, which can
 # quote an exception. A read that fails prints UNVERIFIED with a closed class, never gcloud's text, and the
 # step adds one warning naming those kinds and the remedy (lessons/ops-denied-reads-report-unverified.md).
@@ -101,7 +101,7 @@ SENTRY_KINDS = (("initialized", "Sentry error tracking initialized"), ("failed",
                 ("dsn-unset", "SENTRY_DSN not configured"), ("sdk-missing", "Sentry SDK not available"))
 SENTRY_LINES = tuple(line for _, line in SENTRY_KINDS)
 # What the fake answers for each Sentry read, in SENTRY_KINDS order, and the lines the step prints for them. Each kind
-# names revisions in one fixture and none in the other; only API-service revisions, as the task worker starts no Sentry.
+# names revisions in one fixture and none in the other; only API-service revisions, as the task worker prints none of the four lines.
 SENTRY_ANSWERS = {
     "permitted": ("earningsnerd-backend-00509-zl7\nearningsnerd-backend-00508-62h\nearningsnerd-backend-00509-zl7\n",
                   "", "", ""),

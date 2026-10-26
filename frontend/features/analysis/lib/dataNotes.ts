@@ -59,6 +59,24 @@ export interface DataNote {
   counts: Record<DataNoteBasis, number>
 }
 
+/** Reasons that describe a figure's record, not its value (D-061). The list is closed: any other reason marks, so a new
+ *  reason shows until someone classifies it here (the shared notes fixture's marked_letters pins the rule). */
+export const RECORD_ONLY_REASONS: ReadonlySet<string> = new Set(['legacy_calculation'])
+
+/** Whether a note puts a mark beside its figure: a review note with at least one reason that questions the number.
+ *  Unknown and unavailable notes never mark (a gap shows its dash; a missing record makes no claim either way). Every
+ *  note still appears in the evidence dialog and the data notes, and note kinds, reasons, letters and totals are
+ *  untouched: the rule applies where a mark renders, never to the notes model. */
+export function noteMarksFigure(note: Pick<DataNote, 'kind' | 'reasons'> | null | undefined): boolean {
+  return note?.kind === 'review'
+    && (note.reasons.length === 0 || note.reasons.some((reason) => !RECORD_ONLY_REASONS.has(reason)))
+}
+
+/** The note when it marks its figure, else null: the form DataNoteMark and the chart lookups take. */
+export function markedNote<T extends Pick<DataNote, 'kind' | 'reasons'>>(note: T | null | undefined): T | null {
+  return note && noteMarksFigure(note) ? note : null
+}
+
 export interface DataNotesTotals {
   reviewValues: number
   reviewComparisons: number
@@ -70,9 +88,10 @@ export interface DataNotesTotals {
   total: number
 }
 
-/** Versioned server metadata, admitted once at the API boundary. */
+/** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1 (only the server's
+ *  copy and letter order differ), and the local grouper still writes 1. */
 export interface DataNotesWire {
-  version: 1
+  version: 1 | 2
   notes: DataNote[]
   totals: DataNotesTotals
 }

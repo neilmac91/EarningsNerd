@@ -205,7 +205,7 @@ export default memo(function TrendChartSvg({ model, layout, tokens, label, uid }
       <g aria-hidden="true">
         {model.notesBand && <text x={0} y={layout.notesY} fill={tokens.tick} data-text="notes">Notes</text>}
         {noteGlyphs(model, layout).map((glyph) => (
-          <text key={`${glyph.period}:${glyph.text}`} x={glyph.x} y={layout.notesY} textAnchor="middle" fill={glyph.tone === 'review' ? tokens.review : tokens.tick} data-text="note">{glyph.text}</text>
+          <text key={`${glyph.period}:${glyph.text}`} x={glyph.x} y={layout.notesY} textAnchor="middle" fill={tokens.note} data-text="note">{glyph.text}</text>
         ))}
       </g>
     </svg>

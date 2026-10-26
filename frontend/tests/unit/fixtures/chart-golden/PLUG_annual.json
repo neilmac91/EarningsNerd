@@ -134,11 +134,9 @@
         }
       ],
       "legend": [],
-      "notes": [
-        ["FY2020", "a", "neutral", 244.9]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Revenue FY2020: Not available in this dataset."],
+        ["", "Revenue FY2020: Not available in this dataset."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
         ["—", "YoY growth needs the same period a year earlier; none for FY2016, FY2020–FY2021."]
       ],
@@ -278,11 +276,9 @@
         }
       ],
       "legend": [],
-      "notes": [
-        ["FY2020", "a", "neutral", 482.5]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Revenue FY2020: Not available in this dataset."],
+        ["", "Revenue FY2020: Not available in this dataset."],
         ["", "YoY growth is calculated by EarningsNerd from reported figures."],
         ["—", "YoY growth needs the same period a year earlier; none for FY2016, FY2020–FY2021."]
       ],
@@ -293,7 +289,7 @@
       ["FY2017 · year ended Dec 31, 2017", "Revenue: $100.2M", "YoY growth: +20.9%", "FY2017, year ended December 31, 2017. Revenue: $100.2 million. Year-over-year growth: plus 20.9%."],
       ["FY2018 · year ended Dec 31, 2018", "Revenue: $174.2M", "YoY growth: +73.9%", "FY2018, year ended December 31, 2018. Revenue: $174.2 million. Year-over-year growth: plus 73.9%."],
       ["FY2019 · year ended Dec 31, 2019", "Revenue: $230.0M", "YoY growth: +32.0%", "FY2019, year ended December 31, 2019. Revenue: $230.0 million. Year-over-year growth: plus 32.0%."],
-      ["FY2020 · year ended Dec 31, 2020", "Revenue: Unavailable (a)", "YoY growth: Unavailable", "FY2020, year ended December 31, 2020. Revenue: unavailable, data note a. Year-over-year growth: unavailable."],
+      ["FY2020 · year ended Dec 31, 2020", "Revenue: Unavailable", "YoY growth: Unavailable", "FY2020, year ended December 31, 2020. Revenue: unavailable. Year-over-year growth: unavailable."],
       ["FY2021 · year ended Dec 31, 2021", "Revenue: $502.3M", "YoY growth: Unavailable", "FY2021, year ended December 31, 2021. Revenue: $502.3 million. Year-over-year growth: unavailable."],
       ["FY2022 · year ended Dec 31, 2022", "Revenue: $701.4M", "YoY growth: +39.6%", "FY2022, year ended December 31, 2022. Revenue: $701.4 million. Year-over-year growth: plus 39.6%."],
       ["FY2023 · year ended Dec 31, 2023", "Revenue: $891.3M", "YoY growth: +27.1%", "FY2023, year ended December 31, 2023. Revenue: $891.3 million. Year-over-year growth: plus 27.1%."],
@@ -421,11 +417,9 @@
         ["Operating", "−206.7%", 1, "line", "square", false],
         ["Net", "−229.9%", 2, "line", "triangle", false]
       ],
-      "notes": [
-        ["FY2020", "a", "neutral", 244.9]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Gross margin, Operating margin and Net margin FY2020: Not available in this dataset."],
+        ["", "Gross margin, Operating margin and Net margin FY2020: Not available in this dataset."],
         ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."]
       ],
       "strip": []
@@ -549,11 +543,9 @@
         ["Operating", "−206.7%", 1, "line", "square", false],
         ["Net", "−229.9%", 2, "line", "triangle", false]
       ],
-      "notes": [
-        ["FY2020", "a", "neutral", 489.6]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Gross margin, Operating margin and Net margin FY2020: Not available in this dataset."],
+        ["", "Gross margin, Operating margin and Net margin FY2020: Not available in this dataset."],
         ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."]
       ],
       "strip": [
@@ -618,7 +610,7 @@
       ["FY2017 · year ended Dec 31, 2017", "Gross: −28.0% · Calculated", "Operating: −101.6% · Calculated", "Net: −126.9% · Calculated", "FY2017, year ended December 31, 2017. Gross margin: minus 28.0%, calculated. Operating margin: minus 101.6%, calculated. Net margin: minus 126.9%, calculated."],
       ["FY2018 · year ended Dec 31, 2018", "Gross: −14.9% · Calculated", "Operating: −43.9% · Calculated", "Net: −49.1% · Calculated", "FY2018, year ended December 31, 2018. Gross margin: minus 14.9%, calculated. Operating margin: minus 43.9%, calculated. Net margin: minus 49.1%, calculated."],
       ["FY2019 · year ended Dec 31, 2019", "Gross: 4.6% · Calculated", "Operating: −20.7% · Calculated", "Net: −36.4% · Calculated", "FY2019, year ended December 31, 2019. Gross margin: 4.6%, calculated. Operating margin: minus 20.7%, calculated. Net margin: minus 36.4%, calculated."],
-      ["FY2020 · year ended Dec 31, 2020", "Gross: Unavailable (a)", "Operating: Unavailable (a)", "Net: Unavailable (a)", "FY2020, year ended December 31, 2020. Gross margin: unavailable, data note a. Operating margin: unavailable, data note a. Net margin: unavailable, data note a."],
+      ["FY2020 · year ended Dec 31, 2020", "Gross: Unavailable", "Operating: Unavailable", "Net: Unavailable", "FY2020, year ended December 31, 2020. Gross margin: unavailable. Operating margin: unavailable. Net margin: unavailable."],
       ["FY2021 · year ended Dec 31, 2021", "Gross: −34.1% · Calculated", "Operating: −87.1% · Calculated", "Net: −91.6% · Calculated", "FY2021, year ended December 31, 2021. Gross margin: minus 34.1%, calculated. Operating margin: minus 87.1%, calculated. Net margin: minus 91.6%, calculated."],
       ["FY2022 · year ended Dec 31, 2022", "Gross: −27.7% · Calculated", "Operating: −96.9% · Calculated", "Net: −103.2% · Calculated", "FY2022, year ended December 31, 2022. Gross margin: minus 27.7%, calculated. Operating margin: minus 96.9%, calculated. Net margin: minus 103.2%, calculated."],
       ["FY2023 · year ended Dec 31, 2023", "Gross: −57.0% · Calculated", "Operating: −150.7% · Calculated", "Net: −153.6% · Calculated", "FY2023, year ended December 31, 2023. Gross margin: minus 57.0%, calculated. Operating margin: minus 150.7%, calculated. Net margin: minus 153.6%, calculated."],
@@ -1090,15 +1082,9 @@
         ["Cash", "$0.37B", 1, "line", "square", false],
         ["Equity", "$0.98B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2019", "a", "neutral", 199.5],
-        ["FY2020", "a", "neutral", 244.9],
-        ["FY2021", "a", "neutral", 290.2],
-        ["FY2024", "a", "neutral", 426.1],
-        ["FY2025", "a", "neutral", 471.4]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2019–FY2021, FY2024–FY2025: Not available in this dataset."]
+        ["", "Long-term debt FY2019–FY2021, FY2024–FY2025: Not available in this dataset."]
       ],
       "strip": []
     },
@@ -1250,15 +1236,9 @@
         ["Cash", "$0.37B", 1, "line", "square", false],
         ["Equity", "$0.98B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2019", "a", "neutral", 392.8],
-        ["FY2020", "a", "neutral", 489.6],
-        ["FY2021", "a", "neutral", 586.4],
-        ["FY2024", "a", "neutral", 876.8],
-        ["FY2025", "a", "neutral", 973.6]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2019–FY2021, FY2024–FY2025: Not available in this dataset."]
+        ["", "Long-term debt FY2019–FY2021, FY2024–FY2025: Not available in this dataset."]
       ],
       "strip": [
         [
@@ -1321,13 +1301,13 @@
       ["FY2016 · year ended Dec 31, 2016", "Long-term debt: $20.83M", "Cash: $46.01M", "Equity: $85.09M", "FY2016, year ended December 31, 2016. Long-term debt: $20.83 million. Cash: $46.01 million. Equity: $85.09 million."],
       ["FY2017 · year ended Dec 31, 2017", "Long-term debt: $13.37M", "Cash: $24.83M", "Equity: $70.23M", "FY2017, year ended December 31, 2017. Long-term debt: $13.37 million. Cash: $24.83 million. Equity: $70.23 million."],
       ["FY2018 · year ended Dec 31, 2018", "Long-term debt: $133.0K", "Cash: $38.60M", "Equity: −$3.588M", "FY2018, year ended December 31, 2018. Long-term debt: $133.0 thousand. Cash: $38.60 million. Equity: minus $3.588 million."],
-      ["FY2019 · year ended Dec 31, 2019", "Long-term debt: Unavailable (a)", "Cash: $139.5M", "Equity: $129.9M", "FY2019, year ended December 31, 2019. Long-term debt: unavailable, data note a. Cash: $139.5 million. Equity: $129.9 million."],
-      ["FY2020 · year ended Dec 31, 2020", "Long-term debt: Unavailable (a)", "Cash: $1.312B", "Equity: $1.467B", "FY2020, year ended December 31, 2020. Long-term debt: unavailable, data note a. Cash: $1.312 billion. Equity: $1.467 billion."],
-      ["FY2021 · year ended Dec 31, 2021", "Long-term debt: Unavailable (a)", "Cash: $2.481B", "Equity: $4.606B", "FY2021, year ended December 31, 2021. Long-term debt: unavailable, data note a. Cash: $2.481 billion. Equity: $4.606 billion."],
+      ["FY2019 · year ended Dec 31, 2019", "Long-term debt: Unavailable", "Cash: $139.5M", "Equity: $129.9M", "FY2019, year ended December 31, 2019. Long-term debt: unavailable. Cash: $139.5 million. Equity: $129.9 million."],
+      ["FY2020 · year ended Dec 31, 2020", "Long-term debt: Unavailable", "Cash: $1.312B", "Equity: $1.467B", "FY2020, year ended December 31, 2020. Long-term debt: unavailable. Cash: $1.312 billion. Equity: $1.467 billion."],
+      ["FY2021 · year ended Dec 31, 2021", "Long-term debt: Unavailable", "Cash: $2.481B", "Equity: $4.606B", "FY2021, year ended December 31, 2021. Long-term debt: unavailable. Cash: $2.481 billion. Equity: $4.606 billion."],
       ["FY2022 · year ended Dec 31, 2022", "Long-term debt: $9.000M", "Cash: $690.6M", "Equity: $4.060B", "FY2022, year ended December 31, 2022. Long-term debt: $9.000 million. Cash: $690.6 million. Equity: $4.060 billion."],
       ["FY2023 · year ended Dec 31, 2023", "Long-term debt: $3.900M", "Cash: $135.0M", "Equity: $2.898B", "FY2023, year ended December 31, 2023. Long-term debt: $3.900 million. Cash: $135.0 million. Equity: $2.898 billion."],
-      ["FY2024 · year ended Dec 31, 2024", "Long-term debt: Unavailable (a)", "Cash: $205.7M", "Equity: $1.734B", "FY2024, year ended December 31, 2024. Long-term debt: unavailable, data note a. Cash: $205.7 million. Equity: $1.734 billion."],
-      ["FY2025 · year ended Dec 31, 2025", "Long-term debt: Unavailable (a)", "Cash: $368.5M", "Equity: $978.1M", "FY2025, year ended December 31, 2025. Long-term debt: unavailable, data note a. Cash: $368.5 million. Equity: $978.1 million."]
+      ["FY2024 · year ended Dec 31, 2024", "Long-term debt: Unavailable", "Cash: $205.7M", "Equity: $1.734B", "FY2024, year ended December 31, 2024. Long-term debt: unavailable. Cash: $205.7 million. Equity: $1.734 billion."],
+      ["FY2025 · year ended Dec 31, 2025", "Long-term debt: Unavailable", "Cash: $368.5M", "Equity: $978.1M", "FY2025, year ended December 31, 2025. Long-term debt: unavailable. Cash: $368.5 million. Equity: $978.1 million."]
     ]
   }
 }

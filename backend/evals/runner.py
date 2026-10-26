@@ -324,12 +324,16 @@ async def _run_one(
             continue
         incurred = {}
         if candidate == "baseline":
+            incurred_usage = _merge_provider_usage(
+                [r["provider_usage"] for r in retry_provider_attempts] + [outcome["provider_usage"]]
+            )
             incurred = {
                 "retry_provider_attempts": retry_provider_attempts,
-                "incurred_provider_usage": _merge_provider_usage(
-                    [r["provider_usage"] for r in retry_provider_attempts] + [outcome["provider_usage"]]
-                ),
+                "incurred_provider_usage": incurred_usage,
                 "incurred_latency_seconds": round(time.monotonic() - started, 3),
+                # A baseline row's cost is every generation it made, retries and a failed final one
+                # included; calls with no estimate stay outside it, counted in the usage row.
+                "cost_usd": incurred_usage["estimated_cost_known_usd"],
             }
         return {**base, **outcome, **incurred, "retried": retried, "first_error": first_error,
                 "first_latency_seconds": first_latency,
@@ -345,9 +349,13 @@ def summarize_provider_calls(records: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     Sums only provider-reported counters (``None`` = unavailable, never zero); ``unknown_calls``
     says how many attempts carried no usage at all. ``actual_models`` preserves the response's
-    own model identity so a silent provider-side routing change is visible per filing."""
+    own model identity so a silent provider-side routing change is visible per filing.
+    ``estimated_cost_known_usd`` sums the records' own ``estimated_cost_usd`` where it is known and
+    ``estimated_cost_unknown_calls`` counts the calls left out of that sum, as the admin metrics do."""
     totals: Dict[str, Optional[int]] = {key: None for key in _USAGE_KEYS}
     unknown = 0
+    cost_known = 0.0
+    cost_unknown = 0
     models: List[str] = []
     operations: Dict[str, int] = {}
     for record in records:
@@ -358,20 +366,31 @@ def summarize_provider_calls(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             value = usage.get(key)
             if value is not None:
                 totals[key] = (totals[key] or 0) + value
+        cost = record.get("estimated_cost_usd")
+        if cost is None:
+            cost_unknown += 1
+        else:
+            cost_known += cost
         model = record.get("actual_model")
         if model and model not in models:
             models.append(model)
         operations[record.get("operation") or "other"] = operations.get(record.get("operation") or "other", 0) + 1
     return {"calls": len(records), "unknown_calls": unknown, "operations": operations,
-            "actual_models": models, **totals}
+            "actual_models": models, **totals,
+            "estimated_cost_known_usd": round(cost_known, 6), "estimated_cost_unknown_calls": cost_unknown}
 
 
 def _merge_provider_usage(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Merge disjoint generation summaries; unavailable counters never become zero."""
+    """Merge disjoint generation summaries; unavailable counters never become zero.
+
+    A row written before the cost fields existed adds every one of its calls to the unknown count."""
     merged = summarize_provider_calls([])
     for row in rows:
         merged["calls"] += row["calls"]
         merged["unknown_calls"] += row["unknown_calls"]
+        merged["estimated_cost_known_usd"] = round(
+            merged["estimated_cost_known_usd"] + row.get("estimated_cost_known_usd", 0.0), 6)
+        merged["estimated_cost_unknown_calls"] += row.get("estimated_cost_unknown_calls", row["calls"])
         for key in _USAGE_KEYS:
             if row[key] is not None:
                 merged[key] = (merged[key] or 0) + row[key]
@@ -419,7 +438,7 @@ async def _attempt(
             stream_cb = observe_preview if stream_requested else None
             # Observe every provider attempt the pipeline makes for THIS generation (primary,
             # fallback, section recovery) so the report carries measured usage per filing —
-            # the baseline route has no other token record (its cost_usd is not metered).
+            # the baseline route has no other token or cost record.
             call_records, observer_token = ai_metrics.observe_ai_calls()
             try:
                 summary = await openai_service.summarize_filing(
@@ -457,8 +476,8 @@ async def _attempt(
             judge = await _maybe_judge(judge_model, payload, filing, grounding)
             return {"score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
-                    "latency_seconds": latency, "cost_usd": 0.0, "error": None,
-                    "provider_usage": provider_usage,
+                    "latency_seconds": latency, "cost_usd": provider_usage["estimated_cost_known_usd"],
+                    "error": None, "provider_usage": provider_usage,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
                     "preview_frames": preview_frames, "preview_chars": preview_chars,
                     "previews_truncated": previews_truncated, **_PREVIEW_OBSERVATION,
@@ -516,7 +535,9 @@ def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Provider-reported token totals across the candidate's attempts (baseline route only).
 
     Reports the number of attempts that carried usage so a mean over a partial set is never
-    mistaken for a full one; absent usage yields ``None``, not zero."""
+    mistaken for a full one; absent usage yields ``None``, not zero. ``cost_unknown_calls`` counts
+    the incurred calls outside ``total_cost_usd``; ``None`` when no row carries incurred usage evidence
+    (the candidate route, or a report written before incurred usage existed)."""
     rows = [r.get("provider_usage") for r in rs if isinstance(r.get("provider_usage"), dict)]
     incurred = [r["incurred_provider_usage"] for r in rs if isinstance(r.get("incurred_provider_usage"), dict)]
     with_output = [u["completion_tokens"] for u in rows if u.get("completion_tokens") is not None]
@@ -526,9 +547,11 @@ def _usage_stats(rs: List[Dict[str, Any]]) -> Dict[str, Any]:
         for m in u.get("actual_models") or []:
             if m not in models:
                 models.append(m)
+    incurred_usage = _merge_provider_usage(incurred) if incurred else None
     return {
+        "cost_unknown_calls": incurred_usage["estimated_cost_unknown_calls"] if incurred_usage else None,
         "incurred_usage_attempts": len(incurred),
-        "incurred_provider_usage": _merge_provider_usage(incurred) if incurred else None,
+        "incurred_provider_usage": incurred_usage,
         "usage_attempts": len(with_output),
         "mean_completion_tokens": round(statistics.mean(with_output), 1) if with_output else None,
         "mean_prompt_tokens": round(statistics.mean(with_input), 1) if with_input else None,
@@ -638,12 +661,19 @@ def _write_report(
                     key=lambda kv: (kv[1]["pass_rate"], kv[1]["mean_aggregate"]), reverse=True)
     for cand, s in ranked:
         judge_pass = "-" if s.get("judge_pass_rate") is None else s["judge_pass_rate"]
+        cost = s["total_cost_usd"]
+        if s.get("cost_unknown_calls"):
+            cost = f"{cost} (+{s['cost_unknown_calls']} unpriced)"
         lines.append(
             f"| {cand} | {s['n']} | {s['pass_rate']} | {s['mean_aggregate']} | {s['aggregate_stdev']} | "
             f"{s['gate_fail_rate']} | {s['schema_valid_rate']} | {s['repaired_rate']} | "
             f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | {s.get('mean_currency_consistency', '-')} | "
-            f"{judge_pass} | {s['total_cost_usd']} | {s['mean_latency_seconds']} | {s['errors']} |"
+            f"{judge_pass} | {cost} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
+    lines += ["", "`$cost` is an estimate in USD, not like-for-like across rows: `baseline` prices every generation a "
+              "result made, retries included, from the pipeline's own peak-aware `ai_call` estimates (`+N unpriced` "
+              "counts calls with no estimate); any other candidate prices its successful final attempts at "
+              "the per-token prices in `evals/models.py`."]
     lines += ["", "## Dollar-figure trace (advisory; raw v2 model prose)", "",
               "Mean counts use measured runs only; missing grounding is unavailable, not zero.",
               "| candidate | mean untraceable | measured | unavailable | errors |",

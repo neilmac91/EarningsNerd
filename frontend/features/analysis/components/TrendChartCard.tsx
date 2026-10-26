@@ -8,17 +8,19 @@
  * subgrid, its header, plot and notes, so a grid row's plots start at one height whatever its legends wrap to (chief
  * design's review of #1609). Escape in an expanded card collapses it and returns focus to its toggle (§3.10, D13).
  * The card names its chart (data-trend-chart) and each piece of its text (data-chart-text) for the gallery's DOM checks
- * (D6, D9, M19; step 6, E194).
+ * (D6, D9, M19; step 6, E194). It is busy (aria-busy) while its plot waits for its font, and its export control while a
+ * PNG is drawn; expanding or collapsing grows or shrinks the plot's row to its new height (§3.9, §3.10; E200).
  */
-import { useCallback, useContext, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { Card, cx } from '@/components/ui'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { chartDataNotes, exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
+import { exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
 import { CARD_HEIGHT, layoutChart, VALUES_DONT_FIT } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, type ChartId } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
@@ -33,6 +35,31 @@ import TrendChartPlot from './TrendChartPlot'
 /** The server and the first render plan at the desktop card's width (§3.12) until the card is measured. */
 const DEFAULT_WIDTH = 502
 
+/** §3.10: the plot's row runs from the height it had before a toggle to the one it has now, over the row's own
+ *  transition (duration-base, ease-standard), clipped while it runs; then the row is left to size itself again. Returns
+ *  what ends it early. */
+function growFrom(row: HTMLElement, from: number): (() => void) | undefined {
+  const to = row.getBoundingClientRect().height
+  if (Math.abs(to - from) < 1) return undefined
+  const done = () => {
+    row.removeEventListener('transitionend', end)
+    row.removeEventListener('transitioncancel', done)
+    row.style.height = ''
+    row.style.overflow = ''
+  }
+  const end = (event: TransitionEvent) => {
+    if (event.target === row && event.propertyName === 'height') done()
+  }
+  row.style.overflow = 'hidden'
+  row.style.height = `${from}px`
+  // Commit the start height, so the change to the end height is a transition rather than a jump.
+  row.getBoundingClientRect()
+  row.addEventListener('transitionend', end)
+  row.addEventListener('transitioncancel', done)
+  row.style.height = `${to}px`
+  return done
+}
+
 export default function TrendChartCard({ chart, dataset, notes, exportEnabled, fontReady }: {
   chart: ChartId
   dataset: AnalysisDataset
@@ -44,25 +71,44 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const dark = useContext(ThemeContext)?.theme === 'dark'
   const tokens = chartTokens(dark)
   const [expanded, setExpanded] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [width, setWidth] = useState(DEFAULT_WIDTH)
   const onWidth = useCallback((measured: number) => setWidth(measured), [])
   const plotRef = useRef<HTMLDivElement>(null)
   const toggleRef = useRef<HTMLButtonElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
+  // The plot row's height when a toggle was asked for, read before the view changes it.
+  const fromHeight = useRef<number | null>(null)
+  const reduced = usePrefersReducedMotion()
   const uid = `chart${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const model = useMemo(() => buildChartModel(chart, dataset, notes), [chart, dataset, notes])
   const readouts = useMemo(() => chartReadouts(model, dataset, notes), [model, dataset, notes])
   const view = expanded ? 'expanded' : 'card'
   const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
-  // The series this chart plots, for its data-notes link (the growth mark's key is its top line's, plus ":yoy").
-  const plotted = useMemo(() => {
-    const concepts = new Set(model.panels.flatMap((panel) => panel.marks.map((mark) => mark.seriesKey.split(':')[0])))
-    return dataset.series.filter((series) => concepts.has(series.concept))
-  }, [model, dataset])
-  const { panelNotes } = useMemo(() => chartDataNotes(dataset, plotted, notes, chart === 'topline'), [dataset, plotted, notes, chart])
+  // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
+  // never disagree: an n/m comparison's note letters here too, which today's Recharts (chartDataNotes) never draws.
+  const panelNotes = useMemo(() => {
+    const lettered = new Set(model.footnotes.map((footnote) => footnote.mark))
+    return notes.notes.filter((note) => lettered.has(note.letter))
+  }, [model, notes])
+
+  const toggle = (next: boolean) => {
+    fromHeight.current = rowRef.current?.getBoundingClientRect().height ?? null
+    setExpanded(next)
+  }
+  // The view has changed the row's height by now; it runs there from the old one, unless the reader asks for no motion.
+  useLayoutEffect(() => {
+    const row = rowRef.current
+    const from = fromHeight.current
+    fromHeight.current = null
+    if (!row || from == null || reduced) return undefined
+    return growFrom(row, from)
+  }, [expanded, reduced])
 
   const exportPng = async () => {
-    if (!plotRef.current) return
+    if (!plotRef.current || exporting) return
+    setExporting(true)
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, model.title, 'png'),
@@ -79,11 +125,12 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
           ...exportSourceText(dataset),
           notes: [
             ...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)),
-            ...(plotted.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+            ...(model.panels.some((panel) => panel.marks.some((mark) => mark.seriesKey === 'free_cash_flow')) ? [FCF_DEFINITION] : []),
           ],
         },
       }
     ).catch(() => false)
+    setExporting(false)
     if (downloaded) {
       analytics.exportGenerated({ surface: 'analysis', format: 'png', ticker: dataset.ticker, mode: dataset.mode, periodKey: dataset.period_key, panel: model.title })
     } else {
@@ -93,11 +140,11 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
 
   return (
     <Card as="section" className={cx('row-span-3 grid min-w-0 grid-cols-1 grid-rows-subgrid gap-y-0 p-cap-5', expanded && 'md:col-span-2')}
-      data-trend-chart={chart} onKeyDown={(event) => {
+      data-trend-chart={chart} aria-busy={(layout != null && !fontReady) || undefined} onKeyDown={(event) => {
         // A portalled dialog's Escape is not the card's: its DOM sits outside the section.
         if (event.key !== 'Escape' || !expanded || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return
         event.preventDefault()
-        setExpanded(false)
+        toggle(false)
         toggleRef.current?.focus()
       }}>
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -123,23 +170,26 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {exportEnabled && layout && (
-            <ChartControl label="Download chart as PNG" disabled={!fontReady} onClick={() => void exportPng()}>
+            <ChartControl label="Download chart as PNG" disabled={!fontReady} loading={exporting} onClick={() => void exportPng()}>
               <ImageSquareIcon className="h-5 w-5" aria-hidden="true" />
             </ChartControl>
           )}
-          <ChartControl label={expanded ? 'Collapse chart' : 'Expand chart'} expanded={expanded} buttonRef={toggleRef} onClick={() => setExpanded((value) => !value)}>
+          <ChartControl label={expanded ? 'Collapse chart' : 'Expand chart'} expanded={expanded} buttonRef={toggleRef} onClick={() => toggle(!expanded)}>
             {expanded ? <ArrowsInSimpleIcon className="h-5 w-5" aria-hidden="true" /> : <ArrowsOutSimpleIcon className="h-5 w-5" aria-hidden="true" />}
           </ChartControl>
         </div>
       </div>
-      {layout ? (
-        <TrendChartPlot model={model} layout={layout} readouts={readouts} tokens={tokens} fontReady={fontReady} uid={uid} view={view}
-          plotRef={plotRef} onWidth={onWidth} />
-      ) : (
-        <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
-          {model.unavailable}
-        </div>
-      )}
+      {/* The subgrid's second row, whose height a toggle runs (§3.10). */}
+      <div ref={rowRef} className="min-w-0 transition-[height] duration-base ease-standard motion-reduce:transition-none">
+        {layout ? (
+          <TrendChartPlot model={model} layout={layout} readouts={readouts} tokens={tokens} fontReady={fontReady} uid={uid} view={view}
+            plotRef={plotRef} onWidth={onWidth} />
+        ) : (
+          <div className="flex items-center justify-center px-4 text-center text-sm" style={{ height: CARD_HEIGHT, color: tokens.note }} data-chart-text="unavailable">
+            {model.unavailable}
+          </div>
+        )}
+      </div>
       {/* Always rendered: the subgrid's third row. */}
       <div>
         {layout?.valuesDontFit && <p className="mt-2 text-xs" style={{ color: tokens.note }} data-chart-text="fit">{VALUES_DONT_FIT}</p>}

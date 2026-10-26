@@ -399,7 +399,7 @@ async def test_a3_non_timeout_extraction_failure_error_envelope(filing_type, lab
     result = await service.summarize_filing("Selected filing text.", "Anchor Co", filing_type)
     assert result == {
         "status": "error",
-        "message": "We couldn't generate this summary just now. Please try again shortly.",
+        "message": "We could not generate this summary. Try again shortly.",
         "summary_title": f"Anchor Co {label} Filing Summary",
         "sections": [],
         "insights": {"sentiment": "Neutral", "growth_drivers": [], "risk_signals": []},
@@ -426,7 +426,7 @@ _LIQUIDITY = {"liquidity": "Cash covers maturities."}
 _NOTES = [{"item": "Leases", "impact": "Lease costs were minor."}]
 _CARDS = ["Financial Overview", "Management Commentary", "Strategic Developments"]
 _PARTIAL = "Some sections may not have loaded fully."
-_ERROR = "Unable to retrieve this filing at the moment — please try again shortly."
+_ERROR = "We could not generate this summary. Try again shortly."
 _A4_CASES = [
     # (case, sections, covered of 9, legacy card titles, status, message)
     ("0-covered-no-cards", {}, 0, [], "error", _ERROR),
