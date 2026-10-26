@@ -6,9 +6,9 @@ period's winner under the accession of the filing that reported it last, with no
 own-report row, kept beside a restated winner, is stored the same way under that report's accession.
 When either is stored before the filing's own facts are written, it holds the filing's cell and the
 per-filing writer adds no row there: every cell of the newest annual report, the oldest year and older
-balance of an older one. ``filing_id`` therefore says which writer stored a row, never which filing
-reported it; a filing's figures are the rows at its company and accession
-(``lessons/arch-read-a-filings-facts-by-its-accession.md``).
+balance of an older one, and an older one's own year where a later report gave that year another value.
+``filing_id`` therefore says which writer stored a row, never which filing reported it; a filing's
+figures are the rows at its company and accession (``lessons/arch-read-a-filings-facts-by-its-accession.md``).
 """
 from __future__ import annotations
 
@@ -86,6 +86,18 @@ def _lines_reaching(rows: list[FinancialFact], period_end: date | datetime | Non
     return {row.concept for row in rows if abs((row.period_end - end).days) <= DRIFT_DAYS}
 
 
+def _lines_missing_a_year(rows: list[FinancialFact]) -> set[str]:
+    """The concepts whose line skips a year: two of its rows, next by period end, more than a year and
+    ``fiscal_naming.DRIFT_DAYS`` apart (``rows`` in concept, then period-end order). On the chart's
+    categorical axis they would stand side by side. An older report's line the per-filing writer read
+    nothing of has one when a later report restated its own year: the sync holds the oldest year, which
+    the report filed last, and the own year, the own-report row (``facts/own_reports.py``), while the
+    year between sits under the next report's accession. Counted in days, as ``_lines_reaching`` counts;
+    a fiscal-year change's transition period, which no FY row spans, counts as a gap too."""
+    return {row.concept for row, after in zip(rows, rows[1:])
+            if row.concept == after.concept and (after.period_end - row.period_end).days > 365 + DRIFT_DAYS}
+
+
 def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     """The filing's own FY rows, by concept then period end, current or not.
 
@@ -97,7 +109,8 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     end (``_lines_reaching``, over the rows that count): short of it, the rows stored there are only
     the cells this filing reported last (an older report's oldest year and older balance; an interim
     report's prior year-end balance, which the sync labels FY although the per-filing writer stores no
-    FY row for an interim report), and a line of those alone would read as all it disclosed. No
+    FY row for an interim report), and a line of those alone would read as all it disclosed. Nor in a
+    line with a year missing (``_lines_missing_a_year``): the line keeps the filing's own rows. No
     ``is_latest`` filter: a later restatement demotes the rows, never removes them from their
     filing's chart.
     """
@@ -116,8 +129,8 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     counted = _counted_stand_ins(own, [row for row in rows if row.filing_id is None
                                        and processed and _stands_in(row, filing.accession_number)])
     chosen = [row for row in rows if row.filing_id is not None or row in counted]
-    reaching = _lines_reaching(chosen, filing.period_end_date)
-    return [row for row in chosen if row.filing_id is not None or row.concept in reaching]
+    shown = _lines_reaching(chosen, filing.period_end_date) - _lines_missing_a_year(chosen)
+    return [row for row in chosen if row.filing_id is not None or row.concept in shown]
 
 
 def filing_years(rows: list[FinancialFact]) -> dict[int, int | None]:

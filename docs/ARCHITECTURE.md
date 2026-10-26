@@ -411,11 +411,14 @@ unused since generation became account-required in #619; kept because migrations
   `fiscal_naming.DRIFT_DAYS` days, counted in days, never calendar years; with none on record, none
   shows): short of it, the rows left at the accession are only the cells the filing reported last,
   such as an older report's oldest year or a 10-Q's prior year-end balance, which the sync labels
-  FY. A stand-in shows under the year counted in whole years, back or forward, from the latest
-  period end the filing's own rows name (`fiscal_naming.years_back`; with none, under its own
-  label), since a companyfacts row stored before the fiscal-year-window writer names its year by the
-  calendar year of its end. The Copilot reads the same scope (`copilot_tools._scope`) and shares the
-  operand test (`fact_provenance.operands_within_accession`).
+  FY. Nor in a line with a year missing, two of its rows more than a year and `DRIFT_DAYS` apart:
+  an older report's line the writer read nothing of can hold its oldest year and its own-report row
+  (below), the year between under the next report's accession. Such a line, like one short of the
+  period end, keeps the filing's own rows. A stand-in shows under the year counted in whole years,
+  back or forward, from the latest period end the filing's own rows name (`fiscal_naming.years_back`;
+  with none, under its own label), since a companyfacts row stored before the fiscal-year-window
+  writer names its year by the calendar year of its end. The Copilot reads the same scope
+  (`copilot_tools._scope`) and shares the operand test (`fact_provenance.operands_within_accession`).
 - Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
   A foreign list is read only when the USD list is its convenience translation (every USD
   period the collector keeps, by period end and span, is also kept from the foreign list; an
@@ -442,10 +445,12 @@ unused since generation became account-required in #619; kept because migrations
   a non-current row under the own report's accession, found within the winning tag only, the
   original preferred over an amendment, then the earliest filed. It is stored only where its
   identity is free, so it never demotes, promotes or replaces a row, and it never enters the
-  normalizer's `facts`, which the derivations read. The restatement note will read them. Like
-  every stored companyfacts row, one at a filing's own identity holds that cell, since the
-  per-filing writer skips any stored identity, and the filing's annual chart reads it there as a
-  stand-in under the conditions above.
+  normalizer's `facts`, which the derivations read. The restatement note will read them. It is
+  the own report's figure at that report's accession, so a reader of that filing's rows (the
+  annual chart, the Copilot) reads it as the filing's own: the FY2018 10-K of REGN shows the
+  6,710.8M it gave, never the FY2020 10-K's 5,145.6M, which only the later report's rows carry.
+  Like every stored companyfacts row, one stored first at a filing's own identity holds that cell,
+  since the per-filing writer skips any stored identity, and stands in for it there.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

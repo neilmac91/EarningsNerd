@@ -2,7 +2,8 @@
 
 The winner is the latest-filed item of the first tag with data. When a later annual report gives a
 year another value, the year's own report's value is kept as a history row: never current, never an
-operand, read by nothing yet (``app/services/facts/own_reports.py``). REGN is the worked case: its
+operand of the sync's derivations (``app/services/facts/own_reports.py``). How one filing's chart reads
+it is pinned in ``test_filing_fundamentals_by_accession.py``. REGN is the worked case: its
 FY2018 10-K reports revenue of 6,710.8M, and the FY2020 10-K's comparative, under the same tag,
 5,145.6M (docs/mpa-improvements/coherence.md, section 1.6).
 """
