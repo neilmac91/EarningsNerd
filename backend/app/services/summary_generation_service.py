@@ -410,9 +410,10 @@ def record_progress(
 
     A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write sets the stage,
     the error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
-    ``elapsed_seconds`` from it in SQL. A run's first write (``starts_run``, the pipeline's fetch stage) restarts the
-    clock instead, so a retry after an error, or the unready summary's regeneration, does not count from the run that
-    left the row (E216). With no read before the write, a clear or an insert landing just before it (a Pro force's
+    ``elapsed_seconds`` from it in SQL. The fetch stage's write, an admitted run's first, passes ``starts_run`` and
+    restarts the clock instead, so a retry after an error, or the unready summary's regeneration, does not count from
+    the run that left the row (E216); a run that fails before the fetch stage writes only its error, which keeps the
+    clock (E217). With no read before the write, a clear or an insert landing just before it (a Pro force's
     clear, an admin reset, another run of the filing on the API's other instance, the task worker or a job) cannot fail
     the run: after a clear it inserts a fresh row, and after an insert it updates that row."""
     now = utcnow()
