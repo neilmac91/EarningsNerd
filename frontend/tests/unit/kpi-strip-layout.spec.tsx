@@ -48,7 +48,7 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     expect(KPI_FIGURE_ADVANCE).toBeCloseTo(ADVANCE * rem(theme.fontSize['2xl'][0]), 9)
     expect(KPI_MARK_ADVANCE).toBeCloseTo(ADVANCE * rem(theme.fontSize['data-xs'][0]), 9)
     expect(KPI_MARK_GAP).toBe(rem(theme.spacing['0.5']))
-    // E197's two cases, 138.2px each at a 16px root: CHF at 320px and CA$ at 360px.
+    // E197's case at a 16px root: "CHF 22.8B" is 129.6px, one card at 320px and two at 360px.
     expect(kpiValueWidth('CHF 22.8B')).toBeCloseTo(8.1, 9)
     // A marked letter adds its glyph and its 2px: "CA$968.0M" with a note's "a" is 138.2px at a 16px root.
     expect(kpiValueWidth('CA$968.0M', 'a')).toBeCloseTo(8.6375, 9)

@@ -1090,22 +1090,36 @@ const withCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
   series.points.findLast(point => point.value != null)!.value = 968_000_000
 }
 
+/** The same value with a note that questions it, an open source conflict, so it carries a letter (D-061): 138.2px. */
+const withQuestionedCanadianFreeCashFlow = (dataset: AnalysisDataset) => {
+  withCanadianFreeCashFlow(dataset)
+  const point = dataset.series.find(item => item.concept === 'free_cash_flow')!.points.findLast(point => point.value != null)!
+  if (point.provenance) point.provenance = { ...point.provenance, validation: 'needs_review', reasons: ['source_conflict'] }
+  else point.reconciled = false
+}
+
 /** E197: a code-prefixed value that two cards cannot hold puts the strip in one column instead of leaving its card
  *  ("CHF 22.8B" ran 17.6px past its content box at 320px). Nine glyphs and no mark (no figure carries a dagger, D-061;
  *  no note questions these), 129.6px at a 16px root, fit two up from 360px, where E197's dagger did not; under 200%
- *  text the strip takes two cards at 1024px, where four cannot hold them, and four at 1480px, where they can. */
+ *  text the strip takes two cards at 1024px, where four cannot hold them, and four at 1480px, where they can (by 2.3px
+ *  at 0.6em, and by the rule's own half pixel where glyphs snap, so a change to the card's padding, border or gap moves
+ *  that row). With a note's letter, 138.2px, the same value takes one card at 360px and two at 1480px. */
 // Geometry only, so one theme: the inks are the phone marks' and the text floors' to check.
 test.describe('analysis KPI strip, long values', () => {
   const theme = 'light' as const
-  for (const [name, state, edit, value] of [
-    ['annual in CHF', 'annual', inSwissFrancs, 'CHF\u00a022.8B'], ['quarterly in CA$', 'legacy', withCanadianFreeCashFlow, 'CA$968.0M'],
-  ] as const) for (const [width, textScale, columns] of [[320, 1, 1], [360, 1, 2], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 4]] as const) {
+  const NINE = [[320, 1, 1], [360, 1, 2], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 4]] as const
+  const LETTERED = [[320, 1, 1], [360, 1, 1], [375, 1, 2], [390, 1, 2], [1024, 2, 2], [1480, 2, 2]] as const
+  for (const [name, state, edit, value, widths] of [
+    ['annual in CHF', 'annual', inSwissFrancs, 'CHF\u00a022.8B', NINE], ['quarterly in CA$', 'legacy', withCanadianFreeCashFlow, 'CA$968.0M', NINE],
+    ['quarterly in CA$, questioned', 'legacy', withQuestionedCanadianFreeCashFlow, 'CA$968.0M', LETTERED],
+  ] as const) for (const [width, textScale, columns] of widths) {
     test.describe(`${name} at ${width}px${textScale > 1 ? ' and 200% text' : ''}`, () => {
       test.use({ viewport: { width, height: 900 }, isMobile: width <= 390, hasTouch: width <= 390, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
       test(`its widest value stays in its card on one line, ${columns === 1 ? 'one card' : columns === 2 ? 'two cards' : 'four cards'} across`, async ({ page, baseURL }) => {
         test.setTimeout(60_000)
         await openAnalysis(page, baseURL!, state, theme, textScale, false, edit)
         await expect(page.locator('[data-analysis-kpi] [data-kpi-value] button').filter({ hasText: value }).first()).toBeVisible()
+        await expect(page.locator('[data-analysis-kpi] [data-kpi-value] button').filter({ hasText: value }).locator('[data-note-letter]'), 'a letter beside the value where a note questions it').toHaveCount(widths === LETTERED ? 1 : 0)
         const geometry = await pageAndCardGeometry(page)
         await assertKpiStrip(page, width, geometry)
         expect(geometry.rows[0].values, 'cards across').toBe(columns)

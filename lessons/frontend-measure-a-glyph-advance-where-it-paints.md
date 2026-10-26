@@ -7,7 +7,7 @@ Date: 2026-10-25   Area: frontend
 and every local gate held. CI's browser, headless Chrome under its default full hinting, snaps glyphs to whole pixels:
 14px at 24px and 29px at 48px. "$60.8B" painted 84px against an 86.4px budget, and at 200% text "26.1%†a" painted 179px
 against 178.4px, so 67 e2e cases failed on the pull request. A budget under the painted width brings E197's bug back: a
-dagger that wraps, or a value past its card.
+note letter that wraps, or a value past its card.
 
 **Rule**: When a layout sizes itself from text it has not laid out (a grid track's minimum, a reserved width), measure
 the advance in the browser: a hidden run of the same glyphs in the same classes, measured again by a ResizeObserver as
