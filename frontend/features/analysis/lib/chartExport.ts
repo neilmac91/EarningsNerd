@@ -1,10 +1,7 @@
-import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import api from '@/lib/api/client'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { formatInstant } from '@/lib/format'
-import { markedNote, type DataNotesModel } from './dataNotes'
-import { formatAnalysisPeriod } from './periodLabels'
-import { FCF_DEFINITION } from './provenance'
 
 /** The PNG header's source line and disclosure, the same under every chart renderer. The source data's sync time, an
  *  instant, prints as the day it falls on in the reader's zone (DataNotes prints the long form). */
@@ -13,51 +10,6 @@ export function exportSourceText(dataset: AnalysisDataset): { sourceNote: string
   return {
     sourceNote: `Source: SEC filings via EarningsNerd · ${sourceDate ? `data as of ${sourceDate}` : 'source refresh time unavailable'}`,
     disclosure: 'Research only. Not investment advice. Data may contain errors or omissions. earningsnerd.io/terms',
-  }
-}
-
-/** Notes for the plotted series only, with the report's stable letters and reason sentences. Only a note that questions
- *  the number marks the plot (D-061), so only those enter the panel's chip and the PNG footer; a gap whose note marks
- *  nothing is a plain "unavailable for …" line, and the other notes stay in the page's data notes. */
-export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: AnalysisSeries[], notes: DataNotesModel, includeYoY: boolean) {
-  const references = new Map<string, Map<string, string[]>>()
-  const addReference = (key: string, label: string, period: string) => {
-    const metrics = references.get(key) ?? new Map<string, string[]>()
-    metrics.set(label, [...(metrics.get(label) ?? []), formatAnalysisPeriod(period)])
-    references.set(key, metrics)
-  }
-  const unavailable: string[] = []
-  const unnotedGaps: string[] = []
-  let hasCalculated = false
-  for (const series of plottedSeries) {
-    const missing: string[] = []
-    const missingWithoutNote: string[] = []
-    for (const period of dataset.periods) {
-      const point = series.points.find((entry) => entry.period === period.key) ?? { period: period.key, value: null }
-      const note = markedNote(notes.noteFor(point))
-      if (note) addReference(note.key, series.label, period.key)
-      if (point.value == null) {
-        missing.push(formatAnalysisPeriod(period.key))
-        if (!note) missingWithoutNote.push(formatAnalysisPeriod(period.key))
-      } else if (point.provenance ? point.provenance.method === 'calculated' : point.derived) hasCalculated = true
-      if (includeYoY && typeof point.yoy === 'number') {
-        const comparison = markedNote(notes.noteForComparison(point, 'yoy'))
-        if (comparison) addReference(comparison.key, `${series.label} YoY`, period.key)
-      }
-    }
-    if (missing.length) unavailable.push(`${series.label}: unavailable for ${missing.join(', ')}.`)
-    if (missingWithoutNote.length) unnotedGaps.push(`${series.label}: unavailable for ${missingWithoutNote.join(', ')}.`)
-  }
-  const panelNotes = notes.notes.filter((note) => references.has(note.key))
-  return {
-    panelNotes,
-    unavailable,
-    exportNotes: [
-      ...panelNotes.map((note) => `Note ${note.letter}: ${note.message} ${[...references.get(note.key)!].map(([label, periods]) => `${label} (${periods.join(', ')})`).join('; ')}.`),
-      ...unnotedGaps,
-      ...(hasCalculated ? ['Includes figures calculated by EarningsNerd.'] : []),
-      ...(plottedSeries.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
-    ],
   }
 }
 

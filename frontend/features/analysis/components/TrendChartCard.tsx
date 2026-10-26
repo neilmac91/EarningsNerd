@@ -87,7 +87,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
   // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
-  // never disagree: an n/m comparison's note letters here too, which today's Recharts (chartDataNotes) never draws.
+  // never disagree: an n/m comparison's note letters here too.
   const panelNotes = useMemo(() => {
     const lettered = new Set(model.footnotes.map((footnote) => footnote.mark))
     return notes.notes.filter((note) => lettered.has(note.letter))

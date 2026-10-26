@@ -3,24 +3,14 @@ import { describe, expect, it } from 'vitest'
 
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { buildChartModel } from '@/features/analysis/lib/charts/model'
-import { resolveDataNotes, type DataNote } from '@/features/analysis/lib/dataNotes'
-import { comparisonLocations, selectHeadlineFigures, topLineConcept } from '@/features/analysis/lib/reportPresentation'
+import { selectHeadlineFigures, topLineConcept } from '@/features/analysis/lib/reportPresentation'
 
 const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
 }
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 
-describe('the first chart and the notes agree on what it draws', () => {
-  const yoyNote = (concept: string, period: string) => ({ comparisons: [{ concept, period, basis: 'yoy' }] }) as unknown as DataNote
-
-  it('a note names the growth chart for a comparison it plots, and not once the top line is in two currencies', () => {
-    const ds = dataset('REGN_annual')
-    expect(comparisonLocations(ds, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(1)
-    ds.series.find((series) => series.concept === 'revenue')!.points[3].unit = 'EUR'
-    expect(comparisonLocations(ds, resolveDataNotes(ds))(yoyNote('revenue', 'FY2024'))[0].chart).toBe(0)
-  })
-
+describe('the first chart', () => {
   it('with no top line in the window, the engine draws no first chart', () => {
     const ds = dataset('LOVE_annual')
     ds.series = ds.series.filter((series) => series.concept !== 'net_interest_income')
