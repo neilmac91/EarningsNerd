@@ -965,6 +965,22 @@ from 0.30 to 0.20 (CAT), and C's verified claims go from 715 to 716 (CAT's 14.7%
 they were.
 The pass row is the record as run, so it does not move.
 
+**The pull request's review (Codex, after the results).** Its fixes to the harness move no reported verdict:
+- **The judge's forfeit:** no recorded pair had a failed generation.
+- **Partial audits:** none of the 1,191 recorded audits holds an unlabelled item.
+- **The production arm's ingest:** no run here generated the current arm.
+- **Cut Claude attempts' cost:** no recorded call used the Claude API.
+- **Overload retries' latency:** the records cannot show whether any call retried (§5.7).
+- **Worded multiples beside figures** ("more than doubled to $1.2 billion"). The gate now reads these. A replay of
+  every recorded output, first and final, with and without backstops, changes no verdict and no failure. Four
+  sentences gain one verified claim each, so a report re-run today prints one more verified claim:
+  - eval-v2-r1 K0: 752 becomes 753 (CVX), so the held-out pool reads 1,479 and all six runs 4,442. Every rate in §5
+    rounds the same: 1.3, 3.4 and 4.5;
+  - eval-v1 Haiku 5.5 (low effort): 677 becomes 678 on the development half (its rate there prints 2.9, not 3.0),
+    and 1,356 becomes 1,357 in all.
+
+  The committed reports keep the earlier counts, and no auditor read the added claims.
+
 ### When to stop
 
 - **From development to held-out.** Move on when C meets every target in both runs, or misses one by less than K0's own run-to-run spread, and no guard measure has worsened in both runs.

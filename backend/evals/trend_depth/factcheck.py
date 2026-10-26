@@ -194,9 +194,11 @@ def parse_claims(text: str) -> list[Claim]:
             printed, begin = printed[1:], begin + 1  # the hyphen is the range's separator
         claims.append(Claim(printed, number, unit, decimals, scale, qualifier, begin))
     _propagate_list_units(clean, claims)
-    # The multiples are read in the sentence as its figures were, so their starts index the same text (a figure's own
-    # printed text once stood in for the sentence here, and a sentence with any figure was never read for its multiple).
-    low = clean.lower()
+    # The multiples are read in the sentence itself, its citations blanked to spaces so their starts index the same
+    # text as the figures' (a figure's own printed text once stood in for the sentence here, so a sentence with any
+    # figure was never read for its multiple). Not in ``clean``: it also blanks the word after "form", which would
+    # hide "in its current form doubled".
+    low = CITATION_RE.sub(lambda m: " " * len(m.group(0)), text).lower()
     for word, factor in _MULTIPLE_WORDS.items():
         for found in re.finditer(rf"\b{word}\b", low):
             qualifier = ""

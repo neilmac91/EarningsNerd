@@ -224,6 +224,8 @@ async def judge_pair(label: str, ticker: str, x: str, y: str, judge: str, semaph
                     failed.append({**exc.order, "position": 2 if first else 1, "unusable": True})
             except BaseException as exc:  # Ctrl-C or a cancelled task: the orders already paid for are kept, then it stops
                 record["error"] = f"interrupted: {type(exc).__name__}"
+                if getattr(exc, "result", None) is not None:  # Claude attempts cut short before it: kept with their cost
+                    failed.append({**_order(exc.result, {}), "position": 2 if first else 1, "unusable": True})
                 interrupted = exc
         record["orders"] = [o for o in (first, second) if o] + failed
     if superseded:

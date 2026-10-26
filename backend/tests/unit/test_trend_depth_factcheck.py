@@ -711,6 +711,11 @@ TRIPLED = _pack(("F1", "Revenue", "FY2024", 10_000_000_000.0, "usd"), ("F2", "Re
          "'quadrupled' matches nothing"),
         ("Revenue nearly tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "nearly", None),
         ("Revenue nearly doubled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "nearly", "'doubled' matches nothing"),
+        # The cleaning of figures blanks the word after "form" ("Form 10-K"); the multiples are read without it.
+        ("Revenue in its current form doubled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple",
+         "'doubled' matches nothing"),
+        ("Revenue in its reported form tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple",
+         None),
     ],
 )
 def test_a_worded_multiple_beside_figures_is_checked(text: str, qualifier: str, fragment: str | None) -> None:
@@ -724,3 +729,10 @@ def test_a_worded_multiple_beside_figures_is_checked(text: str, qualifier: str, 
     # Its start indexes the sentence as the figures' starts do (period binding orders every claim by it).
     multiple, = [c for c in factcheck.parse_claims(text) if c.unit == "multiple"]
     assert (text[multiple.start:multiple.start + len(multiple.text)], multiple.qualifier) == (multiple.text, qualifier)
+
+
+def test_a_worded_multiple_without_figures_after_form_is_read() -> None:
+    """The same word after "form" when the sentence prints no figure: it failed at b1a8587 and must still fail."""
+    result = factcheck.check([{"section": "growth", "text": "Revenue in its current form doubled [F1][F2].", "type": "comparison"}],
+                             TRIPLED)
+    assert any("'doubled' matches nothing" in f["failure"] for f in result["failures"]), result["failures"]

@@ -7,7 +7,8 @@ reported side by side; the held-out half is the result, the development half is 
 
 Cost is the list-price cost of the measured tokens (``providers.list_cost``: uncached input, cached input,
 cache writes and output at each provider's published rate), including every attempt of every generation,
-failed ones too, priced as a company's first analysis would bill (``records.api_cost``). A first request
+failed ones too, priced as a company's first analysis would bill (``records.api_cost``). A Claude API call also adds
+the worst case of each attempt cut short mid-stream before it (``cut_cost_usd``), which was never measured. A first request
 reads from cache only the prefix every company shares, the system prompt, read per prompt over every label in
 ``runs/`` (``records.first_request_cache``), so a run whose first requests find their whole prompt still cached is
 priced as a cold one; each arm's count of such warm first attempts is shown beside its cost. A repair re-sends its

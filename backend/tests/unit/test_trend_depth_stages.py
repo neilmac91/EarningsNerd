@@ -804,3 +804,41 @@ def test_the_production_arm_ingests_its_company_before_it_generates(harness: Any
     record = asyncio.run(harness.generate.generate_current(TICKER))
     assert ingested == [TICKER] and seen["company_id"] == 7
     assert (seen["start_period"], seen["end_period"]) == ("FY2021", "FY2025") and record["generation_ok"]
+
+
+def test_a_repair_that_fails_after_a_cut_records_the_cut(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The repair's own call failing after a Claude attempt was cut short: the record keeps its first pass, owes the
+    repair, and records the cut with its worst case under the cut's label, not as a reply stopped at its cap."""
+    cut = CallResult("", 0, 0, 0, 0, 1.0, 0.162, "anthropic", "m",
+                     {"stop_reason": "cut short", "cut_attempts": 1, "cut_cost_usd": 0.162})
+    failed = ConnectionError("stream reset")
+    failed.result = cut  # type: ignore[attr-defined]  # as providers._with_cuts attaches it
+    _real_generate(harness, monkeypatch, [_result('{"sections": []}', 0.2), failed], [False])
+    asyncio.run(harness.generate.run(LABEL, ["deepseek-flash"], [TICKER], 1))
+    record = json.loads((harness.generate.RUNS / LABEL / "deepseek-flash" / f"{TICKER}.json").read_text())
+    assert record["attempts"][-1]["problems"] == ["the call failed after attempts cut short mid-stream (their worst case)"]
+    assert "repair_error" in record and record["cost_usd"] == pytest.approx(0.362)
+
+
+def test_an_interrupted_judge_order_keeps_a_cut_attempts_cost(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ctrl-C during a judge order whose Claude attempt was already cut short: the pair's record keeps that worst case as
+    an unusable order before the run stops, so the next run carries the cost forward."""
+    _generation(harness, "deepseek-flash")
+    _generation(harness, "claude-sonnet-5-5")
+    stop = KeyboardInterrupt()
+    stop.result = CallResult("", 0, 0, 0, 0, 1.0, 0.162, "anthropic", "m",  # type: ignore[attr-defined]
+                             {"stop_reason": "cut short", "cut_attempts": 1, "cut_cost_usd": 0.162})
+
+    async def one_order(judge: str, pack: Any, text_a: str, text_b: str, tag: str = "") -> dict[str, Any]:
+        raise stop
+
+    monkeypatch.setattr(harness.judge, "_one_order", one_order)
+    monkeypatch.setattr(harness.judge, "load_pack", lambda ticker, system="": {"split": "dev"})
+    monkeypatch.setattr(harness.judge, "reader_text", lambda record, pack: record["arm"])
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(harness.judge.judge_pair(LABEL, TICKER, "deepseek-flash", "claude-sonnet-5-5", "gemma-4-31b",
+                                             asyncio.Semaphore(1)))
+    path = harness.generate.RUNS / LABEL / "judge" / "gemma-4-31b" / f"{TICKER}__deepseek-flash__claude-sonnet-5-5.json"
+    written = json.loads(path.read_text())
+    assert written["error"] == "interrupted: KeyboardInterrupt" and written["cost_usd"] == pytest.approx(0.162)
+    assert [(o["position"], o["unusable"], o["cost_usd"]) for o in written["orders"]] == [(1, True, 0.162)]

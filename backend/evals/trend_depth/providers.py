@@ -449,11 +449,11 @@ CUT_LOGGED = "trend_depth_cut_logged"  # set on an interruption once _call_anthr
 RESERVED = "reserved: the worst case of an attempt in flight, released when it settles"
 
 
-def _with_cuts(error: Exception, cuts: list[CallResult], started: float) -> Exception:
+def _with_cuts(error: BaseException, cuts: list[CallResult], started: float) -> BaseException:
     """``error``, raised after attempts that were cut short, carrying them as ``result`` (as ``IncompleteReply``
     carries its paid call), so the caller records what they may have cost: their worst case, and no tokens, since
-    none was measured."""
-    if cuts:
+    none was measured. One that already carries a result keeps it."""
+    if cuts and getattr(error, "result", None) is None:
         cost = round(sum(cut.cost_usd for cut in cuts), 6)
         meta = {"stop_reason": "cut short", "cut_attempts": len(cuts), "cut_cost_usd": cost}
         setattr(error, "result", CallResult("", 0, 0, 0, 0, round(time.monotonic() - started, 3), cost, "anthropic",
@@ -476,45 +476,48 @@ async def _call_anthropic_metered(arm: Arm, system: str, user: str, max_tokens: 
     reserve = worst_case_usd(arm, system, user, max_tokens)
     cuts: list[CallResult] = []  # each attempt whose stream started and then failed, at its worst case
     started = time.monotonic()  # the whole call, every failed attempt and backoff included (as on openai_compat)
-    for attempt in range(6):
-        spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
-        if spent + reserve > ceiling:
-            refused = BudgetExceeded(f"Anthropic spend ${spent:.2f}, attempts in flight included, leaves no room for this "
-                                     f"call's worst case of ${reserve:.2f} under the ${ceiling:.2f} ceiling "
-                                     "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
-            raise _with_cuts(refused, cuts, started)
-        held = {"backend": "anthropic", "cost_usd": reserve, "arm": arm.name, "tag": tag, "estimated": RESERVED}
-        _append_row(held)
-        failure: Optional[_AttemptFailed] = None
-        settled = False  # True once what the attempt may have cost is on disk (or it never started)
-        try:
-            result = await _call_anthropic(arm, system, user, max_tokens, timeout_s, tag)
-            _log_spend(arm, result, tag)
-            settled = True
-        except _AttemptFailed as exc:
-            failure = exc
-            if exc.cut is not None:
-                cuts.append(exc.cut)
-                _log_spend(arm, exc.cut, f"{tag} (attempt {attempt + 1}, cut short)", CUT_ESTIMATE)
-            settled = True
-        except BaseException as exc:
-            settled = getattr(exc, CUT_LOGGED, False)  # an interruption: released only if its cut was logged
-            raise
-        finally:
-            if settled:  # otherwise the reservation stays counted, which overstates rather than understates
-                _append_row({**held, "cost_usd": -reserve, "estimated": "released: the attempt settled"})
-        if failure is None:
-            # The ledger row above is the reply's own cost; each cut attempt has a row of its own.
-            cut_cost = round(sum(cut.cost_usd for cut in cuts), 6)
-            result.meta.update({"retries": attempt, "cut_attempts": len(cuts), "cut_cost_usd": cut_cost})
-            result.cost_usd = round(result.cost_usd + cut_cost, 6)
-            if attempt:  # the ledger row above keeps the attempt's own time; the caller waited the whole call
-                result.meta["attempt_latency_s"] = result.latency_s
-                result.latency_s = round(time.monotonic() - started, 3)
-            return result
-        if attempt == 5 or not failure.retryable:
-            raise _with_cuts(failure.error, cuts, started)
-        await _sleep(_backoff_s(failure.error, attempt))
+    try:
+        for attempt in range(6):
+            spent, ceiling = anthropic_spend(), anthropic_ceiling_usd()
+            if spent + reserve > ceiling:
+                refused = BudgetExceeded(f"Anthropic spend ${spent:.2f}, attempts in flight included, leaves no room for this "
+                                         f"call's worst case of ${reserve:.2f} under the ${ceiling:.2f} ceiling "
+                                         "(TREND_DEPTH_ANTHROPIC_CEILING_USD); nothing was sent")
+                raise _with_cuts(refused, cuts, started)
+            held = {"backend": "anthropic", "cost_usd": reserve, "arm": arm.name, "tag": tag, "estimated": RESERVED}
+            _append_row(held)
+            failure: Optional[_AttemptFailed] = None
+            settled = False  # True once what the attempt may have cost is on disk (or it never started)
+            try:
+                result = await _call_anthropic(arm, system, user, max_tokens, timeout_s, tag)
+                _log_spend(arm, result, tag)
+                settled = True
+            except _AttemptFailed as exc:
+                failure = exc
+                if exc.cut is not None:
+                    cuts.append(exc.cut)
+                    _log_spend(arm, exc.cut, f"{tag} (attempt {attempt + 1}, cut short)", CUT_ESTIMATE)
+                settled = True
+            except BaseException as exc:
+                settled = getattr(exc, CUT_LOGGED, False)  # an interruption: released only if its cut was logged
+                raise
+            finally:
+                if settled:  # otherwise the reservation stays counted, which overstates rather than understates
+                    _append_row({**held, "cost_usd": -reserve, "estimated": "released: the attempt settled"})
+            if failure is None:
+                # The ledger row above is the reply's own cost; each cut attempt has a row of its own.
+                cut_cost = round(sum(cut.cost_usd for cut in cuts), 6)
+                result.meta.update({"retries": attempt, "cut_attempts": len(cuts), "cut_cost_usd": cut_cost})
+                result.cost_usd = round(result.cost_usd + cut_cost, 6)
+                if attempt:  # the ledger row above keeps the attempt's own time; the caller waited the whole call
+                    result.meta["attempt_latency_s"] = result.latency_s
+                    result.latency_s = round(time.monotonic() - started, 3)
+                return result
+            if attempt == 5 or not failure.retryable:
+                raise _with_cuts(failure.error, cuts, started)
+            await _sleep(_backoff_s(failure.error, attempt))
+    except BaseException as exc:  # a ledger error between attempts or an interruption, after a cut, carries it too
+        raise _with_cuts(exc, cuts, started)
     raise AssertionError("unreachable: the last attempt returns or raises")
 
 

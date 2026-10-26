@@ -298,6 +298,36 @@ def test_a_call_that_fails_after_a_cut_carries_its_cost(monkeypatch: pytest.Monk
     assert (paid.input_tokens, paid.output_tokens) == (0, 0)  # none measured, so a repricing adds nothing twice
 
 
+@pytest.mark.parametrize("where", ["backoff", "ledger"])
+def test_an_interruption_or_a_ledger_error_after_a_cut_carries_its_cost(monkeypatch: pytest.MonkeyPatch, tmp_path,
+                                                                         where: str) -> None:
+    """Ctrl-C during the backoff after a cut, or a ledger read that fails before the next attempt: the cut's worst
+    case, already in the ledger, still reaches the caller, which records it."""
+    one = list_cost(ARMS["claude-sonnet-5-5"], 1000, 0, 16000)
+    _api(monkeypatch, tmp_path, 0.0, {})
+    _flaky(monkeypatch, [_started(), _refused()])
+    raised: type = KeyboardInterrupt if where == "backoff" else OSError
+
+    async def interrupted(seconds: float) -> None:
+        raise KeyboardInterrupt
+
+    if where == "backoff":
+        monkeypatch.setattr(providers, "_sleep", interrupted)
+    else:
+        reads: list[int] = []
+
+        def spend() -> float:  # the first attempt is admitted; the read before the second fails
+            reads.append(1)
+            if len(reads) > 1:
+                raise OSError("the ledger could not be read")
+            return 0.0
+
+        monkeypatch.setattr(providers, "anthropic_spend", spend)
+    with pytest.raises(raised) as caught:
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", tag="t"))
+    assert caught.value.result.cost_usd == pytest.approx(one) and caught.value.result.meta["cut_attempts"] == 1
+
+
 def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     sonnet = ARMS["claude-sonnet-5-5"]
     _api(monkeypatch, tmp_path, 0.0, {"stop_reason": "end_turn"})

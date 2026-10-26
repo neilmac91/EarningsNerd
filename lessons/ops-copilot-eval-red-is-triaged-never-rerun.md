@@ -32,6 +32,11 @@ Never draw again on the same code to get a green result:
   reopen it on an unchanged head. The workflow refuses all three: it draws once per head commit, and
   a later run on a head that already drew reports that draw's verdict and spends nothing. Nothing in
   the PR body exempts a head.
+- **A toggle right after a push.** A draft-to-ready toggle or a re-run made while a push's own draw is still
+  running cancels that draw, and a cancelled draw counts as the head's draw, never as a green one. On #1673,
+  b1a8587 was pushed at 21:29:18Z. A toggle at 21:29:27Z, made to request Codex's review, started run 40404785082,
+  which cancelled the push's draw (run 40404764572) and then refused to draw. After a push, let `copilot-eval`
+  finish before any toggle, one made to request a Codex review included.
 - **A push only to draw again.** Never push a commit that changes nothing under `backend/` or
   `.github/` just to draw again, outside a predeclared protocol. The gate does not catch this, because
   it keys on the head commit. Gating it is follow-up 11 in
@@ -46,4 +51,5 @@ agent); runs 37943905552 and 37946561164 (red, followed by pushes that changed c
 `1a31b29`; the attribution and rates in `tasks/decisions-2026-10-09-design-followups.md` (decision D)
 and the replays in `tasks/review-evidence/copilot-eval-triage-2026-10-09/`; the gate in
 `.github/workflows/copilot-eval.yml`, `backend/scripts/copilot_eval_draw_gate.py` and
-`backend/tests/unit/test_copilot_eval_rerun_refusal.py`.
+`backend/tests/unit/test_copilot_eval_rerun_refusal.py`. A toggle cancelling a push's draw: #1673, runs 40404764572
+(cancelled) and 40404785082 (refused, "already drew"), recorded on the pull request.
