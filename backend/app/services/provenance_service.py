@@ -216,8 +216,8 @@ def _whitespace_exact_source_span(evidence: Any, source_text: Any) -> Optional[s
     This is intentionally stricter than :func:`verify_excerpt_in_text`, whose typography and case
     folds serve the broader citation product. Risks display the retained decoded filing span, not model text:
     the candidate only selects a span and the returned value is sliced from the same-filing source.
-    The shared floor counts the words with the whitespace between them collapsed, as the excerpt verifiers count
-    an excerpt after normalization. The span returned has the candidate's words, so padding on neither side
+    The shared floor counts what the match compares: the words, with the whitespace between them collapsed and
+    every other character as written. The span returned has the candidate's words, so padding on neither side
     carries a short excerpt over the floor, and a stored span projected again is kept again (E180).
     """
     if not isinstance(evidence, str) or not isinstance(source_text, str):
