@@ -89,95 +89,133 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
         assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
 
 
-# A page action: a gesture verb, base or -ing, aimed at something ("Select it", "Clicking one", "Hover over it", "Scroll
-# down"). No export or PNG can honour one. A verb with another object passes, since a filing uses these words otherwise:
-# "the earnings press release", "selected financial data", "the company chose", "a drag on margins".
+# A page action, which no export or PNG can honour. A verb only a screen answers fails in any form ("Click for the source
+# filing", "Clicked on, it opens", "Hover for its inputs", "Drag to zoom"), as does a part only the page has (a tooltip, a
+# button, a cursor). A verb a filing also uses (tap, press, select, choose, drag) fails as an imperative opening a
+# sentence or clause ("Press for details", "Choose from the list"), as a gerund ("Selecting shows the filing"), as a
+# participle set off by a comma ("Selected, it opens the filing") and in its base form aimed at something ("Tap it",
+# "select from the list"). Its other forms pass, since a filing uses them otherwise: "the earnings press release",
+# "selected financial data", "the company selected a different fiscal year end", "the company chose", "tapped its credit
+# facility", "a drag on margins". Out of reach, so planted as passing: a third-person form ("Taps open the filing"),
+# which a sentence describing our own process also takes ("Selects the most recent filing's value").
 PAGE_ACTIONS = re.compile(
-    r"\b(?:select|click|tap|hover|press|choose|scroll|swipe|toggle)(?:ing)?\s+"
-    r"(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|to|through|down|up)\b",
+    r"\b(?:click(?:s|ed|ing)?|hover(?:s|ed|ing)?|scroll(?:s|ed|ing)?|swip(?:e|es|ed|ing)|toggl(?:e|es|ed|ing)"
+    r"|zoom(?:s|ed|ing)?|tooltips?|buttons?|cursors?)\b"
+    r"|(?:^|[.;:!?(]\s*)(?:(?:tap|press(?!\s+releases?\b)|select|choose|drag)\b|(?:tapped|pressed|selected|chosen|dragged)\s*,)"
+    r"|\b(?:tapp|press|select|choos|dragg)ing\b"
+    r"|\b(?:tap|press|select|choose)\s+(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|for|from|through)\b"
+    r"|\bdrag\s+(?:it|them|one|any|the|this|that|these|those|here|across|over\s+(?:it|them|the\s+chart))\b",
     re.IGNORECASE,
 )
 # How a missing figure is drawn differs by surface: a dash in the table, the PDF's tables and the page's and PNG's bar
 # charts; a break in a line chart; an empty cell and an empty chart slot in the workbook; "Unavailable" in the PDF's
-# Sources & methods. So words never say it: not the dash or the em dash, and not "shown as", "drawn as", "printed as",
-# "left" or "shown" with a glyph or a blank. "Never shown as zero" and "shown as stored" say what the value is, and pass;
-# so do "the filing left the table empty" and a range's en dash.
+# Sources & methods. So words never say it: not the dash or the em dash, not a cell or a slot, and not "shown", "drawn",
+# "printed", "displayed", "rendered", "plotted", "appears" or "left" before a glyph, a blank, a gap or a break, with "as",
+# a quote or a place between ("Shown in the table as a blank cell", "Shown as 'N/A'"). "Never shown as zero" and "shown
+# as stored" say what the value is, and pass, as does a range's en dash. A subjectless "left blank" fails even where it
+# means the filing ("Left blank in the filing"), since it reads as our drawing; the filing's own blank takes its subject
+# ("The filing left it blank"), and passes.
 DRAWING = re.compile(
-    r"\bdash(?:es)?\b|—"
-    r"|\b(?:shown|drawn|printed|displayed|rendered|left)\s+(?:as\s+)?(?:an?\s+)?(?:hyphen|blank|empty|gap|n/a|space)\b"
-    r"|\b(?:shown|drawn|printed|displayed|rendered)\s+as\s+[–-]",
+    r"\bdash(?:es)?\b|\u2014|\b(?:cell|slot)s?\b"
+    r"|\b(?:shown|drawn|printed|displayed|rendered|plotted|appears?|left)\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?"
+    r"(?:as\s+)?(?:an?\s+)?[\"'\u2018\u201c]?(?:hyphen|blank|empty|gap|break|n/a|space)\b"
+    r"|\b(?:shown|drawn|printed|displayed|rendered|plotted|appears?)\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?as\s+"
+    r"[\"'\u2018\u201c]?[\u2013-]",
     re.IGNORECASE,
 )
 # A note's message is read for one figure (the dialog, a workbook comment) and once for all of a note's figures (the
-# detail, the PDF's and the workbook's lists, the chart footnotes), so it names no one figure or set: no "this", "that",
-# "these", "those" or "the" before figure, value, calculation or number, saved, stored, reported or calculated or not.
-# "This year", a relative "that" and a distributive "each figure" pass.
+# detail, the PDF's and the workbook's lists, the chart footnotes), so it names no one figure or set. A bare "this",
+# "these" or "those" fails, before any noun or none ("This amount", "These were withdrawn", "This one"), a time noun
+# included: a note groups places in several periods, so "this period" or "this year" points at one place's, or at the
+# year the words were written in, and a sentence names a period by what it is ("the previous period", "the company's
+# fiscal year"). "That" and "the" fail before figure, value, calculation, amount, metric or number, with or without
+# saved, stored, reported, calculated, quarterly, annual, original, restated, latest or derived between ("The quarterly
+# figure", "the metric's period"). A relative "that", a distributive "each figure", an article's "an invalid negative
+# amount" and "the number of shares" pass.
 DEICTIC = re.compile(
-    r"\b(?:this|that|these|those|the)\s+(?:(?:saved|stored|reported|calculated)\s+)?"
-    r"(?:figure|value|calculation|number)s?\b",
+    r"\b(?:this|these|those)\b"
+    r"|\b(?:that|the)\s+(?:(?:saved|stored|reported|calculated|quarterly|annual|original|restated|latest|derived)\s+)?"
+    r"(?:(?:figure|value|calculation|amount|metric)s?\b|numbers?\b(?!\s+of\b))",
     re.IGNORECASE,
 )
 
 
-def _surface_problems(words: str, *, clause: bool = False) -> list[str]:
+def _surface_problems(words: str) -> list[str]:
     problems = [label for label, pattern in (
         ("asks for a page action the PDF, workbook and PNG cannot offer", PAGE_ACTIONS),
         ("says how a figure is drawn, which differs by surface", DRAWING),
         ("names one figure, though a note can group several", DEICTIC),
     ) if pattern.search(words)]
-    # The fine print lists a note's places, and joins its clauses, with "; ", so a clause's own would split them.
-    if clause and ";" in words:
-        problems.append("carries a semicolon, which the fine print reads as its own separator")
+    # The fine print lists a note's places, and joins its clauses, with "; ", and a chart's footnote lists a note's places
+    # with "; " before its words ("Revenue FY2021; Net income FY2023: ..."), so a sentence's or a clause's own would
+    # read as one more place.
+    if ";" in words:
+        problems.append("carries a semicolon, which the fine print and a chart's footnotes read as their own separator")
     return problems
 
 
-@pytest.mark.parametrize("words, clause", [
-    ("Select it to compare with the filing.", False), ("Selecting it opens the filing.", False),
-    ("Clicking it opens the filing.", False), ("Press it to compare.", False), ("Choose one to see both filings.", False),
-    ("Tap it for the source.", False), ("Hover over it for its inputs.", False), ("Click on the figure.", False),
-    ("Scroll down to the table.", False),
-    ("Shown as a dash.", False), ("Shown as —, never as zero.", False),
-    ("Not in our data; shown as a blank cell, never as zero.", False), ("Not in our data; left empty, never zero.", False),
-    ("Drawn as a gap in the line.", False), ("Shown as a hyphen.", False), ("Left blank, never zero.", False),
-    ("Shown empty.", False), ("Shown as n/a.", False), ("Shown as –.", False),
-    ("Filings report different values for this figure.", False), ("Different values for that figure.", False),
-    ("Those figures differ from the filing.", False), ("The figure’s period ends on a different date.", False),
-    ("The saved figure needs a source check.", False), ("Could not confirm the value.", False),
-    ("An input to the saved calculation moved.", False), ("This number was restated.", False),
-    ("the filings report different values; we show the most recent", True),
+@pytest.mark.parametrize("words", [
+    # Page actions: the earlier gate's forms, then the forms a narrower one passed (round 4).
+    "Select it to compare with the filing.", "Selecting it opens the filing.", "Clicking it opens the filing.",
+    "Press it to compare.", "Choose one to see both filings.", "Tap it for the source.", "Hover over it for its inputs.",
+    "Click on the figure.", "Scroll down to the table.",
+    "Click for the source filing.", "Tap for details.", "Hover for its inputs.", "Press for details.",
+    "Choose from the list.", "Clicked on, it opens the filing.", "Selecting shows the filing.", "Drag to zoom.",
+    "Clicks open the filing.", "Selected, it opens the filing.", "Drag it to compare.", "Then select the row.",
+    "See the tooltip.", "Review the filing, or press here.", "Press release aside, select it.", "Drag the slider.",
+    # Drawing.
+    "Shown as a dash.", "Shown as \u2014, never as zero.", "Not in our data, shown as a blank cell, never as zero.",
+    "Not in our data, left empty, never zero.", "Drawn as a gap in the line.", "Shown as a hyphen.",
+    "Left blank, never zero.", "Left blank in the filing.", "Shown empty.", "Shown as n/a.", "Shown as \u2013.",
+    "Drawn as a break in the line.", "Shown in the table as a blank cell.", "Shown as 'N/A'.", "Appears as a gap.",
+    "Plotted as a gap.", "The cell is empty.",
+    # One figure or set.
+    "Filings report different values for this figure.", "Different values for that figure.",
+    "Those figures differ from the filing.", "The figure\u2019s period ends on a different date.",
+    "The saved figure needs a source check.", "Could not confirm the value.", "An input to the saved calculation moved.",
+    "This number was restated.", "This amount was restated.", "These amounts differ.", "These were withdrawn.",
+    "This one was restated.", "Filings report different values for this period.",
+    "The company changed its fiscal year end this year.", "The quarterly figure is unavailable.",
+    "The metric\u2019s period ends on a different date.", "The amount was restated.", "This EPS was restated.",
+    # A semicolon, in a sentence and in a clause.
+    "Not in our data; never shown as zero.", "the filings report different values; we show the most recent",
 ])
-def test_the_surface_words_check_fails_what_it_names(words, clause):
-    assert _surface_problems(words, clause=clause)
+def test_the_surface_words_check_fails_what_it_names(words):
+    assert _surface_problems(words)
 
 
-@pytest.mark.parametrize("words, clause", [
-    ("The filing left the table empty.", False), ("The company reported a blank value.", False),
-    ("Covers FY2016–FY2025.", False), ("The opening balance differs from the previous closing balance.", False),
-    ("Restated in the following period.", False), ("The expanded share count differs.", False),
-    ("Taken from the earnings press release, not the filing.", False),
-    ("Taken from the filing’s selected financial data.", False),
-    ("The company chose a 53-week fiscal year.", False), ("Currency moves were a drag on margins.", False),
-    ("The company changed its fiscal year end this year.", False),
-    ("A calculation that could not be reproduced.", False), ("Each figure’s period ends on a different date.", False),
-    ("A reported quarterly earnings-per-share figure is unavailable.", False),
-    ("We show the most recent filing’s value.", False), ("Not in our data; never shown as zero.", False),
-    ("Calculated before 10 October 2026; shown as stored, with its inputs not linked.", False),
-    ("the filings report different values (the most recent shown)", True),
+@pytest.mark.parametrize("words", [
+    "The filing left the table empty.", "The filing left it blank.", "The company reported a blank value.",
+    "Covers FY2016\u2013FY2025.", "The opening balance differs from the previous closing balance.",
+    "Restated in the following period.", "The expanded share count differs.",
+    "Taken from the earnings press release, not the filing.", "Press release figures differ from the filing.",
+    "Taken from the filing\u2019s selected financial data.", "Selected financial data differs from the statements.",
+    "The company selected a different fiscal year end.", "The company chose a 53-week fiscal year.",
+    "Currency moves were a drag on margins.", "Currency was a drag to earnings over the year.",
+    "The company tapped its credit facility.",
+    "A calculation that could not be reproduced.", "Figures that differ from the filing.",
+    "Each figure\u2019s period ends on a different date.", "The number of shares is rounded.",
+    "Calculated as an invalid negative amount, so withheld.",
+    "A reported quarterly earnings-per-share figure is unavailable.", "We show the most recent filing\u2019s value.",
+    "Not in our data. Never shown as zero.", "Calculated before 10 October 2026. Shown as stored, with its inputs not linked.",
+    "the filings report different values (the most recent shown)",
+    # Out of reach: a third-person form, which our own process takes too.
+    "Taps open the filing.", "Selects the most recent filing\u2019s value.",
 ])
-def test_the_surface_words_check_passes_ordinary_words(words, clause):
-    assert _surface_problems(words, clause=clause) == []
+def test_the_surface_words_check_passes_ordinary_words(words):
+    assert _surface_problems(words) == []
 
 
 def test_reason_words_hold_on_every_surface_that_prints_them():
-    """A note's message prints in the page's data notes and evidence dialog, the PDF, the workbook's comments and
-    Overview and the chart PNG's footnotes, for one figure and for a note's several, and provenance.ts holds the same
+    """A note's message prints in the page's data notes, evidence dialog and chart footnotes, the PDF, the workbook's
+    comments and Overview and the chart PNG, for one figure and for a note's several, and provenance.ts holds the same
     words (the fixture above). So no sentence asks for what only the page can do ("Select it to compare"), says how a
-    figure is drawn, or names one figure ("the figure's period"). The fine print's summary clauses are held alike, since
-    WP3 prints them in the exports too, and carry no semicolon of their own."""
-    sentences = [(reason, words, False) for reason, words in {**REASONS, "(fallback)": _FALLBACK_MESSAGE}.items()]
-    sentences += [(f"(summary) {reason}", clause, True)
-                  for reason, clause in {**SUMMARIES, "(fallback)": SUMMARY_FALLBACK}.items()]
-    problems = {reason: found for reason, words, clause in sentences if (found := _surface_problems(words, clause=clause))}
+    figure is drawn, names one figure ("the figure's period") or carries a semicolon. The fine print's summary clauses are
+    held alike, since WP3 prints them in the exports too."""
+    sentences = {reason: words for reason, words in {**REASONS, "(fallback)": _FALLBACK_MESSAGE}.items()}
+    sentences |= {f"(summary) {reason}": clause for reason, clause in {**SUMMARIES, "(fallback)": SUMMARY_FALLBACK}.items()}
+    assert len(sentences) == len(REASONS) + len(SUMMARIES) + 2
+    problems = {reason: found for reason, words in sentences.items() if (found := _surface_problems(words))}
     assert problems == {}, f"reason words that do not hold on every surface: {problems}"
 
 
