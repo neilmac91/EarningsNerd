@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
-from evals.trend_depth.providers import ARMS, labels_by_number, list_cost
+from evals.trend_depth.providers import ARMS, labels_by_number, list_cost, parse_json_object
 
 READ_KEYS = ("output", "narrative", "citations")  # what an auditor or a judge reads of a generation record
 
@@ -52,6 +52,19 @@ def pipeline_of(record: dict[str, Any]) -> str:
     never pools it with, or resumes it beside, the version 2 of now (``generate.label_conflicts``, ``report.build``)."""
     made = record.get("pipeline", "v1")
     return f"{made} with auto-citation" if "autocite" in record else made
+
+
+def first_output(record: dict[str, Any]) -> Optional[dict[str, Any]]:
+    """The model's first output, before the code's retyping or any repair. A version-1 record's is its first pass (its
+    output when no repair ran). A version-2 record's ``first_pass_output`` is the copy ``generate.fix_first_pass``
+    retyped, so its first valid reply is read from its attempts instead; None if none parses. The report's first-try
+    measures, ``replay`` and ``retype``'s code-only replay all read it here, so each replays what the model wrote."""
+    if record.get("pipeline") != "v2":
+        first = record.get("first_pass_output")
+        return first if isinstance(first, dict) else record["output"]
+    replies = [a for a in record.get("attempts", []) if a.get("attempt") != "repair" and not a.get("problems")]
+    parsed = parse_json_object(replies[-1].get("raw") or "") if replies else None
+    return parsed if isinstance(parsed, dict) and isinstance(parsed.get("sections"), list) else None
 
 
 def unsettled(record: Optional[dict[str, Any]]) -> Optional[str]:
