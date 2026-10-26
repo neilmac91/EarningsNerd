@@ -32,13 +32,15 @@ outputs:
   added $126 of expense" from a 10-K whose tables are in millions).
 - ``gap_direction``: net margin said to be above (beat, exceed) or below (trail, under) operating margin against
   the sign of the same year's gap: a cited "net margin minus operating margin" value, or the difference of the two
-  margins the gate matched ("Net margin was 3.4pp above operating margin" for -3.4). The sentence must name both
-  margins, the comparative relating the one before it to the one after it, in the gate's words of standing
-  (``factcheck.ABOVE``, ``factcheck.outpacing``). The gate reads no direction into the cited gap, as into the two
-  margins' difference, so this probe is its sign check on either pack version.
+  margins the gate matched ("Net margin was 3.4pp above operating margin" for -3.4). The sentence must compare the
+  two margins in one of the forms the gate reads a cited gap's sides in with certainty (``factcheck.compared_sides``:
+  the first margin the subject, in the active voice, the other after the comparative); a passive ("net margin was
+  exceeded by operating margin by 3.4pp") or any other form is left alone. The gate reads no direction into the cited
+  gap, as into the two margins' difference, so this probe is its sign check on either pack version.
 - ``broken_debt`` (``broken_debt()``): a figure version 2 withholds, or the same figure rebuilt from the lines it
   still shows, in a sentence that does not disclose the break (``discloses``: a ``DISCLOSURE`` match in a clause about
-  debt or cash). Each hit names its ``break``, the reason version 2 records (``BREAK_KINDS``):
+  debt or cash, in the data checks' words or the break said plainly of the line it is about). Each hit names its
+  ``break``, the reason version 2 records (``BREAK_KINDS``):
   - ``debt_break``: total debt, net cash or net debt, or a figure built on them (their share of revenue, debt growth,
     the net-cash peer rank), of a year a ``debt_break`` data check names, and a long-term line version 2 withholds as
     reported zero there (ORCL's FY2022 F185 and X213, by their IDs). Rebuilt: a debt line of such a year, alone
@@ -46,7 +48,8 @@ outputs:
     FY2021's total debt), or under a total's name: the name right after the figure ("$7.1 billion of net cash", "a
     $5.5 billion net debt position"), else the nearest before it, else the first after it ("$8.8 billion more cash
     than debt"). Plain "debt" or "borrowings" is the total; a qualified line ("short-term borrowings", "the current
-    portion of debt", "long-term debt") is that line, correct under its own name.
+    portion of debt", "long-term debt", "debt due within one year", "debt maturities"), or a figure said to fall due
+    ("Of Deere's debt, $13.8 billion falls due within a year"), is that line, correct under its own name.
   - ``liquidity_break``: cash and investments or net cash, or a figure built on them, of a year a
     ``liquidity_break`` check names. Rebuilt: a cash or investment line of such a year, alone, in a sum or in a
     difference, beside a total of another year ("cash fell 75.5%": FY2026's cash against FY2025's cash and
@@ -301,41 +304,20 @@ def _net_minus_operating(cand: Optional[Candidate], values: dict[str, Any], keys
     return gap if first == "net_margin" else -gap
 
 
-_MARGIN_NAMES = {"net": re.compile(r"\bnet margin\b", re.I), "operating": re.compile(r"\boperating margin\b", re.I)}
-# The gate's words of standing (``factcheck.ABOVE``, ``factcheck.outpacing``); of two levels, "more than" and "less
-# than" are a position too.
-_GAP_AFTER = re.compile(rf"^\s*(?:({factcheck.ABOVE}|over|more than)|({factcheck.BELOW}|less than))\b", re.I)
-
-
-def _margin_named(text: str, last: bool = False) -> Optional[str]:
-    """"net" or "operating": the margin the text names first (or last)."""
-    found = sorted((m.start(), name) for name, pattern in _MARGIN_NAMES.items() for m in pattern.finditer(text))
-    return (found[-1] if last else found[0])[1] if found else None
-
-
 def _gap_direction(sentence: dict[str, Any], clean: str, verified: list[Resolution], values: dict[str, Any],
                    keys: dict[str, str]) -> list[dict[str, Any]]:
     """gap_direction: "<margin> was Npp above / below <margin>" or "<margin> beat / trailed <margin> by Npp" against
-    the sign of the same year's net margin minus operating margin. Both margins must be named in the claim's clause,
-    one before the comparative and the other after it; anything else is left alone."""
+    the sign of the same year's net margin minus operating margin, read as the gate reads a cited gap's sides
+    (``factcheck.compared_sides``, its forms for two levels of one year): the margin named first is the subject, the
+    other follows the comparative, in the active voice; anything else is left alone ("net margin was exceeded by
+    operating margin by 3.4pp", the passive, as the gate leaves it)."""
     hits = []
     for r in verified:
         gap = _net_minus_operating(r.best, values, keys) if r.claim.unit == "pp" else None
-        if not gap:
+        reading = factcheck.compared_sides(clean, r.claim, "net margin", "operating margin") if gap else None
+        if not reading:
             continue
-        start, end = factcheck.clause_span(clean, r.claim)
-        rest, lead = clean[r.claim.start + len(r.claim.text):end], clean[start:r.claim.start]
-        after = _GAP_AFTER.match(rest)
-        verb = factcheck.outpacing(lead)
-        if after:
-            said, subject, other = (1 if after.group(1) else -1), _margin_named(lead, last=True), _margin_named(rest[after.end():])
-        elif verb:
-            said, subject, other = verb[0], _margin_named(lead[:verb[1]], last=True), _margin_named(lead[verb[2]:])
-        else:
-            continue
-        if subject is None or other is None or subject == other:
-            continue
-        says = said if subject == "net" else -said
+        says = reading[1] * reading[0]  # net margin minus operating margin, whichever the clause names first
         if (gap > 0) != (says > 0):
             hits.append(_hit("gap_direction", sentence, r.claim.text,
                              f"says net margin is {'above' if says > 0 else 'below'} operating margin; "
@@ -403,17 +385,31 @@ BREAK_KINDS = ("debt_break", "liquidity_break", "peer_break")  # why a version-2
 # debt. The one list, read through ``discloses``, which counts these words only where they are about debt or cash.
 # Counted twice, TGT's data check ("count them twice"), in any words ("counts the short-term investments twice").
 _TWICE = r"double[- ]count\w*|count\w* (?:[\w-]+ ){0,3}twice"
+# The break said plainly, as the candidate prompt asks (review 8): a debt or cash line (``_BREAK_LINE``) that is
+# "absent", "not available" or "unreported", "has no value" or "disappears", that a figure "ignores", that the pack
+# (``_DATA``) "carries no" or "has no", or that it carries in one year "but none for" another (Sonnet NVDA, dev-v3: "the
+# pack carries FY2025 short-term investments but none for FY2026"). Each is tied to the line it is about, and the last
+# two to the data, so "Net cash was $8.8 billion, with buybacks absent", "..., ignoring one-off tax payments" and "...,
+# as Coca-Cola carries no long-term debt" (a reading of the company, not of its data) disclose nothing.
+_BREAK_LINE = (r"(?:(?:long[- ]term|short[- ]term|current|non-?current)\s+)?(?:debt|borrowings|investments?|"
+               r"marketable\s+securities|(?:debt|investment|cash)\s+lines?)")
+_DATA = r"(?:pack|data|dataset|tables?|filings?|filed\s+lines|evidence)"
+_PLAIN = (rf"{_BREAK_LINE},?\s+(?:(?:(?:is|are|was|were)\s+)?(?:absent|not\s+available|unreported)|(?:has|have|had)\s+no\s+value|"
+          rf"disappear\w*)|ignor(?:e|es|ed|ing)\s+(?:the\s+|its\s+)?{_BREAK_LINE}|unreported\s+{_BREAK_LINE}|"
+          rf"{_DATA}\s+(?:carr(?:y|ies|ied)|has|have|had|shows?|reports?)\s+no\s+(?:FY\d{{4}}\s+)?{_BREAK_LINE}|"
+          rf"{_DATA}\s+(?:carr(?:y|ies|ied)|has|have|had|shows?|reports?)\b[^;:]{{0,100}}?\b(?:and|but)\s+none\s+(?:for|in|after)")
 DISCLOSURE = re.compile(
     r"\b(?:unreliable|incomplete|overstat\w*|understat\w*|not reported|reported only|only through|no (?:long-term )?debt line|"
     r"missing|omit\w*|drops? out|data (?:gap|break|quality)|debt break|caveats?|same (?:debt|data) input|artefact|artifact|"
-    r"last year the pack reports|cannot be (?:assessed|compared)|needs? restating|rests? on (?:the |an )?incomplete|(?:that|this|the) break|"
+    r"last year the pack (?:reports|carries|shows)|cannot be (?:assessed|compared)|needs? restating|rests? on (?:the |an )?incomplete|(?:that|this|the) break|"
     r"not comparable|untagged|no longer (?:reported|tagged|shown)|not (?:shown|tagged|disclosed|given)|withheld|left out|"
     r"leaves? (?:them |it |those )?out|does(?: not|n't) (?:report|show|include|carry)|not (?:in|part of) (?:the|this) pack|"
     r"unavailable|(?:line|debt) (?:stops|ends)|"
     r"(?:excludes?|excluding|without|lacks?|lacking) (?:the |its )?(?:long-term debt|(?:short-term |long-term )?investments|marketable securities)|"
     rf"{_TWICE}|already (?:inside|within|part of|(?:counted|included) in) (?:the |its )?cash|"
     r"cash (?:balance )?(?:already )?includes? (?:the |its )?short-term investments|"
-    r"(?:borrowings|portion) (?:alone|only)|cash alone|only (?:a |the )?(?:\$?[\d.,]+ ?(?:billion|million|bn|m) )?(?:current portion|short-term borrowings))\b",
+    r"(?:borrowings|portion) (?:alone|only)|cash alone|only (?:a |the )?(?:\$?[\d.,]+ ?(?:billion|million|bn|m) )?(?:current portion|short-term borrowings)|"
+    rf"{_PLAIN})\b",
     re.I)
 _NOT_A_BALANCE = r"(?!\s+(?:flows?|provided|used|generated)\b)"  # "net cash used in", "free cash flow"
 # What a disclosure must be about: debt or cash, a balance, not a cash flow.
@@ -443,13 +439,20 @@ def discloses(clean: str) -> bool:
 
 
 # Debt words a figure can be said under: a total (group 1: net cash or net debt, total debt or borrowings, and plain
-# debt or borrowings, which a reader takes for the whole) or one line of it, which a qualifier names (short-term,
-# current, the current portion or maturities, long-term, noncurrent, commercial paper, notes).
+# debt or borrowings, which a reader takes for the whole) or one line of it, which a qualifier names: before the noun
+# (short-term, current, the current portion or maturities, long-term, noncurrent, commercial paper, notes), or after
+# it, a maturity (``_MATURING``: "debt due within one year", "debt maturities", "debt maturing in FY2026", "$1.0
+# billion of debt matured"), so the debt that falls due is the line, not the whole ("due to" is a cause).
 _LINE = r"(?:short[- ]term|current|long[- ]term|non-?current)"
+_MATURING = r"\s+(?:due(?!\s+to\b)|matur\w*|falling\s+due|coming\s+due|repayable)\b"
 _DEBT_NAME = re.compile(
-    rf"\b(?:(net[- ]cash|net[- ]debt|total (?:debt|borrowings)|debt|borrowings)|{_LINE} (?:portion|maturities)"
-    rf"(?: of (?:{_LINE} )?(?:debt|borrowings))?|{_LINE} (?:debt|borrowings)|commercial paper|(?:senior |\d{{4}} )?notes)\b"
-    + _NOT_A_BALANCE, re.I)
+    rf"\b(?:(net[- ]cash|net[- ]debt|(?:total )?(?:debt|borrowings)(?!{_MATURING}))|(?:total )?(?:debt|borrowings){_MATURING}|"
+    rf"{_LINE} (?:portion|maturities)(?: of (?:{_LINE} )?(?:debt|borrowings))?|{_LINE} (?:debt|borrowings)|commercial paper|"
+    rf"(?:senior |\d{{4}} )?notes)\b" + _NOT_A_BALANCE, re.I)
+# A figure said to fall due is that line, whatever its sentence calls the whole: "Of Deere's debt, $13.8 billion falls
+# due within a year", "$1.0 billion matures in FY2026", "$2.3 billion is due within one year".
+_FALLS_DUE = re.compile(r"\s*(?:(?:is|was|are|were|will\s+be)\s+)?(?:(?:falls?|fell|falling|comes?|came|coming)\s+due|"
+                        r"matur(?:es|ed|ing)|due\s+(?:within|in)\b)", re.I)
 # Cash words a figure can be said under: a total built on cash and investments (group 1: "liquidity", "cash and
 # short-term investments", "cash, cash equivalents and short-term investments", "cash and marketable securities") or
 # one line of it ("cash", "cash and cash equivalents", "long-term investments").
@@ -507,12 +510,12 @@ def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks,
     """(break, why) for a verified claim that states a figure of a break, or None. A withheld ID it rests on, which an
     arm reading version 1 cites; else a figure on a line of a break year, which an arm reading version 2 rebuilds, on
     the broken basis: beside a total of another year (a growth or a difference across the break, ``_DEBT_TOTALS``,
-    ``_CASH_TOTALS``), whatever the sentence calls it; else under a total's name (``_named``). The lines: a debt line
-    of a debt-break year, or a cash or investment line of a liquidity-break year. In a year whose short-term
-    investments sit inside cash (both lines reported: TGT), cash alone is the right figure, so only a figure on both
-    lines is the broken one, and their sum ("held cash of $10.1 billion") counts them twice whatever it is called; in a
-    year a line is missing from (MSFT FY2017), any figure on the lines left falls short. The words are the same for
-    every arm: a line of a break year is on either pack version."""
+    ``_CASH_TOTALS``), whatever the sentence calls it; else under a total's name (``_named``), unless the figure is said
+    to fall due (``_FALLS_DUE``). The lines: a debt line of a debt-break year, or a cash or investment line of a
+    liquidity-break year. In a year whose short-term investments sit inside cash (both lines reported: TGT), cash alone
+    is the right figure, so only a figure on both lines is the broken one, and their sum ("held cash of $10.1 billion")
+    counts them twice whatever it is called; in a year a line is missing from (MSFT FY2017), any figure on the lines
+    left falls short. The words are the same for every arm: a line of a break year is on either pack version."""
     values, ids = pack["values"], r.best.ids
     built = [i for i in ids if i in breaks.ids]
     if built:
@@ -523,7 +526,8 @@ def _on_break(r: Resolution, clean: str, pack: dict[str, Any], breaks: Breaks,
     debt = [i for i in ids if keys.get(i) in DEBT_LINES and values[i].get("period") in breaks.debt_years]
     if debt:
         across = [i for i in ids if keys.get(i) in _DEBT_TOTALS]
-        name = _named(_DEBT_NAME, clean, r.claim, start, end)
+        due = _FALLS_DUE.match(clean, r.claim.start + len(r.claim.text))
+        name = None if due else _named(_DEBT_NAME, clean, r.claim, start, end)
         line = f"a debt line of {values[debt[0]]['period']}, inside a debt break, where total debt omits a line"
         if across:
             what = values[across[0]]

@@ -11,14 +11,16 @@ whose text carries inline citations (``[F12]``, ``[D40][P7]``) into an evidence 
    (growth, CAGR over the periods between them, share, difference, ratio, percentage-point change, sum,
    mean); or a figure printed in a cited filing passage. Signs compare by magnitude ("fell 12%" cites -12%),
    and a direction word next to a signed change must agree with its sign. "Improved" or "worsened" reads
-   inverted for a metric where lower is better (an efficiency or cost ratio). A value labelled "A minus B" that
-   the clause compares reads as the side it names first against the other, each side found by its key nouns
-   (revenue or sales; costs, expenses or spending): a move ("costs grew 0.3pp faster than revenue" says costs
-   minus revenue is +0.3, "costs fell 1.2pp less than revenue" +1.2, "costs grew 0.3pp slower than revenue"
-   -0.3) or a standing, which gives the sign whatever the direction word ("revenue outgrew costs by 4.4pp" +4.4,
-   "revenue growth ran 4.4pp behind cost growth" -4.4). When the side named first is neither of the label's, the
-   value keeps its sign. A gap between two levels of one year ("net margin minus operating margin (pp, same
-   year)") carries no direction, like the difference of the two margins it equals.
+   inverted for a metric where lower is better (an efficiency or cost ratio). A value labelled "A minus B" (revenue
+   growth minus operating-cost growth) has its sign checked only where the clause compares its sides in a form read
+   with certainty (``compared_sides``), as the side it names first against the other: a move ("costs grew 0.3pp
+   faster than revenue" says costs minus revenue is +0.3, "costs fell 1.2pp less than revenue" +1.2) or a standing
+   of a growth rate ("revenue growth ran 4.4pp behind cost growth" -4.4, "revenue growth beat cost growth by 4.4pp"
+   +4.4; of a line named without "growth" only in a year the two lines did not both fall). In every other form (an
+   appositive, a passive, a side named as its fall, a participle after a comma) it is read by magnitude alone: a
+   direction word beside it is one side's move, not its sign. A gap between two levels
+   of one year ("net margin minus operating margin (pp, same year)") carries no direction, like the difference of
+   the two margins it equals.
 4. If the sentence names fiscal years, the matched value must belong to one of them.
 5. Tier rules: a number with no citation fails; a ``cause`` sentence must cite a filing passage; a
    ``judgement`` sentence may restate cited numbers but never introduce one.
@@ -34,11 +36,12 @@ pack names: debt, liquidity or a peer's year). Counts of periods ("three consecu
 """
 from __future__ import annotations
 
+import functools
 import itertools
 import math
 import re
 from dataclasses import dataclass, field, replace
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, NamedTuple, Optional
 
 CITATION_RE = re.compile(r"\[((?:[FXSDRPQ]\d{1,4})(?:\s*[,;]\s*[FXSDRPQ]\d{1,4})*)\]")
 ID_RE = re.compile(r"[FXSDRPQ]\d{1,4}")
@@ -64,12 +67,13 @@ _NON_FIGURES = re.compile(
     r"Part\s+[IVX]+|ASU\s+\d{4}-\d{2}|ASC\s+\d+|Section\s+\d+)\b|\(\s?[ivx]+\s?\)|\b\d{4}Q[1-4]\b",
     re.IGNORECASE,
 )
-_QUALIFIERS = (
-    ("approx", re.compile(r"\b(?:about|approximately|approx\.|around|roughly|some|circa|close to|~)\s*$", re.I)),
-    ("nearly", re.compile(r"\b(?:nearly|almost|just under|just shy of)\s*$", re.I)),
-    ("at_least", re.compile(r"\b(?:more than|over|above|exceeding|in excess of|at least|upwards of)\s*$", re.I)),
-    ("at_most", re.compile(r"\b(?:less than|under|below|at most|up to)\s*$", re.I)),
+_QUALIFIER_WORDS = (
+    ("approx", r"about|approximately|approx\.|around|roughly|some|circa|close to|~"),
+    ("nearly", r"nearly|almost|just under|just shy of"),
+    ("at_least", r"more than|over|above|exceeding|in excess of|at least|upwards of"),
+    ("at_most", r"less than|under|below|at most|up to"),
 )
+_QUALIFIERS = tuple((name, re.compile(rf"\b(?:{words})\s*$", re.I)) for name, words in _QUALIFIER_WORDS)
 _UP_WORDS = re.compile(r"\b(rose|rise|rising|increas\w*|grew|grow(?!th)\w*|gain\w*|expand\w*|climb\w*|up|higher|improv\w*|jump\w*|surg\w*|widen\w*)\b", re.I)
 _DOWN_WORDS = re.compile(r"\b(fell|fall\w*|declin\w*|decreas\w*|drop\w*|shrank|shrink\w*|contract\w*|down|lower|compress\w*|slipp?\w*|eroded|erod\w*|narrow\w*|deteriorat\w*|worsen\w*|reduc\w*)\b", re.I)
 # Words that say better or worse rather than up or down: for a metric where lower is better (a bank's efficiency
@@ -405,10 +409,10 @@ def _direction(text: str, claim: Claim) -> tuple[Optional[int], bool]:
     return None, False
 
 
-def _said_otherwise(cand: Candidate, said: dict[tuple[str, tuple[str, ...]], int], direction: Optional[int],
+def _said_otherwise(cand: Candidate, said: dict[tuple[str, tuple[str, ...]], Optional[int]], direction: Optional[int],
                     evaluative: bool, values: dict[str, Any]) -> bool:
-    """A signed match whose sign the sentence contradicts: the sign its clause gives a compared "A minus B" value
-    (``said``), else the direction word's."""
+    """A signed match whose sign the sentence contradicts: for a cited "A minus B" value, the sign its clause gives it
+    (``said``; None outside the certain forms, read by magnitude), else the direction word's."""
     sign = said.get((cand.how, cand.ids), direction)
     return sign is not None and _contradicts(cand, sign, evaluative and (cand.how, cand.ids) not in said, values)
 
@@ -549,30 +553,6 @@ def bind_periods(text: str, claims: list[Claim], latest_year: Optional[int]) -> 
 
 _CLAUSE_BREAK = re.compile(r"[;:]|,\s+(?:and|but|while|whereas)\b|\bwhile\b|\bwhereas\b|\bbut\b", re.I)
 _MINUS_LABEL = re.compile(r"^(?P<a>.+?) minus (?P<b>.+?)(?:\s*\([^)]*\))?$", re.I)
-# How far the side named first moved against the other: more ("0.3pp faster than revenue"), or less; the direction
-# word says which way it moved. With no direction word the same words say where it stands ("revenue growth was 4.4pp
-# less than cost growth").
-_MORE, _LESS = r"faster|quicker|more(?!\s+slowly)", r"slower|less|more\s+slowly"
-_COMPARATIVE_AFTER = re.compile(rf"^\s*(?:({_MORE})|({_LESS}))\b", re.I)
-_COMPARATIVE_BEFORE = re.compile(rf"\b(?:({_MORE})|({_LESS}))\s+than\b", re.I)
-# Where the side named first stands against the other, whatever the direction word: a position right after the figure
-# ("ran 4.4pp ahead of operating costs", "3.4pp below operating margin"), or an outpacing before it ("revenue outgrew
-# costs by 4.4pp", "trailed operating-cost growth by 4.4pp"). The probes' ``gap_direction`` reads the same words.
-ABOVE, BELOW = r"above|higher|ahead of", r"below|under|lower|behind|short of"
-_STANDING_AFTER = re.compile(rf"^\s*(?:({ABOVE})|({BELOW}))\b", re.I)
-_OUTPACE = re.compile(r"\b(?:(beat\w*|exceed\w*|outpac\w*|outgr[eo]w\w*|top(?:s|ped|ping)|outr[au]n\w*)|"
-                      r"(trail\w*|lag\w*|(?:fell|falls|fall) short of))\b", re.I)
-_BY_END = re.compile(r"\bby\s*$", re.I)
-
-
-def outpacing(lead: str) -> Optional[tuple[int, int, int]]:
-    """(+1 for beat, exceeded, outgrew, outpaced, outran or topped, -1 for trailed, lagged or fell short of; where the
-    verb starts; where it ends) when ``lead``, the words before a figure, end "<verb> ... by": the last such verb, with
-    no figure after it ("top" alone is not one: "top-line growth trailed costs by 4.4pp" trailed)."""
-    if not _BY_END.search(lead):
-        return None
-    verbs = [m for m in _OUTPACE.finditer(lead) if not re.search(r"\d", lead[m.end():])]
-    return ((1 if verbs[-1].group(1) else -1), verbs[-1].start(), verbs[-1].end()) if verbs else None
 
 
 _OF_THE_BEFORE = re.compile(r"^\s*of\s+(?:the\s+)?$", re.I)
@@ -593,65 +573,175 @@ def _clause_of(text: str, claim: Claim) -> str:
     return text[start:end]
 
 
-# The sides of an "A minus B" label by their key nouns, as a sentence names them in its own words: revenue as sales or
-# the top line, a cost as costs, expenses, spending or opex, each with or without "operating" or "growth" ("costs grew
-# 0.3pp slower than sales"). Any other side goes by its whole phrase ("net margin", so "operating income" is not
-# "operating margin").
+# Which side of an "A minus B" value a clause puts ahead (``compared_sides``), read only in the forms below and nowhere
+# else. The sides go by their key nouns, as a sentence names them in its own words: revenue as sales or the top line, a
+# cost as costs, expenses, spending or opex, each with or without "operating"; any other side by its whole phrase ("net
+# margin", so "operating income" is not "operating margin").
 _SIDE_NOUNS = ((re.compile(r"\brevenue\b", re.I), r"(?:net\s+)?(?:revenues?|sales|top[- ]line)"),
                (re.compile(r"\b(?:costs?|expenses?)\b", re.I), r"(?:operating[- ])?(?:costs?|expenses?|spending|opex)"))
+# A move of one side against the other: more ("0.3pp faster than revenue", "1.2pp further than"), or less.
+_MORE = r"faster|quicker|further|deeper|steeper|more(?:\s+(?:steeply|sharply|quickly|rapidly|strongly))?"
+_LESS = r"slower|more\s+slowly|less(?:\s+(?:steeply|sharply|quickly|rapidly|strongly))?"
+# A standing: a position after the figure ("ran 4.4pp ahead of", "came in 10.3pp short of"), or an outpacing before it
+# ("outgrew operating costs by 4.4pp", "trailed ... by"); "top" alone is no verb ("top-line growth trailed").
+ABOVE, BELOW = r"above|over|higher|ahead\s+of", r"below|under|lower|behind|short\s+of"
+_OUTPACE_UP = r"beat(?:s|ing)?|exceed(?:s|ed|ing)?|outpac(?:e|es|ed|ing)|outgr(?:ew|ow|ows|own|owing)|top(?:s|ped|ping)|outr(?:an|un|uns|unning)"
+_OUTPACE_DOWN = r"trail(?:s|ed|ing)?|lag(?:s|ged|ging)?|(?:fell|falls?|falling)\s+short\s+of"
+_OUTGREW = re.compile(r"^outgr", re.I)  # "outgrew" says grew more: a growth rate, whatever the side is called
+_RISE = r"rose|ris(?:e|es|en|ing)|gr(?:ew|ow|ows|own|owing)|increas(?:e|ed|es|ing)|climb(?:s|ed|ing)?|jump(?:s|ed|ing)?|expand(?:s|ed|ing)?|gain(?:s|ed|ing)?"
+_FALL = r"fell|fall(?:s|en|ing)?|declin(?:e|ed|es|ing)|decreas(?:e|ed|es|ing)|drop(?:s|ped|ping)?|shr(?:ank|unk|ink|inks|inking)|contract(?:s|ed|ing)?|sl(?:id|ide|ides|iding)|slip(?:s|ped|ping)?|dip(?:s|ped|ping)?"
+_RISE_VERB = re.compile(rf"^(?:{_RISE})$", re.I)
+# A verb that only places a side ("was", "ran", "came in"): after it "more" or "less" says where the side stands.
+_PLACED = (r"was|were|is|are|(?:has|have|had)\s+been|ran|runs?|running|st(?:ood|ands?|anding)|s(?:at|its?|itting)|"
+           r"c(?:ame|omes?|oming)(?:\s+in)?|end(?:s|ed)|remain(?:s|ed)|stay(?:s|ed)|land(?:s|ed)|h(?:eld|olds?)|"
+           r"finish(?:es|ed)|settl(?:es|ed)")
+_PLACED_VERB = re.compile(rf"^(?:{_PLACED})$", re.I)
+_FALL_NOUNS = r"declines?|drops?|falls?|reductions?|cuts?|contractions?|shrinkage|decreases?"
+# A figure as a sentence prints it, in "net margin of 13.1%" or "the 16.5% operating margin".
+_FIGURE = (r"[-−–+]?(?:US)?\$?\d[\d,]*(?:\.\d+)?(?:\s?(?:%|pp\b|percentage\s+points?|percent\b|basis\s+points?|bps\b|"
+           r"trillion|billion|million|thousand|bn\b|mn\b|[mbk]\b|x\b))?")
+_QUALIFIER = "|".join(words for _, words in _QUALIFIER_WORDS)
+# A side after one of these words is an object ("the decline in revenue", "cost of revenue"), not the subject.
+_OBJECT_OF = re.compile(r"\b(?:in|of|on|to|from|than|against|versus|vs\.?|for|by|over|under|below|above|behind|at|into|"
+                        r"between|across|per|about|toward|towards|within|without)\s+(?:(?:the|its|their)\s+)?$", re.I)
 
 
-# A side named as its fall ("the revenue decline outran cost reduction by 1.2pp", DeepSeek CVX: revenue fell 4.6%, costs
-# 3.4%) stands ahead by falling more, so its outpacing says the other way. A move's fall is its direction word.
-_FALL_AFTER = re.compile(r"\s+(?:declines?|reductions?|drops?|contractions?|cuts?|shrinkage)\b", re.I)
-_FALL_BEFORE = re.compile(r"\b(?:declines?|reductions?|drops?|falls?|contractions?|cuts?)\s+in\s+(?:the\s+|its\s+)?$", re.I)
+class _Forms(NamedTuple):
+    """The certain forms for one order of the sides (X named first, Y the other), as regular expressions over the words
+    before the figure (anchored at their end) and after it (anchored at their start)."""
+    move: re.Pattern[str]
+    move_rest: re.Pattern[str]
+    move_before: re.Pattern[str]
+    placed: re.Pattern[str]
+    placed_rest: re.Pattern[str]
+    outpaced: re.Pattern[str]
 
 
-def side_pattern(side: str) -> re.Pattern[str]:
-    """How a sentence names one side of an "A minus B" label (``_SIDE_NOUNS``), its parenthesis dropped; a growth side
-    may go without "growth". A side after "of" is a ratio's base ("costs as a share of revenue"), not that side."""
+def _side(side: str) -> tuple[str, bool]:
+    """(how a sentence names one side of an "A minus B" label, by ``_SIDE_NOUNS`` or its whole phrase, without
+    "growth"; whether the side is a growth rate)."""
     words = side.lower().split()
-    tail = r"(?:\s+growth)?" if len(words) > 1 and words[-1] == "growth" else ""
-    words = words[:-1] if tail else words
+    growth = len(words) > 1 and words[-1] == "growth"
+    words = words[:-1] if growth else words
     nouns = next((body for names, body in _SIDE_NOUNS if names.search(" ".join(words))), None)
-    body = nouns or r"\s+".join(re.escape(w).replace(r"\-", "[- ]") for w in words)
-    return re.compile(rf"(?<!\bof )\b{body}{tail}\b", re.I)
+    return nouns or r"\s+".join(re.escape(w).replace(r"\-", "[- ]") for w in words), growth
 
 
-def _gap_reading(label: str, text: str, claim: Claim) -> Optional[tuple[int, int, bool]]:
-    """How the clause compares the sides of a cited "A minus B" value: (-1 when the side it names first is B, else 1;
-    +1 when that side moved more or stands above, -1 less or below; whether it is a standing, whose sign holds
-    whatever the direction word), or None when it compares no sides, or the side it names first, before the
-    comparative, is neither of the label's: then the value keeps its sign, as the gate read it before.
+@functools.lru_cache(maxsize=None)
+def _forms(x: str, y: str) -> _Forms:
+    subject = rf"\b(?P<x>{x})(?P<xg>\s+growth)?(?:\s+of\s+(?:an?\s+)?{_FIGURE})?(?:\s+(?:also|only|still|just|again))?"
+    other = (rf"(?:(?:the|its|their)\s+)?(?:{_FIGURE}\s+)?(?P<y>{y})(?P<yg>(?:['’]s)?\s+growth)?"
+             rf"(?P<yfall>(?:['’]s)?\s+(?:{_FALL_NOUNS}))?(?![\w'’-])")
+    comparative = rf"(?:(?P<more>{_MORE})|(?P<less>{_LESS}))\s+than"
+    end = rf"(?:\s+(?:{_QUALIFIER}))?\s*$"
+    return _Forms(
+        move=re.compile(rf"{subject}\s+(?P<v>{_RISE}|{_FALL})(?:\s+by)?{end}", re.I),
+        move_rest=re.compile(rf"^\s*{comparative}\s+{other}", re.I),
+        move_before=re.compile(rf"{subject}\s+(?P<v>{_RISE}|{_FALL})\s+{comparative}\s+{other}\s+by{end}", re.I),
+        placed=re.compile(rf"{subject}\s+(?P<v>{_PLACED}|(?:{_RISE}|{_FALL})(?:\s+to)?){end}", re.I),
+        placed_rest=re.compile(rf"^\s*(?:(?P<above>{ABOVE})|(?P<below>{BELOW})|{comparative})(?:\s+than)?\s+{other}", re.I),
+        outpaced=re.compile(rf"{subject}(?:\s+(?:has|have|had))?\s+(?:(?P<up>{_OUTPACE_UP})|(?P<down>{_OUTPACE_DOWN}))"
+                            rf"\s+{other}\s+by{end}", re.I),
+    )
 
-    A move is "faster", "more", "slower" or "less" right after the figure ("costs grew 0.3pp faster than revenue") or
-    before "than" ahead of it ("grew faster than revenue by 0.3pp"); "more than 0.3pp" right before the figure is a
-    bound, not a comparison. A standing is a position after the figure ("ran 4.4pp ahead of", "3.4pp below") or an
-    outpacing before it ("outgrew operating costs by 4.4pp"), said the other way of a side named as its fall
-    (``_FALL_AFTER``)."""
-    found = _MINUS_LABEL.match(label)
-    if not found:
+
+def _subject(found: Optional[re.Match[str]], lead: str) -> Optional[re.Match[str]]:
+    """``found`` when its side X is the subject, not an object after a preposition (``_OBJECT_OF``)."""
+    return None if found is None or _OBJECT_OF.search(lead[:found.start("x")]) else found
+
+
+def _says(forms: _Forms, lead: str, rest: str, growth: bool, lines_fell: Optional[bool]) -> Optional[int]:
+    """+1 when the clause, in one of the certain forms (``compared_sides``), puts X ahead of Y, -1 behind; else None."""
+    rate = not growth or lines_fell is False  # a standing of X without "growth" can only be its rate's
+    if growth:
+        found = _subject(forms.move.search(lead), lead)
+        comparative = forms.move_rest.match(rest) if found else None
+        if found and comparative and not found["xg"]:
+            return _moved(found["v"], comparative)
+        found = _subject(forms.move_before.search(lead), lead)
+        if found and not found["xg"]:
+            return _moved(found["v"], found)
+    found = _subject(forms.placed.search(lead), lead)
+    where = forms.placed_rest.match(rest) if found else None
+    if found and where and not where["yfall"] and (found["xg"] or rate):
+        placed = bool(_PLACED_VERB.match(found["v"]))
+        if where["above"] or where["below"]:
+            return (1 if where["above"] else -1) if placed or not growth else None
+        return (1 if where["more"] else -1) if placed else None
+    found = _subject(forms.outpaced.search(lead), lead)
+    if found and not found["yfall"] and (found["xg"] or rate or (found["up"] and _OUTGREW.match(found["up"]))):
+        return 1 if found["up"] else -1
+    return None
+
+
+def _moved(verb: str, comparative: re.Match[str]) -> Optional[int]:
+    """X's move against Y's: its direction (rose +1, fell -1) times more (+1) or less (-1). Y named as its fall ("than
+    the revenue decline") is a fall's size, read only after a fall verb."""
+    rise = bool(_RISE_VERB.match(verb))
+    if comparative["yfall"] and rise:
         return None
+    return (1 if rise else -1) * (1 if comparative["more"] else -1)
+
+
+def both_fell(value: dict[str, Any], values: dict[str, Any]) -> Optional[bool]:
+    """Whether both lines of a gap of two growth rates fell in its year, by the pack's own record: the revenue its first
+    two inputs name (the year's and the year before's, as ``derived`` records "revenue growth minus operating-cost
+    growth") gives revenue growth, and revenue growth less the gap is cost growth. None when they are not two revenues."""
+    found = [values.get(i) for i in (value.get("inputs") or [])[:2] if i]
+    if len(found) != 2 or not all(f and f["label"] == "Revenue" and f["value"] for f in found):
+        return None
+    growth = (found[0]["value"] / found[1]["value"] - 1.0) * 100.0
+    return growth < 0 and growth - value["value"] < 0
+
+
+def compared_sides(text: str, claim: Claim, side_a: str, side_b: str,
+                   lines_fell: Optional[bool] = None) -> Optional[tuple[int, int]]:
+    """How the claim's clause compares the two sides of an "A minus B" value, in the certain forms only: (1 when the
+    side it names first is A, -1 when B; +1 when that side is ahead of the other by the figure, -1 behind). None in
+    every other form, where the value is read by its magnitude alone, with no direction verdict.
+
+    The certain forms. The side named first, X, is the subject: named by its nouns (``_SIDE_NOUNS``) right before its
+    verb, with at most "of <figure>" ("net margin of 13.1%") and one adverb ("also", "only", "still", "just", "again")
+    between, and not after a preposition ("the decline in revenue", "cost of revenue": ``_OBJECT_OF``). So nothing else
+    stands between them: no comma, appositive or other figure, no passive ("was outpaced by"), no fall noun ("the
+    revenue decline", "revenue's decline"). The other side, Y, follows the comparative in the same clause, at most after
+    "the", "its", "their" and a figure. For a gap of two growth rates (revenue growth minus operating-cost growth):
+
+    - a move: X, without "growth", is the subject of a rise or fall verb right before the figure ("by" and a qualifier
+      aside), and "faster", "more", "further", "deeper", "steeper" or their opposites ("slower", "less", "more
+      slowly") and "than Y" follow the figure ("costs fell 1.2pp less than revenue": costs minus revenue is +1.2), or
+      stand before "than Y by" it ("costs grew faster than revenue by 0.3pp"). The sign is the verb's (rose +1, fell
+      -1) times the comparative's (more +1, less -1). Y may be named as its fall after a fall verb ("fell 1.2pp less
+      than the revenue decline");
+    - a standing: placed by a verb that only places ("was", "ran", "came in": ``_PLACED``) right before the figure,
+      with a position ("ahead of", "behind", "above", "over", "below", "short of", "higher than") or "more than" /
+      "less than" after it ("revenue growth ran 4.4pp behind operating-cost growth"); or the subject of an active
+      outpacing verb before "Y by" the figure ("revenue growth beat operating-cost growth by 4.4pp", "trailed",
+      "lagged", "fell short of"). X is named with "growth", a rate, whose place holds when both lines fell; or without
+      it in a year the pack shows the two lines did not both fall (``lines_fell`` False, by ``both_fell``), where its
+      place can only be its rate's ("revenue trailed operating costs by 4.4pp", REGN). "Outgrew" says grew more, so X may go without "growth"
+      there in any year ("costs outgrew sales by 2.1pp").
+
+    For a gap of two levels of one year (net margin minus operating margin), only standings: a position after any verb
+    ("net margin slipped to 1.3pp below operating margin"), "more than" / "less than" after a verb that only places, or
+    an active outpacing verb. A move of two levels ("net margin fell 3.4pp more than operating margin") is not their gap.
+
+    Everything else is read by magnitude: an appositive after a comma ("revenue fell 4.6%, 1.2pp more than operating
+    costs"), a participle whose subject is another clause's ("..., outpacing the cost decline by 0.4pp"), the passive
+    ("revenue growth was outpaced by cost growth by 0.3pp"), a side named as its fall ("the revenue decline outran cost
+    reduction by 1.2pp"), a standing of two lines named without "growth" in a year both fell, or one the pack does not
+    tell ("revenue trailed costs by 1.2pp", CVX, which may compare the size of two falls), a move of a growth rate
+    ("revenue growth fell 1.2pp more than", which may be the change in each rate), one side unnamed ("costs grew 0.3pp
+    faster"), and a side another metric names ("operating income grew 0.3pp slower than revenue"). The semantic audit
+    sees each such value with its sign (``semantics._describe``)."""
     start, end = clause_span(text, claim)
-    rest, lead = text[claim.start + len(claim.text):end], text[start:claim.start]
-    move, standing, verb = _COMPARATIVE_AFTER.match(rest), _STANDING_AFTER.match(rest), outpacing(lead)
-    before = [m for m in _COMPARATIVE_BEFORE.finditer(lead) if lead[m.end():].strip()]
-    if move or standing:
-        said, at, still = (1 if (move or standing).group(1) else -1), claim.start, not move
-    elif verb:
-        said, at, still = verb[0], start + verb[1], True
-    elif before:
-        said, at, still = (1 if before[-1].group(1) else -1), start + before[-1].start(), False
-    else:
-        return None
-    named = sorted((m.start(), m.end(), side) for side in ("a", "b")
-                   for m in side_pattern(found.group(side)).finditer(text, start, at))
-    if not named:
-        return None
-    first, last, side = named[-1]
-    if still and (_FALL_AFTER.match(text, last) or _FALL_BEFORE.search(text, start, first)):
-        said = -said
-    return (-1 if side == "b" else 1), said, still
+    lead, rest = text[start:claim.start], text[claim.start + len(claim.text):end]
+    (a, a_growth), (b, b_growth) = _side(side_a), _side(side_b)
+    for first, x, y in ((1, a, b), (-1, b, a)):
+        said = _says(_forms(x, y), lead, rest, a_growth and b_growth, lines_fell)
+        if said is not None:
+            return first, said
+    return None
 
 
 def _of_the_total(clean: str, claims: list[Claim], claim: Claim) -> bool:
@@ -726,15 +816,18 @@ def analyse_sentence(sentence: dict[str, Any], pack: dict[str, Any]) -> tuple[Se
             hits = [c for c in cands if c.how == "cited" and _REVENUE_GROWTH.match(values[c.ids[0]]["label"])
                     and matches(as_pct, c)]
         direction, evaluative = _direction(text, claim)
-        # A cited "A minus B" value the clause compares is read as first side minus second, against the sign the clause
-        # gives it: a standing's, or a move's (its direction word's, the other way for "less"; with none, a standing).
-        said: dict[tuple[str, tuple[str, ...]], int] = {}
+        # A cited "A minus B" value is read as the side the clause names first minus the other, against the sign the
+        # clause gives it, in the certain forms only (``compared_sides``); in any other form by magnitude, with no
+        # direction verdict (None): a direction word beside it is one side's move, not the gap's sign.
+        said: dict[tuple[str, tuple[str, ...]], Optional[int]] = {}
         for i, c in enumerate(hits):
-            reading = _gap_reading(values[c.ids[0]]["label"], clean_text, claim) if c.how == "cited" else None
-            if reading:
-                first, sign, standing = reading
-                hits[i] = c = replace(c, value=-c.value, how=f"reversed {c.ids[0]}") if first < 0 else c
-                said[(c.how, c.ids)] = sign if standing or direction is None else direction * sign
+            sides = _MINUS_LABEL.match(values[c.ids[0]]["label"]) if c.how == "cited" else None
+            if not sides:
+                continue
+            reading = compared_sides(clean_text, claim, sides.group("a"), sides.group("b"), both_fell(values[c.ids[0]], values))
+            if reading and reading[0] < 0:
+                hits[i] = c = replace(c, value=-c.value, how=f"reversed {c.ids[0]}")
+            said[(c.how, c.ids)] = reading[1] if reading else None
         mentioned = bindings.get(index, set())
         if mentioned:
             in_period = [c for c in hits if not c.periods or set(c.periods) & mentioned]
