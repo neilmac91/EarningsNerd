@@ -199,12 +199,13 @@ async def regenerate_in_place(
     filing_type: Optional[str],
     schema_version_lt: Optional[int],
     stale_total: int,
-    max_seconds: float,
+    start_by: float,
     clock: Callable[[], float] = time.monotonic,
 ) -> RefreshOutcomes:
     """Regenerate each candidate in place, sequentially, through the ONE orchestrator, then write the
-    audit row. As the job-side drain does (``summary_refresh.drain_stale``), it stops before a
-    generation that would start more than ``max_seconds`` after the call, and defers the rest.
+    audit row. It starts no generation once ``clock()`` has passed ``start_by``, the end of the route's
+    time budget, and defers the rest, as the job-side drain does past its ``max_seconds``
+    (``summary_refresh.drain_stale``).
 
     It takes no session, so none is held while a generation runs (E171): the generation runs in the
     pipeline's own sessions, and each stamp re-read and the audit row in a short session of its own,
@@ -219,9 +220,8 @@ async def regenerate_in_place(
     failed: list[int] = []
     deferred: list[int] = []
 
-    started = clock()
     for index, fid in enumerate(candidate_filing_ids):
-        if clock() - started > max_seconds:
+        if clock() > start_by:
             deferred = candidate_filing_ids[index:]
             logger.info("refresh-stale: time budget reached after %d attempts; %d deferred", index, len(deferred))
             break

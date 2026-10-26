@@ -39,5 +39,8 @@ def test_every_request_timeout_ends_before_the_services():
 def test_the_stale_refresh_takes_its_own_timeout_with_room_for_its_last_generation():
     # The middleware takes the first prefix that matches, so a broader entry above this one would shadow it.
     assert main.get_timeout_for_path("/api/admin/summaries/refresh-stale") == admin.REFRESH_STALE_TIMEOUT_SECONDS
-    # A generation started at the start-by bound still has its pipeline's whole backstop before the timeout.
-    assert admin._REFRESH_STALE_START_BY_SECONDS + PIPELINE_TIMEOUT_SECONDS < admin.REFRESH_STALE_TIMEOUT_SECONDS
+    # A generation started at the start-by bound still has its whole allowance before the timeout, and the allowance
+    # holds the pipeline's backstop.
+    assert (admin._REFRESH_STALE_START_BY_SECONDS + admin._REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS
+            < admin.REFRESH_STALE_TIMEOUT_SECONDS)
+    assert admin._REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS > PIPELINE_TIMEOUT_SECONDS

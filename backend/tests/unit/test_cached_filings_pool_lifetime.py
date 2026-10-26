@@ -3783,7 +3783,7 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     try:
         outcomes = await admin_summary_service.regenerate_in_place(
             [filing_id], actor_id=7, actor_email="admin@example.com", filing_type=None, schema_version_lt=None,
-            stale_total=1, max_seconds=60.0)
+            stale_total=1, start_by=float("inf"))
         assert outcomes == ([], [filing_id], [], [])
         with sessionmaker(bind=engine)() as db:
             assert [tuple(row) for row in db.query(AuditLog.action, AuditLog.user_id)] == [("summaries_refresh_stale", "7")]
