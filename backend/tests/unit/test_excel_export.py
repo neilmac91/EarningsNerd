@@ -270,8 +270,9 @@ class TestMetricsSheet:
         assert ws["D5"].value == 1.5 and ws["D5"].number_format == '0.00"x"'
 
     def test_a_gap_stays_empty_and_its_note_says_no_dash(self, workbook):
-        # The table, the PDF and the bar charts print a gap as a dash; the workbook leaves its cell empty, so the note it
-        # carries here and in the Overview says only that the figure is not in our data, never zero (data notes v2).
+        # The page and the PDF print a gap as a dash; the workbook leaves its cell empty (its charts an empty slot), so
+        # the note it carries here and in the Overview says only that the figure is not in our data, never zero (data
+        # notes v2).
         cell = workbook["Metrics"]["E3"]
         assert cell.value is None
         note = f"Data note b: {REASONS['not_in_dataset']}"

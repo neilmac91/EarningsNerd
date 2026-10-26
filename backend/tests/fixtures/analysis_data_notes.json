@@ -8,8 +8,8 @@
     "clauses": {
       "source_check_needed": "not yet matched to the filing",
       "source_conflict": "the filings report different values (the most recent shown)",
-      "calculation_mismatch": "the calculation does not match its filed inputs",
-      "missing_calculation_inputs": "the calculation\u2019s filed inputs were not found"
+      "calculation_mismatch": "does not match our calculation from the filed inputs",
+      "missing_calculation_inputs": "inputs not found in the same filing, so not checked"
     },
     "fallback": "questioned by an automated check",
     "joined": [
@@ -31,7 +31,7 @@
           "calculation_mismatch",
           "missing_calculation_inputs"
         ],
-        "summary": "the calculation does not match its filed inputs; the calculation\u2019s filed inputs were not found"
+        "summary": "does not match our calculation from the filed inputs; inputs not found in the same filing, so not checked"
       },
       {
         "reasons": [
@@ -313,7 +313,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "legacy",
@@ -388,7 +388,7 @@
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "legacy",
@@ -621,7 +621,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "legacy",
@@ -696,7 +696,7 @@
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-e",
             "letter": "e",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "legacy",
@@ -983,7 +983,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [],
             "comparisons": [
               {
@@ -1039,7 +1039,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-c",
             "letter": "c",
-            "message": "The figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
+            "message": "Period ends on a different date from its filing\u2019s reporting period.",
             "values": [],
             "comparisons": [
               {
@@ -2210,7 +2210,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "reason_2",
@@ -2258,7 +2258,7 @@
             "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
             "id": "analysis-data-note-d",
             "letter": "d",
-            "message": "The saved calculation could not be reproduced from compatible source inputs and is unavailable.",
+            "message": "Could not be reproduced from compatible source inputs, so unavailable.",
             "values": [
               {
                 "concept": "reason_4",
@@ -2330,7 +2330,7 @@
             "key": "[\"review\",[\"missing_compatible_operand\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "A compatible earlier year-to-date figure is unavailable for the calculation.",
+            "message": "No compatible earlier year-to-date figure is available to calculate from.",
             "values": [
               {
                 "concept": "reason_7",
@@ -2354,7 +2354,7 @@
             "key": "[\"review\",[\"negative_calculated_value\"]]",
             "id": "analysis-data-note-h",
             "letter": "h",
-            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "message": "Calculated as an invalid negative amount, so withheld.",
             "values": [
               {
                 "concept": "reason_8",
@@ -2378,7 +2378,7 @@
             "key": "[\"review\",[\"missing_inputs\"]]",
             "id": "analysis-data-note-i",
             "letter": "i",
-            "message": "The source inputs needed for the calculation are unavailable.",
+            "message": "Source inputs needed for calculation are unavailable.",
             "values": [
               {
                 "concept": "reason_9",
@@ -2402,7 +2402,7 @@
             "key": "[\"review\",[\"missing_input\"]]",
             "id": "analysis-data-note-j",
             "letter": "j",
-            "message": "A source input needed for the calculation is unavailable.",
+            "message": "A source input needed for calculation is unavailable.",
             "values": [
               {
                 "concept": "reason_10",
@@ -2474,7 +2474,7 @@
             "key": "[\"review\",[\"legacy_unverified\"]]",
             "id": "analysis-data-note-m",
             "letter": "m",
-            "message": "The saved figure needs a source check before use.",
+            "message": "Needs a source check before use.",
             "values": [
               {
                 "concept": "reason_13",
@@ -2498,7 +2498,7 @@
             "key": "[\"review\",[\"legacy_unreconciled\"]]",
             "id": "analysis-data-note-n",
             "letter": "n",
-            "message": "The saved figure needs a source check before use.",
+            "message": "Needs a source check before use.",
             "values": [
               {
                 "concept": "reason_14",
@@ -2522,7 +2522,7 @@
             "key": "[\"review\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-o",
             "letter": "o",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "reason_15",
@@ -2546,7 +2546,7 @@
             "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
             "id": "analysis-data-note-p",
             "letter": "p",
-            "message": "Detailed source information is unavailable for the saved figure.",
+            "message": "Saved without detailed source information.",
             "values": [
               {
                 "concept": "reason_16",
@@ -2594,7 +2594,7 @@
             "key": "[\"review\",[\"mixed_vintage\"]]",
             "id": "analysis-data-note-r",
             "letter": "r",
-            "message": "The calculation combines figures from different filing versions.",
+            "message": "Calculated from figures in different filing versions.",
             "values": [
               {
                 "concept": "reason_18",
@@ -2618,7 +2618,7 @@
             "key": "[\"review\",[\"mixed_vintages\"]]",
             "id": "analysis-data-note-s",
             "letter": "s",
-            "message": "The calculation combines figures from different filing versions.",
+            "message": "Calculated from figures in different filing versions.",
             "values": [
               {
                 "concept": "reason_19",
@@ -2666,7 +2666,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-u",
             "letter": "u",
-            "message": "The figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
+            "message": "Period ends on a different date from its filing\u2019s reporting period.",
             "values": [
               {
                 "concept": "reason_21",
@@ -2810,7 +2810,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Our calculation from the filed inputs does not match the stored figure.",
+            "message": "Does not match our calculation from the filed inputs.",
             "values": [
               {
                 "concept": "reason_27",
@@ -2834,7 +2834,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "The calculation\u2019s inputs were not found in the same filing, so it could not be checked.",
+            "message": "Not checked: the inputs were not found in the same filing.",
             "values": [
               {
                 "concept": "reason_28",
@@ -2954,7 +2954,7 @@
             "key": "[\"review\",[\"legacy_period_label_mismatch\"]]",
             "id": "analysis-data-note-ag",
             "letter": "ag",
-            "message": "The saved figure carried the wrong fiscal period and was replaced by a corrected figure.",
+            "message": "Saved with the wrong fiscal period and replaced by a corrected figure.",
             "values": [
               {
                 "concept": "reason_33",
@@ -2978,7 +2978,7 @@
             "key": "[\"review\",[\"rolling_duration_not_fiscal_year\"]]",
             "id": "analysis-data-note-ah",
             "letter": "ah",
-            "message": "The saved figure covers a rolling twelve months, not the company\u2019s fiscal year, and is unavailable.",
+            "message": "Saved as a rolling twelve months, not the company\u2019s fiscal year, so unavailable.",
             "values": [
               {
                 "concept": "reason_34",
@@ -3002,7 +3002,7 @@
             "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
             "id": "analysis-data-note-ai",
             "letter": "ai",
-            "message": "An input to the saved calculation was moved to its correct period, so the calculation was withdrawn and is unavailable.",
+            "message": "Withdrawn and unavailable: an input was moved to its correct period.",
             "values": [
               {
                 "concept": "reason_35",
@@ -3120,7 +3120,7 @@
             "key": "[\"review\",[\"source_check_needed\"]]",
             "id": "analysis-data-note-b",
             "letter": "b",
-            "message": "Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "reason_2",
@@ -3168,7 +3168,7 @@
             "key": "[\"review\",[\"legacy_calculation_not_supported\"]]",
             "id": "analysis-data-note-d",
             "letter": "d",
-            "message": "The saved calculation could not be reproduced from compatible source inputs and is unavailable.",
+            "message": "Could not be reproduced from compatible source inputs, so unavailable.",
             "values": [
               {
                 "concept": "reason_4",
@@ -3240,7 +3240,7 @@
             "key": "[\"review\",[\"missing_compatible_operand\"]]",
             "id": "analysis-data-note-g",
             "letter": "g",
-            "message": "A compatible earlier year-to-date figure is unavailable for the calculation.",
+            "message": "No compatible earlier year-to-date figure is available to calculate from.",
             "values": [
               {
                 "concept": "reason_7",
@@ -3264,7 +3264,7 @@
             "key": "[\"review\",[\"negative_calculated_value\"]]",
             "id": "analysis-data-note-h",
             "letter": "h",
-            "message": "The calculation produced an invalid negative amount and was withheld.",
+            "message": "Calculated as an invalid negative amount, so withheld.",
             "values": [
               {
                 "concept": "reason_8",
@@ -3288,7 +3288,7 @@
             "key": "[\"review\",[\"missing_inputs\"]]",
             "id": "analysis-data-note-i",
             "letter": "i",
-            "message": "The source inputs needed for the calculation are unavailable.",
+            "message": "Source inputs needed for calculation are unavailable.",
             "values": [
               {
                 "concept": "reason_9",
@@ -3312,7 +3312,7 @@
             "key": "[\"review\",[\"missing_input\"]]",
             "id": "analysis-data-note-j",
             "letter": "j",
-            "message": "A source input needed for the calculation is unavailable.",
+            "message": "A source input needed for calculation is unavailable.",
             "values": [
               {
                 "concept": "reason_10",
@@ -3384,7 +3384,7 @@
             "key": "[\"review\",[\"legacy_unverified\"]]",
             "id": "analysis-data-note-m",
             "letter": "m",
-            "message": "The saved figure needs a source check before use.",
+            "message": "Needs a source check before use.",
             "values": [
               {
                 "concept": "reason_13",
@@ -3408,7 +3408,7 @@
             "key": "[\"review\",[\"legacy_unreconciled\"]]",
             "id": "analysis-data-note-n",
             "letter": "n",
-            "message": "The saved figure needs a source check before use.",
+            "message": "Needs a source check before use.",
             "values": [
               {
                 "concept": "reason_14",
@@ -3432,7 +3432,7 @@
             "key": "[\"review\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-o",
             "letter": "o",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "reason_15",
@@ -3456,7 +3456,7 @@
             "key": "[\"review\",[\"legacy_provenance_unavailable\"]]",
             "id": "analysis-data-note-p",
             "letter": "p",
-            "message": "Detailed source information is unavailable for the saved figure.",
+            "message": "Saved without detailed source information.",
             "values": [
               {
                 "concept": "reason_16",
@@ -3504,7 +3504,7 @@
             "key": "[\"review\",[\"mixed_vintage\"]]",
             "id": "analysis-data-note-r",
             "letter": "r",
-            "message": "The calculation combines figures from different filing versions.",
+            "message": "Calculated from figures in different filing versions.",
             "values": [
               {
                 "concept": "reason_18",
@@ -3528,7 +3528,7 @@
             "key": "[\"review\",[\"mixed_vintages\"]]",
             "id": "analysis-data-note-s",
             "letter": "s",
-            "message": "The calculation combines figures from different filing versions.",
+            "message": "Calculated from figures in different filing versions.",
             "values": [
               {
                 "concept": "reason_19",
@@ -3576,7 +3576,7 @@
             "key": "[\"review\",[\"period_mismatch\"]]",
             "id": "analysis-data-note-u",
             "letter": "u",
-            "message": "The figure\u2019s period ends on a different date from its filing\u2019s reporting period.",
+            "message": "Period ends on a different date from its filing\u2019s reporting period.",
             "values": [
               {
                 "concept": "reason_21",
@@ -3720,7 +3720,7 @@
             "key": "[\"review\",[\"calculation_mismatch\"]]",
             "id": "analysis-data-note-aa",
             "letter": "aa",
-            "message": "Our calculation from the filed inputs does not match the stored figure.",
+            "message": "Does not match our calculation from the filed inputs.",
             "values": [
               {
                 "concept": "reason_27",
@@ -3744,7 +3744,7 @@
             "key": "[\"review\",[\"missing_calculation_inputs\"]]",
             "id": "analysis-data-note-ab",
             "letter": "ab",
-            "message": "The calculation\u2019s inputs were not found in the same filing, so it could not be checked.",
+            "message": "Not checked: the inputs were not found in the same filing.",
             "values": [
               {
                 "concept": "reason_28",
@@ -3864,7 +3864,7 @@
             "key": "[\"review\",[\"legacy_period_label_mismatch\"]]",
             "id": "analysis-data-note-ag",
             "letter": "ag",
-            "message": "The saved figure carried the wrong fiscal period and was replaced by a corrected figure.",
+            "message": "Saved with the wrong fiscal period and replaced by a corrected figure.",
             "values": [
               {
                 "concept": "reason_33",
@@ -3888,7 +3888,7 @@
             "key": "[\"review\",[\"rolling_duration_not_fiscal_year\"]]",
             "id": "analysis-data-note-ah",
             "letter": "ah",
-            "message": "The saved figure covers a rolling twelve months, not the company\u2019s fiscal year, and is unavailable.",
+            "message": "Saved as a rolling twelve months, not the company\u2019s fiscal year, so unavailable.",
             "values": [
               {
                 "concept": "reason_34",
@@ -3912,7 +3912,7 @@
             "key": "[\"review\",[\"calculation_parent_period_corrected\"]]",
             "id": "analysis-data-note-ai",
             "letter": "ai",
-            "message": "An input to the saved calculation was moved to its correct period, so the calculation was withdrawn and is unavailable.",
+            "message": "Withdrawn and unavailable: an input was moved to its correct period.",
             "values": [
               {
                 "concept": "reason_35",
@@ -3978,7 +3978,7 @@
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-al",
             "letter": "al",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [],
             "comparisons": [],
             "counts": {
@@ -4290,7 +4290,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4374,7 +4374,7 @@
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-d",
             "letter": "d",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "net_income",
@@ -4464,7 +4464,7 @@
             "key": "[\"review\",[\"legacy_calculation\",\"source_check_needed\"]]",
             "id": "analysis-data-note-a",
             "letter": "a",
-            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm the value against the company\u2019s filed data.",
+            "message": "Calculated before 10 October 2026, when we began keeping each calculation\u2019s inputs; shown as stored, with its inputs not linked. Not yet matched to the filing: our automated check could not confirm a match in the company\u2019s filed data.",
             "values": [
               {
                 "concept": "free_cash_flow",
@@ -4548,7 +4548,7 @@
             "key": "[\"unknown\",[\"legacy_unknown\"]]",
             "id": "analysis-data-note-d",
             "letter": "d",
-            "message": "Validation details are unavailable for the saved figure. No verification claim is made.",
+            "message": "Validation details are unavailable. No verification claim is made.",
             "values": [
               {
                 "concept": "net_income",

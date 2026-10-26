@@ -27,7 +27,9 @@ links nothing, and the provider links only on a later sign-in through it (the pr
 PR #1659 (analysis data notes version 2) wrote "shown as a dash" into the gap's reason sentence and
 a "Select it to …" clause into eight others. One sentence serves every surface through the notes
 envelope's message, and the workbook prints it as a comment on an empty cell, while the PDF, the
-workbook and the chart PNG offer nothing to select (its high-tier review).
+workbook and the chart PNG offer nothing to select (its high-tier review). Its fix rounds then
+swapped "this figure" for "the figure", still one figure above a note that groups several ("The
+figure's period ends …" above "(4 figures)" in the PDF), until every sentence named none.
 
 **Rule**:
 - Before writing "withheld", "verified", "the filing's own words", "every", "any company" or a
@@ -46,8 +48,8 @@ workbook and the chart PNG offer nothing to select (its high-tier review).
   (`email_verified`) and scope the claim to what those reads do.
 - A sentence one map feeds to several surfaces (a data note's reason) promises on each of them. Keep
   a page action ("select it") and a surface's drawing ("shown as a dash") out of it, and say them
-  on the surface that does them. Where a surface prints it once for several figures, it points at
-  no one figure ("this figure").
+  on the surface that does them. Where a surface prints it once for several figures, it names no
+  one figure: not "this figure", nor "the figure", "the saved calculation" or "the value".
 - When a correction rewrites one sentence, grep for the same claim elsewhere (another component, a
   comment, a record, a mail) and fix or hand off every copy in the same change.
 - An error's remedy is a promise for every path that sends its code: read each raise site before
@@ -88,4 +90,5 @@ stronger wording returns only with the founder's go-ahead. The high-tier review 
 `backend/app/services/excel_export_service.py` (`_write_point` leaves a missing value's cell empty, its
 note in the comment) against `data_notes.REASONS`; `backend/tests/unit/test_analysis_data_notes.py`
 (`test_reason_words_hold_on_every_surface_that_prints_them`) fails a reason's words that ask for a
-selection or name a dash, and `test_excel_export.py` holds the gap's empty cell and its comment.
+page action, say how a gap is drawn or name one figure, and a summary clause with a semicolon, each
+rule tested both ways; `test_excel_export.py` holds the gap's empty cell and its comment.

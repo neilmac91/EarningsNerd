@@ -89,27 +89,41 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
         assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
 
 
-# The gesture verbs of a page, in every form: words no export or PNG can honour. "Open", "expand" and "follow" are left
-# out, since a sentence about filings uses them in other senses ("opening balance", "the following period").
+# A page action: a gesture verb, base or -ing, aimed at something ("Select it", "Clicking one", "Hover over it", "Scroll
+# down"). No export or PNG can honour one. A verb with another object passes, since a filing uses these words otherwise:
+# "the earnings press release", "selected financial data", "the company chose", "a drag on margins".
 PAGE_ACTIONS = re.compile(
-    r"\b(?:select|selects|selected|selecting|click|clicks|clicked|clicking|tap|taps|tapped|tapping|hover|hovers"
-    r"|hovered|hovering|press|presses|pressed|pressing|choose|chooses|chose|chosen|choosing|scroll|scrolls|scrolled"
-    r"|scrolling|swipe|swipes|swiped|swiping|drag|drags|dragged|dragging|toggle|toggles|toggled|toggling)\b",
+    r"\b(?:select|click|tap|hover|press|choose|scroll|swipe|toggle)(?:ing)?\s+"
+    r"(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|to|through|down|up)\b",
     re.IGNORECASE,
 )
-# How a missing figure is drawn differs by surface: the table, the PDF and the bar charts print the dash, a line chart
-# breaks its line and the workbook leaves the cell empty. A range's en dash is sanctioned and passes.
-DRAWING = re.compile(r"\bdash(?:es)?\b|\u2014", re.IGNORECASE)
-# A note's message is read for one figure (the dialog, a workbook comment) and for all of a note's figures at once (the
-# detail, the PDF's and the workbook's lists, the chart footnotes), so it points at neither one nor a set.
-DEICTIC = re.compile(r"\b(?:this|these)\b", re.IGNORECASE)
+# How a missing figure is drawn differs by surface: a dash in the table, the PDF's tables and the page's and PNG's bar
+# charts; a break in a line chart; an empty cell and an empty chart slot in the workbook; "Unavailable" in the PDF's
+# Sources & methods. So words never say it: not the dash or the em dash, and not "shown as", "drawn as", "printed as",
+# "left" or "shown" with a glyph or a blank. "Never shown as zero" and "shown as stored" say what the value is, and pass;
+# so do "the filing left the table empty" and a range's en dash.
+DRAWING = re.compile(
+    r"\bdash(?:es)?\b|—"
+    r"|\b(?:shown|drawn|printed|displayed|rendered|left)\s+(?:as\s+)?(?:an?\s+)?(?:hyphen|blank|empty|gap|n/a|space)\b"
+    r"|\b(?:shown|drawn|printed|displayed|rendered)\s+as\s+[–-]",
+    re.IGNORECASE,
+)
+# A note's message is read for one figure (the dialog, a workbook comment) and once for all of a note's figures (the
+# detail, the PDF's and the workbook's lists, the chart footnotes), so it names no one figure or set: no "this", "that",
+# "these", "those" or "the" before figure, value, calculation or number, saved, stored, reported or calculated or not.
+# "This year", a relative "that" and a distributive "each figure" pass.
+DEICTIC = re.compile(
+    r"\b(?:this|that|these|those|the)\s+(?:(?:saved|stored|reported|calculated)\s+)?"
+    r"(?:figure|value|calculation|number)s?\b",
+    re.IGNORECASE,
+)
 
 
 def _surface_problems(words: str, *, clause: bool = False) -> list[str]:
     problems = [label for label, pattern in (
         ("asks for a page action the PDF, workbook and PNG cannot offer", PAGE_ACTIONS),
         ("says how a figure is drawn, which differs by surface", DRAWING),
-        ("points at one figure, though a note can group several", DEICTIC),
+        ("names one figure, though a note can group several", DEICTIC),
     ) if pattern.search(words)]
     # The fine print lists a note's places, and joins its clauses, with "; ", so a clause's own would split them.
     if clause and ";" in words:
@@ -120,9 +134,16 @@ def _surface_problems(words: str, *, clause: bool = False) -> list[str]:
 @pytest.mark.parametrize("words, clause", [
     ("Select it to compare with the filing.", False), ("Selecting it opens the filing.", False),
     ("Clicking it opens the filing.", False), ("Press it to compare.", False), ("Choose one to see both filings.", False),
-    ("Tap it for the source.", False), ("Hover over it for its inputs.", False), ("Shown as a dash.", False),
-    ("Shown as \u2014, never as zero.", False), ("Filings report different values for this figure.", False),
-    ("Not in our data for these periods.", False),
+    ("Tap it for the source.", False), ("Hover over it for its inputs.", False), ("Click on the figure.", False),
+    ("Scroll down to the table.", False),
+    ("Shown as a dash.", False), ("Shown as —, never as zero.", False),
+    ("Not in our data; shown as a blank cell, never as zero.", False), ("Not in our data; left empty, never zero.", False),
+    ("Drawn as a gap in the line.", False), ("Shown as a hyphen.", False), ("Left blank, never zero.", False),
+    ("Shown empty.", False), ("Shown as n/a.", False), ("Shown as –.", False),
+    ("Filings report different values for this figure.", False), ("Different values for that figure.", False),
+    ("Those figures differ from the filing.", False), ("The figure’s period ends on a different date.", False),
+    ("The saved figure needs a source check.", False), ("Could not confirm the value.", False),
+    ("An input to the saved calculation moved.", False), ("This number was restated.", False),
     ("the filings report different values; we show the most recent", True),
 ])
 def test_the_surface_words_check_fails_what_it_names(words, clause):
@@ -131,8 +152,15 @@ def test_the_surface_words_check_fails_what_it_names(words, clause):
 
 @pytest.mark.parametrize("words, clause", [
     ("The filing left the table empty.", False), ("The company reported a blank value.", False),
-    ("Covers FY2016\u2013FY2025.", False), ("The opening balance differs from the previous closing balance.", False),
+    ("Covers FY2016–FY2025.", False), ("The opening balance differs from the previous closing balance.", False),
     ("Restated in the following period.", False), ("The expanded share count differs.", False),
+    ("Taken from the earnings press release, not the filing.", False),
+    ("Taken from the filing’s selected financial data.", False),
+    ("The company chose a 53-week fiscal year.", False), ("Currency moves were a drag on margins.", False),
+    ("The company changed its fiscal year end this year.", False),
+    ("A calculation that could not be reproduced.", False), ("Each figure’s period ends on a different date.", False),
+    ("A reported quarterly earnings-per-share figure is unavailable.", False),
+    ("We show the most recent filing’s value.", False), ("Not in our data; never shown as zero.", False),
     ("Calculated before 10 October 2026; shown as stored, with its inputs not linked.", False),
     ("the filings report different values (the most recent shown)", True),
 ])
@@ -144,8 +172,8 @@ def test_reason_words_hold_on_every_surface_that_prints_them():
     """A note's message prints in the page's data notes and evidence dialog, the PDF, the workbook's comments and
     Overview and the chart PNG's footnotes, for one figure and for a note's several, and provenance.ts holds the same
     words (the fixture above). So no sentence asks for what only the page can do ("Select it to compare"), says how a
-    figure is drawn, or points at one figure ("this figure"). The fine print's summary clauses are held alike, since WP3
-    prints them in the exports too, and carry no semicolon of their own."""
+    figure is drawn, or names one figure ("the figure's period"). The fine print's summary clauses are held alike, since
+    WP3 prints them in the exports too, and carry no semicolon of their own."""
     sentences = [(reason, words, False) for reason, words in {**REASONS, "(fallback)": _FALLBACK_MESSAGE}.items()]
     sentences += [(f"(summary) {reason}", clause, True)
                   for reason, clause in {**SUMMARIES, "(fallback)": SUMMARY_FALLBACK}.items()]
@@ -188,7 +216,7 @@ NOTES_PROBE_CITATIONS = [
 # saved analysis of the old version regenerates once, unmetered. Never edit a released version's digest; a version not
 # yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
-    2: "048538a8134b62df4d356a3143ff9320f9b57100ad08258817b7979899666496",
+    2: "3e734882bea75dbde33ff0be9b45aa7f84fb63142ee38fdbc469e38366e49fcc",
 }
 
 

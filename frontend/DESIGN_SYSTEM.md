@@ -956,8 +956,8 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
                  only for a note that marks a figure, the track kept for alignment), then its message (its
                  reasons' words, the same sentence the dialog, the PDF, the workbook and the chart PNG print,
-                 for one figure or for a note's several, so none asks for a selection, says how a figure is
-                 drawn or points at one figure),
+                 for one figure or for a note's several, so none names one figure, asks for a selection or
+                 says how a gap is drawn),
                  its metrics and periods, its counts in the data face (“11 figures; 16 growth figures
                  built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
                  figures alone, each distinct and never added to by a repeated appearance) and
@@ -979,8 +979,9 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  marked letters), tests/unit/data-notes.spec.ts and the backend's
                  tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
                  summary words held to the shared notes fixture; marked notes lettered first; no reason's
-                 words ask for a page action, name a dash or say “this”, and no summary clause carries a
-                 semicolon; each DATA_NOTES_VERSION's words and letters
+                 words ask for a page action, say how a gap is drawn or name one figure (“the figure”,
+                 “that value”), and no summary clause carries a semicolon, each rule tested both ways;
+                 each DATA_NOTES_VERSION's words and letters
                  pinned by digest, so a change to them takes a new version), the
                  backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
                  app/ fails a reason the backend writes with no words; the forms it is known to miss are
