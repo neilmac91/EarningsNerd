@@ -121,7 +121,7 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 export const TOP_LINE_CONCEPTS = ['revenue', 'net_interest_income', 'premiums_earned'] as const
 
 /** The year's apostrophe is the typographic one (spec §0.4 row 27), as the subtitle and footnotes print
- *  periods ("Q1 ’25"). Today's Recharts ticks keep periodAxis's ASCII form until this renderer replaces them. */
+ *  periods ("Q1 ’25"). periodAxis's ASCII form is the PNG export's and the Recharts charts' elsewhere. */
 const typographic = (tick: string) => tick.replace("'", '’')
 
 function periodsOf(ds: AnalysisDataset): ChartPeriod[] {

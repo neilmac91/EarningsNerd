@@ -7,6 +7,7 @@ import {
   HEADER_STAMP,
   exportFilename,
   exportPanelPng,
+  exportSourceText,
   headerHeight,
   layoutLegend,
   layoutExportNotes,
@@ -66,6 +67,14 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('exportSourceText', () => {
+  it("notes the source data's day, not its instant (#1457)", () => {
+    // Noon UTC falls on October 20 in every zone from UTC-12 to UTC+11, so the case reads the same day in any runner.
+    expect(exportSourceText({ ...quarterly, data_as_of: '2026-10-20T12:00:00.008084Z' }).sourceNote).toBe('Source: SEC filings via EarningsNerd · data as of Oct 20, 2026')
+    expect(exportSourceText({ ...quarterly, data_as_of: null }).sourceNote).toBe('Source: SEC filings via EarningsNerd · source refresh time unavailable')
   })
 })
 

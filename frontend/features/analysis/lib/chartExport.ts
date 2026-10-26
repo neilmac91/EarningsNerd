@@ -64,7 +64,7 @@ export function chartDataNotes(dataset: AnalysisDataset, plottedSeries: Analysis
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
  * rasterization, framed so a shared image is self-describing — a HEADER (company name, then
- * ticker · metric, then the series legend; the Recharts SVG carries the plot only, never the
+ * ticker · metric, then the series legend; the chart's SVG carries the plot only, never the
  * legend/title, which live in the card's HTML header) and a branded FOOTER (the EN mark plus the
  * "EarningsNerd" wordmark, so a viewer knows the source). Downloads go through the shared
  * lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort the
@@ -320,9 +320,9 @@ async function drawBrandFooter(
 }
 
 /* ---------------------------------------------------------------------------
-   Header strip — company, ticker · metric, and the series legend. The Recharts
+   Header strip — company, ticker · metric, and the series legend. The chart's
    <svg> carries the plot only; the company/metric/legend live outside it (the
-   page picker + TrendCharts' <h2>/PanelLegend), so an exported PNG that
+   page picker and the card's heading and legend), so an exported PNG that
    serializes the SVG alone is unidentifiable. Redraw them onto the canvas from
    the same data that drives the UI, so a shared image says which company, which
    metric, and which series — with no drift from what the user saw.

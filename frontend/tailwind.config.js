@@ -166,7 +166,7 @@ module.exports = {
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
           // ---- The trend charts' spec renderer (docs/design/analysis-trend-charts-spec-2026-10.md §3.8) ----
-          // Behind NEXT_PUBLIC_CHARTS_V2 until the founder's F66 decision; features/analysis/lib/charts/theme.ts
+          // The analysis trend charts' since E195, until its token fold; features/analysis/lib/charts/theme.ts
           // mirrors them, and no class names them yet. Light/dark pairs of their own, not dark siblings of
           // chart-1…6 or new chart.label/grid values: those would repaint the landing page's RevenueBars
           // and today's charts (Chart.tsx). APCA Lc on the card (panel): tests/unit/chart-apca.spec.ts.

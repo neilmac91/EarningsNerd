@@ -8,7 +8,6 @@ import { render, screen } from '@testing-library/react'
  * next/dynamic to its pages-router loader, which hands the error to `loading`; the App Router's lazy loader throws it.
  * Both reach the boundary. Its own file: the failing module is mocked for every import here.
  */
-vi.mock('@/lib/featureFlags', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/featureFlags')>()), CHARTS_V2: true }))
 vi.mock('@/features/analysis/components/TrendChartsV2', () => {
   throw new Error('Loading chunk failed')
 })

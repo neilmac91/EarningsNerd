@@ -11,33 +11,11 @@
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 
-const flags = vi.hoisted(() => ({ v2: true }))
-vi.mock('@/lib/featureFlags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/featureFlags')>()
-  return { ...actual, get CHARTS_V2() { return flags.v2 } }
-})
-// The Recharts grid is the flag-off branch only; jsdom cannot measure it (same stub as trend-charts-legend.spec.tsx).
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-recharts>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Rectangle: () => null,
-  usePlotArea: () => null,
-  useXAxisScale: () => null,
-  useYAxisScale: () => null,
-}))
 vi.mock('@/features/analysis/lib/chartExport', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/analysis/lib/chartExport')>()
   return { ...actual, exportPanelPng: vi.fn().mockResolvedValue(true) }
@@ -76,7 +54,6 @@ const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset
 const DEFAULT_WIDTH = 502
 
 afterEach(() => {
-  flags.v2 = true
   vi.mocked(exportPanelPng).mockClear().mockResolvedValue(true)
   vi.mocked(analytics.exportGenerated).mockClear()
   vi.mocked(toast.error).mockClear()
@@ -649,22 +626,11 @@ describe('the PNG export', () => {
   })
 })
 
-describe('the CHARTS_V2 switch in TrendCharts', () => {
-  it('production builds with the flag unset: no committed build config sets it (F66)', () => {
-    // vercel.json's env and build.env reach every deployment; next.config's env and a committed .env file are inlined
-    // into every build. A preview sets the flag in Vercel's Preview environment instead. The examples document it.
-    const tracked = execFileSync('git', ['ls-files', 'vercel.json', 'next.config.*', '.env*'], { encoding: 'utf8' }).split('\n').filter(Boolean)
-    expect(tracked).toContain('vercel.json')
-    expect(tracked.some((file) => file.startsWith('next.config.'))).toBe(true)
-    const setting = tracked.filter((file) => !file.endsWith('.example') && readFileSync(file, 'utf8').includes('NEXT_PUBLIC_CHARTS_V2'))
-    expect(setting).toEqual([])
-  })
-
+describe('TrendCharts draws the spec renderer', () => {
   it('on, the spec renderer draws every chart', async () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)
-    expect(container.querySelector('[data-recharts]')).toBeNull()
   })
 
   it('the grid holds four cards of bones while the renderer’s chunk loads (§3.9 loading; E200)', () => {
@@ -687,13 +653,6 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
     }
     // TrendChartBones keeps layout.ts out of the route's chunk, so its card plan names the height itself.
     expect(CARD_BONES.height).toBe(CARD_HEIGHT)
-  })
-
-  it('off, today’s Recharts grid draws and the spec renderer is not loaded', () => {
-    flags.v2 = false
-    const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
-    expect(container.querySelector('[data-recharts]')).not.toBeNull()
-    expect(container.querySelector('g[data-panel]')).toBeNull()
   })
 })
 
