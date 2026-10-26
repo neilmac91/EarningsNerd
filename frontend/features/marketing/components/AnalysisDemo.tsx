@@ -20,7 +20,8 @@ const REVENUE_POINTS: RevenuePoint[] = (
 
 /**
  * The Multi-Period Analysis product screen for the landing page: the REAL KpiStrip and
- * MetricsTable fed the checked-in sample dataset, with a DOM-drawn revenue chart between them.
+ * MetricsTable fed the checked-in sample dataset, with a DOM-drawn revenue chart between them and
+ * the data notes as the table's fine print under it.
  * A server component: the dataset reaches the two client components through the RSC payload,
  * already narrowed to three series, instead of shipping the demo JSON module to the browser.
  * TrendCharts (recharts) is deliberately not rendered here: it would pull the charting library
@@ -40,9 +41,12 @@ export default function AnalysisDemo() {
         <div className="flex flex-col gap-3 p-4">
           {/* KpiStrip takes one column per tile from lg, so the sample's three tiles sit three across. */}
           <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
-          <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
           <RevenueBars points={REVENUE_POINTS} />
-          <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
+          {/* The table's fine print sits 8px under it, as on the analysis page. */}
+          <div className="flex flex-col gap-2">
+            <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
+            <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
+          </div>
         </div>
       </DataNotesProvider>
     </div>

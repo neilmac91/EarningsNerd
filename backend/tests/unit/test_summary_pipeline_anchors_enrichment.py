@@ -4,7 +4,8 @@ These tests PIN how the orchestrator runs and joins its enrichment (the XBRL fet
 concurrent with the document fetch; the section parse of the fetched document; the excerpt build)
 into the provider call, so the decomposition into stage modules proved ZERO observable change. The
 section parse moved after the document fetch in E28 (it now reads the fetched HTML, with no SEC
-request); B2 and B4 pin the new call.
+request); B2 and B4 pin the new call. The fetch stage's progress write asks the writer to start the
+run's clock (``starts_run=True``) since E216; B3 and B6 pin it.
 Every assertion is on an observable: yielded event dicts, DB rows, mock call lists, the
 ``record_progress`` sequence, the in-flight registry, the generation semaphore and the exact log
 text the code formats.
@@ -158,7 +159,8 @@ async def test_section_parse_failure_warns_and_builds_the_excerpt_without_sectio
 async def test_empty_legacy_section_coverage_skips_the_coverage_progress_write():
     """An aggregate-only ``section_coverage`` of ``{}`` survives the finalizer unchanged (legacy
     shape) and is falsy, so NO ``record_progress`` call carries ``section_coverage`` — the stage
-    sequence is the five bare stages — while the stored row keeps ``{}`` and the stream completes."""
+    sequence is the five stages, only the fetch write's naming ``starts_run`` — while the stored row
+    keeps ``{}`` and the stream completes."""
     filing_id = seed_company_filing()
     payload = {**deepcopy(CANONICAL_PAYLOAD), "raw_summary": {
         "sections": {"business_overview": "Acme Corp designs and sells widgets."}, "section_coverage": {},
@@ -169,7 +171,7 @@ async def test_empty_legacy_section_coverage_skips_the_coverage_progress_write()
 
     summary_id = _assert_complete(events)
     assert _progress_stages(record_progress) == [
-        (filing_id, "fetching", {}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
+        (filing_id, "fetching", {"starts_run": True}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
         (filing_id, "summarizing", {}), (filing_id, "completed", {}),
     ]
     with SessionLocal() as db:
@@ -400,7 +402,7 @@ async def test_enrichment_join_progress_events_and_record_progress_stages_for_a_
     ]
     assert events[start - 1] == FETCHED
     assert _progress_stages(record_progress) == [
-        (filing_id, "fetching", {}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
+        (filing_id, "fetching", {"starts_run": True}), (filing_id, "parsing", {}), (filing_id, "analyzing", {}),
         (filing_id, "summarizing", {}),
         (filing_id, "summarizing", {"section_coverage": {"covered_count": 5, "total_count": 7}}),
         (filing_id, "completed", {}),

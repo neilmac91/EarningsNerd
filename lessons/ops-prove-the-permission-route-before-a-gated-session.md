@@ -41,14 +41,18 @@ a denied command to try again through the shell.
 
 Gate (rule 12): `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`. The launch kit is
 a repository file, `tasks/fable-e8-launch-kit.md`, and the test fails when any command in its
-`sh` blocks is not the literal prefix of an allow rule in `.claude/settings.json`, is covered by a
+`sh` blocks is not the literal prefix of an allow rule in `.claude/settings.json` (once the kit is
+resumed; while it is parked, of the seven rules restored in memory), is covered by a
 deny or ask rule, or carries a shell variable, a separator (`&`, `;`, `|`), a redirection or a
 backtick; when a fence is spelled anything other than `sh`, `text` or `json`, or an interpreter
 or the CLI is invoked outside an `sh` block; or when the kit's first command is not the `--help`
-probe. It also fails when the allow set is not exactly the seven pinned narrow rules (a blanket
-`Bash(*)` or any wildcard beyond a trailing `:*` fails), or when an allow entry carries a
+probe. It also fails when an allow entry is not one of the seven pinned narrow rules or the three
+exact Ops readback rules (whose exact presence `test_ops_readback_allow_rules.py` pins, F51), when one of the
+seven is allowed while the kit is parked (they were retired on 2026-10-25) or missing once it resumes (a
+blanket `Bash(*)` or any wildcard beyond a trailing `:*` fails), or when an allow entry carries a
 variable or names a script that does not exist; its evasion cases lock each of those behaviours
-against in-memory copies.
+against in-memory copies. It builds both states, parked and resumed, from whichever is live, so the
+change that parks or resumes E8 moves the banner and the seven rules together and edits no test.
 No repository gate can exercise the cloud permission classifier itself, so the gate proves that
 the kit and the rules agree before a session starts, and step 0 proves the route inside the
 session. `tasks/fable-e8-repin-2026-09-22/README.md` still shows its command block in `"$REPIN"` /
@@ -69,6 +73,17 @@ prompts are founder-reported. The gate now also pins all seven commands whole an
 attestation template against the sealed `attest()` constants, the attachment table against the
 restore's pins, and the mode sentence. Evidence:
 `tasks/review-evidence/e8-launch-readiness-2026-09-23/README.md`.
+
+## Update, 2026-10-25: a silent run in Auto can be the classifier's (F51)
+
+In Auto mode a silent run of a command the classifier would approve by itself, such as a read of
+GitHub's run metadata, cannot tell an applied project rule from the classifier's own approval: both are
+silent. A zero-effect probe proves the route only when the classifier would deny it, as it denied the E8
+kit's step 0. `/permissions` lists each rule and the file it comes from, not whether a condition
+(workspace trust, `autoMode.classifyAllShell`, the sandbox's per-command hosts) suspends it. For a rule
+whose command the classifier may allow, the conclusive result is a prompt or a denial, which says the
+rules did not apply. `docs/OPERATIONS.md`, "Agent production readbacks (F51)", applies this to the three
+Ops readback rules.
 
 ## Evidence
 

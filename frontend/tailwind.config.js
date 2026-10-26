@@ -129,9 +129,7 @@ module.exports = {
 
         // ---- UI state ---- (light values sized for the warm cream surface, not white)
         success: { light: '#15803D', dark: '#22C55E' }, // was #16A34A — 3.3:1 as text; green-700 holds 4.5:1 on cream
-        // data-dark: a review letter on the analysis figure surfaces, APCA Lc -81.8 on the dark well, -78.8 on panel
-        // (amber-500 is -59.9 / -56.9 at 11px); light keeps amber-800 (Lc 82.2 on the light well).
-        warning: { light: '#92400E', dark: '#F59E0B', 'data-dark': '#FCD34D' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
+        warning: { light: '#92400E', dark: '#F59E0B' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
         error: { light: '#B91C1C', dark: '#F87171', emphasis: '#991B1B' }, // was #DC2626 (white label = 4.4:1); red-700 fill = 6.5:1, emphasis = destructive hover, 8.3:1
         // info.text (blue-700): the in-tint LABEL ink — #2563EB inside its own 10% tint
         // is 4.3:1 on cream (icon/graphic only there); #1D4ED8 holds 5.6:1 in-tint, 6.0:1 bare.
@@ -179,7 +177,7 @@ module.exports = {
           s5: { light: '#6E7E9C', dark: '#97A6C2' }, // = chart-5 · dark Lc −50.1
           s6: { light: '#8B7BC0', dark: '#AFA2DE' }, // = chart-6 · dark Lc −52.8
           tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (tertiary-dark, gray-400, is −48.6)
-          value: { light: '#374151', dark: '#D7DADC' },    // = text.secondary · dark the plot's own, the old text.primary.dark (#1606 raised that to #EAECEF)
+          value: { light: '#374151', dark: '#EAECEF' },    // = text.secondary · dark = text.primary, the figure ink (D-063)
           gridline: { light: '#DCD9D0', dark: '#525C6B' }, // Lc 16.8 / −15.0: visible, quieter than the zero rule
           review: { light: '#92400E', dark: '#FBBF24' },   // = warning · dark Lc −70.2 (warning-dark is −56.9)
         },

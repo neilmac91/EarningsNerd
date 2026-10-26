@@ -7,7 +7,7 @@ import type { AnalysisPoint } from '@/features/analysis/api/analysis-api'
 import { FCF_DEFINITION, isCalculated, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
 import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
-import { dataNoteIssue, type DataNote } from '@/features/analysis/lib/dataNotes'
+import { dataNoteIssue, markedNote, noteMarksFigure, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
 import GrowthText from './GrowthText'
 
@@ -21,12 +21,17 @@ function Checks({ value, note, unavailable = false }: { value: QualityValue; not
   const review = !missing && (note ? note.kind === 'review' : needsSourceCheck(value))
   const passed = !missing && !note && value.provenance?.validation === 'passed'
   const status = missing ? 'Unavailable' : review ? 'Needs review' : passed ? 'Automated checks passed' : 'No validation record'
+  // A record-only concern (a calculation saved before its inputs were kept) still reads "Needs review", never passed,
+  // but in the ink of the words around it: warning ink and the note's letter belong to a concern about the number,
+  // the one kind of note that marks its figure (D-061).
+  const questioned = review && noteMarksFigure(note ?? dataNoteIssue(value))
+  const marked = markedNote(note)
   const passedExplanation = value.provenance?.method === 'reported'
     ? 'Taken from the figures the company filed with the SEC (its XBRL data).'
     : value.provenance?.method === 'calculated' ? 'Calculated from reported figures with compatible periods and units.' : null
   return <div className="space-y-1">
-    <p className={review ? 'font-medium text-warning-light dark:text-warning-dark' : 'font-medium'}>
-      {status}{note && <> · Note {note.letter}</>}
+    <p className={questioned ? 'font-medium text-warning-light dark:text-warning-dark' : 'font-medium'}>
+      {status}{marked && <> · Note {marked.letter}</>}
     </p>
     {passed && passedExplanation && <p>{passedExplanation}</p>}
     {!missing && !review && !passed && <p>No automated check result is recorded for this figure. No verification claim is made.</p>}
@@ -65,6 +70,8 @@ export interface SourceComparison extends QualityValue {
 function inheritedComparisonNote(comparison: SourceComparison) {
   const note = comparison.note
   if (!note) return null
+  // Only a note that marks its figure has a letter the reader can see beside the comparison (D-061).
+  const letter = markedNote(note)?.letter
   const affected = new Map<string, FactInput>()
   const visit = (input: FactInput) => {
     const issue = dataNoteIssue(input)
@@ -74,14 +81,14 @@ function inheritedComparisonNote(comparison: SourceComparison) {
     input.provenance?.inputs.forEach(visit)
   }
   comparison.provenance?.inputs.forEach(visit)
-  if (!affected.size) return `Carries note ${note.letter}. The recorded inputs do not identify which input carries this note.`
+  if (!affected.size) return `${letter ? `Carries note ${letter}. ` : ''}The recorded inputs do not identify which input this note comes from.`
   const status = note.kind === 'review' ? 'needs review' : note.kind === 'unavailable' ? 'is unavailable' : 'has no validation record'
   const inputs = [...affected.values()].map(input => {
     const label = input.concept.replaceAll('_', ' ')
     const period = input.period_end ? ` (period ended ${formatLocalDate(input.period_end, 'd MMM yyyy')})` : ''
     return `${label}${period}, which ${status}`
   })
-  return `Carries note ${note.letter}: it uses ${inputs.join('; ')}.`
+  return letter ? `Carries note ${letter}: it uses ${inputs.join('; ')}.` : `It uses ${inputs.join('; ')}.`
 }
 
 export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false, largeMarks = false }: {
@@ -104,8 +111,12 @@ export default function SourceValue({ point, label, concept, children, note, com
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
   const arithmetic = substitutedFormula(provenance)
-  const sharedNote = note && comparison?.note?.key === note.key
-  const description = [calculated ? 'calculated' : '', dataNoteDescription(note), sharedNote ? 'also applies to the comparison' : comparison?.note ? `comparison carries ${dataNoteDescription(comparison.note)}` : ''].filter(Boolean).join(', ')
+  // The name says "calculated" wherever the figure is, and names only the notes whose letters show (D-061): a
+  // record-only, unknown or unavailable note is read in the dialog.
+  const marked = markedNote(note)
+  const markedComparison = markedNote(comparison?.note)
+  const sharedNote = marked && markedComparison?.key === marked.key
+  const description = [calculated ? 'calculated' : '', dataNoteDescription(marked), sharedNote ? 'also applies to the comparison' : markedComparison ? `comparison carries ${dataNoteDescription(markedComparison)}` : ''].filter(Boolean).join(', ')
   return (
     <>
       <button
@@ -121,7 +132,7 @@ export default function SourceValue({ point, label, concept, children, note, com
         // value keeps it.
         className={`${compactMarks ? 'flex w-full items-baseline justify-end' : 'underline decoration-border-light decoration-dotted underline-offset-4 dark:decoration-border-dark'} tabular-nums lining-nums rounded text-inherit focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark`}
       >
-        {children}<DataNoteMark calculated={calculated} note={note} compact={compactMarks} large={largeMarks} />
+        {children}<DataNoteMark note={note} compact={compactMarks} large={largeMarks} />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} labelledBy={id} size="lg">
         <ModalHeader id={id} onClose={() => setOpen(false)}>{label} · {period}</ModalHeader>
@@ -130,7 +141,7 @@ export default function SourceValue({ point, label, concept, children, note, com
           <div className="space-y-1">
             {/* Figures take the figure face, as in the table and the cards: a minus is drawn, the text stays U+002D. An
                 accession or a raw tag keeps the data face, since its hyphens are not minus signs. */}
-            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark calculated={calculated} note={note} large /></p>
+            <p className="font-figure tabular-nums lining-nums text-2xl text-text-primary-light dark:text-text-primary-dark">{display}<DataNoteMark note={note} large /></p>
             {point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">As stored: {exactFigure(point.value, figure)}</p>}
           </div>
           <section className="space-y-1">

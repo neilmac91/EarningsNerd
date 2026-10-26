@@ -225,7 +225,7 @@ class _MarkdownRenderMixin:
         Some models (especially without a strict schema) return a top-level array, or a
         single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
         ``'list' object has no attribute 'get'`` and the whole summary fails with the user-facing
-        "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
+        "We could not generate this summary" error. Coercing here keeps the pipeline alive so the
         structured fallbacks can fill any gaps instead of crashing.
         """
         if isinstance(data, list):

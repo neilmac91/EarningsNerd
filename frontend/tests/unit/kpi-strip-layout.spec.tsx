@@ -8,6 +8,7 @@ import { render } from '@testing-library/react'
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE, KPI_MARK_GAP, kpiValueGlyphs, kpiValueWidth, kpiWidestCss } from '@/features/analysis/lib/kpiStripLayout'
+import { NOTE_MARK } from '@/features/analysis/components/DataNoteMark'
 import { compactCurrencyCountUp, fmtCurrency } from '@/lib/format'
 import AnalysisDemo from '@/features/marketing/components/AnalysisDemo'
 
@@ -43,15 +44,16 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     const marks = source('features/analysis/components/DataNoteMark.tsx')
     expect(STRIP).toMatch(/data-kpi-value className="[^"]*\btext-2xl\b/)
     expect(marks).toMatch(/const MARK = '[^']*\btext-data-xs\b/)
-    expect(marks.match(/\$\{(dagger|letter)\} ml-0\.5 /g), 'the dagger and the letter each keep 2px').toHaveLength(2)
+    expect(marks.match(/\$\{large \? '[^']+' : '[^']+'\} ml-0\.5 /g), 'the letter keeps 2px (no figure carries a dagger, D-061)').toHaveLength(1)
     expect(KPI_FIGURE_ADVANCE).toBeCloseTo(ADVANCE * rem(theme.fontSize['2xl'][0]), 9)
     expect(KPI_MARK_ADVANCE).toBeCloseTo(ADVANCE * rem(theme.fontSize['data-xs'][0]), 9)
     expect(KPI_MARK_GAP).toBe(rem(theme.spacing['0.5']))
     // E197's two cases, 138.2px each at a 16px root: CHF at 320px and CA$ at 360px.
-    expect(kpiValueWidth('CHF 22.8B', true)).toBeCloseTo(8.6375, 9)
-    expect(kpiValueWidth('CA$968.0M', true)).toBeCloseTo(8.6375, 9)
-    expect(kpiValueWidth('$1.7B', true, 'ab')).toBeCloseTo(5 * 0.9 + (0.125 + 0.4125) + (0.125 + 2 * 0.4125), 9)
-    expect(kpiValueWidth('-36.1%', false)).toBeCloseTo(6 * 0.9, 9)
+    expect(kpiValueWidth('CHF 22.8B')).toBeCloseTo(8.1, 9)
+    // A marked letter adds its glyph and its 2px: "CA$968.0M" with a note's "a" is 138.2px at a 16px root.
+    expect(kpiValueWidth('CA$968.0M', 'a')).toBeCloseTo(8.6375, 9)
+    expect(kpiValueWidth('$1.7B', 'ab')).toBeCloseTo(5 * 0.9 + 0.125 + 2 * 0.4125, 9)
+    expect(kpiValueWidth('-36.1%')).toBeCloseTo(6 * 0.9, 9)
   })
 
   it('measures the advances in probes set like the value and its marks, and starts from the face\'s 0.6em', () => {
@@ -61,29 +63,31 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     const value = classes(/data-kpi-value className="([^"]*)"/, ['min-w-0', 'text-figure-light', 'dark:text-figure-dark'])
     expect(value).toContain('text-2xl')
     expect(classes(/const FIGURE_PROBE = '([^']*)'/, ['block', 'w-max', 'whitespace-pre'])).toEqual(value)
-    // The mark probe is DataNoteMark's own dagger, at the value's weight, hidden from every reader.
+    // The mark probe is a letter in DataNoteMark's own classes (NOTE_MARK) at the value's weight, hidden from every reader
+    // and never a note: it carries no data-note-letter.
     const { container } = render(<KpiStrip dataset={dataset('USD', [5_000_000_000, 1_000_000_000])} />)
     const probes = container.querySelector('div[aria-hidden="true"].invisible')!
     expect(probes.querySelectorAll('span')[0].textContent).toBe('0000000000')
-    const dagger = [...probes.querySelectorAll('span')].find((span) => span.textContent === '†' && !span.children.length)!
-    expect(dagger.className).toContain('text-data-xs')
-    expect(dagger.parentElement!.className).toContain('font-semibold')
+    const letter = [...probes.querySelectorAll('span')].find((span) => span.textContent === 'a' && !span.children.length)!
+    expect(letter.className).toBe(NOTE_MARK)
+    expect(letter.hasAttribute('data-note-letter')).toBe(false)
+    expect(letter.parentElement!.className).toContain('font-semibold')
     // Until it measures, the strip takes the face's 0.6em, the advances the width model starts from.
     const rems = (value: number) => `${Math.round(value * 1e4) / 1e4}rem`
     expect(STRIP).toContain(`[--kpi-figure:${rems(KPI_FIGURE_ADVANCE)}] [--kpi-mark:${rems(KPI_MARK_ADVANCE)}]`)
   })
 
   it('writes the widest value as a CSS max() that equals the widest width at any advances, whole pixels included', () => {
-    const values: Array<[string, boolean, string?]> = [['$60.8B', false], ['$1.7B', true, 'a'], ['26.1%', true, 'a'], ['CHF\u00a022.8B', true], ['CA$968.0M', true], ['₩22.8B', true], ['-$1.7B', false], ['$1.7B', true]]
-    const css = kpiWidestCss(values.map(([text, calculated, letter]) => kpiValueGlyphs(text, calculated, letter)))
+    const values: Array<[string, string?]> = [['$60.8B'], ['$1.7B', 'a'], ['26.1%', 'a'], ['CHF\u00a022.8B'], ['CA$968.0M', 'a'], ['₩22.8B'], ['-$1.7B'], ['$1.7B']]
+    const css = kpiWidestCss(values.map(([text, letter]) => kpiValueGlyphs(text, letter)))
     const term = String.raw`calc\(\d+ \* var\(--kpi-figure\) \+ \d+ \* var\(--kpi-mark\) \+ [\d.]+rem\)`
     expect(css).toMatch(new RegExp(`^max\\(${term}(, ${term})*\\)$`))
-    // "$1.7B†" and "-$1.7B" can never be the widest ("$1.7B†a" and "$60.8B" match or pass them in every term).
+    // "$1.7B" and "-$1.7B" can never be the widest ("$60.8B" matches or passes them in every term).
     expect(css.match(/calc\(/g)!.length).toBeLessThan(values.length)
     // 0.6em at 16px and 32px roots, and the whole pixels a snapping browser paints there (14px and 7px, 29px and 13px).
     const ADVANCES = [[KPI_FIGURE_ADVANCE, KPI_MARK_ADVANCE], [14 / 16, 7 / 16], [29 / 32, 13 / 32], [15 / 16, 6 / 16]]
     for (const [figure, mark] of ADVANCES) {
-      expect(atAdvances(css, figure, mark), `${figure}rem, ${mark}rem`).toBeCloseTo(Math.max(...values.map(([text, calculated, letter]) => kpiValueWidth(text, calculated, letter, figure, mark))), 4)
+      expect(atAdvances(css, figure, mark), `${figure}rem, ${mark}rem`).toBeCloseTo(Math.max(...values.map(([text, letter]) => kpiValueWidth(text, letter, figure, mark))), 4)
     }
     // Which value is widest turns on the advances: more figure glyphs win where the figure's advance is large, more marks
     // and rest where it is small. Each value below is the widest at one of the advances, so every term must stay.
@@ -135,8 +139,8 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
       return new Function('strip', `return (${js})`) as (strip: number) => number
     }
     const fallback = classes.includes('[@container(width<17em)]:grid-cols-1')
-    // The values of E197 and of the fixtures, in rem on one line: "$60.8B", "$1.7B†", "$1.7B†a", "CHF 22.8B†", "-CHF 999.9B†a".
-    const values = [kpiValueWidth('$60.8B', false), kpiValueWidth('$1.7B', true), kpiValueWidth('$1.7B', true, 'a'), kpiValueWidth('CHF 22.8B', true), kpiValueWidth('-CHF 999.9B', true, 'a')]
+    // The values of E197 and of the fixtures, in rem on one line: "$60.8B", "$1.7B", "$1.7Ba", "CHF 22.8B", "CA$968.0Ma", "-CHF 999.9Ba".
+    const values = [kpiValueWidth('$60.8B'), kpiValueWidth('$1.7B'), kpiValueWidth('$1.7B', 'a'), kpiValueWidth('CHF 22.8B'), kpiValueWidth('CA$968.0M', 'a'), kpiValueWidth('-CHF 999.9B', 'a')]
     const problems: string[] = []
     let checked = 0
     for (const root of [16, 32]) for (const viewport of [360, 800, 1280]) for (const tiles of [3, 4]) for (const value of values) {
@@ -175,10 +179,10 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
 
   it('counts a glyph the figure face lacks at 1.25em, wider than any face found to draw one', () => {
     // Geist Mono has no ₩ or ₫ (E203) and no narrow no-break space ("F CFA"); DejaVu Sans Bold draws ₩ at 1.103em.
-    expect(kpiValueWidth('₩22.8B', true)).toBeCloseTo(kpiValueWidth('$22.8B', true) + (1.25 - 0.6) * 1.5, 9)
-    for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph, false), glyph).toBeCloseTo(1.25 * 1.5, 9)
-    // Its latin-ext file has the peso, rupee and shekel signs at 0.6em, beside the dagger.
-    for (const value of ['₱22.8B', '₹22.8B', '₪22.8B', '€22.8B', 'CHF\u00a01.0B']) expect(kpiValueWidth(value, false), value).toBeCloseTo([...value].length * 0.9, 9)
+    expect(kpiValueWidth('₩22.8B')).toBeCloseTo(kpiValueWidth('$22.8B') + (1.25 - 0.6) * 1.5, 9)
+    for (const glyph of ['\u202f', '₩', '₫']) expect(kpiValueWidth(glyph), glyph).toBeCloseTo(1.25 * 1.5, 9)
+    // Its latin-ext file has the peso, rupee and shekel signs at 0.6em.
+    for (const value of ['₱22.8B', '₹22.8B', '₪22.8B', '€22.8B', 'CHF\u00a01.0B']) expect(kpiValueWidth(value), value).toBeCloseTo([...value].length * 0.9, 9)
   })
 
   it('sets the widest value, as the cards render it, and the tile count on the strip', () => {
@@ -187,19 +191,20 @@ describe('the KPI strip sizes its columns from its widest value (E197)', () => {
     // The budget at the face's 0.6em, the advances jsdom leaves in place (it paints nothing to measure).
     const budget = () => atAdvances(strip().style.getPropertyValue('--kpi-value'))
     const covers = (widths: number[]) => { const widest = Math.max(...widths); expect(budget()).toBeGreaterThanOrEqual(widest); expect(budget() - widest).toBeLessThan(1e-4) }
-    // Each card's final value (the count-up is mid-tween here) with the marks it draws: its dagger and its note letter.
+    // Each card's final value (the count-up is mid-tween here) with the mark it draws: a note letter, where one shows.
     const drawn = (data: AnalysisDataset) => [...container.querySelectorAll('[data-analysis-kpi]')].map((card) => {
       const series = data.series.find((item) => item.label === card.querySelector('dt')!.textContent)!
       const button = card.querySelector('[data-kpi-value] button')!
       const final = fmtCurrency(series.points.at(-1)!.value, { compact: true, currency: series.unit })
-      return kpiValueWidth(final, button.textContent!.includes('†'), button.querySelector('[data-note-letter]')?.getAttribute('data-note-letter'))
+      return kpiValueWidth(final, button.querySelector('[data-note-letter]')?.getAttribute('data-note-letter'))
     })
     const chf = dataset('CHF', [59_893_000_000, 22_768_000_000, 14_831_000_000])
     expect(drawn(chf)).toHaveLength(3)
     expect(strip().style.getPropertyValue('--kpi-value')).toMatch(/^max\(calc\(/)
     covers(drawn(chf))
-    // Free cash flow's dagger makes it wider than the nine-glyph "CHF 59.9B" and "CHF 22.8B".
-    expect(Math.max(...drawn(chf))).toBeGreaterThanOrEqual(kpiValueWidth('CHF\u00a014.8B', true))
+    // The nine-glyph values set the width; no note questions them, so no letter shows, and a calculated one (free cash
+    // flow) carries no dagger (D-061).
+    expect(Math.max(...drawn(chf))).toBeCloseTo(kpiValueWidth('CHF\u00a059.9B'), 9)
     expect(strip().style.getPropertyValue('--kpi-cols')).toBe('3')
     const usd = dataset('USD', [281_700_000_000, 101_800_000_000])
     rerender(<KpiStrip dataset={usd} />)

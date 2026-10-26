@@ -1,6 +1,6 @@
 # Never let a settings error, an output or Sentry carry a secret
 
-Date: 2026-10-11 (follow-ups 2026-10-12, #1281; value scrubber 2026-10-13, todo E19) · Area: ops / secrets
+Date: 2026-10-11 (follow-ups 2026-10-12, #1281; value scrubber 2026-10-13, todo E19; task processes 2026-10-25, F50) · Area: ops / secrets
 
 **Context.** On two consecutive days a review agent imported `app.config` outside the test harness to
 probe a detail, and environment values reached its own tool output (CODE RED records 22 and 23). The
@@ -64,7 +64,7 @@ list included) and the str of a log's body that is not text only after `before_s
   lets a library's error (`urlsplit(v).port`, `int(v)`) escape with its message.
 - A settings object prints no value: the class overrides `__repr_args__`, so `repr()` is `Settings()` and
   `str()` is empty.
-- Sentry sends no frame's local variables (`include_local_variables=False` in `main._sentry_options`), and its event
+- Sentry sends no frame's local variables (`include_local_variables=False` in `_sentry_options`, `app/utils/telemetry_bootstrap.py`), and its event
   scrubber withholds the `X-Internal-Token` header, every outbound request's `http.query` and a request body's
   `new_password`, `current_password`, `refresh_token`, `invite`, `invite_code`, `code` and `id_token` (beside the
   SDK's own `password` and `token`), on errors and transactions alike; every request body key in the API that names a
@@ -76,7 +76,7 @@ list included) and the str of a log's body that is not text only after `before_s
   statements, HTTP calls without their query string); the request's method, URL and query string, other headers and
   body; the user id, tags, release and environment.
 - Sentry withholds values too: `before_send`, `before_send_transaction`, `before_send_log` and `before_send_metric` are
-  the hooks of `main._value_scrubber`, one per channel, each of which turns each occurrence, in any string of an error
+  the hooks of `telemetry_bootstrap._value_scrubber`, one per channel, each of which turns each occurrence, in any string of an error
   or check-in, a transaction with its spans, a log or a metric (keys included), of each secret setting's value
   (stripped, so a value stored with a newline is found where an error quotes it escaped) and of each connection URL's
   password, as written and percent-decoded, wherever a driver reads one, into a placeholder: in the authority (in a URL
@@ -94,17 +94,17 @@ list included) and the str of a log's body that is not text only after `before_s
   any other value becomes its repr first and is scrubbed there, so no text the SDK builds after the hook can hold a
   secret, and turning Sentry logs on (`enable_logs`, or the logging integration's `capture_sentry_logs`) sends none
   either. Each hook keeps only the protocol's own keys where the protocol puts them, never a field whole: a key stays as
-  it is only at one of the paths `main._PROTOCOL_PATHS` gives its item's kind, one set each for an error, a transaction
+  it is only at one of the paths `telemetry_bootstrap._PROTOCOL_PATHS` gives its item's kind, one set each for an error, a transaction
   with its spans, a check-in, a log and a metric (before_send tells a check-in by its `type`, exactly text): the path of
   each key of 8 characters or more from an item's top (a list's items sharing the list's path) as the SDK builds that
-  kind under main's options (an item's own keys; a child span's, a breadcrumb's, an exception's, its mechanism's and its
+  kind under the API's options (an item's own keys; a child span's, a breadcrumb's, an exception's, its mechanism's and its
   frames', a thread's frames'; a log entry's, a request's, a user's, the SDK info's; the trace context's, its dynamic
   sampling context's, the response context's; a monitor config's; the serializer's `_meta` note on breadcrumbs, which an
   error carries and a transaction or a check-in carries once its scope has dropped breadcrumbs past `max_breadcrumbs`;
   and the names the SDK fills from its API or a request's incoming trace, an event's `fingerprint` and the replay fields
-  an incoming baggage header carries; with continuous profiling, which main does not configure,
+  an incoming baggage header carries; with continuous profiling, which the bootstrap does not configure,
   `contexts.profile.profiler_id` would join them), and only when it and every key above it is exactly text, and an
-  item's `type` when it is exactly text and one the SDK gives that kind (`main._ITEM_TYPES`: before_send's check-in, a
+  item's `type` when it is exactly text and one the SDK gives that kind (`telemetry_bootstrap._ITEM_TYPES`: before_send's check-in, a
   transaction's, a metric's kinds; an error and a log carry none, so another kind's word written there is withheld:
   Codex's case on #1297). The SDK reads some of them after the hook (an event's `event_id` and `type`, a log's
   `attributes`, a profile's `contexts.trace.trace_id`), so a weak secret equal to one of those words, or inside one,
@@ -120,7 +120,8 @@ list included) and the str of a log's body that is not text only after `before_s
   says, so it can carry another kind's such word: the SDK writes every type as plain text, and the backend writes none;
   the round-20 check's R20D-2); no scan of the backend for such writers is needed. A `type` that is not text (only a
   hand-built event has one) is walked like any value, and the item is sent. A secret setting is named by the output
-  walk's rule (below), which main.py copies. The values are read once, when `main._sentry_options()` runs at startup,
+  walk's rule (below), which the bootstrap copies. The values are read once, when `_sentry_options()` runs as a
+  process starts Sentry,
   and matched longest first, so a URL quoted whole goes whole. A text under 8 characters is left: settings bound no
   secret's length but `SECRET_KEY`'s, the shortest real secret (the Alpha Vantage key) has 16, a port has at most 5
   digits, and a shorter text would garble ids, timestamps and SQL wherever it occurred by chance. `before_send` and
@@ -130,6 +131,20 @@ list included) and the str of a log's body that is not text only after `before_s
   raises any failure as an Exception, since the SDK sends a log or a metric on, unscrubbed, after one that is not; never
   move the scrubber into an event processor: one that raises passes the event on, and a global one runs before the
   request is attached. `before_send_span` acts only under span streaming, which stays off.
+- The task worker and a task child send what failed and where, never what it failed on. A task's payload is a
+  user's data (an account mail's address), and a pydantic error, a RuntimeError's message or a log template can quote
+  it. Both start Sentry through the API's bootstrap (`init_sentry`) with `_task_sentry_options()`: the API's options
+  and hooks, with only an ERROR log line becoming an event (no breadcrumbs; no ASGI, SQL or auto-enabled
+  integration), no transactions, profiles, logs or metrics, no request body, and a `before_send` that keeps an
+  allowlist first (`_task_event`: an exception's type, module, mechanism and frames without their variables, the
+  logger, release, environment, the trace context's ids and a `task.kind` tag of `[a-z_]` alone), then runs the API's
+  value scrubber on what is left. An exception's value and notes, a log line's message and arguments, breadcrumbs,
+  the request, `extra`, the user and every other context never leave, and a key the SDK adds later stays out until
+  the allowlist names it; a filter or scrubber that fails sends nothing. The child starts Sentry only in `main()`'s
+  failure handler (a task that succeeds never loads the SDK), waits once, at most `TASK_FLUSH_SECONDS`, and closes
+  the client so nothing waits again at exit; it exits 1 whatever telemetry does. The worker logs its start's status
+  (`Sentry error tracking: <status>`), never an init error's text. A process starts Sentry once: a second init is
+  refused, since it would replace the first client and abandon its queue.
 - Nothing prints or logs a secret. An output reports a secret's presence and length, never a character; a
   connection URL's parse error is reported by its type, and an HTTP error from a keyed URL by its status, never
   their messages; a database URL holding more than one `@` is refused, advising a user name and password of characters
@@ -221,7 +236,8 @@ list included) and the str of a log's body that is not text only after `before_s
   `PASSWORD` names or that an expression computes; all outside `len()`, `bool()`, a comparison and a conditional
   expression's condition. A secret field is one whose name ends in `_KEY`, `_SECRET`, `_TOKEN`, `_SALT`, `_PASSWORD` or
   `_DSN`, and the two connection URLs.
-- **Sentry.** Built from `main._sentry_options()` with a fabricated DSN and a transport that keeps each envelope item
+- **Sentry.** Built from `telemetry_bootstrap._sentry_options()` (and again from `_task_sentry_options()`) with a
+  fabricated DSN and a transport that keeps each envelope item
   and each lost item's reason, a fixture fails if the options turn local variables back on, send PII, pass
   `data_collection` or `trace_lifecycle` or configure continuous profiling (`profile_session_sample_rate` or
   `profile_lifecycle`, at the top level or in `_experiments`), or if the built client cuts strings (`max_value_length`).
@@ -235,7 +251,8 @@ list included) and the str of a log's body that is not text only after `before_s
   `credential`; `referral_code` is shared by design) unless the denylist holds it and it sits at the body's top level.
   The match is by substring, so a future key that names such a word but carries no credential (`country_code`,
   `max_tokens`) goes into the test's `_NOT_CREDENTIALS` with its reason. The backend's one `sentry_sdk.init` call,
-  through any import of the package or its modules, is main.py's, and it takes `_sentry_options()` and nothing else.
+  through any import of the package or its modules, is the bootstrap's (`init_sentry`), and it takes
+  `_sentry_options()` for the API and `_task_sentry_options()` for any other process, and nothing else.
 - **Sentry values.** Every `before_send*` option the SDK's `ClientConstructor` declares, `before_send_span` apart, is
   the value scrubber's hook for its channel (errors and check-ins, transactions, logs, metrics), so a hook an upgrade
   adds fails the gate. With the settings fabricated before the client is built: a token quoted twice in a message, an
@@ -245,8 +262,8 @@ list included) and the str of a log's body that is not text only after `before_s
   `[Filtered]` at each place it stood, with no 8-character fragment anywhere, envelope and item headers included; with
   Sentry logs on, through either switch, a log record's tuple and mapping `extra` values and an SDK log whose body is an
   exception arrive as their repr with the token `[Filtered]`; a setting added under each of the rule's suffixes (a
-  fabricated settings class, `_PASSWORD` included) is withheld with no change to main.py; one message quoting every
-  secret field's value (the gate's own `SECRET_FIELDS`, so main's copy of the rule cannot narrow unseen; the Alpha
+  fabricated settings class, `_PASSWORD` included) is withheld with no change to the bootstrap; one message quoting every
+  secret field's value (the gate's own `SECRET_FIELDS`, so the bootstrap's copy of the rule cannot narrow unseen; the Alpha
   Vantage key at its 16 characters), each URL whole, the database password as written (an `@` percent-encoded) and
   decoded, and the Redis password (an `@` unescaped, read to the last `@` as redis-py reads it) arrives as `[Filtered]`
   for each, nothing else changed; the driver's own error for a URL missing its `@host` with an all-digit password, which
@@ -266,16 +283,16 @@ list included) and the str of a log's body that is not text only after `before_s
   child spans, breadcrumbs, frames, monitor config, trace header and the gen-AI span the SDK splits out after the hook
   with their keys, and a distribution keeps its kind; every key of 8 characters or more that the SDK's own items carry
   outside user data, read from what each hook received in one capture of the structures the design and delta checks
-  found the SDK builds under main's options (on every channel, with breadcrumbs past `max_breadcrumbs` and check-ins
+  found the SDK builds under the API's options (on every channel, with breadcrumbs past `max_breadcrumbs` and check-ins
   inside a request and a span; the capture builds no subprocess span, errno mechanism data or gauge) and each taken as a
   secret, leaves every item's structure as it was, each list's items compared by index (a key lost in one span or frame
   shows), so a key on a structure the capture builds fails until `_PROTOCOL_PATHS` has its path for the item's kind, and
-  main keeps exactly the paths each kind's items carry (none missing, none dead or misspelled; the capture sets no
+  the bootstrap keeps exactly the paths each kind's items carry (none missing, none dead or misspelled; the capture sets no
   context of its own), on the SDK version the capture was checked against (pinned: an upgrade fails until the capture is
   checked against it again); a weak secret equal to a protocol word (`username`) written by the app as a key in each
   kind of user data (an extra, a tag, a context of its own, a breadcrumb's data, a span's data and tags, a log's and a
   metric's attributes, a request's body and headers, a log entry's params) is withheld there while the user's own
-  `username` stays, each field of the gate's copy of the user-data fields holds user data in main (an error's paths),
+  `username` stays, each field of the gate's copy of the user-data fields holds user data in the bootstrap (an error's paths),
   one equal to `trace_id` written as a user's own key, nested by the app in a trace context or as a hand-built event's
   field is withheld there while the trace context's own `trace_id` stays, and weak secrets equal to a log's
   `attributes`, a check-in's `check_in_id` and a log's top-level `trace_id`, written into an ordinary error by an event
@@ -300,22 +317,44 @@ list included) and the str of a log's body that is not text only after `before_s
   is a text subclass posing as `check_in` is sent as an event with that type scrubbed; a secret overlapping `[Filtered]`
   in each of the four ways (inside it, across its end, around it, across its start) moves the placeholder to the first
   that none overlaps and appears nowhere in the envelope, and weak secrets that overlap every placeholder fail the
-  options with an error that names no value, inside main.py's `try` around its one init, so Sentry stays off and the app
+  options with an error that names no value, inside the bootstrap's `try` around its one init, so Sentry stays off and the app
   starts; and a scrubber that raises sends nothing, whatever it raises (an Exception or one that is not): the error, the
   check-in, the transaction, the log and the metric are each lost to `callback_error`.
+- **Task processes.** The bootstrap's callers are pinned: `init_sentry('api')` in main.py, once at import, before it
+  imports the database, a router or a service and before it builds the app; `init_sentry('worker')` in
+  `task_worker_main.py`, once at import, before its app; `report_task_failure(error, kind)` in `task_process.main()`'s
+  one `except Exception` handler, before its `return 1`; main.py binds none of the bootstrap's private names. The task
+  options differ from the API's in their named keys alone (the integrations, sampling, the request body and the four
+  hooks), so a hook an SDK upgrade adds fails, and the fixtures' option checks run on both builders. Under the task
+  options, each of twelve carriers (a message, an exception, a breadcrumb, an extra, a tag, a context, a user, a
+  request, a span, a log, a metric and a check-in) quoting a payload word and an address drawn at run time sends
+  neither, and nothing but errors; a payload-quoting validation error chained under a RuntimeError with a note sends
+  both types and their frames alone, the secret in a type's name `[Filtered]` (the value scrubber runs last); a
+  `task.kind` outside `[a-z_]{1,32}` as a whole (another character, a longer value, a trailing newline, a value that
+  is not text) is dropped, as is every other tag; a filter or scrubber that raises sends nothing. In fresh processes:
+  the real child, through `run_task_process` against a loopback ingest, sends one event (its type, frames, release,
+  environment and kind; no value, frame variable, payload word, address, token or DSN key); a child whose ingest
+  refuses or never answers keeps its exit code, waits once and prints no SDK line; a child whose task succeeds never
+  loads the SDK; importing the bootstrap starts nothing; a worker whose start fails on a malformed DSN logs `Sentry
+  error tracking: failed` alone, no fragment of the DSN the SDK's error quotes; the worker starts its client once,
+  which a later `import main` keeps; and a worker whose task fails with an exception quoting the address and the
+  payload answers 503 then 200 and sends neither, with a transport that keeps and one that raises.
 - **compare_digest.** An AST walk fails any `compare_digest` call in the backend, by its name or a name
   `from hmac|secrets import compare_digest as ...` gives it, whose two arguments are not both bytes by their
   form: a UTF-8 `.encode(...)` or `bytes(x, ...)`, a `.digest()`, a bytes literal, a base64 encoding of bytes or a
   `token_bytes(...)`. Another codec, `ascii`, raises on a non-ASCII value too, and so do `b64decode` and
   `bytes.fromhex` on a malformed caller value; a value decoded first and held in a name is not bytes by its form
   either. Compare in the encoded form instead: `compare_digest(base64.b64encode(mac.digest()), signature.encode())`.
+- **The FMP refresh** (E17), in `backend/tests/unit/test_refresh_index_membership_script.py`: `--source fmp` runs
+  against a real httpx client on a mock transport, with a sentinel key and httpx's request log open. An HTTP 4xx or
+  5xx, a transport error or timeout whose text quotes the keyed URL, and a malformed answer each exit non-zero
+  naming the route and the status, the error's class or the answer's shape, and the key, the URL and the host reach no log record,
+  stdout or stderr.
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes.** Two are open follow-ups in `tasks/todo.md` (E17, E18); the rest are accepted limits,
+**Known ungated echoes.** One is an open follow-up in `tasks/todo.md` (E18); the rest are accepted limits,
 each with its reason:
-- `scripts/refresh_index_membership.py --source fmp` logs an HTTP error's message (the FMP URL with its key) and
-  lets httpx log each request URL at INFO; the monthly workflow uses the keyless Wikipedia source (todo E17);
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
   invalid-key messages): callers log it, and `app/routers/subscriptions.py` returns Stripe's message as the
   checkout and portal error detail (todo E18);
@@ -333,7 +372,8 @@ each with its reason:
   rest, and the log line keeps both. The documented production password is hex (`openssl rand -hex 24`) in the
   Cloud SQL socket form, which keeps its `@`;
 - `main.py`'s Sentry init-failure line prints a malformed DSN's parse message (its scheme, its project path, or
-  the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design;
+  the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design (the task
+  worker logs its start's status alone, and a task child prints nothing);
 - Sentry's value scrubber matches each value whole, stripped, as the settings held it at startup. A part of one passes
   (a prefix, a provider's masked last four (todo E18)), and so does another form of it (repr- or JSON-escaped,
   percent-encoded other than as the URL holds it (a `password` query parameter as SQLAlchemy renders it aside), base64,
@@ -359,8 +399,8 @@ each with its reason:
   `startup-` steps, its libraries', Python's `MainThread`), the host's platform strings and the scrubbed transaction's
   id, name, trace id, environment, release and start (Codex's P2 on `53016f2`). Code or the host fixes each text, the
   same whatever a secret is, so a secret shows there only when it equals or sits inside one; a thread named from data,
-  code compiled from data, or continuous profiling (whose chunks pass no hook either; the gate pins main's options to
-  configure none) would change that, and the gate runs with profiles off. A session carries release-health counts and
+  code compiled from data, or continuous profiling (whose chunks pass no hook either; the gate pins both builders'
+  options to configure none) would change that, and the gate runs with profiles off. A session carries release-health counts and
   the options' release and environment, which config fixes, so a secret shows there only when it equals or sits inside
   one of them. Each hook drops a hint's attachments, whose bytes would pass none (the backend sends none); the
   envelope's trace header is taken from the scrubbed event. Frame variables stay off whatever the scrubber does: a frame
@@ -385,8 +425,10 @@ each with its reason:
   check other than `startswith` or a known prefix, one that fails only on other input, on two fields together
   or only from the environment is not exercised.
 
-**Evidence.** `backend/app/config.py` (`class Config`, `__repr_args__`); `backend/main.py` (`_sentry_options`,
-`_value_scrubber`, `_withhold`, `_secret_values`, `_url_passwords`, `_MIN_SECRET_LENGTH`);
+**Evidence.** `backend/app/config.py` (`class Config`, `__repr_args__`); `backend/app/utils/telemetry_bootstrap.py`
+(`_sentry_options`, `_value_scrubber`, `_withhold`, `_secret_values`, `_url_passwords`, `_MIN_SECRET_LENGTH`,
+`_task_sentry_options`, `_task_event`, `init_sentry`, `report_task_failure`); `backend/main.py`,
+`backend/task_worker_main.py` and `backend/app/services/task_process.py` (`main`), its callers;
 `backend/app/routers/internal.py` (`_require_internal_token`); `backend/app/database.py` (`_database_url`);
 `backend/app/services/redis_service.py` (`get_redis_pool`); `backend/app/integrations/alpha_vantage.py`
 (`fetch_earnings_calendar`); `backend/scripts/earnings_calendar_job.py` (`_configure_logging`);

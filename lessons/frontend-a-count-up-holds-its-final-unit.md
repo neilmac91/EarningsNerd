@@ -2,14 +2,15 @@
 
 Date: 2026-10-25   Area: frontend
 
-**Context**: The KPI strip's cards count each value up from zero (`hooks/useCountUp`), whose contract asks for a
-format "so width never jitters", with ``(v) => `$${v.toFixed(1)}B` `` as its example. The strip passed compact notation
+**Context**: The KPI strip's cards count each value up from zero (`hooks/useCountUp`), whose contract asks for a format
+"so width never jitters", with ``(v) => `$${v.toFixed(1)}B` `` as its example. The strip passed compact notation
 instead, which picks a unit per frame: on its way to "CHF 22.8B" the value showed "CHF 999.9M", a glyph wider than the
-final value. E197's fix sizes the strip's columns from its widest final value (138.2px for "CA$968.0M†"), so a wider
-frame would have run past its card for most of the 600ms tween at 360px, where the final value fits; sizing for the
-widest frame instead would have put every strip whose values pass a unit boundary in one column. Formatting every
-frame in the final value's unit (`compactCurrencyCountUp`: "CHF 0.0B" … "CHF 22.8B") makes the final value the widest
-frame, so the layout measures one string, and the last frame stays the compact text the page printed before.
+final value. E197's fix sizes the strip's columns from its widest final value (138.2px for "CA$968.0M†", before D-061
+dropped figures' daggers), so a wider frame would have run past its card for most of the 600ms tween at 360px, where
+the final value fits; sizing for the widest frame instead would have put every strip whose values pass a unit boundary
+in one column. Formatting every frame in the final value's unit (`compactCurrencyCountUp`: "CHF 0.0B" … "CHF 22.8B")
+makes the final value the widest frame, so the layout measures one string, and the last frame stays the compact text
+the page printed before.
 
 **Rule**: When a layout is sized from a value that animates in, format every frame in the unit the value ends in, so
 no frame is wider than the final value, and keep the last frame byte-identical to the static format. Count from zero:

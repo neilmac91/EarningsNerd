@@ -10,12 +10,11 @@ import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { selectHeadlineFigures } from '@/features/analysis/lib/reportPresentation'
 import { kpiValueGlyphs, kpiWidestCss } from '@/features/analysis/lib/kpiStripLayout'
-import { isCalculated } from '@/features/analysis/lib/provenance'
-import DataNoteMark from './DataNoteMark'
+import DataNoteMark, { NOTE_MARK } from './DataNoteMark'
 import GrowthText from './GrowthText'
 import SourceValue from './SourceValue'
 import { useDataNotes } from './DataNotesContext'
-import type { DataNote } from '@/features/analysis/lib/dataNotes'
+import { markedNote, type DataNote } from '@/features/analysis/lib/dataNotes'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type {
   AnalysisDataset,
@@ -82,9 +81,10 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
  *  (two of four, or one). Below 17em of its own text size the strip still takes one card, whatever its values. */
 const KPI_GRID = 'grid gap-3 [--kpi-figure:0.9rem] [--kpi-mark:0.4125rem] [--kpi-card:calc(var(--kpi-value)_+_1.5rem_+_2px)] sm:[--kpi-card:calc(var(--kpi-value)_+_2rem_+_2px)] [--kpi-half:calc((100%_-_0.75rem)_/_2_-_0.5px)] [--kpi-each:calc((100%_-_(var(--kpi-cols)_-_1)_*_0.75rem)_/_var(--kpi-cols)_-_0.5px)] [grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-card),var(--kpi-half)),1fr))] lg:[grid-template-columns:repeat(auto-fill,minmax(max(var(--kpi-each),var(--kpi-card),min(var(--kpi-half),calc(var(--kpi-each)_+_(var(--kpi-card)_-_var(--kpi-each))_*_1000000))),1fr))] [@container(width<17em)]:grid-cols-1'
 
-/** Drawn hidden beside the strip: ten glyphs in the value's classes (KpiTile's dd) and a dagger as DataNoteMark draws
- *  it at the value's weight (its raise, which `large` sets, moves it up but not across). Their widths give the advances
- *  this browser paints, which the face's 0.6em only approximates where glyphs snap to whole pixels. */
+/** Drawn hidden beside the strip: ten glyphs in the value's classes (KpiTile's dd) and a letter in a note mark's
+ *  (DataNoteMark's NOTE_MARK) at the value's weight, with no data-note-letter, so nothing counts it as a note. Their
+ *  widths give the advances this browser paints, which the face's 0.6em only approximates where glyphs snap to whole
+ *  pixels; a mark's raise moves it up but not across. */
 const PROBE = '0000000000'
 const PROBES = 'pointer-events-none invisible absolute h-0 w-0 overflow-hidden'
 const FIGURE_PROBE = 'block w-max whitespace-pre font-figure text-2xl font-semibold tabular-nums lining-nums tracking-normal'
@@ -151,16 +151,17 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     return () => observer.disconnect()
   }, [shown])
   if (!shown) return null
-  // The strip's widest value on one line, its figure and marks, at the measured advances (E197): CA$968.0M with its
-  // dagger is 9 figure glyphs, 1 mark and its 2px gap, 8.6375rem at the face's 0.6em.
-  const widest = kpiWidestCss(kpis.map((kpi) => kpiValueGlyphs(kpi.format(kpi.value), isCalculated(kpi.point), kpi.note?.letter)))
+  // The strip's widest value on one line, its figure and its mark, at the measured advances (E197). A value carries a
+  // letter only where its note questions the number (markedNote, D-061): "CA$968.0M" is 9 figure glyphs, 8.1rem at the
+  // face's 0.6em, and a letter adds 0.5375rem with its 2px.
+  const widest = kpiWidestCss(kpis.map((kpi) => kpiValueGlyphs(kpi.format(kpi.value), markedNote(kpi.note)?.letter)))
   const grid = { '--kpi-value': widest, '--kpi-cols': Math.min(4, kpis.length) } as CSSProperties
 
   return (
-    <div className="[container-type:inline-size]">
+    <div className="[container-type:inline-size]" data-launcher-keep-clear>
       <div aria-hidden="true" className={PROBES}>
         <span ref={figureProbe} className={FIGURE_PROBE}>{PROBE}</span>
-        <span ref={markProbe} className="block w-max font-semibold"><DataNoteMark calculated /></span>
+        <span ref={markProbe} className="block w-max font-semibold"><span className={NOTE_MARK}>a</span></span>
       </div>
       <dl ref={strip} className={KPI_GRID} style={grid}>
         {/* Keyed by its value too, so a new value counts up from zero in its own unit: a tween from the old value would
