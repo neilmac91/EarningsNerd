@@ -691,3 +691,36 @@ def test_backstops_are_off_by_default_and_fail_only_when_asked() -> None:
     assert default["passed"] and "backstop_failures" not in default
     assert not backstopped["passed"] and backstopped["backstop_failures"] == 2
     assert all(f["failure"].startswith("backstop R2a:") for f in backstopped["failures"])
+
+
+# Revenue tripled from FY2024 to FY2025. A worded multiple is read in a sentence that prints figures as in one that
+# prints none (Codex on #1673: parse_claims read the last figure's own text for the word, not the sentence's, so
+# "doubled" beside two figures passed unread, with the backstops too).
+TRIPLED = _pack(("F1", "Revenue", "FY2024", 10_000_000_000.0, "usd"), ("F2", "Revenue", "FY2025", 30_000_000_000.0, "usd"))
+
+
+@pytest.mark.parametrize(
+    "text, qualifier, fragment",
+    [
+        ("Revenue doubled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple", "'doubled' matches nothing"),
+        ("Revenue halved from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple", "'halved' matches nothing"),
+        ("Revenue tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "multiple", None),
+        # A qualifier keeps its reading: "more than" is a floor, "nearly" a band just below the multiple.
+        ("Revenue more than doubled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "at_least", None),
+        ("Revenue more than quadrupled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "at_least",
+         "'quadrupled' matches nothing"),
+        ("Revenue nearly tripled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "nearly", None),
+        ("Revenue nearly doubled from $10 billion in FY2024 to $30 billion in FY2025 [F1][F2].", "nearly", "'doubled' matches nothing"),
+    ],
+)
+def test_a_worded_multiple_beside_figures_is_checked(text: str, qualifier: str, fragment: str | None) -> None:
+    for backstops in (False, True):
+        result = factcheck.check([{"section": "growth", "text": text, "type": "comparison"}], TRIPLED, backstops=backstops)
+        failures = [f["failure"] for f in result["failures"]]
+        if fragment is None:
+            assert failures == [] and result["verified"] == 3, failures  # the two figures and the multiple
+        else:
+            assert any(fragment in failure for failure in failures), failures
+    # Its start indexes the sentence as the figures' starts do (period binding orders every claim by it).
+    multiple, = [c for c in factcheck.parse_claims(text) if c.unit == "multiple"]
+    assert (text[multiple.start:multiple.start + len(multiple.text)], multiple.qualifier) == (multiple.text, qualifier)

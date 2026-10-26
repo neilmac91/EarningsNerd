@@ -189,12 +189,14 @@ def parse_claims(text: str) -> list[Claim]:
                 qualifier = name
                 break
         lead_space = len(match.group(0)) - len(match.group(0).lstrip())
-        text, begin = match.group(0).strip(), match.start() + lead_space
+        printed, begin = match.group(0).strip(), match.start() + lead_space
         if range_end:
-            text, begin = text[1:], begin + 1  # the hyphen is the range's separator
-        claims.append(Claim(text, number, unit, decimals, scale, qualifier, begin))
+            printed, begin = printed[1:], begin + 1  # the hyphen is the range's separator
+        claims.append(Claim(printed, number, unit, decimals, scale, qualifier, begin))
     _propagate_list_units(clean, claims)
-    low = text.lower()
+    # The multiples are read in the sentence as its figures were, so their starts index the same text (a figure's own
+    # printed text once stood in for the sentence here, and a sentence with any figure was never read for its multiple).
+    low = clean.lower()
     for word, factor in _MULTIPLE_WORDS.items():
         for found in re.finditer(rf"\b{word}\b", low):
             qualifier = ""
