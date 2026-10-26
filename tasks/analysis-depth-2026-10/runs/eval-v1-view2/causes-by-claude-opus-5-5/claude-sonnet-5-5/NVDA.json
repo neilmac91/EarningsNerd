@@ -1,0 +1,99 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2024 growth came from Data Center revenue, which rose 217% to $47.5 billion .",
+   "passages": [
+    {
+     "id": "P23",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217% from fiscal year 2023. In Data Center, we launched AI inference platforms that combine our full-stack inference software with NVIDIA Ada, NVIDIA Hopper and NVIDIA Grace Hopper processors optimized for generative AI, LLMs and other AI workloads. We introduced NVIDIA DGX Cloud and AI Foundations to help businesses create and operate custom large language models and generative AI models. As AV algorithms move to video transformers, and more cars are equipped with cameras, we expect NVIDIA\u2019s automotive data center processing demand to grow significantly. We estimate that in fiscal year 2024, approximately 40% of Data Center revenue was for AI inference. In the fourth quarter of fiscal year 2024, large cloud providers represented more than half of our Data Center revenue, supporting both internal workloads and external customers. We announced NVIDIA Spectrum-X, an accelerated networking platform for AI."
+    }
+   ],
+   "label": "partial",
+   "reason": "P23 reports Data Center revenue up 217% but does not say total FY2024 revenue growth came from Data Center."
+  },
+  {
+   "sentence": "FY2023 operating margin fell 21.6pp to 15.7% after $2.17 billion of inventory provisions hit gross margin .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    }
+   ],
+   "label": "partial",
+   "reason": "P35 attributes the gross margin decline to $2.17B inventory provisions; it gives no cause for the operating margin decline."
+  },
+  {
+   "sentence": "The filing attributes this to Data Center computing growth of 59% on Blackwell and networking growth of 142% on NVLink for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 states computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200/GB300."
+  },
+  {
+   "sentence": "Operating expenses rose 40.7% on employee growth and compute and infrastructure costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the 41% opex increase to compensation from employee growth and to compute and infrastructure costs."
+  },
+  {
+   "sentence": "The FY2024 gross margin gain reflected Data Center revenue growth of 217% and lower net inventory provisions as a share of revenue .",
+   "passages": [
+    {
+     "id": "P20",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our overall gross margin increased to 72.7% in fiscal year 2024 from 56.9% in fiscal year 2023. The year over year increase was primarily due to strong Data Center revenue growth of 217% and lower net inventory provisions as a percentage of revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P20 attributes the gross margin increase to 217% Data Center growth and lower net inventory provisions as a share of revenue."
+  },
+  {
+   "sentence": "Net margin of 55.6% sits below operating margin of 60.4%: tax rose to 15.1% on fewer tax benefits , while $11.1 billion of other income came from unrealized equity gains .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The effective tax rate increased primarily due to a lower percentage of tax benefits from stock-based compensation, FDDEI, and U.S. federal research tax credit relative to the increase in income before income tax."
+    },
+    {
+     "id": "P3",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Other income, net primarily consists of realized or unrealized gains and losses from investments in non-marketable equity securities, publicly-held equity securities, and the impact of changes in foreign currency rates. The change in Other income, net, compared to fiscal year 2025, was primarily driven by unrealized gains in non-marketable and publicly-held equity securities, including gains from our previously announced investment in Intel\u2019s common stock. Refer to Note 7 and 8 of the Notes to the Consolidated Financial Statements in Part\u00a0IV, Item\u00a015 of this Annual Report on Form\u00a010-K for additional information regarding our non-marketable equity securities."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 ties the higher tax rate to a lower share of tax benefits; P3 ties the other income change to unrealized equity gains."
+  },
+  {
+   "sentence": "Investing outflow rose to $52.2 billion, driven by equity investment purchases and a Groq license agreement .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 attributes higher investing outflow to equity investment purchases and the Groq license agreement."
+  }
+ ],
+ "cost_usd": 0.04072
+}

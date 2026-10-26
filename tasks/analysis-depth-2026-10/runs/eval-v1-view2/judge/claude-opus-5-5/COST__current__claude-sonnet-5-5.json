@@ -1,0 +1,86 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully supported but only restates table values, and it reports no flags. B explains growth drivers, margin mechanics, peers, cash conversion and capital allocation, with labelled analysis and watch thresholds. B has real grounding faults. The OCF causes are not in the generic passage. The FY2024 margin rise rests on charter shipping, which was only a partial cause. It also blames mix for the gross-margin fall and cites [28] wrongly. Its value still outweighs these errors."
+   },
+   "cost_usd": 0.109237,
+   "latency_s": 16.242,
+   "input_tokens": 11517,
+   "output_tokens": 1139,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is fully supported but only restates table values, and it reports no flags. B explains growth drivers, margin mechanics, peers, cash conversion and capital allocation, with labelled analysis and watch thresholds. B has real grounding faults. The OCF causes are not in the generic passage. The FY2024 margin rise rests on charter shipping, which was only a partial cause. It also blames mix for the gross-margin fall and cites [28] wrongly. Its value still outweighs these errors.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A has far more depth: segment contributions, peer ranks, cost-line effects and labelled analysis. But it states causes its sources do not support. It credits the FY2026 operating cash flow rise to faster inventory turns and supplier terms, citing a generic passage. It ties the 3bp gross margin drop to mix, which the passage does not say. It cites a stock-based compensation figure for the peer median. B is thin and mostly restates the table, but is fully supported. Grounding decides."
+   },
+   "cost_usd": 0.109405,
+   "latency_s": 14.948,
+   "input_tokens": 11513,
+   "output_tokens": 1149,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"A has far more depth: segment contributions, peer ranks, cost-line effects and labelled analysis. But it states causes its sources do not support. It credits the FY2026 operating cash flow rise to faster inventory turns and supplier terms, citing a generic passage. It ties the 3bp gross margin drop to mix, which the passage does not say. It cites a stock-based compensation figure for the peer median. B is thin and mostly restates the table, but is fully supported. Grounding decides.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "current",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.218642
+}

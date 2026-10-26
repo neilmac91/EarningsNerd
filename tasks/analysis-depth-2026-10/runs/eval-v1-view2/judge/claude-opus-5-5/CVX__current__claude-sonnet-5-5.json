@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values, with no drivers and watch items lacking thresholds. B explains causes from filings (Hess volumes, prices, DD&A, TCO distributions), covers capital allocation and data-quality caveats, and labels its analysis. Minor stretches cost it on grounding: it attributes the FY2022 revenue surge to a passage about pre-tax income, and its FCF-margin watch item is a conditional forecast. Its depth and calibration still clearly outweigh A."
+   },
+   "cost_usd": 0.098277,
+   "latency_s": 10.066,
+   "input_tokens": 11307,
+   "output_tokens": 675,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values, with no drivers and watch items lacking thresholds. B explains causes from filings (Hess volumes, prices, DD&A, TCO distributions), covers capital allocation and data-quality caveats, and labels its analysis. Minor stretches cost it on grounding: it attributes the FY2022 revenue surge to a passage about pre-tax income, and its FCF-margin watch item is a conditional forecast. Its depth and calibration still clearly outweigh A.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, with vague, threshold-free watch items. A explains its numbers with cited causes: Hess/Permian volumes, the DD&A rise, TCO distributions, and payouts exceeding FCF. It also flags the revenue recast and missing debt data. A has small stretches: an 'other' line called the largest driver, a pre-tax passage used to explain the FY2022 revenue surge, and a conditional FCF-margin inference. Its depth and candour still outweigh these."
+   },
+   "cost_usd": 0.100629,
+   "latency_s": 12.111,
+   "input_tokens": 11311,
+   "output_tokens": 791,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values, with vague, threshold-free watch items. A explains its numbers with cited causes: Hess/Permian volumes, the DD&A rise, TCO distributions, and payouts exceeding FCF. It also flags the revenue recast and missing debt data. A has small stretches: an 'other' line called the largest driver, a pre-tax passage used to explain the FY2022 revenue surge, and a conditional FCF-margin inference. Its depth and candour still outweigh these.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.198906
+}

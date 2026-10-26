@@ -1,0 +1,443 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "JPM",
+ "split": "dev",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Net interest income compounded at 8.4% a year from FY2016 to FY2025, while noninterest income compounded at 6.2% .",
+   "claim": "8.4%",
+   "match": "cited: F111 = Net interest income CAGR, FY2016..FY2025, 8.43%",
+   "label": "consistent",
+   "reason": "Net interest income CAGR FY2016-FY2025, 8.43%"
+  },
+  {
+   "sentence": "Net interest income compounded at 8.4% a year from FY2016 to FY2025, while noninterest income compounded at 6.2% .",
+   "claim": "6.2%",
+   "match": "cited: F112 = Noninterest income CAGR, FY2016..FY2025, 6.23%",
+   "label": "consistent",
+   "reason": "Noninterest income CAGR FY2016-FY2025, 6.23%"
+  },
+  {
+   "sentence": "Net income compounded at 9.7% and diluted EPS at 13.9% over the same window, so per-share growth outpaced earnings growth .",
+   "claim": "9.7%",
+   "match": "cited: F113 = Net income CAGR, FY2016..FY2025, 9.72%",
+   "label": "consistent",
+   "reason": "Net income CAGR over the same window, 9.72%"
+  },
+  {
+   "sentence": "Net income compounded at 9.7% and diluted EPS at 13.9% over the same window, so per-share growth outpaced earnings growth .",
+   "claim": "13.9%",
+   "match": "cited: F115 = EPS (diluted) CAGR, FY2016..FY2025, 13.93%",
+   "label": "consistent",
+   "reason": "Diluted EPS CAGR over the same window, 13.93%"
+  },
+  {
+   "sentence": "Net interest income fell to $52.3 billion in FY2021, then rose 27.5% in FY2022 and 33.8% in FY2023 .",
+   "claim": "$52.3 billion",
+   "match": "cited: F6 = Net interest income, FY2021, $52.31 billion",
+   "label": "consistent",
+   "reason": "Net interest income FY2021 level, $52.31 billion"
+  },
+  {
+   "sentence": "Net interest income fell to $52.3 billion in FY2021, then rose 27.5% in FY2022 and 33.8% in FY2023 .",
+   "claim": "27.5%",
+   "match": "cited: D149 = Net interest income growth, FY2022, 27.53%",
+   "label": "consistent",
+   "reason": "Net interest income growth FY2022, positive 27.53%"
+  },
+  {
+   "sentence": "Net interest income fell to $52.3 billion in FY2021, then rose 27.5% in FY2022 and 33.8% in FY2023 .",
+   "claim": "33.8%",
+   "match": "cited: D174 = Net interest income growth, FY2023, 33.81%",
+   "label": "consistent",
+   "reason": "Net interest income growth FY2023, positive 33.81%"
+  },
+  {
+   "sentence": "The cited passages explain this only for the Corporate segment, where net revenue rose to $8.0 billion on higher net interest income due to higher rates .",
+   "claim": "$8.0 billion",
+   "match": "passage P36: P36 = a figure in the FY2023 10-K, Item 7. Management's Discussion and Analysis: \"Net revenue was $8.0 billion, compared with $80 million in the prior year, predominantly driven by higher net interest income due to higher rates, partially offset by the impact of lower Firmwide average deposit balances.\"",
+   "label": "consistent",
+   "reason": "Passage gives net revenue of $8.0 billion on higher NII due to rates"
+  },
+  {
+   "sentence": "Net income fell 20.0% in FY2020 and rose 65.8% in FY2021, as the provision swung from $17.5 billion to a $9.3 billion release .",
+   "claim": "20.0%",
+   "match": "cited: D94 = Net income growth, FY2020, -20.04%",
+   "label": "consistent",
+   "reason": "Net income growth FY2020 of -20.04%, stated as fell"
+  },
+  {
+   "sentence": "Net income fell 20.0% in FY2020 and rose 65.8% in FY2021, as the provision swung from $17.5 billion to a $9.3 billion release .",
+   "claim": "65.8%",
+   "match": "cited: D118 = Net income growth, FY2021, 65.80%",
+   "label": "consistent",
+   "reason": "Net income growth FY2021, positive 65.80%"
+  },
+  {
+   "sentence": "Net income fell 20.0% in FY2020 and rose 65.8% in FY2021, as the provision swung from $17.5 billion to a $9.3 billion release .",
+   "claim": "$17.5 billion",
+   "match": "cited: X142 = Provision for credit losses, FY2020, $17.48 billion",
+   "label": "consistent",
+   "reason": "Provision for credit losses FY2020, $17.48 billion"
+  },
+  {
+   "sentence": "Net income fell 20.0% in FY2020 and rose 65.8% in FY2021, as the provision swung from $17.5 billion to a $9.3 billion release .",
+   "claim": "$9.3 billion",
+   "match": "cited: X143 = Provision for credit losses, FY2021, -$9.26 billion",
+   "label": "consistent",
+   "reason": "Negative FY2021 provision stated as a release"
+  },
+  {
+   "sentence": "Commercial And Investment Bank noninterest income reached $53.8 billion in FY2025, up from $48.3 billion in FY2024 .",
+   "claim": "$53.8 billion",
+   "match": "cited: S134 = Operating Segments \u2014 Commercial And Investment Bank (segment, NoninterestIncome), FY2025, $53.77 billion",
+   "label": "consistent",
+   "reason": "CIB segment noninterest income FY2025, $53.77 billion"
+  },
+  {
+   "sentence": "Commercial And Investment Bank noninterest income reached $53.8 billion in FY2025, up from $48.3 billion in FY2024 .",
+   "claim": "$48.3 billion",
+   "match": "cited: S133 = Operating Segments \u2014 Commercial And Investment Bank (segment, NoninterestIncome), FY2024, $48.25 billion",
+   "label": "consistent",
+   "reason": "CIB segment noninterest income FY2024, $48.25 billion"
+  },
+  {
+   "sentence": "Noninterest revenue rose 2.4% to $87.0 billion in FY2025 on higher Markets revenue, largely offset by the absence of the $7.9 billion Visa share gain recorded in 2024 .",
+   "claim": "2.4%",
+   "match": "cited: D222 = Noninterest income growth, FY2025, 2.39%",
+   "label": "consistent",
+   "reason": "Noninterest income growth FY2025, positive 2.39%"
+  },
+  {
+   "sentence": "Noninterest revenue rose 2.4% to $87.0 billion in FY2025 on higher Markets revenue, largely offset by the absence of the $7.9 billion Visa share gain recorded in 2024 .",
+   "claim": "$87.0 billion",
+   "match": "cited: F20 = Noninterest income, FY2025, $87.00 billion",
+   "label": "consistent",
+   "reason": "Noninterest income FY2025, $87.00 billion"
+  },
+  {
+   "sentence": "Noninterest revenue rose 2.4% to $87.0 billion in FY2025 on higher Markets revenue, largely offset by the absence of the $7.9 billion Visa share gain recorded in 2024 .",
+   "claim": "$7.9 billion",
+   "match": "passage P27: P27 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"These increases were predominantly offset by the absence of the $7.9 billion net gain related to Visa shares recorded in the second quarter of 2024, as well as lower card income in the current year.\"",
+   "label": "consistent",
+   "reason": "Passage: $7.9 billion Visa share gain recorded in 2024"
+  },
+  {
+   "sentence": "Net interest income grew 3.1% to $95.4 billion, driven by Markets net interest income and Card Services revolving balances, largely offset by deposit margin compression .",
+   "claim": "3.1%",
+   "match": "cited: D221 = Net interest income growth, FY2025, 3.09%",
+   "label": "consistent",
+   "reason": "Net interest income growth FY2025, positive 3.09%"
+  },
+  {
+   "sentence": "Net interest income grew 3.1% to $95.4 billion, driven by Markets net interest income and Card Services revolving balances, largely offset by deposit margin compression .",
+   "claim": "$95.4 billion",
+   "match": "cited: F10 = Net interest income, FY2025, $95.44 billion",
+   "label": "consistent",
+   "reason": "Net interest income FY2025, $95.44 billion"
+  },
+  {
+   "sentence": "Asia-Pacific and EMEA each added 1.2pp to FY2025 revenue growth, against 0.2pp from North America .",
+   "claim": "1.2pp",
+   "match": "cited: D301 = Asia-Pacific (geography) contribution to revenue growth (pp), FY2025, +1.17pp",
+   "label": "consistent",
+   "reason": "Asia-Pacific contribution to FY2025 revenue growth, +1.17pp"
+  },
+  {
+   "sentence": "Asia-Pacific and EMEA each added 1.2pp to FY2025 revenue growth, against 0.2pp from North America .",
+   "claim": "0.2pp",
+   "match": "cited: D251 = North America (geography) contribution to revenue growth (pp), FY2025, +0.21pp",
+   "label": "consistent",
+   "reason": "North America contribution to FY2025 revenue growth, +0.21pp"
+  },
+  {
+   "sentence": "Noninterest expense grew 4.2% in FY2025 against revenue growth of 2.8%, so costs outran revenue .",
+   "claim": "4.2%",
+   "match": "cited: D225 = Noninterest expense growth, FY2025, 4.19%",
+   "label": "consistent",
+   "reason": "Noninterest expense growth FY2025, positive 4.19%"
+  },
+  {
+   "sentence": "Noninterest expense grew 4.2% in FY2025 against revenue growth of 2.8%, so costs outran revenue .",
+   "claim": "2.8%",
+   "match": "cited: D226 = Bank revenue growth, FY2025, 2.75%",
+   "label": "consistent",
+   "reason": "Bank revenue growth FY2025, 2.75%"
+  },
+  {
+   "sentence": "The FY2025 efficiency ratio of 52.4% sits near the window low of 51.7% and well below the window median of 57.2% .",
+   "claim": "52.4%",
+   "match": "cited: D207 = Efficiency ratio (noninterest expense / revenue), FY2025, 52.42%; its input D206 = Net interest income plus noninterest income has the same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2025, 52.42%"
+  },
+  {
+   "sentence": "The FY2025 efficiency ratio of 52.4% sits near the window low of 51.7% and well below the window median of 57.2% .",
+   "claim": "51.7%",
+   "match": "cited: D331 = Efficiency ratio window low (FY2024), FY2016..FY2025, 51.70%",
+   "label": "consistent",
+   "reason": "Efficiency ratio window low, 51.70%"
+  },
+  {
+   "sentence": "The FY2025 efficiency ratio of 52.4% sits near the window low of 51.7% and well below the window median of 57.2% .",
+   "claim": "57.2%",
+   "match": "cited: D333 = Efficiency ratio window median, FY2016..FY2025, 57.18%",
+   "label": "consistent",
+   "reason": "Efficiency ratio window median, 57.18%"
+  },
+  {
+   "sentence": "That ratio is below the banks peer median of 61.7%, the lowest among the seven peers .",
+   "claim": "61.7%",
+   "match": "cited: D337 = Efficiency ratio: banks peer median (n=7), FY2025, 61.65%",
+   "label": "consistent",
+   "reason": "Efficiency ratio banks peer median FY2025, 61.65%"
+  },
+  {
+   "sentence": "Noninterest expense reached $95.6 billion, driven by higher compensation, including revenue-related pay and headcount growth .",
+   "claim": "$95.6 billion",
+   "match": "cited: X137 = Noninterest expense, FY2025, $95.64 billion",
+   "label": "consistent",
+   "reason": "Noninterest expense FY2025, $95.64 billion"
+  },
+  {
+   "sentence": "The credit-loss provision rose to 7.8% of revenue from 6.0%, including a $2.2 billion allowance addition tied to the Apple Card transaction .",
+   "claim": "7.8%",
+   "match": "cited: D208 = Credit-loss provision % of revenue, FY2025, 7.79%; its input D206 = Net interest income plus noninterest income has the same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Credit-loss provision % of revenue FY2025, 7.79%"
+  },
+  {
+   "sentence": "The credit-loss provision rose to 7.8% of revenue from 6.0%, including a $2.2 billion allowance addition tied to the Apple Card transaction .",
+   "claim": "6.0%",
+   "match": "cited: D185 = Credit-loss provision % of revenue, FY2024, 6.01%; its input D183 = Net interest income plus noninterest income has the same value as X9 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Credit-loss provision % of revenue FY2024, 6.01%"
+  },
+  {
+   "sentence": "The credit-loss provision rose to 7.8% of revenue from 6.0%, including a $2.2 billion allowance addition tied to the Apple Card transaction .",
+   "claim": "$2.2 billion",
+   "match": "passage P18: P18 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The net addition to the allowance for credit losses of $3.2 billion which was driven by $2.2 billion related to the Apple Card transaction, loan growth in Card Services and the impact of changes in the Firm's weighted-average macroeconomic outlook, partially offset by reduced borrower uncertainty.\"",
+   "label": "consistent",
+   "reason": "Passage: $2.2 billion allowance addition related to Apple Card"
+  },
+  {
+   "sentence": "Rising provisions and costs explain why net income fell 2.6% despite higher revenue .",
+   "claim": "2.6%",
+   "match": "cited: D214 = Net income growth, FY2025, -2.56%",
+   "label": "consistent",
+   "reason": "Net income growth FY2025 of -2.56%, stated as fell"
+  },
+  {
+   "sentence": "Operating cash flow is not a meaningful earnings-quality measure for a bank, and was an outflow of $147.8 billion in FY2025 .",
+   "claim": "$147.8 billion",
+   "match": "cited: F60 = Operating cash flow, FY2025, -$147.78 billion",
+   "label": "consistent",
+   "reason": "Negative operating cash flow FY2025 stated as outflow"
+  },
+  {
+   "sentence": "Capital return is the better test: buybacks plus dividends were $48.2 billion in FY2025 against net income of $57.0 billion .",
+   "claim": "$48.2 billion",
+   "match": "cited: D205 = Buybacks plus dividends, FY2025, $48.22 billion",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends FY2025, $48.22 billion"
+  },
+  {
+   "sentence": "Capital return is the better test: buybacks plus dividends were $48.2 billion in FY2025 against net income of $57.0 billion .",
+   "claim": "$57.0 billion",
+   "match": "cited: F30 = Net income, FY2025, $57.00 billion",
+   "label": "consistent",
+   "reason": "Net income FY2025, $57.00 billion"
+  },
+  {
+   "sentence": "Shareholders' equity rose 5.1% to $362 billion in FY2025, while loans reached 57.3% of deposits from 55.0% .",
+   "claim": "5.1%",
+   "match": "cited: D220 = Shareholders' equity growth, FY2025, 5.13%",
+   "label": "consistent",
+   "reason": "Shareholders' equity growth FY2025, positive 5.13%"
+  },
+  {
+   "sentence": "Shareholders' equity rose 5.1% to $362 billion in FY2025, while loans reached 57.3% of deposits from 55.0% .",
+   "claim": "$362 billion",
+   "match": "cited: F110 = Shareholders' equity, FY2025, $362.44 billion",
+   "label": "consistent",
+   "reason": "Shareholders' equity FY2025, $362.44 billion"
+  },
+  {
+   "sentence": "Shareholders' equity rose 5.1% to $362 billion in FY2025, while loans reached 57.3% of deposits from 55.0% .",
+   "claim": "57.3%",
+   "match": "cited: D211 = Loans % of deposits, FY2025, 57.35%",
+   "label": "consistent",
+   "reason": "Loans % of deposits FY2025, 57.35%"
+  },
+  {
+   "sentence": "Shareholders' equity rose 5.1% to $362 billion in FY2025, while loans reached 57.3% of deposits from 55.0% .",
+   "claim": "55.0%",
+   "match": "cited: D188 = Loans % of deposits, FY2024, 55.01%",
+   "label": "consistent",
+   "reason": "Loans % of deposits FY2024, 55.01%"
+  },
+  {
+   "sentence": "Cash and equivalents fell to $343 billion from $469 billion, driven by Markets activities, higher securities and higher loans .",
+   "claim": "$343 billion",
+   "match": "cited: F100 = Cash & equivalents, FY2025, $343.34 billion",
+   "label": "consistent",
+   "reason": "Cash and equivalents FY2025, $343.34 billion"
+  },
+  {
+   "sentence": "Cash and equivalents fell to $343 billion from $469 billion, driven by Markets activities, higher securities and higher loans .",
+   "claim": "$469 billion",
+   "match": "cited: F99 = Cash & equivalents, FY2024, $469.32 billion",
+   "label": "consistent",
+   "reason": "Cash and equivalents FY2024, $469.32 billion"
+  },
+  {
+   "sentence": "Return on average equity of 16.1% ranks at the 100th percentile of seven banks peers, against a peer median of 11.8% .",
+   "claim": "16.1%",
+   "match": "cited: D213 = Return on average equity, FY2025, 16.12%",
+   "label": "consistent",
+   "reason": "Return on average equity FY2025, 16.12%"
+  },
+  {
+   "sentence": "Return on average equity of 16.1% ranks at the 100th percentile of seven banks peers, against a peer median of 11.8% .",
+   "claim": "100th percentile",
+   "match": "cited: D338 = Return on average equity: percentile vs banks peers (n=7), FY2025, 100.00 (percentile)",
+   "label": "consistent",
+   "reason": "ROE percentile vs seven banks peers, 100"
+  },
+  {
+   "sentence": "Return on average equity of 16.1% ranks at the 100th percentile of seven banks peers, against a peer median of 11.8% .",
+   "claim": "11.8%",
+   "match": "cited: D339 = Return on average equity: banks peer median (n=7), FY2025, 11.85%",
+   "label": "consistent",
+   "reason": "ROE banks peer median FY2025, 11.85%"
+  },
+  {
+   "sentence": "Buybacks rose to $31.6 billion from $18.8 billion, and the diluted share count fell 3.4% .",
+   "claim": "$31.6 billion",
+   "match": "cited: X102 = Share repurchases (cash), FY2025, $31.59 billion",
+   "label": "consistent",
+   "reason": "Share repurchases FY2025, $31.59 billion"
+  },
+  {
+   "sentence": "Buybacks rose to $31.6 billion from $18.8 billion, and the diluted share count fell 3.4% .",
+   "claim": "$18.8 billion",
+   "match": "cited: X101 = Share repurchases (cash), FY2024, $18.83 billion",
+   "label": "consistent",
+   "reason": "Share repurchases FY2024, $18.83 billion"
+  },
+  {
+   "sentence": "Buybacks rose to $31.6 billion from $18.8 billion, and the diluted share count fell 3.4% .",
+   "claim": "3.4%",
+   "match": "cited: D224 = Diluted share count change, FY2025, -3.39%",
+   "label": "consistent",
+   "reason": "Diluted share count change FY2025 of -3.39%, stated as fell"
+  },
+  {
+   "sentence": "Credit costs are rising: the provision reached 7.8% of revenue in FY2025, the highest since FY2020's 14.6% and the 75th percentile of four peers .",
+   "claim": "7.8%",
+   "match": "cited: D208 = Credit-loss provision % of revenue, FY2025, 7.79%; its input D206 = Net interest income plus noninterest income has the same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Credit-loss provision % of revenue FY2025, 7.79%"
+  },
+  {
+   "sentence": "Credit costs are rising: the provision reached 7.8% of revenue in FY2025, the highest since FY2020's 14.6% and the 75th percentile of four peers .",
+   "claim": "14.6%",
+   "match": "cited: D88 = Credit-loss provision % of revenue, FY2020, 14.57%",
+   "label": "consistent",
+   "reason": "Credit-loss provision % of revenue FY2020, 14.57%"
+  },
+  {
+   "sentence": "Credit costs are rising: the provision reached 7.8% of revenue in FY2025, the highest since FY2020's 14.6% and the 75th percentile of four peers .",
+   "claim": "75th percentile",
+   "match": "cited: D340 = Credit-loss provision % of revenue: percentile vs banks peers (n=4), FY2025, 75.00 (percentile)",
+   "label": "consistent",
+   "reason": "Provision % of revenue percentile vs four peers, 75"
+  },
+  {
+   "sentence": "The peer median is 6.0%, so JPMorgan provisions more than most of the group .",
+   "claim": "6.0%",
+   "match": "cited: D341 = Credit-loss provision % of revenue: banks peer median (n=4), FY2025, 6.01%",
+   "label": "consistent",
+   "reason": "Provision % of revenue peer median FY2025, 6.01%"
+  },
+  {
+   "sentence": "Criticized wholesale exposure rose to $48.5 billion from $44.7 billion, primarily on downgrades and new lending commitments .",
+   "claim": "$48.5 billion",
+   "match": "passage P2: P2 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Total criticized exposure, excluding loans held-for-sale and loans at fair value, was $48.5 billion and $44.7 billion as of December\u00a031, 2025 and 2024, representing approximately 3.4% and 3.5% of total wholesale credit exposure, respectively; of the $48.5 billion, $42.9 billion was performing.\"",
+   "label": "consistent",
+   "reason": "Passage: criticized exposure $48.5 billion at December 31, 2025"
+  },
+  {
+   "sentence": "Criticized wholesale exposure rose to $48.5 billion from $44.7 billion, primarily on downgrades and new lending commitments .",
+   "claim": "$44.7 billion",
+   "match": "passage P2: P2 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Total criticized exposure, excluding loans held-for-sale and loans at fair value, was $48.5 billion and $44.7 billion as of December\u00a031, 2025 and 2024, representing approximately 3.4% and 3.5% of total wholesale credit exposure, respectively; of the $48.5 billion, $42.9 billion was performing.\"",
+   "label": "consistent",
+   "reason": "Passage: criticized exposure $44.7 billion at December 31, 2024"
+  },
+  {
+   "sentence": "Nonperforming exposure rose $478 million, driven by downgrades in Technology, Media & Telecommunications, Oil & Gas and Utilities .",
+   "claim": "$478 million",
+   "match": "passage P3: P3 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"As of December\u00a031, 2025, nonperforming exposure increased by $478 million, driven by certain exposures in Technology, Media & Telecommunications, Oil & Gas and Utilities, in each case primarily resulting from downgrades, largely offset by certain exposures in Healthcare and Consumer & Retail, primarily due to charge-off activity, upgrades, and loan sales.\"",
+   "label": "consistent",
+   "reason": "Passage: nonperforming exposure increased $478 million on downgrades"
+  },
+  {
+   "sentence": "Data quality: FY2021 to FY2025 net income in the table comes from the proxy and is rounded, for example $57,000 million against the 10-K's $57,048 million in FY2025 .",
+   "claim": "$57,000 million",
+   "match": "cited: F30 = Net income, FY2025, $57.00 billion",
+   "label": "consistent",
+   "reason": "Net income FY2025, $57.00 billion, the rounded figure"
+  },
+  {
+   "sentence": "Data quality: FY2021 to FY2025 net income in the table comes from the proxy and is rounded, for example $57,000 million against the 10-K's $57,048 million in FY2025 .",
+   "claim": "$57,048 million",
+   "match": "cited: X20 = Net income as reported in that year's 10-K, FY2025, $57.05 billion",
+   "label": "consistent",
+   "reason": "Net income as reported in the 10-K FY2025, $57.05 billion"
+  },
+  {
+   "sentence": "An efficiency ratio above the FY2025 level of 52.4% would confirm cost growth outrunning revenue, while a return toward the 51.7% window low would reverse it, in the FY2026 10-K .",
+   "claim": "52.4%",
+   "match": "cited: D207 = Efficiency ratio (noninterest expense / revenue), FY2025, 52.42%; its input D206 = Net interest income plus noninterest income has the same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "Efficiency ratio FY2025 level, 52.42%"
+  },
+  {
+   "sentence": "An efficiency ratio above the FY2025 level of 52.4% would confirm cost growth outrunning revenue, while a return toward the 51.7% window low would reverse it, in the FY2026 10-K .",
+   "claim": "51.7%",
+   "match": "cited: D331 = Efficiency ratio window low (FY2024), FY2016..FY2025, 51.70%",
+   "label": "consistent",
+   "reason": "Efficiency ratio window low, 51.70%"
+  },
+  {
+   "sentence": "A provision above 7.8% of revenue would confirm worsening credit costs, while a fall toward the 6.0% peer median would reverse it, in the FY2026 10-K .",
+   "claim": "7.8%",
+   "match": "cited: D208 = Credit-loss provision % of revenue, FY2025, 7.79%; its input D206 = Net interest income plus noninterest income has the same value as X10 = Total revenues as reported (a bound: the sentence says the value is at least this number, and the matched value is)",
+   "label": "consistent",
+   "reason": "Bound threshold on provision % of revenue, FY2025 level 7.79%"
+  },
+  {
+   "sentence": "A provision above 7.8% of revenue would confirm worsening credit costs, while a fall toward the 6.0% peer median would reverse it, in the FY2026 10-K .",
+   "claim": "6.0%",
+   "match": "cited: D341 = Credit-loss provision % of revenue: banks peer median (n=4), FY2025, 6.01%",
+   "label": "consistent",
+   "reason": "Provision % of revenue peer median, 6.01%"
+  },
+  {
+   "sentence": "Net interest income excluding Markets below the FY2025 level of $92.6 billion, which was flat on the prior year, would confirm deposit margin compression, in the FY2026 10-K .",
+   "claim": "$92.6 billion",
+   "match": "passage P28: P28 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"NII excluding Markets was $92.6 billion, flat when compared with the prior year.\"",
+   "label": "consistent",
+   "reason": "Passage: NII excluding Markets $92.6 billion, flat year over year"
+  }
+ ],
+ "output_sha256": "fe5766d8004a94afbac5ce928ecaa2a9a9aa951613a0cdf02b907937fca30a18",
+ "view": 2,
+ "prior_cost_usd": 0.117384,
+ "cost_usd": 0.132743,
+ "backend": "claude_cli",
+ "input_tokens": 9770,
+ "cached_input_tokens": 1014,
+ "output_tokens": 3125
+}

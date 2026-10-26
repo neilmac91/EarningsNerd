@@ -1,0 +1,86 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but mostly restates the table, with a citation-dump red flag and vague watch items. B explains what drove growth, margins and the capex-led drop in free cash flow, compares with peers, and discloses restatements. It has a few grounding slips: the $51.4B and $22.2B figures do not appear in the truncated passage, and FY2022 grew faster than FY2026's 'sharpest step'. These are minor next to its much greater depth."
+   },
+   "cost_usd": 0.119893,
+   "latency_s": 13.349,
+   "input_tokens": 13259,
+   "output_tokens": 975,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A is fully supported but mostly restates the table, with a citation-dump red flag and vague watch items. B explains what drove growth, margins and the capex-led drop in free cash flow, compares with peers, and discloses restatements. It has a few grounding slips: the $51.4B and $22.2B figures do not appear in the truncated passage, and FY2022 grew faster than FY2026's 'sharpest step'. These are minor next to its much greater depth.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A explains the drivers: Microsoft Cloud and Azure growth, cost lines, OpenAI gains, capex-led FCF compression, peer net cash and restatement caveats. It has some grounding slips. The $51.4bn PP&E and $22.2bn figures sit beyond the truncated passage, and the margin bridge sums to 1.1pp, not 1.2pp. Draft B is fully supported but mostly restates the table and offers vague watch items. A's depth outweighs its minor grounding lapses."
+   },
+   "cost_usd": 0.114205,
+   "latency_s": 11.567,
+   "input_tokens": 13263,
+   "output_tokens": 689,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft A explains the drivers: Microsoft Cloud and Azure growth, cost lines, OpenAI gains, capex-led FCF compression, peer net cash and restatement caveats. It has some grounding slips. The $51.4bn PP&E and $22.2bn figures sit beyond the truncated passage, and the margin bridge sums to 1.1pp, not 1.2pp. Draft B is fully supported but mostly restates the table and offers vague watch items. A's depth outweighs its minor grounding lapses.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.234098
+}
