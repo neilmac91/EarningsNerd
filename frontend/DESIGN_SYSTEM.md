@@ -982,9 +982,12 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  words ask for a page action, name a dash or say “this”, and no summary clause carries a
                  semicolon; each DATA_NOTES_VERSION's words and letters
                  pinned by digest, so a change to them takes a new version), the
-                 backend's tests/unit/test_data_note_reasons_have_words.py (every reason the backend writes
-                 has words: a new one cannot fall back to the generic sentence unseen, rule 12; the forms it
-                 cannot follow are named in its docstring and planted in its self-test),
+                 backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
+                 app/ fails a reason the backend writes with no words; the forms it is known to miss are
+                 named in its docstring and planted in its self-test, and any other form is unknown, so a
+                 runtime check also runs the emitters it can without a database (facts/reconcile,
+                 facts/lineage, fact_provenance, data_notes) and fails on a code they write with no words
+                 or that the reader does not find, and on one the reader finds there that no driver reaches),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).

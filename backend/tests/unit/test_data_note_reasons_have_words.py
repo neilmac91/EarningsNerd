@@ -14,32 +14,45 @@ A reason is written where a string can become an element of a `reasons` list:
 2. a `reasons=` keyword (`provenance.update(reasons=[...])`, `calculated_provenance(..., reasons=reasons)`);
 3. an assignment to a name `reasons`, an attribute `.reasons` or a `["reasons"]` item: plain, annotated, augmented,
    a walrus, or one item of a tuple unpacked from a tuple display (`reasons, other = ["code"], 1`);
-4. an `append`, `extend` or `insert` on such a target (`reasons.append("calculation_mismatch")`);
-5. an argument bound to a parameter that flows into one of the above, at any call of a function or method of that
-   name in `app/` (`_quarantine(state, "repair_rolled_back")`, whose `reason` becomes `"reasons": [reason]`), to a
-   fixpoint. A method's arguments bind after the `self` an object supplies (`self._quarantine(state, code)`) and the
-   `cls` an object or its class supplies; through its class's name a method takes `self` as its first argument
-   (`Repair._quarantine(repair, state, code)`), and a static method binds from the first.
+4. an `append`, `extend`, `insert`, `add` or `update` on such a target (`reasons.append("calculation_mismatch")`);
+5. an argument bound to a parameter that flows into one of the above, to a fixpoint, at a call of a function or method
+   of that name in `app/` (`_quarantine(state, "repair_rolled_back")`, whose `reason` becomes `"reasons": [reason]`),
+   and a parameter's default (`def withdraw(state, reason="code")`). A call through an import (`from app.x import f
+   as g`) or a module (`x.f(...)`) binds only to that module's function when it defines one, and a call into a module
+   outside `app/` binds to none. A method's arguments bind after the `self` an object supplies
+   (`self._quarantine(state, code)`) and the `cls` an object or its class supplies; through its class
+   (`Repair._quarantine(repair, state, code)`, `type(self)._quarantine(self, ...)`, `self.__class__`, `module.Class`)
+   a method takes `self` as its first argument, and a static method binds from the first.
 
 What a value can hold is read through:
-- string literals; list, tuple and set displays and their starred items; `or`, `and`, a conditional's arms and `+`;
+- string literals; list, tuple and set displays and their starred items; `or`, `and`, a conditional's arms, `+` and `|`;
 - `list()`, `sorted()`, `set()`, `tuple()`, `frozenset()` and `dict.fromkeys()` of an argument;
 - a comprehension's element, each loop name read through its iterable;
-- a name, through its every binding in the same function or at module level: an assignment (plain, annotated,
-  augmented, a walrus, or one item of a tuple display unpacked into a tuple), or a `for` loop's target, which holds
-  its iterable's items (a tuple target is paired item by item over a display of tuples, `enumerate()` or `zip()`);
+- a name, through its every binding in its function, the functions that enclose it and the module: an assignment
+  (plain, annotated, augmented, a walrus, or one item of a tuple display unpacked into a tuple), what an `append`,
+  `extend`, `insert`, `add` or `update` puts into it, a `for` loop's target (its iterable's items; a tuple target is
+  paired item by item over a display of tuples, `enumerate()` or `zip()`), and a parameter's default; a parameter its
+  function rebinds (`codes = list(codes)`) still flows;
 - a name imported from another module under `app/` (`from app.x import CODE`, `from .x import CODE as OTHER`) or a
   module's attribute (`from app import x` or `import app.x as x`, then `x.CODE`), through that module's bindings;
 - an item of a dict display such a name holds (`fallback[kind]` reads every value of `fallback`).
 A string read by a call (`provenance.get("reasons", [])`) is a key, not a value, and is not collected.
 
-Out of reach, review-checked: a reason built at run time (an f-string, a `.format`, a join); one that crosses into a
-`reasons` list through what the reader does not follow (an attribute of an object, a dict built by a comprehension, a
-function's return, a loop over anything but a display, a name or one of the three calls above); a method call on a
-receiver other than a `reasons` target (`provenance.setdefault("reasons", []).append(...)`); a method called through
-anything but an object or its class's own name (`type(self)._quarantine(self, state, code)`); and a parameter bound
-through `*args` or `**kwargs`. Each is planted in `test_the_reader_finds_each_form_and_names_its_gaps` below, which asserts the
-reader does not find it, so a change that reaches one fails there until this list is updated.
+Out of reach, review-checked, and each planted in `test_the_reader_finds_each_form_and_names_its_gaps` with a literal
+the reader would collect if it reached the form, so a change that reaches one fails there until this list is updated:
+- a reason built at run time: an f-string, a `.format`, a join;
+- a value read through an attribute of an object or a class (`record.code`, `Record.CODE`), a dict built by a
+  comprehension, a container's `.get()`, or a function's return;
+- a loop over anything but a display, a name, `enumerate()` or `zip()` (a dict's `.values()`, a dict display's keys);
+- a tuple unpacked from anything but a tuple display (`code, other = PAIR`), and a starred target;
+- a write through a receiver that is neither a name nor a `reasons` target
+  (`provenance.setdefault("reasons", []).append(...)`);
+- a call through a name assigned a function (`quarantine = _quarantine`), a lambda, or a callee looked up at run time
+  (`getattr(self, name)(...)`), and a parameter bound through `*args` or `**kwargs`.
+That list is what the reader is known to miss, not all it may miss: a form on neither list is unknown. So
+`test_the_emitters_write_only_reasons_the_reader_finds` also drives the emitters it can run without a database, and
+fails on a code they write that has no words or that the reader does not find, and on a code the reader finds in them
+that no driver reaches.
 
 Some modules keep lists named `reasons` that never reach a fact's provenance or a data note: the summary quality
 tier's reasons and the Copilot's quotation checks. EXEMPT names each such site by file and function; an exempt site
@@ -48,13 +61,16 @@ must still write a reason (one find), so an exemption cannot outlive its code.
 from __future__ import annotations
 
 import ast
+from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.services.trend_analysis.data_notes import REASONS
 
 APP = Path(__file__).resolve().parents[2] / "app"
 WRAPPERS = frozenset({"list", "sorted", "set", "tuple", "frozenset"})
-LIST_METHODS = frozenset({"append", "extend", "insert"})
+# The calls that put a value into a list or a set: on a `reasons` target a write (form 4), on any name a binding.
+LIST_METHODS = frozenset({"append", "extend", "insert", "add", "update"})
 # (file under backend/, function) -> why its `reasons` never reach a data note.
 EXEMPT = {
     ("app/services/summary_generation_service.py", "assess_quality"):
@@ -62,14 +78,16 @@ EXEMPT = {
     ("app/services/copilot/quotations.py", "_displayed_quotation_reasons"):
         "the Copilot's quotation checks: why a quotation was refused, never a fact's provenance",
 }
-# Reasons the gate must find, so a reader that went blind fails: each emitter the data notes depend on.
+# The emitters the drivers below cannot run without a database: quarterly_fact_repair's _quarantine call sites. The
+# reader must find their codes, so a reader that went blind to them fails; the driven emitters are held by the drivers.
 KNOWN = frozenset({
-    "not_in_dataset", "legacy_unknown", "source_check_needed",  # data_notes._issue's fallbacks
-    "legacy_calculation", "unsupported_eps_calculation",  # fact_provenance
-    "missing_calculation_inputs", "calculation_mismatch",  # facts/lineage.annotate_filing_calculations
-    "zero_where_prior_nonzero", "magnitude_vs_prior", "eps_sign_vs_net_income", "diluted_gt_basic",
-    "period_mismatch",  # facts/reconcile, recorded by lineage.local_reconciliation
-    "legacy_calculation_not_supported", "repair_rolled_back",  # quarterly_fact_repair._quarantine
+    "legacy_calculation_not_supported", "repair_rolled_back", "legacy_period_label_mismatch",
+    "rolling_duration_not_fiscal_year", "calculation_parent_period_corrected",
+})
+# The modules whose emitters the drivers run (_emitted_reasons).
+DRIVEN = frozenset({
+    "app/services/facts/reconcile.py", "app/services/facts/lineage.py", "app/services/fact_provenance.py",
+    "app/services/trend_analysis/data_notes.py",
 })
 
 
@@ -138,6 +156,10 @@ def _assigned(body: list[ast.stmt]) -> dict[str, list[ast.expr]]:
             bind(_pairs(node.target, node.value))
         elif isinstance(node, (ast.For, ast.AsyncFor)):
             bind(_loop_pairs(node.target, node.iter))
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in LIST_METHODS
+              and isinstance(node.func.value, ast.Name) and node.args):
+            # checks.append(code), checks.extend(codes), checks.insert(0, code): the name holds what is put in it.
+            bind([(node.func.value, node.args[-1] if node.func.attr == "insert" else node.args[0])])
         stack.extend(ast.iter_child_nodes(node))
     return names
 
@@ -174,61 +196,82 @@ class _Scope:
 
     def __init__(self, path: str, name: str, function: ast.AST | None, body: list[ast.stmt],
                  imports: dict[str, tuple[str, str | None]], registry: dict[str, _Scope],
-                 module: _Scope | None = None):
+                 parent: _Scope | None = None):
         self.path, self.name, self.imports, self.registry = path, name, imports, registry
-        self.module_scope = module or self
+        # The enclosing function's scope, or the module's; a module has none.
+        self.parent = parent
+        self.module_scope: _Scope = parent.module_scope if parent is not None else self
         self.params: list[str] = []
+        self.defaults: dict[str, ast.expr] = {}
         if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
             arguments = function.args
-            # *args and **kwargs shadow a module name too, though a call binds neither (out of reach).
-            self.params = [arg.arg for arg in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs,
+            positional = [*arguments.posonlyargs, *arguments.args]
+            # *args and **kwargs shadow an outer name too, though a call binds neither (out of reach).
+            self.params = [arg.arg for arg in [*positional, *arguments.kwonlyargs,
                                                 *filter(None, (arguments.vararg, arguments.kwarg))]]
+            self.defaults = dict(zip([arg.arg for arg in positional[len(positional) - len(arguments.defaults):]],
+                                     arguments.defaults))
+            self.defaults.update((arg.arg, default) for arg, default in zip(arguments.kwonlyargs, arguments.kw_defaults)
+                                 if default is not None)
         self.local = _assigned(body)
         self.classes = {node.name for node in body if isinstance(node, ast.ClassDef)}
 
 
+def _shadowed(name: str, scope: _Scope) -> bool:
+    """Whether a function on the way out to the module binds the name, so it is not the module's own."""
+    while scope.parent is not None:
+        if name in scope.params or name in scope.local:
+            return True
+        scope = scope.parent
+    return False
+
+
 def _module_of(expr: ast.AST, scope: _Scope) -> str | None:
-    """The module under `app/` an expression names: an imported module, or a dotted attribute of one."""
+    """The module an expression names: an imported module, or a dotted attribute of one under `app/`."""
     if isinstance(expr, ast.Name):
-        if expr.id in scope.params or (scope is not scope.module_scope and expr.id in scope.local):
+        if _shadowed(expr.id, scope):
             return None
-        module, attribute = scope.imports.get(expr.id, (None, None))
+        module, attribute = scope.module_scope.imports.get(expr.id, (None, None))
         return module if module is not None and attribute is None else None
     if isinstance(expr, ast.Attribute):
         parent = _module_of(expr.value, scope)
-        if parent is not None and f"{parent}.{expr.attr}" in scope.registry:
-            return f"{parent}.{expr.attr}"
-        return f"{parent}.{expr.attr}" if parent is not None and any(
-            name.startswith(f"{parent}.{expr.attr}.") for name in scope.registry) else None
+        dotted = f"{parent}.{expr.attr}"
+        if parent is not None and (dotted in scope.registry or any(
+                name.startswith(f"{dotted}.") for name in scope.registry)):
+            return dotted
     return None
 
 
 Binding = tuple[ast.expr, _Scope, object, dict]
 
 
-def _resolve(name: str, scope: _Scope, flows: set[str], seen: frozenset, bound: dict) -> list[Binding]:
+def _resolve(name: str, scope: _Scope, flows: set[tuple[str, str]], seen: frozenset, bound: dict) -> list[Binding]:
     """What a name may hold: each expression with the scope and loop names to read it in, and its cycle key."""
     if name in bound:
         key = ("loop", id(bound[name]))
         return [] if key in seen else [(held, scope, key, bound) for held in bound[name]]
-    key = (scope.path, scope.name, name)
+    key = (id(scope), name)
     if key in seen:
         return []
-    if name in scope.local:
-        return [(held, scope, key, {}) for held in scope.local[name]]
+    bindings: list[Binding] = []
     if name in scope.params:
-        flows.add(name)
-        return []
-    module = scope.module_scope
-    if module is not scope:
-        return _resolve(name, module, flows, seen, {})
+        # A parameter flows even where its function rebinds it (codes = list(codes)); its default is read where the
+        # function is defined.
+        flows.add((scope.name, name))
+        if name in scope.defaults and scope.parent is not None:
+            bindings.append((scope.defaults[name], scope.parent, key, {}))
+    bindings += [(held, scope, key, {}) for held in scope.local.get(name, [])]
+    if name in scope.params or name in scope.local:
+        return bindings
+    if scope.parent is not None:
+        return _resolve(name, scope.parent, flows, seen, {})
     source, attribute = scope.imports.get(name, (None, None))
     if attribute is not None and source in scope.registry:
         return _resolve(attribute, scope.registry[source], flows, seen | {key}, {})
     return []
 
 
-def _values(expr: ast.AST | None, scope: _Scope, flows: set[str], seen: frozenset = frozenset(),
+def _values(expr: ast.AST | None, scope: _Scope, flows: set[tuple[str, str]], seen: frozenset = frozenset(),
             bound: dict | None = None) -> set[str]:
     """The string literals `expr` may hold as a reason; a parameter it reads joins `flows`."""
     bound = {} if bound is None else bound
@@ -252,7 +295,7 @@ def _values(expr: ast.AST | None, scope: _Scope, flows: set[str], seen: frozense
         return read(expr.body) | read(expr.orelse)
     if isinstance(expr, ast.BoolOp):
         return set().union(*(read(value) for value in expr.values))
-    if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, (ast.Add, ast.BitOr)):
         return read(expr.left) | read(expr.right)
     if isinstance(expr, ast.Call) and expr.args and (
         (isinstance(expr.func, ast.Name) and expr.func.id in WRAPPERS)
@@ -301,14 +344,15 @@ def _sites(node: ast.AST) -> list[ast.AST]:
 
 
 def _walk_scopes(tree: ast.Module, module: _Scope):
-    """Each node with the scope it is read in: its innermost function, or the module."""
+    """Each node with the scope it is read in: its innermost function, or the module. A function's scope encloses the
+    functions defined in it; a class body encloses nothing, as in Python."""
     stack: list[tuple[ast.AST, _Scope]] = [(tree, module)]
     while stack:
         node, scope = stack.pop()
         for child in ast.iter_child_nodes(node):
             inner = scope
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                inner = _Scope(module.path, child.name, child, child.body, module.imports, module.registry, module)
+                inner = _Scope(module.path, child.name, child, child.body, module.imports, module.registry, scope)
             yield child, inner
             stack.append((child, inner))
 
@@ -330,12 +374,18 @@ def _receiver(func: ast.expr, scope: _Scope) -> str:
     """How a call names its callee: a bare "name", a "module"'s attribute, a "class"'s or any other "object"'s."""
     if not isinstance(func, ast.Attribute):
         return "name"
-    if _module_of(func.value, scope) is not None:
-        return "module"
     value = func.value
-    if (isinstance(value, ast.Name) and value.id not in scope.params
-            and not (scope is not scope.module_scope and value.id in scope.local)):
-        source, attribute = scope.imports.get(value.id, (None, None))
+    if _module_of(value, scope) is not None:
+        return "module"
+    if (isinstance(value, ast.Call) and isinstance(value.func, ast.Name) and value.func.id == "type"
+            and len(value.args) == 1) or (isinstance(value, ast.Attribute) and value.attr == "__class__"):
+        return "class"  # type(self)._quarantine(self, ...), self.__class__._quarantine(self, ...)
+    if isinstance(value, ast.Attribute):
+        owner = _module_of(value.value, scope)
+        if owner in scope.registry and value.attr in scope.registry[owner].classes:
+            return "class"  # module.Repair._quarantine(repair, ...)
+    if isinstance(value, ast.Name) and not _shadowed(value.id, scope):
+        source, attribute = scope.module_scope.imports.get(value.id, (None, None))
         if value.id in scope.module_scope.classes or (
                 source in scope.registry and attribute in scope.registry[source].classes):
             return "class"
@@ -352,6 +402,30 @@ SKIPPED = {
 }
 
 
+def _callee(func: ast.expr, receiver: str, scope: _Scope, defines: dict[str, set[str]]) -> tuple[str, str | None] | None:
+    """The name a call reaches and the file it must be defined in (None: any file), or None for a call that reaches no
+    function under `app/`: one into an outside module, or a callee the reader cannot name."""
+    home = None
+    if isinstance(func, ast.Name):
+        name = func.id
+        source, attribute = scope.module_scope.imports.get(name, (None, None))
+        if attribute is not None and not _shadowed(name, scope):
+            if source not in scope.registry:
+                return None
+            name, home = attribute, scope.registry[source].path  # from app.x import f as g; g(...)
+    elif isinstance(func, ast.Attribute):
+        name = func.attr
+        if receiver == "module":
+            module = _module_of(func.value, scope)
+            if module not in scope.registry:
+                return None  # json.dumps(...): never an app function of that name
+            home = scope.registry[module].path
+    else:
+        return None
+    # A module that only re-exports the name defines nothing of it: any file's definition may be the one.
+    return name, home if home is not None and name in defines.get(home, set()) else None
+
+
 def written_reasons(sources: dict[str, str]) -> dict[tuple[str, str], set[str]]:
     """Every string each (file, function) can write into a reasons list, forms 1 to 5."""
     trees = {path: ast.parse(source) for path, source in sources.items()}
@@ -362,22 +436,25 @@ def written_reasons(sources: dict[str, str]) -> dict[tuple[str, str], set[str]]:
     nodes = [(node, scope) for path, tree in trees.items()
              for node, scope in _walk_scopes(tree, registry[_module_name(path)])]
     kinds = {key: kind for tree in trees.values() for key, kind in _method_kinds(tree).items()}
-    # A function's or method's name -> (its positional parameters, "function" or the method's kind).
-    definitions: dict[str, list[tuple[list[str], str]]] = {}
-    for node, _scope in nodes:
+    # A function's or method's name -> (its positional parameters, "function" or the method's kind, its file).
+    definitions: dict[str, list[tuple[list[str], str, str]]] = {}
+    defines: dict[str, set[str]] = {}
+    for node, scope in nodes:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             arguments = node.args
             definitions.setdefault(node.name, []).append(
-                ([arg.arg for arg in [*arguments.posonlyargs, *arguments.args]], kinds.get(id(node), "function")))
+                ([arg.arg for arg in [*arguments.posonlyargs, *arguments.args]], kinds.get(id(node), "function"),
+                 scope.path))
+            defines.setdefault(scope.path, set()).add(node.name)
     found: dict[tuple[str, str], set[str]] = {}
     flowing: set[tuple[str, str]] = set()  # (function name, parameter) that reach a reasons list
 
     def collect(expr: ast.AST, scope: _Scope) -> None:
-        flows: set[str] = set()
+        flows: set[tuple[str, str]] = set()
         codes = _values(expr, scope, flows)
         if codes:
             found.setdefault((scope.path, scope.name), set()).update(codes)
-        flowing.update((scope.name, param) for param in flows)
+        flowing.update(flows)
 
     for node, scope in nodes:
         for expr in _sites(node):
@@ -387,10 +464,12 @@ def written_reasons(sources: dict[str, str]) -> dict[tuple[str, str], set[str]]:
         before = len(flowing)
         for node, scope in calls:
             receiver = _receiver(node.func, scope)
-            callee = node.func.id if isinstance(node.func, ast.Name) else (
-                node.func.attr if isinstance(node.func, ast.Attribute) else None)
-            for params, kind in definitions.get(callee, []):
-                if (kind, receiver) not in SKIPPED:
+            reached = _callee(node.func, receiver, scope, defines)
+            if reached is None:
+                continue
+            callee, home = reached
+            for params, kind, path in definitions.get(callee, []):
+                if (kind, receiver) not in SKIPPED or (home is not None and path != home):
                     continue
                 positional = params[SKIPPED[kind, receiver]:]
                 for index, argument in enumerate(node.args):
@@ -422,7 +501,65 @@ def test_every_reason_the_backend_writes_has_words():
     )
 
 
-# A package of three modules: the forms the reader follows, each code named for its form, and every documented gap,
+def _emitted_reasons() -> set[str]:
+    """What the DRIVEN emitters write, run through every branch that writes a reason: facts/reconcile's five soft checks
+    and facts/lineage's two calculation checks over one filing's batch, fact_provenance's legacy projections, and
+    data_notes' fallbacks for a review, an unknown and a missing value."""
+    from app.services.fact_provenance import provenance_for_fact, reported_provenance
+    from app.services.facts.reconcile import reconcile_facts
+    from app.services.trend_analysis.data_notes import data_notes
+
+    def fact(concept: str, value: float, raw_tag: str | None = "us-gaap:Probe", unit: str = "USD") -> dict:
+        return {"company_id": 1, "concept": concept, "value": value, "unit": unit, "period_start": None,
+                "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
+                "accession": "0000000001-25-000001", "raw_tag": raw_tag, "source": "companyfacts"}
+
+    batch = [
+        fact("revenue", 0.0),  # zero where the prior period had a value
+        fact("net_income", 5000.0),  # 500 times the prior period's
+        fact("earnings_per_share", -1.0, unit="USD/shares"),  # opposite sign to net income
+        fact("eps_diluted", 2.0, unit="USD/shares"),  # above basic EPS
+        fact("current_assets", 300.0), fact("current_liabilities", 100.0),
+        fact("working_capital", 999.0, raw_tag=None),  # not current assets less current liabilities
+        fact("net_margin", 5.0, raw_tag=None),  # a flow with no period start: its inputs cannot be matched
+    ]
+    # The period ends a day after the filing's report date, so every figure in it also has a period mismatch.
+    accepted, _ = reconcile_facts(batch, prior_values={"revenue": 100.0, "net_income": 10.0},
+                                  period_of_report=date(2024, 12, 30))
+    codes = {code for item in accepted for code in item["provenance"]["reasons"]}
+    legacy = [
+        SimpleNamespace(concept="revenue", raw_tag="us-gaap:Revenues", source="companyfacts", reconciled=False),
+        SimpleNamespace(concept="net_margin", raw_tag=None, source="derived", reconciled=True),
+        SimpleNamespace(concept="eps_basic", raw_tag=None, source="derived", reconciled=True),
+    ]
+    codes |= {code for row in legacy for code in provenance_for_fact(row)["reasons"]}
+    codes |= set(reported_provenance({"reconciled": False})["reasons"])
+    dataset = {"mode": "annual", "period_key": "FY2024", "periods": [{"key": "FY2024"}], "series": [
+        {"concept": "revenue", "label": "Revenue",
+         "points": [{"period": "FY2024", "value": 1.0, "provenance": {"validation": "needs_review", "reasons": []}}]},
+        {"concept": "net_income", "label": "Net income", "points": [{"period": "FY2024", "value": 1.0}]},
+        {"concept": "free_cash_flow", "label": "Free cash flow", "points": [{"period": "FY2024", "value": None}]},
+    ]}
+    return codes | {code for note in data_notes(dataset)["notes"] for code in note["reasons"]}
+
+
+def test_the_emitters_write_only_reasons_the_reader_finds():
+    """The runtime half of this gate: what the emitters write when run, whatever form their code takes."""
+    emitted = _emitted_reasons()
+    assert sorted(emitted - set(REASONS)) == [], "an emitter writes a reason with no words in data_notes.REASONS"
+    found = written_reasons(_app_sources())
+    static = {code for (path, _function), codes in found.items() if path in DRIVEN for code in codes}
+    assert sorted(emitted - static) == [], (
+        "an emitter writes a reason the reader does not find in its module: the reader went blind to the form it "
+        "takes there; follow that form, or name and plant it as out of reach"
+    )
+    assert sorted(static - emitted) == [], (
+        "the reader finds a reason in a driven module that no driver reaches: run the branch that writes it in "
+        "_emitted_reasons"
+    )
+
+
+# A package of four modules: the forms the reader follows, each code named for its form, and every documented gap,
 # each code named planted_gap_*. Words that are never a reason sit beside some codes, so a reader that read too much
 # fails too.
 PLANTED = {
@@ -451,6 +588,7 @@ def third():
     reasons.append("planted_append")
     reasons += ["planted_augmented"]
     reasons.extend(sorted({"planted_extend"}))
+    reasons.add("planted_reasons_add")
     if (reasons := ["planted_walrus"]):
         return reasons
 
@@ -465,6 +603,36 @@ def relay(fact, codes):
 
 def relayed(fact):
     return relay(fact, "planted_relay")
+
+def withhold(state, codes):
+    codes = list(codes)
+    return {**state, "reasons": codes}
+
+def normalise(state, reason):
+    reason = reason or "planted_default_by_or"
+    return {**state, "reasons": [reason]}
+
+def withdraw(state, reason="planted_positional_default", *, extra="planted_keyword_only_default"):
+    return {**state, "reasons": [reason, extra]}
+
+def rebound(state):
+    return withhold(state, ["planted_rebound_parameter"]), normalise(state, "planted_normalised_argument"), withdraw(state)
+
+def collected(state, prior):
+    checks = []
+    checks.append("planted_list_append")
+    checks.extend(["planted_list_extend"])
+    checks.insert(0, "planted_list_insert")
+    seen = set()
+    seen.add("planted_set_add")
+    seen.update({"planted_set_update"})
+    return fourth(state, checks), fourth(state, sorted(seen)), fourth(state, sorted(set(prior) | {"planted_set_union"}))
+
+def outer(state):
+    code = "planted_closure"
+    def inner():
+        return {**state, "reasons": [code]}
+    return inner()
 
 FALLBACKS = {"review": "planted_module_dict"}
 
@@ -521,20 +689,36 @@ class Repair:
             Repair._withdraw(state, "planted_static_through_class"),
             self._flag(state, "planted_class_method"),
             Repair._quarantine(self, state, "planted_method_through_its_class"),
+            type(self)._quarantine(self, "planted_state_never_a_reason", "planted_method_through_type"),
+            self.__class__._quarantine(self, state, "planted_method_through_dunder_class"),
         )
 
-LOOP_SOURCE = {"review": "planted_gap_loop_over_a_call"}
+class Record:
+    CODE = "planted_gap_class_attribute"
 
-def gaps(provenance, kind, record):
+LOOP_SOURCE = {"review": "planted_gap_loop_over_a_call"}
+CODES = {"review": "planted_gap_get"}
+PAIR = ("planted_gap_unpacked_from_a_name", "Words, never a reason.")
+
+def gaps(provenance, kind):
     provenance.setdefault("reasons", []).append("planted_gap_receiver")
     provenance["reasons"] = [f"planted_gap_{kind}"]
     provenance["reasons"] = ["planted_gap_format_{}".format(kind), "_".join(("planted_gap", "join"))]
-    provenance["reasons"] = [record.code]
+    provenance["reasons"] = [Record.CODE, Record().CODE]
     by_kind = {name: "planted_gap_dict_comprehension" for name in ("review",)}
-    provenance["reasons"] = [by_kind[kind]]
+    provenance["reasons"] = [by_kind[kind], CODES.get(kind)]
     for code in LOOP_SOURCE.values():
         provenance["reasons"].append(code)
-    return {"reasons": built()}
+    for code in {"planted_gap_loop_over_dict_keys": 1}:
+        provenance["reasons"].append(code)
+    code, words = PAIR
+    provenance["reasons"].append(code)
+    head, *rest = ["planted_gap_head_beside_a_starred_target", "planted_gap_starred_target"]
+    provenance["reasons"].extend([head, *rest])
+    quarantine = fourth
+    flag = lambda state, reason: {**state, "reasons": [reason]}
+    getattr(Repair(), "_quarantine")(provenance, "planted_gap_getattr")
+    return quarantine(provenance, "planted_gap_name_alias"), flag(provenance, "planted_gap_lambda"), {"reasons": built()}
 
 def built():
     return ["planted_gap_return"]
@@ -542,10 +726,20 @@ def built():
 def starred(state, *codes, **named):
     return {**state, "reasons": [*codes, *named.values()]}
 
-def starred_caller(state, repair):
+def starred_caller(state):
+    return starred(state, "planted_gap_args", reason="planted_gap_kwargs")
+''',
+    "app/planted/calls.py": '''
+import json
+from app.planted import forms
+from app.planted.forms import fourth as quarantine
+
+def through_imports(state, repair):
     return (
-        starred(state, "planted_gap_args", reason="planted_gap_kwargs"),
-        type(repair)._quarantine(repair, state, "planted_gap_method_through_type"),
+        quarantine(state, "planted_call_through_import_alias"),
+        forms.fourth(state, "planted_call_through_module"),
+        forms.Repair._quarantine(repair, state, "planted_method_through_module_class"),
+        json.fourth("planted_outside_first_never_a_reason", "planted_outside_second_never_a_reason"),
     )
 ''',
 }
@@ -555,26 +749,30 @@ def test_the_reader_finds_each_form_and_names_its_gaps():
     found = written_reasons(PLANTED)
     codes = {code for site_codes in found.values() for code in site_codes}
     assert {code for code in codes if not code.startswith("planted_gap")} == {
-        "planted_dict", "planted_keyword", "planted_append", "planted_augmented", "planted_extend", "planted_walrus",
-        "planted_argument", "planted_keyword_argument", "planted_relay", "planted_module_dict",
-        "planted_imported_constant", "planted_imported_alias", "planted_relative_import", "planted_module_attribute",
-        "planted_loop_over_module_attribute", "planted_loop", "planted_loop_pair", "planted_enumerate", "planted_zip",
-        "planted_comprehension_iterable", "planted_tuple_unpacked", "planted_unpacked_name",
-        "planted_method_positional", "planted_method_keyword", "planted_static_method", "planted_static_through_class",
-        "planted_class_method", "planted_method_through_its_class",
+        "planted_dict", "planted_keyword", "planted_append", "planted_augmented", "planted_extend",
+        "planted_reasons_add", "planted_walrus", "planted_argument", "planted_keyword_argument", "planted_relay",
+        "planted_rebound_parameter", "planted_default_by_or", "planted_normalised_argument",
+        "planted_positional_default", "planted_keyword_only_default", "planted_list_append", "planted_list_extend",
+        "planted_list_insert", "planted_set_add", "planted_set_update", "planted_set_union", "planted_closure",
+        "planted_module_dict", "planted_imported_constant", "planted_imported_alias", "planted_relative_import",
+        "planted_module_attribute", "planted_loop_over_module_attribute", "planted_loop", "planted_loop_pair",
+        "planted_enumerate", "planted_zip", "planted_comprehension_iterable", "planted_tuple_unpacked",
+        "planted_unpacked_name", "planted_method_positional", "planted_method_keyword", "planted_static_method",
+        "planted_static_through_class", "planted_class_method", "planted_method_through_its_class",
+        "planted_method_through_type", "planted_method_through_dunder_class", "planted_call_through_import_alias",
+        "planted_call_through_module", "planted_method_through_module_class",
     }
     forms = "app/planted/forms.py"
     assert found[(forms, "caller")] == {"planted_argument", "planted_keyword_argument"}
     assert found[(forms, "run")] == {
         "planted_method_positional", "planted_method_keyword", "planted_static_method",
         "planted_static_through_class", "planted_class_method", "planted_method_through_its_class",
+        "planted_method_through_type", "planted_method_through_dunder_class",
     }
-    # The documented gaps, each planted above: a key a call reads, a receiver other than a reasons target, a string
-    # built at run time (an f-string, a .format, a join), an object's attribute, a dict built by a comprehension, a
-    # loop over a call, a function's return, *args and **kwargs, and a method called through type(self).
-    assert not codes & {
-        "planted_key_read", "planted_gap_receiver", "planted_gap_format_{}", "planted_gap", "join",
-        "planted_gap_dict_comprehension", "planted_gap_loop_over_a_call", "planted_gap_return", "planted_gap_args",
-        "planted_gap_kwargs", "planted_gap_method_through_type",
-    }
+    # The documented gaps, each planted above with a literal the reader would collect if it reached the form: a key a
+    # call reads, a receiver other than a name or a reasons target, a string built at run time (an f-string, a .format,
+    # a join), a class's attribute, a dict comprehension, a .get(), a loop over a call and over a dict's keys, a tuple
+    # unpacked from a name, a starred target, a name alias, a lambda, a getattr callee, a function's return, and *args
+    # and **kwargs.
+    assert not codes & {"planted_key_read", "planted_gap", "join"}
     assert {code for code in codes if code.startswith("planted_gap")} == set()
