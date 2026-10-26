@@ -47,8 +47,7 @@ from app.services.subscription_service import (
 from app.services.copilot_service import PROVIDER_STARTED_STAGE, answer_filing_question, snapshot_filing
 from app.services.ai.provider_requests import provider_start_signal
 from app.services.summary_generation_service import (
-    mark_stale_progress_as_error,
-    progress_as_dict,
+    progress_poll_answer,
 )
 from app.services.summary_placeholders import is_summary_ready
 from app.services.summary_request_evidence import SummaryRequestEvidence
@@ -174,28 +173,7 @@ async def get_summary_progress(
     """
     def progress_for_reader() -> dict[str, Any]:
         try:
-            # Check if summary already exists
-            summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-            if summary:
-                # Summary exists, return completed status
-                return {
-                    "stage": "completed",
-                    "elapsedSeconds": 0
-                }
-
-            progress = (
-                db.query(SummaryGenerationProgress)
-                .filter(SummaryGenerationProgress.filing_id == filing_id)
-                .first()
-            )
-            if progress:
-                # Surface orphaned/stalled generations as a retryable error instead of an
-                # eternal "generating" state if the background task died without finishing.
-                if mark_stale_progress_as_error(progress):
-                    db.commit()
-                return progress_as_dict(progress)
-
-            return {"stage": "pending", "elapsedSeconds": 0}
+            return progress_poll_answer(db, filing_id)
         finally:
             filing_list_service.release_request_session(db)
 
