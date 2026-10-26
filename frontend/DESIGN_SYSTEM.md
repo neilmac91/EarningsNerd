@@ -25,11 +25,11 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #636A77` (4.9:1 on cream, 5.2:1 on panel; was `#6B7280` at 4.35:1 before the 2026-10 critique's P-02) | `text-primary-dark #EAECEF` (APCA Lc -91.8 on panel, 12.4:1; was `#D7DADC`, 1.05:1 from secondary) / `secondary #D1D5DB` (APCA Lc -77.3 on panel, 10.0:1; was `#9CA3AF`, Lc -48.6) / `tertiary #9CA3AF` (5.8:1 on panel, 7.4:1 on navy: tertiary-light's text-safe twin; was `#4B5563`, banned as text) | Body + headings (see §4); a rung never twins another (§2) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
-| **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` (+ `warning.data-dark #FCD34D`: a review letter on the analysis figure surfaces, Lc -81.8 on the sheet, -78.8 on panel) · error `#F87171` · info `#60A5FA` | Genuine state messages only |
+| **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
-| **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (†, neutral letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
+| **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer, behind a flag until F66, pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -155,7 +155,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
   share count) and `features/analysis/lib/figureDisplay.ts`'s formula words and the arithmetic's
   subtraction sign, where a negative operand is set in parentheses. The hierarchy: the value at
   12px/500 in the figure ink, then the change at 12px/400 with its sign in its direction's ink, then the
-  marks, 11px in their own ink (§4 Data note mark); the window column's one figure at 12px/400 in its
+  note letter, 11px in the note ink (§4 Data note mark); the window column's one figure at 12px/400 in its
   direction's ink; the KPI value at 24px/600. Gates: `tests/unit/figureSurfaceInks.spec.ts`
   (`font-figure` only in those three files and SourceValue.tsx), `tests/unit/kpi-strip.spec.tsx` and
   `tests/unit/metrics-table.spec.tsx` (the face, the numerals and `tracking-normal` on the KPI value,
@@ -521,6 +521,12 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
+                 <Card elevation="none"> is the control level: the fill and the hairline with no shadow in either
+                 theme, for an input area that is not content, today the analysis page's company and period form
+                 (§6; Analysis results). Set it through the prop, never a shadow class on top: cx does no
+                 tailwind-merge, so two shadow classes win by stylesheet order (a design selector in
+                 eslint.config.mjs fails a shadow class or a box-shadow arbitrary property written in a Card's
+                 className; designRules.spec.ts plants it).
                  Its inset is the capped step from p-5 up (p-cap-5, p-cap-6, sm:p-cap-8: the rules above §4's
                  recipes), a hand-copied shell's and its sections' too; CardHeader/CardBody/CardFooter carry px-cap-5.
                  One table sets its figures on a sheet inside its Card: the metrics table (DataTable
@@ -586,63 +592,60 @@ Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text
                  0.01 chroma of each other); tests/unit/designSystemDoneGate.spec.ts
                  (its classes reach the production CSS).
 
-Data note mark   <DataNoteMark> (analysis) — the footnote marks: † for a calculated origin, then a
-                 letter for its grouped data note, one mark type. Each is 11px text-data-xs in the
-                 figure face (§3), zero line-height (a mark never sizes its row), inline-block (the KPI
-                 value's dotted underline stops at the figure) and raised as a staircase: the dagger
-                 low, near the figure's x-height, and the letter above it, near its cap height. Beside
-                 12-14px text (the table, the KPI change line, the narrative) the dagger rises
-                 -top-[0.2em] and the letter -top-[0.5em]; beside a 24px figure (the KPI value, the
-                 evidence dialog's figure: DataNoteMark large, which only those two ask for)
-                 -top-[0.55em] and -top-[0.85em]. Raised level with each other, “†a” read as one mark
-                 at 1x in dark: in the metrics-table readout five of six readers dropped the letter,
-                 and stepped, six of six read both. Each takes its own ink: the
-                 note ink (text-note-light dark:text-note-dark) for † and a neutral letter,
-                 text-warning-light dark:text-warning-data-dark (#FCD34D) for a review letter. Warning
-                 ink belongs only to unresolved review concerns; unavailable values and missing
-                 validation take the note ink. Smaller, raised and inked apart, a mark no longer reads
-                 as the figure's last glyph (“$4.1B†a”).
-                 Every mark keeps 2px (ml-0.5) from what precedes it, the first included, on every
-                 surface: set flush, “†a” read as one cluster at 1x in dark and two readers dropped the
-                 letter, and once the dark gain ink went pale ten of eighteen readers dropped the dagger
-                 of “$4.1B†a”, whose top line had not changed by a pixel (with 2px, six of six read it;
-                 the metrics-table readouts). In the table (compact) the marks hang in a gutter one mark
-                 and its gap wide (--mark-gutter, 0.5375rem: one 11px Geist Mono advance and 2px, set on
-                 MetricsTable's Card). A figure with no mark keeps the gutter as an empty, aria-hidden
-                 spacer that grows from nothing up to the gutter into free space only (grow basis-0
-                 max-w-[var(--mark-gutter)]; a declared width counts toward the line's minimum and
-                 pushed a nine-glyph figure past its cell), so a marked and an unmarked figure share one
-                 edge. A period column holds its widest line (a seven-glyph figure, a dagger and a
-                 one-letter note, 67.6px) inside its inset: 4.375rem on a phone (68px inside 1px a side),
-                 4.75rem from md (68px inside 4px a side). tests/unit/metrics-table.spec.tsx derives the
-                 gutter and both widths from tableTokenBudget and the type sizes.
-                 Gates: tests/unit/data-note-mark.spec.tsx (the raises, the gaps, the spacer, and large
-                 only at the two 24px figures); “analysis phone marks” in
-                 tests/e2e/analysis-layout.spec.ts (each mark on its figure's line and in its cell, 2px
-                 after its figure and a change line's letter 2px after its change, a letter above its
-                 dagger and 2px after it, and a mark under an
-                 underlined control an
-                 inline-block: a flex row blockifies its children, and an underline reaches every flex
-                 item).
-                 The marks are aria-hidden inside the figure's source button, whose accessible name
-                 states them in words: the note and any inherited comparison note once; a shared
-                 figure/comparison note is named once with its scope. The separate visual change mark
-                 does not repeat the spoken note. Letters are snapshot-local, review notes first.
-                 Data notes counts distinguish values, QoQ, YoY and annual window comparisons; a missing
-                 validation record is never counted as a passed check. Preserve every reason, including
-                 comparison-only concerns. Full-width status Badges and nowrap labels do not belong in
-                 an analysis KPI or metrics cell.
-                 Gates: tests/unit/data-note-mark.spec.tsx (the one type, the inks, 2px before every
-                 mark, the spacer with no declared width, the staircase raises and large asked for only
-                 at the two 24px figures);
+Data note mark   <DataNoteMark> (analysis) — the footnote mark: a letter for a grouped data note, drawn only
+                 where the note questions the number (lib/dataNotes noteMarksFigure, D-061): a review
+                 note with any reason other than the record-only legacy_calculation
+                 (RECORD_ONLY_REASONS, a closed list: a new reason marks until it is classified). An
+                 unknown note (no check recorded), an unavailable one (a gap, which shows its dash) and a
+                 record-only one draw nothing; each stays in the evidence dialog and the data notes. A
+                 calculated figure carries no dagger: the sentence above the table names the metrics the
+                 run calculates (Analysis table), and the figure's control says "calculated". The
+                 letter is 11px text-data-xs in the figure face (§3), zero line-height (a mark never
+                 sizes its row), inline-block (the KPI value's dotted underline stops at the figure),
+                 raised -top-[0.5em] beside 12-14px text (the table, the KPI change line, the narrative)
+                 and -top-[0.85em] beside a 24px figure (the KPI value, the evidence dialog's figure:
+                 DataNoteMark large, which only those two ask for), in the note ink
+                 (text-note-light dark:text-note-dark), never warning ink. Smaller, raised and inked
+                 apart, it never reads as the figure's last glyph.
+                 The mark keeps 2px (ml-0.5) from its figure on every surface, the table included: set
+                 flush, readers dropped a mark at 1x in dark (the metrics-table readouts). In the table
+                 (compact) it hangs in a gutter one mark and its gap wide (--mark-gutter, 0.5375rem: one
+                 11px Geist Mono advance and 2px, set on MetricsTable's Card). A figure with no mark keeps
+                 the gutter as an empty, aria-hidden spacer that grows from nothing up to the gutter into
+                 free space only (grow basis-0 max-w-[var(--mark-gutter)]; a declared width counts
+                 toward the line's minimum and pushed a nine-glyph figure past its cell), so a marked and
+                 an unmarked figure share one edge. A period column holds its widest line inside its inset
+                 (with no dagger, an eight-glyph figure and a one-letter note, 66.2px): 4.375rem on a phone
+                 (68px inside 1px a side), 4.75rem from md (68px inside 4px a side); below md the metric
+                 column gives up to 6px so a 375px phone keeps three whole periods (Analysis table).
+                 tests/unit/metrics-table.spec.tsx derives the gutter and both widths from
+                 tableTokenBudget and the type sizes.
+                 The mark is aria-hidden inside the figure's source button, whose accessible name states
+                 in words what shows: "calculated" wherever the figure is calculated, its marked note
+                 and any marked inherited comparison note once; a shared figure/comparison note is named
+                 once with its scope. A record-only, unknown or unavailable note is read in the dialog.
+                 The separate visual change mark does not repeat the spoken note. Letters are
+                 snapshot-local, review notes first. Data notes counts distinguish values, QoQ, YoY and
+                 annual window comparisons; a missing validation record is never counted as a passed
+                 check. Preserve every reason, including comparison-only concerns. Full-width status
+                 Badges and nowrap labels do not belong in an analysis KPI or metrics cell.
+                 Gates: tests/unit/dataNoteMarking.spec.tsx (D-061's rule, rule 12: noteMarksFigure
+                 against the shared notes fixture's marked_letters; the whole report rendered on its
+                 record_only_and_mixed_marking case, where every letter drawn, named, in a tooltip, the
+                 narrative fold, the data notes' summary or a PNG footer is a marked one, and every note
+                 keeps its entry); tests/unit/data-note-mark.spec.tsx (the one type in the note ink, no
+                 dagger, nothing for an unmarked note, 2px before the mark, the spacer with no declared
+                 width, the two raises and large asked for only at the two 24px figures);
                  tests/e2e/analysis-layout.spec.ts “analysis phone marks” (390px, both themes, the
-                 legacy and edge states, the edge fixture planting “$92.2M” and “-$922M”, each with † and
-                 a two-letter note, its column's whole nine-glyph budget: every mark on its figure's line
-                 and inside its cell, 2px after the figure's end, a change line's letter 2px after its
-                 change, 2px between † and a letter, the figure face computed);
-                 tests/unit/metrics-table.spec.tsx (the gutter one mark and its gap, every period column
-                 its widest line, at the default and a doubled text size);
-                 tests/unit/figureSurfaceInks.spec.ts (the marks' tiers).
+                 discrepancy and edge states, the edge fixture planting “$922.0M” and “-$92.2M”, each
+                 with a two-letter note, its column's whole nine-glyph budget: every mark on its figure's
+                 line and inside its cell, 2px after the figure's end, a change line's letter 2px after
+                 its change, no dagger in any figure control, a mark under an underlined control an
+                 inline-block: a flex row blockifies its children, and an underline reaches every flex
+                 item); tests/unit/metrics-table.spec.tsx (the gutter one mark and its gap, every period
+                 column its widest line, at the default and a doubled text size);
+                 tests/unit/figureSurfaceInks.spec.ts (the mark's tier on the sheet, the panel and the
+                 page).
 
 Data table hover <DataTable> — ordinary rows use hover:bg-white dark:hover:bg-white/[0.03].
                  With stickyFirstColumn, first-column body cells stay opaque: light hover uses
@@ -666,8 +669,8 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
                  hand, a hidden dash with no words, or a span pair of one's own.
                  On the metrics table's figure sheet the dash takes the note ink (text-note-light
-                 dark:text-note-dark: Lc 75.4 / -80.3 on the sheet) on the figure edge, its note letter
-                 in the mark gutter (Analysis table). Zero is a value ($0.00), never the token. n/m (not
+                 dark:text-note-dark: Lc 75.4 / -80.3 on the sheet) on the figure edge, with an empty
+                 mark gutter: a gap's note marks nothing (Analysis table, D-061). Zero is a value ($0.00), never the token. n/m (not
                  meaningful) is no missing value either: it stays visible, aria-hidden beside sr-only
                  “not meaningful” (GrowthText). Gates:
                  tests/unit/missingValueToken.spec.ts (the token renders nowhere but the element: JSX
@@ -710,9 +713,10 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  width, justified right (never nowrap or truncate), so a column's figures and change
                  lines end on one figure edge, the cell's right less the mark gutter. The value is
                  12px/500 in the figure ink (Lc 102.5 / -94.8 on the sheet), the change 12px/400 with
-                 its sign in its direction's data ink (Delta text), the marks 11px in their own ink
-                 (Data note mark), all in the figure face (§3) at zero tracking. An unavailable value is
-                 MissingValue's dash in the note ink on the figure edge, its letter in the gutter; zero
+                 its sign in its direction's data ink (Delta text), a note letter 11px in the note ink
+                 where the note questions the number (Data note mark), all in the figure face (§3) at
+                 zero tracking. An unavailable value is MissingValue's dash in the note ink on the figure
+                 edge, with an empty gutter beside it; zero
                  is a value ($0.00), never the dash. A missing or zero prior gives no change (the
                  dataset's _growth returns None), so the cell shows its value alone with no change line;
                  n/m marks only a change whose sign flips through zero, a current and a prior of
@@ -784,11 +788,10 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  SegmentedControl and its “Showing N of M” status line) is retired, reversing the 10
                  October 2026 decision (#1202, refined in #1273): from 1280 to 1920px every period fits
                  with no scroll, and on a 390px phone both showed three whole periods, so the window
-                 only hid data. Charts, KPI cards, data-note totals, the locators and full exports read
-                 the same whole dataset. The caption counts the run (“Metrics by period, 10 years: value
-                 and change versus prior year. …”), and so does the named scroll region while the table
-                 overflows (“Metrics by period, scrollable table of 10 years”, or quarters); a data
-                 note's locator counts the whole table (“The table shows N.”). A new report or snapshot
+                 only hid data. Charts, KPI cards, data-note totals and full exports read the same whole
+                 dataset. The caption counts the run (“Metrics by period, 10 years: value and change
+                 versus prior year. …”), and so does the named scroll region while the table overflows
+                 (“Metrics by period, scrollable table of 10 years”, or quarters). A new report or snapshot
                  remounts the table's scroller (keyed on the report's identity); the same report keeps
                  its scroll position.
                  Headers show quarter/year on two lines with the complete quarter/year accessible name.
@@ -797,15 +800,29 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  A one-year run has no final column, nor the legend's or the caption's sentence on it:
                  a CAGR and a window change need two years. The caption counts the run (“Metrics by
                  period, 1 year: …”).
-                 The table's Notes chip lists only letters present in its cells, including
-                 unavailable values and annual window comparisons, in report note order.
+                 The table's Notes chip lists only the marked letters present in its cells, annual
+                 window comparisons included, in report note order (DataNotesLink takes the marked
+                 notes from what it is given); a table with none has no chip.
                  The change basis is stated once, while
                  a fallback YoY label sits on its own line above the complete change and note.
                  Data cells align at the top so missing values and mixed growth heights stay aligned. Only a period-derived Q4
-                 receives a column dagger; ordinary arithmetic ratios do not create one.
+                 receives a column dagger; ordinary arithmetic ratios do not create one. The dagger
+                 survives only as this period mark, in the header and the period picker's “Q4 2023 †”:
+                 a figure carries none (D-061).
                  The legend explains n/m and the fiscal-quarter basis. A Q4 header dagger applies
                  to flow figures calculated from annual totals less nine months, without labelling
                  the column's balance-sheet figures as calculated.
+                 The sentence above the table names the calculated metrics in place of a dagger on each
+                 figure (reportPresentation calculatedMetricsSentence, from the chart engine's
+                 fullyCalculated): every series whose values in the run are all calculated, as the
+                 dataset labels it, its first letter lowercased unless it opens an abbreviation, and a
+                 ratio with its article. Two or more margins read as “margins” when every margin of the
+                 run is calculated (a reported gross margin keeps them named one by one): “Figures are
+                 rounded for display; margins, free cash flow, working capital and the current ratio are
+                 calculated from filed figures. Select any value for its source and full precision.” With none,
+                 “Figures are rounded for display. Select any value for its source and full precision.”
+                 A row calculated in only some periods is not named; its controls say “calculated”.
+                 The table's glyph budget reserves room for a marked letter only (tableTokenBudget).
                  Table-only formatting keeps complete amounts and affixes together: normal precision
                  first, then fewer decimals, compact scale or scientific notation for large tokens.
                  Signs and percent/ratio units remain. USD keeps its dollar symbol; other currency
@@ -842,24 +859,63 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  “As stored”, the arithmetic line, each input's value and the comparison display, so a
                  minus draws as it does in the cell while the text stays U+002D; each keeps its size's
                  tracking. An accession number and a raw tag keep font-data, since their hyphens are not
-                 minus signs. The display figure's marks take the large staircase after 2px, the dagger
-                 0.55em and the letter 0.85em (DataNoteMark large; Data note mark). Gate:
+                 minus signs. The display figure's letter takes the large raise, 0.85em after 2px
+                 (DataNoteMark large; Data note mark). The Checks status names a note's letter only for a
+                 note that questions the number, and only that note's status takes warning ink; a
+                 record-only figure still reads “Needs review”, never a passed check. Gate:
                  tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx).
 
 Analysis reflow  The page title and selected-company rows wrap. Narrative cards use p-4 sm:p-cap-6;
                  export/refresh Buttons use size="sm" wrap and max-w-full. The shared wrap state
                  keeps min-h-8 and lets labels grow within the card without conflicting utilities.
 
+Analysis results <ResultsHeader>, AnalysisPageClient's results column and AnalysisTeaser's preview (MPA WP4b;
+                 coherence §4.4). Four levels: the ground (`background`) holds the page title, the results header and
+                 the disclaimer; the control level is the company and period form, <Card elevation="none"> (Card /
+                 panel, §6); the content level is one card per module (each KPI tile, each chart, the commentary,
+                 the metrics table), panel, hairline and shadow-e2 in light; overlays are the evidence Modal and the
+                 popovers.
+                 The results are one <section aria-labelledby> named by the header, a p and not a heading, so each
+                 module's heading stays an h2 under the page h1 (§5) and no level is renumbered. The header is one
+                 line on the ground, no box, text-sm in the secondary ink: the company's display name
+                 (formatCompanyName) at 600 in the primary ink, its ticker in the data face (tnum font-data, as the
+                 form's company row sets it), the mode and the run's range (ANALYSIS_MODE_LABEL with
+                 formatAnalysisPeriod of period_key, the chart PNG header's range: “Quarterly Q3 2023–Q2 2026”),
+                 then “data as of {MMMM d, yyyy}”, the day the data notes print (useSourceDate: the UTC day on the
+                 server and while hydrating, the reader's day after), or “source refresh time unavailable”. Every
+                 clause is read from the dataset on screen, never from the picker. The clauses join with “ · ”; each
+                 is an inline-block that carries its separator on a no-break space, so a phone breaks between
+                 clauses, never inside one unless it alone is wider than the line (Regeneron's name at 320px under
+                 200% text), and no line starts with “·”. Spacing: the header sits 12px over the KPI strip (gap-3),
+                 the two one block; the modules stand 16px apart below sm and 24px from sm (gap-4 sm:gap-6), in the
+                 Free teaser's preview too; the data notes stay 8px under the table (Data notes strip); a module's
+                 inset keeps its token (p-cap-5, p-4 sm:p-cap-6, the KPI tiles' p-3 sm:p-4); the chart grid keeps
+                 gap-4 between its cards, one module. Only the page renders the header: the Free teaser's caption
+                 and the landing demo's title bar name their sample, which has no live date to print.
+                 The header carries `data-launcher-keep-clear`, as the KPI strip does (Stacking): the launcher steps
+                 aside from the run's name as from its figures (tests/e2e/feedback-launcher-keep-clear.spec.ts).
+                 Gates: tests/unit/analysis-results-header.spec.tsx (the clauses and their separators, the
+                 region's name and its h2s, the control card's classes, Card's elevations, no header on the sample
+                 surfaces, the Free teaser's module gaps), tests/unit/analysis-source-date.spec.tsx (the source day on both surfaces) and
+                 tests/e2e/analysis-layout.spec.ts "analysis results header" (both themes, at 320, 390, 768 and
+                 1480px and under 200% text at 320 and 390px: 12px over the strip, the module gaps, every clause
+                 whole where the line holds it, no line opening on “·”, no sideways scroll, the control card's
+                 hairline with no box-shadow and a KPI card's lift in light).
+
 Analysis reading <NarrativePane> — compact monetary amounts and period labels in prose (a quarter as
                  Q2 2026, a window as one range), without changing link destinations, code or source
                  excerpts. Preserve enough precision
                  to keep a stated comparison meaningful. Up to three recognized source operands
                  remain inline with their original citation controls; longer lists fold beneath a
-                 neutral summary that names every applicable note letter. Unrecognized content
+                 neutral summary that names every marked note letter (D-061). Unrecognized content
                  remains visible. Printing opens Data notes and narrative evidence, then restores
                  the reader's disclosure choices. Source entries retain the exact supplied value
-                 beside compact display and distinctly named filing links. A quiet source count
-                 and Notes control replace repeated status labels.
+                 beside compact display and distinctly named filing links: a calculated source reads
+                 “calculated from filed figures”, “calculated before we kept its inputs” (keyed on
+                 legacy_calculation, never on an empty input list) or “calculated figure”. A quiet
+                 source count and Notes control replace repeated status labels; the Sources badge's title
+                 reads “Sources identify filed and calculated figures.” A citation chip carries a letter,
+                 and names one, only for a marked note.
 
 Analysis periods <PeriodPicker> — shared SegmentedControl for Annual/Quarterly; unavailable modes
                  opt into focusable aria-disabled with visible described reasons. Other callers keep
@@ -898,33 +954,57 @@ Analysis KPI     <KpiStrip> — a definition list, two cards across at phone wid
                  The label and the period take the secondary ink (Lc 90.9 / -77.3 on the panel; tertiary
                  is 74.1 in light, under the labels' 75). The change line is 12px in the figure face at
                  zero tracking with dataDirectionText (Delta text), its n/m read as “not meaningful”
-                 (GrowthText), and its mark takes the default raise after 2px, a letter 0.5em, where the
-                 value's marks take the large staircase (SourceValue largeMarks; Data note mark). The
+                 (GrowthText), and its letter takes the default raise after 2px, 0.5em, where the value's
+                 letter takes the large raise, 0.85em (SourceValue largeMarks; Data note mark); either
+                 shows only for a note that questions the number, so most cards carry none. The
                  value keeps the dotted underline the table's figures do not carry. Gates:
                  tests/unit/kpi-strip.spec.tsx (the figure face and zero tracking on the value and the
                  change line, n/m), tests/unit/data-note-mark.spec.tsx (the raises) and
                  tests/unit/figureSurfaceInks.spec.ts (the KPI pairs).
 
-Data notes strip <DataNotes> — hairlines above and below a native details disclosure on the page
-                 ground, below the KPIs. The title uses primary ink; counts use the data face, with
-                 review counts in warning ink and every count beside its relevant note letters. When all
-                 populated figures passed, “No figures need review” and a neutral checked count (in the strip's own ink: sage never colours a number, D-030) remain
-                 independent of concerns on comparisons. Unknown validation,
-                 unavailable and calculated counts remain separate. Expanded notes use two columns:
-                 the letter, then its reason, affected metric/periods and distinct comparison counts.
-                 Per-basis locators count actual latest-available headline membership, the revenue
-                 or net-interest-income numeric YoY chart, and the table's QoQ-else-YoY fallback or
-                 annual window column. Headline and locator membership share one selection helper.
-                 The table's clause counts the whole table (“The table shows N.”); a repeated
-                 appearance never adds to a distinct report total. Annual window comparisons retain
-                 their recorded range. Dataset-free citation supplements and sample notes make no
-                 report-surface claims.
-                 Existing Sources & methods prose, source date and snapshot reference stay inside.
-                 A sample (the teaser's and the landing's saved run) reads “sample data (one saved run)”,
-                 as NarrativePane's sample labels do, and shows no snapshot reference: a saved run's
+Data notes strip <DataNotes> — the data notes are fine print, no longer a strip (D-061): one native details
+                 disclosure 8px under the metrics table's card, on the page ground, on the analysis page,
+                 the teaser and the landing demo (each pairs the table and its notes in a flex column
+                 with gap-2). No hairlines, no warning ink: 12px running copy in the secondary ink
+                 (text-xs leading-relaxed; Lc 86.7 / -80.3 on the page), the title “Data notes” in the
+                 primary ink at 500, the summary with py-1 for its touch target. Closed, the summary is
+                 one line on a desktop, in this order: “Data notes”; for a sample, “ · sample data (one
+                 saved run)”, first, as NarrativePane's sample labels say it (D-046); then, for each note
+                 that marks a figure (noteMarksFigure), in letter order, “ · ” and its letter as
+                 DataNoteMark draws it (an sr-only “Note a: ” before it), its places (the metrics with
+                 their periods, “Revenue Q2 2026; Net margin Q2 2026”, or for a note only on growth
+                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and the
+                 first clause of its message (up to the first “: ” or “. ”; a mixed note passes over the
+                 record-only sentence it may open with); then “ · N not in our data, shown as a dash”, never
+                 the dash itself in copy; “ · N figures with no check recorded” and, kept apart, “ · N
+                 growth figures with no check recorded”; “ · N calculated from filed figures”; and, for a
+                 live report whose every populated figure passed, “ · No figures need review · N checked”
+                 in the ink (sage never colours a number, D-030), independent of concerns on comparisons
+                 (decision 9) and never while a record-only note exists, one on a growth figure included.
+                 A record-only note (legacy_calculation) appears only in the open detail.
+                 Open, the detail lists every note, marked ones first, each an li with its stable id
+                 (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
+                 only for a note that marks a figure, the track kept for alignment), then its message,
+                 its metrics and periods, its counts in the data face (figures, then QoQ, YoY and annual
+                 window comparisons, distinct and never added to by a repeated appearance) and
+                 “Comparisons: …” with their periods; an annual window keeps its recorded range. No note
+                 says where on the page it appears: the comparison locators are gone. One legend follows:
+                 “Select any figure to see its source filing, method and inputs. Automated checks confirm
+                 that reported figures come from the company’s filed data (XBRL); they are not an audit
+                 of the company’s accounts.” Then the nested Sources & methods prose, the source date and
+                 the snapshot reference, inside. A sample shows no snapshot reference: a saved run's
                  snapshot resolves nowhere a reader can check. Its source date stays.
-                 Note chips reveal and focus the same stable note ID. Citation-only supplemental
-                 notes remain in the narrative and do not increase the report's figure counts.
+                 A Notes chip opens the disclosure and focuses the same stable note id (openDataNote),
+                 below the table as above it. Citation-only supplemental notes remain in the narrative
+                 (“Data notes for these sources”, the same list and order) and do not increase the
+                 report's figure counts. Printing opens every disclosure in its print scope and restores
+                 the reader's choices (usePrintDetails).
+                 Gates: tests/unit/analysis-source-quality.spec.tsx and narrative-pane.spec.tsx (the
+                 summary's words, the counts, the condition on “No figures need review”, the chips),
+                 tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
+                 marked letters), tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
+                 the chip opening the note, and “analysis data notes placement”: 8px under the table card
+                 at 390 and 1480px, one line closed at 1480px).
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
                  FY2026 and all API/snapshot/selection keys retain their original identity. A
                  window prints one way, through formatAnalysisWindow: one unspaced range, FY2016–FY2025
@@ -1612,6 +1692,37 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  inset from its vh cap) and is pinned in the gate with its reason — the pin list is
                  shrink-only — while a transient confirmation is a sonner toast and a second bottom bar is a
                  documented ladder change, not a z-50.
+                 The feedback launcher never rests over a headline figure (N17: after Run on a 390px phone it sat
+                 over the KPI strip, and "$14.3B" read "4.3B"). It steps aside without moving: while its box, 8px
+                 around (lib/launcherKeepClear, LAUNCHER_KEEP_CLEAR_GAP), meets a region the page marks
+                 `data-launcher-keep-clear` (KpiStrip's root, and ResultsHeader, the line that names the run over
+                 it: at 390x844 a run made after a 60px scroll lands the header, not the strip, under the launcher,
+                 which rested opaque over "Quarterly" and "data as of"; MPA WP4b), it takes `opacity-0
+                 pointer-events-none`, so a tap there reaches the figure or the header's text. A region inside an
+                 `inert` or `aria-hidden="true"` subtree does not count:
+                 PeekLocked's preview (the Free analysis teaser's strip) is both, blurred under its overlay, with
+                 nothing a tap could reach; the landing's AnalysisDemo is neither, its figures readable, so the
+                 launcher steps aside there too. `focus-visible:opacity-100 focus-visible:pointer-events-auto` bring
+                 it back on keyboard focus (a Tab, the focus an Escape close returns, any key press); the focus Modal
+                 returns after a pointer close (Send, the close button, a scrim tap) does not match, so the launcher
+                 never comes back opaque and tappable over the figures as the reader scrolls on, where a tap on a
+                 covered figure would toggle its dialog. It keeps its name in the accessibility tree, and it never
+                 yields while its own dialog is open. It checks once a frame at most (the requestAnimationFrame
+                 throttle the heading rail also uses, Analysis table), on a passive scroll, a resize,
+                 CONSENT_LAYER_EVENT and a ResizeObserver on <body> (results mount after Run with no scroll); its
+                 fade takes duration-fast, and under reduced motion it has no transition at all. It stays one fixed
+                 site at z-30 on BOTTOM_CHROME_OFFSET, so the ladder and its gate do not change. An offset cannot do
+                 this for content that scrolls: one that cleared the strip after Run put the launcher over Run, and
+                 one that followed the strip climbed the screen. Gates:
+                 tests/unit/feedback-launcher-keep-clear.spec.tsx (the 8px rule, the inert and aria-hidden skip, the
+                 classes with the motion tokens, the triggers, the queued check cancelled on unmount, never while
+                 open) and tests/e2e/feedback-launcher-keep-clear.spec.ts (390x844, both themes: the computed
+                 transition, none under reduced motion; each headline figure the launcher's box covers takes the
+                 pointer there, and a tap on the first opens its evidence; the launcher shows with the strip clear of
+                 it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a figure,
+                 and a bare key press (Shift) brings it back, as does the focus an Escape close returns; at rest after
+                 Run it follows the same rule, a header mounted under it included; the header's last line at the
+                 launcher's foot, the strip more than 8px below, steps it aside, the header's text taking the pointer).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
@@ -1636,7 +1747,9 @@ Metric cards     <FinancialMetricsTable> below md (768px): one stacked card per 
                  `verticalAlign="top"`), each change glyph sits left of a figure box as wide as the column's
                  longest change in `ch`, so the glyphs share an edge, and the takeaway column is inset
                  (`pl-8`). `periods` names the figure columns ("FY2025" over "ended Sep 27, 2025"), `changeNote`
-                 marks Change with a dagger the footer explains, and `caption` names the table and the list.
+                 marks Change with a dagger the footer explains (a column mark, as the analysis table's Q4
+                 header is; the analysis figures carry none, D-061, so the two surfaces differ on purpose),
+                 and `caption` names the table and the list.
                  `layoutBy="container"` moves the switch from the md viewport to the component's own width of
                  52rem (a container query in rem on a `[container-type:inline-size]` wrapper), for a caller whose
                  column stays narrow on a desktop screen: the landing's evidence row, whose content column is
@@ -2131,6 +2244,13 @@ that no longer exists, fails too.
 `shadow-e*`; **brighten** on hover (`hover:bg-white`), never darken. In dark, separation is fill
 contrast + hairline with `shadow-none`. `brand-weak` is an accent/hover/tint color only.
 
+**The control level** (MPA WP4b, coherence §4.4): an input area is not content, so it does not lift
+over the results it controls. The analysis page's company and period form is `<Card elevation="none">`:
+the same lighter fill and hairline with no shadow, still apart from the cream by fill and hairline,
+never a tint. The content cards below it on the page keep `shadow-e2` in light. Gates:
+`tests/unit/analysis-results-header.spec.tsx` (the classes) and `tests/e2e/analysis-layout.spec.ts`
+"analysis results header" (the computed hairline and no box-shadow, in both themes).
+
 ## 7. Marketing surfaces
 
 Flat **solid** surfaces — no decorative gradients anywhere; the only glow is the theme-aware hero
@@ -2386,9 +2506,9 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
   `text-gain-data dark:text-gain-data-dark` (#166534 / #B6E4CE: light moves from green-700 to green-800,
   dark matches the loss ink's lightness and chroma),
   down `text-loss-data dark:text-loss-data-dark` (#B91C1C / #FECDD3), flat
-  `text-text-secondary-light dark:text-note-dark`, read by MetricsTable and KpiStrip alone; a review
-  letter there is `text-warning-light dark:text-warning-data-dark` (#FCD34D). Each change ink holds APCA
-  |Lc| ≥ 75 on the sheet and the panel, a review letter ≥ 60 (§4 Delta text). Every other delta keeps
+  `text-text-secondary-light dark:text-note-dark`, read by MetricsTable and KpiStrip alone; a note
+  letter there is the note ink, never a status ink (D-061). Each change ink holds APCA |Lc| ≥ 75 on the
+  sheet and the panel, a note letter ≥ 60 (§4 Delta text). Every other delta keeps
   `directionText` and the 700 level. Gate: `tests/unit/figureSurfaceInks.spec.ts`.
 - **A figure sheet inside a Card.** The metrics table's figures sit on `well` (#FCFCFD / #0B1120) inside
   the panel Card, framed by a `rule` outline (DataTable `surface="well"`, §4 Analysis table); its heading
@@ -2405,32 +2525,35 @@ fallback, a "Section linked" jump and an XBRL fact never register the device's h
 
 **Financial source states (October 2026).** Consume the server’s separate `provenance.method`
 and `provenance.validation`; a calculated figure is not an error. Multi-period analysis uses
-neutral `† calculated` marks and lettered data notes with `SourceValue` buttons opening the shared
-Modal with source links, formulas, operands and the applicable note. The report-level disclosure
+lettered data notes with `SourceValue` buttons opening the shared Modal with source links, formulas,
+operands and the applicable note; a calculated figure carries no dagger, and only a note that
+questions the number marks its figure (`noteMarksFigure`, D-061). The report-level disclosure
 groups concerns by reason and counts figures separately from inherited comparisons. Chart and
-narrative Notes controls open the same note; filing fundamentals and peers retain their own
-source-check presentation. Warning ink identifies an unresolved concern, never routine arithmetic.
-Legacy concerns remain until their stored validation changes; missing metadata makes no passed-check
-claim. Do not remove inherited concerns from growth. Unavailable table values use — with a note
-letter and read “Unavailable” in the evidence view, never zero or a claim that the company did not
-report them. Affected chart points use hollow series-colour markers with a 2px stroke and 11px note letters;
-affected bars keep their series fill. Note letters use the neutral chart label ink, a 3px panel-colour
-stroke and paint-order=stroke so growth letters remain legible over bars; those are SVG attributes
-retained in PNG export. Value and YoY concerns are independent. PNG notes use the same grouped
-reason sentences beneath the plot and list each recorded gap once. The plot is a named keyboard
-region only while overflowing, measured by `useOverflowRegion` before paint and on resize.
-Inside it, Recharts retains one named chart-values keyboard stop: Left/Right reads each period's
-tooltip, including the YoY growth series that the quarterly metrics table's QoQ column does not
-replace. Each tooltip row names its applicable value or YoY note independently; clean rows carry
-no letter. Formatting follows the original data key before adding the note to the display name, so
-growth remains a percentage. Inner Left/Right keys reveal the selected mark without competing
-native pixel scrolling. Tooltips update without positional animation, wrap to the measured viewport
-width and stay within its horizontal bounds. Pointer inspection clears keyboard ownership even
-when the SVG remains focused, and does not scroll the chart. The next keyboard arrow releases
-the retained hover through the chart’s normal mouse-leave event and resumes its keyboard period.
-Outer arrow keys keep native scrolling. Tooltip changes use a live status; Tab leaves and Shift+Tab
-returns without a trap. The viewport carries the brand focus ring for either keyboard stop. Time-series lines do not join missing points. PNG notes wrap beneath the plot and retain
-source dates, material gaps and a concise disclosure. The PNG's plot paints the screen's Geist Mono:
+narrative Notes controls open the same note and name marked letters only; filing fundamentals and
+peers retain their own source-check presentation. No mark takes warning ink. Legacy concerns remain
+until their stored validation changes, unmarked but listed in the data notes and read in the dialog;
+missing metadata makes no passed-check claim. Do not remove inherited concerns from growth.
+Unavailable table values use — with an empty gutter and read “Unavailable” in the evidence view,
+never zero or a claim that the company did not report them. The analysis trend charts draw no note
+inside a plot: an observation whose note questions the number puts its letter in the notes band under
+its period (`markedNote`; the renderer below), in the chart's note ink, and the footnote line under the
+plot names its series, periods and reason. A gap's line names its periods in words with no letter, and
+a calculated value carries no glyph, its periods named in a footnote line. Value and YoY concerns are
+independent: a tooltip row names its own marked value or YoY note, and a clean row, or one whose note
+marks nothing, carries no letter. The plot is a named keyboard region only while overflowing, measured
+by `useOverflowRegion` before paint and on resize, and its values stop (below) reads each period, the
+YoY growth the quarterly metrics table's QoQ column does not replace included; Tab leaves and Shift+Tab
+returns without a trap, and the viewport carries the brand focus ring for either keyboard stop.
+Time-series lines do not join missing points. The card's footnotes are the PNG's notes, which wrap
+beneath the plot and retain source dates, material gaps and a concise disclosure. The PNG's header names the company, then the ticker, chart
+and period range ("REGN · Margins · FY2016–FY2025", the range from `exportSourceText` through `periodLabels.ts`);
+a subtitle wider than the strip (the image less its 16 px pads) takes the range's short form ("Q3 ’24–Q4 ’25", as
+the spec renderer's card subtitle prints it) where that fits, and otherwise
+the range takes a line of its own in the same size and ink (an annual range has no shorter form: "JPM · Net interest
+income & growth" / "FY2016–FY2025" on a phone); only a line that still does not fit is condensed. The file
+declares 144 dpi in a pHYs chunk, so a document prints its 2× raster at 1 CSS px a point instead of guessing (gates: `tests/unit/chart-export.spec.ts`; the fidelity e2e below reads the downloaded
+file's chunk).
+The PNG's plot paints the screen's Geist Mono:
 the export carries the page's faces into the isolated SVG image, and when it cannot embed a face the
 plot needs it stops with an error toast rather than paint a fallback (gate, in Chromium:
 `tests/e2e/chart-export-fidelity.spec.ts`, at most 0.1% of plot pixels unlike the screen; Safari and
@@ -2459,21 +2582,20 @@ category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `y
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
-one line (a no-break space, where Recharts would wrap "CHF 20B") and the axis as wide as its widest
-label as Recharts sets it; a tooltip prints each value in its own axis's format. Cash generation has
-one axis, and the balance sheet keeps equity's right axis until the engine's renderer draws it as its
-own panel. A percent axis holds every value, since Recharts cannot print a clipped one at the plot
-edge (gates: `tests/unit/trend-charts-axes.spec.tsx`; e2e `analysis-layout.spec.ts`, "analysis chart
-axes", which reads either renderer, and the export gate's Swiss-franc case). The engine's formats round as the
-metrics table rounds, half away from zero on the decimal, for these tooltips and axes as for the spec renderer below;
-the spec's M15 (`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
+one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
+percent axis clips an extreme value and prints its true value at the plot edge (spec A3b; gates:
+`chart-engine.spec.ts`, "a clipped bar is an off-scale value", and `chart-readout.spec.ts`, "an off-scale value prints
+its true value"). Tick labels stay inside their axis on one line, and no chart scrolls at a desktop card's width (e2e
+`analysis-layout.spec.ts`, "analysis chart axes", its Swiss-franc cases included). The engine's
+formats round as the metrics table rounds, half away from zero on the decimal; the spec's M15
+(`tests/unit/chart-table-agreement.spec.ts`) holds every value the renderer prints to the table's cell.
 
-**The analysis trend charts' spec renderer** (`NEXT_PUBLIC_CHARTS_V2`, off in production until F66;
-`docs/design/analysis-trend-charts-spec-2026-10.md`) replaces Recharts on those four charts only. It paints the
+**The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
+since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
 both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review`
 pairs and the text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary`,
-`text-secondary` and `warning` (the gridline's is new), so no production chart takes the new dark values before F66.
+`text-secondary` and `warning` (the gridline's is new), so no other chart takes their dark halves until E195's token fold.
 The raw-colour lint rule exempts that file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config and
 keeps the pairs' own hexes out of every other mirror, `tests/unit/chart-theme.spec.ts` holds each field to the spec's
 table and its own token and keeps the pairs out of every class, and `tests/unit/chart-apca.spec.ts` holds each ink to
@@ -2482,16 +2604,15 @@ the column wash. The card's subtitle, legend and footnotes take the same inks in
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
 latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with
-the text `0†₹₪₱`, since with no text the Font Loading API takes the latin face alone, so † never swaps on a plot (G3)
-and no route preloads latin-ext (spec §0.5). Past the wait a plot paints in the loader's monospace fallback (§8),
+the text `0₹₪₱`, since with no text the Font Loading API takes the latin face alone, so no sign a plot prints swaps on
+it (G3) and no route preloads latin-ext (spec §0.5). No plot prints † (D-061, E194). Past the wait a plot paints in the loader's monospace fallback (§8),
 whose glyphs share one advance as the plan's widths assume. Every chart keeps its 320 px card,
 and one that does not apply says why in it; a grid row's cards share its rows (subgrid: header, plot, notes), so its
 plots start at one height whatever its legends wrap to. While its font loads a plot holds bones from its own plan,
 gridlines and bars, and its card is `aria-busy`, and while the renderer's chunk loads the grid holds four cards of bones
 under one `role="status"` (`TrendChartBones.tsx`); the export is `<Button loading>` while its PNG is drawn, and a
 toggle runs the plot's row to its new height (`duration-base`, `ease-standard`, none under reduced motion; E200). Its
-keyboard contract (E193) keeps the shape of the one
-above, on the engine's slots, with these differences. The values stop is a slider over the periods, a transparent
+keyboard contract (E193), on the engine's slots: the values stop is a slider over the periods, a transparent
 layer over the viewport after it in the Tab order, ringing the viewport whatever the scroll, whose value text is the
 period's readout (`lib/charts/readout.ts`): the period and its end date, then each series' value at 4
 significant figures or 1 dp, its state, "calculated" and its data note, in words a screen reader says, with no ·, —,
@@ -2507,8 +2628,8 @@ is hoverable; a tap pins it until a second tap or a press outside, and a swipe p
 tooltip first, wherever focus is when a pointer raised it, then collapses an expanded card and returns focus to its
 toggle. Gates: `tests/unit/trend-charts-v2.spec.tsx`, `tests/unit/chart-readout.spec.ts`,
 `tests/e2e/charts-v2.spec.ts`, `tests/e2e/charts-v2-gallery.spec.ts` (the spec's DOM checks on twelve datasets, both
-themes, 1280 and 390 px), `tests/e2e/analysis-layout.spec.ts` on the renderer and CI's `e2e-charts-v2` job, a
-required check on `main`.
+themes, 1280 and 390 px) and `tests/e2e/analysis-layout.spec.ts`. CI's required `e2e-tests` job runs all three
+unconditionally after E195 retires the separate chart job and its flag guards (F67).
 
 **Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
 some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.

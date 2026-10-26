@@ -1,16 +1,17 @@
 """Admin bulk summary maintenance: the FK-safe reset-all and the in-place refresh of stale rows.
 
 Called by ``routers/admin.py`` (POST /api/admin/summaries/reset-all and /summaries/refresh-stale).
-The router keeps the admin gate, the batch clamp, the reset-all audit row and log, and the response
-shape. Generation goes through the ONE orchestrator (``generate_summary_background``); this module
-never generates on its own.
+The router keeps the admin gate, the batch clamp and its time budget, the reset-all audit row and log,
+and the response shape. Generation goes through the ONE orchestrator (``generate_summary_background``);
+this module never generates on its own.
 """
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Optional, TypeVar
+from typing import NamedTuple, Optional, TypeVar
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -179,6 +180,17 @@ def _record_refresh(db: Session, *, user_id: int, user_email: Optional[str], det
     )
 
 
+class RefreshOutcomes(NamedTuple):
+    """A stale refresh's filing ids by outcome: regenerated to the current stamps, kept by the keep-better
+    gate (still stale), failed (a raise or a terminal error event), and deferred (not started: the time
+    budget had passed)."""
+
+    updated: list[int]
+    kept_by_gate: list[int]
+    failed: list[int]
+    deferred: list[int]
+
+
 async def regenerate_in_place(
     candidate_filing_ids: list[int],
     *,
@@ -187,9 +199,13 @@ async def regenerate_in_place(
     filing_type: Optional[str],
     schema_version_lt: Optional[int],
     stale_total: int,
-) -> tuple[list[int], list[int], list[int]]:
+    start_by: float,
+    clock: Callable[[], float] = time.monotonic,
+) -> RefreshOutcomes:
     """Regenerate each candidate in place, sequentially, through the ONE orchestrator, then write the
-    audit row. Returns (updated, kept_by_gate, failed) filing ids.
+    audit row. It starts no generation once ``clock()`` has passed ``start_by``, the end of the route's
+    time budget, and defers the rest, as the job-side drain does past its ``max_seconds``
+    (``summary_refresh.drain_stale``).
 
     It takes no session, so none is held while a generation runs (E171): the generation runs in the
     pipeline's own sessions, and each stamp re-read and the audit row in a short session of its own,
@@ -202,8 +218,13 @@ async def regenerate_in_place(
     updated: list[int] = []
     kept_by_gate: list[int] = []
     failed: list[int] = []
+    deferred: list[int] = []
 
-    for fid in candidate_filing_ids:
+    for index, fid in enumerate(candidate_filing_ids):
+        if clock() > start_by:
+            deferred = candidate_filing_ids[index:]
+            logger.info("refresh-stale: time budget reached after %d attempts; %d deferred", index, len(deferred))
+            break
         try:
             outcome = await generate_summary_background(fid, None, force_regenerate=True)
         except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
@@ -233,6 +254,7 @@ async def regenerate_in_place(
             "updated_count": len(updated),
             "kept_by_gate_count": len(kept_by_gate),
             "failed_count": len(failed),
+            "deferred_count": len(deferred),
         },
     )
-    return updated, kept_by_gate, failed
+    return RefreshOutcomes(updated, kept_by_gate, failed, deferred)

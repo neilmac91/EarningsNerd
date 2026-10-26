@@ -1,10 +1,10 @@
 /**
  * The trend charts' tokens, chart scope (docs/design/analysis-trend-charts-spec-2026-10.md §3.8). Every value is a
  * literal hex or rgba string, so no var(--…) reaches an SVG attribute and serialising the SVG for the PNG export
- * cannot lose a colour. Only the spec renderer behind CHARTS_V2 reads these. They mirror Tailwind's `chart.s1…s6`,
+ * cannot lose a colour. Only the spec renderer reads these. They mirror Tailwind's `chart.s1…s6`,
  * `chart.tick`, `chart.value`, `chart.gridline` and `chart.review` pairs and the text and surface tokens (step 6,
- * E194); today's Recharts charts keep components/ui/Chart.tsx's chartTheme, so the new dark tokens reach no production
- * chart while the flag is off. designTokenParity holds every hex here to a token and keeps the pairs' own hexes out of
+ * E194); the Recharts charts elsewhere (Fundamentals, Peers) keep components/ui/Chart.tsx's chartTheme, so the new dark
+ * tokens reach no other chart until E195's token fold. designTokenParity holds every hex here to a token and keeps the pairs' own hexes out of
  * every other mirror, tests/unit/chart-theme.spec.ts holds each field to the spec's table and its own token and keeps
  * the pairs out of every class, and tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
  */
@@ -15,18 +15,18 @@ export interface ChartTokens {
   grid: string
   /** The zero tick's gridline, every panel, 1 px. */
   zero: string
-  /** Tick and x labels, captions, neutral band glyphs, "—", "n/m", "Notes", strip names, the off-scale edge rule,
+  /** Tick and x labels, captions, "—", "n/m", "Notes", strip names, the off-scale edge rule,
    *  the absent series' swatch. */
   tick: string
   /** Bar labels, near-zero labels, off-scale values, strip cells. */
   value: string
-  /** Review-kind band letters. */
+  /** Review-kind band letters until E194: since D-061 no chart text takes it, and E195's token fold retires it. */
   review: string
   /** chart-1…6, taken in order over the series present (A8). */
   series: readonly [string, string, string, string, string, string]
   /** The hover and focus column wash (TrendChartPlot, E193). */
   cursor: string
-  /** The card's HTML text: subtitle and footnotes, legend names, legend values. */
+  /** The card's HTML text (subtitle and footnotes), the notes band's letters and the tooltip's. */
   note: string
   name: string
   figure: string

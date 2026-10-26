@@ -118,11 +118,19 @@ const group = (text: string) => {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '')
 }
 
+/** The currency signs past ASCII that Geist Mono draws: £ ¥ ¢ € ¤ in the latin face and ₪ ₱ ₴ ₹ ₽ in latin-ext, read by
+ *  hand from the faces' cmaps in a 2026-10-25 production build. It has no ₩ or ₫ in any subset. next/font fetches the
+ *  faces at build, so E203 holds a gate against the built files' cmaps. */
+export const DATA_FACE_SIGNS = '£¥¢€¤₪₱₴₹₽'
+
 /** The symbol an amount carries: the currency's own, a code-like symbol ("CHF") followed by a space, or
- *  nothing when the unit is no currency code. */
+ *  nothing when the unit is no currency code. A symbol with any glyph past ASCII that the data face does not draw
+ *  prints the code instead, so no plot paints a glyph in the fallback face (G2; E203): KRW's ₩, VND's ₫ and the
+ *  narrow no-break space inside XOF's "F CFA" ("KRW 120,000T", "XOF 2B"). */
 export function moneyPrefix(currency: string | null): string {
   const symbol = currencySymbol(currency)
   if (!symbol) return ''
+  if ([...symbol].some((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))) return `${currency} `
   return /^[A-Z]{2,}$/.test(symbol) ? `${symbol} ` : symbol
 }
 
@@ -171,7 +179,7 @@ export function moneyFormat(values: number[], step: number, ticks: number[], cur
 
 /** A1 and A2 over the values given: an axis's domain, ticks and formats. The engine's own percent panels clip their
  *  outliers first (A3); a renderer that cannot print a clipped value at the plot edge (A3b) passes every value, so
- *  nothing is hidden. Today's Recharts charts do. */
+ *  nothing is hidden. The Recharts trend charts before E195 did. */
 export function valueAxis(values: number[], cap: number, kind: AxisFormat['kind'], currency: string | null = null): NiceAxis & { format: AxisFormat } {
   const axis = niceAxis(values, cap)
   return { ...axis, format: kind === 'money' ? moneyFormat(values, axis.step, axis.ticks, currency) : percentFormat(axis.step, kind === 'growth') }

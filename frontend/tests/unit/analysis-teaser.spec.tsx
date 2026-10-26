@@ -1,19 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 
-// recharts measures the DOM, which jsdom can't do — stub it (same as fundamentals-trend-chart).
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-}))
 // react-markdown is ESM-heavy; the teaser only needs the text to land in the DOM.
 vi.mock('react-markdown', () => ({
   default: ({ children }: { children: string }) => <div>{children}</div>,
@@ -75,5 +62,15 @@ describe('AnalysisTeaser (free-user lock)', () => {
     expect(container.querySelector('[data-analysis-metrics] caption')?.textContent).toMatch(/^Metrics by period, 7 years: /)
     expect(container.querySelectorAll('[data-analysis-metrics] thead th')).toHaveLength(9)
     expect(container.querySelector('[role="group"][aria-label="Table window"]')).toBeNull()
+  })
+
+  it.each([['teaser', AnalysisTeaser], ['landing demo', AnalysisDemo]] as const)('sets the %s data notes as the table\'s fine print, directly under its card', (_, Component) => {
+    const { container } = render(<Component />)
+    // As on the analysis page (analysis-layout.spec.ts, "analysis data notes placement"): the data notes follow the
+    // metrics table card, the pair a column 8px apart (gap-2).
+    const table = container.querySelector('[data-analysis-metrics]')!
+    const notes = container.querySelector('[data-analysis-data-notes]')!
+    expect(table.nextElementSibling).toBe(notes)
+    expect(table.parentElement).toHaveClass('flex', 'flex-col', 'gap-2')
   })
 })

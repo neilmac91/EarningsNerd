@@ -64,7 +64,10 @@ class FinancialFact(Base):
             "accession",
             name="uq_financial_fact_identity",
         ),
-        # Filing-scoped annual figures include the filing's restated (non-latest) facts too.
+        # No read selects a filing's rows by filing_id any more: filing_id names the writer that stored
+        # a row, and a filing's figures are the rows at its company and accession (facts/filing_scope.py;
+        # gate: tests/unit/test_filing_facts_read_by_accession.py). The index stays until a migration
+        # in backend/migrations/ drops it.
         Index(
             "ix_financial_fact_filing_period_concept_end",
             "filing_id",

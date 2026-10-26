@@ -42,7 +42,7 @@ resolve step names the operation, an apply stops unless the run records an appro
 (what that step does is run in `test_workflow_dispatch_inputs.py`). A re-run of an apply fails in its
 own job rather than reading green. The operations job keeps no environment, so its OIDC subject is
 unchanged, and the `ops` concurrency group is its own, so a wait for approval holds up no other
-dispatch.
+dispatch; the two read operations a session may dispatch take a group of their own run (F51).
 
 `inputs[...]` and `outputs[...]` index syntax, which these checks would not see, is refused.
 """
@@ -351,7 +351,8 @@ def test_every_apply_operation_waits_for_the_founders_approval():
     environment, with no token and nothing that could turn a rejection into a pass (no
     `continue-on-error`, no concurrency group). The operations job needs it, runs an -apply only once
     it has passed and only in the run's first attempt, runs every other operation when it is skipped,
-    carries no environment of its own and holds the `ops` concurrency group alone. Its approval check
+    carries no environment of its own and holds the `ops` concurrency group alone, beside each read's own
+    run group (test_ops_readback_allow_rules.py). Its approval check
     runs for every apply after the resolve step and before the cloud sign-in, and the refuse-rerun job
     fails a later attempt of an apply, with no token, no action and no environment."""
     approve, ops, rerun = OPS["jobs"]["approve-apply"], OPS["jobs"]["ops"], OPS["jobs"]["refuse-rerun"]
@@ -367,7 +368,13 @@ def test_every_apply_operation_waits_for_the_founders_approval():
         "${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.approve-apply.result == 'skipped' "
         f"&& !contains('{listed}', inputs.operation)) || (needs.approve-apply.result == 'success' "
         "&& github.run_attempt == '1')) }}")
-    assert "concurrency" not in OPS and ops["concurrency"] == {"group": "ops", "cancel-in-progress": "false"}
+    assert "concurrency" not in OPS and set(ops["concurrency"]) == {"group", "cancel-in-progress"}
+    assert ops["concurrency"]["cancel-in-progress"] == "false"
+    group = ops["concurrency"]["group"]
+    own = re.findall(r"inputs\.operation == '([^']+)'", group)  # every operation but these shares `ops`
+    assert set(own) == {"describe-service", "logs-probe"} and not set(own) & applies
+    assert group == ("${{ (" + " || ".join(f"inputs.operation == '{op}'" for op in own)
+                     + ") && format('ops-read-{0}', github.run_id) || 'ops' }}")
     # approve-apply passes at once while the environment requires no reviewer, so an apply also stops
     # unless the run records an approval. The check reads the resolved operation, so it comes after the
     # step that writes it (before, the operation reads '', which contains() finds in any list), and

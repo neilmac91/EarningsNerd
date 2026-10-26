@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -37,6 +37,7 @@ import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
 import NarrativePane, { type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, optionsFor, type PeriodRange } from './PeriodPicker'
+import ResultsHeader from './ResultsHeader'
 import TrendCharts from './TrendCharts'
 import DataNotes from './DataNotes'
 import { DataNotesProvider } from './DataNotesContext'
@@ -103,6 +104,7 @@ export default function AnalysisPageClient() {
   const [narrative, setNarrative] = useState<NarrativeState>({ status: 'idle', text: '' })
   const abortRef = useRef<AbortController | null>(null)
   const companyHeadingRef = useRef<HTMLDivElement>(null)
+  const resultsHeaderId = useId()
   const rangeOwnerRef = useRef<{ ticker: string | null; mode: AnalysisMode } | null>(null)
   const queryClient = useQueryClient()
 
@@ -342,7 +344,9 @@ export default function AnalysisPageClient() {
         </p>
       </header>
 
-      <Card className="p-cap-5 [@container(max-width:13em)]:px-1.5">
+      {/* The control level (coherence §4.4): an input area is not content, so the form is a panel and a hairline with
+          no lift, under the results' cards rather than over them. */}
+      <Card elevation="none" className="p-cap-5 [@container(max-width:13em)]:px-1.5" data-analysis-controls>
         <div className="mb-1 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
           Company
         </div>
@@ -452,9 +456,13 @@ export default function AnalysisPageClient() {
 
       {isPro && dataset && (
         <DataNotesProvider dataset={dataset}>
-          <div className="flex flex-col gap-4">
-            <KpiStrip dataset={dataset} />
-            <DataNotes dataset={dataset} />
+          {/* The run's results, named by their header (coherence §4.4): content modules 16px apart on a phone and 24px
+              from sm; the header sits 12px over the KPI strip, so the two read as one block. */}
+          <section aria-labelledby={resultsHeaderId} className="flex flex-col gap-4 sm:gap-6" data-analysis-results>
+            <div className="flex flex-col gap-3">
+              <ResultsHeader id={resultsHeaderId} dataset={dataset} />
+              <KpiStrip dataset={dataset} />
+            </div>
             <TrendCharts dataset={dataset} exportEnabled />
             <NarrativePane
               state={narrative}
@@ -462,8 +470,12 @@ export default function AnalysisPageClient() {
               refreshDisabled={narrative.status === 'streaming'}
               onExport={exportPdf}
             />
-            <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
-          </div>
+            {/* The data notes are the table's fine print (D-061), 8px under its card, not a module's gap away. */}
+            <div className="flex flex-col gap-2">
+              <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
+              <DataNotes dataset={dataset} />
+            </div>
+          </section>
         </DataNotesProvider>
       )}
 

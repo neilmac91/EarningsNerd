@@ -129,9 +129,7 @@ module.exports = {
 
         // ---- UI state ---- (light values sized for the warm cream surface, not white)
         success: { light: '#15803D', dark: '#22C55E' }, // was #16A34A — 3.3:1 as text; green-700 holds 4.5:1 on cream
-        // data-dark: a review letter on the analysis figure surfaces, APCA Lc -81.8 on the dark well, -78.8 on panel
-        // (amber-500 is -59.9 / -56.9 at 11px); light keeps amber-800 (Lc 82.2 on the light well).
-        warning: { light: '#92400E', dark: '#F59E0B', 'data-dark': '#FCD34D' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
+        warning: { light: '#92400E', dark: '#F59E0B' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
         error: { light: '#B91C1C', dark: '#F87171', emphasis: '#991B1B' }, // was #DC2626 (white label = 4.4:1); red-700 fill = 6.5:1, emphasis = destructive hover, 8.3:1
         // info.text (blue-700): the in-tint LABEL ink — #2563EB inside its own 10% tint
         // is 4.3:1 on cream (icon/graphic only there); #1D4ED8 holds 5.6:1 in-tint, 6.0:1 bare.
@@ -168,8 +166,8 @@ module.exports = {
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
           // ---- The trend charts' spec renderer (docs/design/analysis-trend-charts-spec-2026-10.md §3.8) ----
-          // Behind NEXT_PUBLIC_CHARTS_V2 until the founder's F66 decision; features/analysis/lib/charts/theme.ts
-          // mirrors them, and no class names them yet. Light/dark pairs of their own, not dark siblings of
+          // The analysis trend charts' own pairs (in production since E195) until the token fold names them;
+          // features/analysis/lib/charts/theme.ts mirrors them, and no class names them yet. Light/dark pairs of their own, not dark siblings of
           // chart-1…6 or new chart.label/grid values: those would repaint the landing page's RevenueBars
           // and today's charts (Chart.tsx). APCA Lc on the card (panel): tests/unit/chart-apca.spec.ts.
           s1: { light: '#3E8E84', dark: '#62B2A6' }, // = chart-1 · dark Lc −49.7 (chart-1 is −32.0 on the dark card)

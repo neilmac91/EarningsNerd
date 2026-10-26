@@ -381,15 +381,9 @@
         ["Operating", "−258.7%", 1, "line", "square", false],
         ["Net", "−199.3%", 2, "line", "triangle", false]
       ],
-      "notes": [
-        ["FY2021", "a", "neutral", 202.8],
-        ["FY2022", "a", "neutral", 267.5],
-        ["FY2023", "a", "neutral", 332.2],
-        ["FY2024", "a", "neutral", 396.9],
-        ["FY2025", "a", "neutral", 461.6]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Gross margin FY2021–FY2025: Not available in this dataset."],
+        ["", "Gross margin FY2021–FY2025: Not available in this dataset."],
         ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."],
         ["↓↑", "Values beyond the axis range are printed in the band at the plot edge."]
       ],
@@ -515,15 +509,9 @@
         ["Operating", "−258.7%", 1, "line", "square", false],
         ["Net", "−199.3%", 2, "line", "triangle", false]
       ],
-      "notes": [
-        ["FY2021", "a", "neutral", 399.7],
-        ["FY2022", "a", "neutral", 538],
-        ["FY2023", "a", "neutral", 676.3],
-        ["FY2024", "a", "neutral", 814.6],
-        ["FY2025", "a", "neutral", 952.9]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Gross margin FY2021–FY2025: Not available in this dataset."],
+        ["", "Gross margin FY2021–FY2025: Not available in this dataset."],
         ["", "Gross, Operating and Net margin are calculated by EarningsNerd from reported figures."],
         ["↓↑", "Values beyond the axis range are printed in the band at the plot edge."]
       ],
@@ -578,11 +566,11 @@
     "readout": [
       ["FY2019 · year ended Dec 31, 2019", "Gross: 14.5% · Calculated", "Operating: −5,619% (off scale) · Calculated", "Net: −6,043% (off scale) · Calculated", "FY2019, year ended December 31, 2019. Gross margin: 14.5%, calculated. Operating margin: minus 5,619%, off scale, calculated. Net margin: minus 6,043%, off scale, calculated."],
       ["FY2020 · year ended Dec 31, 2020", "Gross: 22.8% · Calculated", "Operating: −15,071% (off scale) · Calculated", "Net: −18,093% (off scale) · Calculated", "FY2020, year ended December 31, 2020. Gross margin: 22.8%, calculated. Operating margin: minus 15,071%, off scale, calculated. Net margin: minus 18,093%, off scale, calculated."],
-      ["FY2021 · year ended Dec 31, 2021", "Gross: Unavailable (a)", "Operating: −5,645% (off scale) · Calculated", "Net: −9,516% (off scale) · Calculated", "FY2021, year ended December 31, 2021. Gross margin: unavailable, data note a. Operating margin: minus 5,645%, off scale, calculated. Net margin: minus 9,516%, off scale, calculated."],
-      ["FY2022 · year ended Dec 31, 2022", "Gross: Unavailable (a)", "Operating: −426.5% · Calculated", "Net: −214.5% · Calculated", "FY2022, year ended December 31, 2022. Gross margin: unavailable, data note a. Operating margin: minus 426.5%, calculated. Net margin: minus 214.5%, calculated."],
-      ["FY2023 · year ended Dec 31, 2023", "Gross: Unavailable (a)", "Operating: −520.7% · Calculated", "Net: −475.1% · Calculated", "FY2023, year ended December 31, 2023. Gross margin: unavailable, data note a. Operating margin: minus 520.7%, calculated. Net margin: minus 475.1%, calculated."],
-      ["FY2024 · year ended Dec 31, 2024", "Gross: Unavailable (a)", "Operating: −373.9% · Calculated", "Net: −336.0% · Calculated", "FY2024, year ended December 31, 2024. Gross margin: unavailable, data note a. Operating margin: minus 373.9%, calculated. Net margin: minus 336.0%, calculated."],
-      ["FY2025 · year ended Dec 31, 2025", "Gross: Unavailable (a)", "Operating: −258.7% · Calculated", "Net: −199.3% · Calculated", "FY2025, year ended December 31, 2025. Gross margin: unavailable, data note a. Operating margin: minus 258.7%, calculated. Net margin: minus 199.3%, calculated."]
+      ["FY2021 · year ended Dec 31, 2021", "Gross: Unavailable", "Operating: −5,645% (off scale) · Calculated", "Net: −9,516% (off scale) · Calculated", "FY2021, year ended December 31, 2021. Gross margin: unavailable. Operating margin: minus 5,645%, off scale, calculated. Net margin: minus 9,516%, off scale, calculated."],
+      ["FY2022 · year ended Dec 31, 2022", "Gross: Unavailable", "Operating: −426.5% · Calculated", "Net: −214.5% · Calculated", "FY2022, year ended December 31, 2022. Gross margin: unavailable. Operating margin: minus 426.5%, calculated. Net margin: minus 214.5%, calculated."],
+      ["FY2023 · year ended Dec 31, 2023", "Gross: Unavailable", "Operating: −520.7% · Calculated", "Net: −475.1% · Calculated", "FY2023, year ended December 31, 2023. Gross margin: unavailable. Operating margin: minus 520.7%, calculated. Net margin: minus 475.1%, calculated."],
+      ["FY2024 · year ended Dec 31, 2024", "Gross: Unavailable", "Operating: −373.9% · Calculated", "Net: −336.0% · Calculated", "FY2024, year ended December 31, 2024. Gross margin: unavailable. Operating margin: minus 373.9%, calculated. Net margin: minus 336.0%, calculated."],
+      ["FY2025 · year ended Dec 31, 2025", "Gross: Unavailable", "Operating: −258.7% · Calculated", "Net: −199.3% · Calculated", "FY2025, year ended December 31, 2025. Gross margin: unavailable. Operating margin: minus 258.7%, calculated. Net margin: minus 199.3%, calculated."]
     ]
   },
   "cash": {
@@ -999,11 +987,9 @@
         ["Cash", "$1.00B", 1, "line", "square", false],
         ["Equity", "$0.72B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2019", "a", "neutral", 68.7]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2019: Not available in this dataset."]
+        ["", "Long-term debt FY2019: Not available in this dataset."]
       ],
       "strip": []
     },
@@ -1137,11 +1123,9 @@
         ["Cash", "$1.00B", 1, "line", "square", false],
         ["Equity", "$0.72B", 2, "bar", null, false]
       ],
-      "notes": [
-        ["FY2019", "a", "neutral", 123.1]
-      ],
+      "notes": [],
       "footnotes": [
-        ["a", "Long-term debt FY2019: Not available in this dataset."]
+        ["", "Long-term debt FY2019: Not available in this dataset."]
       ],
       "strip": [
         [
@@ -1192,7 +1176,7 @@
       ]
     },
     "readout": [
-      ["FY2019 · year ended Dec 31, 2019", "Long-term debt: Unavailable (a)", "Cash: $351.7M", "Equity: −$621.1M", "FY2019, year ended December 31, 2019. Long-term debt: unavailable, data note a. Cash: $351.7 million. Equity: minus $621.1 million."],
+      ["FY2019 · year ended Dec 31, 2019", "Long-term debt: Unavailable", "Cash: $351.7M", "Equity: −$621.1M", "FY2019, year ended December 31, 2019. Long-term debt: unavailable. Cash: $351.7 million. Equity: minus $621.1 million."],
       ["FY2020 · year ended Dec 31, 2020", "Long-term debt: $0", "Cash: $614.4M", "Equity: −$1.319B", "FY2020, year ended December 31, 2020. Long-term debt: $0. Cash: $614.4 million. Equity: minus $1.319 billion."],
       ["FY2021 · year ended Dec 31, 2021", "Long-term debt: $1.987B", "Cash: $6.263B", "Equity: $3.909B", "FY2021, year ended December 31, 2021. Long-term debt: $1.987 billion. Cash: $6.263 billion. Equity: $3.909 billion."],
       ["FY2022 · year ended Dec 31, 2022", "Long-term debt: $1.992B", "Cash: $1.736B", "Equity: $4.350B", "FY2022, year ended December 31, 2022. Long-term debt: $1.992 billion. Cash: $1.736 billion. Equity: $4.350 billion."],

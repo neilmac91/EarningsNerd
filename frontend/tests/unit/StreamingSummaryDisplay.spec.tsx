@@ -261,9 +261,9 @@ describe('StreamingSummaryDisplay paywall routing', () => {
   })
 })
 
-// The pipeline's sentences keep their em-dashes until the next functional change to summary_stages (F35,
-// D-046, E92); the card shows the mapped sentence (features/summaries/lib/streamErrorCopy.ts), and the raw one
-// still routes it.
+// The pipeline's sentences took the product's words with E217's functional change to summary_stages (F35, D-046,
+// E92); the card still maps the stream endpoint's own answers and the two sentences the matchers route on
+// (features/summaries/lib/streamErrorCopy.ts), and the raw sentence still routes it.
 describe('StreamingSummaryDisplay failure reason', () => {
   it('shows a backend sentence in the product voice', async () => {
     render(
@@ -271,14 +271,14 @@ describe('StreamingSummaryDisplay failure reason', () => {
         streamingText=""
         stage="error"
         message=""
-        error={'Unable to retrieve this filing at the moment \u2014 please try again shortly.'}
+        error="Filing not found"
         filing={filing}
       />,
     )
     await act(async () => {})
     expect(screen.getByRole('heading', { name: 'Generation interrupted' })).toBeInTheDocument()
-    expect(screen.getByText('We could not generate this summary. Try again shortly.')).toBeInTheDocument()
-    expect(screen.queryByText(/\u2014/)).toBeNull()
+    expect(screen.getByText('This filing could not be found.')).toBeInTheDocument()
+    expect(screen.queryByText('Filing not found')).toBeNull()
   })
 
   // Pro's fair-use pause holds until the month turns, so a Retry could only repeat the blocked request: the card

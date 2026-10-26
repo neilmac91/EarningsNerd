@@ -120,7 +120,7 @@ const SOURCE_COLORS = { ...flatten(config.theme.extend.colors), white: tailwindC
 /** Source colors left out on purpose; DESIGN.md › Colors states why. */
 const OMITTED_COLORS = [
   ...['grid', 'axis', 'label', 'crosshair', 'ref', 'tip'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
-  // The trend charts' spec renderer, behind NEXT_PUBLIC_CHARTS_V2 until the founder's F66 decision (E195 documents them).
+  // The trend charts' spec renderer's own pairs, out of the snapshot until E195's token fold documents them.
   ...['s1', 's2', 's3', 's4', 's5', 's6', 'tick', 'value', 'gridline', 'review'].flatMap((k) => [`chart-${k}-light`, `chart-${k}-dark`]),
 ]
 /** Source aliases: the snapshot records only the token each one equals. */

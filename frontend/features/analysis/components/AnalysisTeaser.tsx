@@ -36,15 +36,20 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
       </p>
       <PeekLocked feature="Multi-Period Analysis" preview="screen">
         <DataNotesProvider dataset={demoDataset}>
-          <div className="flex flex-col gap-4">
+          {/* The page's module gaps, 16px on a phone and 24px from sm. The caption above names the sample, so the
+              preview takes no results header: it would repeat the caption, blurred, and a sample has no live date. */}
+          <div className="flex flex-col gap-4 sm:gap-6">
             <KpiStrip dataset={demoDataset} />
-            <DataNotes dataset={demoDataset} sample />
             <TrendCharts dataset={demoDataset} />
             <NarrativePane
               state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
               sample
             />
-            <MetricsTable dataset={demoDataset} />
+            {/* The table's fine print sits 8px under it, as on the page. */}
+            <div className="flex flex-col gap-2">
+              <MetricsTable dataset={demoDataset} />
+              <DataNotes dataset={demoDataset} sample />
+            </div>
           </div>
         </DataNotesProvider>
       </PeekLocked>

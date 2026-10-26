@@ -90,10 +90,12 @@ export function decodeDataNoteList(value: unknown): DataNote[] {
 
 function decodeEnvelope(value: unknown): DataNotesWire {
   const raw = record(value, 'data_notes')
-  if (raw.version !== 1) invalid('unsupported version')
+  // Version 2 changes only the server's copy and letter order, so both decode alike; a tab opened before the server
+  // moves keeps reading version 1.
+  if (raw.version !== 1 && raw.version !== 2) invalid('unsupported version')
   const totals = record(raw.totals, 'totals')
   return {
-    version: 1, notes: decodeDataNoteList(raw.notes),
+    version: raw.version, notes: decodeDataNoteList(raw.notes),
     totals: Object.fromEntries(totalFields.map((field) => [field, count(totals[field], `totals.${field}`)])) as unknown as DataNotesTotals,
   }
 }

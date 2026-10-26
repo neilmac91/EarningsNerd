@@ -6,7 +6,7 @@ import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/t
 /**
  * features/analysis/lib/charts/theme.ts is a colour mirror the raw-colour lint rule exempts, like components/ui/Chart.tsx.
  * Its dark tokens are new (spec §3.8, owner decision 3) and live in Tailwind as the spec renderer's own pairs
- * (`chart.s1…s6`, `chart.tick`, `chart.gridline`, `chart.review`; E194), so no production chart takes them before F66.
+ * (`chart.s1…s6`, `chart.tick`, `chart.gridline`, `chart.review`; E194), so no other chart takes them before the token fold.
  * designTokenParity holds every hex the file holds to a token; this spec holds each field to the spec's table and to its
  * own named token in both themes, which a hex found anywhere in the config cannot. tests/unit/chart-apca.spec.ts holds
  * each to its contrast floor.
@@ -77,7 +77,7 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
     }
   })
 
-  it('the inks: tick and the card’s subtitle in chart.tick, printed values in chart.value, review letters in chart.review', () => {
+  it('the inks: tick and the card’s subtitle in chart.tick, printed values in chart.value, and chart.review, which paints nothing since E194 (D-061)', () => {
     expect(both((tokens) => tokens.tick)).toEqual(pair(colors.chart.tick))
     expect(both((tokens) => tokens.note)).toEqual(pair(colors.chart.tick))
     expect(colors.chart.tick.light, 'the light tick ink is the tertiary text ink').toBe(colors.text.tertiary.light)
@@ -97,9 +97,9 @@ describe('every token is a named Tailwind token, both themes (E194)', () => {
   })
 })
 
-describe('the renderer’s pairs reach no class before F66 (E195 folds them into chart-1…6 and lifts this)', () => {
-  // A class would ship the new dark values on a production surface, past the founder's decision; themePairs would only
-  // ask for its dark twin, which these pairs already have.
+describe('the renderer’s pairs reach no class until the token fold (E195’s follow-up folds them into chart-1…6 and lifts this)', () => {
+  // A class would ship the renderer's dark values on a surface outside /analysis, which F66's preview did not show;
+  // themePairs would only ask for its dark twin, which these pairs already have.
   const SCAN = ['app', 'components', 'features', 'hooks', 'lib']
   const READ = /\.(?:[cm]?[jt]sx?|css)$/
   const CLASS = /\b(?:bg|text|border(?:-[xytblrse])?|ring(?:-offset)?|fill|stroke|from|via|to|divide|outline|decoration|accent|caret|placeholder|shadow)-chart-(?:s[1-6]|tick|value|gridline|review)-(?:light|dark)\b/g

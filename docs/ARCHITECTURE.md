@@ -24,7 +24,8 @@ reference is [`docs/CONFIGURATION.md`](./CONFIGURATION.md).
 ```
 
 - **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind/shadcn, React Query for
-  server state, Recharts for financial charts, PostHog + Sentry. Auth is an **HttpOnly
+  server state, Recharts for the filing and peer charts and the chart engine's renderer (visx, E195) for the analysis
+  trend charts, PostHog + Sentry. Auth is an **HttpOnly
   cookie** set by the backend — the token is never readable by client JS.
 - **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0 ORM (no raw SQL), async I/O throughout.
 - **AI:** an OpenAI-*compatible* client pointed at **DeepSeek**; default model
@@ -171,7 +172,7 @@ frontend/
 | Service | Purpose |
 |---|---|
 | `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
-| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) |
+| `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) + the progress row: a run's write (`record_progress`, one upsert) and the progress poll's answer (`progress_poll_answer`, whose stale mark is one conditional UPDATE) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
 | `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
@@ -391,6 +392,30 @@ unused since generation became account-required in #619; kept because migrations
   current companyfacts rows when their filing chronology cannot be established; the bulk writer
   uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
+- A filing's own figures (the filing page's annual chart, `facts/filing_scope.py`) are the FY rows
+  at its company and accession, current or not, never the rows keyed by `filing_id`. Both writers
+  skip a stored identity, so a companyfacts row stored first at the filing's identity (the winner
+  for a period the filing reported last, or a year's own-report row) holds that cell with no filing
+  owner: `filing_id` says which writer stored a row, not which filing reported it. Once the
+  per-filing writer has run (`processed_facts_at`), such a row stands in for the filing's: a
+  reported item, or a calculation with recorded operands, every one of which the same accession
+  reported (a companyfacts calculation takes revenue's accession, so its numerator can be a later
+  filing's; a legacy calculation with no operands never does); a row withheld as `unavailable`, such
+  as one the audited repair retired, never does. A stand-in shows only in the filing's currency: in
+  a line the filing owns rows of, in their units; in any other, in the currency its own rows rank
+  first by the per-filing extractor's rule (the most period ends, then a non-USD code), a ratio by
+  its recorded operands', since a sync can hold a line only in USD (an early sync read the USD lists
+  alone, a current one does for a filer that switched currency); with no own row in any currency,
+  the one the stand-ins rank first. And only in a line that reaches the filing's own period end
+  (`Filing.period_end_date`, the submissions index's period of report, within
+  `fiscal_naming.DRIFT_DAYS` days, counted in days, never calendar years; with none on record, none
+  shows): short of it, the rows left at the accession are only the cells the filing reported last,
+  such as an older report's oldest year or a 10-Q's prior year-end balance, which the sync labels
+  FY. A stand-in shows under the year counted in whole years, back or forward, from the latest
+  period end the filing's own rows name (`fiscal_naming.years_back`; with none, under its own
+  label), since a companyfacts row stored before the fiscal-year-window writer names its year by the
+  calendar year of its end. The Copilot reads the same scope (`copilot_tools._scope`) and shares the
+  operand test (`fact_provenance.operands_within_accession`).
 - Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
   A foreign list is read only when the USD list is its convenience translation (every USD
   period the collector keeps, by period end and span, is also kept from the foreign list; an
@@ -417,10 +442,10 @@ unused since generation became account-required in #619; kept because migrations
   a non-current row under the own report's accession, found within the winning tag only, the
   original preferred over an amendment, then the earliest filed. It is stored only where its
   identity is free, so it never demotes, promotes or replaces a row, and it never enters the
-  normalizer's `facts`, which the derivations read. Nothing reads these rows yet; the restatement
-  note will. Like every stored companyfacts row, one at a filing's own identity keeps the
-  per-filing writer from storing that filing's row there, since that writer skips any stored
-  identity, so the filing-scoped fundamentals (read by `filing_id`) lack that cell.
+  normalizer's `facts`, which the derivations read. The restatement note will read them. Like
+  every stored companyfacts row, one at a filing's own identity holds that cell, since the
+  per-filing writer skips any stored identity, and the filing's annual chart reads it there as a
+  stand-in under the conditions above.
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

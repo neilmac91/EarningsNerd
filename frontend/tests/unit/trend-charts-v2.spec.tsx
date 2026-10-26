@@ -1,43 +1,21 @@
 /* =============================================================================
-   trend-charts-v2.spec.tsx — the spec renderer (CHARTS_V2, E192) draws the engine's plan
+   trend-charts-v2.spec.tsx — the spec renderer (E192; the trend charts since E195) draws the engine's plan
    -----------------------------------------------------------------------------
    TrendChartSvg only paints what features/analysis/lib/charts plans, so these checks hold the DOM to the plan on every
    fixture dataset and chart, in both themes: the spec's DOM checks that need no layout engine (docs/design/analysis-
    trend-charts-spec-2026-10.md §6: D3 on the plan's geometry, D4, D5, D7, D11, D12, D14), every printed string by its
    role and ink (D6 on the plan; ./chartPlan.ts), and literal paint the PNG export can serialise. The
    card around it: the legend, footnotes, a chart that does not apply, the residual sentence, the export's header, the
-   dark tokens, the expanded view, and the flag switch in TrendCharts. Reading a chart (E193): the values stop, its keys
+   dark tokens, the expanded view, and TrendCharts loading the renderer. Reading a chart (E193): the values stop, its keys
    and edges, the tooltip and wash, Escape, the pointer and a tap, a new window, the sticky gutter and the subgrid. Text
    boxes, collisions, the font and computed colours (D1, D2, D3, D5, D6, D8 on real metrics) need a browser:
    tests/e2e/charts-v2-gallery.spec.ts, and the reading contract's geometry tests/e2e/charts-v2.spec.ts.
 ============================================================================= */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { renderToString } from 'react-dom/server'
 
-const flags = vi.hoisted(() => ({ v2: true }))
-vi.mock('@/lib/featureFlags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/featureFlags')>()
-  return { ...actual, get CHARTS_V2() { return flags.v2 } }
-})
-// The Recharts grid is the flag-off branch only; jsdom cannot measure it (same stub as trend-charts-legend.spec.tsx).
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div data-recharts>{children}</div>,
-  ComposedChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Rectangle: () => null,
-  usePlotArea: () => null,
-  useXAxisScale: () => null,
-  useYAxisScale: () => null,
-}))
 vi.mock('@/features/analysis/lib/chartExport', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/features/analysis/lib/chartExport')>()
   return { ...actual, exportPanelPng: vi.fn().mockResolvedValue(true) }
@@ -53,7 +31,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import TrendChartsV2 from '@/features/analysis/components/TrendChartsV2'
 import { bonesPlan, CARD_BONES, TrendChartsSkeleton } from '@/features/analysis/components/TrendChartBones'
 import type { TextRole } from '@/features/analysis/components/TrendChartSvg'
-import { plannedByRole } from './chartPlan'
+import { plannedByRole, questioned, withMixedNotes } from './chartPlan'
 import { ThemeContext } from '@/components/ThemeProvider'
 import { exportPanelPng, parseUnicodeRange } from '@/features/analysis/lib/chartExport'
 import { ADVANCE, CARD_HEIGHT, gutterCover, gutterCuts, gutterOverlayWidth, layoutChart, noteGlyphs, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
@@ -61,21 +39,21 @@ import { buildChartModel, CHART_IDS, type ChartModel, type ChartView } from '@/f
 import { moneyPrefix } from '@/features/analysis/lib/charts/scale'
 import { CHART_TOKENS, type ChartTokens } from '@/features/analysis/lib/charts/theme'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
 import analytics from '@/lib/analytics'
 import { toast } from 'sonner'
 
-const FIXTURE = JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
+// The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
+const FIXTURE = withMixedNotes(JSON.parse(readFileSync('tests/unit/fixtures/chart-datasets.json', 'utf8')) as {
   datasets: Record<string, { case: string; dataset: AnalysisDataset }>
-}
+})
 const NAMES = Object.keys(FIXTURE.datasets)
 const dataset = (name: string) => structuredClone(FIXTURE.datasets[name].dataset)
 /** The width a card plans at before it is measured, and in jsdom, which lays nothing out (TrendChartCard). */
 const DEFAULT_WIDTH = 502
 
 afterEach(() => {
-  flags.v2 = true
   vi.mocked(exportPanelPng).mockClear().mockResolvedValue(true)
   vi.mocked(analytics.exportGenerated).mockClear()
   vi.mocked(toast.error).mockClear()
@@ -256,7 +234,33 @@ describe.each(NAMES)('%s: the renderer draws the plan', (name) => {
         const svg = card.querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!
         expect(svg.getAttribute('aria-label')).toBe(`${model.title} chart`)
         expectDrawsPlan(svg, model, layoutChart(model, DEFAULT_WIDTH, view), CHART_TOKENS[theme])
+        // The Notes chip names exactly the letters the band and the footnotes show (D-061), or is absent.
+        const lettered = model.footnotes.map((footnote) => footnote.mark).filter((mark) => /^[a-z]+$/.test(mark))
+        const chip = within(card).queryByRole('button', { name: /^Review data notes / })
+        expect(chip?.getAttribute('aria-label') ?? null, 'the chip and the footnotes name one set of letters').toBe(lettered.length ? `Review data notes ${lettered.join(', ')}` : null)
       })
+    })
+  }
+})
+
+describe('a note that questions the number: the band draws its letter in the note ink (D-061)', () => {
+  // No fixture as stored has such a note (REGNPN's are record-only), so the plan checks above draw no band letter.
+  for (const theme of ['light', 'dark'] as const) {
+    it(theme, () => {
+      const ds = questioned(dataset('REGNPN_annual'))
+      const { container } = render(
+        <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>
+          <TrendChartsV2 dataset={ds} />
+        </ThemeContext.Provider>
+      )
+      CHART_IDS.forEach((chart, i) => {
+        const model = buildChartModel(chart, ds, resolveDataNotes(ds))
+        if (model.unavailable) return
+        expectDrawsPlan(cards(container)[i].querySelector<SVGSVGElement>('[data-analysis-chart] > svg')!, model, layoutChart(model, DEFAULT_WIDTH, 'card'), CHART_TOKENS[theme])
+      })
+      const letters = [...container.querySelectorAll('[data-analysis-chart] > svg [data-text="note"]')]
+      expect(letters.length, 'the band draws letters').toBeGreaterThan(0)
+      expect(new Set(letters.map((letter) => letter.getAttribute('fill'))), 'no letter takes a status colour').toEqual(new Set([CHART_TOKENS[theme].note]))
     })
   }
 })
@@ -448,7 +452,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     const load = vi.fn(() => new Promise<FontFace[]>((resolve) => { loaded = () => resolve([]) }))
     withFonts({ check: () => false, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} exportEnabled />)
-    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('†'))
+    expect(load).toHaveBeenCalledWith('11px "Geist Mono"', expect.stringContaining('₹'))
     expect(plots(container)).toBe(0)
     const box = container.querySelector<HTMLElement>('[data-analysis-chart]')!
     expect(box.style.height).toBe('320px')
@@ -513,7 +517,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
 
   it('paints at once when the face is already loaded, latin-ext included', () => {
     const load = vi.fn()
-    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('†')), load })
+    withFonts({ check: (face: string, text?: string) => face === '11px "Geist Mono"' && Boolean(text?.includes('₹')), load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
     expect(plots(container)).toBe(CHART_IDS.length)
     expect(load).not.toHaveBeenCalled()
@@ -523,7 +527,7 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
   })
 
   it('waits for latin-ext while the latin face alone is in (G3)', () => {
-    // A check with no text asks for a space, so the latin face alone; with † it asks for latin-ext too.
+    // A check with no text asks for a space, so the latin face alone; with ₹ it asks for latin-ext too.
     const load = vi.fn(() => new Promise<FontFace[]>(() => {}))
     withFonts({ check: (_face: string, text?: string) => text === undefined, load })
     const { container } = render(<TrendChartsV2 dataset={dataset('AAPL_annual')} />)
@@ -539,10 +543,10 @@ describe('the plot waits for its font (G4), latin-ext included (G3)', () => {
     // The unicode-range next/font emits for Geist Mono's latin face, the one file app/fonts.ts preloads.
     const latin = parseUnicodeRange('U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD')
     const inLatin = (glyph: string) => latin.some(([start, end]) => glyph.codePointAt(0)! >= start && glyph.codePointAt(0)! <= end)
-    const notInGeistMono = new Set(['₩', '₫']) // in latin-ext's range, in no subset's file: they paint in the fallback (E203)
-    const printable = ['†', ...Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])]
+    // No plot prints † (D-061, E194), so the currency signs are all that reach past latin.
+    const printable = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
     expect([...text].some(inLatin), 'the sample names the latin face').toBe(true)
-    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !notInGeistMono.has(glyph) && !text.includes(glyph))).toEqual([])
+    expect([...new Set(printable)].filter((glyph) => !inLatin(glyph) && !text.includes(glyph))).toEqual([])
   })
 })
 
@@ -567,6 +571,8 @@ describe('the PNG export', () => {
     expect(options?.header).toMatchObject({
       ticker: ds.ticker,
       title: model.title,
+      period: 'FY2016–FY2025',
+      periodShort: 'FY2016–FY2025',
       legend: model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.light.series[item.color!] })),
       notes: [...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)), FCF_DEFINITION],
     })
@@ -590,6 +596,12 @@ describe('the PNG export', () => {
     // The secondary ink is chart.tick's on dark, the card's legend names' ink (§3.8), not the export's own.
     expect(options?.ink).toEqual({ primary: CHART_TOKENS.dark.figure, secondary: CHART_TOKENS.dark.name })
     expect(options?.header?.legend).toEqual(model.legend.filter((item) => item.color != null).map((item) => ({ label: item.label, color: CHART_TOKENS.dark.series[item.color!] })))
+  })
+
+  it('a quarterly card’s PNG names its range in the long form and the card’s own short one', async () => {
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_quarterly')} exportEnabled />)
+    await act(async () => fireEvent.click(within(cards(container)[CHART_IDS.indexOf('margins')]).getByRole('button', { name: 'Download chart as PNG' })))
+    expect(vi.mocked(exportPanelPng).mock.calls[0][2]?.header).toMatchObject({ period: 'Q3 2023–Q2 2026', periodShort: 'Q3 ’23–Q2 ’26' })
   })
 
   it('is busy while its PNG is drawn and refuses a second press, never natively disabled (§3.9 exporting; E200)', async () => {
@@ -620,24 +632,25 @@ describe('the PNG export', () => {
     expect(analytics.exportGenerated).not.toHaveBeenCalled()
     expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
   })
+
+  it('says so too when the export throws (a canvas the browser will not read back), and the control comes back', async () => {
+    vi.mocked(exportPanelPng).mockRejectedValueOnce(new DOMException('tainted', 'SecurityError'))
+    const { container } = render(<TrendChartsV2 dataset={dataset('REGN_annual')} exportEnabled />)
+    const button = within(cards(container)[CHART_IDS.indexOf('cash')]).getByRole('button', { name: 'Download chart as PNG' })
+    await act(async () => fireEvent.click(button))
+    expect(toast.error).toHaveBeenCalledWith('Could not create the chart image. Try again.')
+    expect(analytics.exportGenerated).not.toHaveBeenCalled()
+    expect(button, 'no longer busy').not.toHaveAttribute('aria-busy')
+    await act(async () => fireEvent.click(button))
+    expect(exportPanelPng, 'a second press exports again').toHaveBeenCalledTimes(2)
+  })
 })
 
-describe('the CHARTS_V2 switch in TrendCharts', () => {
-  it('production builds with the flag unset: no committed build config sets it (F66)', () => {
-    // vercel.json's env and build.env reach every deployment; next.config's env and a committed .env file are inlined
-    // into every build. A preview sets the flag in Vercel's Preview environment instead. The examples document it.
-    const tracked = execFileSync('git', ['ls-files', 'vercel.json', 'next.config.*', '.env*'], { encoding: 'utf8' }).split('\n').filter(Boolean)
-    expect(tracked).toContain('vercel.json')
-    expect(tracked.some((file) => file.startsWith('next.config.'))).toBe(true)
-    const setting = tracked.filter((file) => !file.endsWith('.example') && readFileSync(file, 'utf8').includes('NEXT_PUBLIC_CHARTS_V2'))
-    expect(setting).toEqual([])
-  })
-
-  it('on, the spec renderer draws every chart', async () => {
+describe('TrendCharts draws the spec renderer', () => {
+  it('draws every chart once its chunk loads', async () => {
     const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
     await waitFor(() => expect(container.querySelectorAll('svg[role="img"] g[data-panel]').length).toBeGreaterThan(0))
     expect(cards(container)).toHaveLength(CHART_IDS.length)
-    expect(container.querySelector('[data-recharts]')).toBeNull()
   })
 
   it('the grid holds four cards of bones while the renderer’s chunk loads (§3.9 loading; E200)', () => {
@@ -660,13 +673,6 @@ describe('the CHARTS_V2 switch in TrendCharts', () => {
     }
     // TrendChartBones keeps layout.ts out of the route's chunk, so its card plan names the height itself.
     expect(CARD_BONES.height).toBe(CARD_HEIGHT)
-  })
-
-  it('off, today’s Recharts grid draws and the spec renderer is not loaded', () => {
-    flags.v2 = false
-    const { container } = render(<TrendCharts dataset={dataset('AAPL_annual')} />)
-    expect(container.querySelector('[data-recharts]')).not.toBeNull()
-    expect(container.querySelector('g[data-panel]')).toBeNull()
   })
 })
 
@@ -802,18 +808,27 @@ describe('reading a chart a period at a time (E193; spec §3.9, §3.13; DESIGN_S
     expect(stop).toHaveAttribute('aria-valuenow', '0')
   })
 
-  it('a review note’s letter takes the review ink in the tooltip, as in the notes band; a calculated value says so', () => {
-    const ds = dataset('REGNPN_annual')
-    const { container } = render(<TrendChartsV2 dataset={ds} />)
-    const card = cards(container)[CHART_IDS.indexOf('cash')]
-    const stop = within(card).getByRole('slider')
-    tabTo(stop)
-    const row = [...card.querySelectorAll('[data-chart-tooltip] li')].find((item) => item.textContent?.startsWith('Free cash flow'))!
-    expect(row).toHaveTextContent('· Calculated (a)')
-    const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ' (a)')!
-    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.letter === 'a')!
-    expect(note.kind, 'REGNPN’s simulated flags are review notes').toBe('review')
-    expect(letter.style.color).toBe(css('color', CHART_TOKENS.light.review))
+  it('a note that questions the number gives the tooltip its letter in the note ink, as in the notes band (D-061); a calculated value says so', () => {
+    const fcfRow = (ds: AnalysisDataset) => {
+      const { container } = render(<TrendChartsV2 dataset={ds} />)
+      const card = cards(container)[CHART_IDS.indexOf('cash')]
+      tabTo(within(card).getByRole('slider'))
+      const row = [...card.querySelectorAll('[data-chart-tooltip] li')].find((item) => item.textContent?.startsWith('Free cash flow'))!
+      cleanup()
+      return row
+    }
+    // REGNPN's simulated flags are record-only (legacy_calculation): they question nothing, so no letter shows.
+    const recorded = dataset('REGNPN_annual')
+    expect(resolveDataNotes(recorded).notes.every((note) => !noteMarksFigure(note))).toBe(true)
+    expect(fcfRow(recorded).textContent).toMatch(/· Calculated$/)
+    // The same flags with a reason that questions the number letter it.
+    const ds = questioned(dataset('REGNPN_annual'))
+    const row = fcfRow(ds)
+    const note = resolveDataNotes(ds).notes.find((candidate) => candidate.reasons.includes('source_conflict'))!
+    expect(noteMarksFigure(note)).toBe(true)
+    expect(row).toHaveTextContent(`· Calculated (${note.letter})`)
+    const letter = [...row.querySelectorAll('span')].find((span) => span.textContent === ` (${note.letter})`)!
+    expect(letter.style.color, 'no letter takes a status colour').toBe(css('color', CHART_TOKENS.light.note))
   })
 
   it('Escape dismisses the tooltip first, then collapses an expanded card and returns focus to its toggle', () => {

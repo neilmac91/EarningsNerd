@@ -1,6 +1,6 @@
 'use client'
 /**
- * One trend chart's card under the spec renderer (CHARTS_V2; steps 4 and 5 of the migration, E192, E193): today's Card
+ * One trend chart's card under the spec renderer (steps 4 to 7 of the migration, E192, E193, E195): the app's Card
  * shell and controls around the chart engine's model and plan. The plan is laid out at the card's measured width, and
  * the expanded view at its own width, never a CSS scale (spec §3.10). A chart that does not apply keeps the card's
  * height and says why (§3.4). The card's HTML text takes the theme's chart inks (§3.8) inline, from the same source as
@@ -20,7 +20,7 @@ import analytics from '@/lib/analytics'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { chartDataNotes, exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
+import { exportFilename, exportPanelPng, exportSourceText } from '@/features/analysis/lib/chartExport'
 import { CARD_HEIGHT, layoutChart, VALUES_DONT_FIT } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, type ChartId } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
@@ -86,12 +86,12 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
   const view = expanded ? 'expanded' : 'card'
   const layout = useMemo(() => (model.unavailable ? null : layoutChart(model, width, view)), [model, width, view])
 
-  // The series this chart plots, for its data-notes link (the growth mark's key is its top line's, plus ":yoy").
-  const plotted = useMemo(() => {
-    const concepts = new Set(model.panels.flatMap((panel) => panel.marks.map((mark) => mark.seriesKey.split(':')[0])))
-    return dataset.series.filter((series) => concepts.has(series.concept))
-  }, [model, dataset])
-  const { panelNotes } = useMemo(() => chartDataNotes(dataset, plotted, notes, chart === 'topline'), [dataset, plotted, notes, chart])
+  // The Notes chip names the letters the band and the footnotes show, read from the model's footnotes, so the three
+  // never disagree: an n/m comparison's note letters here too.
+  const panelNotes = useMemo(() => {
+    const lettered = new Set(model.footnotes.map((footnote) => footnote.mark))
+    return notes.notes.filter((note) => lettered.has(note.letter))
+  }, [model, notes])
 
   const toggle = (next: boolean) => {
     fromHeight.current = rowRef.current?.getBoundingClientRect().height ?? null
@@ -125,7 +125,7 @@ export default function TrendChartCard({ chart, dataset, notes, exportEnabled, f
           ...exportSourceText(dataset),
           notes: [
             ...model.footnotes.map((footnote) => (footnote.mark ? `${footnote.mark}  ${footnote.text}` : footnote.text)),
-            ...(plotted.some((series) => series.concept === 'free_cash_flow') ? [FCF_DEFINITION] : []),
+            ...(model.panels.some((panel) => panel.marks.some((mark) => mark.seriesKey === 'free_cash_flow')) ? [FCF_DEFINITION] : []),
           ],
         },
       }

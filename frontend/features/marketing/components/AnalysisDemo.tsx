@@ -3,15 +3,13 @@ import MetricsTable from '@/features/analysis/components/MetricsTable'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import RevenueBars, { type RevenuePoint } from '@/features/marketing/components/RevenueBars'
-import { formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
+import { ANALYSIS_MODE_LABEL, formatAnalysisWindow } from '@/features/analysis/lib/periodLabels'
 import { SAMPLE_ANALYSIS_DATASET } from '@/features/marketing/lib/landing-samples'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 
-const MODE_LABEL = { annual: 'Annual', quarterly: 'Quarterly' } as const
-
 const { periods } = SAMPLE_ANALYSIS_DATASET
 const RANGE = formatAnalysisWindow(periods[0]?.key ?? '', periods[periods.length - 1]?.key ?? '')
-const TITLE = `${formatCompanyName(SAMPLE_ANALYSIS_DATASET.company_name)} · ${MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
+const TITLE = `${formatCompanyName(SAMPLE_ANALYSIS_DATASET.company_name)} · ${ANALYSIS_MODE_LABEL[SAMPLE_ANALYSIS_DATASET.mode]} · ${RANGE}`
 
 // The revenue series drives the one chart on the screen; a point with no value has no bar.
 const REVENUE_POINTS: RevenuePoint[] = (
@@ -20,10 +18,11 @@ const REVENUE_POINTS: RevenuePoint[] = (
 
 /**
  * The Multi-Period Analysis product screen for the landing page: the REAL KpiStrip and
- * MetricsTable fed the checked-in sample dataset, with a DOM-drawn revenue chart between them.
+ * MetricsTable fed the checked-in sample dataset, with a DOM-drawn revenue chart between them and
+ * the data notes as the table's fine print under it.
  * A server component: the dataset reaches the two client components through the RSC payload,
  * already narrowed to three series, instead of shipping the demo JSON module to the browser.
- * TrendCharts (recharts) is deliberately not rendered here: it would pull the charting library
+ * TrendCharts is deliberately not rendered here: it would pull the chart renderer
  * into the landing route's JS, which has a budget the marketing screens must respect.
  */
 export default function AnalysisDemo() {
@@ -42,9 +41,12 @@ export default function AnalysisDemo() {
           <div className="lg:[&>div>dl]:grid-cols-3 [&>div>dl]:[@container(width<17em)]:grid-cols-1">
             <KpiStrip dataset={SAMPLE_ANALYSIS_DATASET} />
           </div>
-          <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
           <RevenueBars points={REVENUE_POINTS} />
-          <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
+          {/* The table's fine print sits 8px under it, as on the analysis page. */}
+          <div className="flex flex-col gap-2">
+            <MetricsTable dataset={SAMPLE_ANALYSIS_DATASET} headingLevel="h4" />
+            <DataNotes dataset={SAMPLE_ANALYSIS_DATASET} sample />
+          </div>
         </div>
       </DataNotesProvider>
     </div>
