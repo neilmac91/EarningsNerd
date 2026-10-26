@@ -518,6 +518,8 @@ _POSTGRES_STEPS = [
      "ADMIN_INVITE_CONCURRENCY_TEST_DATABASE_URL"),
     ("feedback submission concurrency", "test_feedback_submission_transactions.py",
      "FEEDBACK_CONCURRENCY_TEST_DATABASE_URL"),
+    ("summary progress concurrency", "test_summary_progress_transactions.py",
+     "PROGRESS_CONCURRENCY_TEST_DATABASE_URL"),
 ]
 _GATE_VARIABLE = re.compile(r"[A-Z0-9_]+_TEST_DATABASE_URL")
 

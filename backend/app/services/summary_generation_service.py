@@ -4,6 +4,9 @@ from app.services.excerpt_provenance import excerpt_provenance
 from app.utils.datetimes import utcnow
 from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple
+from sqlalchemy import DateTime, extract, func, literal
+from sqlalchemy.dialects.postgresql import insert as postgres_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.services.request_work import run_owned_sync as run_in_threadpool
@@ -401,45 +404,39 @@ def record_progress(
     *,
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
-) -> SummaryGenerationProgress:
+) -> None:
+    """Write the filing's progress row in one statement, and commit (E214).
+
+    A write to a filing with no row inserts it and starts its clock (``started_at``). Any other write, a run's first
+    write onto an earlier run's row included, sets the stage, the error (``None`` clears it) and, when given, the
+    section coverage; it keeps the stored ``started_at`` and counts ``elapsed_seconds`` from it in SQL. With no read
+    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
+    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
+    fresh row, and after an insert it updates that row."""
     now = utcnow()
-    progress = (
-        db.query(SummaryGenerationProgress)
-        .filter(SummaryGenerationProgress.filing_id == filing_id)
-        .first()
-    )
-
-    if not progress:
-        progress = SummaryGenerationProgress(
-            filing_id=filing_id,
-            stage=stage,
-            started_at=now,
-            updated_at=now,
-            elapsed_seconds=0.0,
-            error=error,
-        )
-        db.add(progress)
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
+    dialect = db.get_bind().dialect.name
+    insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)
+    if insert is None:
+        raise ValueError(f"Unsupported progress database dialect: {dialect}")
+    values: Dict[str, Any] = {"filing_id": filing_id, "stage": stage, "started_at": now, "updated_at": now,
+                              "elapsed_seconds": 0.0, "error": error}
+    if section_coverage is not None:
+        # Left out when not given: the column then stays SQL NULL, where a None would store JSON null.
+        values["section_coverage"] = section_coverage
+    statement = insert(SummaryGenerationProgress).values(**values)
+    # In the conflict's SET, the table's own columns are the stored row's, and ``excluded`` holds this write's values.
+    moment = literal(now, DateTime(timezone=True))
+    started_at = SummaryGenerationProgress.started_at
+    if dialect == "postgresql":
+        elapsed = extract("epoch", moment - started_at)
     else:
-        progress.stage = stage
-        if progress.started_at is None:
-            progress.started_at = now
-        progress.updated_at = now
-        # Handle timezone-aware vs timezone-naive datetime comparison
-        started_at = progress.started_at
-        if started_at.tzinfo is None:
-            # Convert timezone-naive to UTC if needed
-            started_at = started_at.replace(tzinfo=timezone.utc)
-        progress.elapsed_seconds = float((now - started_at).total_seconds())
-        progress.error = error
-        if section_coverage is not None:
-            progress.section_coverage = section_coverage
-
-    db.flush()
+        elapsed = (func.julianday(moment) - func.julianday(started_at)) * 86400.0
+    updates: Dict[str, Any] = {"stage": statement.excluded.stage, "updated_at": statement.excluded.updated_at,
+                               "elapsed_seconds": elapsed, "error": statement.excluded.error}
+    if section_coverage is not None:
+        updates["section_coverage"] = statement.excluded.section_coverage
+    db.execute(statement.on_conflict_do_update(index_elements=[SummaryGenerationProgress.filing_id], set_=updates))
     db.commit()
-    db.refresh(progress)
-    return progress
 
 def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
     elapsed = progress.elapsed_seconds
