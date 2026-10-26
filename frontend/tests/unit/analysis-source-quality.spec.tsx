@@ -169,7 +169,7 @@ describe('Financial origin and source checks', () => {
     const control = screen.getByRole('button', { name: /Revenue, Q4 2023:.*data note a, also applies to the comparison/ })
     expect(control.getAttribute('aria-label')?.match(/data note a/g)).toHaveLength(1)
     await userEvent.click(control)
-    expect(screen.getByRole('dialog')).toHaveTextContent('Carries note a. The recorded inputs do not identify which input carries this note.')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Carries note a. The recorded inputs do not identify which input this note comes from.')
     expect(screen.getByRole('dialog')).not.toHaveTextContent('it uses')
   })
 

@@ -1,0 +1,271 @@
+diff --git a/frontend/features/analysis/components/AnalysisPageClient.tsx b/frontend/features/analysis/components/AnalysisPageClient.tsx
+index d186e36cf..2b8e2dcc5 100644
+--- a/frontend/features/analysis/components/AnalysisPageClient.tsx
++++ b/frontend/features/analysis/components/AnalysisPageClient.tsx
+@@ -33,7 +33,9 @@ import {
+ import AiDisclaimer from '@/components/AiDisclaimer'
+ import { exportFilename } from '@/features/analysis/lib/chartExport'
+ import AnalysisTeaser from './AnalysisTeaser'
++import { NOTATION_VARIANT } from '@/features/analysis/lib/notationVariant'
+ import KpiStrip from './KpiStrip'
++import QuietDataNotes from './QuietDataNotes'
+ import MetricsTable from './MetricsTable'
+ import NarrativePane, { type NarrativeState } from './NarrativePane'
+ import PeriodPicker, { defaultRange, type PeriodRange } from './PeriodPicker'
+@@ -445,7 +447,7 @@ export default function AnalysisPageClient() {
+         <DataNotesProvider dataset={dataset}>
+           <div className="flex flex-col gap-4">
+             <KpiStrip dataset={dataset} />
+-            <DataNotes dataset={dataset} />
++            {NOTATION_VARIANT === 'current' && <DataNotes dataset={dataset} />}
+             <TrendCharts dataset={dataset} exportEnabled />
+             <NarrativePane
+               state={narrative}
+@@ -454,6 +456,7 @@ export default function AnalysisPageClient() {
+               onExport={exportPdf}
+             />
+             <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
++            {NOTATION_VARIANT === 'quiet' && <QuietDataNotes dataset={dataset} />}
+           </div>
+         </DataNotesProvider>
+       )}
+diff --git a/frontend/features/analysis/components/DataNoteMark.tsx b/frontend/features/analysis/components/DataNoteMark.tsx
+index 1785625f2..d2efd38ac 100644
+--- a/frontend/features/analysis/components/DataNoteMark.tsx
++++ b/frontend/features/analysis/components/DataNoteMark.tsx
+@@ -1,4 +1,5 @@
+ import type { DataNote } from '@/features/analysis/lib/dataNotes'
++import { NOTATION_VARIANT } from '@/features/analysis/lib/notationVariant'
+ 
+ export function dataNoteDescription(note?: DataNote | null) {
+   return note ? `data note ${note.letter}` : ''
+@@ -12,12 +13,13 @@ export default function DataNoteMark({ note, calculated = false, announce = fals
+   /** Dense table affixes retain their type size while using half-pixel spacing at the default root size. */
+   compact?: boolean
+ }) {
++  if (NOTATION_VARIANT !== 'current') calculated = false
+   if (!note && !calculated) return null
+   const spacing = compact ? 'ml-[0.03125rem]' : 'ml-0.5'
+   return (
+     <>
+       {calculated && <span aria-hidden="true" className={`${spacing} text-text-secondary-light dark:text-text-secondary-dark`}>†</span>}
+-      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${spacing} font-data text-data-xs leading-[0] ${note.kind === 'review' ? 'text-warning-light dark:text-warning-dark' : 'text-text-tertiary-light dark:text-text-secondary-dark'}`}>{note.letter}</sup>}
++      {note && <sup aria-hidden="true" data-note-letter={note.letter} data-note-kind={note.kind} className={`${spacing} font-data text-data-xs leading-[0] ${note.kind === 'review' && NOTATION_VARIANT === 'current' ? 'text-warning-light dark:text-warning-dark' : 'text-text-tertiary-light dark:text-text-secondary-dark'}`}>{note.letter}</sup>}
+       {/* Anchor the absolute sr-only box inside the table's scroll boundary. Without this
+           containing block, an off-screen comparison can extend the document's scroll width. */}
+       {announce && <span className="relative"><span className="sr-only">{`, ${[calculated ? 'calculated' : '', dataNoteDescription(note)].filter(Boolean).join(', ')}`}</span></span>}
+diff --git a/frontend/features/analysis/components/DataNotesContext.tsx b/frontend/features/analysis/components/DataNotesContext.tsx
+index fe3f4b254..9a2a89c70 100644
+--- a/frontend/features/analysis/components/DataNotesContext.tsx
++++ b/frontend/features/analysis/components/DataNotesContext.tsx
+@@ -2,7 +2,16 @@
+ 
+ import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+-import { resolveDataNotes, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
++import { resolveDataNotes, type DataNote, type DataNotesModel } from '@/features/analysis/lib/dataNotes'
++import { NOTATION_VARIANT, isSilentNote } from '@/features/analysis/lib/notationVariant'
++
++/** Prototype: surfaces look notes up through this, so a silent note marks no figure while the strip keeps it. */
++function marking(model: DataNotesModel): DataNotesModel {
++  if (NOTATION_VARIANT === 'current') return model
++  const keep = (note: DataNote | null) => note && !isSilentNote(note) ? note : null
++  return { ...model, noteFor: (p) => keep(model.noteFor(p)), noteForComparison: (p, b) => keep(model.noteForComparison(p, b)),
++    noteForWindow: (s) => keep(model.noteForWindow(s)), noteForQuality: (v) => keep(model.noteForQuality(v)) }
++}
+ import { reportIdentity, type TableWindow } from '@/features/analysis/lib/reportPresentation'
+ 
+ const DataNotesContext = createContext<DataNotesModel | null>(null)
+@@ -18,7 +27,7 @@ function useWindowSelection(dataset: AnalysisDataset) {
+ 
+ /** All report surfaces share one snapshot's note letters and counts. */
+ export function DataNotesProvider({ dataset, children }: { dataset: AnalysisDataset; children: ReactNode }) {
+-  const model = useMemo(() => resolveDataNotes(dataset), [dataset])
++  const model = useMemo(() => marking(resolveDataNotes(dataset)), [dataset])
+   const selection = useWindowSelection(dataset)
+   return <DataNotesContext.Provider value={model}><TableWindowContext.Provider value={selection}>{children}</TableWindowContext.Provider></DataNotesContext.Provider>
+ }
+@@ -37,5 +46,5 @@ export function useAnalysisTableWindow(dataset: AnalysisDataset) {
+ /** Standalone surfaces resolve the same admitted metadata as the complete report. */
+ export function useDataNotes(dataset: AnalysisDataset) {
+   const report = useReportDataNotes()
+-  return useMemo(() => report ?? resolveDataNotes(dataset), [report, dataset])
++  return useMemo(() => report ?? marking(resolveDataNotes(dataset)), [report, dataset])
+ }
+diff --git a/frontend/features/analysis/components/DataNotesLink.tsx b/frontend/features/analysis/components/DataNotesLink.tsx
+index 79c375250..adebb9913 100644
+--- a/frontend/features/analysis/components/DataNotesLink.tsx
++++ b/frontend/features/analysis/components/DataNotesLink.tsx
+@@ -2,6 +2,7 @@
+ 
+ import type { DataNote } from '@/features/analysis/lib/dataNotes'
+ import { sourceTraceChipClass } from '@/features/filings/lib/sourceTraceChip'
++import { isSilentNote } from '@/features/analysis/lib/notationVariant'
+ 
+ /** Reveal the report's note before moving focus; hidden details never receive a dead jump. */
+ export function openDataNote(id: string) {
+@@ -16,7 +17,8 @@ export function openDataNote(id: string) {
+   target.scrollIntoView?.({ block: 'center', behavior: 'auto' })
+ }
+ 
+-export default function DataNotesLink({ notes }: { notes: DataNote[] }) {
++export default function DataNotesLink({ notes: all }: { notes: DataNote[] }) {
++  const notes = all.filter((note) => !isSilentNote(note))
+   if (notes.length === 0) return null
+   return (
+     <button type="button" className={sourceTraceChipClass(false)} onClick={() => openDataNote(notes[0].id)} aria-label={`Review data notes ${notes.map((note) => note.letter).join(', ')}`}>
+diff --git a/frontend/features/analysis/components/MetricsTable.tsx b/frontend/features/analysis/components/MetricsTable.tsx
+index ef38c4341..4718ede2f 100644
+--- a/frontend/features/analysis/components/MetricsTable.tsx
++++ b/frontend/features/analysis/components/MetricsTable.tsx
+@@ -11,6 +11,7 @@ import { formatAnalysisPeriod, formatAnalysisWindow } from '@/features/analysis/
+ import { tableComparisonBasis, tablePeriods, tablePresentation, type TableWindow } from '@/features/analysis/lib/reportPresentation'
+ import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
+ import DataNoteMark from './DataNoteMark'
++import { NOTATION_VARIANT, isSilentNote } from '@/features/analysis/lib/notationVariant'
+ import { useAnalysisTableWindow, useDataNotes } from './DataNotesContext'
+ import DataNotesLink from './DataNotesLink'
+ import SourceValue from './SourceValue'
+@@ -173,6 +174,7 @@ export default function MetricsTable({
+           <Heading className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+             Metrics by period
+           </Heading>
++          {NOTATION_VARIANT === 'current' ? <>
+           <DataNotesLink notes={visibleNotes} />
+           {hasDerived && (
+             <span
+@@ -182,6 +184,7 @@ export default function MetricsTable({
+               † calculated
+             </span>
+           )}
++          </> : NOTATION_VARIANT === 'quiet' && <DataNotesLink notes={visibleNotes.filter((note) => !isSilentNote(note))} />}
+         </div>
+         {onExportXlsx && (
+           <Button
+@@ -206,7 +209,7 @@ export default function MetricsTable({
+           options={[{ value: 'all', label: `All ${dataset.periods.length}` }, { value: 'newest', label: 'Newest 6' }, { value: 'earliest', label: 'Earliest 6' }]}
+         />}
+       </div>
+-      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Figures are rounded for display. Select a value for full precision.</p>
++      <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">{NOTATION_VARIANT === 'current' ? 'Figures are rounded for display. Select a value for full precision.' : 'Figures are rounded for display; margins, free cash flow, working capital and the current ratio are calculated from filed figures. Select any value for its source and full precision.'}</p>
+       <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">n/m means not meaningful.{dataset.mode === 'quarterly'
+         ? ' Fiscal quarters follow the company’s reporting calendar. A Q4 header † means some flow figures are calculated from annual totals less the first nine months; it does not mark the column’s balance-sheet figures as calculated.'
+         : showsCagr ? ' The final column shows CAGR, or percentage-point change for percent-unit rows. Each value’s source detail states its calculation range.' : null}</p>
+diff --git a/frontend/features/analysis/components/NarrativePane.tsx b/frontend/features/analysis/components/NarrativePane.tsx
+index 7bd7dafad..910349e2e 100644
+--- a/frontend/features/analysis/components/NarrativePane.tsx
++++ b/frontend/features/analysis/components/NarrativePane.tsx
+@@ -19,6 +19,7 @@ import { structuredNarrativeParts } from '@/features/analysis/lib/narrativePrese
+ import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
+ import { useReportDataNotes } from './DataNotesContext'
+ import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
++import { NOTATION_VARIANT, isSilentNote } from '@/features/analysis/lib/notationVariant'
+ import DataNotesLink from './DataNotesLink'
+ import { DataNotesList } from './DataNotes'
+ 
+@@ -99,7 +100,7 @@ function NarrativeEvidence({ operands, citations, notes, preciseAmounts }: { ope
+     </summary>
+     <ul role="list" className="mt-2 list-none !pl-0" aria-label="Figures behind this finding">
+       {figures.map((figure, index) => <li key={index} className="!m-0 grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border-light py-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto_auto] dark:border-white/10">
+-        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && ' †'}</span>
++        <span className="font-data text-xs text-text-tertiary-light dark:text-text-secondary-dark">{formatAnalysisPeriod(figure.period)}{figure.derived && NOTATION_VARIANT === 'current' && ' †'}</span>
+         <span>{figure.label}</span>
+         <span className="font-data">{figure.display}</span>
+         <span><NarrativeCitationChip citation={figure.source} notes={notes} /></span>
+@@ -118,7 +119,7 @@ export interface NarrativeState {
+ }
+ 
+ const SOURCE_BADGE_BASE =
+-  'Sources identify filed figures or calculated figures (marked †).'
++  NOTATION_VARIANT === 'current' ? 'Sources identify filed figures or calculated figures (marked †).' : 'Sources identify filed figures or figures calculated from them.'
+ 
+ /** The teaser's sample is one saved run of the pipeline (features/analysis/demo, D-046): its figures are the
+  *  pipeline's, not approximations, but the run is not the reader's own. Readers do not know the word "pipeline", so
+@@ -218,9 +219,14 @@ export default function NarrativePane({
+   // different quality record. Reuse report letters; append citation-only notes without
+   // changing dataset counts or inferring that a separately checked value clears the citation.
+   const presentation = completion?.narrative_presentation
+-  const notes = useMemo(() => presentation
+-    ? qualityNotesModelFromWire(presentation.notes.notes)
+-    : groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined), [reportNotes, completion?.citations, presentation])
++  const notes = useMemo(() => {
++    const model = presentation
++      ? qualityNotesModelFromWire(presentation.notes.notes)
++      : groupQualityNotes(completion?.citations ?? [], reportNotes ?? undefined)
++    // Prototype: the narrative's own lookup follows the same silent-note policy as the report surfaces.
++    return NOTATION_VARIANT === 'current' ? model
++      : { ...model, noteForQuality: (value: Parameters<typeof model.noteForQuality>[0]) => { const note = model.noteForQuality(value); return note && !isSilentNote(note) ? note : null } }
++  }, [reportNotes, completion?.citations, presentation])
+   const citedNoteKeys = new Set((completion?.citations ?? []).map((citation) => notes.noteForQuality(citation)?.key))
+   const citedNotes = notes.notes.filter((note) => citedNoteKeys.has(note.key))
+   const reportNoteKeys = new Set(reportNotes?.notes.map((note) => note.key))
+diff --git a/frontend/features/analysis/components/QuietDataNotes.tsx b/frontend/features/analysis/components/QuietDataNotes.tsx
+new file mode 100644
+index 000000000..add57ed26
+--- /dev/null
++++ b/frontend/features/analysis/components/QuietDataNotes.tsx
+@@ -0,0 +1,47 @@
++'use client'
++
++import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
++import type { DataNote } from '@/features/analysis/lib/dataNotes'
++import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
++import { isSilentNote } from '@/features/analysis/lib/notationVariant'
++import { useDataNotes } from './DataNotesContext'
++
++/** Prototype copy (docs/mpa-improvements/coherence.md §2): one sentence per reason, the reader's words. */
++const QUIET_COPY: Record<string, string> = {
++  source_conflict: 'Restated in a later filing: the year’s own annual report gave a different value. We show the later filing’s value; select one to see both filings.',
++  legacy_calculation: 'Calculated before 10 October 2026, when we began keeping each calculation’s inputs; shown as stored, with its inputs not linked.',
++  not_in_dataset: 'Not in our data for these periods; shown as —, never as zero.',
++}
++const copy = (note: DataNote) => note.reasons.every((reason) => QUIET_COPY[reason]) ? note.reasons.map((reason) => QUIET_COPY[reason]).join(' ') : note.message
++
++function places(values: DataNote['values']) {
++  const periods = new Map<string, string[]>()
++  for (const value of values) periods.set(value.label, [...(periods.get(value.label) ?? []), value.period])
++  return [...periods].map(([label, keys]) => `${label} ${[...new Set(keys)].map((key) => formatAnalysisPeriod(key)).join(', ')}`).join('; ')
++}
++
++/** Fine print under the table: a mark on the page only where the number itself is in question. */
++export default function QuietDataNotes({ dataset }: { dataset: AnalysisDataset }) {
++  const model = useDataNotes(dataset)
++  const marked = model.notes.filter((note) => !isSilentNote(note) && note.values.length > 0)
++  const gaps = model.notes.filter((note) => note.kind === 'unavailable').reduce((count, note) => count + note.values.length, 0)
++  const calculated = model.totals.calculated
++  return (
++    <section className="min-w-0 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark" data-analysis-data-notes>
++      <details>
++        <summary className="cursor-pointer rounded py-1 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
++          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">Data notes</span>
++          {marked.map((note) => <span key={note.key}> · <sup className="font-data">{note.letter}</sup> {places(note.values)}: restated in a later filing; we show the later value</span>)}
++          {gaps > 0 && <span> · {gaps} not in our data, shown as —</span>}
++          {calculated > 0 && <span> · {calculated} calculated from filed figures</span>}
++        </summary>
++        <div className="space-y-2 pb-2 pt-1">
++          {model.notes.map((note) => <p key={note.key} id={note.id} tabIndex={-1} className="rounded focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">
++            {!isSilentNote(note) && <span className="font-data">{note.letter}. </span>}{copy(note)} {places(note.values)}.
++          </p>)}
++          <p>Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come from the company’s filed data (XBRL); they are not an audit of the company’s accounts.</p>
++        </div>
++      </details>
++    </section>
++  )
++}
+diff --git a/frontend/features/analysis/lib/notationVariant.ts b/frontend/features/analysis/lib/notationVariant.ts
+new file mode 100644
+index 000000000..bf72d8263
+--- /dev/null
++++ b/frontend/features/analysis/lib/notationVariant.ts
+@@ -0,0 +1,11 @@
++import type { DataNote } from '@/features/analysis/lib/dataNotes'
++
++/** Prototype switch (docs/mpa-improvements): current marks, the quiet scheme, or no marks at all. */
++export const NOTATION_VARIANT = (process.env.NEXT_PUBLIC_NOTATION_VARIANT ?? 'current') as 'current' | 'quiet' | 'none'
++
++/** Quiet: only a concern about the number itself earns a mark; calculation, record gaps and absences stay in the evidence and the fine print. */
++export function isSilentNote(note: Pick<DataNote, 'kind' | 'reasons'>) {
++  if (NOTATION_VARIANT === 'current') return false
++  if (NOTATION_VARIANT === 'none') return true
++  return note.kind !== 'review' || note.reasons.every((reason) => reason === 'legacy_calculation')
++}

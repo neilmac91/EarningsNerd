@@ -305,6 +305,16 @@ components:
     backgroundColor: "{colors.well-dark}"
     textColor: "{colors.figure-dark}"
     rounded: "{rounded.xl}"
+  figure-note-mark:
+    textColor: "{colors.note-light}"
+    typography: "{typography.figure}"
+  figure-note-mark-dark:
+    textColor: "{colors.note-dark}"
+    typography: "{typography.figure}"
+  data-notes-fine-print:
+    textColor: "{colors.text-secondary-light}"
+  data-notes-fine-print-dark:
+    textColor: "{colors.text-secondary-dark}"
   modal:
     backgroundColor: "{colors.panel-light}"
     textColor: "{colors.text-primary-light}"

@@ -61,7 +61,7 @@ measure is unchanged.
 | D6 | **Clipping only on percent panels, with A's two-condition outlier rule (A3).** Clipped values are always printed: margins in the off-scale band at the plot edge (A3b), growth on the bar label. $ panels never clip. | Margins: 11 points clipped in 3/59 datasets. Growth: 6 points in 4/70. All annual (sim S4). Model checks: 34 off-scale points across both views, every one printed. No PLUG, BYND or RIVN FY2022 margin is clipped. | A (§0.4 #3) |
 | D7 | **No log scale, no symlog, no indexing, no broken $ axis.** | Negatives: growth 41/65, operating margin 22/59, FCF 28/73, NI 24/73, equity 16/73. LTD is exactly 0 at 14 points in 11 datasets. Owner rule "audit D2" (no indexing). | all three |
 | D8 | **Ticks from A1: a fixed interval cap per panel, the densest legal grid, and A1b for small crossings.** Ticks are view-independent: card, expanded and export show identical ticks. Unit from max\|tick\|. Zero is always a tick, printed "$0" or "0%". U+2212 minus. | Caps: Revenue 5, growth 4, margins 8, cash 8, debt and cash 6, equity 4. Model checks: 0 non-uniform, 0 mixed-unit, 0 wrong-zero and 0 over-cap axes in 550 renders (report §9). A1b fires in 6 of 290 panels. Gridlines ≥ h/cap apart: ≥ 17 px in every panel (§3.1). | C grid, A view independence (§0.4 #5) |
-| D9 | **Notes leave the plot.** They go into one **always-reserved 16 px union band** under the period axis (under the strip in expanded) and into footnote lines. † appears only as a band glyph, at periods where a partly calculated series was calculated. A fully calculated series gets a footnote sentence and no symbol. | ≤ 1 letter per cell in 73 datasets + REGNPN. ≤ 2 glyphs per cell ("a †") (sim S9). The user flagged a large † beside a KPI value as confusing. | B band, C glyphs (§0.4 #4, #7) |
+| D9 | **Notes leave the plot.** They go into one **always-reserved 16 px union band** under the period axis (under the strip in expanded) and into footnote lines. † appears only as a band glyph, at periods where a partly calculated series was calculated. A fully calculated series gets a footnote sentence and no symbol. *2026-10-25: the band's marks follow the approved quiet scheme (§3.3's note; `docs/mpa-improvements/coherence.md` §2.6, D-061): no † glyph, and a letter only for a note that questions the number.* | ≤ 1 letter per cell in 73 datasets + REGNPN. ≤ 2 glyphs per cell ("a †") (sim S9). The user flagged a large † beside a KPI value as confusing. | B band, C glyphs (§0.4 #4, #7) |
 | D10 | **Printed values where position cannot meet the task:** top-line and growth bar labels; near-zero equity labels (A13b); off-scale values at the plot edge (A3b); the latest value of every series in the legend; and in expanded, a **value strip** with every margin, cash and balance value. | Margins ±1 pp: met by the expanded strip in 59/59 datasets (sim S5). The card's position tolerance per dataset is measured in the report §9. | A (§0.4 #1, #3, #6) |
 | D11 | **Tolerance `T = max(step/8, 4 px·span/h)`.** Order questions are scored wherever the true gap > T. T is frozen per dataset from this spec's geometry and applied unchanged to current and proposed renders. Tier P is exact transcription of the printed strings. | REGN FY2025 FCF < NI (gap $0.42B, T $0.25B) is in scope on the card. The count of out-of-scope pairs is measured in the report §9. | B formula, product-judge freeze (§0.4 #13) |
 | D12 | **Series colours chart-1..k in order over the *present* series** (DS §10: "never skipped"), plus marker shape by the same index (circle, square, triangle). | Two-series charts (21 margins, 12 cash, 15 balance datasets) get teal + honey, never the weakest CVD pair (teal–cornflower, deutan ΔE 31 dark / 37 light). | C + A shapes (§0.4 #9) |
@@ -271,8 +271,21 @@ says so; everything else follows the spec.
     beside the axis, where a cut `−19%` would read `19%`; a pointer under the cover reads no period.
   - A grid row's cards share its rows (CSS subgrid: header, plot, notes), so a row's plots start at one height
     whatever its legends wrap to (chief design's review of #1609).
-  - Not built, and open as E200: §3.9's loading skeleton (the card holds the plot's box while its font loads, G4), the
-    export button's busy state and §3.10's height animation.
+  - §3.9's and §3.10's states (E200):
+    - `loading`: while its font loads (G4) a plot's box holds bones from its own plan, four gridlines a panel and a
+      bar a slot (`TrendChartBones.tsx`), and its card is `aria-busy`; the plot then replaces them with a fade, the first
+      data paint's `duration-base` fade (DESIGN_SYSTEM.md §11, skeleton→content). While the renderer's chunk loads,
+      the grid holds four cards of bones, each a header, a two-line legend, a 320 px plot and three lines of notes,
+      under one `role="status"` ("Loading charts"), where it drew nothing. Bones are `Skeleton`s, so static under
+      reduced motion.
+      "The exact final height" is the plot's, a two-line header's and three lines of notes, about a first grid row's: a
+      card whose legend wraps to more lines, or whose footnotes run longer, grows when the renderer replaces its bones.
+      The status names the wait without `aria-busy`, which may hold a live region's words back; the cards carry it.
+    - `exporting`: the export control is `<Button loading>` while its PNG is drawn (the spinner in its glyph's
+      place, `aria-busy`, a second press refused), never natively disabled.
+    - §3.10's height: a toggle runs the plot's row from its old height to its new one (`duration-base`,
+      `ease-standard`, clipped while it runs), and not at all under reduced motion. The card's width changes at once,
+      as the grid places it.
 - **The renderer's gates.** `frontend/tests/unit/trend-charts-v2.spec.tsx` holds the drawing to the plan on the 19
   datasets, every chart, both views and both themes: D3 on the plan's own geometry, D4, D5, D7, D11, D12 and D14,
   every printed string by its role and ink (D6 on the plan), paint the export can serialise, and the reading contract
@@ -323,7 +336,7 @@ says so; everything else follows the spec.
 - **The tokens (step 6, E194).** §3.8's Token change list is taken as far as it leaves production as it is until F66:
   - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
     the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
-    and `#D7DADC`, the plot's own whatever #1606 makes of the text inks), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
+    and, since D-063, `#EAECEF`, the figure ink), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
     `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of `chart-1…6` would make
     `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new `chart.label` and
     `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s mirror behind:
@@ -332,8 +345,10 @@ says so; everything else follows the spec.
     fails any class that names a pair. E195 folds the pairs into item 1's names.
   - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
     Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
-    and notes paint in the legend names' ink, `#B8BEC7` on dark. The export's own dark secondary measured Lc −48.6
-    (`#9CA3AF`) when this was written; #1606 raised it with the DS secondary to `#D1D5DB` (−77.3).
+    and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
+    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
+    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the
+    card's notes on screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until they ship, so its sidecar, which
     copies the frontmatter, is unchanged. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
     renderer states its inks; the rewrites of today's contract (hollow markers, the crosshair, "dark labels use
@@ -637,6 +652,11 @@ gets a tick (D2 kept). There is no axis title in the SVG.
 
 ### 3.3 Notes a/b and †: footnote band algorithm (A5)
 
+> **2026-10-25: what the band marks is superseded** by the approved quiet scheme
+> (`docs/mpa-improvements/coherence.md` §2.6, D-061): a cell shows only the letters of notes that question the number,
+> in the `note` ink; no † glyph, since the footnote lines already name the calculated series; and a gap gets its
+> sentence and no letter. The band's geometry below stands. E194 builds it through WP1's `lib/dataNotes.ts` helper.
+
 Nothing note-related is drawn inside a plot rectangle: no hollow markers and no letters. A note attaches to a data
 point through **two coordinated places**.
 
@@ -704,10 +724,10 @@ this order:
 The card, the expanded view and the export show every line. A "+n more notes" truncation that opens the Modal is
 optional for production and is not part of the verified build.
 
-**2026-10-25, D-061:** today's charts mark a point only where its note questions the number (`noteMarksFigure`,
-`features/analysis/lib/dataNotes.ts`); this band adopts the same rule in the charts plan's step 6 (E194), before F66:
-letters for marked notes only and in «t.tick», no review ink, and no `†` glyph. Until then it letters every note, drawn
-only behind `NEXT_PUBLIC_CHARTS_V2`, which is off.
+**2026-10-25, D-061:** today's charts already mark a point only where its note questions the number (`noteMarksFigure`,
+`features/analysis/lib/dataNotes.ts`). This band takes the rule as the note at the head of §3.3 states it, in the
+charts plan's step 6 (E194), before F66. Until then it letters every note, drawn only behind `NEXT_PUBLIC_CHARTS_V2`,
+which is off.
 
 ### 3.4 Missing, zero, negative, outlier
 
@@ -936,7 +956,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | `grid` | Non-zero gridlines, 1 px | `#DCD9D0` | 16.8 / 1.35 | `#525C6B` | −15.0 / 2.17 | final (today Lc 0 in both themes) |
 | `zero` | The zero tick's gridline, every panel, 1 px | `#6B7280` | 70.5 / 4.63 | `#9CA3AF` | −48.6 / 5.78 | DS `chart.ref` |
 | `tick` | Tick labels, x labels, captions, band neutral glyphs, `—`, `n/m`, "Notes", strip row labels, off-scale edge rule, absent-series swatch | `#636A77` | 74.1 / 5.21 | **`#B8BEC7`** (new `chart.label.dark`) | −63.6 / 7.85 | C, final hex (today's dark `#9CA3AF` is −48.6) |
-| `value` | Bar labels, A13b labels, off-scale values, strip cells | `#374151` | 90.9 / 9.87 | `#D7DADC` | −80.3 / 10.45 | DS text secondary/primary |
+| `value` | Bar labels, A13b labels, off-scale values, strip cells | `#374151` | 90.9 / 9.87 | `#EAECEF` | −91.8 / 12.40 | DS text secondary/primary |
 | `review` | Review-kind band letters | `#92400E` | 80.9 / 6.79 | **`#FBBF24`** (new) | −70.2 / 8.79 | B, fixed (DS `#F59E0B` is −56.9, below 60) |
 | `s1` teal | Series 1 | `#3E8E84` | 63.0 / 3.72 | **`#62B2A6`** | −49.7 / 5.90 | C (today's dark −32.0) |
 | `s2` honey | Series 2 | `#B8812F` | 58.0 / 3.23 | **`#D3A55C`** | −54.2 / 6.51 | C (today's dark −37.1) |
@@ -961,7 +981,7 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | Text | Light | Lc | Dark | Lc |
 |---|---|---|---|---|
 | Subtitle and footnotes | `text.tertiary #636A77` | 74.1 | `chart.label.dark #B8BEC7` | −63.6 |
-| Legend names | `text.secondary #374151` | 90.9 | `chart.label.dark #B8BEC7` | −63.6 |
+| Legend names | `text.secondary #374151` | 90.9 | `text.secondary.dark #D1D5DB` | −77.3 |
 | Legend values | `text.primary #1A1A17` | 101.3 | `text.primary.dark #EAECEF` | −91.8 |
 
 The dark subtitle, footnotes and legend names use `chart.label.dark` because DS `text.secondary.dark #9CA3AF`
@@ -975,6 +995,17 @@ Lc −91.8 on the slate panel and −94.8 on navy. The legend values row above t
 values are that token (`charts/theme.ts`'s dark `figure`, held to it by `chart-theme.spec.ts`), as is today's chart
 tooltip value ink in `Chart.tsx`. §1 row 10 and the `value` row's dark ink, a chart-scope token of its own, keep
 `#D7DADC` as this audit measured it, for the migration to decide.)
+(E194, 2026-10-25: the migration's call on the dark names. Legend names take `text.secondary.dark` `#D1D5DB`, Lc
+−77.3 on the card, as light's take `text.secondary`, so the chart's text steps match the page's (chief design on
+#1609); the row above says so. The subtitle and footnotes keep `chart.label.dark`, since DS `text.tertiary.dark`, the
+step their light half takes, is still `#9CA3AF`, −48.6.)
+(D-063, 2026-10-25: the founder's call on the `value` row. Dark printed values take the figure ink `#EAECEF`, Lc
+−91.8 on the card and −88.5 under the column wash, so every figure the chart prints, in the plot and in the legend,
+takes one dark ink, as D-060 chose for the table. Chief design first recommended it on #1620, then withdrew it for
+the `chart.value` step #1620 shipped; the founder chose the figure ink. Light keeps its step: printed values in
+`text.secondary` under the legend values' `text.primary`. Dark could not follow it, since `text.secondary.dark`
+measures −74.0 under the wash, below the printed-value floor of 75. The row above says so; §1 row 10 keeps the audit's
+measurement.)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

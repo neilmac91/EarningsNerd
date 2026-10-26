@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { describe, expect, it, vi } from 'vitest'
 import { render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -49,7 +50,8 @@ import NarrativePane from '@/features/analysis/components/NarrativePane'
 import TrendCharts from '@/features/analysis/components/TrendCharts'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { chartDataNotes } from '@/features/analysis/lib/chartExport'
-import { noteMarksFigure, RECORD_ONLY_REASONS, resolveDataNotes, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, resolveDataNotes, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
+import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
 
 /**
@@ -64,13 +66,18 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  * 2. Every place a letter renders or is named. The whole report (KPI cards, trend charts, narrative, metrics table and
  *    the data notes) renders the fixture's record_only_and_mixed_marking case; every letter drawn (data-note-letter,
  *    a chart's "Data note x" mark), named (a control's or chip's accessible name, a chart tooltip's "· note x", the
- *    fold's "figures carry notes x"), set in the fine print's summary or in a chart's PNG footer (chartDataNotes) is one
- *    of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
- *    record-only c, the unknown d or the gap's e (marked notes take the first letters, data notes version 2).
+ *    fold's "figures carry notes x"), set in the fine print's summary, the open lists' letter column or a chart's PNG
+ *    footer (chartDataNotes) is one of its marked letters, and each marked letter shows somewhere. A site that bypasses the helper shows the
+ *    record-only c, the unknown d or the gap's e (marked notes take the first letters, data notes version 2). The same
+ *    render holds the notation's two other clauses at their full
+ *    width: no † anywhere in an annual report (a † marks only a period: the Q4 header, the period picker), the fold's
+ *    derived row included, and no drawn, listed or charted letter in warning ink.
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
  *    supplement); the record-only note's entry keeps its words and counts; the summary never says "No figures need
- *    review" beside it, and the legacy figure's dialog says "Needs review", never that checks passed. Filtering the
- *    notes model instead of the render sites fails here.
+ *    review" beside it, even where it sits on a growth figure alone and every value passed, and gives the mixed note's
+ *    questioning clause, not the record-only sentence its words open with; the legacy figure's dialog says "Needs
+ *    review", never that checks passed, and names no letter the page does not show. Filtering the notes model instead
+ *    of the render sites fails here.
  */
 
 interface GoldenCase {
@@ -82,6 +89,7 @@ interface GoldenCase {
   marked_letters: string[]
 }
 const golden: { cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
+const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string>; chart: { review: Record<string, string> } } } } }).theme.extend.colors
 const notesOf = (example: GoldenCase) => (example.expected_citation_notes ?? example.expected).notes
 const allNotes = golden.cases.flatMap(notesOf)
 
@@ -112,14 +120,15 @@ const report: AnalysisDataset = {
   })) as AnalysisDataset['series'],
 }
 // The case's two citations (the record-only note c, and the mixed supplement f), then a figure with no check recorded
-// (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters.
+// (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters. The third is
+// derived, a calculated figure in the fold and the sources list, where a dagger once stood beside it.
 const cited = ['operating_margin', 'free_cash_flow', 'net_income', 'net_income'] as const
 const citations: AnalysisCitation[] = [...example.citations!, {}, { provenance: { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] } }]
   .map((quality, index) => ({
     ...quality, n: index + 1, marker: `F${index + 1}`, concept: cited[index], period: 'FY2024', value: 100 + index, unit: 'USD',
-    excerpt: `${cited[index]} = ${100 + index} (FY2024)`, section_ref: `XBRL · ${cited[index]}`, verified: true, fragment_url: null, derived: false,
+    excerpt: `${cited[index]} = ${100 + index} (FY2024)`, section_ref: `XBRL · ${cited[index]}`, verified: true, fragment_url: null, derived: index === 2,
   } as AnalysisCitation))
-const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]`).join('; ')}.`
+const narrative = `Margins held [1] while cash conversion moved [2].${SOURCE_OPERANDS_PREFIX}${citations.map((citation) => `${citation.concept} USD ${citation.value} in FY2024 [${citation.n}]${citation.derived ? ' (derived Q4)' : ''}`).join('; ')}.`
 
 function renderReport() {
   tooltips.contents = []
@@ -132,6 +141,17 @@ function renderReport() {
       <DataNotes dataset={report} />
     </DataNotesProvider>,
   )
+}
+
+/** Every chart tooltip's text, at every period, over every series it can name. */
+function tooltipTexts(): string[] {
+  const payload = report.series.map((series) => ({ dataKey: series.concept, name: series.label, value: 1 }))
+  return tooltips.contents.flatMap((content) => report.periods.map(({ key }) => {
+    const tip = render(<>{content({ active: true, label: key, payload })}</>)
+    const text = tip.container.textContent ?? ''
+    tip.unmount()
+    return text
+  }))
 }
 
 describe('every surface marks and names only the notes that question the number (D-061)', () => {
@@ -150,16 +170,11 @@ describe('every surface marks and names only the notes that question the number 
       (/figures carry notes? ([a-z, ]+)$/.exec(summary.textContent ?? '')?.[1] ?? '').split(', ').filter(Boolean)))
     const fine = container.querySelector('[data-analysis-data-notes] > details > summary')!
     saw('the data notes summary', [...(fine.textContent ?? '').matchAll(/Note ([a-z]+):/g)].map((match) => match[1]))
-    // Every chart tooltip, at every period, over every series it can name.
-    const payload = report.series.map((series) => ({ dataKey: series.concept, name: series.label, value: 1 }))
+    // The open lists' letter column, under the table and under the narrative's sources.
+    saw('the open data notes', [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')]
+      .flatMap((cell) => /([a-z]+)\.$/.exec(cell.textContent ?? '')?.[1] ?? []))
     expect(tooltips.contents.length, 'the charts drew their tooltips').toBeGreaterThan(0)
-    for (const content of tooltips.contents) {
-      for (const { key } of report.periods) {
-        const tip = render(<>{content({ active: true, label: key, payload })}</>)
-        saw('a chart tooltip', [...(tip.container.textContent ?? '').matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
-        tip.unmount()
-      }
-    }
+    for (const text of tooltipTexts()) saw('a chart tooltip', [...text.matchAll(/· note ([a-z]+)/g)].map((match) => match[1]))
     // A chart's PNG footer and its chip read chartDataNotes; the footer is drawn only on export, so read it here.
     const panel = chartDataNotes(report, report.series, resolveDataNotes(report), true)
     saw('a chart panel', panel.panelNotes.map((note) => note.letter))
@@ -170,9 +185,39 @@ describe('every surface marks and names only the notes that question the number 
     // The fixture's marked letters all show: a on the KPI card, the table and the cash chart, b on the table and the
     // balance sheet, f on its citation chip.
     expect([...seen.keys()].sort()).toEqual([...example.marked_letters].sort())
-    for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
+    for (const where of ['a drawn letter', 'a chart mark', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'the open data notes', 'a chart tooltip', 'a chart panel', 'a PNG footer']) {
       expect([...seen.values()].some((places) => places.has(where)), `no ${where} was read: the scan went blind`).toBe(true)
     }
+  })
+
+  it('sets no dagger beside a figure and no letter in warning ink', () => {
+    const { container } = renderReport()
+    // No dagger, by the rule's width: the whole report's text, its accessible names and titles, every chart tooltip and
+    // the PNG footer. A † marks only a period (the Q4 header and the period picker), and an annual report has neither.
+    const texts = [
+      container.textContent ?? '',
+      ...[...container.querySelectorAll('[aria-label], [title]')].flatMap((element) => [element.getAttribute('aria-label') ?? '', element.getAttribute('title') ?? '']),
+      ...tooltipTexts(),
+      ...chartDataNotes(report, report.series, resolveDataNotes(report), true).exportNotes,
+    ]
+    expect(texts.filter((text) => text.includes('†')), 'a dagger in the report').toEqual([])
+    // The scan reaches the calculated figures: the KPI cards, the table and the fold's derived row each say so in words.
+    const fold = container.querySelector('.markdown-body details ul')!
+    expect([...fold.querySelectorAll('li')].filter((row) => /, calculated/.test(row.textContent ?? '')), 'the fold\'s derived row').toHaveLength(1)
+    expect(within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getAllByRole('button', { name: /, calculated\. View source/ }).length).toBeGreaterThan(0)
+
+    // No letter in warning ink (no mark uses it): a drawn letter, the open data notes' letters (under the table and the
+    // sources), a chart's letters, by a class on the letter or around it, or by an SVG fill.
+    const warningInks = new Set([colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair)).map((hex) => hex.toUpperCase()))
+    const letters = {
+      drawn: [...container.querySelectorAll('[data-note-letter]')],
+      listed: [...container.querySelectorAll('li[id^="analysis-data-note-"] > span:first-child')].filter((letter) => letter.textContent),
+      charted: [...container.querySelectorAll('g[aria-label^="Data note "] text')],
+    }
+    for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
+    const inWarning = Object.values(letters).flat().filter((letter) =>
+      letter.closest('[class*="text-warning"], [class*="fill-warning"]') || warningInks.has((letter.getAttribute('fill') ?? '').toUpperCase()))
+    expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
   })
 
   it('keeps every note in the data notes and the record-only figure\'s note in its dialog', async () => {
@@ -191,6 +236,13 @@ describe('every surface marks and names only the notes that question the number 
     // Every populated figure that is not legacy, missing its record or the conflict passed: still never "No figures
     // need review" while the record-only note stands.
     expect(fine.querySelector('summary')).not.toHaveTextContent('No figures need review')
+    // The mixed note a marks for its other reason: the summary gives that reason's words (noteSummary), never the
+    // record-only sentence its message opens with.
+    const mixed = example.expected.notes.find((note) => note.letter === 'a')!
+    expect(mixed.reasons).toEqual(['legacy_calculation', 'source_check_needed'])
+    expect(mixed.message).toMatch(/^Calculated before 10 October 2026, .*\. Not yet matched to the filing: /)
+    expect(fine.querySelector('summary')).toHaveTextContent('Note a: a Free cash flow FY2024: not yet matched to the filing')
+    expect(fine.querySelector('summary')).not.toHaveTextContent('Calculated before 10 October 2026')
 
     const figure = within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getByRole('button', { name: /^Operating margin, FY2024: .*, calculated\. View source/ })
     expect(figure.querySelector('[data-note-letter]')).toBeNull()
@@ -199,5 +251,48 @@ describe('every surface marks and names only the notes that question the number 
     expect(checks).toHaveTextContent('Needs review')
     expect(checks).toHaveTextContent(legacy.message)
     expect(checks).not.toHaveTextContent('Automated checks passed')
+    // The figure's YoY carries the record-only note too: the dialog reads it in words and names no letter the page does
+    // not show, in its text or its accessible names.
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    expect(dialog).toHaveTextContent('The recorded inputs do not identify which input this note comes from.')
+    const unmarked = notesOf(example).filter((note) => !noteMarksFigure(note)).map((note) => note.letter)
+    const naming = new RegExp(`\\b[Nn]otes? (?:${unmarked.join('|')})\\b`)
+    expect([dialog.textContent ?? '', ...[...dialog.querySelectorAll('[aria-label]')].map((element) => element.getAttribute('aria-label')!)]
+      .filter((text) => naming.test(text)), 'the dialog names a letter the page does not show').toEqual([])
+  })
+})
+
+// ---- The all-clear, with a record-only note on a growth figure alone ----------------------------------------------
+// Every value passed and none lacks its record; the FY2024 YoY's prior input is a legacy calculation, so the YoY carries
+// legacy_calculation alone. That note marks nothing, so the summary has no letter to name, and only DataNotes' guard
+// keeps "No figures need review" from it. With the YoY passed, the same report earns it.
+const passedFact: FactProvenance = { version: 1, method: 'reported', validation: 'passed', reasons: [], formula: null, inputs: [] }
+const growthOnly = (yoy: FactProvenance): AnalysisDataset => ({
+  ticker: 'TST', company_name: 'Test Co', mode: 'annual', period_key: 'FY2023..FY2024', data_as_of: '2026-10-25T00:00:00Z',
+  snapshot_id: `growth-${yoy.validation}`, inflections: [],
+  periods: [2023, 2024].map((year) => ({ key: `FY${year}`, fiscal_year: year, fiscal_period: 'FY', period_end: `${year}-12-31` })),
+  series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [
+    { period: 'FY2023', value: 100, provenance: passedFact },
+    { period: 'FY2024', value: 110, provenance: passedFact, yoy: 0.1, yoy_provenance: yoy },
+  ] }],
+})
+
+describe('the data notes never clear a report while a record-only note stands (D-061)', () => {
+  const summary = () => document.querySelector('[data-analysis-data-notes] > details > summary')!
+
+  it('holds back "No figures need review" for a legacy note on a growth figure alone, and says it once that growth passed', () => {
+    const legacy = growthOnly({ ...passedFact, method: 'calculated', validation: 'needs_review', reasons: ['legacy_calculation'] })
+    // Every value passed and none is unknown: the counts alone would clear the report.
+    expect(groupDataNotes(legacy).totals).toMatchObject({ reviewValues: 0, reviewComparisons: 1, unknown: 0, passed: 2 })
+    const view = render(<DataNotes dataset={legacy} />)
+    expect(summary()).not.toHaveTextContent('No figures need review')
+    expect(summary().querySelector('[data-note-letter]')).toBeNull()
+    const note = groupDataNotes(legacy).notes[0]
+    expect(noteMarksFigure(note)).toBe(false)
+    expect(document.getElementById(note.id)).toHaveTextContent(note.message)
+    view.unmount()
+
+    render(<DataNotes dataset={growthOnly({ ...passedFact, method: 'calculated' })} />)
+    expect(summary()).toHaveTextContent('No figures need review · 2 checked')
   })
 })

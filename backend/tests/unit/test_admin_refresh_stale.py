@@ -223,6 +223,41 @@ def test_keep_better_gate_kept_row_counts_as_kept_not_updated(client, as_admin, 
 
 
 @pytest.mark.requires_db
+def test_a_raised_or_error_event_generation_counts_as_failed(client, as_admin, monkeypatch):
+    # A generation that raises, and one that ends in the orchestrator's terminal error event (a paid attempt that
+    # failed), are failed: neither updated nor kept by the gate, and the audit row counts both.
+    ft = f"FAIL-{uuid.uuid4().hex[:6]}"
+    seed = _seed(ft, stamps=[(None, None), (None, None)])
+    generated: list[int] = []
+
+    def raise_then_error(filing_id, _user_id, *, force_regenerate=False, rebuild_excerpt=False):
+        generated.append(filing_id)
+        if len(generated) == 1:
+            raise RuntimeError("generation crashed")
+        return {"type": "error", "message": "The summary could not be generated."}
+
+    monkeypatch.setattr(
+        "app.services.summary_generation_service.generate_summary_background", AsyncMock(side_effect=raise_then_error)
+    )
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false&limit=2")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["updated_count"], body["kept_by_gate_count"], body["failed_count"]) == (0, 0, 2)
+    assert body["failed_filing_ids"] == generated and sorted(generated) == sorted(seed["filing_ids"])
+
+    from app.database import SessionLocal
+    from app.models.audit_log import AuditLog
+
+    db = SessionLocal()
+    try:
+        [details] = [details for (details,) in db.query(AuditLog.details).filter(
+            AuditLog.action == "summaries_refresh_stale") if (details or {}).get("filing_type") == ft]
+        assert (details["updated_count"], details["kept_by_gate_count"], details["failed_count"]) == (0, 0, 2)
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
 def test_sql_stale_filter_matches_python_is_stale(client, as_admin):
     # Parity gate: the SQL _stale_summary_filter and the Python is_stale are two encodings of one
     # rule (the two-serializers pattern this PR exists to retire). Pin that they agree so a future

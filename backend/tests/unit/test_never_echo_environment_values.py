@@ -27,7 +27,7 @@ each gated here:
   non-ASCII value, a 500 whose frame held the secret;
 - that scrubber matches key names, so a secret's value quoted inside a value (a message, an exception, a breadcrumb, an
   extra, a tag, a context, a user, a request, a span, a log or a metric) still reached Sentry, a malformed
-  DATABASE_URL's digits among them, which the driver quotes as the port: main's hooks withhold each secret setting's
+  DATABASE_URL's digits among them, which the driver quotes as the port: the bootstrap's hooks withhold each secret setting's
   whole value and each connection URL's password on every channel that carries text (through str's own `replace`,
   which a text subclass cannot override), and a hook that fails sends nothing;
 - and, for every route at once, no output call (a print, log, warn or write call, `click.echo`, `pprint`, a Sentry
@@ -837,9 +837,33 @@ def test_the_deploy_check_database_checks_print_no_secret(monkeypatch, capsys):
     assert not leaked, f"{leaked} four-character fragments of the fabricated password reached the output"
 
 
+def _assert_option_invariants(options: dict) -> None:
+    """What every process's options must hold, whatever else they set (the API's and the task processes')."""
+    assert options["include_local_variables"] is False and options["send_default_pii"] is False
+    # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
+    # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
+    assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
+    # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
+    assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
+    # Continuous profiling sends profile chunks, which pass no hook either; the API samples transaction profiles only, the task processes none.
+    assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
+        set(options) | set(options.get("_experiments", {}))
+    )
+
+
 @pytest.fixture
 def sentry_envelopes():
-    # main.py's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
+    yield from _capturing("_sentry_options")
+
+
+@pytest.fixture
+def task_sentry_envelopes():
+    # The task worker's and the task child's options (`_task_sentry_options`), captured as the API's are.
+    yield from _capturing("_task_sentry_options")
+
+
+def _capturing(builder: str):
+    # the API's own options, with a fabricated DSN, a transport that keeps each envelope item instead of sending it (with
     # the envelope's and each item's headers, and each lost item's reason and category as a "lost" item; it reads the
     # DSN as the SDK's own does, so the dynamic sampling context carries its public key), every transaction sampled (a
     # transaction carries the request too), no profiler thread and a fixed release (none would run `git rev-parse`).
@@ -847,7 +871,7 @@ def sentry_envelopes():
     import sentry_sdk
     from sentry_sdk.transport import Transport
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     dsn = "https://fabricated@sentry.invalid/1"
 
@@ -868,24 +892,15 @@ def sentry_envelopes():
         def record_lost_event(self, reason, data_category=None, item=None, *, quantity=1):
             self.items.append(("lost", [reason, data_category]))
 
-    options = main._sentry_options()
-    assert options["include_local_variables"] is False and options["send_default_pii"] is False
-    # data_collection would drop the event scrubber and bring frame variables back whatever the two options above say
-    # (sentry_sdk/client.py, _get_options; sentry_sdk/utils.py, serialize_frame).
-    assert "data_collection" not in options and "data_collection" not in options.get("_experiments", {})
-    # Span streaming (trace_lifecycle="stream") sends request headers as span attributes, unscrubbed.
-    assert "trace_lifecycle" not in options and "trace_lifecycle" not in options.get("_experiments", {})
-    # Continuous profiling sends profile chunks, which pass no hook either; main samples transaction profiles only.
-    assert not {"profile_session_sample_rate", "profile_lifecycle"} & (
-        set(options) | set(options.get("_experiments", {}))
-    )
+    options = getattr(telemetry_bootstrap, builder)()
+    _assert_option_invariants(options)
     keep = Keep()
     options.update(dsn=dsn, transport=keep, release="gate")
     options.update(traces_sample_rate=1.0, profiles_sample_rate=None)
     sentry_sdk.init(**options)
     try:
         # The serializer runs before before_send and before_send_transaction and would cut each string at
-        # max_value_length (main's options or an SDK default): a cut inside a secret leaves a prefix that no hook matches.
+        # max_value_length (the options or an SDK default): a cut inside a secret leaves a prefix that no hook matches.
         assert sentry_sdk.get_client().options["max_value_length"] is None
         with sentry_sdk.isolation_scope():  # no breadcrumb or tag left by another test
             yield keep.items
@@ -919,14 +934,14 @@ def _sentry_inits(tree: ast.Module) -> list[str]:
 
 def test_main_passes_sentry_only_its_options():
     # The fixture checks what `_sentry_options` returns; a keyword added at the call itself (`data_collection`, a hook)
-    # or a second init anywhere else would escape it, so the backend's one init call is main.py's, and it takes those
-    # options and nothing else.
+    # or a second init anywhere else would escape it, so the backend's one init call is the bootstrap's, and it takes
+    # those options (the API's, or the task processes' built on them) and nothing else.
     found = [
         f"{path.relative_to(BACKEND_DIR).as_posix()}: {call}"
         for path in _scanned_files()
         for call in _sentry_inits(ast.parse(path.read_text(encoding="utf-8")))
     ]
-    assert found == ["main.py: sentry_sdk.init(**_sentry_options())"]
+    assert found == ["app/utils/telemetry_bootstrap.py: sentry_sdk.init(**_sentry_options() if process == 'api' else _task_sentry_options())"]
 
 
 @pytest.mark.parametrize(
@@ -1066,6 +1081,7 @@ def test_every_credential_in_a_request_body_is_withheld():
     # credential (`reset_code`, `api_token`) would reach Sentry with the request's error and its sampled transaction
     # unless the denylist names it, and a nested one would reach it anyway.
     import main
+    from app.utils import telemetry_bootstrap
 
     spec = main.app.openapi()
     components = spec.get("components", {}).get("schemas", {})
@@ -1083,9 +1099,9 @@ def test_every_credential_in_a_request_body_is_withheld():
         and name not in _NOT_CREDENTIALS
     }
     assert {("new_password", 0), ("refresh_token", 0), ("invite", 0), ("id_token", 0)} <= credentials  # JSON and form
-    denylist = set(main._sentry_options()["event_scrubber"].denylist)
+    denylist = set(telemetry_bootstrap._sentry_options()["event_scrubber"].denylist)
     exposed = sorted(f"{name} (depth {depth})" for name, depth in credentials if depth or name.lower() not in denylist)
-    assert not exposed, f"Request body credentials Sentry would receive: {exposed}. Add each to main._sentry_options."
+    assert not exposed, f"Request body credentials Sentry would receive: {exposed}. Add each to telemetry_bootstrap._sentry_options."
 
 
 def test_the_body_walk_follows_references_unions_and_lists():
@@ -1142,7 +1158,7 @@ def test_every_sentry_channel_runs_the_value_scrubber(monkeypatch):
 
     from sentry_sdk.consts import ClientConstructor
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     parameters = inspect.signature(ClientConstructor.__init__).parameters
     hooks = {name for name in parameters if name.startswith("before_send")}
@@ -1153,10 +1169,10 @@ def test_every_sentry_channel_runs_the_value_scrubber(monkeypatch):
         "before_send_metric": "metric",
     }
     assert sorted(hooks - {"before_send_span"}) == sorted(channels)
-    assert set(main._value_scrubber(("x" * 8,))) == set(channels.values())
+    assert set(telemetry_bootstrap._value_scrubber(("x" * 8,))) == set(channels.values())
     built = {channel: object() for channel in channels.values()}
-    monkeypatch.setattr(main, "_value_scrubber", lambda secret_values: built)
-    options = main._sentry_options()
+    monkeypatch.setattr(telemetry_bootstrap, "_value_scrubber", lambda secret_values: built)
+    options = telemetry_bootstrap._sentry_options()
     assert {hook: options.get(hook) for hook in channels} == {
         hook: built[channel] for hook, channel in channels.items()
     }
@@ -1166,9 +1182,9 @@ def test_every_sentry_channel_runs_the_value_scrubber(monkeypatch):
 def test_private_feedback_withholds_every_sentry_channel_in_request_context(channel):
     """SQL errors/breadcrumbs and parser data must not carry investor screenshots or notes."""
     from app.utils.feedback_privacy import private_feedback_request
-    import main
+    from app.utils import telemetry_bootstrap
 
-    hook = main._value_scrubber(())[channel]
+    hook = telemetry_bootstrap._value_scrubber(())[channel]
     item = {"message": "private investor note", "extra": {"filename": "brokerage.png"},
             "breadcrumbs": {"values": [{"data": {"params": ["https://private.example/portfolio"]}}]}}
     hint = {"attachments": [b"screenshot bytes"]}
@@ -1184,17 +1200,17 @@ def test_private_feedback_withholds_every_sentry_channel_in_request_context(chan
 @pytest.mark.parametrize("path", ("/api/feedback/", "/api/feedback/with-attachments",
                                   "/api/feedback/attachments/private-id", "/api/admin/feedback"))
 def test_private_feedback_events_remain_withheld_after_request_context_ends(path):
-    import main
+    from app.utils import telemetry_bootstrap
 
-    hook = main._value_scrubber(())["event"]
+    hook = telemetry_bootstrap._value_scrubber(())["event"]
     assert hook({"request": {"url": "https://api.example.test" + path,
                               "data": {"message": "a private note", "files": b"bytes"}},
                  "exception": {"values": [{"value": "SQL params contained private note"}]}}, {}) is None
 
 
 def _scrubbing_envelopes(request, monkeypatch, **values: str | None) -> list:
-    """The sentry_envelopes fixture, built once these settings values are in place: main's value scrubber reads the
-    settings when `_sentry_options()` runs, as main.py's one call does at startup."""
+    """The sentry_envelopes fixture, built once these settings values are in place: the value scrubber reads the
+    settings when `_sentry_options()` runs, as the bootstrap's one init does at a process's start."""
     from app.config import settings
 
     for name, value in values.items():
@@ -1273,7 +1289,7 @@ def test_sentry_withholds_a_secret_value_wherever_it_rides(monkeypatch, request,
 
 
 def test_sentry_withholds_every_secret_setting_and_connection_password(monkeypatch, request):
-    # Every secret field's value (the gate's own SECRET_FIELDS, the oracle of main's copy of the rule), the database
+    # Every secret field's value (the gate's own SECRET_FIELDS, the oracle of the bootstrap's copy of the rule), the database
     # password as written (an "@" percent-encoded) and decoded, and the Redis password (an "@" unescaped, which
     # redis-py reads to the last "@"), quoted in one message, each arrive as "[Filtered]" and nothing else changes: a
     # URL quoted whole is withheld whole. The Alpha Vantage key keeps its format's 16 characters, the shortest secret
@@ -1375,7 +1391,7 @@ def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
     # give a value: in the gate's other query forms SQLAlchemy's reading or its rendering gives the value as written.
     from sqlalchemy.engine import make_url
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     password = _fabricated("DATABASE_URL unparsed password", string.ascii_uppercase)
     query = _fabricated("DATABASE_URL unparsed query password", string.ascii_uppercase)
@@ -1384,18 +1400,18 @@ def test_a_url_sqlalchemy_cannot_parse_still_gives_its_password():
     with pytest.raises(ValueError):
         make_url(url)
     decoded = {f"{password[:20]}@{password[20:]}", f"{query[:20]}+{query[20:]}"}
-    assert {written, in_query} | decoded <= main._url_passwords(url)
+    assert {written, in_query} | decoded <= telemetry_bootstrap._url_passwords(url)
 
 
 def test_a_password_holding_a_lone_surrogate_still_gives_the_values():
     # The round-18 check's R18D-2: an environment byte that is not UTF-8 reaches a setting as a lone surrogate, which
     # quote_plus cannot encode by default, so building the values failed and Sentry stayed off. They build and hold the
     # password as SQLAlchemy reads it (SQLAlchemy cannot render such a URL at all).
-    import main
+    from app.utils import telemetry_bootstrap
 
     password = _fabricated("DATABASE_URL undecodable password", string.ascii_uppercase)
     read = f"{password[:20]}\udce9{password[20:]}"
-    assert read in main._url_passwords(f"postgresql://app@db.invalid/app?sslmode=require&password={read}")
+    assert read in telemetry_bootstrap._url_passwords(f"postgresql://app@db.invalid/app?sslmode=require&password={read}")
 
 
 def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
@@ -1412,18 +1428,18 @@ def test_sentry_withholds_a_secret_stored_with_a_newline(monkeypatch, request):
 
 
 def test_sentry_withholds_a_new_secret_setting_under_each_suffix(monkeypatch, request):
-    # A secret setting added later is withheld without a change to main.py when its name ends in one of the rule's
+    # A secret setting added later is withheld without a change to the bootstrap when its name ends in one of the rule's
     # suffixes (the gate's copy, the oracle), `_PASSWORD` included, which no field carries yet.
     import pydantic
     import sentry_sdk
 
-    import main
+    from app.utils import telemetry_bootstrap
     from app.config import Settings
 
     fields = {f"FABRICATED{suffix}": (str, "") for suffix in _SECRET_SUFFIXES}
     values = {name: _fabricated(name, string.ascii_uppercase) for name in fields}
     extended = pydantic.create_model("ExtendedSettings", __base__=Settings, **fields)
-    monkeypatch.setattr(main, "settings", extended.model_construct(**main.settings.model_dump(), **values))
+    monkeypatch.setattr(telemetry_bootstrap, "settings", extended.model_construct(**telemetry_bootstrap.settings.model_dump(), **values))
     envelopes = request.getfixturevalue("sentry_envelopes")
     sentry_sdk.capture_message(" | ".join(values.values()))
     sentry_sdk.flush()
@@ -1435,12 +1451,12 @@ def test_the_value_scrubber_keeps_numbers_and_withholds_a_secret_in_any_other_va
     # The walk is total: None, booleans and numbers stay as they are (a metric's value, a measurement, a log's
     # timestamp are read as numbers after the hook), mappings (keys too) and lists are walked, and any other value
     # becomes its repr with the secret withheld there.
-    import main
+    from app.utils import telemetry_bootstrap
 
     secret = _fabricated("SECRET_KEY", string.ascii_uppercase)
     node = {"count": 7, "ratio": 1.5, "sent": True, "none": None, secret: [secret], "pair": (secret, 2)}
     node["error"] = RuntimeError(secret)
-    assert main._withhold(node, (secret,)) == {
+    assert telemetry_bootstrap._withhold(node, (secret,)) == {
         "count": 7,
         "ratio": 1.5,
         "sent": True,
@@ -1449,7 +1465,7 @@ def test_the_value_scrubber_keeps_numbers_and_withholds_a_secret_in_any_other_va
         "pair": "('[Filtered]', 2)",
         "error": "RuntimeError('[Filtered]')",
     }
-    assert [type(main._withhold(value, (secret,))) for value in (7, 1.5, True)] == [int, float, bool]
+    assert [type(telemetry_bootstrap._withhold(value, (secret,))) for value in (7, 1.5, True)] == [int, float, bool]
 
 
 @pytest.mark.parametrize("switch", ["enable_logs", "capture_sentry_logs"])
@@ -1462,11 +1478,11 @@ def test_sentry_logs_withhold_a_secret_in_a_value_that_is_not_text(monkeypatch, 
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.integrations.logging import LoggingIntegration
 
-    import main
+    from app.utils import telemetry_bootstrap
 
-    options = main._sentry_options
+    options = telemetry_bootstrap._sentry_options
     if switch == "enable_logs":
-        monkeypatch.setattr(main, "_sentry_options", lambda: {**options(), "enable_logs": True})
+        monkeypatch.setattr(telemetry_bootstrap, "_sentry_options", lambda: {**options(), "enable_logs": True})
     else:
         # The constructor sets the class attribute every LoggingIntegration reads; the original comes back after.
         monkeypatch.setattr(LoggingIntegration, "capture_sentry_logs", LoggingIntegration.capture_sentry_logs)
@@ -1475,7 +1491,7 @@ def test_sentry_logs_withhold_a_secret_in_a_value_that_is_not_text(monkeypatch, 
             built = options()
             return {**built, "integrations": [*built["integrations"], LoggingIntegration(capture_sentry_logs=True)]}
 
-        monkeypatch.setattr(main, "_sentry_options", with_logs)
+        monkeypatch.setattr(telemetry_bootstrap, "_sentry_options", with_logs)
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
     quoted = f"job failed for {token}, retried with {token}"
@@ -1493,7 +1509,7 @@ def test_sentry_logs_withhold_a_secret_in_a_value_that_is_not_text(monkeypatch, 
 
 
 def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, request):
-    # The floor (main._MIN_SECRET_LENGTH): an eight-character value is withheld; a seven-character one, an empty one
+    # The floor (telemetry_bootstrap._MIN_SECRET_LENGTH): an eight-character value is withheld; a seven-character one, an empty one
     # (most secret settings' default) and a URL's port, which the URL rule reads as a password when a URL has no `@`,
     # are not, so none garbles an event; nor is an IPv6 host's address read as a password, and a setting that holds no
     # text (None) is skipped rather than failing the options, which would turn Sentry off.
@@ -1511,7 +1527,7 @@ def test_sentry_withholds_no_value_shorter_than_eight_characters(monkeypatch, re
 
 
 def _capture_every_structure(caplog) -> None:
-    """One capture of the structures the SDK builds under main's options, on every channel, as far as the design and
+    """One capture of the structures the SDK builds under the API's options, on every channel, as far as the design and
     delta checks of #1297 read the SDK (2.71.0, re-checked under 2.72.0): an error with a chained exception (its
     frames and mechanism), an exception group (its mechanism's links), a log record with its thread's stack,
     breadcrumbs from a log line and by hand, a user, a request that continues a trace and a log entry; then, past
@@ -1596,7 +1612,7 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
     # Codex's cases on #1297: a weak secret equal to a word of Sentry's protocol (IP_HASH_SALT=event_id passes every
     # check) renamed the event's own `event_id`, which the SDK reads after the hook, so the capture raised; one equal to
     # a key below it (parent_span_id) renamed that key in each child span. Every key at one of the protocol's own paths
-    # for its item's kind and an item's `type` stay as they are (main._PROTOCOL_PATHS, main._ITEM_TYPES): errors,
+    # for its item's kind and an item's `type` stay as they are (telemetry_bootstrap._PROTOCOL_PATHS, telemetry_bootstrap._ITEM_TYPES): errors,
     # transactions, check-ins, a log and a metric are each sent, as their own kind and whole, the trace header keeps
     # its sample rate, and a gen-AI span, which the SDK splits out after the hook, keeps its keys.
     words = {
@@ -1649,7 +1665,7 @@ def test_a_secret_equal_to_a_protocol_word_breaks_no_item(monkeypatch, request, 
 
 
 # The fields whose mappings hold user data: their keys are the app's data and the SDK's attribute names
-# (`sentry.environment`, `thread.id`), at none of the protocol's paths (main._PROTOCOL_PATHS), so the value scrubber
+# (`sentry.environment`, `thread.id`), at none of the protocol's paths (telemetry_bootstrap._PROTOCOL_PATHS), so the value scrubber
 # scrubs them all, a protocol word or not, and the structure cases leave them out (the lesson's over-redaction entry).
 _USER_DATA_FIELDS = frozenset(
     {"data", "tags", "extra", "attributes", "headers", "cookies", "env", "vars", "params", "measurements", "modules"}
@@ -1678,22 +1694,22 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
     # in each child span, breadcrumb, frame or monitor config. Every key of 8 characters or more that the SDK's own
     # items carry outside user data (as each hook received them, from one capture of the structures the design checks
     # found the SDK builds, on every channel), each taken as a secret, leaves every item's structure as it was. The keys
-    # come from the SDK's items, not from main's list: a key on a structure the capture builds fails here until
-    # main._PROTOCOL_PATHS has its path for the item's kind, and an SDK upgrade fails the pin below until the capture is
-    # checked again.
+    # come from the SDK's items, not from the bootstrap's list: a key on a structure the capture builds fails here
+    # until telemetry_bootstrap._PROTOCOL_PATHS has its path for the item's kind, and an SDK upgrade fails the pin
+    # below until the capture is checked again.
     import copy
 
     import sentry_sdk
 
-    import main
+    from app.utils import telemetry_bootstrap
 
-    # The capture reaches the structures the design checks of #1297 found the SDK builds under main's options (not a
+    # The capture reaches the structures the design checks of #1297 found the SDK builds under the API's options (not a
     # subprocess span, errno mechanism data or a gauge); re-checked for 2.72.0, which adds keys inside user data only.
     # An upgrade can add one it does not reach, so it fails here until the capture is checked again.
     assert sentry_sdk.VERSION == "2.72.0"
 
     received = []
-    value_scrubber = main._value_scrubber
+    value_scrubber = telemetry_bootstrap._value_scrubber
 
     def recording(secret_values):
         hooks = value_scrubber(secret_values)
@@ -1707,7 +1723,7 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
         return {channel: recorder(channel, hook) for channel, hook in hooks.items()}
 
-    monkeypatch.setattr(main, "_value_scrubber", recording)
+    monkeypatch.setattr(telemetry_bootstrap, "_value_scrubber", recording)
     request.getfixturevalue("sentry_envelopes")
     _capture_every_structure(caplog)
     assert {"transaction", "check_in", "counter"} <= {item.get("type") for _, item in received}
@@ -1722,16 +1738,16 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
         paths.setdefault(kind, set()).update(
             tuple(step for step in path if not isinstance(step, int))
             for path in _structure(item)
-            if isinstance(path[-1], str) and len(path[-1]) >= main._MIN_SECRET_LENGTH
+            if isinstance(path[-1], str) and len(path[-1]) >= telemetry_bootstrap._MIN_SECRET_LENGTH
         )
-    # Main keeps exactly these paths for each kind: none missing, none dead, each spelled as the SDK spells it. The
+    # The bootstrap keeps exactly these paths for each kind: none missing, none dead, each spelled as the SDK spells it. The
     # capture sets no context of its own, so every context in it is the SDK's.
-    assert main._PROTOCOL_PATHS == paths, {
+    assert telemetry_bootstrap._PROTOCOL_PATHS == paths, {
         kind: (
-            sorted(paths.get(kind, set()) - main._PROTOCOL_PATHS.get(kind, set())),
-            sorted(main._PROTOCOL_PATHS.get(kind, set()) - paths.get(kind, set())),
+            sorted(paths.get(kind, set()) - telemetry_bootstrap._PROTOCOL_PATHS.get(kind, set())),
+            sorted(telemetry_bootstrap._PROTOCOL_PATHS.get(kind, set()) - paths.get(kind, set())),
         )
-        for kind in sorted(set(paths) | set(main._PROTOCOL_PATHS))
+        for kind in sorted(set(paths) | set(telemetry_bootstrap._PROTOCOL_PATHS))
     }
     assert {name for _, item in received for name in item.get("contexts", {})} == {"trace", "runtime", "response"}
     words = sorted({path[-1] for kept in paths.values() for path in kept}, key=lambda word: (-len(word), word))
@@ -1742,7 +1758,7 @@ def test_every_key_of_the_protocols_own_survives_a_secret_equal_to_it(monkeypatc
 
 
 def test_a_secret_held_as_a_key_in_user_data_is_withheld(monkeypatch, request):
-    # Only a key at one of the protocol's own paths stays (main._PROTOCOL_PATHS): a secret held as a key in an extra, a
+    # Only a key at one of the protocol's own paths stays (telemetry_bootstrap._PROTOCOL_PATHS): a secret held as a key in an extra, a
     # tag, a context (its name and inside it), a user, a breadcrumb's data, a request's body, a span's data or tags, a
     # log's or a metric's attributes is withheld there, and so is one that follows a protocol word in the same key (a
     # user's, whose own `username` stays: a key is kept only when it is exactly the protocol's).
@@ -1871,7 +1887,7 @@ def test_a_protocol_word_is_kept_only_in_its_own_kind_of_item(monkeypatch, reque
     # `check_in` keeps no check-in key.
     import sentry_sdk
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     secrets = {"IP_HASH_SALT": "attributes", "FMP_API_KEY": "check_in_id", "POSTHOG_API_KEY": "trace_id"}
     envelopes = _scrubbing_envelopes(request, monkeypatch, **secrets)
@@ -1898,14 +1914,14 @@ def test_a_protocol_word_is_kept_only_in_its_own_kind_of_item(monkeypatch, reque
         def __hash__(self):
             return hash("check_in")
 
-    scrubbed = main._value_scrubber(("check_in_id",))["event"]({"type": Posing("event"), "check_in_id": "x"}, {})
+    scrubbed = telemetry_bootstrap._value_scrubber(("check_in_id",))["event"]({"type": Posing("event"), "check_in_id": "x"}, {})
     assert scrubbed == {"type": "event", "[Filtered]": "x"} and type(scrubbed["type"]) is str
 
 
 def test_a_type_is_kept_only_in_its_own_kind_of_item(monkeypatch, request):
     # Codex's case on #1297 (21840f6): the hooks put back an item's `type` when it was one any kind carries, so a weak
     # secret equal to a metric's kind, written as an ordinary error's `type` by an event processor or by hand, rode past
-    # before_send. Each hook puts back only its own kind's (main._ITEM_TYPES): the error's is withheld, and a metric
+    # before_send. Each hook puts back only its own kind's (telemetry_bootstrap._ITEM_TYPES): the error's is withheld, and a metric
     # keeps its own.
     import sentry_sdk
 
@@ -1969,11 +1985,11 @@ def test_each_kind_of_event_keeps_only_its_own_kinds_keys(monkeypatch, request):
 
 @pytest.mark.parametrize("field", sorted(_USER_DATA_FIELDS))
 def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
-    # Main keeps a key only at the paths the protocol gives the item's kind (an error's here), none of them below a field
+    # The bootstrap keeps a key only at the paths the protocol gives the item's kind (an error's here), none of them below a field
     # of the gate's list, so a weak secret equal to a protocol word is withheld as a key there at any depth (a list's
     # items too, a protocol structure nested there too), and in a context the app set, while the same word stays where
     # the protocol puts it (a user's `username`, the trace context's `trace_id`).
-    import main
+    from app.utils import telemetry_bootstrap
 
     word = "username"
     item = {
@@ -1981,7 +1997,7 @@ def test_the_value_scrubber_keeps_a_protocol_word_only_outside_user_data(field):
         field: {word: "x", "nested": {word: "x"}, "listed": [{word: "x"}], "user": {word: "x"}},
         "contexts": {"trace": {"trace_id": "x"}, "job": {word: "x"}},
     }
-    assert main._withhold(item, (word,), main._PROTOCOL_PATHS["error"]) == {
+    assert telemetry_bootstrap._withhold(item, (word,), telemetry_bootstrap._PROTOCOL_PATHS["error"]) == {
         "user": {word: "reader"},
         field: {
             "[Filtered]": "x",
@@ -1997,7 +2013,7 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
     # Log and metric attributes reach the hook unserialized, keys as the app gave them: a str subclass that compares
     # equal to a protocol word while its text is a secret is withheld (a key is kept only when it is exactly text), and
     # any other key equal to one becomes its repr, which the SDK can encode (the adversarial design check on #1297).
-    import main
+    from app.utils import telemetry_bootstrap
 
     secret = _fabricated("SECRET_KEY", string.ascii_uppercase)
 
@@ -2018,18 +2034,18 @@ def test_a_key_is_kept_as_a_protocol_word_only_when_it_is_text():
         def __repr__(self):
             return "Word()"
 
-    errors = main._PROTOCOL_PATHS["error"]  # `timestamp` is one of an error's own paths
-    assert main._withhold({Posing(secret): 1}, (secret,), errors) == {"[Filtered]": 1}
-    assert main._withhold({Word(): 2}, (secret,), errors) == {"Word()": 2}
+    errors = telemetry_bootstrap._PROTOCOL_PATHS["error"]  # `timestamp` is one of an error's own paths
+    assert telemetry_bootstrap._withhold({Posing(secret): 1}, (secret,), errors) == {"[Filtered]": 1}
+    assert telemetry_bootstrap._withhold({Word(): 2}, (secret,), errors) == {"Word()": 2}
     # Above a protocol path, too: a key that only poses as `contexts` (its text is the word) keeps nothing below it,
     # while the plain word keeps the trace context's `trace_id`; and below a key that is not text, no key stays, a
     # top-level word included (the delta check of a87dfd9).
     item = {"trace": {"trace_id": "x"}}
-    assert main._withhold({"contexts": item}, ("trace_id",), errors) == {"contexts": item}
-    assert main._withhold({type("Text", (str,), {})("contexts"): item}, ("trace_id",), errors) == {
+    assert telemetry_bootstrap._withhold({"contexts": item}, ("trace_id",), errors) == {"contexts": item}
+    assert telemetry_bootstrap._withhold({type("Text", (str,), {})("contexts"): item}, ("trace_id",), errors) == {
         "contexts": {"trace": {"[Filtered]": "x"}}
     }
-    assert main._withhold({Word(): {"event_id": "x"}}, ("event_id",), errors) == {"Word()": {"[Filtered]": "x"}}
+    assert telemetry_bootstrap._withhold({Word(): {"event_id": "x"}}, ("event_id",), errors) == {"Word()": {"[Filtered]": "x"}}
 
 
 def test_a_type_is_kept_only_when_it_is_text(monkeypatch, request):
@@ -2064,7 +2080,7 @@ def test_a_text_subclass_cannot_keep_a_secret(monkeypatch, request):
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
@@ -2094,7 +2110,7 @@ def test_a_text_subclass_cannot_keep_a_secret(monkeypatch, request):
     assert metric["attributes"]["detail"]["value"] == "job failed for [Filtered]"  # sent, not dropped
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
-    scrubbed = main._withhold(quoted, (token,))
+    scrubbed = telemetry_bootstrap._withhold(quoted, (token,))
     assert scrubbed == "job failed for [Filtered]" and type(scrubbed) is str
 
 
@@ -2107,10 +2123,10 @@ def test_a_number_subclass_cannot_carry_a_secret(monkeypatch, request, caplog):
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
 
-    import main
+    from app.utils import telemetry_bootstrap
 
-    options = main._sentry_options
-    monkeypatch.setattr(main, "_sentry_options", lambda: {**options(), "enable_logs": True})
+    options = telemetry_bootstrap._sentry_options
+    monkeypatch.setattr(telemetry_bootstrap, "_sentry_options", lambda: {**options(), "enable_logs": True})
     token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=token)
 
@@ -2143,14 +2159,14 @@ def test_a_number_subclass_cannot_carry_a_secret(monkeypatch, request, caplog):
     assert event["extra"]["numbers"] == {"code": 5, "ratio": 0.5}
     leaked = _fragments(token, json.dumps(envelopes), width=8)
     assert not leaked, f"{leaked} eight-character fragments of the fabricated token reached Sentry"
-    assert type(main._withhold(Code(5), (token,))) is int and type(main._withhold(Ratio(0.5), (token,))) is float
+    assert type(telemetry_bootstrap._withhold(Code(5), (token,))) is int and type(telemetry_bootstrap._withhold(Ratio(0.5), (token,))) is float
 
 
 def test_nothing_written_before_the_hooks_carries_a_secret_past_them(monkeypatch, request):
     # The hooks keep only the protocol's own keys at its paths for each item's kind and an item's own `type`
-    # (main._PROTOCOL_PATHS, main._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no
+    # (telemetry_bootstrap._PROTOCOL_PATHS, telemetry_bootstrap._ITEM_TYPES), never a field whole, and drop a hint's attachments, whose bytes pass no
     # hook, so nothing that runs before them can carry a secret past them, but as the protocol's own key at its own path
-    # in its own kind of item (or, through a `type` that is a text subclass, at another kind's: main._value_scrubber's
+    # in its own kind of item (or, through a `type` that is a text subclass, at another kind's: telemetry_bootstrap._value_scrubber's
     # docstring, the round-20 check's R20D-2): a trace context set by hand; an attachment on the scope; a hand-built
     # event with the secret as its own key, its `type` and an attachment; or an event processor, registered under any
     # name (an assignment alias: Codex's case on #1297), writing it as an event's key, a trace context's key and the
@@ -2223,44 +2239,46 @@ def test_no_placeholder_holds_or_forms_a_secret(monkeypatch, request, overlap, t
 
 
 def test_sentry_stays_off_when_every_placeholder_overlaps_a_secret(monkeypatch):
-    # Weak secrets that overlap every placeholder fail the options at startup, so main.py's init, which catches the
+    # Weak secrets that overlap every placeholder fail the options at startup, so the bootstrap's init, which catches the
     # failure, leaves Sentry off rather than send a placeholder that holds one; the error names no value.
-    import main
+    from app.utils import telemetry_bootstrap
     from app.config import settings
 
     for name, word in {"IP_HASH_SALT": "Filtered", "FMP_API_KEY": "Withheld", "POSTHOG_API_KEY": "Redacted"}.items():
         monkeypatch.setattr(settings, name, word)
     with pytest.raises(ValueError) as info:
-        main._sentry_options()
+        telemetry_bootstrap._sentry_options()
     assert str(info.value) == "every placeholder overlaps a secret setting's value"
-    tree = ast.parse((BACKEND_DIR / "main.py").read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="every placeholder overlaps"):
+        telemetry_bootstrap._task_sentry_options()  # the task processes build on the API's options: Sentry stays off
+    tree = ast.parse((BACKEND_DIR / "app" / "utils" / "telemetry_bootstrap.py").read_text(encoding="utf-8"))
     guarded = [
         node
         for node in ast.walk(tree)
         if isinstance(node, ast.Try)
         and any(isinstance(handler.type, ast.Name) and handler.type.id == "Exception" for handler in node.handlers)
         and any(
-            ast.unparse(call) == "sentry_sdk.init(**_sentry_options())"
+            ast.unparse(call) == "sentry_sdk.init(**_sentry_options() if process == 'api' else _task_sentry_options())"
             for statement in node.body
             for call in ast.walk(statement)
             if isinstance(call, ast.Call)
         )
     ]
-    assert guarded  # main.py's one init catches the failure: Sentry stays off, and the app starts
+    assert guarded  # the bootstrap's one init catches the failure: Sentry stays off, and the app starts
 
 
 def test_the_value_scrubber_reads_the_settings_once_at_startup(monkeypatch, request):
-    # The values are read when `_sentry_options()` runs, as main.py's one call does at startup, and never again, by
+    # The values are read when `_sentry_options()` runs, as the bootstrap's one init does at startup, and never again, by
     # any path: not at the first item, not per item, and a value set afterwards is not withheld.
     import sentry_sdk
     from sentry_sdk import logger as sentry_logger
 
-    import main
+    from app.utils import telemetry_bootstrap
     from app.config import settings
 
     reads = []
-    read = main._secret_values
-    monkeypatch.setattr(main, "_secret_values", lambda: reads.append("read") or read())
+    read = telemetry_bootstrap._secret_values
+    monkeypatch.setattr(telemetry_bootstrap, "_secret_values", lambda: reads.append("read") or read())
     first, later = (_fabricated(f"INTERNAL_JOB_TOKEN {when}", string.ascii_uppercase) for when in ("first", "later"))
     envelopes = _scrubbing_envelopes(request, monkeypatch, INTERNAL_JOB_TOKEN=first)
     assert reads == ["read"]
@@ -2288,12 +2306,12 @@ def test_a_failing_value_scrubber_sends_nothing(monkeypatch, sentry_envelopes, e
     from sentry_sdk import logger as sentry_logger
     from sentry_sdk.crons import capture_checkin
 
-    import main
+    from app.utils import telemetry_bootstrap
 
     def failing(*arguments):
         raise error("the scrubber failed")
 
-    monkeypatch.setattr(main, "_withhold", failing)
+    monkeypatch.setattr(telemetry_bootstrap, "_withhold", failing)
     with sentry_sdk.start_transaction(name="job"):
         sentry_sdk.capture_message("job failed")
     capture_checkin(monitor_slug="nightly", status="error")
@@ -2891,3 +2909,245 @@ def test_compare_digest_takes_bytes():
 def test_the_compare_digest_gate_flags_a_str(source, flagged):
     ((_, args),) = _compare_digest_calls(ast.parse(source))
     assert _not_bytes(args) is flagged
+
+
+
+# ---- F50: the task worker and the task child start Sentry through the bootstrap, and send what failed and where ----
+
+
+def _bootstrap_calls(tree: ast.Module) -> list[tuple[str, ast.Call]]:
+    """Each call of the bootstrap's public functions, through any import of the module or of the function."""
+    names, modules = {}, set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "app.utils.telemetry_bootstrap":
+            names |= {alias.asname or alias.name: alias.name for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.module == "app.utils":
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "telemetry_bootstrap"}
+        elif isinstance(node, ast.Import):
+            modules |= {alias.asname or alias.name for alias in node.names if alias.name == "app.utils.telemetry_bootstrap"}
+    calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        function = ast.unparse(node.func)
+        name = names.get(function) or next(
+            (function.rpartition(".")[2] for module in modules if function.startswith(f"{module}.")), None
+        )
+        if name in {"init_sentry", "report_task_failure"}:
+            calls.append((name, node))
+    return calls
+
+
+def test_each_process_starts_sentry_once_through_the_bootstrap():
+    # The single-init pin above holds the one init call to the bootstrap; this one holds who calls the bootstrap: the
+    # API once, at import, before it imports the app (an import-time error is reported) and builds it; the worker once,
+    # at import, before its app; the task child only in main()'s failure handler, never at import or on success.
+    leaf = BACKEND_DIR / "app" / "utils" / "telemetry_bootstrap.py"
+    found = {}
+    for path in _scanned_files():
+        if path == leaf:
+            continue
+        calls = _bootstrap_calls(ast.parse(path.read_text(encoding="utf-8")))
+        if calls:
+            found[path.relative_to(BACKEND_DIR).as_posix()] = [ast.unparse(call) for _, call in calls]
+    assert found == {
+        "main.py": ["init_sentry('api')"],
+        "task_worker_main.py": ["init_sentry('worker')"],
+        "app/services/task_process.py": ["report_task_failure(error, kind)"],
+    }
+    for name in ("main.py", "task_worker_main.py"):
+        tree = ast.parse((BACKEND_DIR / name).read_text(encoding="utf-8"))
+        (call,) = [call for _, call in _bootstrap_calls(tree)]
+        starts = [i for i, node in enumerate(tree.body) if any(inner is call for inner in ast.walk(node))]
+        assert len(starts) == 1, f"{name}: the start is not one top-level statement"
+        later = tree.body[starts[0] + 1 :]
+        earlier = tree.body[: starts[0]]
+        assert not any("FastAPI(" in ast.unparse(node) for node in earlier), f"{name}: the app is built before Sentry"
+        if name == "main.py":
+            assert not any(
+                isinstance(node, ast.ImportFrom) and (node.module or "").startswith(("app.database", "app.routers", "app.services"))
+                for node in earlier
+            ), "main.py imports the app before Sentry starts"
+            assert any(isinstance(node, ast.ImportFrom) and node.module == "app.database" for node in later)
+            # No shim: main.py binds none of the bootstrap's private names, so a stale patch of main fails loudly.
+            assert not any(
+                isinstance(node, ast.ImportFrom) and node.module == "app.utils.telemetry_bootstrap"
+                and any(alias.name.startswith("_") for alias in node.names)
+                for node in ast.walk(tree)
+            )
+    tree = ast.parse((BACKEND_DIR / "app" / "services" / "task_process.py").read_text(encoding="utf-8"))
+    (main_def,) = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
+    (handler,) = [node for node in ast.walk(main_def) if isinstance(node, ast.ExceptHandler)]
+    assert ast.unparse(handler.type) == "Exception" and handler.name == "error"
+    assert [ast.unparse(statement) for statement in handler.body[-2:]] == ["report_task_failure(error, kind)", "return 1"]
+
+
+def test_the_task_processes_change_only_their_policy_of_the_apis_options(monkeypatch):
+    # The task options are the API's with a named delta: the same DSN, release, environment, event scrubber (the same
+    # object), no frame variables, no PII. Every before_send* hook the API sets is replaced, so a hook an SDK upgrade adds
+    # to the API fails here until the task side replaces it too.
+    from app.utils import telemetry_bootstrap
+
+    built = telemetry_bootstrap._sentry_options
+    api = built()
+    monkeypatch.setattr(telemetry_bootstrap, "_sentry_options", lambda: dict(api))
+    task = telemetry_bootstrap._task_sentry_options()
+    changed = {key for key in api.keys() | task.keys() if api.get(key, None) is not task.get(key, None)}
+    assert changed == {
+        "default_integrations", "integrations", "traces_sample_rate", "profiles_sample_rate", "max_request_body_size",
+        "before_send", "before_send_transaction", "before_send_log", "before_send_metric",
+    }
+    assert {key for key in api if key.startswith("before_send")} <= changed
+    assert task["event_scrubber"] is api["event_scrubber"]
+    assert task["default_integrations"] is False and task["max_request_body_size"] == "never"
+    assert task["traces_sample_rate"] is None and task["profiles_sample_rate"] is None
+    _assert_option_invariants(task)
+    assert not {"shutdown_timeout", "auto_enabling_integrations", "max_value_length"} & task.keys()
+    from sentry_sdk.integrations.atexit import AtexitIntegration
+    from sentry_sdk.integrations.dedupe import DedupeIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+
+    assert [type(integration) for integration in task["integrations"]] == [
+        LoggingIntegration, AtexitIntegration, DedupeIntegration
+    ]
+    logging_integration = task["integrations"][0]
+    assert logging_integration._breadcrumb_handler is None and logging_integration._sentry_logs_handler is None
+    assert logging_integration._handler.level == logging.ERROR
+
+
+@pytest.mark.parametrize("carrier", _CARRIERS)
+def test_a_task_process_sends_no_text_a_carrier_holds(monkeypatch, caplog, task_sentry_envelopes, carrier):
+    # Each carrier quotes an address and payload text: none reaches Sentry from a task process, whose errors
+    # carry their type and stack only; nothing but errors is sent (no transaction, log, metric or check-in).
+    import sentry_sdk
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from sentry_sdk import logger as sentry_logger
+    from sentry_sdk.crons import capture_checkin
+
+    word, mailbox = _fabricated("task payload word", string.ascii_uppercase), _fabricated("task mailbox", string.ascii_lowercase)
+    address = f"{mailbox}@example.invalid"
+    quoted = f"companyfacts {word} for {address}"
+    if carrier == "message":
+        sentry_sdk.capture_message(quoted)
+    elif carrier == "exception":
+        sentry_sdk.capture_exception(RuntimeError(quoted))
+    elif carrier == "request":
+        app = FastAPI()
+
+        @app.post("/notes/{note}")
+        async def notes(note: str, body: dict):
+            raise RuntimeError(quoted)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        assert client.post(f"/notes/{word}", params={"q": quoted}, json={"note": quoted}).status_code == 500
+    elif carrier == "span":
+        with sentry_sdk.start_transaction(name=quoted), sentry_sdk.start_span(op="job.step", name=quoted) as span:
+            span.set_data("detail", quoted)
+    elif carrier == "log":
+        sentry_logger.warning(quoted)
+    elif carrier == "metric":
+        sentry_sdk.metrics.count("job.failures", 1, attributes={"detail": quoted})
+    elif carrier == "check-in":
+        capture_checkin(monitor_slug=quoted, status="error")
+    else:
+        if carrier == "breadcrumb":
+            caplog.set_level(logging.INFO, logger="app.jobs")
+            logging.getLogger("app.jobs").warning(quoted)
+        elif carrier == "extra":
+            sentry_sdk.set_extra("detail", quoted)
+        elif carrier == "tag":
+            sentry_sdk.set_tag("detail", quoted)
+            sentry_sdk.set_tag("task.kind", quoted)  # the one tag a task event keeps, only in its own pattern
+        elif carrier == "context":
+            sentry_sdk.set_context("job", {"detail": quoted, word: "a key"})
+        else:
+            sentry_sdk.set_user({"id": quoted, "email": address})
+        sentry_sdk.capture_message("job failed")
+    sentry_sdk.flush()
+    sent = json.dumps(task_sentry_envelopes)
+    assert word not in sent and mailbox not in sent and "example.invalid" not in sent
+    assert not {kind for kind, _ in task_sentry_envelopes} & {"transaction", "log", "trace_metric", "check_in"}
+    events = _of(task_sentry_envelopes, "event")
+    assert len(events) == (0 if carrier in {"request", "span", "log", "metric", "check-in"} else 1)
+    for event in events:
+        assert event.keys() <= telemetry_bootstrap_keys()
+        assert all("value" not in exception for exception in event.get("exception", {}).get("values", []))
+
+
+def telemetry_bootstrap_keys() -> frozenset:
+    from app.utils import telemetry_bootstrap
+
+    return telemetry_bootstrap._TASK_EVENT_KEYS
+
+
+def test_a_task_event_says_what_failed_and_where_never_on_what(monkeypatch, caplog, request):
+    # A payload-quoting validation error chained under a RuntimeError with a note, logged with %-arguments: one event,
+    # both types and their frames, no value, no log text; the secret in a kept field (the exception's type name) is
+    # withheld by the API's value scrubber, which runs last.
+    import pydantic
+    import sentry_sdk
+
+    from app.config import settings
+    from app.services.durable_tasks import CompanyTask
+
+    token = _fabricated("INTERNAL_JOB_TOKEN", string.ascii_uppercase)
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", token)
+    envelopes = request.getfixturevalue("task_sentry_envelopes")
+    word = _fabricated("task payload", string.ascii_uppercase)
+    sentry_sdk.set_tag("task.kind", "companyfacts")
+    sentry_sdk.add_breadcrumb(message=word)
+    caplog.set_level(logging.INFO, logger="app.jobs")
+    logging.getLogger("app.jobs").info("working on %s", word)
+    failed = type(f"Failed{token}", (RuntimeError,), {})
+    try:
+        try:
+            CompanyTask.model_validate({"company_id": word})
+        except pydantic.ValidationError as error:
+            raised = failed(f"{word} failed")
+            raised.add_note(word)
+            raise raised from error
+    except RuntimeError:
+        logging.getLogger("app.jobs").exception("task %s failed", word)
+    from sentry_sdk.crons import capture_checkin
+
+    capture_checkin(monitor_slug="nightly", status="error")
+    sentry_sdk.flush()
+    (event,) = _of(envelopes, "event")
+    assert [exception["type"] for exception in event["exception"]["values"]] == ["ValidationError", "Failed[Filtered]"]
+    assert all("value" not in exception and exception["stacktrace"]["frames"] for exception in event["exception"]["values"])
+    assert event["tags"] == {"task.kind": "companyfacts"} and event["logger"] == "app.jobs"
+    assert not {"logentry", "message", "breadcrumbs", "extra", "user", "request", "modules", "_meta"} & event.keys()
+    sent = json.dumps(envelopes)
+    assert word not in sent and not _fragments(token, sent, width=8) and not _of(envelopes, "check_in")
+
+
+@pytest.mark.parametrize("value", ["f50-x@example.com", "jane.doe@example.com", "a" * 33, "companyfacts\n", "Companyfacts", 7])
+def test_a_task_kind_outside_its_pattern_is_dropped(value):
+    # task.kind is the one tag a task event keeps, and only as a whole match of [a-z_]{1,32}: a character outside the
+    # class, a longer value, a trailing newline (a search would pass it) or a value that is not text drops it.
+    from app.utils import telemetry_bootstrap
+
+    assert "tags" not in telemetry_bootstrap._task_event({"tags": {"task.kind": value, "other": "y"}})
+    kept = telemetry_bootstrap._task_event({"tags": {"task.kind": "internal_job", "other": "y"}})
+    assert kept["tags"] == {"task.kind": "internal_job"}
+
+
+@pytest.mark.parametrize("error", [RuntimeError, _Halt])
+def test_a_failing_task_filter_or_value_scrubber_sends_nothing(monkeypatch, task_sentry_envelopes, error):
+    # The task hooks fail closed: a raise in the allowlist or in the API's value scrubber after it drops the event.
+    import sentry_sdk
+
+    from app.utils import telemetry_bootstrap
+
+    def failing(*arguments):
+        raise error("the filter failed")
+
+    monkeypatch.setattr(telemetry_bootstrap, "_task_event", failing)
+    sentry_sdk.capture_exception(RuntimeError("job failed"))
+    monkeypatch.undo()
+    monkeypatch.setattr(telemetry_bootstrap, "_withhold", failing)
+    sentry_sdk.capture_exception(RuntimeError("job failed again"))
+    sentry_sdk.flush()
+    assert not _of(task_sentry_envelopes, "event")
+    assert _of(task_sentry_envelopes, "lost").count(["callback_error", "error"]) == 2

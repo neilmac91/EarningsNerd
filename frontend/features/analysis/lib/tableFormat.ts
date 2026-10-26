@@ -1,5 +1,6 @@
 import type { AnalysisSeries, GrowthValue } from '@/features/analysis/api/analysis-api'
 import { fmtCurrency, fmtPercent, fmtPercentPoints } from '@/lib/format'
+import { markedNote, type DataNote } from './dataNotes'
 import { formatGrowth } from './growth'
 
 const currencyFromUnit = (unit: string): string => {
@@ -68,4 +69,20 @@ export function formatTableGrowth(value: GrowthValue | null | undefined, isPerce
   const suffix = isPercent ? 'pp' : '%'
   const zeroDigits = isPercent ? fmtPercentPoints(value, { digits: 0 }) : fmtPercent(amount, { digits: 0, signed: true })
   return bounded([ordinary, zeroDigits, `${number(amount, 1, 'compact', true)}${suffix}`, `${number(amount, 0, 'compact', true)}${suffix}`, `${number(amount, 0, 'scientific', true)}${suffix}`], budget)
+}
+
+/** The note a figure cell or change line reads: only its letter, when it marks the figure, takes a glyph. */
+type CellNote = Pick<DataNote, 'kind' | 'reasons' | 'letter'> | null | undefined
+
+/** A figure cell's value as MetricsTable prints it: at the budget its note's letter leaves, only when the note questions
+ *  the number (markedNote); a calculated figure reserves nothing, since it draws no dagger (D-061). The trend charts'
+ *  agreement check (M15) reads the table through this and tableComparisonText, so it never copies the rule. */
+export function tableFigureText(value: number, series: AnalysisSeries, note?: CellNote): string {
+  return formatTableValue(value, series, tableTokenBudget(markedNote(note)?.letter))
+}
+
+/** A figure cell's change line, or the final column's change, as MetricsTable prints it: at the budget the letter of a
+ *  comparison note that marks it leaves. */
+export function tableComparisonText(value: GrowthValue | null | undefined, isPercent: boolean, note?: CellNote): string {
+  return formatTableGrowth(value, isPercent, tableTokenBudget(markedNote(note)?.letter))
 }
