@@ -333,8 +333,8 @@ def test_a_run_reports_the_candidates_its_time_budget_left_unstarted_as_deferred
 @pytest.mark.asyncio
 async def test_a_run_starts_no_generation_past_its_time_budget(monkeypatch):
     # The run starts a generation only while its clock has not passed start_by, as the job-side drain starts none past
-    # its max_seconds. On this clock each generation takes 100 s: with the budget ending at 150 s, the first two start,
-    # at 0 s and 100 s, and the third, due at 200 s, is deferred with the fourth.
+    # its max_seconds. On this clock each generation takes 100 s: with the budget ending at 100 s, the first two start,
+    # the second at 100 s itself, and the third, due at 200 s, is deferred with the fourth.
     from app.services import admin_summary_service
 
     ft = f"BUDGET-{uuid.uuid4().hex[:6]}"
@@ -349,7 +349,7 @@ async def test_a_run_starts_no_generation_past_its_time_budget(monkeypatch):
     monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", generation)
     outcomes = await admin_summary_service.regenerate_in_place(
         seed["filing_ids"], actor_id=1, actor_email="admin@example.com", filing_type=ft,
-        schema_version_lt=None, stale_total=4, start_by=150.0, clock=lambda: now[0])
+        schema_version_lt=None, stale_total=4, start_by=100.0, clock=lambda: now[0])
     assert started_at == [0.0, 100.0]
     # Neither generation stamped its row, so the keep-better gate's count takes both.
     assert outcomes == ([], seed["filing_ids"][:2], [], seed["filing_ids"][2:])

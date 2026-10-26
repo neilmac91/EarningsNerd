@@ -13,10 +13,14 @@ from pathlib import Path
 import yaml
 
 import main
+from app.database import DB_POOL_TIMEOUT
 from app.routers import admin
 from app.services.summary_pipeline import PIPELINE_TIMEOUT_SECONDS
 
 ROOT = Path(__file__).resolve().parents[3]
+# Each timeout ends at least this long before the service's: the middleware's 504 has to go out before Cloud Run's
+# deadline, on an event loop that can run its timer late.
+HEADROOM_SECONDS = 30.0
 
 
 def _service_request_timeout() -> int:
@@ -33,14 +37,15 @@ def _service_request_timeout() -> int:
 def test_every_request_timeout_ends_before_the_services():
     service = _service_request_timeout()
     timeouts = {**main.REQUEST_TIMEOUT_SECONDS, **main.REQUEST_TIMEOUT_SUFFIXES}
-    assert {path: seconds for path, seconds in timeouts.items() if seconds >= service} == {}
+    assert {path: seconds for path, seconds in timeouts.items() if seconds > service - HEADROOM_SECONDS} == {}
 
 
 def test_the_stale_refresh_takes_its_own_timeout_with_room_for_its_last_generation():
     # The middleware takes the first prefix that matches, so a broader entry above this one would shadow it.
     assert main.get_timeout_for_path("/api/admin/summaries/refresh-stale") == admin.REFRESH_STALE_TIMEOUT_SECONDS
-    # A generation started at the start-by bound still has its whole allowance before the timeout, and the allowance
-    # holds the pipeline's backstop.
-    assert (admin._REFRESH_STALE_START_BY_SECONDS + admin._REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS
-            < admin.REFRESH_STALE_TIMEOUT_SECONDS)
+    # A generation started at the start-by bound still has its whole allowance, which holds the pipeline's backstop.
+    # What the timeout leaves after it covers the three pool waits outside it: the auth lookup before the route, and the
+    # last stamp re-read and the audit row after the batch.
     assert admin._REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS > PIPELINE_TIMEOUT_SECONDS
+    assert (admin.REFRESH_STALE_TIMEOUT_SECONDS - admin._REFRESH_STALE_START_BY_SECONDS
+            - admin._REFRESH_STALE_GENERATION_ALLOWANCE_SECONDS) >= 3 * DB_POOL_TIMEOUT
