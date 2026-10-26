@@ -132,6 +132,17 @@ describe("the card's Summary freshness tile (E219)", () => {
     expect(within(tile).queryByText(/Elapsed/)).toBeNull()
   })
 
+  // The tile reads the status the chip and the next step read, not the stage key: a failed status whose row still
+  // names a stage (a stalled run, as E43 may report one) reads as a failure beside its Error chip.
+  it('follows the failed status, not the stage key its progress row still holds', async () => {
+    api.getWatchlistInsights.mockResolvedValue([withProgress('error', 'summarizing', 95)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    expect(within(tile).getByText('This summary did not finish')).toBeInTheDocument()
+    expect(within(tile).queryByText(/in progress/i)).toBeNull()
+  })
+
   it.each([
     ['fetching', 'Fetching in progress'],
     ['summarizing', 'Summarizing in progress'],
@@ -140,8 +151,9 @@ describe("the card's Summary freshness tile (E219)", () => {
     renderPage()
 
     const tile = await freshnessTile()
-    // The casing is the text's own: `capitalize` would paint "Fetching In Progress" over the same text.
-    expect(within(tile).getByText(line)).not.toHaveClass('capitalize')
+    // The casing is the text's own: `capitalize` on the line or on anything around it would paint
+    // "Fetching In Progress" over the same text.
+    expect(within(tile).getByText(line).closest('.capitalize')).toBeNull()
     expect(within(tile).getByText('Elapsed 12s')).toBeInTheDocument()
     expect(within(tile).queryByText('This summary did not finish')).toBeNull()
   })

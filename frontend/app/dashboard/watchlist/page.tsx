@@ -270,9 +270,10 @@ export default function WatchlistDashboardPage() {
                         </div>
                       ) : latest && progressStage ? (
                         <>
-                          {/* The stage is the pipeline's key (`fetching`, `summarizing`), its first letter upper-cased
-                              in code: `capitalize` upper-cased every word's ("Fetching In Progress"). */}
-                          <div className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark">
+                          {/* A run in progress is activity, not a state: its words rest in the ink (DESIGN.md, Semantic
+                              and chart colors). The stage is the pipeline's key (`fetching`, `summarizing`), its first
+                              letter upper-cased in code: `capitalize` upper-cased every word's ("Fetching In Progress"). */}
+                          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {sentenceStart(progressStage)} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
