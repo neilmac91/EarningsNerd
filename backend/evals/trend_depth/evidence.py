@@ -223,6 +223,29 @@ def _due_within_year(payload: dict[str, Any], end_to_key: dict[str, str]) -> dic
     return _filed(payload, "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths", end_to_key)
 
 
+NONCURRENT_LEASES = ("CapitalLeaseObligationsNoncurrent", "FinanceLeaseLiabilityNoncurrent")  # first tag wins
+
+
+def _debt_split(payload: dict[str, Any], end_to_key: dict[str, str]) -> dict[str, tuple[float, float]]:
+    """The filer's own noncurrent long-term debt and lease obligations by period (us-gaap
+    LongTermDebtAndCapitalLeaseObligations, as first reported), with the noncurrent finance lease liability that same
+    10-K reports (``NONCURRENT_LEASES``; 0.0 where it reports none), for ``derived.debt_double_counted``. Only the same
+    10-K's lease figure is read, on the basis of the noncurrent figure beside it: TGT's FY2017 10-K reports $1,152m of
+    noncurrent capital leases, its FY2018 10-K $885m of noncurrent finance leases for the same date."""
+    split = xfacts._tag_series(payload, "LongTermDebtAndCapitalLeaseObligations", "instant", "USD")
+    leases = [xfacts._tag_series(payload, tag, "instant", "USD") for tag in NONCURRENT_LEASES]
+    fuzzy = _fuzzy_end_map(sorted(split), end_to_key)
+    out: dict[str, tuple[float, float]] = {}
+    for end in sorted(split):
+        if end not in fuzzy:
+            continue
+        point = split[end]
+        same = [series[end]["first_value"] for series in leases
+                if end in series and series[end]["first_accession"] == point["first_accession"]]
+        out[fuzzy[end]] = (point["first_value"], same[0] if same else 0.0)
+    return out
+
+
 async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, Any]]:
     """Latest comparable-year metrics for one peer, through the same ingest and derivation. ``left_out`` (version 2)
     names a metric whose value there rests on a broken line, by ``derived.peer_left_out`` over the peer's own
@@ -265,7 +288,8 @@ async def _peer_metrics(ticker: str, target_end: str) -> Optional[dict[str, Any]
         derived.register_extended(window, xfacts.extended_series(payload, [p["period_end"] for p in own_window["periods"]]),
                                   window_ends, derived.X_LABELS)
         derived.build_derived(window, window_keys, profile, [])
-        reason = derived.peer_left_out(window, window_keys, period, _combined_cash(payload, window_ends))
+        reason = derived.peer_left_out(window, window_keys, period, _combined_cash(payload, window_ends),
+                                       _debt_split(payload, window_ends))
         if reason:
             out["left_out"] = {"net_cash_to_revenue": reason}
     return out
@@ -415,13 +439,14 @@ async def build_pack(ticker: str, *, with_peers: bool = True, fulltext_end: Opti
     onsets = derived.debt_onsets(reg, keys)
     gaps = derived.liquidity_gaps(reg, keys)
     double = derived.double_counted(reg, keys, combined)
-    debt_years = [p for p in keys if p in broken or any(p in years for _, years in onsets)]
+    debt_double = derived.debt_double_counted(reg, keys, _debt_split(payload, end_to_key))
+    debt_years = [p for p in keys if p in broken or p in debt_double or any(p in years for _, years in onsets)]
     cash_years = [p for p in keys if p in double or any(p == year for _, year in gaps)]
     replaced, checked = checked_peer_ranks(reg, peer_results, company.peer_group, keys[-1],
                                            set(derived.withheld(reg, debt_years, [], cash_years)))
     if replaced:
         peers["checked"], peers["replaced"] = checked, replaced
-    added_checks = (derived.debt_checks(reg, keys, company.profile, broken, onsets, gaps, double)
+    added_checks = (derived.debt_checks(reg, keys, company.profile, broken, onsets, gaps, double, debt_double)
                     + derived.unmapped_checks(reg, keys, unmapped))
     data_checks = data_checks + added_checks
     derived.append_flags(flags, added_checks)
