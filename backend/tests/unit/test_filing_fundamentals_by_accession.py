@@ -510,6 +510,9 @@ def _early_usd_sync(db, company: Company, form: str, *translations: tuple[int, d
     } for fy, usd in translations])
 
 
+# 40-F as well as 20-F: the reader treats them alike. Production processes no 40-F today (the summary
+# pipeline fetches XBRL for 10-K, 10-Q and 20-F only, ``summary_stages/enrichment.py``), so a 40-F's
+# processed gate stays shut and its chart empty, as before this reader; the case holds for when it does.
 @pytest.mark.parametrize("form", ["20-F", "40-F"])
 def test_a_foreign_annual_reports_chart_keeps_one_currency_per_line(db, form):
     company = _company(db)
