@@ -7,6 +7,8 @@ user id with no account row) exactly as it runs today, so the upcoming decomposi
 modules can prove ZERO observable change. Every assertion is on an observable: yielded event dicts,
 DB rows, mock call lists, the in-flight registry, the generation semaphore, and the exact log text
 the code formats (``record.getMessage()`` for the ``%``-style counters).
+The IntegrityError case's ``error`` write names ``starts_run=False`` since E217: that run's fetch
+stage has written, so its error keeps the row's clock.
 """
 import logging
 import re

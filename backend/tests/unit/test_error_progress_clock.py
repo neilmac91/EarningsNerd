@@ -4,10 +4,11 @@ E216 starts a run's clock (``started_at``, ``elapsed_seconds``) at the fetch sta
 run that failed before that write wrote only its error (``failure.timed_out``, ``failure.failed``), which kept the clock
 of the row an earlier run left: a leader that timed out waiting for a generation slot left the watchlist reading
 7,200 s beside its error on a two-hour-old row. ``GenerationRun.error_starts_clock`` now asks the writer to start the
-clock for a leader, the run holding the filing's claim, whose fetch stage has not written. A follower's error lands on
-the live leader's row, and a run that failed before its claim cannot tell a live leader's row from an earlier run's, so
-both keep the clock, as does a leader whose fetch stage has written. The error still marks a live leader's row as
-before; only the clock is this change's.
+clock for a leader, the run holding the filing's claim, whose fetch stage's write has not returned. A follower's error
+goes to the row its live leader owns, and a run that failed before its claim (in ``load_filing``, which runs before the
+in-flight registry is read) cannot tell whether a live leader in its own process owns the row, so both keep the clock,
+as does a leader whose fetch stage has written. The error still marks a live leader's row as before; only the clock is
+this change's.
 
 Each case drives the one orchestrator offline (``stream_boundaries``) with the real writer and reads the row after. The
 service's clock is pinned, so each elapsed time is exact; SQLite's date functions keep milliseconds, which the tolerance
@@ -20,6 +21,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app import database
 from app.database import Base, SessionLocal, engine
 from app.models import SummaryGenerationProgress
 from app.services import summary_generation_service, summary_pipeline
@@ -144,17 +146,65 @@ async def test_a_leaders_error_after_its_fetch_stage_keeps_its_own_clock(clock):
 
 
 @pytest.mark.asyncio
-async def test_a_run_that_fails_before_its_claim_keeps_the_rows_clock(clock, monkeypatch):
-    """A run that raises before it claims the filing holds no claim, so its error cannot tell this row, a live leader's
-    on another instance, from an earlier run's: the row keeps counting from the leader's start."""
+async def test_a_leaders_error_after_a_failed_fetch_write_starts_the_clock(clock, monkeypatch):
+    """The fetch stage's write raises before it lands, so the run's error is still its first write: the flag is set
+    only once that write has returned, and the error restarts the earlier run's clock."""
     filing_id = seed_company_filing()
-    _seed(filing_id, stage="analyzing", started_at=LIVE_START)
-    monkeypatch.setattr(summary_pipeline, "_claim_inflight", _raise("registry down"))
+    _seed(filing_id, stage="error", started_at=EARLIER, error="an earlier failure")
+    real = summary_pipeline.record_progress
+
+    def fetch_write_fails(db, progress_filing_id, stage, **kwargs):
+        if stage == "fetching":
+            raise RuntimeError("progress table locked")
+        return real(db, progress_filing_id, stage, **kwargs)
+
+    monkeypatch.setattr(summary_pipeline, "record_progress", fetch_write_fails)
     with stream_boundaries() as summarize:
         events = await _drain(filing_id)
     assert events[-1]["type"] == "error"
     summarize.assert_not_called()
-    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), "registry down")
+    assert _row(filing_id) == ("error", NOW, 0.0, "progress table locked")
+
+
+class _FirstSessionFails:
+    """``database.SessionLocal`` whose first session, ``load_filing``'s read, fails to open; the rest are real."""
+
+    def __init__(self, real):
+        self.real, self.calls = real, 0
+
+    def __call__(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            raise RuntimeError("database unavailable")
+        return self.real(*args, **kwargs)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["load_filing_raises", "claim_raises"])
+async def test_a_run_that_fails_before_its_claim_keeps_the_rows_clock(clock, monkeypatch, failure):
+    """A run whose ``load_filing`` read fails has not read the in-flight registry, so it cannot tell whether a live
+    leader in its own process owns the row: here one does, 30 s into its run, and the row keeps counting from its
+    start. A run whose claim itself raises, after a read that found no local leader, keeps the clock too: the rule
+    goes by the claim."""
+    filing_id = seed_company_filing()
+    _seed(filing_id, stage="analyzing", started_at=LIVE_START)
+    leader = None
+    if failure == "load_filing_raises":
+        leader = summary_pipeline._claim_inflight(filing_id)
+        monkeypatch.setattr(database, "SessionLocal", _FirstSessionFails(database.SessionLocal))
+        expected = "database unavailable"
+    else:
+        monkeypatch.setattr(summary_pipeline, "_claim_inflight", _raise("registry down"))
+        expected = "registry down"
+    try:
+        with stream_boundaries() as summarize:
+            events = await _drain(filing_id)
+    finally:
+        if leader is not None:
+            summary_pipeline._release_inflight(filing_id, leader)
+    assert events[-1]["type"] == "error"
+    summarize.assert_not_called()
+    assert _row(filing_id) == ("error", LIVE_START, pytest.approx(30.0, abs=1e-3), expected)
 
 
 def _raise(message):
