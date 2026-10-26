@@ -151,7 +151,10 @@ for (const theme of ['light', 'dark'] as const) {
       await scrollBy(page, centreOf(await boxOf(first)).y - centreOf(await boxOf(launcher(page))).y)
       expect(await expectStepsAside(page, 'focused by a pointer close, over the first figure'), 'it covered the first figure').toBeGreaterThanOrEqual(1)
       await expect(launcher(page), 'it keeps the focus while it steps aside').toBeFocused()
-      // A key brings it back: Enter opens its dialog, which keeps it shown; Escape returns a focus that shows it.
+      // A key brings it back. A bare key press (Shift opens nothing) turns the focus it holds into keyboard focus.
+      await page.keyboard.press('Shift')
+      await expect.poll(() => opacity(launcher(page)), 'a bare key press brings it back').toBe('1')
+      // Enter opens its dialog, which keeps it shown; Escape returns a focus that shows it.
       await page.keyboard.press('Enter')
       await expect(dialog).toBeVisible()
       expect(await opacity(page.getByRole('button', { name: 'Close feedback', exact: true })), 'its dialog keeps it shown').toBe('1')

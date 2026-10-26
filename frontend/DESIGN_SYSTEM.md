@@ -1675,11 +1675,11 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  tests/unit/feedback-launcher-keep-clear.spec.tsx (the 8px rule, the inert and aria-hidden skip, the
                  classes with the motion tokens, the triggers, the queued check cancelled on unmount, never while
                  open) and tests/e2e/feedback-launcher-keep-clear.spec.ts (390x844, both themes: the computed
-                 transition, none under reduced motion; each headline figure at the launcher's height takes the
-                 pointer where the launcher sits and a tap opens its evidence; the launcher shows with the strip
-                 clear of it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a
-                 figure, and a key brings it back; at rest after Run it follows the same rule, a strip mounted under
-                 it included).
+                 transition, none under reduced motion; each headline figure the launcher's box covers takes the
+                 pointer there, and a tap on the first opens its evidence; the launcher shows with the strip clear of
+                 it and with its dialog open; a focus a pointer close returns leaves it stepped aside over a figure,
+                 and a bare key press (Shift) brings it back, as does the focus an Escape close returns; at rest after
+                 Run it follows the same rule, a strip mounted under it included).
                  Gate: tests/unit/bottomChromeLadder.spec.ts — no fixed chrome outranks the workspace layers
                  at the launcher corner (a file with fixed chrome is held to its highest z token anywhere and
                  to inline zIndex, so a z written apart from its `fixed` still counts; z-toast is exempt only
