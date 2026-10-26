@@ -657,7 +657,11 @@ def test_a_filing_row_the_cross_check_replaced_with_a_proxy_figure_is_restored(d
     assert (check["outcome"], check["authoritative_value"], check["original_value"]) == ("confirmed", 4_092e6, 4_092e6)
     assert check["resolved_reasons"] == local["reasons"] and row.provenance["checks"]["local_reconciliation"] == local
     shown = svc.get_filing_fundamentals(db, filing.id)
-    assert [p["value"] for c in shown["concepts"] if c["concept"] == "net_income" for p in c["points"]] == [4_092e6]
+    # The chart reads the filing's rows at its accession (#1658): its own year is the restored figure, and the FY2023
+    # 10-K winner the repair stored under this 10-K's accession (the last 10-K to report it) charts beside it. No
+    # proxy figure does.
+    assert {p["period_end"]: p["value"] for c in shown["concepts"] if c["concept"] == "net_income"
+            for p in c["points"]} == {"2023-05-31": 3_972e6, "2025-05-31": 4_092e6}
     margin = _filing_row(db, filing, "net_margin")
     assert float(margin.value) == pytest.approx(4_092e6 / 87_926e6 * 100)
     assert {i["concept"]: i["value"] for i in margin.provenance["inputs"]}["net_income"] == 4_092e6
