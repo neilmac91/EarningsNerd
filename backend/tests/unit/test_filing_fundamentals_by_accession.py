@@ -489,14 +489,17 @@ def test_an_amendment_charts_its_own_figures_and_leaves_the_original_alone(db):
     assert _chart(db, filings["10-K/A"])["revenue"] == _own(amendment, REV)
 
 
-def _foreign(company: Company, fy: int, form: str) -> tuple[dict, dict]:
+def _foreign(company: Company, fy: int, form: str, *, net_income: bool = False) -> tuple[dict, dict]:
     """A foreign US-GAAP annual report for the year to 31 March: its CNY items, and its own year again
     in USD at that year's rate (a convenience translation)."""
     years = (fy - 2, fy - 1, fy)
     common = {"form": form, "filed": f"{fy}-07-15", "year_end": "03-31"}
-    native = _report(_accession(company, fy), fy, unit="CNY", **common, **{
-        REV: {y: 1000.0 * (y - 2000) for y in years}, "Assets": {y: 9000.0 * (y - 2000) for y in years[1:]}})
-    return native, _report(_accession(company, fy), fy, **common, **{REV: {fy: round(1000.0 * (fy - 2000) / 7.0)}})
+    lines = {REV: {y: 1000.0 * (y - 2000) for y in years}, "Assets": {y: 9000.0 * (y - 2000) for y in years[1:]}}
+    if net_income:
+        lines["NetIncomeLoss"] = {y: 100.0 * (y - 2000) for y in years}
+    native = _report(_accession(company, fy), fy, unit="CNY", **common, **lines)
+    translated = {tag: {fy: round(values[fy] / 7.0, 2)} for tag, values in lines.items() if tag != "Assets"}
+    return native, _report(_accession(company, fy), fy, **common, **translated)
 
 
 def _early_usd_sync(db, company: Company, form: str, *translations: tuple[int, dict]) -> None:
@@ -537,28 +540,111 @@ def test_a_foreign_annual_reports_chart_keeps_one_currency_per_line(db, form):
         assert len({p["fiscal_year"] for p in revenue["points"]}) == 3  # one bar a year
 
 
-def test_an_older_foreign_reports_line_it_was_never_read_from_shows_no_convenience_bar(db):
-    """For a line the per-filing writer read nothing of, an older 20-F holds two stand-ins: its oldest
-    year in CNY (the native sync's) and its own year in USD (an early sync's convenience translation,
-    which only this report gave). One period end each: the native currency takes the line, since the
-    native row for the report's own year sits under the later report that re-reported it. Taken by
-    presence at that year, the USD row alone would reach the period end and chart a lone bar beside the
-    CNY lines; in CNY the line falls short of it (reach is read in the line's one currency), so none
-    shows."""
+@pytest.mark.parametrize("which,native_sync,shows", [
+    ("older", True, False), ("older", False, False), ("newest", False, False), ("newest", True, True),
+], ids=["older-after-the-native-sync", "older-early-sync-only", "newest-early-sync-only",
+        "newest-after-the-native-sync"])
+def test_a_foreign_reports_line_it_was_never_read_from_counts_only_in_its_own_currency(db, which, native_sync, shows):
+    """For a line the per-filing writer read nothing of, a stand-in counts only in the currency of the
+    report's own rows, the reporting currency the extractor chose for it. An early sync stored each
+    20-F's own year in USD under its accession, a convenience translation only that report gave. Until
+    a native sync runs, that row is the line's only stand-in; after one, an older report also holds its
+    oldest year in CNY. The USD row reaches the period end and would chart a lone bar beside the CNY
+    lines; it never counts, and an older report's oldest year alone falls short, so neither shows. The
+    newest report after a native sync owns no row (the sync holds every cell): its stand-ins take the
+    currency with the most period ends, CNY, and every year it reported shows."""
     company = _company(db)
-    (n23, u23), (n24, u24) = _foreign(company, 2023, "20-F"), _foreign(company, 2024, "20-F")
+    reports = {"older": _foreign(company, 2023, "20-F"), "newest": _foreign(company, 2024, "20-F")}
+    filings = {key: _filing(db, company, native) for key, (native, _usd) in reports.items()}
+    _early_usd_sync(db, company, "20-F", (2023, reports["older"][1]), (2024, reports["newest"][1]))
+    if native_sync:
+        _sync(db, company, *(report for pair in reports.values() for report in pair))
+    native, filing = reports[which][0], filings[which]
+    facts_service.process_filing_facts(db, filing, standardized=_standardized({"Assets": native["Assets"]}))
+
+    own_year = date.fromisoformat(native[REV][-1]["end"])
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
+                                             concept="revenue").all()
+    assert (own_year, "USD") in {(row.period_end, row.unit) for row in rows}  # the convenience row
+    chart = _chart(db, filing)
+    assert chart.get("revenue") == (_own(native, REV) if shows else None)
+    assert chart["total_assets"] == _own(native, "Assets")
+
+
+def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
+    """Hello Group, Vipshop and JOYY each reported years in USD alone, then switched to CNY with each
+    year again in USD. USD then holds periods CNY lacks, so the sync reads the USD list
+    (``currency.series_unit``) and stores under each CNY report's accession only that report's own year
+    in USD. For a line the per-filing writer read nothing of, that row is the only stand-in, at the
+    newest report as at an older one; their own rows are in CNY, so it never counts. A report from
+    the USD years, whose every cell the sync holds, charts in USD."""
+    company = _company(db)
+    common = {"form": "20-F", "year_end": "12-31"}
+    usd_era = _report(_accession(company, 2013), 2012, filed="2013-04-15", **common,
+                      **{REV: {2010: 100.0, 2011: 200.0, 2012: 300.0}, "Assets": {2011: 1000.0, 2012: 1100.0}})
+    native = {fy: _report(_accession(company, fy + 1), fy, filed=f"{fy + 1}-04-15", unit="CNY", **common, **{
+        REV: {y: 700.0 * (y - 2009) for y in (fy - 2, fy - 1, fy)},
+        "Assets": {y: 7000.0 * (y - 2001) for y in (fy - 1, fy)}}) for fy in (2013, 2014)}
+    translated = {fy: _report(_accession(company, fy + 1), fy, filed=f"{fy + 1}-04-15", **common, **{
+        REV: {fy: 100.0 * (fy - 2009)}, "Assets": {fy: 1000.0 * (fy - 2001)}}) for fy in (2013, 2014)}
+    filings = {2012: _filing(db, company, usd_era), **{fy: _filing(db, company, native[fy]) for fy in native}}
+    _sync(db, company, usd_era, native[2013], translated[2013], native[2014], translated[2014])
+    _process(db, filings[2012], usd_era)
+    for fy in native:
+        facts_service.process_filing_facts(db, filings[fy], standardized=_standardized({"Assets": native[fy]["Assets"]}))
+
+    assert _chart(db, filings[2012]) == {"revenue": _own(usd_era, REV), "total_assets": _own(usd_era, "Assets")}
+    for fy in native:
+        rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filings[fy].accession_number,
+                                                 concept="revenue").all()
+        assert [(row.period_end, row.unit) for row in rows] == [(date(fy, 12, 31), "USD")]
+        chart = _chart(db, filings[fy])
+        assert chart == {"total_assets": _own(native[fy], "Assets")}
+
+
+def test_a_ratio_stands_in_only_when_its_operands_are_in_the_reports_currency(db):
+    """From 2026-10-10, when calculations began to record their operands, until #1365 a sync read the
+    USD lists alone: under each 20-F's accession it stored a net margin over that report's own-year
+    convenience figures, every operand under that accession. The native sync then adds the oldest
+    year's margin over CNY operands. A ratio's unit names no currency, so its operands' does. For a
+    line the per-filing writer read nothing of, the USD-derived own-year margin would reach the period
+    end and chart the oldest year beside the report's own, the year between missing; in CNY the line
+    falls short, so none shows."""
+    company = _company(db)
+    (n23, u23), (n24, u24) = (_foreign(company, fy, "20-F", net_income=True) for fy in (2023, 2024))
     older, _newer = _filing(db, company, n23), _filing(db, company, n24)
-    _early_usd_sync(db, company, "20-F", (2023, u23), (2024, u24))
+    _sync(db, company, u23, u24)  # what a sync read that week: the USD lists alone
     _sync(db, company, n23, u23, n24, u24)
     facts_service.process_filing_facts(db, older, standardized=_standardized({"Assets": n23["Assets"]}))
 
-    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=older.accession_number,
-                                             concept="revenue").all()
-    assert sorted((row.period_end, row.unit, row.filing_id) for row in rows) == [
-        (date(2021, 3, 31), "CNY", None), (date(2023, 3, 31), "USD", None)]
+    margins = db.query(FinancialFact).filter_by(company_id=company.id, accession=older.accession_number,
+                                                concept="net_margin").all()
+    assert sorted((row.period_end, *{operand["unit"] for operand in row.provenance["inputs"]}) for row in margins) == [
+        (date(2021, 3, 31), "CNY"), (date(2023, 3, 31), "USD")]
     chart = _chart(db, older)
-    assert "revenue" not in chart
-    assert chart["total_assets"] == _own(n23, "Assets")
+    assert chart == {"total_assets": _own(n23, "Assets")}
+
+
+def test_a_report_whose_own_rows_carry_two_currencies_takes_the_one_with_the_most_years(db):
+    """The per-filing writer read a foreign report in USD before it read the reporting currency, and in
+    CNY when it ran again: its own rows carry both, and its own lines show both, as before this reader.
+    A line it read neither time takes the currency the extractor's rule ranks first over those own rows
+    (the most period ends, then a non-USD code): here a tie, so CNY, and the net income the sync holds
+    in CNY shows."""
+    company = _company(db)
+    native, usd = _foreign(company, 2024, "20-F", net_income=True)
+    filing = _filing(db, company, native)
+    read = {REV: native[REV], "Assets": native["Assets"]}
+    legacy = {concept: {"series": [{**point, "currency": None} for point in entry["series"]]}
+              for concept, entry in _standardized({tag: [{**item, "unit": "USD"} for item in items]
+                                                   for tag, items in read.items()}).items()}
+    facts_service.process_filing_facts(db, filing, standardized=legacy)
+    facts_service.process_filing_facts(db, filing, standardized=_standardized(read))
+    _sync(db, company, native, usd)
+
+    chart = _chart(db, filing)
+    assert {unit for _end, _value, unit, _accn in chart["revenue"]} == {"USD", "CNY"}
+    assert chart["net_income"] == _own(native, "NetIncomeLoss")
 
 
 def test_a_reports_own_rows_keep_their_currency_beside_a_later_native_sync(db):

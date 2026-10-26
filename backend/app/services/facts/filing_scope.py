@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Filing, FinancialFact
 from app.services.fact_provenance import operands_within_accession, provenance_for_fact
-from app.services.facts.currency import _reporting_currency
+from app.services.facts.currency import _operand_unit, _reporting_currency, is_amount_unit
 from app.services.facts.fiscal_naming import DRIFT_DAYS, years_back
 
 
@@ -36,24 +36,40 @@ def _stands_in(row: FinancialFact, accession: str) -> bool:
     return bool(provenance["inputs"]) and operands_within_accession(provenance, accession)
 
 
-def _series_units(rows: list[FinancialFact]) -> dict[str, set[str]]:
-    """Each concept's units: those of the filing's own rows, else the one the per-filing extractor's
-    reporting-currency rule picks among the stand-ins (``currency._reporting_currency``) on the most
-    period ends, then a non-USD code, so a stand-in never adds a second currency to a line (a USD
-    convenience row an early sync stored beside the native history). The rule is given no period of
-    report: once a later report re-reported the filing's own year, the native row for it sits under
-    that report's accession, while an early sync's USD translation of it stays here (only this report
-    gave it), so presence at that year would hand a line of one native year and that one USD row to
-    the translation."""
-    units: dict[str, set[str]] = {}
-    for concept in dict.fromkeys(row.concept for row in rows):
-        series = [row for row in rows if row.concept == concept]
-        units[concept] = {row.unit for row in series if row.filing_id is not None}
-        if not units[concept]:
-            ends = [(row.period_end.isoformat(), 0.0, row.unit.partition("/")[0], 0.0) for row in series]
-            code = _reporting_currency(ends, period_of_report="")
-            units[concept] = {row.unit for row in series if row.unit.partition("/")[0] == code}
-    return units
+def _currency(row: FinancialFact) -> str | None:
+    """The currency a row's figure is in: its unit's code ("CNY" for "CNY/shares" too), or for a ratio,
+    whose unit names none, the code its recorded operands share (``currency._operand_unit``)."""
+    unit = _operand_unit(provenance_for_fact(row)) if row.unit == "pure" else row.unit
+    code = unit.partition("/")[0] if isinstance(unit, str) else None
+    return code if is_amount_unit(code) else None
+
+
+def _ranked_first(rows: list[FinancialFact]) -> str | None:
+    """The currency the per-filing extractor's rule (``currency._reporting_currency``) ranks first over
+    these rows: the most period ends, then a non-USD code. Presence at the filing's own year breaks no
+    tie: a USD translation of that year, which only this report gave, always sits there, while the
+    native row for it sits under a later report's accession once that report re-reported it."""
+    return _reporting_currency([(row.period_end.isoformat(), 0.0, _currency(row), 0.0) for row in rows],
+                               period_of_report="")
+
+
+def _counted_stand_ins(own: list[FinancialFact], stand_ins: list[FinancialFact]) -> set[FinancialFact]:
+    """The stand-ins that count in the filing's currency. In a line the filing owns rows of, only in
+    their units, so a stand-in never adds a second unit to a line. In any other line, only in the
+    currency the filing's own rows rank first (``_currency``: a ratio's is its operands'): the
+    per-filing extractor chose it for this report, while a sync may hold a line only in USD (an early
+    sync read the USD lists alone; a current one reads them for a filer that switched currency,
+    ``currency.series_unit``), and that line's own-year translation alone reaches the period end.
+    Only when no row of the filing's own carries a currency do the stand-ins rank their own: the
+    sync held every annual cell the writer read, in the writer's currency (the newest report synced
+    first, at a domestic filer or after a native sync), or the writer stored no annual row (an
+    interim report, or a report it read nothing annual from)."""
+    own_units: dict[str, set[str]] = {}
+    for row in own:
+        own_units.setdefault(row.concept, set()).add(row.unit)
+    code = _ranked_first(own) or _ranked_first(stand_ins)
+    return {row for row in stand_ins
+            if (row.unit in own_units[row.concept] if row.concept in own_units else _currency(row) == code)}
 
 
 def _lines_reaching(rows: list[FinancialFact], period_end: date | datetime | None) -> set[str]:
@@ -76,13 +92,14 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     Read at the filing's company and accession (another company's rows under a combined report's
     accession stay out). The rows the per-filing writer stored count always. A row another writer
     stored there stands in for the filing's (``_stands_in``) only once that writer has run
-    (``processed_facts_at``), so the chart never lacks the lines and years it adds, and only in a line
-    that reaches the filing's own period end (``_lines_reaching``, over the rows that count, in the
-    line's one currency): short of it, the rows stored there are only the cells this filing reported
-    last (an older report's oldest year and older balance; an interim report's prior year-end
-    balance, which the sync labels FY although the per-filing writer stores no FY row for an interim
-    report), and a line of those alone would read as all it disclosed. No ``is_latest`` filter: a
-    later restatement demotes the rows, never removes them from their filing's chart.
+    (``processed_facts_at``), so the chart never lacks the lines and years it adds, only in the
+    filing's currency (``_counted_stand_ins``), and only in a line that reaches the filing's own period
+    end (``_lines_reaching``, over the rows that count): short of it, the rows stored there are only
+    the cells this filing reported last (an older report's oldest year and older balance; an interim
+    report's prior year-end balance, which the sync labels FY although the per-filing writer stores no
+    FY row for an interim report), and a line of those alone would read as all it disclosed. No
+    ``is_latest`` filter: a later restatement demotes the rows, never removes them from their
+    filing's chart.
     """
     rows = (
         db.query(FinancialFact)
@@ -95,10 +112,10 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
         .all()
     )
     processed = filing.processed_facts_at is not None
-    chosen = [row for row in rows if row.filing_id is not None
-              or processed and _stands_in(row, filing.accession_number)]
-    units = _series_units(chosen)
-    chosen = [row for row in chosen if row.unit in units[row.concept]]
+    own = [row for row in rows if row.filing_id is not None]
+    counted = _counted_stand_ins(own, [row for row in rows if row.filing_id is None
+                                       and processed and _stands_in(row, filing.accession_number)])
+    chosen = [row for row in rows if row.filing_id is not None or row in counted]
     reaching = _lines_reaching(chosen, filing.period_end_date)
     return [row for row in chosen if row.filing_id is not None or row.concept in reaching]
 
