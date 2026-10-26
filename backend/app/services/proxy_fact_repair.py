@@ -13,7 +13,8 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
-   The filing calculations over each row sets 4 and 5 changed are then re-annotated, once per scope.
+   The filing calculations over each row sets 4 and 5 changed are then re-annotated, once per scope;
+   one whose new record would withhold a figure readers see today is held as it is, and reported.
 3. Set 2. Each current proxy-form row is retired with the quarantine provenance, and the fresh 10-K
    winner at its key is inserted, or the stored row at the winner's identity promoted.
 4. Set 3. A current calculation built on a proxy figure is left to the loop when the payload has a
@@ -24,8 +25,9 @@ writes only into the repair's ``updates`` and its own inserts, so the repair's a
 (``proxy-repair-v1``) and audited rollback carry every change. A case it cannot settle on positive
 evidence refuses the whole company before any write, every reason in one error. The report names, by
 fact id and with the step's verdict, each row the detection file's sets 4 and 5 will still list
-(``detection_listed``), so the apply's done criterion is a comparison. Temporary: removed once the E211
-cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
+(``detection_listed``), so the apply's done criterion is a comparison. The file's tests (a witness within
+1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric computes them. Temporary: removed
+once the E211 cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from fractions import Fraction
 from typing import Any, Iterable
 
 from app.services import facts_service
@@ -47,12 +50,15 @@ from app.services.facts.lineage import _is_calculated, _scope, annotate_filing_c
 PROXY_REPAIR_VERSION = "proxy-repair-v1"  # financial_fact_revision.calculation_version of the step's rows
 RETIRED = "proxy_statement_value"  # a proxy-form row's quarantine reason
 DEPENDENT = "proxy_statement_operand"  # a calculation built on one, with no fresh candidate
-SAME = 1e-6  # proxy_form_winners.sql's equality between a value and a witness (relative)
+SAME = Fraction(1, 1_000_000)  # proxy_form_winners.sql's equality between a value and a witness (relative)
+BAND = Fraction(1, 100)  # its scale band: within 1% of 1,000 or 1,000,000 times a figure
+SCALES = (1_000, 1_000_000)
 FALLBACK_ACCESSION = "companyfacts"  # facts/quarterly.reported_fact names an item without one so
 COUNTERS = (
     "retired", "inserted", "promoted", "corrected", "retired_without_winner",
     "dependents_recomputed", "dependents_retired", "filing_rows_restored",
-    "filing_calculations_reannotated", "filing_rows_kept", "filing_rows_reconfirmed",
+    "filing_calculations_reannotated", "filing_calculations_held", "filing_rows_kept",
+    "filing_rows_reconfirmed",
 )
 OTHER_KINDS = ("made_unavailable", "is_latest", "value", "label", "provenance_only")
 _KEY = ("concept", "period_end", "fiscal_period", "unit")
@@ -81,15 +87,34 @@ def _authoritative_check(state: State) -> dict[str, Any]:
     return check if isinstance(check, dict) else {}
 
 
-def _number(value: Any) -> float | None:
-    """A recorded JSON number: an int or a float, never a bool, finite (the SQL's json_typeof 'number')."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+def _json_number(value: Any) -> int | float | None:
+    """A recorded JSON number as written: an int or a finite float, never a bool (the SQL's json_typeof
+    'number')."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return float(value)
+    return value if isinstance(value, int) or math.isfinite(value) else None
 
 
-def _same(a: float, b: float) -> bool:
-    return abs(a - b) <= SAME * max(abs(a), abs(b))
+def _number(value: Any) -> float | None:
+    number = _json_number(value)
+    return None if number is None else float(number)
+
+
+def _exact(value: Any) -> Fraction | None:
+    """A number as the detection file's numeric reads it, exactly: a stored value's decimal string, or a
+    JSON number as Python's json wrote it (an int, or a float's shortest repr). Floats would differ from
+    numeric where a figure sits on a tolerance's edge."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        return Fraction(Decimal(repr(value))) if math.isfinite(value) else None
+    return Fraction(Decimal(value)) if isinstance(value, str) else Fraction(value)
+
+
+def _same(a: Any, b: Any) -> bool:
+    """The file's ``abs(a - b) <= 0.000001 * greatest(abs(a), abs(b))``, exactly."""
+    x, y = _exact(a), _exact(b)
+    return abs(x - y) <= SAME * max(abs(x), abs(y))
 
 
 def _agrees(value: float, reference: float) -> bool:
@@ -97,21 +122,24 @@ def _agrees(value: float, reference: float) -> bool:
     return abs(value - reference) / (abs(reference) or 1.0) <= CROSS_CHECK_TOLERANCE
 
 
-def _scale_up(value: float, original: float | None) -> bool:
-    """``value`` is 1,000 or 1,000,000 times ``original`` (within 1%, same sign): the authority multiplying
-    up a figure parsed in millions and read as units, the replacement set 4 also leaves out."""
-    if not original or not value or (value > 0) != (original > 0):
-        return False
-    ratio = value / original
-    return abs(ratio / 1_000 - 1) <= 0.01 or abs(ratio / 1_000_000 - 1) <= 0.01
+def _same_sign(value: Any, original: Any) -> tuple[Fraction, Fraction] | None:
+    v, o = _exact(value), _exact(original)
+    return None if not o or not v or (v > 0) != (o > 0) else (v, o)
 
 
-def _scale_down(value: float, original: float | None) -> bool:
-    """``value`` is 1/1,000 or 1/1,000,000 of ``original`` (within 1%, same sign): set 4's "scale" listing."""
-    if not original or not value or (value > 0) != (original > 0):
-        return False
-    ratio = value / original
-    return abs(ratio * 1_000 - 1) <= 0.01 or abs(ratio * 1_000_000 - 1) <= 0.01
+def _scale_up(value: Any, original: Any) -> bool:
+    """``value`` is within 1% of 1,000 or 1,000,000 times ``original``, of the same sign: the authority
+    multiplying up a figure parsed in millions and read as units, the replacement set 4 also leaves out.
+    The file's ``abs(value - k * original) <= 0.01 * abs(k * original)``, exactly."""
+    pair = _same_sign(value, original)
+    return pair is not None and any(abs(pair[0] - k * pair[1]) <= BAND * abs(k * pair[1]) for k in SCALES)
+
+
+def _scale_down(value: Any, original: Any) -> bool:
+    """``value`` is within 1% of 1/1,000 or 1/1,000,000 of ``original``, of the same sign: set 4's "scale"
+    listing. The file's ``abs(k * value - original) <= 0.01 * abs(original)``, exactly."""
+    pair = _same_sign(value, original)
+    return pair is not None and any(abs(k * pair[0] - pair[1]) <= BAND * abs(pair[1]) for k in SCALES)
 
 
 def _key(state: State) -> tuple:
@@ -224,7 +252,8 @@ def detection_listed(rows: list[tuple[int | None, State]], verdicts: dict[int, s
     """Each filing row detection sets 4 and 5 (``ops/detection/proxy_form_winners.sql``) list over ``rows``,
     ``(fact id or None, state)``, by the file's own rules: only a stored proxy-form row witnesses, and set 4
     also lists a value 1/1,000 or 1/1,000,000 of its original that no proxy row holds. Each carries the
-    plan's verdict on the row. After an apply, the file reads exactly these fact ids for the company."""
+    plan's verdict on the row. Values are read as the file's numeric reads them, exactly (``_exact``). Right
+    after an apply, the file reads exactly these fact ids for the company."""
     near: dict[tuple, list[tuple[int | None, State]]] = {}
     for row_id, state in rows:
         near.setdefault((state["concept"], state["period_end"]), []).append((row_id, state))
@@ -233,18 +262,18 @@ def detection_listed(rows: list[tuple[int | None, State]], verdicts: dict[int, s
         if row_id is None or state["filing_id"] is None:
             continue
         period = near[(state["concept"], state["period_end"])]
-        witnesses = [float(other["value"]) for _other_id, other in period if is_proxy_form(other["form"])]
+        witnesses = [other["value"] for _other_id, other in period if is_proxy_form(other["form"])]
         check = _authoritative_check(state)
         if state["source"] == "companyfacts":  # set 4: why = proxy row, or why = scale
-            number, original = float(state["value"]), _number(check.get("original_value"))
+            number, original = state["value"], _json_number(check.get("original_value"))
             witnessed = any(_same(number, witness) for witness in witnesses)
             shown = not _scale_up(number, original) if witnessed else _scale_down(number, original)
             in_set = 4 if shown else None
         else:  # set 5: a confirmed check whose authoritative_value a proxy row holds
-            number = _number(check.get("authoritative_value"))
+            number = _json_number(check.get("authoritative_value"))
             confirmed = check.get("outcome") == "confirmed" and number is not None
             in_set = 5 if confirmed and any(_same(number, witness) for witness in witnesses) else None
-        if in_set is None or any(other_id != row_id and _is_report_row(other) and _same(float(other["value"]), number)
+        if in_set is None or any(other_id != row_id and _is_report_row(other) and _same(other["value"], number)
                                  for other_id, other in period):
             continue
         listed.append({"fact_id": row_id, "set": in_set, "verdict": verdicts.get(row_id, "unclassified")})
@@ -308,7 +337,7 @@ class ProxyPlan:
     counts: dict[str, int]
     rows: list[dict[str, Any]]
     stored_keys: set[tuple] = field(default_factory=set)  # settled in place: no upsert decides them
-    verdicts: dict[int, str] = field(default_factory=dict)  # the step's verdict on each set 4 and 5 candidate
+    verdicts: dict[int, str] = field(default_factory=dict)  # each set 4 and 5 candidate detection may list
     own: set[tuple] = field(init=False)  # the identities of the step's inserts
 
     def __post_init__(self) -> None:
@@ -362,7 +391,7 @@ class _Planner:
         self.witnesses = proxy_items(payload)
         for state in before.values():
             if is_proxy_form(state["form"]):
-                self.witnesses.setdefault((state["concept"], state["period_end"]), []).append(float(state["value"]))
+                self.witnesses.setdefault((state["concept"], state["period_end"]), []).append(state["value"])
         self.accessions = proxy_accessions(before.values())
         self.inserts: dict[tuple, dict] = {}
         self.keys: dict[tuple, int] = {}
@@ -386,15 +415,15 @@ class _Planner:
         state = self.state(row_id)
         self.refusals.append(f"{state['concept']} {state['fiscal_period']} {state['period_end']} (fact {row_id}): {why}")
 
-    def _witnessed(self, state: State, value: float) -> bool:
+    def _witnessed(self, state: State, value: Any) -> bool:
         """A proxy figure at the concept and period end holds ``value``: a payload proxy item, or a stored
         proxy-form row, current or not."""
         return any(_same(value, witness) for witness in self.witnesses.get((state["concept"], state["period_end"]), ()))
 
-    def _report_backed(self, row_id: int, state: State, value: float) -> bool:
+    def _report_backed(self, row_id: int, state: State, value: Any) -> bool:
         """Set 4's exclusion: another stored report row at the concept and period end, any unit, holds it."""
         return any(other_id != row_id and _is_report_row(self.before[other_id])
-                   and _same(float(self.before[other_id]["value"]), value)
+                   and _same(self.before[other_id]["value"], value)
                    for other_id in self.by_period[(state["concept"], state["period_end"])])
 
     def _authority(self, state: State) -> float | None:
@@ -414,7 +443,7 @@ class _Planner:
             "gap": None if gap is None else round(gap, 6), **extra,
         }
 
-    def _left(self, row_id: int, state: State, value: float) -> bool:
+    def _left(self, row_id: int, state: State, value: Any) -> bool:
         """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does."""
         verdict = ("no_proxy_figure" if not self._witnessed(state, value)
                    else "report_backed" if self._report_backed(row_id, state, value) else None)
@@ -433,14 +462,13 @@ class _Planner:
         for row_id, state in self.before.items():
             if state["filing_id"] is None or state["source"] != "companyfacts":
                 continue
-            value = float(state["value"])
+            value = state["value"]
             if self._left(row_id, state, value):
                 continue
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
-            if _scale_up(value, original):
-                self.verdicts[row_id] = "scale_up"  # the authority scaled up a parse in units: the check's job
-                continue
+            if _scale_up(value, original):  # the authority scaled up a parse in units: the check's job,
+                continue  # and no verdict, since detection never lists it (scaled up is never scaled down)
             authority = self._authority(state)
             if authority is not None and _same(value, authority):
                 self.verdicts[row_id] = "kept_agrees_with_authority"
@@ -507,9 +535,12 @@ class _Planner:
 
     def reannotate(self) -> None:
         """The filing calculations over the rows sets 4 and 5 rewrote, recomputed once per scope after both
-        passes, so each operand's record in them is its own record now, as the lineage backfill recomputes
-        them (filing_lineage_repair.py): provenance and ``reconciled`` only, on a filing-owned version-1
-        calculation of a rewritten concept whose operands the calculator finds."""
+        passes by the per-filing writer's calculator (facts/lineage.py), so each operand's record in them is
+        its own record now: provenance and ``reconciled`` only, on a filing-owned version-1 calculation of a
+        rewritten concept whose operands the calculator finds. A calculation whose new record would read
+        ``unavailable`` where its stored one does not is held as it is, the lineage backfill's
+        ``operand_withheld`` hold (filing_lineage_repair.py): the step never withholds a figure readers see
+        today on a recomputed record."""
         for scope, concepts in self.rechecked.items():
             self._reannotate(self.by_scope[scope], concepts)
 
@@ -524,10 +555,17 @@ class _Planner:
                     or not result["provenance"]["inputs"]):
                 continue
             annotated = {**state, "provenance": result["provenance"], "reconciled": result["reconciled"]}
-            if annotated != state:
-                self.write(row_id, annotated)
-                self.counts["filing_calculations_reannotated"] += 1
-                self.rows.append(self._row(row_id, "reannotated", state, annotated))
+            if annotated == state:
+                continue
+            if (result["provenance"]["validation"] == "unavailable"
+                    and _provenance(state).get("validation") != "unavailable"):
+                self.counts["filing_calculations_held"] += 1
+                self.rows.append(self._row(row_id, "reannotation_held", state, None, hold="operand_withheld",
+                                           reasons=result["provenance"]["reasons"]))
+                continue
+            self.write(row_id, annotated)
+            self.counts["filing_calculations_reannotated"] += 1
+            self.rows.append(self._row(row_id, "reannotated", state, annotated))
 
     def retire_proxy_rows(self) -> None:
         """Set 2: each current proxy-form row is retired; the fresh winner at its key is admitted."""

@@ -421,6 +421,22 @@ def _replaced_and_confirmed_in_one_filing(db, monkeypatch, ticker="MIX", *, reve
     return company, payload, filing
 
 
+def _reconfirmed_with_its_margin(db, monkeypatch, ticker="LRC"):
+    """QQQ's shape in a filing that also carries revenue and the margin over both, annotated against the
+    proxy's rounded figure. The proxy tags no revenue, so set 5 alone rewrites a row in the margin's scope."""
+    company = _company(db, ticker)
+    payload = _for(company, _mrk_payload())
+    for item in _items(payload):
+        if item["form"] == "DEF 14A" and item["end"] == "2025-12-31":
+            item["val"] = 18_250e6
+    _old_sync(db, monkeypatch, company, payload)
+    filing = _filing(db, company, "K25X", "2025-12-31", "2026-02-25")
+    start = "2025-01-01"
+    _file(db, monkeypatch, filing, {"net_income": (start, 18_254e6), "revenue": (start, 64_900e6),
+                                    "net_margin": (start, 18_254e6 / 64_900e6 * 100)}, authority_from=payload)
+    return company, payload, filing
+
+
 def _twin_row(db, company, filing, concept="net_income", value="2957000000"):
     """A legacy current row with no fiscal period at Q4 2025's period end, filed locally (planted as a
     row: no writer stores one today)."""
@@ -1173,6 +1189,48 @@ def test_a_filing_calculation_is_reannotated_once_after_both_passes(db, monkeypa
         assert own["checks"]["authoritative"]["authoritative_value"] == value
 
 
+def test_a_reannotation_that_would_withhold_a_shown_figure_is_held(db, monkeypatch):
+    # The lineage backfill's operand_withheld hold: revenue, in the margin's scope, is a companyfacts row a
+    # correction retired with the filing's labels, so a recomputed margin would read unavailable and leave
+    # the public pages. The margin keeps its record, and the preview names it.
+    company, payload, filing = _reconfirmed_with_its_margin(db, monkeypatch, "LRW")
+    revenue = _filing_row(db, filing, "revenue")
+    retired = repair._quarantine(repair.snapshot(revenue), "legacy_period_label_mismatch")
+    revenue.filing_id, revenue.source, revenue.is_latest = None, "companyfacts", False  # planted as a row
+    revenue.reconciled, revenue.provenance = False, retired["provenance"]
+    db.commit()
+    margin = _filing_row(db, filing, "net_margin")
+    stored = repair.snapshot(margin)
+    assert stored["provenance"]["validation"] == "passed"
+    plan = _preview(db, company, payload)
+    assert {name: plan["proxy"][name] for name in ("filing_rows_reconfirmed", "filing_calculations_reannotated",
+                                                   "filing_calculations_held")} == {
+        "filing_rows_reconfirmed": 1, "filing_calculations_reannotated": 0, "filing_calculations_held": 1}
+    [held] = [e for e in plan["proxy"]["rows"] if e["fact_id"] == margin.id]
+    assert (held["action"], held["hold"], held["winner_value"]) == ("reannotation_held", "operand_withheld", None)
+    assert held["reasons"] == ["legacy_period_label_mismatch"]
+    assert margin.id not in [change["fact_id"] for change in plan["changes"]]
+    _apply(db, company, payload)
+    assert repair.snapshot(db.get(FinancialFact, margin.id)) == stored
+
+
+def test_a_sync_after_the_apply_is_read_against_a_fresh_dry_run(db, monkeypatch):
+    # The done criterion compares the file with the apply's listing right after the apply. A sync in between
+    # stores a later 10-K's comparative, which backs the kept row and takes it off set 5; a fresh dry run
+    # reads the rows as they stand, so its listing is the file's again.
+    company, payload, filing = _confirmed_by_the_10ks_figure(db, monkeypatch, "SYN")
+    row = _filing_row(db, filing)
+    applied = _apply(db, company, payload)["proxy"]["detection_listed"]
+    assert applied == [{"fact_id": row.id, "set": 5, "verdict": "kept_confirmed_by_10k"}]
+    later = copy.deepcopy(payload)
+    _items(later).append(_item(18_254e6, "2025-12-31", start="2025-01-01", accn=_accn(company, "K26"), fy=2026,
+                               filed="2027-02-25"))
+    svc._persist_companyfacts_payload(db, company, later)
+    assert _detection(db, {company.ticker: later})[5] == []
+    fresh = _preview(db, company, later)["proxy"]
+    assert fresh["detection_listed"] == [] and _counts(fresh) == {}
+
+
 def test_a_promotion_beside_a_current_row_with_no_fiscal_period_refuses_at_the_preview(db, monkeypatch):
     # A promoted (or corrected) row is made current in place: no upsert demotes a current row with no fiscal
     # period at its quarter's period, so the plan sees the two current rows and refuses before any write.
@@ -1256,3 +1314,52 @@ def test_detection_listed_reads_sets_4_and_5_as_the_file_does():
     report = _listed_state(filing_id=None, source="companyfacts", value=12_345e6, accession="K26")
     assert proxy.detection_listed([*rows[:3], *rows[4:6], (8, report)], verdicts) == [
         {"fact_id": 3, "set": 4, "verdict": "unclassified"}]
+
+
+def _edge_rows():
+    """Rows on each of the file's edges and just past it, one period end per case: ``(rows, listed ids)``.
+    The file compares in numeric, exactly; in floats 101 / 100,000 * 1,000 is 1.0100000000000002, and
+    1e-6 * 1,110,000 falls short of 1.11."""
+    def scale(value, original):  # a replacement whose original is recorded, no proxy row beside it
+        return [_listed_state(source="companyfacts", value=Decimal(value),
+                              provenance={"checks": {"authoritative": {"original_value": original}}})]
+
+    def witnessed(value, original=None, witness=None):  # a replacement a proxy row holds
+        record = None if original is None else {"checks": {"authoritative": {"original_value": original}}}
+        return [_listed_state(filing_id=None, form="DEF 14A", accession="P26", value=Decimal(witness or value)),
+                _listed_state(source="companyfacts", value=Decimal(value), provenance=record)]
+
+    def confirmed(figure, report=None):  # a confirmation against a figure a proxy row holds
+        return [_listed_state(filing_id=None, form="DEF 14A", accession="P26", value=Decimal("1110000")),
+                _listed_state(value=Decimal("13049000000"), provenance={"checks": {"authoritative": {
+                    "outcome": "confirmed", "authoritative_value": figure}}}),
+                *([] if report is None else [_listed_state(filing_id=None, source="companyfacts", accession="K26",
+                                                           value=Decimal(report))])]
+
+    cases = [  # (rows, listed): the filing row is the case's second row when a proxy row leads
+        (scale("101", 100_000.0), True), (scale("101.0000001", 100_000.0), False),  # 1/1,000, upper edge
+        (scale("99", 100_000.0), True), (scale("98.9999999", 100_000.0), False),  # 1/1,000, lower edge
+        (scale("1.01", 1_000_000.0), True), (scale("1.0100001", 1_000_000.0), False),  # 1/1,000,000
+        (witnessed("101000", 100.0), False), (witnessed("101000.01", 100.0), True),  # 1,000 times: scaled up
+        (witnessed("101000000", 100.0), False), (witnessed("101000000.01", 100.0), True),  # 1,000,000 times
+        (witnessed("1109998.89", witness="1110000"), True),  # a witness 1e-6 away
+        (witnessed("1109998.8899", witness="1110000"), False),
+        (confirmed(1_109_998.89), True), (confirmed(1_109_998.8899), False),  # set 5's witness
+        (confirmed(1_110_000.0, report="1109998.89"), False),  # a report row 1e-6 away backs it
+        (confirmed(1_110_000.0, report="1109998.8899"), True),
+    ]
+    rows, listed, fact_id = [], [], 0
+    for year, (states, shown) in enumerate(cases, start=2001):
+        for state in states:
+            fact_id += 1
+            rows.append((fact_id, {**state, "period_end": date(year, 12, 31).isoformat()}))
+            if shown and state["filing_id"] is not None:
+                listed.append(fact_id)
+    return rows, listed
+
+
+def test_detection_listed_compares_exactly_at_each_edge():
+    # The scale bands' edges (1/1,000, 1/1,000,000, 1,000 and 1,000,000 times, within 1%) and the 1e-6
+    # witness and report-row edges, each on the edge and just past it, as the file's numeric reads them.
+    rows, listed = _edge_rows()
+    assert [entry["fact_id"] for entry in proxy.detection_listed(rows, {})] == listed

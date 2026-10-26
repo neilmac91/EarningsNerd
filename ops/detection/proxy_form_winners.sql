@@ -15,11 +15,14 @@
 -- proxy step (backend/app/services/proxy_fact_repair.py, E211). It names companies and changes nothing.
 -- Retire: the session that applies that repair deletes this file, and the unit test that holds its
 -- proxy-form pattern to is_proxy_form's (backend/tests/unit/test_proxy_form_detection_sql.py), in the
--- records PR that closes it, by 2026-12-31 at the latest. It waits for a detection-sql run after the
--- apply in which, for every company the apply repaired, sets 2 and 3 read no rows and sets 4 and 5
--- read exactly the rows (fact_id) its report lists in proxy.detection_listed, each with the step's
--- verdict (docs/quarterly-data-repair.md, "Proxy-statement values (E211)"), and for each company it
--- refused, after that company's own follow-up.
+-- records PR that closes it, by 2026-12-31 at the latest. It waits for a detection-sql run right after
+-- the apply, before any companyfacts sync or facts backfill reaches a repaired company, in which, for
+-- every company the apply repaired, sets 2 and 3 read no rows and sets 4 and 5 read exactly the rows
+-- (fact_id) its report lists in proxy.detection_listed, each with the step's verdict
+-- (docs/quarterly-data-repair.md, "Proxy-statement values (E211)"), and for each company it refused,
+-- after that company's own follow-up. A sync or backfill in between can change the rows (a sync can
+-- store a later 10-K's comparative, a report row that takes a kept row off set 5): for a company one
+-- reached first, compare with a fresh dry run's proxy.detection_listed, which reads the rows as they stand.
 --
 -- Read-only: one REPEATABLE READ READ ONLY transaction, so the five sets share one snapshot. Tables:
 -- companies, financial_fact. Each statement gets 120 s and waits at most 10 s for a lock (SET LOCAL
@@ -247,16 +250,21 @@ WITH params AS (
                    WHERE b.id = k.id AND k.original_value IS NOT NULL
                      AND abs(b.value - k.original_value) <= p.tolerance * greatest(abs(b.value), abs(k.original_value)))
                AS original_backed,
-           CASE WHEN k.original_value <> 0 AND k.value <> 0 AND sign(k.value) = sign(k.original_value)
-                THEN k.value / k.original_value END AS ratio
+           k.original_value <> 0 AND k.value <> 0 AND sign(k.value) = sign(k.original_value) AS same_sign
     FROM checked k
 ), listed AS (
+    -- Each band multiplies and never divides, so numeric computes it exactly (its division rounds), as
+    -- the repair's transcription does (proxy_fact_repair._scale_up and _scale_down).
     SELECT s.*,
            CASE WHEN s.proxy_witness IS NOT NULL
-                     AND NOT COALESCE(abs(s.ratio / 1000 - 1) <= 0.01 OR abs(s.ratio / 1000000 - 1) <= 0.01, false)
+                     AND NOT COALESCE(s.same_sign
+                                      AND (abs(s.value - 1000 * s.original_value) <= 0.01 * abs(1000 * s.original_value)
+                                           OR abs(s.value - 1000000 * s.original_value)
+                                              <= 0.01 * abs(1000000 * s.original_value)), false)
                 THEN 'proxy row'
-                WHEN s.proxy_witness IS NULL
-                     AND (abs(s.ratio * 1000 - 1) <= 0.01 OR abs(s.ratio * 1000000 - 1) <= 0.01)
+                WHEN s.proxy_witness IS NULL AND s.same_sign
+                     AND (abs(1000 * s.value - s.original_value) <= 0.01 * abs(s.original_value)
+                          OR abs(1000000 * s.value - s.original_value) <= 0.01 * abs(s.original_value))
                 THEN 'scale'
            END AS why
     FROM signals s

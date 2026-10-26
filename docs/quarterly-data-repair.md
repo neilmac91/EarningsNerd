@@ -106,11 +106,16 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    verdict (`filing_rows_reconfirmed`). Refused when the 10-K's figure is more than 1% off the row's
    value: FedEx's proxy, in dollars, confirmed a parse that read millions as units.
 3. **Re-annotation.** Once both passes have run, each filing's calculations over a row they rewrote are
-   recomputed once per filing scope, so each operand's record in them is the operand's own record now
-   (`filing_calculations_reannotated`, one per row). It writes `provenance` and `reconciled` only, and
-   only on a filing-owned calculation of a rewritten concept that has a version-1 record and whose
-   operands the calculator finds: the lineage backfill's discipline (`docs/filing-lineage-repair.md`).
-   A calculation with no record, which is that backfill's, and every other record stay as they are.
+   recomputed once per filing scope by the per-filing writer's calculator (`facts/lineage.py`), so each
+   operand's record in them is the operand's own record now (`filing_calculations_reannotated`, one per
+   calculation). It writes `provenance` and `reconciled` only, and only on a filing-owned calculation of
+   a rewritten concept that has a version-1 record and whose operands the calculator finds. A
+   calculation whose new record would read `unavailable` where its stored record does not (an operand
+   in its scope is withheld, such as a companyfacts row a correction retired with the filing's labels)
+   is held as it is, with the lineage backfill's `operand_withheld` hold (`docs/filing-lineage-repair.md`):
+   counted `filing_calculations_held`, with a `reannotation_held` entry in `rows` that names the new
+   record's reasons. So the step never withholds a figure readers see today by re-annotating it. A
+   calculation with no record, which is that backfill's, and every other record stay as they are.
 4. **Set 2: current proxy-form rows.** Each is retired: `is_latest` and `reconciled` false, provenance
    `validation: unavailable` with reason `proxy_statement_value`, and `replacement` naming what took its
    key. The fresh winner at its key (concept, period end, fiscal period, unit) is then admitted. It is
@@ -169,10 +174,13 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
 - The counters above, at zero when unused. `inserted`, `promoted`, `corrected` and
   `retired_without_winner` count once per key; `retired` counts rows.
 - The counter `filing_rows_kept` counts both kept kinds: a set-4 row that already holds the 10-K's
-  figure and a set-5 row already confirmed against it. A kept row is counted on every run while no
-  other stored report row holds its figure, which is also while detection lists it (below).
+  figure and a set-5 row already confirmed against it. A kept row is counted on every run while a
+  proxy figure, a stored proxy-form row or a proxy item in the payload, holds its figure (set 4: its
+  value; set 5: the figure its check confirmed it against) and no other stored report row does.
+  Detection lists it only where a stored proxy-form row is that witness, so a row kept against a
+  payload item alone is counted on every run and never listed (below).
 - `rows`: one entry per row the step settles, with its `action` (`inserted`, `promoted`, `corrected`,
-  `retired_without_winner`, `dependent_<outcome>`, `restored`, `reannotated`,
+  `retired_without_winner`, `dependent_<outcome>`, `restored`, `reannotated`, `reannotation_held`,
   `kept_agrees_with_authority`, `kept_confirmed_by_10k` or `reconfirmed`), its own and its winner's
   accession and value, `gap`
   (`|a - b| / max(|a|, |b|)`; 1.0 is a figure at another scale), the winner's form and filing date
@@ -184,23 +192,27 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   pending corrections, which the same approval applies.
 - `projected_residual`, and on an apply `residual`: the postcondition's counts, all zero.
 - `detection_listed`: each filing row that detection sets 4 and 5 will still list once the plan is
-  applied, by the file's own rules, as `{fact_id, set, verdict}`; on an apply it is computed from the
-  rows as written. The verdict is the step's: `kept_agrees_with_authority` or `kept_confirmed_by_10k`
-  (right as it is, and listed because no other stored report row holds its figure),
-  `no_proxy_figure` (a set-4 "scale" row: a parse 1,000 or 1,000,000 times too large that the 10-K's own
-  figure corrected; outside the step), `restored` or `reconfirmed` (its new figure, the 10-K's, is also a
-  proxy row's), or `report_backed` (a report row held its figure before the apply). `unclassified`
-  would be a defect of the step: report it.
+  applied, by the file's own rules and in its exact arithmetic (a witness within 1e-6, a scale band of
+  1%, compared as PostgreSQL's numeric compares them, not as floats), as `{fact_id, set, verdict}`; on
+  an apply it is computed from the rows as written. The verdict is the step's:
+  `kept_agrees_with_authority` or `kept_confirmed_by_10k` (right as it is, and listed because no other
+  stored report row holds its figure), `no_proxy_figure` (a set-4 "scale" row: a parse 1,000 or
+  1,000,000 times too large that the 10-K's own figure corrected; outside the step), `restored` or
+  `reconfirmed` (its new figure, the 10-K's, is also a proxy row's, as where a later proxy quotes the
+  10-K exactly), or `report_backed` (a report row held its figure before the apply, and another
+  correction of the same run changed that row). `unclassified` would be a defect of the step: report it.
 
 The CLI's report adds `proxy_totals`, each counter and each `other_*` entry summed over the companies
 that succeeded. Read each company's block this way: `inserted + promoted + corrected +
 retired_without_winner` equals `retired` (one proxy row per key, as the writers leave it);
-`retired_without_winner` and `dependents_retired` are expected to be zero, and any other value is read
-row by row; every `winner_form` is `10-K` (a 10-K/A that carries the pay-versus-performance table is a
-report, and admitted); `gap` measures each retired figure against its winner, the first measure for
-rows with no stored report behind them. Read `made_unavailable` row by row in `changes`: each such
-figure leaves the public pages. Read the other corrections against a baseline: a plain preview of the
-same tickers on the commit before the step, saved before it merged.
+`retired_without_winner`, `dependents_retired` and `filing_calculations_held` are expected to be zero,
+and any other value is read row by row (a held calculation keeps its stored record, which still
+carries its operand's old check, until its filing is read); every `winner_form` is `10-K` (a 10-K/A
+that carries the pay-versus-performance table is a report, and admitted); `gap` measures each retired
+figure against its winner, the first measure for rows with no stored report behind them. Read
+`made_unavailable` row by row in `changes`: each such figure leaves the public pages. Read the other
+corrections against a baseline: a plain preview of the same tickers on the commit before the step,
+saved before it merged.
 
 **The journal.** The apply journals the step's rows with the rest of the run, under
 `calculation_version` `proxy-repair-v1`: the rows it wrote or left to the computed-metric correction,
@@ -216,11 +228,16 @@ A retired row is non-current and `unavailable`, so no reader shows it: the publi
 accession scope and the fiscal-year evidence all withhold an unavailable figure. The audited rollback
 (below) reverts the step's rows with the rest of the run.
 
-**Done.** After the apply, dispatch `detection-sql`. For every company the apply repaired,
-`proxy_form_winners.sql` must read no rows in sets 2 and 3, and in sets 4 and 5 exactly the rows its
-apply report lists in `proxy.detection_listed`: compare their `fact_id`s. Record those rows, with
-their verdicts, in the records change. A company the apply refused stays listed in every set until
-its own follow-up line closes, by a reviewed repair or by recording why its rows stand.
+**Done.** Right after the apply, before any companyfacts sync or facts backfill reaches a repaired
+company, dispatch `detection-sql`. For every company the apply repaired, `proxy_form_winners.sql`
+must read no rows in sets 2 and 3, and in sets 4 and 5 exactly the rows its apply report lists in
+`proxy.detection_listed`: compare their `fact_id`s. The comparison is exact only on the rows as the
+apply wrote them, and a sync or backfill in between can change them: a sync can store a later 10-K's
+comparative, a report row that takes a kept row off set 5. For a company one of them reached first,
+run its dry run again and compare the file with that preview's `proxy.detection_listed`, which reads
+the rows as they stand. Record the listed rows, with their verdicts, in the records change. A company the apply refused
+stays listed in every set until its own follow-up line closes, by a reviewed repair or by recording why
+its rows stand.
 
 The step is temporary. Once that run holds for every repaired company and every refused company's
 line is closed, a records change deletes the detection file and its test, and a later change removes
