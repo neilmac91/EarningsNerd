@@ -216,8 +216,8 @@ def test_a_call_in_flight_holds_its_worst_case_in_the_ledger(monkeypatch: pytest
     asyncio.run(scenario())
 
 
-def _flaky(monkeypatch: pytest.MonkeyPatch, failures: list) -> tuple[list, list]:
-    """Fake attempts: each raises the next of ``failures`` until they run out, then one succeeds."""
+def _flaky(monkeypatch: pytest.MonkeyPatch, failures: list, cost: float = 0.01) -> tuple[list, list]:
+    """Fake attempts: each raises the next of ``failures`` until they run out, then one succeeds at ``cost``."""
     sent: list = []
     waits: list = []
 
@@ -225,7 +225,7 @@ def _flaky(monkeypatch: pytest.MonkeyPatch, failures: list) -> tuple[list, list]
         sent.append(tag)
         if len(sent) <= len(failures):
             raise failures[len(sent) - 1]
-        return CallResult("{}", 1000, 0, 10, 0, 0.1, 0.01, "anthropic", arm.model, {"stop_reason": "end_turn"})
+        return CallResult("{}", 1000, 0, 10, 0, 0.1, cost, "anthropic", arm.model, {"stop_reason": "end_turn"})
 
     async def no_wait(seconds: float) -> None:
         waits.append(seconds)
@@ -251,6 +251,51 @@ def test_a_cut_attempt_is_logged_at_its_worst_case_before_the_retry(monkeypatch:
     assert kinds == ["reserved", "worst ca", "released", "reserved", "paid", "released"]
     assert [row["cost_usd"] for row in _paid(tmp_path)] == [0.3, 0.01]
     assert providers.anthropic_spend() == pytest.approx(0.31)
+
+
+def test_a_cut_attempt_is_in_the_callers_cost_once(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """A $0.162 cut, then a $0.0021 reply: the caller records what the ledger holds, $0.1641, with the reply's own
+    tokens, so a repricing of the tokens (``records.api_cost``) adds the cut from ``cut_cost_usd``, once."""
+    sonnet = ARMS["claude-sonnet-5-5"]
+    cut, reply = list_cost(sonnet, 1000, 0, 16000), list_cost(sonnet, 1000, 0, 10)  # _cut's tokens, and _flaky's
+    assert (cut, reply) == (0.162, 0.0021)
+    _api(monkeypatch, tmp_path, 0.0, {})
+    _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(cut), True)], cost=reply)
+    result = asyncio.run(call(sonnet, "s", "u", tag="t"))
+    assert [row["cost_usd"] for row in _paid(tmp_path)] == [0.162, 0.0021]  # the ledger as before: a row each
+    assert providers.anthropic_spend() == pytest.approx(0.1641) and result.cost_usd == pytest.approx(0.1641)
+    assert result.meta["cut_attempts"] == 1 and result.meta["cut_cost_usd"] == pytest.approx(0.162)
+    assert (result.input_tokens, result.output_tokens) == (1000, 10)  # measured: the reply's alone
+
+
+def _started() -> Exception:
+    return providers._AttemptFailed(ConnectionError("stream reset"), _cut(list_cost(ARMS["claude-sonnet-5-5"], 1000, 0, 16000)), True)
+
+
+def _refused() -> Exception:
+    return providers._AttemptFailed(ValueError("invalid request"), None, False)
+
+
+@pytest.mark.parametrize("failures, raised, cuts", [
+    ([_started, _refused], ValueError, 1),  # a cut, then a failure the API calls permanent
+    ([_started] * 6, ConnectionError, 6),  # every attempt cut short
+    ([_refused], ValueError, 0),  # no stream started, so nothing was billed and nothing is carried
+])
+def test_a_call_that_fails_after_a_cut_carries_its_cost(monkeypatch: pytest.MonkeyPatch, tmp_path, failures: list,
+                                                         raised: type, cuts: int) -> None:
+    one = list_cost(ARMS["claude-sonnet-5-5"], 1000, 0, 16000)
+    _api(monkeypatch, tmp_path, 0.0, {})
+    _flaky(monkeypatch, [failure() for failure in failures])
+    with pytest.raises(raised) as caught:
+        asyncio.run(call(ARMS["claude-sonnet-5-5"], "s", "u", tag="t"))
+    assert providers.anthropic_spend() == pytest.approx(cuts * one)
+    paid = getattr(caught.value, "result", None)
+    if not cuts:
+        assert paid is None
+        return
+    assert paid.cost_usd == pytest.approx(cuts * one)  # what the ledger holds, for the caller to record
+    assert paid.meta == {"stop_reason": "cut short", "cut_attempts": cuts, "cut_cost_usd": pytest.approx(cuts * one)}
+    assert (paid.input_tokens, paid.output_tokens) == (0, 0)  # none measured, so a repricing adds nothing twice
 
 
 def test_a_cut_attempt_counts_against_other_calls_while_it_waits_to_retry(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -286,10 +331,11 @@ def test_each_retry_is_admitted_against_the_ceiling_again(monkeypatch: pytest.Mo
     one = worst_case_usd(sonnet, "s", "u", 16000)
     monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", str(one * 1.5))
     sent, _ = _flaky(monkeypatch, [providers._AttemptFailed(ConnectionError("stream reset"), _cut(one), True)])
-    with pytest.raises(BudgetExceeded):
+    with pytest.raises(BudgetExceeded) as caught:
         asyncio.run(call(sonnet, "s", "u"))
     assert len(sent) == 1  # the cut attempt's worst case left no room for a second
     assert providers.anthropic_spend() == pytest.approx(one)
+    assert caught.value.result.cost_usd == pytest.approx(one)  # and the refusal carries it to the caller's record
 
 
 def test_a_call_whose_worst_case_does_not_fit_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

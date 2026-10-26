@@ -147,7 +147,7 @@ async def _one_order(judge: str, pack: dict[str, Any], text_a: str, text_b: str,
     # then in force; that record kept neither the reply's end nor its finish reason, which each order now keeps.
     try:
         result = await call(ARMS[judge], RUBRIC, _user(pack, text_a, text_b), max_tokens=16000, tag=tag)
-    except Exception as exc:  # noqa: BLE001 - a truncated reply was paid for: carry it to the record
+    except Exception as exc:  # noqa: BLE001 - a truncated reply or a cut attempt was paid for: carry it to the record
         if getattr(exc, "result", None) is not None:
             raise NoVerdict(str(exc), _order(exc.result, {})) from exc
         raise

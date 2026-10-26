@@ -512,6 +512,58 @@ def test_a_first_pass_cut_at_its_cap_keeps_its_cost(harness: Any, monkeypatch: p
     assert "IncompleteReply" in record["error"] and record["cost_usd"] == 0.5 and len(record["attempts"]) == 1
 
 
+def test_a_cut_claude_attempt_reaches_the_record_and_the_reports_cost_once(harness: Any, monkeypatch: pytest.MonkeyPatch,
+                                                                            tmp_path: Path) -> None:
+    """generate over the real providers.call on the Claude API path, each attempt faked: A's $0.162 cut and then its
+    $0.0021 reply cost $0.1641, and B's call that fails after its cut keeps the $0.162, so the report's cost of the two
+    is the ledger's, each cut counted once."""
+    from evals.trend_depth import providers
+    from evals.trend_depth.providers import list_cost
+    from evals.trend_depth.records import api_cost
+
+    sonnet = ARMS["claude-sonnet-5-5"]
+    cut = CallResult("", 1000, 0, 16000, 0, 1.0, list_cost(sonnet, 1000, 0, 16000), "anthropic", sonnet.model,
+                     {"stop_reason": "cut short"})
+    reply = CallResult('{"sections": [{"sentences": [{"type": "fact", "text": "x"}]}]}', 1000, 0, 10, 0, 1.0,
+                       list_cost(sonnet, 1000, 0, 10), "anthropic", sonnet.model, {"stop_reason": "end_turn"})
+    script: dict[str, list] = {"A": [cut, reply], "B": [cut, ValueError("invalid request")]}
+
+    async def attempt(arm: Any, system: str, user: str, max_tokens: int, timeout_s: float, tag: str = "") -> CallResult:
+        step = script[tag.rsplit("/", 1)[-1]].pop(0)  # generate's tag ends with the ticker
+        if step is cut:
+            raise providers._AttemptFailed(ConnectionError("stream reset"), cut, True)
+        if isinstance(step, Exception):
+            raise providers._AttemptFailed(step, None, False)
+        return step
+
+    async def no_wait(seconds: float) -> None:
+        pass
+
+    _real_generate(harness, monkeypatch, [], [True])  # A's first pass passes its gate; B never reaches it
+    monkeypatch.setattr(harness.generate, "call", providers.call)
+    monkeypatch.setattr(providers, "_call_anthropic", attempt)
+    monkeypatch.setattr(providers, "_sleep", no_wait)
+    monkeypatch.setattr(providers, "SPEND_LOG", tmp_path / "spend.jsonl")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    monkeypatch.setenv("TREND_DEPTH_ANTHROPIC_CEILING_USD", "75")
+    try:
+        asyncio.run(harness.generate.run(LABEL, ["claude-sonnet-5-5"], ["A", "B"], 1))
+        spent = providers.anthropic_spend()
+    finally:
+        if providers._key_lock is not None:
+            providers._key_lock[1].close()
+            providers._key_lock = None
+    a, b = (json.loads((harness.generate.RUNS / LABEL / "claude-sonnet-5-5" / f"{t}.json").read_text()) for t in "AB")
+    assert a["generation_ok"] and a["cost_usd"] == pytest.approx(0.1641) and api_cost(a) == pytest.approx(0.1641)
+    assert "ValueError" in b["error"] and b["cost_usd"] == pytest.approx(0.162) and api_cost(b) == pytest.approx(0.162)
+    assert b["attempts"][0]["problems"] == ["the call failed after attempts cut short mid-stream (their worst case)"]
+    monkeypatch.setattr(harness.report, "load_pack", lambda ticker, system="": {})
+    monkeypatch.setattr(harness.report, "factcheck", types.SimpleNamespace(check=lambda sentences, pack: {"passed": True}))
+    stats = harness.report.arm_stats([a, b], prefixes={})
+    assert spent == pytest.approx(0.1641 + 0.162) and stats["cost_mean"] * 2 == pytest.approx(spent)  # the ledger's
+    assert stats["failed_generation_cost"] == pytest.approx(0.162)
+
+
 def test_a_finished_verdict_on_a_changed_draft_is_redone(harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     record, bought = _judge(harness, monkeypatch, {"x_sha256": "an earlier draft", "result": {"overall": {"final": "tie"}},
                                                    "orders": [{**_usable(0.5), "position": 1}, {**_usable(0.5), "position": 2}]})
