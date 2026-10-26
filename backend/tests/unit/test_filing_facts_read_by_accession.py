@@ -311,6 +311,7 @@ def test_the_scan_scores_every_planted_form():
         "import app.models, os, sqlalchemy as sa, sqlalchemy.orm\n"
         "from sqlalchemy import join, join as sql_join, orm\n"
         "from sqlalchemy.sql import expression\n"
+        "from sqlalchemy.orm import outerjoin as oj\n"
         "from app.tables import company_table\n"
         "from sqlalchemy.orm import aliased\n"
         "Alias = Fact\n"
@@ -351,6 +352,8 @@ def test_the_scan_scores_every_planted_form():
         "    select(FinancialFact).select_from(join(FinancialFact, Filing))\n"
         "    select(Fact).select_from(sa.outerjoin(Filing, Fact)), orm.join(FinancialFact, Filing, None)\n"
         "    select(Fact).select_from(sa.join(left=Fact, right=Filing))\n"
+        "    sa.join(left=Fact, right=Company), sa.join(left=Company, right=Fact)\n"
+        "    select(FinancialFact).outerjoin_from(FinancialFact, Filing), oj(FinancialFact, Filing)\n"
         "    db.query(FinancialFact).join(Filing.__table__), FinancialFact.__table__.join(Filing.__table__)\n"
         "    Fact.__table__.join(Company.__table__), models.FinancialFact.__table__.join(Company.__table__)\n"
         "    sql_join(FinancialFact, Filing), sqlalchemy.orm.outerjoin(FinancialFact, Filing, None)\n"
@@ -376,7 +379,7 @@ def test_the_scan_scores_every_planted_form():
         ("direct", "column"): 1, ("through_aliases", "column"): 3, ("module_attribute", "column"): 1,
         ("table_columns", "column"): 2, ("table_columns", "by_name"): 1, ("by_name", "by_name"): 4,
         ("more_by_name", "by_name"): 2, ("owned", "ownership"): 1, ("ownership", "ownership"): 4,
-        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 20,
+        ("keyed_like_an_ownership_test", "column"): 2, ("implicit_joins", "implicit_join"): 24,
     })
     # A relationship on the model, or one to it, loads rows over the same inferred key.
     assert mentions(

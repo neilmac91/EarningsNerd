@@ -632,7 +632,7 @@ def test_a_switched_filers_line_it_was_never_read_from_shows_no_usd_bar(db):
 
 
 @pytest.mark.parametrize("read_all", [False, True], ids=["assets-only", "the-whole-report"])
-def test_a_ratio_counts_by_its_operands_currency_in_a_line_the_report_owns_no_row_of(db, read_all):
+def test_a_ratio_counts_by_its_operands_currency_or_by_the_units_of_a_line_the_report_owns(db, read_all):
     """From 2026-10-10, when calculations began to record their operands, until #1365 a sync read the
     USD lists alone: under each 20-F's accession it stored a net margin over that report's own-year
     convenience figures, every operand under that accession, and the own year's EPS in USD. The native
