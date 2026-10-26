@@ -412,10 +412,11 @@ def record_progress(
     the error (``None`` clears it) and, when given, the section coverage; it keeps the stored ``started_at`` and counts
     ``elapsed_seconds`` from it in SQL. The fetch stage's write, an admitted run's first, passes ``starts_run`` and
     restarts the clock instead, so a retry after an error, or the unready summary's regeneration, does not count from
-    the run that left the row (E216); a run that fails before the fetch stage writes only its error, which keeps the
-    clock (E217). With no read before the write, a clear or an insert landing just before it (a Pro force's
-    clear, an admin reset, another run of the filing on the API's other instance, the task worker or a job) cannot fail
-    the run: after a clear it inserts a fresh row, and after an insert it updates that row."""
+    the run that left the row (E216). A leader that fails before that write passes it on its error, the run's first
+    write; a follower's error, or one from a run that failed before its claim, keeps the clock (E217). With no read
+    before the write, a clear or an insert landing just before it (a Pro force's clear, an admin reset, another run of
+    the filing on the API's other instance, the task worker or a job) cannot fail the run: after a clear it inserts a
+    fresh row, and after an insert it updates that row."""
     now = utcnow()
     dialect = db.get_bind().dialect.name
     insert = {"postgresql": postgres_insert, "sqlite": sqlite_insert}.get(dialect)

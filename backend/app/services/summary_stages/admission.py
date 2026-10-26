@@ -70,7 +70,7 @@ async def load_filing(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.reason = "filing_not_found"
         logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
-        yield {'type': 'error', 'message': 'Filing not found'}
+        yield {'type': 'error', 'message': 'This filing could not be found.'}
         return
 
     # A run admitted to replace an unready row serves the row once another run has made it ready.
@@ -132,7 +132,7 @@ async def join_or_lead(run: GenerationRun) -> AsyncIterator[dict]:
         if request_evidence is not None:
             request_evidence.delivery_path = "coalesced"
         logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
-        yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
+        yield {'type': 'progress', 'stage': 'queued', 'message': 'This summary is already being generated. Joining that run…', 'percent': 3, 'elapsed_seconds': int(pipeline.time.time() - run.pipeline_started_at)}
         while not existing_generation.is_set() and waited < pipeline.INFLIGHT_WAIT_CAP_SECONDS:
             try:
                 await asyncio.wait_for(existing_generation.wait(), timeout=pipeline.settings.STREAM_HEARTBEAT_INTERVAL)
