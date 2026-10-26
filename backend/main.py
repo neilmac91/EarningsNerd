@@ -340,6 +340,8 @@ async def add_security_headers(request: Request, call_next):
 REQUEST_TIMEOUT_SECONDS = {
     "default": 30.0,
     "/api/feedback/with-attachments": 60.0,
+    # A real stale refresh generates its batch in the request, inside Cloud Run's 600 s (the route's docstring).
+    "/api/admin/summaries/refresh-stale": admin.REFRESH_STALE_TIMEOUT_SECONDS,
     "/api/summaries/": 120.0,  # Summary generation needs more time
     "/api/filings/": 60.0,     # Filing fetches from SEC EDGAR
     "/health": 5.0,            # Health checks should be fast

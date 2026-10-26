@@ -3398,8 +3398,8 @@ async def test_admin_maintenance_routes_release_their_connection_off_the_loop(mo
                 ("summaries_bulk_reset", admin_ids[emails[i]], emails[i], "", deleted)
                 for i, count in enumerate(counted) if count == 8)
         elif case == "refresh_stale":
-            kept = (("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5), ("schema_version_lt", None),
-                    ("stale_total", 8), ("updated_count", 0))
+            kept = (("deferred_count", 0), ("failed_count", 0), ("filing_type", None), ("kept_by_gate_count", 5),
+                    ("schema_version_lt", None), ("stale_total", 8), ("updated_count", 0))
             assert audits == sorted(("summaries_refresh_stale", admin_ids[email], email, "", kept) for email in emails)
         else:
             assert audits == []
@@ -3481,7 +3481,7 @@ async def test_stale_refresh_holds_no_connection_while_it_generates(monkeypatch,
             audits = [details for (details,) in db.query(AuditLog.details).filter(
                 AuditLog.action == "summaries_refresh_stale")]
         assert audits == [{"filing_type": None, "schema_version_lt": None, "stale_total": 2, "updated_count": 1,
-                           "kept_by_gate_count": 1, "failed_count": 0}]
+                           "kept_by_gate_count": 1, "failed_count": 0, "deferred_count": 0}]
     finally:
         engine.dispose()
 
@@ -3783,8 +3783,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
     try:
         outcomes = await admin_summary_service.regenerate_in_place(
             [filing_id], actor_id=7, actor_email="admin@example.com", filing_type=None, schema_version_lt=None,
-            stale_total=1)
-        assert outcomes == ([], [filing_id], [])
+            stale_total=1, start_by=float("inf"))
+        assert outcomes == ([], [filing_id], [], [])
         with sessionmaker(bind=engine)() as db:
             assert [tuple(row) for row in db.query(AuditLog.action, AuditLog.user_id)] == [("summaries_refresh_stale", "7")]
         # One failed close for the stamp re-read and one for the audit row, each with its traceback.
