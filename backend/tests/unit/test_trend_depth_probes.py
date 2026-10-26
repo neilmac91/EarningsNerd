@@ -614,7 +614,8 @@ def test_broken_debt_spares_disclosures_and_other_lines(ticker: str, text: str) 
     ("Net cash was 83rd percentile of six semiconductor peers against a peer median of -13.9% of revenue, subject to the "
      "same data caveat.", True),
     ("Cash and short-term investments totalled $10.1 billion in FY2025, but that double counts them.", True),
-    # ... the break said plainly of the line it is about (review 8 arm-fairness [2], and Sonnet NVDA's dev-v3 form) ...
+    # ... the break said plainly of the data about the line (review 8 arm-fairness [2], and Sonnet NVDA's dev-v3 form;
+    # review 9's data forms and the checks' own words) ...
     ("This comparison may be a basis break: the pack carries FY2025 short-term investments of $34.6 billion but none for "
      "FY2026, so I draw no conclusion on the size of the drop.", True),
     ("Net cash was $8.8 billion, but long-term debt is absent from the pack after FY2023.", True),
