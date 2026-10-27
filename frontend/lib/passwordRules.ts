@@ -10,7 +10,7 @@
  * happens and never that a breached password is refused. The field's `minLength`, the strength meter's
  * "Too short" and the sentence a page shows read these two constants, so the number is never typed
  * by hand. `tests/unit/passwordRulesLockstep.spec.tsx` fails when the mirror drifts from the backend,
- * when the validator gains a rule beyond length, when the breach check's default turns off under the
+ * when the validator gains a rule beyond length and valid text, when the breach check's default turns off under the
  * sentence or the sentence promises a refusal, or when a password-handling file spells the length out
  * or drops the field's minimum.
  *

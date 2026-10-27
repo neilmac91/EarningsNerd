@@ -39,15 +39,22 @@ def public_validation_errors(errors: Iterable[Mapping[str, Any]]) -> list[dict[s
     Dropped: ``input`` (the refused value, or the whole body for a missing field), ``ctx`` (the validator's
     exception, or a decode error's own message) and ``url``, with any key a later pydantic adds. A ``loc`` part is
     a field name, a dict key or a list index; a key comes from the body, so it is made encodable like the rest.
+
+    Total over any input, so it never raises: an exception here would chain the ``RequestValidationError``, whose
+    text prints every ``input``, into the 500's log line and Sentry event. An error that is not a mapping, or a
+    ``loc`` that is not a list or tuple, keeps only what can be read from it.
     """
-    return [
-        {
+    public = []
+    for error in errors:
+        error = error if isinstance(error, Mapping) else {}
+        loc = error.get("loc")
+        public.append({
             "type": _encodable(str(error.get("type", ""))),
-            "loc": [part if type(part) is int else _encodable(str(part)) for part in error.get("loc", ())],
+            "loc": [part if type(part) is int else _encodable(str(part)) for part in loc]
+            if isinstance(loc, (list, tuple)) else [],
             "msg": _encodable(str(error.get("msg", ""))),
-        }
-        for error in errors
-    ]
+        })
+    return public
 
 
 def _encodable(text: str) -> str:

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
 from app.services import invite_service, login_lockout
+from app.services.auth_validation import is_valid_unicode
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
 )
@@ -47,6 +48,11 @@ def _generate_token() -> tuple[str, str]:
 
 
 def _hash_token(raw: str) -> str:
+    # A token that is not valid text (a lone surrogate) is no token this module minted (``_generate_token`` makes
+    # URL-safe ASCII), so a verification or reset lookup refuses it as unknown instead of raising from the encode,
+    # which answered 500 (E97).
+    if not is_valid_unicode(raw):
+        raise AccountTokenInvalidError()
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

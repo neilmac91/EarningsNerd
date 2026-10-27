@@ -1358,6 +1358,16 @@ describe('the password rule moves in lockstep with the backend', () => {
       'raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")',
       'return value',
     ])
+    // The helper's whole body is pinned too, so a rule added inside it fails here as one added to the validator does.
+    const helper = pythonBody(backend('app/services/auth_validation.py'), /^def is_valid_unicode\b/)
+    if (!helper) throw new Error('is_valid_unicode not found in backend/app/services/auth_validation.py')
+    expect(helper, 'a new rule inside is_valid_unicode is a password rule: state it in PASSWORD_RULE, then update this list').toEqual([
+      'try:',
+      'text.encode("utf-8")',
+      'except UnicodeEncodeError:',
+      'return False',
+      'return True',
+    ])
   })
 
   it('every password field of the auth schemas is a bare str whose validator only calls validate_password_strength', () => {

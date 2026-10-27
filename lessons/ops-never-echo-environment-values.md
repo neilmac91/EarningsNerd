@@ -180,7 +180,10 @@ list included) and the str of a log's body that is not text only after `before_s
   directory of backend code is left out of the walk (a top-level virtualenv is skipped by its `pyvenv.cfg`,
   whatever its name). It reads only the block's own direct calls on the bound name. Outside it: an alias
   (`f = exc.errors`), or `getattr`; a helper the exception is handed to; a FastAPI exception-handler function;
-  an except* group's members. None exists today.
+  an except* group's members. One such handler exists: `main.py`'s `RequestValidationError` handler (E97) hands
+  `exc.errors()` to `app/services/auth_validation.py::public_validation_errors`, which keeps each error's `type`,
+  `loc` and `msg` only, and `backend/tests/unit/test_password_byte_limit.py`'s E97 section holds its answers, log
+  lines and Sentry items free of a refused password. None of the other forms exists today.
 - **The repr.** A settings object's `repr()` is `Settings()`, its `str()` is empty, and Sentry's
   serialization of it is `Settings()`.
 - **Messages.** An AST walk over `app/config.py` fails a raise or assert message, in a function or at module

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.invite import InviteCode
+from app.services.auth_validation import is_valid_unicode
 
 
 def _hash_token(raw: str) -> str:
@@ -73,8 +74,9 @@ def hash_invite_token(raw: str) -> str:
 
 def validate_invite(db: Session, raw_token: Optional[str], email: str) -> Optional[InviteCode]:
     """Return a usable invite for this registration, or None if it's missing / invalid / revoked /
-    already used / expired / bound to a different email. Never raises on a bad token."""
-    if not raw_token:
+    already used / expired / bound to a different email. Never raises on a bad token: one that is not valid text
+    (a lone surrogate, which no minted invite holds) is no invite, where its hash's encode raised a 500 (E97)."""
+    if not raw_token or not is_valid_unicode(raw_token):
         return None
     return validate_invite_hash(db, _hash_token(raw_token), email)
 
