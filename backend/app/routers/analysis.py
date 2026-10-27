@@ -52,6 +52,7 @@ from app.services.subscription_service import (
     reserve_analysis_use,
 )
 from app.services.summary_pipeline import to_sse
+from app.services.trend_analysis.units import IncompatibleUnitsError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,6 +63,8 @@ DATASET_LIMITER = RateLimiter(limit=30, window_seconds=60)
 STREAM_LIMITER = RateLimiter(limit=10, window_seconds=60)
 # Workbook builds are CPU-bound (openpyxl zip) — tighter than the dataset limiter.
 XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
+# The xlsx export's answer when the dataset the page built no longer matches what the data now builds.
+_EXPORT_DATA_CHANGED = "The financial data changed. Refresh the analysis before exporting."
 
 # How long the coverage request waits for a first-touch companyfacts sync before answering
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
@@ -267,13 +270,16 @@ async def export_analysis_xlsx(
                 dataset = trend_analysis_service.build_dataset(
                     db, company, body.mode, body.start_period, body.end_period
                 )
+            except IncompatibleUnitsError as exc:
+                # A snapshot names a dataset the page built, so its refusal now means the data changed: the 409
+                # the page reads as out of date (a blob response's 400 reaches the reader as generic text; E102).
+                if body.snapshot_id is None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
             except ValueError as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
             if body.snapshot_id is not None and body.snapshot_id != trend_analysis_service.dataset_fingerprint(dataset):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="The financial data changed. Refresh the analysis before exporting.",
-                )
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_EXPORT_DATA_CHANGED)
             return dataset, company.ticker
         finally:
             filing_list_service.release_request_session(db)

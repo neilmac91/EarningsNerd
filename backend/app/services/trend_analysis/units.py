@@ -5,7 +5,9 @@ CNY/shares) would chart, compare and compound as one series, and the narrative a
 whole dataset is refused instead, before any comparison, window figure, observation, narrative or export reads it:
 no series is split, no value converted, no point dropped.
 """
-from typing import Any
+from typing import Any, Optional, TypeVar, Union
+
+Row = TypeVar("Row")
 
 INCOMPATIBLE_UNITS_MESSAGE = (
     "Some of this company's figures for these periods don't share one currency or unit, so they can't be compared. "
@@ -15,9 +17,10 @@ INCOMPATIBLE_UNITS_MESSAGE = (
 
 class IncompatibleUnitsError(ValueError):
     """The dataset refusal for figures that do not share one unit. The routes send its message as they send every
-    dataset refusal (a ValueError: the dataset and xlsx routes' 400, the stream's error event, the PDF route's
-    re-run 409). ``code`` is the stable domain code for the analysis routes' error adapter once the shared error
-    vocabulary (E31) lands."""
+    dataset refusal (a ValueError: the dataset route's 400, the stream's error event). An export rebuilds a dataset the
+    page built, so it answers 409 (the data changed since): the xlsx route when the request names the page's snapshot,
+    the PDF route through its re-run check. ``code`` is the stable domain code for the analysis routes' error adapter
+    once the shared error vocabulary (E31) lands."""
 
     code = "analysis_incompatible_units"
 
@@ -25,11 +28,11 @@ class IncompatibleUnitsError(ValueError):
         super().__init__(INCOMPATIBLE_UNITS_MESSAGE)
 
 
-class _UnitConflict:
+class UnitConflict:
     """An index entry for a period of a concept whose current facts name different units."""
 
 
-UNIT_CONFLICT = _UnitConflict()
+UNIT_CONFLICT = UnitConflict()
 
 
 def keep_one_unit(index: dict, key: Any, row: Any) -> None:
@@ -40,7 +43,7 @@ def keep_one_unit(index: dict, key: Any, row: Any) -> None:
     index[key] = UNIT_CONFLICT if held is UNIT_CONFLICT or (held is not None and held.unit != row.unit) else row
 
 
-def one_unit(row: Any) -> Any:
+def one_unit(row: Union[Row, UnitConflict, None]) -> Optional[Row]:
     """The indexed row for a period, or ``None``; a period whose current facts conflict refuses the dataset."""
     if row is UNIT_CONFLICT:
         raise IncompatibleUnitsError()

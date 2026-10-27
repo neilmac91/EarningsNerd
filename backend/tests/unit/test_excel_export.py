@@ -509,6 +509,26 @@ class TestXlsxRoute:
         assert response.status_code == 400
         assert response.json() == {"detail": INCOMPATIBLE_UNITS_MESSAGE}
 
+    def test_a_mixed_unit_refusal_of_the_displayed_snapshot_reads_as_changed_data(self, client, monkeypatch):
+        # E102: the page exports only a dataset it built, naming its snapshot, so a refusal there means the data
+        # changed since: the 409 the page turns into "out of date" (its blob response cannot show a 400's detail).
+        import app.routers.analysis as analysis_router
+        from app.services.trend_analysis.units import IncompatibleUnitsError
+
+        self._as_user(is_pro=True)
+        monkeypatch.setattr(analysis_router, "_get_company", lambda db, ticker: SimpleNamespace(ticker="TST"))
+
+        def _refuses(db, company, mode, start, end):
+            raise IncompatibleUnitsError()
+
+        monkeypatch.setattr(analysis_router.trend_analysis_service, "build_dataset", _refuses)
+        response = client.post(
+            "/api/analysis/TST/export/xlsx",
+            json={"mode": "annual", "start_period": "FY2022", "end_period": "FY2024", "snapshot_id": "a" * 64},
+        )
+        assert response.status_code == 409
+        assert response.json() == {"detail": "The financial data changed. Refresh the analysis before exporting."}
+
     @pytest.mark.parametrize("matches", [False, True])
     def test_export_is_bound_to_the_displayed_snapshot(self, client, monkeypatch, matches):
         import app.routers.analysis as analysis_router

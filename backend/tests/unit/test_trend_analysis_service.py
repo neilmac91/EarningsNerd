@@ -1068,6 +1068,32 @@ class TestIncompatibleUnits:
         assert [p["value"] for p in eps["points"]] == [None, 30.0, 30.0]
         assert eps["unit"] == "CNY/shares"
 
+    @pytest.mark.parametrize("withheld_first", [True, False], ids=["withheld twin stored first", "withheld twin last"])
+    def test_a_withheld_twin_in_another_unit_still_refuses_its_period(self, withheld_first):
+        # A decision, not an accident: two current facts for one period in two units refuse it even when one is withheld
+        # (a derived USD/shares row beside the filed CNY/shares one). The index kept the later row, so storage order
+        # chose between the filed figure and a withheld gap; a withheld point in another period names no unit (above).
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            company = _seed_company(db)
+            for fy, fp, end, start in _ANNUAL:
+                _seed_fact(db, company.id, "net_income", 100.0, fy=fy, fp=fp, end=end, start=start)
+            (fy, fp, end, start) = _ANNUAL[1]
+            twins = [dict(value=5.0, unit="USD/shares", source="derived"), dict(value=30.0, unit="CNY/shares")]
+            for twin in twins if withheld_first else twins[::-1]:
+                _seed_fact(db, company.id, "earnings_per_share", twin.pop("value"), fy=fy, fp=fp, end=end, start=start,
+                           **twin)
+            for fy, fp, end, start in (_ANNUAL[0], _ANNUAL[2]):
+                _seed_fact(db, company.id, "earnings_per_share", 30.0, fy=fy, fp=fp, end=end, start=start,
+                           unit="CNY/shares")
+            db.commit()
+            with pytest.raises(IncompatibleUnitsError):
+                svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        finally:
+            db.close()
+
     def test_a_pure_ratio_series_beside_a_monetary_one_still_builds(self):
         rows = [("revenue", 1000.0 + 100 * index, "USD", index) for index in range(3)]
         rows += [("net_margin", 0.1 + 0.01 * index, "pure", index) for index in range(3)]
