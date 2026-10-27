@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Census: how often a later SEC filing reports a different annual value than the year's own report.
 
-WP5 §5(a), before the restatement note is built. The analysis shows each fiscal year's value from the
+MPA WP5 (docs/mpa-improvements/coherence.md, section 1.6), before the restatement note is built. The
+analysis shows each fiscal year's value from the
 newest filing (``is_latest``), so a figure a later 10-K re-reports in its comparatives replaces what the
 year's own annual report said (REGN revenue: FY2018 6,710.8M in its own 10-K, 5,145.6M in the FY2020
 10-K). This measures how often that happens, and by how much, so the note's tolerance and rules rest on
@@ -13,10 +14,16 @@ collection and fiscal-year windowing as ``normalize_companyfacts``. For every co
 durations and FY-end instants, the newest ``--years`` fiscal years) it compares:
 
 - the winner: the value ingest stores (the latest-filed item of the first tag with data);
-- the own value: the item from the year's own annual report (an ``ANNUAL_FORMS`` filing whose own
-  period end, per ``own_period_ends``, is this period; the earliest filed, preferring a non-amended
-  form), looked up within the winning tag and, separately, across all of the concept's tags (the own
-  filing's value under the highest-priority tag it used).
+- the own value: the item from the year's own annual report, chosen by ingest's own rule
+  (``facts/own_reports._own_report``: an annual report whose own period end, per ``own_period_ends``,
+  is this period, for the winner's span; the original before an amendment, then the earliest filed),
+  looked up within the winning tag and, separately, across all of the concept's tags (that rule within
+  each tag, then the earliest filed, then the tag's priority).
+
+Within the winning tag, a cell whose own value differs from the winner's under another accession is a
+history row a sync stores (``meta["history"]``), except that ingest drops an own value that is
+negative for a non-negative concept, a cell the census still counts. Across the tags it also measures
+what ingest does not keep: an own report that gave the line under another tag.
 
 It prints a Markdown report to stdout: cells and companies where own differs from winner at several
 relative tolerances, by concept; a histogram of small relative gaps; how often the own value sits under
@@ -129,36 +136,29 @@ def _item(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _own_key(candidate: dict[str, Any], start: Optional[date]) -> tuple:
-    """Earliest filed, preferring a non-amended form; then a start matching the winner's."""
-    return (str(candidate.get("form") or "").endswith("/A"), candidate.get("filed") or "",
-            candidate.get("period_start") != start)
-
-
-def _is_own(candidate: dict[str, Any], end: date, own_ends: dict[str, date]) -> bool:
-    from app.services.facts.fiscal_naming import ANNUAL_FORMS
-
-    accession = candidate.get("accession")
-    return candidate.get("form") in ANNUAL_FORMS and bool(accession) and own_ends.get(accession) == end
-
-
 def _own_within(record: dict[str, Any], end: date, own_ends: dict[str, date]) -> Optional[dict[str, Any]]:
-    owns = [c for c in record.get("candidates") or [record] if _is_own(c, end, own_ends)]
-    return min(owns, key=lambda c: _own_key(c, record.get("period_start")), default=None)
+    """The year's own report within the winning tag: ingest's own selection
+    (``facts/own_reports._own_report``), so a cell's own value is the one a sync keeps as its history row."""
+    from app.services.facts.own_reports import _own_report
+
+    return _own_report(record, end, own_ends)
 
 
 def _own_across(
     per_tag: dict[str, dict], tags: tuple[str, ...], key: tuple[date, str], start: Optional[date],
     own_ends: dict[str, date],
 ) -> Optional[dict[str, Any]]:
-    """The earliest own report under any of the concept's tags, read by its highest-priority tag."""
+    """The year's own report under any of the concept's tags: ingest's selection within each tag, for the
+    winner's span, then the original before an amendment, the earliest filed, and the tag's priority."""
+    from app.services.facts.own_reports import _own_report
+
     owns = []
     for priority, tag in enumerate(tags):
         record = per_tag[tag].get(key)
-        for candidate in (record or {}).get("candidates") or ():
-            if _is_own(candidate, key[0], own_ends):
-                form_amended, filed, start_differs = _own_key(candidate, start)
-                owns.append(((form_amended, filed, priority, start_differs), candidate))
+        own = _own_report({"candidates": record.get("candidates") or [record], "period_start": start}, key[0],
+                          own_ends) if record else None
+        if own is not None:
+            owns.append((((own.get("form") or "").endswith("/A"), own.get("filed") or "", priority), own))
     return min(owns, key=lambda pair: pair[0])[1] if owns else None
 
 
@@ -555,7 +555,7 @@ def _bucket_table(cells: list[dict[str, Any]]) -> list[str]:
 
 def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: argparse.Namespace,
            stopped: Optional[str], started: str) -> str:
-    out: list[str] = ["# Restatement census (WP5 §5a)", ""]
+    out: list[str] = ["# Restatement census (MPA WP5, coherence.md section 1.6)", ""]
     measured = [row for row in coverage if row.get("cells")]
     out.append(f"Run {started}. Companyfacts through `app.services.facts.transport` (shared limiter, "
                f"Settings SEC identity). {len(coverage)} tickers requested, {len(measured)} measured, "
@@ -564,10 +564,13 @@ def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: ar
     if stopped:
         out += ["", f"**STOPPED EARLY: {stopped}**"]
     out += ["", "Definitions: *winner* = the value ingest stores (latest-filed item of the first tag with "
-            "data). *own* = the item from the year's own annual report (ANNUAL_FORMS, `own_period_ends` == "
-            "this period end; earliest filed, non-amended first). *within* = own looked up in the winning "
-            "tag only; *across* = own looked up in all the concept's tags (the own filing's value under its "
-            "highest-priority tag). *later filing* = own found and its accession differs from the winner's. "
+            "data). *own* = the item from the year's own annual report, by ingest's rule "
+            "(`facts/own_reports._own_report`: `own_period_ends` == this period end, the winner's span, "
+            "original before amendment, then earliest filed). *within* = own looked up in the winning tag "
+            "only: where it differs under another accession, the history row a sync stores (bar a negative "
+            "own value of a non-negative concept, which ingest drops); *across* = own looked up in all the "
+            "concept's tags (that rule within each tag, then earliest filed, then tag priority), which "
+            "ingest does not keep. *later filing* = own found and its accession differs from the winner's. "
             "Gap = |winner - own| / |own|.", ""]
 
     out += ["## Coverage", "", "| ticker | CIK | entity | financial SIC | fiscal years | cells | note |",

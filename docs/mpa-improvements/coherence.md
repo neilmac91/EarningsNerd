@@ -283,9 +283,11 @@ API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototy
 companyfacts for 59 large filers, read through the app's own transport and grouped exactly as
 ingest groups it. That gave 8,616 cells (company × concept × fiscal year, newest ten years). Its
 output is [verification/restatement-census.md](verification/restatement-census.md), whose header
-holds the run's time and every definition it used. The script, `backend/scripts/restatement_census.py`,
-was written on a WP5 branch that was never pushed, and it went with its session, so this repository
-cannot rerun it; WP5 commits a rerunnable census with its evidence (E206).
+holds the run's time and every definition it used. The script behind that run went with its session.
+WP5b (#1682) commits a rerunnable one, `backend/scripts/restatement_census.py`, which picks the year's
+own report by ingest's own rule (`facts/own_reports.py`), so its within-tag cells are the history rows a
+sync stores. That rule leaves out an own item for another span than the winner's, which the first run
+sorted last instead, so a rerun's counts can differ slightly from the figures below.
 - **At a 1% tolerance,** a later filing's value differs from the year's own report in 438 cells
   (5.1%), at 52 of the 59 companies.
 - **Noise.** Every rounding difference sits below 0.1%.
@@ -1133,7 +1135,8 @@ These came out of this evaluation but sit in the sibling areas.
   captures.** Production's own page could not be opened without a Pro session.
 - **The variant test (§2.8) had two readers per design.** They were model instances, not
   subscribers, and they saw a static page with no hover and no dialog. Its restatement note was
-  planted locally. Production carries none until WP5. Read it as directional. It is still the
+  planted locally. Production shows no such note until WP5's reader (WP5a) lands; the own-report
+  rows it will read are stored from WP5b (#1682) on. Read it as directional. It is still the
   only test that put the four designs side by side on one data state.
 - **Each heuristic set had one evaluator.** The comprehension test is one model instance per round,
   not a panel of subscribers, so it shows misreadings, not their rates.

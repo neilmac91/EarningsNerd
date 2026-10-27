@@ -73,12 +73,13 @@ def _own_report(record: dict[str, Any], end: date, own_ends: dict[str, date]) ->
     line (a gap the restatement census measured). An own report is an annual report whose own period
     ends on ``end`` (``own_period_ends``, which maps each annual report's accession, and no other
     form's, to the latest fiscal year it reports), for the winner's period start. An original wins over
-    an amendment, then the earliest filed; companyfacts' filing order breaks a tie.
+    an amendment, then the earliest filed; companyfacts' filing order breaks a tie. An item with no form
+    at such an accession is that report's, read as an original (``admitted_items`` keeps it).
     """
     owns = [candidate for candidate in record.get("candidates") or [record]
             if own_ends.get(candidate.get("accession")) == end
             and candidate.get("period_start") == record.get("period_start")]
-    return min(owns, key=lambda c: (c["form"].endswith("/A"), c.get("filed") or ""), default=None)
+    return min(owns, key=lambda c: ((c.get("form") or "").endswith("/A"), c.get("filed") or ""), default=None)
 
 
 def insert_history_rows(db: Session, history: Iterable[dict[str, Any]], stored: set[tuple]) -> int:

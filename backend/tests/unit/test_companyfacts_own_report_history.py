@@ -123,6 +123,36 @@ class TestOwnReportHistory:
         _facts, meta = svc.normalize_companyfacts(1, _payload(amended + _items(reports)))
         assert _history(meta, "revenue")[("revenue", 2018)] == ((6_710.8e6, K18) if original else (6_702.5e6, k18a))
 
+    def test_of_two_amendments_the_earlier_filed_is_the_own_report(self):
+        # The FY2018 10-K tagged its revenue under "Revenues" alone; two 10-K/As then gave it under the
+        # winning tag, No. 2 listed first. Both are the year's own report, amended: No. 1, filed first.
+        k18a1, k18a2 = "0001532176-19-000020", "0001532176-19-000030"
+        amendments = [_item(value, year, 2018, accn=accn, form="10-K/A", filed=filed)
+                      for accn, filed, own in ((k18a2, "2019-06-03", 6_702.5e6), (k18a1, "2019-04-01", 6_705.0e6))
+                      for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: own}.items()]
+        revenue = amendments + _items({**_REVENUE, 2018: {}})
+        _facts, meta = svc.normalize_companyfacts(1, _payload(revenue, tags={"Revenues": {"units": {"USD": _items(
+            {2018: _REVENUE[2018]})}}}))
+        assert _history(meta, "revenue")[("revenue", 2018)] == (6_705.0e6, k18a1)
+
+    def test_of_two_originals_the_earlier_filed_is_the_own_report(self):
+        # The FY2018 10-K filed again under a new accession five weeks later (a re-filing, form 10-K),
+        # listed first and with another FY2018 figure: the first filed stays the year's own report.
+        k18b = "0001532176-19-000040"
+        refiled = [_item(value, year, 2018, accn=k18b, filed="2019-03-15")
+                   for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: 6_700.0e6}.items()]
+        _facts, meta = svc.normalize_companyfacts(1, _payload(refiled + _items(_REVENUE)))
+        assert _history(meta, "revenue")[("revenue", 2018)] == (6_710.8e6, K18)
+
+    def test_an_item_with_no_form_at_an_annual_reports_accession_is_read_as_its_original(self):
+        # One FY2018 10-K item carries no form; the report's other items name it, so its accession is an
+        # annual report's own. The item is that report's, read as an original, and the sync goes on.
+        revenue = [{key: value for key, value in item.items() if key != "form"}
+                   if (item["accn"], item["end"]) == (K18, "2018-12-31") else item for item in _items(_REVENUE)]
+        _facts, meta = svc.normalize_companyfacts(1, _payload(revenue))
+        [fy2018] = [h for h in meta["history"] if (h["concept"], h["fiscal_year"]) == ("revenue", 2018)]
+        assert (fy2018["value"], fy2018["accession"], fy2018["form"]) == (6_710.8e6, K18, None)
+
     def test_a_proxy_is_never_the_own_report_nor_the_winner(self):
         # A proxy filed after the FY2020 10-K tags FY2018 and FY2019 revenue: it is never a candidate,
         # so it neither wins those years nor stands for their own report.
@@ -188,6 +218,47 @@ class TestOwnReportHistory:
     @pytest.mark.parametrize("payload", [{}, {"facts": {"ifrs-full": {"Revenue": {}}}}], ids=["empty", "ifrs"])
     def test_a_payload_with_no_us_gaap_facts_has_no_history(self, payload):
         assert svc.normalize_companyfacts(1, payload)[1]["history"] == []
+
+
+def _shapes():
+    """Payloads whose own-report selection turns on each of its rules: REGN as filed; an own item of
+    another span; two amendments under the winning tag; an original filed again; an item with no form;
+    a proxy's items."""
+    k18a1, k18a2, k18b = "0001532176-19-000020", "0001532176-19-000030", "0001532176-19-000040"
+    regn = _items(_REVENUE)
+    return {
+        "regn": _payload(),
+        "another-span": _payload([{**item, "start": "2018-01-02"} if (item["accn"], item["end"]) == (K18, "2018-12-31")
+                                  else item for item in regn]),
+        "two-amendments": _payload([_item(value, year, 2018, accn=accn, form="10-K/A", filed=filed)
+                                    for accn, filed, own in ((k18a2, "2019-06-03", 6_702.5e6), (k18a1, "2019-04-01", 6_705.0e6))
+                                    for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: own}.items()]
+                                   + _items({**_REVENUE, 2018: {}}),
+                                   tags={"Revenues": {"units": {"USD": _items({2018: _REVENUE[2018]})}}}),
+        "an-original-filed-again": _payload([_item(value, year, 2018, accn=k18b, filed="2019-03-15")
+                                             for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: 6_700.0e6}.items()]
+                                            + regn),
+        "no-form": _payload([{key: value for key, value in item.items() if key != "form"}
+                             if (item["accn"], item["end"]) == (K18, "2018-12-31") else item for item in regn]),
+        "proxy": _payload(regn + [_item(value, year, 2020, accn="0001193125-21-112233", form="DEF 14A", filed="2021-04-26")
+                                  for year, value in {2018: 6_700.0e6, 2019: 7_850.0e6}.items()]),
+    }
+
+
+class TestTheCensusTakesIngestsOwnReport:
+    @pytest.mark.parametrize("shape", list(_shapes()))
+    def test_the_census_within_the_winning_tag_finds_the_history_rows_ingest_keeps(self, shape):
+        # backend/scripts/restatement_census.py reads the own report through own_reports' selection, so
+        # its within-tag cells that differ under another accession are the rows a sync stores.
+        from scripts import restatement_census
+
+        payload = _shapes()[shape]
+        _facts, meta = svc.normalize_companyfacts(1, payload)
+        cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
+        census = {(cell["concept"], cell["fy"]): (cell["within"]["value"], cell["within"]["accession"])
+                  for cell in cells if cell["within_later"] and cell["within"]["value"] != cell["winner"]["value"]}
+        assert census == _history(meta)
+        assert ("revenue", 2018) in census or shape == "another-span"
 
 
 @pytest.fixture(scope="module", autouse=True)
