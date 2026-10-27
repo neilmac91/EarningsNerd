@@ -73,14 +73,19 @@ a mention in it (after `flags = reasons` or `bucket = provenance.setdefault("rea
 or `bucket`); back, a name held by a site's value or by what a tied name is assigned (after `"reasons": codes` or
 `reasons.extend(extra)`, then `codes = sorted(pending)`, each line that uses `codes`, `extra` or `pending`). The
 assignments read are =, an annotation, +=, :=, a for, with or comprehension target, and an append, extend, insert, add
-or update on a name; a value holds a name as itself, a display's element or starred item, an arm of a conditional, `or`
-or `and`, a `+` or `|` operand, a wrapper's argument (`sorted(pending)`) or a comprehension's element. `_drive` runs
-those modules, traced with `sys.settrace`, and
-`test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds` fails when (a) an emitter
-writes a code with no words; (b) such a line runs in no driver, unless UNDRIVEN names it by function and text with why
-none can (and an entry that names no unreached line, or more than one, fails); or (c) a driver writes a code the
-reader did not find in those modules, so a form the reader cannot follow fails wherever a driver reaches it. A module's
-own top level runs on import, before the trace, so its lines are read but not required.
+or update on a name; a value holds a name as itself, a list, tuple or set display's element or starred item, an arm of
+a conditional, `or` or `and`, a `+` or `|` operand, a wrapper's argument (`sorted(pending)`), a `fromkeys` call's first
+argument (`dict.fromkeys(codes)`), the receiver of `keys()`, `values()` or `items()`, or a comprehension's element. A
+name tied only by a read of `reasons` is tied both ways like any other, and a comprehension's names count across its
+function (after `parents = [(row_id, after) for row_id, after in updates.items() if ... .get("reasons", [])]`, each
+line that uses `parents`, `row_id` or `after`), so a line that cannot write a reason can be required: drive it, or
+name it in UNDRIVEN. `_drive` runs those modules, traced with `sys.settrace`, and returns the codes in what it gathers
+from them, and `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds` fails when
+(a) a code `_drive` gathers has no words; (b) such a line runs in no driver, unless UNDRIVEN names it by function and
+text with why none can (and an entry that names no unreached line, or more than one, fails); or (c) a code `_drive`
+gathers is one the reader did not find in those modules, so a form the reader cannot follow fails wherever a driver
+writes it where `_drive` gathers it. A module's own top level runs on import, before the trace, so its lines are read
+but not required.
 
 The guard. `test_every_function_that_mentions_reasons_is_driven_exempt_or_reads_only` holds every function under `app/`
 that mentions `reasons` outside the emitter modules to EXEMPT or READS_ONLY. Some modules keep lists named `reasons`
@@ -89,20 +94,30 @@ checks. EXEMPT names each such site by file and function, and an exempt site mus
 an exemption cannot outlive its code. READS_ONLY names each function that reads, counts, prints or logs reasons and
 writes none, held exact: each entry still mentions `reasons` and the reader finds no reason in it.
 
-What escapes. The gate is not complete, and six review rounds each found a form it missed. What it is known to pass,
-by class, each class stated as the edge of what the gate reads, so a form not yet seen falls in one (the first three
-planted among the reader's gaps, the other two by construction, review-checked):
-- a write the reader misses, on a line no driver runs, through an attribute or a name its function neither assigns
-  from an expression naming `reasons` nor stores into one, as the run reads both (the assignments and the positions a
-  value holds a name in, above): a helper's parameter (`_tag(provenance["reasons"], code)`, the helper writing
-  `codes.append(code)`), a function's return (`reasons.extend(_extra(kind))`), a closure's variable, an attribute
-  (`holder.codes.append(code)`, then `provenance["reasons"] = holder.codes`);
+What escapes. The gate is not complete, and seven review rounds each found a form it missed. A code the reader misses
+passes where no value `_drive` gathers holds it (a code the reader finds with no words fails the first test). What
+does so, by class, each class stated as the edge of what the gate reads, so a form not yet seen falls in one (the
+first three planted among the reader's gaps and the fifth among the run's, the others by construction,
+review-checked):
+- a write the reader misses, on a line no driver runs that the run does not name (it names each site, binding call
+  and collected literal's line, and each line that mentions `reasons` or a name tied to it, as above): a helper's
+  parameter (`_tag(provenance["reasons"], code)`, the helper writing `codes.append(code)`), a function's
+  return (`reasons.extend(_extra(kind))`), a closure's variable, an attribute (`holder.codes.append(code)`, then
+  `provenance["reasons"] = holder.codes`);
 - a key built at run time (`provenance["rea" + "sons"]`);
-- a key held in a module's constant (`KEY = "reasons"`), since a module's top level is read but not required;
-- an EXEMPT, READS_ONLY or UNDRIVEN entry whose stated reason is wrong (review-checked);
-- an unworded arm on a line a driver runs (`reasons.append("period_mismatch" if late else f"period_{kind}")`), since
-  (b) holds lines rather than arms; (c) catches it once a driver takes that arm.
-Any of these that a driver runs (for the last, the arm taken) still fails (a) or (c).
+- what a module's top level or a class body writes, which the run reads but does not require
+  (`TEMPLATE = {"reasons": [f"{SOURCE}_withheld"]}`), or holds as a key (`KEY = "reasons"`, so a function's
+  `provenance[KEY] = codes` names no line);
+- a function EXEMPT or READS_ONLY names whose stated reason is wrong, or any line UNDRIVEN names (each reason
+  review-checked);
+- a value no driver evaluates in a write a driver runs, or on a line one runs: an arm of a conditional, `or` or `and`
+  (`reasons.append("period_mismatch" if late else f"period_{kind}")`), a comprehension's or generator's element over an
+  iterable no driver fills (`reasons.extend(change.code for change in changes)`), or a write after a one-line `if`,
+  since (b) holds lines, not the values in them; (a) and (c) catch it once a driver writes it where `_drive` gathers it;
+- a value a driver writes where `_drive` does not gather it (it reads the reasons of the facts, rows and notes its
+  docstring names and drops the rest, such as `_calendar_relabels`' inserts and `reconcile_facts`' rejected facts),
+  since (a) and (c) read only what `_drive` returns.
+Any of these whose value a driver writes where `_drive` gathers it still fails (a) or (c).
 """
 from __future__ import annotations
 
@@ -728,8 +743,10 @@ def _mention(node: ast.AST, aliases: set[str]) -> bool:
 
 
 def _held(expr: ast.AST) -> set[str]:
-    """The names a value holds where the reader reads one: the value itself, a display's element or starred item, an
-    arm of a conditional, `or` or `and`, a `+` or `|` operand, a wrapper's argument and a comprehension's element."""
+    """The names a value holds: the value itself, a list, tuple or set display's element or starred item, an arm of a
+    conditional, `or` or `and`, a `+` or `|` operand, a wrapper's argument, a `fromkeys` call's first argument
+    (`dict.fromkeys(codes)`), the receiver of `keys()`, `values()` or `items()`, and a comprehension's element. Any
+    other position holds none: a dict display, a subscript, an attribute, an f-string, another call's argument."""
     if isinstance(expr, ast.Name):
         return {expr.id}
     if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
@@ -744,6 +761,12 @@ def _held(expr: ast.AST) -> set[str]:
         return _held(expr.left) | _held(expr.right)
     if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id in WRAPPERS and expr.args:
         return _held(expr.args[0])
+    if (isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr == "fromkeys"
+            and expr.args):
+        return _held(expr.args[0])
+    if (isinstance(expr, ast.Call) and isinstance(expr.func, ast.Attribute) and expr.func.attr in DICT_VIEWS
+            and not expr.args):
+        return _held(expr.func.value)
     if isinstance(expr, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
         return _held(expr.elt)
     return set()
@@ -783,9 +806,10 @@ def _mentions(sources: dict[str, str]) -> dict[tuple[str, str], set[int | None]]
     with a mention in it (after `flags = reasons` or `bucket = provenance.setdefault("reasons", [])`, each line that
     uses `flags` or `bucket` is one), and a name held (_held) by a site's value or by what a tied name is assigned
     (after `"reasons": codes` or `reasons.extend(extra)`, each line that uses `codes` or `extra`), the assignments read
-    by _assignments. A write through an attribute, or through a name its function neither assigns from such an
-    expression nor stores into one (a helper's parameter, a function's return, a closure's variable), names no line
-    here, nor does a key built at run time or held in a module's constant."""
+    by _assignments. A line that names neither `reasons` nor a tied name has none: a write through an attribute of an
+    untied name (`holder.codes.append(code)`), or through a name its function neither assigns from such an expression
+    nor stores into one (a helper's parameter, a function's return, a closure's variable), or through a key built at
+    run time or held in a module's constant."""
     found: dict[tuple[str, str], set[int | None]] = {}
     for path, source in sources.items():
         tree = ast.parse(source)
@@ -858,11 +882,13 @@ def test_every_function_that_mentions_reasons_is_driven_exempt_or_reads_only():
 
 
 def _drive(monkeypatch) -> set[str]:
-    """Run every emitter module the reader names through each line that writes or reads a reason, and return what they
-    write: facts/reconcile's soft checks and companyfacts cross-check and facts/lineage's calculation checks over one
-    filing's batch (with and without initialize_reported), fact_provenance's legacy projections, data_notes' fallbacks,
-    summary words and a citation supplement, quarterly_fact_repair's calendar relabels (pure) and its repair, reported
-    EPS and rollback, and filing_lineage_repair's backfill of each outcome, all on in-memory SQLite databases."""
+    """Run every emitter module the reader names through each line that writes or reads a reason, and return the codes
+    in what it gathers, not all they write (`_calendar_relabels`' inserts and `reconcile_facts`' rejected facts are
+    dropped, for two): facts/reconcile's soft checks and companyfacts cross-check and facts/lineage's calculation
+    checks over one filing's batch (with and without initialize_reported), fact_provenance's legacy projections,
+    data_notes' fallbacks, summary words and a citation supplement, quarterly_fact_repair's calendar relabels (pure)
+    and its repair, reported EPS and rollback, and filing_lineage_repair's backfill of each outcome, all on in-memory
+    SQLite databases."""
     from collections.abc import Iterator
     from contextlib import contextmanager
     from decimal import Decimal
@@ -1048,10 +1074,13 @@ def _executed(run, paths: set[str]) -> tuple[object, set[tuple[str, int]]]:
 def test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds(monkeypatch):
     """The runtime half of this gate, held by line rather than by code. In each emitter module the reader names every
     reason-writing line (a site, a call that binds a reason parameter, a literal's running line) and every line that
-    mentions `reasons`; _drive runs them all, traced. The test fails when (a) an emitter writes a code with no words,
-    (b) a named line runs in no driver and UNDRIVEN does not say why, so a new branch that names the list is never left
-    undriven, or (c) a driver writes a code the reader did not find in those modules, a form the reader cannot follow
-    caught wherever a driver reaches it. An arm no driver takes on a line a driver runs is outside (b)."""
+    mentions `reasons`; _drive runs them, traced. The test fails when (a) a code _drive gathers has no words, (b) a named
+    line runs in no driver and UNDRIVEN does not say why, so a line that names the list is never left undriven without a
+    stated reason, or (c) a code _drive gathers is one the reader did not find in those modules, a form the reader
+    cannot follow caught wherever a driver writes it where _drive gathers it. A value no driver evaluates in a write a
+    driver runs, or on a line one runs (an arm of a conditional, `or` or `and`, a comprehension's or generator's element
+    over an iterable no driver fills, a write after a one-line `if`), is outside (b), which holds lines, not the values
+    in them; a value _drive does not gather is outside (a) and (c)."""
     sources = _app_sources()
     found, lines = read_reasons(sources)
     emitters = _emitter_modules(found, lines)
@@ -1381,13 +1410,25 @@ def tied(provenance, kind):
     listed.extend(more)
     kept = []
     kept.append(f"planted_tied_comprehension_element_{kind}")
+    keyed = []
+    keyed.append(f"planted_tied_fromkeys_argument_{kind}")
+    viewed = {}
+    viewed[kind] = f"planted_tied_view_receiver_{kind}"
     for looped in (reasons,):
         looped.append(f"planted_tied_for_target_{kind}")
     with nullcontext(reasons) as entered:
         entered.append(f"planted_tied_with_target_{kind}")
     [gathered.append(f"planted_tied_comprehension_target_{kind}") for gathered in (reasons,)]
     shown = [*codes, *(chained if kind else listed)] + (listed or [code for code in kept])
+    shown += list(dict.fromkeys(keyed)) + list(viewed.values())
     return {**provenance, "reasons": shown}, reasons
+
+def per_item(provenance, changes):
+    reasons = provenance["reasons"]
+    reasons.extend(
+        f"planted_gap_generator_element_{change}"
+        for change in changes)
+    return reasons
 
 def starred(state, *codes, **named):
     return {**state, "reasons": [*codes, named["reason"]]}
@@ -1482,24 +1523,31 @@ def test_the_reader_finds_each_form_and_names_its_gaps():
     # line a driver must run. Forward, a name assigned from a mention (an assignment, a for, with or comprehension
     # target); back, a name a site's value holds, or what a tied name is assigned holds (by an assignment, an extend,
     # in each position a value holds a name in: a display's starred item, an arm, an operand, a wrapper's argument, a
-    # comprehension's element). A helper's parameter, a closure's variable and an attribute are not (the header's first
-    # escape).
+    # `fromkeys` call's argument, a dict view's receiver, a comprehension's element). A helper's parameter, a closure's
+    # variable and an attribute are not (the header's first escape), nor is a generator's element on a line of its own
+    # (the fifth: the line that writes it is named, the element's is not, so over an empty iterable nothing the run
+    # holds tells it apart).
     mentioned = _mentions(PLANTED)
     assert {at('flags.append("planted_gap_list_alias")'), at('bucket.append("planted_gap_setdefault_alias")')} <= (
         mentioned[(forms, "escapes")])
     assert {at(f'{name}.append(f"planted_tied_{form}_{{kind}}")') for name, form in (
         ("codes", "site_value"), ("extra", "folded_in"), ("pending", "assigned_into"), ("more", "extended_into"),
         ("kept", "comprehension_element"), ("looped", "for_target"), ("entered", "with_target"),
-    )} | {at('[gathered.append(f"planted_tied_comprehension_target_{kind}") for gathered in (reasons,)]')} <= (
-        mentioned[(forms, "tied")])
+        ("keyed", "fromkeys_argument"),
+    )} | {at('[gathered.append(f"planted_tied_comprehension_target_{kind}") for gathered in (reasons,)]'),
+          at('viewed[kind] = f"planted_tied_view_receiver_{kind}"')} <= mentioned[(forms, "tied")]
     assert (forms, "_tag") not in mentioned and (forms, "closed") not in mentioned
     assert at('holder.codes.append("planted_gap_attribute_receiver")') not in mentioned[(forms, "untied")]
+    assert at("reasons.extend(") in mentioned[(forms, "per_item")] & lines[(forms, "per_item")]
+    assert at('f"planted_gap_generator_element_{change}"') not in (
+        mentioned[(forms, "per_item")] | lines[(forms, "per_item")])
     # The documented gaps, each planted above with a literal the reader would collect if it reached the form: a key a
     # call reads, a receiver other than a name or a reasons target, a string built at run time (an f-string, a .format,
     # a join), a class's attribute, a dict built by a comprehension or by dict(), a .get(), a loop over a function's
     # return, a starred target, a name alias, a lambda, a getattr callee, a module function through an object,
     # arguments spread at a call, a class-body default, a function's return, *args and **kwargs, an element at an
     # index past a starred item, a name bound to the list, a setdefault's result, a helper's parameter, a closure's
-    # variable, an attribute receiver, a key built at run time and a key held in a module's constant.
+    # variable, an attribute receiver, a key built at run time, a key held in a module's constant and a generator's
+    # element.
     assert not codes & {"planted_key_read", "planted_gap", "join"}
     assert {code for code in codes if code.startswith("planted_gap")} == set()

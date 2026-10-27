@@ -1047,16 +1047,19 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  each DATA_NOTES_VERSION's words and letters
                  pinned by digest, so a change to them takes a new version), the
                  backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
-                 app/ fails a reason the backend writes with no words; the forms it is known to miss are
-                 named in its docstring and planted in its self-test, and any other form is unknown, so the
-                 reader also names every reason-writing line, and every line that mentions reasons or a
-                 local name tied to them either way (assigned from them, or stored into them), in each
-                 module where it finds a reason or a site, and a traced run of those modules
-                 (quarterly_fact_repair and filing_lineage_repair on in-memory SQLite) fails on a code
-                 written with no words, on a named line no driver executes, and on a code a driver writes
-                 that the reader did not find; every other function that mentions reasons is named
-                 exempt or read-only; what still passes is listed by class in its docstring, each class
-                 stated as the edge of what the gate reads),
+                 app/ fails a reason it finds the backend writing with no words; the forms it is known to
+                 miss are named in its docstring and planted in its self-test, and any other form is
+                 unknown, so the reader also names every reason-writing line, and every line that mentions
+                 reasons or a local name tied to them either way (assigned from an expression that
+                 mentions them, or stored into them), in each module where it finds a reason, a site or a
+                 call that binds one, and a traced run of those modules (quarterly_fact_repair and
+                 filing_lineage_repair on in-memory SQLite) fails on a code it gathers with no words, on a
+                 named line no driver executes, and on a code it gathers that the reader did not find;
+                 every other function that mentions reasons is named exempt or read-only; what still
+                 passes is listed by class in its docstring, each class stated as the edge of what the
+                 gate reads, among them a value no driver evaluates in a write a driver runs, such as a
+                 generator's element over an iterable no driver fills, since the run holds lines, not the
+                 values in them),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
