@@ -2068,6 +2068,10 @@ const LEFT_OUT = /^(?:by (?:itself|themselves)|on (?:its|their) own|in (?:itself
 /** A wait with "until" or "till" after it, whose clause holds the verb group after it ("does not wait until it ends every
     session"), as stage 4b reads "until": "wait" takes no object, so no noun's relative clause ends so. */
 const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till)$/
+/** An end the session-end readings and the reuse family's sweep read (END_VERB) at the start of a span's words, which
+    the lexicon may lack ("terminates", "kills", "invalidates", "times out"): a negation those readings read denies it
+    as it does a verb group (Codex on 8846ebfa). */
+const OPENS_AN_END = new RegExp(String.raw`^${END_VERB}`, 'i')
 /** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
     the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
     with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
@@ -2086,7 +2090,8 @@ const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till)$/
     second time that you did not send": the routine lens on c6060a93): where that group starts and those spans, or null.
     The reading keeps a negation from that group on in the clause read alone, where main's cuts it, so it holds only
     where that negation reaches no verb group past the clause's verb (NEGATION_REACH: four words between a negation, "no
-    longer" whole, and the verb it denies: Codex on bca1801a). One there is the clause's own, and the group found
+    longer" whole, and the verb it denies: Codex on bca1801a), nor an end the lexicon lacks (OPENS_AN_END: "... does not
+    by itself cover terminates every session": Codex on 8846ebfa). One there is the clause's own, and the group found
     another clause's, whose negation the reading would read as the clause's, so the reading stays main's: a clause the
     phrase of time holds, after a word the reader takes for a preposition, however deep in the phrase it stands ("a
     second time after it was not used ends", "on Monday after the launch did not succeed ends", "for it was not used
@@ -2112,7 +2117,7 @@ const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests
     if (goesOn && !startsVerbGroup(tokens, first.end)) return null
     const verb = goesOn ? verbGroupAt(tokens, first.end).verb : group.verb
     const reach = tokens.slice(k, first.end).reduce((end, token, i) => (negates(token, tokens[k + i + 1]) ? k + i + (token.lower === 'no' ? 6 : 5) : end), -1)
-    if (tokens.some((_, j) => j > verb && j <= reach && startsVerbGroup(tokens, j))) return null
+    if (tokens.some((_, j) => j > verb && j <= reach && (startsVerbGroup(tokens, j) || OPENS_AN_END.test(words(j, j + 3))))) return null
     return { end: k, nests: readOf(tokens, time).nests }
   }
   return null
@@ -4373,6 +4378,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logouts of a news feed the weekend does not by itself cover all end every session.</li>', true],
       ['<li>Logouts of a news feed the weekend cannot by itself cover alone end every session.</li>', true],
       ['<li>Logging out of a news feed the weekend does not alone cover on Mondays ends every session.</li>', true],
+      // So is an end the lexicon lacks that the end readings read (OPENS_AN_END: Codex on 8846ebfa).
+      ['<li>Logging out of a news feed the weekend does not by itself cover terminates every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not by itself cover kills every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not by itself cover times out every session.</li>', true],
       // The reach runs from a negation's last word, "longer" in "no longer" (Codex on bca1801a).
       ['<li>Logging out of a session replayed a second time after the launch no longer needs any extra effort ends every session.</li>', true],
       ['<li>Logging out of a news feed the weekend no longer covers in any way ends every session.</li>', true],
