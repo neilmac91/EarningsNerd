@@ -21,15 +21,20 @@ early sync's convenience row, or the current sync's at a filer that switched rep
 wherever the writer stored an annual row of the report; a report it stored no annual row of keeps
 the bar (below). Once the WP5b writer stored own-report rows, an older report's line the writer read
 nothing of reached its period end through one and charted its oldest year beside its own, the year
-between missing (REGN's FY2018 and FY2019 10-Ks); condition 6 closes that.
+between missing (REGN's FY2018 and FY2019 10-Ks); condition 6 closes that. Its first form counted
+any two rows more than a year apart as a missing year, so a fiscal-year change's transition period or a
+fresh-start split year dropped every stand-in of a line, and the newest report after the change, synced
+first and owning no row, lost its flow lines: it now counts only a year another of the company's rows
+holds.
 
 **Rule**: select one filing's facts with `company_id == filing.company_id` and
 `accession == filing.accession_number`, current or not; for its annual figures, call
 `facts/filing_scope.annual_filing_rows` rather than restating its conditions. Treat `filing_id` as
 ownership only (which writer stored a row: `is_(None)` / `isnot(None)`), never as a key to a
 filing's figures, and name the onclause of any join between the fact table and `filings` (the key
-SQLAlchemy infers is `filing_id`). The rows the per-filing writer stored (`filing_id` set) always
-count. A row another writer stored under the accession counts only when every one of these holds:
+SQLAlchemy infers is `filing_id`). The rows the per-filing writer stored (`filing_id` set) count
+but for condition 6. A row another writer stored under the accession counts only when every one of
+these holds:
 
 1. the per-filing writer has run on the filing (`processed_facts_at` is set);
 2. the row is not withheld: provenance `validation` of `unavailable` (a repair-retired row, or one
@@ -65,20 +70,29 @@ count. A row another writer stored under the accession counts only when every on
    flow lines' stand-ins fall short while its balances, at `reportDate`, still reach. The two misses
    of the first sample, Tractor Supply's 2014 and 2015 10-Ks, give the filing date, 53 days on: such
    a report keeps its own rows only, as before this reader;
-6. its line has no year missing: no two rows of the line that count (the filing's own, or ones
-   meeting 1-4), next by period end, lie more than a year and `DRIFT_DAYS` apart, counted in days
-   (`filing_scope._lines_missing_a_year`). On the chart's categorical axis they would stand side by
-   side as consecutive years. An older report's line the writer read nothing of has such a gap where
-   a later report restated its own year: the sync holds the oldest year, which the report filed last,
-   and the own year, WP5b's own-report row (`facts/own_reports.py`), while the year between sits under
-   the next report's accession (728 days for a year ending by September, 2020-09-26 to 2022-09-24). A
-   report some sync saw as the newest holds the year between itself, as a demoted winner, and its line
-   is whole; one no sync saw as the newest (an older report when the company was first synced) does
-   not. A line has a gap too where the audited repair withheld the year between, and, on main before
-   this condition, where the extractor gave the own year alone, beside the oldest-year stand-in. A
-   gapped line keeps the filing's own rows only, as a line short of its period end does. A 53-week
-   year (371 days) is no gap; a fiscal-year change's transition period, which no FY row spans, counts
-   as one, so such a line keeps its own rows as well.
+6. no year its line misses lies after it, which holds the filing's own rows too: where two rows of
+   the line that count (the filing's own, or ones meeting 1-5), next by period end, lie more than a
+   year and `DRIFT_DAYS` apart, and the company holds an FY row of the concept a whole number of years
+   after the earlier one and more than `DRIFT_DAYS` before the later one, the filing reported that
+   year but its row sits under another accession, and the line shows only its rows from the later one
+   on (`filing_scope._first_years_after_a_missing_one`). On the chart's categorical axis the two would
+   stand side by side as consecutive years. An older report's line the writer read nothing of has such
+   a gap where a later report restated its own year: the sync holds the oldest year, which the report
+   filed last, and the own year, WP5b's own-report row (`facts/own_reports.py`), while the year
+   between sits under the next report's accession (REGN's FY2017 under its FY2019 10-K; 728 days for a
+   year ending by September, 2020-09-26 to 2022-09-24), so the line shows its own year alone, as its
+   report gave it. A report some sync saw as the newest holds the year between itself, as a demoted
+   winner, and its line is whole; one no sync saw as the newest (an older report when the company was
+   first synced) does not. A line misses a year too where the audited repair withheld the year between,
+   and where the extractor gave the own year alone beside the oldest-year stand-in (main charted that
+   one with the year between missing). The rule reads the rows, not their writer, so the chart is the
+   same whichever writer ran first: the own year is the own-report row synced first, the filing's own
+   row processed first. A gap no FY row of the company fills is the company's own, no missing year,
+   and the line charts as main does, in either order: a fiscal-year change's transition period (30
+   September 2019 to 31 December 2020, 458 days; 31 December 2021 to 30 June 2023, 546), a fresh-start
+   split year, a year no filing reported. Nor does a row off the earlier row's cadence fill one (a
+   recast calendar year three months after the old fiscal year end), nor a withheld row. A 53-week
+   year (371 days) is no gap.
 
 Keep another company's rows out (a combined report shares one accession), and show a row another
 writer stored under the year counted, back or forward, from the latest period end the filing's own
@@ -87,12 +101,11 @@ count from, or when no whole number of years lies between the two (`fiscal_namin
 gives none, as across a transition period): writer generations name a year differently.
 
 Known shapes outside the rule. Reaching the period end with no year missing does not make a line
-whole. Condition 4 closed the first shape found, and condition 6 now closes it too: a sync of
-2026-10-10 to #1365 read the USD lists alone and stored under each 20-F's accession a ratio (a margin,
-the current ratio) over its own-year convenience figures, operands recorded, so an older report's
-margin line the writer read nothing of reached through it and charted its oldest year and own year
-without the one between (a balance-sheet ratio has no year between: a 20-F gives two balance years).
-The same rows cost ratio lines in one
+whole. Condition 4 closed the first shape found: a sync of 2026-10-10 to #1365 read the USD lists
+alone and stored under each 20-F's accession a ratio (a margin, the current ratio) over its own-year
+convenience figures, operands recorded, so an older report's margin line the writer read nothing of
+reached through it and charted its oldest year and own year without the one between (a balance-sheet
+ratio has no year between: a 20-F gives two balance years). The same rows cost ratio lines in one
 processing order, when the per-filing writer first ran on a report after the native sync, which
 skipped the identities they hold. The newest 20-F then owns no row of a margin or current-ratio line
 and its own year has no CNY ratio, so the line falls short. An older 20-F loses its current-ratio
@@ -113,12 +126,14 @@ are the reports' own figures, so they stand in like any row: REGN's FY2018 10-K 
 its own report gave for its own year, never the FY2020 10-K's 5,145.6M, and the FY2020 10-K charts
 5,145.6M. Where one holds an older report's own-year cell, the writer skips that cell, as it skips any
 stored identity, and the row stands in for it. A line the writer read nothing of reaches the period end
-through it: beside the oldest year the line misses the year between, and condition 6 keeps it off, as
-main did; a balance line, whose older balance the report filed last, is whole and shows both balances
-(main charted none of it). Where later filings hold the report's earlier years too (an 8-K recast the
-next 10-K repeats), such a line holds the own year alone, reaches, misses nothing, and charts that one
-year as the report gave it, a shape the rule leaves, like the one-year lines that follow. A report the
-writer stored no annual row of takes the stand-ins' own currency (condition 4), so at a switched
+through it: beside the oldest year the line misses the year between, and condition 6 shows the own
+year alone (main charted nothing for it); a balance line, whose older balance the report filed last, is
+whole and shows both balances (main charted none of it). Where later filings hold the report's earlier
+years too (an 8-K recast the next 10-K repeats), such a line holds the own year alone and charts it.
+So a line the writer read nothing of shows its own year where a later filing restated that year, and
+nothing (its oldest year alone, short of the period end) where none did: a shape the rule leaves, like
+the one-year lines that follow. A report the writer stored no annual row of takes the stand-ins' own
+currency (condition 4), so at a switched
 filer, or at a foreign filer not re-synced since #1365 whose only stand-ins are the early sync's USD
 rows, it charts its USD translations, one year a line, on the older and the newest 20-F alike (main
 charted nothing for it). And a 40-F is never processed: the summary pipeline fetches XBRL for 10-K,
@@ -135,8 +150,12 @@ tied and not, the stand-ins' own tie), condition 5's distance in days, and condi
 own-report rows' shapes (REGN's FY2018 to FY2021 10-Ks in either processing order, a year ending by
 September and its 53-week year, a CNY 20-F with its own rows and with none, a 10-Q that recasts the
 prior balance, an earlier sync's whole line and its withheld year between, a line read for its own
-year alone, and the one-year line it leaves) included. The Copilot reads the same rows and computes no growth across a
-gap: its prior year lies 357 to 373 days back (`copilot_tools._prior_comparable`). Partly gated by
+year alone in either order, restated or not, and the one-year line it leaves) and on the gaps it
+leaves (a September-to-December and a December-to-June fiscal-year change, the first with a recast
+calendar year, and a fresh-start split year, each in either order, the change report and the one
+after it charting as on main, which the same tests pass on) included. The Copilot reads the same rows
+and computes no growth across a gap: its prior year lies 357 to 373 days back
+(`copilot_tools._prior_comparable`). Partly gated by
 `backend/tests/unit/test_filing_facts_read_by_accession.py`, which counts the mentions of
 `FinancialFact.filing_id` through the model it can see (the column, an ownership test, a lookup by
 name, a join with no onclause to or from the model or `Filing` in its method, function or table

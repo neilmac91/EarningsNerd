@@ -411,14 +411,17 @@ unused since generation became account-required in #619; kept because migrations
   `fiscal_naming.DRIFT_DAYS` days, counted in days, never calendar years; with none on record, none
   shows): short of it, the rows left at the accession are only the cells the filing reported last,
   such as an older report's oldest year or a 10-Q's prior year-end balance, which the sync labels
-  FY. Nor in a line with a year missing, two of its rows more than a year and `DRIFT_DAYS` apart:
-  an older report's line the writer read nothing of can hold its oldest year and its own-report row
-  (below), the year between under the next report's accession. Such a line, like one short of the
-  period end, keeps the filing's own rows. A stand-in shows under the year counted in whole years,
-  back or forward, from the latest period end the filing's own rows name (`fiscal_naming.years_back`;
-  with none, under its own label), since a companyfacts row stored before the fiscal-year-window
-  writer names its year by the calendar year of its end. The Copilot reads the same scope
-  (`copilot_tools._scope`) and shares the operand test (`fact_provenance.operands_within_accession`).
+  FY. A line that misses a year shows only its rows after it, the filing's own included: two rows
+  more than a year and `DRIFT_DAYS` apart with an FY row of the company's between them, a whole
+  number of years after the earlier one (an older report's line the writer read nothing of can hold
+  its oldest year and its own-report row, below, the year between under the next report's
+  accession). A gap no row of the company fills (a fiscal-year change's transition period, a
+  fresh-start split year) is no missing year, so the line charts whole. A stand-in shows under the
+  year counted in whole years, back or forward, from the latest period end the filing's own rows name
+  (`fiscal_naming.years_back`; with none, under its own label), since a companyfacts row stored before
+  the fiscal-year-window writer names its year by the calendar year of its end. The Copilot reads the
+  same scope (`copilot_tools._scope`) and shares the operand test
+  (`fact_provenance.operands_within_accession`).
 - Companyfacts reads each concept from its reporting-currency unit list (`facts/currency.py`).
   A foreign list is read only when the USD list is its convenience translation (every USD
   period the collector keeps, by period end and span, is also kept from the foreign list; an

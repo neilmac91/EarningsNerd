@@ -829,8 +829,8 @@ def test_a_line_the_writer_read_nothing_of_never_charts_with_a_year_missing(db, 
     """For a line the per-filing writer read nothing of, an older report holds its oldest year (it reported
     it last) and its own year (the own-report row), while the year between sits under the next report's
     accession. Both reach the period end, and charted they would set the oldest year beside the own year
-    on the categorical axis. A line with a year missing keeps the report's own rows only, none here, as a
-    line short of the period end does; the lines the writer read chart as before."""
+    on the categorical axis. The line shows only the years after the one it misses: its own year, as its
+    own report gave it. The lines the writer read chart as before."""
     company = _company(db)
     reports = _regn(company)
     filing = _filing(db, company, reports[fy])
@@ -843,7 +843,8 @@ def test_a_line_the_writer_read_nothing_of_never_charts_with_a_year_missing(db, 
     assert sorted((row.period_end.year, row.is_latest, row.filing_id) for row in rows) == [
         (fy - 2, True, None), (fy, False, None)]
     chart = _chart(db, filing)
-    assert "revenue" not in chart
+    assert chart["revenue"] == _own(reports[fy], REV)[-1:]
+    assert _years(db, filing, "revenue") == [(fy, _REGN_REVENUE[fy][fy])]
     assert chart["net_income"] == _own(reports[fy], "NetIncomeLoss")
     assert chart["total_assets"] == _own(reports[fy], "Assets")
 
@@ -871,7 +872,8 @@ def test_a_line_an_earlier_sync_kept_whole_charts_every_year_unless_the_year_bet
     sync moves the winners to later reports and demotes those rows, which stay there, so the report holds
     its own year itself and no own-report row is stored. A line the writer read nothing of is whole and
     charts every year. Where the audited repair withheld the year between, that row no longer counts,
-    and the line, its oldest and own years left, has a year missing."""
+    the later report's row for that year shows the line misses it, and the line shows its own year
+    alone."""
     company = _company(db)
     reports = _regn(company)
     filing = _filing(db, company, reports[2018])
@@ -886,27 +888,33 @@ def test_a_line_an_earlier_sync_kept_whole_charts_every_year_unless_the_year_bet
         db.commit()
     facts_service.process_filing_facts(db, filing, standardized=_standardized({"Assets": reports[2018]["Assets"]}))
 
-    if withheld:
-        assert "revenue" not in _chart(db, filing)
-    else:
-        assert _years(db, filing, "revenue") == list(_REGN_REVENUE[2018].items())
+    assert _years(db, filing, "revenue") == list(_REGN_REVENUE[2018].items())[2 if withheld else 0:]
 
 
-def test_a_line_the_writer_read_only_its_own_year_of_keeps_that_year_alone(db):
-    """The extractor gave one point of a line (no comparative series): the report's own year, which no
-    later report changed, so the writer owns it. The sync holds the line's oldest year, two years before
-    it. With the year between missing the line keeps its own row: its own year, alone."""
+@pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
+@pytest.mark.parametrize("tag,concept,restated", [("NetIncomeLoss", "net_income", False), (REV, "revenue", True)],
+                         ids=["no-later-report-changed-it", "a-later-report-restated-it"])
+def test_a_line_read_for_its_own_year_alone_charts_that_year_in_either_order(db, sync_first, tag, concept, restated):
+    """The extractor gave one point of a line (no comparative series): the report's own year. The sync holds
+    the line's oldest year, two years before it, and the next report's row holds the year between, so the
+    line misses that year and shows only its own. Who holds the own-year cell turns on the order the
+    writers ran: the writer, processed first or where no later report changed the year; else, synced
+    first, the own-report row. Either way the chart is the same."""
     company = _company(db)
     reports = _regn(company)
     filing = _filing(db, company, reports[2018])
-    _sync(db, company, *reports.values())
-    read = {REV: reports[2018][REV], "NetIncomeLoss": reports[2018]["NetIncomeLoss"][-1:]}
-    facts_service.process_filing_facts(db, filing, standardized=_standardized(read))
+    read = {**{key: reports[2018][key] for key in (REV, "NetIncomeLoss")}, tag: reports[2018][tag][-1:]}
+    steps = [lambda: _sync(db, company, *reports.values()),
+             lambda: facts_service.process_filing_facts(db, filing, standardized=_standardized(read))]
+    for step in steps if sync_first else steps[::-1]:
+        step()
 
     rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
-                                             concept="net_income").all()
-    assert sorted((row.period_end.year, row.filing_id) for row in rows) == [(2016, None), (2018, filing.id)]
-    assert _years(db, filing, "net_income") == [(2018, 2_444.4e6)]
+                                             concept=concept).all()
+    assert sorted((row.period_end.year, row.filing_id) for row in rows) == [
+        (2016, None), (2018, None if restated and sync_first else filing.id)]
+    own_year = {"revenue": _REGN_REVENUE[2018][2018], "net_income": _REGN_NET_INCOME[2018]}[concept]
+    assert _years(db, filing, concept) == [(2018, own_year)]
 
 
 @pytest.mark.parametrize("read_revenue", [True, False], ids=["a-line-the-writer-read", "a-line-it-read-nothing-of"])
@@ -955,8 +963,9 @@ def _september(company: Company) -> dict[int, dict[str, list[dict]]]:
 def test_a_september_year_reports_own_report_row(db, read_revenue):
     """A year ending by September: the FY2022 10-K's own year is the own-report row. In a line the writer
     read it completes the report's three years under their own labels; in one it read nothing of, the
-    oldest year (2020-09-26) and the own year (2022-09-24) lie 728 days apart, a year missing. The FY2023
-    10-K's own year is a 53-week year, 371 days after the one before: no year missing."""
+    oldest year (2020-09-26) and the own year (2022-09-24) lie 728 days apart, and the FY2023 10-K holds
+    the year between: the line shows its own year alone. The FY2023 10-K's own year is a 53-week year,
+    371 days after the one before: no year missing."""
     company = _company(db)
     reports = _september(company)
     filing, k23 = _filing(db, company, reports[2022]), _filing(db, company, reports[2023])
@@ -966,12 +975,108 @@ def test_a_september_year_reports_own_report_row(db, read_revenue):
     _process(db, k23, reports[2023])
 
     assert _own_report_rows(db, company) == [(filing.accession_number, "revenue", 2022, 394.3e9)]
-    if read_revenue:
-        assert _years(db, filing, "revenue") == [(2020, 274.5e9), (2021, 365.8e9), (2022, 394.3e9)]
-    else:
-        assert "revenue" not in _chart(db, filing)
+    assert _years(db, filing, "revenue") == [(2020, 274.5e9), (2021, 365.8e9), (2022, 394.3e9)][
+        0 if read_revenue else 2:]
     assert _chart(db, filing)["net_income"] == _own(reports[2022], "NetIncomeLoss")
     assert _years(db, k23, "net_income") == [(2021, 94.7e9), (2022, 99.8e9), (2023, 97.0e9)]  # 2021 a stand-in
+
+
+def _spans(accn: str, fy: int, filed: str, spans: list[tuple[str, str]], balances: dict[str, float],
+           **lines: list[float]) -> dict[str, list[dict]]:
+    """One 10-K's companyfacts items over explicit (start, end) spans, a transition period's included, and
+    its year-end balances."""
+    common = {"accn": accn, "fy": fy, "fp": "FY", "form": "10-K", "filed": filed, "unit": "USD"}
+    items = {tag: [{**common, "val": value, "start": start, "end": end} for (start, end), value in zip(spans, values)]
+             for tag, values in lines.items()}
+    return items | {"Assets": [{**common, "val": value, "end": end} for end, value in balances.items()]}
+
+
+def _annual(report: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """What the per-filing extractor reads of a 10-K: its annual spans and balances, never a transition
+    period or a split year's part (``instance/core.DURATION_WINDOWS`` gives a 10-K 320 to 390 days)."""
+    return {tag: [item for item in items if "start" not in item
+                  or (date.fromisoformat(item["end"]) - date.fromisoformat(item["start"])).days >= 320]
+            for tag, items in report.items()}
+
+
+def _september_to_december(company: Company, recast: bool = False) -> list[dict[str, list[dict]]]:
+    """Years to 30 September, then a three-month transition period to 31 December 2019, then calendar
+    years: the FY2019 10-K, the change report (the year to 31 December 2020) and the one after it, which
+    gives, with ``recast``, the calendar 2019 recast in place of the transition period and fiscal 2019."""
+    years = [("2016-10-01", "2017-09-30"), ("2017-10-01", "2018-09-30"), ("2018-10-01", "2019-09-30"),
+             ("2019-10-01", "2019-12-31"), ("2020-01-01", "2020-12-31"), ("2021-01-01", "2021-12-31")]
+    revenue, net_income = [100.0, 110.0, 120.0, 32.0, 130.0, 140.0], [10.0, 11.0, 12.0, 3.0, 13.0, 14.0]
+    balances = {"2018-09-30": 900.0, "2019-09-30": 1000.0, "2019-12-31": 1050.0, "2020-12-31": 1100.0,
+                "2021-12-31": 1200.0}
+
+    def report(fy: int, filed: str, first: int, last: int, ends: tuple[str, str]) -> dict[str, list[dict]]:
+        return _spans(_accession(company, int(filed[:4])), fy, filed, years[first:last], {end: balances[end] for end in ends},
+                      **{REV: revenue[first:last], "NetIncomeLoss": net_income[first:last]})
+
+    later = report(2021, "2022-02-15", 2, 6, ("2020-12-31", "2021-12-31"))
+    if recast:
+        later = _spans(_accession(company, 2022), 2021, "2022-02-15", [("2019-01-01", "2019-12-31"), *years[4:]],
+                       {end: balances[end] for end in ("2020-12-31", "2021-12-31")},
+                       **{REV: [125.0, 130.0, 140.0], "NetIncomeLoss": [12.5, 13.0, 14.0]})
+    return [report(2019, "2019-11-15", 0, 3, ("2018-09-30", "2019-09-30")),
+            report(2020, "2021-02-15", 1, 5, ("2019-12-31", "2020-12-31")), later]
+
+
+def _december_to_june(company: Company) -> list[dict[str, list[dict]]]:
+    """Calendar years, then a six-month transition period to 30 June 2022, then years to 30 June: the
+    change report (the year to 30 June 2023) and the one after it."""
+    years = [("2020-01-01", "2020-12-31"), ("2021-01-01", "2021-12-31"), ("2022-01-01", "2022-06-30"),
+             ("2022-07-01", "2023-06-30"), ("2023-07-01", "2024-06-30")]
+    revenue, net_income = [100.0, 110.0, 50.0, 130.0, 140.0], [10.0, 11.0, 5.0, 13.0, 14.0]
+    balances = {"2022-06-30": 900.0, "2023-06-30": 1000.0, "2024-06-30": 1100.0}
+
+    def report(fy: int, filed: str, first: int, last: int, ends: tuple[str, str]) -> dict[str, list[dict]]:
+        return _spans(_accession(company, fy), fy, filed, years[first:last], {end: balances[end] for end in ends},
+                      **{REV: revenue[first:last], "NetIncomeLoss": net_income[first:last]})
+
+    return [report(2023, "2023-08-25", 0, 4, ("2022-06-30", "2023-06-30")),
+            report(2024, "2024-08-23", 1, 5, ("2023-06-30", "2024-06-30"))]
+
+
+def _fresh_start(company: Company) -> list[dict[str, list[dict]]]:
+    """A report after fresh-start accounting: the year to 31 December 2021, the split 2020 (predecessor to
+    31 August, successor from 1 September) and the predecessor's 2019. No filing has an FY 2020."""
+    years = [("2019-01-01", "2019-12-31"), ("2020-01-01", "2020-08-31"), ("2020-09-01", "2020-12-31"),
+             ("2021-01-01", "2021-12-31")]
+    return [_spans(_accession(company, 2022), 2021, "2022-03-01", years, {"2020-12-31": 950.0, "2021-12-31": 1000.0},
+                   **{REV: [100.0, 70.0, 40.0, 120.0], "NetIncomeLoss": [10.0, 7.0, 4.0, 12.0]})]
+
+
+@pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
+@pytest.mark.parametrize("shape", [_september_to_december, lambda company: _september_to_december(company, recast=True),
+                                   _december_to_june, _fresh_start],
+                         ids=["september-to-december", "with-a-recast-calendar-2019", "december-to-june", "fresh-start"])
+def test_a_gap_no_filing_of_the_company_fills_is_no_missing_year(db, shape, sync_first):
+    """A fiscal-year change's transition period, or a fresh-start split year, is no FY row, so a line runs
+    from the old year end to the new one (458 days from 30 September 2019 to 31 December 2020, 546 from
+    31 December 2021 to 30 June 2023) or across the split year (731 days). No filing of the company holds
+    a year there, so the line misses none, and in either order the change report and the one after it
+    (the fresh-start report alone) chart every year they gave, as main does: synced first, the newest
+    report owns no row and its lines are all stand-ins; processed first, every report owns its own. A
+    recast calendar 2019, three months after fiscal 2019, is off the change report's cadence and fills
+    no year of it."""
+    company = _company(db)
+    reports = shape(company)
+    filings = [_filing(db, company, report) for report in reports]
+    steps = [lambda: _sync(db, company, *reports)] + [
+        lambda filing=filing, report=report: _process(db, filing, _annual(report))
+        for filing, report in zip(filings, reports)]
+    for step in steps if sync_first else steps[1:] + steps[:1]:
+        step()
+
+    for filing, report in list(zip(filings, reports))[-2:]:
+        read = _annual(report)
+        chart = _chart(db, filing)
+        assert chart.keys() == {"revenue", "net_income", "net_margin", "total_assets"}
+        assert chart["revenue"] == _own(read, REV)
+        assert chart["net_income"] == _own(read, "NetIncomeLoss")
+        assert [end for end, *_rest in chart["net_margin"]] == [end for end, *_rest in chart["revenue"]]
+        assert chart["total_assets"] == _own(read, "Assets")
 
 
 @pytest.mark.parametrize("read", ["the-whole-report", "assets-only", "nothing-annual"])
@@ -980,8 +1085,8 @@ def test_a_20f_whose_own_year_a_later_20f_restated(db, read):
     FY2023 20-F's own year is an own-report row in CNY at its accession, non-current beside the early
     sync's USD convenience row there (which the native sync demoted). In the revenue line the writer read,
     it completes the report's CNY years, and the USD row stays out. In one it read nothing of, and at a
-    report it stored no annual row of, whose stand-ins rank CNY first by period ends, the CNY line has a
-    year missing and stays off."""
+    report it stored no annual row of, whose stand-ins rank CNY first by period ends, the CNY line misses
+    the year the FY2024 20-F holds and shows its own year alone, in CNY."""
     company = _company(db)
     (n23, u23), (n24, u24) = _foreign(company, 2023, "20-F"), _foreign(company, 2024, "20-F")
     n24[REV] = [{**item, "val": 24_150.0} if item["end"] == "2023-03-31" else item for item in n24[REV]]
@@ -996,11 +1101,7 @@ def test_a_20f_whose_own_year_a_later_20f_restated(db, read):
                                                  concept="revenue", period_end=date(2023, 3, 31)).all()
     assert sorted((row.unit, float(row.value), row.is_latest, row.filing_id) for row in own_year) == [
         ("CNY", 23_000.0, False, None), ("USD", u23[REV][0]["val"], False, None)]
-    chart = _chart(db, older)
-    if read == "the-whole-report":
-        assert chart["revenue"] == _own(n23, REV)
-    else:
-        assert "revenue" not in chart
+    assert _chart(db, older)["revenue"] == _own(n23, REV)[0 if read == "the-whole-report" else 2:]
 
 
 @pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
