@@ -5,11 +5,12 @@ import { ApiError } from '@/lib/api/client'
 import { getWaitlistStats } from '@/features/waitlist/api/waitlist-api'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCount } from '@/lib/format'
+import WaitlistPill, { PILL_LABEL } from './WaitlistPill'
 
 /** The smallest count worth saying aloud. */
 export const COUNT_FLOOR = 25
 
-export default function WaitlistCounter() {
+export default function WaitlistCounter({ className }: { className?: string }) {
   const [target, setTarget] = useState<number | null>(null)
 
   useEffect(() => {
@@ -42,13 +43,13 @@ export default function WaitlistCounter() {
   const showCount = target !== null && target >= COUNT_FLOOR
 
   return (
-    <div className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-medium text-brand-strong shadow-e1 dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
+    <WaitlistPill className={className}>
       {/* Single inline child: the pill is a flex container, which strips whitespace-only
           text nodes *between* flex items — so the count + its surrounding spaces must live
           inside one element to keep "Join 1,234+ others" from collapsing to "Join1,234+". */}
       <span>
         {!showCount ? (
-          'Join the waitlist'
+          PILL_LABEL
         ) : (
           <>
             {/* The count is a number: neutral ink inside the sage pill (the Separate Signals Rule). */}
@@ -56,6 +57,6 @@ export default function WaitlistCounter() {
           </>
         )}
       </span>
-    </div>
+    </WaitlistPill>
   )
 }
