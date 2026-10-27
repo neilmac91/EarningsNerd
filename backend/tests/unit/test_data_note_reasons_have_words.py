@@ -128,6 +128,8 @@ EXEMPT = {
 # the emitter modules that mentions `reasons` (a name, an attribute, a keyword or a string) is here or in EXEMPT, and
 # each entry still mentions it and writes no reason the reader finds: held exact, like EXEMPT.
 READS_ONLY = {
+    ("app/services/analysis_export_metadata.py", "fine_print_summary"):
+        "prints a marked note's summary words (data_notes.note_summary) in the PDF's and the workbook's fine print",
     ("app/services/data_quality_service.py", "partial_reason_counts"):
         "counts the summary quality tier's stored reasons for the data quality report",
     ("app/services/data_quality_service.py", "summary_audit_counts"):

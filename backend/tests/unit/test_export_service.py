@@ -24,6 +24,7 @@ import pytest
 
 from app.services.analysis_export_metadata import period_label
 from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
+from app.services.trend_analysis.data_notes import REASONS
 from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
 
@@ -737,13 +738,14 @@ class TestAnalysisPdfHtml:
         assert "Multi-Period Analysis" in html
         assert "<h2>The trajectory</h2>" in html
         assert "<h2>Red flags</h2>" in html
-        # Grid: metric row, period headers, missing value, derived dagger, percent formatting.
+        # Grid: metric row, period headers, missing value, percent formatting, and no dagger on a calculated figure
+        # (D-061: the sentence above the grid names the calculated metrics).
         # Money renders COMPACT (product display convention; full precision lives in the Excel
         # export) — sub-million values keep their commas.
         assert '<th class="num">FY2023</th>' in html  # a period column's header sits over its figures
         assert "Revenue" in html and "$1,000" in html
         assert "—" in html
-        assert "$1,500 †" in html
+        assert '<td class="num">$1,500</td>' in html and "†" not in html
         assert "24.3%" in html
         # Citations appendix
         assert "Revenue = 1,000 USD (FY2022)" in html
@@ -770,9 +772,11 @@ class TestAnalysisPdfHtml:
             "reasons": ["unsupported_eps_calculation"],
         })
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
-        assert "$1,500 †</td>" in html
+        assert '<td class="num">$1,500</td>' in html
         assert "[unreconciled]" not in html
-        assert '—<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup>' in html
+        # A gap is the dash alone (D-061); its note keeps its anchored entry, with no letter.
+        assert '<td class="num">—</td>' in html and 'href="#analysis-data-note-b"' not in html
+        assert '<li id="analysis-data-note-b"><span class="note-letter"></span>' in html
         assert "Use a reported quarterly EPS figure." in html
         assert 'href="https://example.com/filing?x=1&amp;y=2"' in html
         assert "annual_minus_ytd" in html
@@ -856,7 +860,8 @@ class TestAnalysisPdfHtml:
         analysis = SimpleNamespace(mode="quarterly", period_key=dataset["period_key"], dataset_json=dataset,
                                    narrative_md="A precise ratio [1].", citations_json=citations)
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
-        assert html.count("<h2>Data notes</h2>") == 1
+        # The data notes are fine print under the grid with a bold lead, no heading (D-061).
+        assert "<h2>Data notes</h2>" not in html and html.count("<strong>Data notes</strong>") == 1
         assert html.count("Saved source wording &lt;retain&gt;.") == 1
         assert html.count("Saved citation-only wording.") == 1
         assert 'A precise ratio [1]<sup class="data-note"><a href="#analysis-data-note-e">e</a></sup>' in html
@@ -867,20 +872,33 @@ class TestAnalysisPdfHtml:
         assert workbook["Metrics"]["D2"].value == 1234567890123 and workbook["Metrics"]["D2"].data_type == "n"
         assert workbook["Metrics"]["E2"].value == 0 and workbook["Metrics"]["E2"].comment is None
         assert workbook["Metrics"]["D4"].value is None and workbook["Metrics"]["D4"].data_type == "n"
-        assert workbook["Metrics"]["D4"].comment.text.startswith("Data note c:")
-        assert workbook["Metrics"]["E4"].comment.text.startswith("Data note d:")
+        # A gap marks nothing (D-061): its comment names no letter. A note that questions the number names its own, and
+        # the format prints it after the figure, which stays a number.
+        assert workbook["Metrics"]["D4"].comment.text.startswith("Data note: ")
+        assert workbook["Metrics"]["E4"].comment.text.startswith("Data note: ")
         assert workbook["Metrics"]["D2"].comment.text.startswith("Data note a: Saved source wording <retain>.")
+        assert workbook["Metrics"]["D2"].number_format == '#,##0" a"' and workbook["Metrics"]["E2"].number_format == "#,##0"
         assert workbook["Metrics"]["E1"].value == "Q2 2026"
         overview = "\n".join(str(c.value) for row in workbook["Overview"] for c in row if c.value)
-        # Singular at one; the passed count waits until no figure needs review (the page's line).
+        # The page's summary line: each marked note's letter, places and words, then the gaps, drawn as each file draws
+        # them; the passed count waits until no figure needs review.
+        marked = ("Revenue Q1 2026: the filings report different values (the most recent shown) · ",
+                  "Revenue QoQ Q2 2026: questioned by an automated check · 2 not in our data, ")
+        assert ('<sup class="data-note"><a href="#analysis-data-note-a">a</a></sup> ' + marked[0]
+                + '<sup class="data-note"><a href="#analysis-data-note-b">b</a></sup> ' + marked[1]
+                + 'shown as <span class="data">—</span></p>') in html
+        assert f"a {marked[0]}b {marked[1]}left blank" in overview
         for exported in (html, overview):
-            assert "1 figure needs review · 1 comparison needs review · 2 unavailable" in exported
-            assert "passed automated checks" not in exported
-        assert "Data note a: Saved source wording <retain>." in overview
+            assert "checked" not in exported and "needs review" not in exported
+        assert "a. Saved source wording <retain>. Revenue (Q1 2026). 1 figure." in overview
         assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
+        # The citation's own note lists under the narrative's sources, as on the page, not in the grid's fine print.
+        assert ('<p class="fine-print"><strong>Data notes for these sources</strong></p><ul class="data-notes">'
+                '<li id="analysis-data-note-e"><span class="note-letter">e.</span>Saved citation-only wording.</li></ul>') in html
         sources = list(workbook["Sources & methods"].values)
         assert next(row for row in sources if row[2] == "QOQ")[16] == "Data note b"
-        assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == "Data note c" for row in sources)
+        assert any(row[0] == "EPS" and row[1] == "Q1 2026" and row[4] is None and row[16] == REASONS["not_in_dataset"]
+                   for row in sources)
         assert dataset == before
 
     def test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook(self):
@@ -907,10 +925,10 @@ class TestAnalysisPdfHtml:
         overview = "\n".join(str(cell.value) for row in workbook["Overview"] for cell in row if cell.value)
 
         for exported in (html, overview):
-            # A zero count prints no clause; with no figure needing review, the passed count shows.
-            assert ("4 comparisons need review · 1 comparison with no validation record · "
-                    "4 passed automated checks") in exported
-            assert "0 figures" not in exported and "figures need review" not in exported
+            # A zero count prints no clause; with no figure needing review, the checked count shows. The growth figure
+            # with no check recorded counts apart from the figures (the shared totals.unknown counts figures only).
+            assert "1 growth figure with no check recorded · No figures need review · 4 checked" in exported
+            assert "0 figures" not in exported and "figures with no check" not in exported
         assert vars(analysis) == before
 
     def test_operands_name_their_source_fields_in_words(self):
@@ -1022,15 +1040,15 @@ class TestAnalysisPdfHtml:
             "method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
         html = ExportService().generate_analysis_pdf_html(analysis, self._company())
         assert "<h1>Test &amp; Co · Multi-Period Analysis</h1>" in html
-        assert "<h2>Sources &amp; methods</h2>" in html and "appear in Sources &amp; methods." in html
+        assert "<h2>Sources &amp; methods</h2>" in html and "Sources &amp; methods gives each figure’s full precision" in html
         # The window reads as a range in the meta line, the narrative's CAGR sentence and its source.
         assert '<span class="data">FY2022–FY2024</span>' in html and "FY2022..FY2024" not in html
         assert "Revenue CAGR was 22.5% over FY2022–FY2024 [3]" in html
         assert "Revenue CAGR = 22.5% (FY2022–FY2024)" in html
         # Display only: the stored narrative and citations keep the key.
         assert "FY2022..FY2024 [3]" in analysis.narrative_md and analysis.citations_json[2]["excerpt"].endswith("(FY2022..FY2024)")
-        assert '<span class="ref">(1 figure)</span>' in html
-        assert '<span class="ref">(3 figures)</span>' in html and "0 comparisons" not in html
+        assert '<span class="data">1 figure.</span>' in html
+        assert '<span class="data">3 figures.</span>' in html and "0 growth figures" not in html
 
 
 @pytest.mark.asyncio

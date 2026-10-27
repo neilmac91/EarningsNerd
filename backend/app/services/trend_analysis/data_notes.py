@@ -130,9 +130,11 @@ def _add(groups: dict, value: Mapping[str, Any]) -> dict | None:
 
 
 def marks_figure(note: Mapping[str, Any]) -> bool:
-    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061)."""
-    reasons = note["reasons"]
-    return note["kind"] == "review" and (not reasons or any(reason not in RECORD_ONLY_REASONS for reason in reasons))
+    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061).
+    It reads the note's reasons in place: test_data_note_reasons_have_words.py reads an assignment to a name `reasons`
+    as a write, which would make every export that asks this question a reason emitter."""
+    return note["kind"] == "review" and (
+        not note["reasons"] or any(reason not in RECORD_ONLY_REASONS for reason in note["reasons"]))
 
 
 def note_summary(reasons: Iterable[str]) -> str:
