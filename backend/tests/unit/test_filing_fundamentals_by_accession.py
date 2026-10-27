@@ -908,6 +908,35 @@ def test_a_line_read_without_its_middle_year_shows_its_rows_after_the_gap_its_ow
     assert _years(db, filing, "net_income") == [(2018, _REGN_NET_INCOME[2018])]
 
 
+def test_a_line_missing_two_years_shows_only_the_years_after_the_latest(db):
+    """Two years missing, each held under another accession: the line shows only its years after the later
+    one, never a stretch between two gaps."""
+    company = _company(db)
+    k15 = _report(_accession(company, 2016), 2015, **{REV: {2013: 13.0, 2014: 14.0, 2015: 15.0}})
+    k17 = _report(_accession(company, 2018), 2017, **{REV: {2015: 15.0, 2016: 16.0, 2017: 17.0}})
+    k18 = _report(_accession(company, 2019), 2018, **{REV: {2014: 14.0, 2016: 16.0, 2018: 18.0}})
+    filing = _filing(db, company, k18)
+    _sync(db, company, k15, k17, k18)
+    _process(db, filing, k18)
+
+    assert _chart(db, filing)["revenue"] == _own(k18, REV)[-1:]
+
+
+def test_a_row_of_the_later_years_own_end_under_another_date_fills_no_gap(db):
+    """Another filing gives the fresh-start report's own year a period end six days earlier (a 52/53-week
+    end): within ``DRIFT_DAYS`` of the report's own year, it is that year, not the one missing between,
+    so the line charts whole, as main does."""
+    company = _company(db)
+    [report] = _fresh_start(company)
+    filing = _filing(db, company, report)
+    other = _spans(_accession(company, 2022, 40), 2021, "2022-04-01", [("2020-12-27", "2021-12-25")], {},
+                   **{REV: [119.0]})
+    _sync(db, company, report, other)
+    _process(db, filing, _annual(report))
+
+    assert _chart(db, filing)["revenue"] == _own(_annual(report), REV)
+
+
 @pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
 @pytest.mark.parametrize("tag,concept,restated", [("NetIncomeLoss", "net_income", False), (REV, "revenue", True)],
                          ids=["no-later-report-changed-it", "a-later-report-restated-it"])
