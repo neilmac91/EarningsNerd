@@ -2065,9 +2065,12 @@ const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
     sign", "cannot on its own | end", "does not alone | sign"): a reflexive after "by", "in" or "of", "own" after a
     possessive, and "alone". */
 const LEFT_OUT = /^(?:by (?:itself|themselves)|on (?:its|their) own|in (?:itself|themselves)|of itself|alone)$/
-/** A wait with "until" or "till" after it, whose clause holds the verb group after it ("does not wait until it ends every
-    session"), as stage 4b reads "until": "wait" takes no object, so no noun's relative clause ends so. */
-const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till)$/
+/** A wait with "until" or "till" and a pronoun after it, the subject of the clause they open, whose verb group is the one
+    after the pronoun ("does not wait until it | ends every session"), as stage 4b reads "until": "wait" takes no object,
+    so no noun's relative clause ends so. A time after "until" takes no verb ("until noon | ends"), and a clause with a
+    verb of its own runs past it ("until it expired | ends"), so the verb group after either is the clause's own (Codex
+    on 120323a3). */
+const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till) (?:i|you|he|she|it|we|they|everyone|everybody|someone|somebody|anyone|anybody)$/
 /** An end the session-end readings and the reuse family's sweep read (END_VERB) at the start of a span's words, which
     the lexicon may lack ("terminates", "kills", "invalidates", "times out"): a negation those readings read denies it
     as it does a verb group (Codex on 8846ebfa). */
@@ -2084,8 +2087,9 @@ const OPENS_AN_END = new RegExp(String.raw`^${END_VERB}`, 'i')
     78fcbd93 and 767a60d1). The first verb group after the phrase of time is the clause's own: read whole, its verb the
     clause's ("a second time signs everyone out", "... ends when you log out"), or stopped at a phrase the reader leaves
     out of a verb group (LEFT_OUT), its verb then where the misread clause ends ("a second time does not by itself |
-    sign"), as a wait's is after "until" or "till", whose clause holds the verb group there (BOUNDS_A_WAIT: "does not
-    wait until it | ends every session"), since "wait" takes no object. Such a span runs to that group and nests what
+    sign"), as a wait's is after "until" or "till" and the pronoun that opens the clause holding the verb group there
+    (BOUNDS_A_WAIT: "does not wait until it | ends every session", not "until noon | ends": Codex on 120323a3), since
+    "wait" takes no object. Such a span runs to that group and nests what
     the phrase of time nests, an agent's relative clause or its own ("a second time by a client you do not own", "a
     second time that you did not send": the routine lens on c6060a93): where that group starts and those spans, or null.
     The reading keeps a negation from that group on in the clause read alone, where main's cuts it, so it holds only
@@ -2113,7 +2117,7 @@ const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests
   for (let k = time.end; k < first.end; k++) {
     if (!startsVerbGroup(tokens, k)) continue
     const group = verbGroupAt(tokens, k)
-    const goesOn = LEFT_OUT.test(words(group.verb, first.end)) || BOUNDS_A_WAIT.test(words(group.verb, group.verb + 2))
+    const goesOn = LEFT_OUT.test(words(group.verb, first.end)) || BOUNDS_A_WAIT.test(words(group.verb, first.end))
     if (goesOn && !startsVerbGroup(tokens, first.end)) return null
     const verb = goesOn ? verbGroupAt(tokens, first.end).verb : group.verb
     const reach = tokens.slice(k, first.end).reduce((end, token, i) => (negates(token, tokens[k + i + 1]) ? k + i + (token.lower === 'no' ? 6 : 5) : end), -1)
@@ -4359,9 +4363,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // A phrase after such a word that holds no verb group is the phrase of time's own, so the denial after it passes.
       ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', false],
       // So it does after an -ing word (the routine lens on 3b4b8a69), and for a noun in -ed whose relative clause's
-      // subject is a phrase of time, a phrase after its verb or not ("for you", or "until noon" after a verb other than
-      // "wait"), a plural subject's bare verb too; with no negation there, the clause's own verb group after a clause
-      // of time stays its own ("ends when you log out").
+      // subject is a phrase of time, a phrase after its verb or not ("for you", or "until noon", after "wait" too), a
+      // plural subject's bare verb too; with no negation there, the clause's own verb group after a clause of time
+      // stays its own ("ends when you log out"). A wait's clause opens with a pronoun: past a time or a clause with a
+      // verb of its own after "until", the verb group is the clause's (Codex on 120323a3).
       ['<li>Logging out of a session replayed a second time knowing it is not valid ends every session.</li>', true],
       ['<li>Logging out of a session replayed a second time knowing it is not valid will end every session.</li>', true],
       ['<li>Logouts of a session replayed a second time knowing they are not valid end every session.</li>', true],
@@ -4370,6 +4375,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a news feed the weekend does not run for you ends every session.</li>', true],
       ['<li>Logouts of a news feed the weekend does not run end every session.</li>', true],
       ['<li>Logging out of a news feed the weekend does not hold until noon ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the client did not wait until noon ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time after the client did not wait until it expired ends every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not wait until noon ends every session.</li>', true],
+      // A pronoun after "until" takes the verb after it, so no relative clause ends at it, and the wait's denial
+      // passes ("until it ends": main cuts "the weekend does not wait until it" from "feed" and refuses it).
+      ['<li>Logging out of a news feed the weekend does not wait until it ends every session.</li>', false],
       ['<li>Every session presented a second time by a client you do not own ends when you log out.</li>', true],
       // A verb group of any form past the verb the misread clause ends at, within the reach of the negation before it
       // (NEGATION_REACH), is the clause's own, so the reading stays main's; past that reach the negation denies nothing
