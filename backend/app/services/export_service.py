@@ -463,12 +463,10 @@ class ExportService:
         items = []
         for entry in detail_entries(notes):
             letter = f'{escape(entry["letter"])}.' if entry["letter"] else ""
-            # The counts in the data face, as the page sets them.
-            parts = [escape(entry["message"]), escape(entry["places"]),
-                     f'<span class="data">{escape(entry["counts"])}</span>' if entry["counts"] else "",
-                     escape(entry["comparisons"])]
+            # One run of text: the page's lines (message, places, counts, comparisons) read as sentences in print.
+            parts = (entry["message"], entry["places"], entry["counts"], entry["comparisons"])
             items.append(f'<li id="{escape(entry["id"], quote=True)}"><span class="note-letter">{letter}</span>'
-                         f'{" ".join(filter(None, parts))}</li>')
+                         f'{escape(" ".join(filter(None, parts)))}</li>')
         return f'<ul class="data-notes">{"".join(items)}</ul>' if items else ""
 
     def _analysis_fine_print(self, envelope: dict) -> str:
@@ -555,7 +553,7 @@ class ExportService:
             # (note-light is the tertiary ink's value), and the summary line stays on the grid's last page (D-061).
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
                        f".fine-print {{ color: {PALETTE['ink_secondary']}; font-size: 8.5pt; }} "
-                       ".data-notes-summary { break-before: avoid; } "
+                       f".data-notes-summary {{ break-before: avoid; }} .data-notes-summary strong {{ color: {PALETTE['ink']}; }} "
                        ".data-notes { list-style: none; padding-left: 1.5em; } "
                        ".note-letter { display: inline-block; width: 1.5em; margin-left: -1.5em; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "

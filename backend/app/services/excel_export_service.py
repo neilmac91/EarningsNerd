@@ -357,7 +357,7 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
         key = " · ".join(["Data notes", *map(_summary_words, marked)])
         key_cell = _write_text(ws, 1, len(headers) + 1, key)
         key_cell.font = _FOOTNOTE_FONT
-        key_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        key_cell.alignment = Alignment(wrap_text=True, vertical="top", indent=1)  # clear of the last header
         ws.column_dimensions[get_column_letter(len(headers) + 1)].width = _KEY_WIDTH
         ws.row_dimensions[1].height = 12 * (len(key) // (_KEY_WIDTH + 8) + 1)
 

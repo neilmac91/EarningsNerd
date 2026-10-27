@@ -1047,8 +1047,8 @@ class TestAnalysisPdfHtml:
         assert "Revenue CAGR = 22.5% (FY2022–FY2024)" in html
         # Display only: the stored narrative and citations keep the key.
         assert "FY2022..FY2024 [3]" in analysis.narrative_md and analysis.citations_json[2]["excerpt"].endswith("(FY2022..FY2024)")
-        assert '<span class="data">1 figure.</span>' in html
-        assert '<span class="data">3 figures.</span>' in html and "0 growth figures" not in html
+        assert "Revenue (FY2022). 1 figure.</li>" in html
+        assert "Net margin (FY2022, FY2023). 3 figures.</li>" in html and "0 growth figures" not in html
 
 
 @pytest.mark.asyncio
