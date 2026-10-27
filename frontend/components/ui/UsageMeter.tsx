@@ -21,7 +21,8 @@ export interface UsageMeterProps {
 }
 
 /**
- * A plan's monthly usage as a bar (E196): a hairline track on the card's own fill and a fill that never runs past it,
+ * A plan's monthly usage as a bar (E196): a hairline track (the card's own fill in light, the page's ground a step below
+ * the card in dark) and a fill that never runs past it,
  * the dashboard's plan card and the pricing page's usage box. The warning and error fills are the meter's own status
  * tints, so a surface draws the meter through this primitive rather than its classes
  * (tests/unit/statusTintResidue.spec.ts leaves components/ui alone).
