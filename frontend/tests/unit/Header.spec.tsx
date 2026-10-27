@@ -117,8 +117,11 @@ describe('Header auth state', () => {
       // The copy's account link holds every label the live one can print in the build's mode, the mode's own and the
       // live example's, in one cell, so its width is a guest's in either mode whatever readiness answers (E220).
       const copy = container.querySelector('span[aria-hidden="true"].invisible')!
-      const labels = [...copy.querySelectorAll('.col-start-1.row-start-1')].map((cell) => cell.textContent)
-      expect(labels, accessMode).toEqual(accountLabels(accessMode))
+      const cells = [...copy.querySelectorAll('.col-start-1.row-start-1')]
+      expect(cells.map((cell) => cell.textContent), accessMode).toEqual(accountLabels(accessMode))
+      // The labels share one grid, so the copy is as wide as the wider of them, never the two side by side.
+      expect(new Set(cells.map((cell) => cell.parentElement)).size, accessMode).toBe(1)
+      expect(cells[0].parentElement, accessMode).toHaveClass('grid')
       expect(copy.textContent, accessMode).toBe(`Log in${accountLabels(accessMode).join('')}`)
       expect(copy.nextElementSibling!.textContent, accessMode).toBe(`Log in${ACCESS_COPY[accessMode].cta}`)
       unmount()

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { PANE, answerApi } from './fixtures/filing3Api'
-import { ACCESS_COPY, heldAccessLines } from '../../features/marketing/lib/access'
+import { ACCESS_COPY } from '../../features/marketing/lib/access'
 import { legalReady } from './fixtures/legalReady'
 
 /**
@@ -763,16 +763,15 @@ test.describe('the site header holds one height as its auth check settles (E174,
 })
 
 /**
- * The header's nav and the hero's access line keep their place as registration readiness lands (E220, found by
- * #1642's gates). Readiness relabels the account link ("See a live example" while it checks, then the access mode's)
- * and the hero's access line (the checking line, then the mode's). In invite mode, the e2e build's, the full bar's
- * label narrowed by 9px, so the nav moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text, and the access
- * line lost a line or two, so a scrolled page moved 20px at 320px and 40 to 80px under 200% text. The header's hidden
- * copy now holds every label its account link can print in the mode (accountLabels), and the access line every line it
- * keeps the height of (heldAccessLines). With the auth check answered (a guest) and readiness held open, the case
- * scrolls, reads the header, the nav's left edge, the access line's height and the page's scroll, answers readiness,
- * and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"); at these widths
- * it keeps the bar's height, so the page's scroll holds with it.
+ * The header keeps its height, and the full bar's nav its left edge, as registration readiness lands (E220, found by
+ * #1642's gates). Readiness relabels the account link: "See a live example" while it checks, then the access mode's
+ * label. In invite mode, the e2e build's, the full bar's label narrowed by 9px, so the nav moved 4.5px at 1152 and
+ * 1440px and 9px at 2304px under 200% text. The header's hidden copy now holds every label its account link can print
+ * in the mode (accountLabels). With the auth check answered (a guest) and readiness held open, the case reads the
+ * header's height and the nav's left edge, answers readiness, and reads them again. The compact bar's link relabels
+ * too ("Live example", then "Request invite"), and at these widths it keeps the bar's height. The hero's access line
+ * still shortens as readiness lands, moving the page under it at 320 and 390px and under 200% text; holding its
+ * height would leave every invite-mode reader a blank row there, and chief design decides that trade (F68).
  */
 const READINESS_STATES = [
   { width: 320, doubled: false },
@@ -786,33 +785,19 @@ const READINESS_STATES = [
 /** The account link while readiness checks: the full bar's label or the compact bar's. */
 const EXAMPLE_LINK = /^(See a live example|Live example)$/
 
-/**
- * The header's height, the page's scroll, the full bar's nav's left edge where it shows, and the access line's height.
- * The line is the paragraph that carries the checking line while readiness is held, whatever its markup; it is marked
- * on that first read, so the read after readiness answers measures the same element.
- */
-const accessAt = (page: Page) =>
-  page.evaluate((checking) => {
+/** The header's height, and the full bar's nav's left edge where the full bar shows. */
+const headerAt = (page: Page) =>
+  page.evaluate(() => {
     const header = document.querySelector('header[data-site-header]')!
     const nav = header.querySelector('nav[aria-label="Main navigation"]')!.getBoundingClientRect()
-    let line = document.querySelector('main [data-e2e-access-line]')
-    if (!line) {
-      line = [...document.querySelectorAll('main p')].find((p) => p.textContent!.includes(checking))!
-      line.setAttribute('data-e2e-access-line', '')
-    }
-    return {
-      height: header.getBoundingClientRect().height,
-      scrollY: window.scrollY,
-      navLeft: nav.width > 0 ? nav.left : null,
-      lineHeight: line.getBoundingClientRect().height,
-    }
-  }, heldAccessLines('invite')[0])
+    return { height: header.getBoundingClientRect().height, navLeft: nav.width > 0 ? nav.left : null }
+  })
 
-test.describe('the header and the hero keep their place as registration readiness lands (E220)', () => {
+test.describe('the header keeps its place as registration readiness lands (E220)', () => {
   for (const { width, doubled } of READINESS_STATES) {
     test.describe(`${width}px${doubled ? ' and 200% text' : ''}, a guest`, () => {
       test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
-      test('the nav keeps its left edge, the access line its height and a scrolled page its place', async ({ page, baseURL }) => {
+      test('the header keeps its height and the nav its left edge', async ({ page, baseURL }) => {
         await page.addInitScript(() => {
           localStorage.setItem('theme', 'light')
           localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
@@ -823,18 +808,13 @@ test.describe('the header and the hero keep their place as registration readines
         await expect(banner.getByRole('link', { name: EXAMPLE_LINK }), 'the account link offers the live example while readiness is held').toHaveCount(1)
         if (doubled) await doubleText(page)
         await settle(page)
-        await page.evaluate(() => window.scrollTo(0, 2000))
-        await settle(page)
-        const checking = await accessAt(page)
-        expect(checking.scrollY, 'the page is scrolled while readiness is held').toBeGreaterThan(1000)
+        const checking = await headerAt(page)
 
         release()
         await expect(banner.getByRole('link', { name: EXAMPLE_LINK }), "the account link takes the access mode's label").toHaveCount(0)
         await settle(page)
-        const settled = await accessAt(page)
-        expect(settled.lineHeight, `the access line while readiness was held (${checking.lineHeight}px) and after (${settled.lineHeight}px)`).toBe(checking.lineHeight)
+        const settled = await headerAt(page)
         expect(settled.height, `the header while readiness was held (${checking.height}px) and after (${settled.height}px)`).toBe(checking.height)
-        expect(settled.scrollY, `the page scrolled to ${checking.scrollY}px while readiness was held`).toBe(checking.scrollY)
         if (checking.navLeft !== null) {
           expect(Math.abs(settled.navLeft! - checking.navLeft), `the nav's left edge while readiness was held (${checking.navLeft}px) and after (${settled.navLeft}px)`).toBeLessThanOrEqual(0.5)
         }

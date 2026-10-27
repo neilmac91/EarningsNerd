@@ -9,7 +9,7 @@ import ClosingLine from '@/features/marketing/components/ClosingLine'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
 import Header from '@/components/Header'
-import { ACCESS_COPY, accountLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), pathname: '/', stats: vi.fn() }))
 vi.mock('@/features/legal/api/legal-api', () => ({ getLegalReadiness: mocks.read }))
@@ -22,8 +22,6 @@ vi.mock('@/lib/analytics', () => ({ default: { homepageSectionViewed: vi.fn(), b
 vi.mock('@/lib/featureFlags', async (original) => ({ ...(await original<typeof import('@/lib/featureFlags')>()), ENABLE_PRO_TRIAL: true }))
 
 const closed = { ...legalReady, collection_available: false, checkout_available: false, operator: null }
-/** What a reader is shown: the hero line's held lines are in the document, invisible and aria-hidden (E220). */
-const shown = { ignore: 'script, style, [aria-hidden="true"]' }
 function deferred() {
   let resolve!: (value: LegalReadiness) => void
   const promise = new Promise<LegalReadiness>((done) => { resolve = done })
@@ -100,7 +98,7 @@ describe('public access promises follow fresh readiness', () => {
     view.rerender(<QueryClientProvider client={new QueryClient()}><Surface /></QueryClientProvider>)
     await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(2))
     expect(accountAction).toHaveFocus()
-    expect(screen.queryByText(/Checking registration availability/, shown)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Checking registration availability/)).not.toBeInTheDocument()
     const latest = deferred()
     mocks.read.mockReturnValueOnce(latest.promise)
     fireEvent(window, new Event('focus'))
@@ -122,52 +120,11 @@ describe('public access promises follow fresh readiness', () => {
   })
 })
 
-describe('the header and the hero keep their place as readiness lands (E220)', () => {
-  const MODES = ['invite', 'public'] as const
-  const checking = [null, true] as const
-  const settles = [[legalReady, false], [closed, false]] as const
-  const unconfirmed = [null, false] as const
-
-  it.each(MODES)("holds every account label the %s bar can print in the header's copy", (mode) => {
-    for (const [readiness, loading] of [checking, ...settles, unconfirmed]) {
-      expect(accountLabels(mode), String(readiness?.collection_available)).toContain(publicAccessCopy(mode, readiness, loading).cta)
+describe("the header's copy keeps its place as readiness lands (E220)", () => {
+  it.each(['invite', 'public'] as const)("holds every account label the %s bar can print in the header's copy", (mode) => {
+    const states = [[null, true], [legalReady, false], [closed, false], [null, false]] as const
+    for (const [readiness, loading] of states) {
+      expect(accountLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).cta)
     }
-  })
-
-  it.each(MODES)("holds every %s line but an unconfirmed read's in the hero's line", (mode) => {
-    for (const [readiness, loading] of [checking, ...settles]) {
-      expect(heldAccessLines(mode), String(readiness?.collection_available)).toContain(publicAccessCopy(mode, readiness, loading).line)
-    }
-    expect(heldAccessLines(mode)).not.toContain(publicAccessCopy(mode, ...unconfirmed).line)
-  })
-
-  it.each(MODES)('keeps the %s hero line in one cell with the lines it holds, the shown one alone read', async (mode) => {
-    const pending = deferred()
-    mocks.read.mockReturnValueOnce(pending.promise)
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    const { container } = render(
-      <QueryClientProvider client={client}>
-        <PublicAccessProvider>
-          <PublicAccessLine accessMode={mode} />
-        </PublicAccessProvider>
-      </QueryClientProvider>,
-    )
-    const cells = () => [...container.querySelector('p')!.children] as HTMLElement[]
-    const read = () => cells().filter((cell) => !cell.hasAttribute('aria-hidden')).map((cell) => cell.textContent)
-    const held = () => {
-      for (const cell of cells()) expect(cell).toHaveClass('col-start-1', 'row-start-1')
-      for (const cell of cells().filter((c) => c.hasAttribute('aria-hidden'))) expect(cell).toHaveClass('invisible')
-      return cells().map((cell) => cell.textContent)
-    }
-    expect(container.querySelector('p')).toHaveClass('grid')
-    expect(held()).toEqual(heldAccessLines(mode))
-    expect(read()).toEqual([publicAccessCopy(mode, ...checking).line])
-    await act(async () => pending.resolve(legalReady))
-    expect(held()).toEqual(heldAccessLines(mode))
-    expect(read()).toEqual([ACCESS_COPY[mode].line])
-    mocks.read.mockRejectedValueOnce(new Error('offline'))
-    fireEvent(window, new Event('focus'))
-    await waitFor(() => expect(read()).toEqual([publicAccessCopy(mode, ...unconfirmed).line]))
-    expect(held()).toEqual([...heldAccessLines(mode), publicAccessCopy(mode, ...unconfirmed).line])
   })
 })
