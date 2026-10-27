@@ -891,6 +891,23 @@ def test_a_line_an_earlier_sync_kept_whole_charts_every_year_unless_the_year_bet
     assert _years(db, filing, "revenue") == list(_REGN_REVENUE[2018].items())[2 if withheld else 0:]
 
 
+def test_a_line_read_without_its_middle_year_shows_its_rows_after_the_gap_its_own_included(db):
+    """The extractor gave the FY2018 10-K's net income for 2016 and 2018 but not 2017, which the FY2019
+    10-K's row holds: the writer owns both rows, and the line misses the year between. The rule reads
+    rows, whoever stored them, so the report's own 2016 row goes with the gap, as a stand-in would."""
+    company = _company(db)
+    reports = _regn(company)
+    filing = _filing(db, company, reports[2018])
+    _process(db, filing, {**reports[2018], "NetIncomeLoss": [item for item in reports[2018]["NetIncomeLoss"]
+                                                             if item["end"] != "2017-12-31"]})
+    _sync(db, company, *reports.values())
+
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
+                                             concept="net_income").all()
+    assert sorted((row.period_end.year, row.filing_id) for row in rows) == [(2016, filing.id), (2018, filing.id)]
+    assert _years(db, filing, "net_income") == [(2018, _REGN_NET_INCOME[2018])]
+
+
 @pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
 @pytest.mark.parametrize("tag,concept,restated", [("NetIncomeLoss", "net_income", False), (REV, "revenue", True)],
                          ids=["no-later-report-changed-it", "a-later-report-restated-it"])
@@ -1077,6 +1094,28 @@ def test_a_gap_no_filing_of_the_company_fills_is_no_missing_year(db, shape, sync
         assert chart["net_income"] == _own(read, "NetIncomeLoss")
         assert [end for end, *_rest in chart["net_margin"]] == [end for end, *_rest in chart["revenue"]]
         assert chart["total_assets"] == _own(read, "Assets")
+
+
+def test_a_withheld_row_fills_no_gap(db):
+    """The audited repair retired a legacy companyfacts row labelled FY at the fresh-start report's split
+    year end (a rolling span, not a fiscal year): withheld, it is no year of the company, so the line
+    misses none and charts every year it gave."""
+    company = _company(db)
+    [report] = _fresh_start(company)
+    filing = _filing(db, company, report)
+    _sync(db, company, report)
+    _process(db, filing, _annual(report))
+    retired = FinancialFact(company_id=company.id, filing_id=None, concept="revenue", raw_tag=f"us-gaap:{REV}",
+                            unit="USD", period_start=date(2020, 1, 1), period_end=date(2020, 12, 31), fiscal_year=2020,
+                            fiscal_period="FY", value=110.0, form="10-K", accession=_accession(company, 2021, 30),
+                            source="companyfacts", reconciled=True, is_latest=True, provenance=None)
+    db.add(retired)
+    db.flush()
+    state = quarterly_fact_repair._quarantine(quarterly_fact_repair.snapshot(retired), "rolling_duration_not_fiscal_year")
+    retired.provenance, retired.reconciled, retired.is_latest = state["provenance"], False, False
+    db.commit()
+
+    assert _chart(db, filing)["revenue"] == _own(_annual(report), REV)
 
 
 @pytest.mark.parametrize("read", ["the-whole-report", "assets-only", "nothing-annual"])
