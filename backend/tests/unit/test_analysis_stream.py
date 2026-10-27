@@ -370,6 +370,34 @@ class TestStreamTrendNarrative:
         ]
         assert events[-1]["type"] == "error"
 
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("cached", [False, True], ids=["first run", "with a narrative cached before the guard"])
+    async def test_a_mixed_unit_dataset_is_refused_before_any_model_call_or_cache(self, monkeypatch, cached):
+        # A JPY revenue point beside USD ones refuses the dataset (E102): the stream says so and ends, no model is called,
+        # no narrative is stored, and a narrative cached before the guard is not served.
+        from app.database import SessionLocal
+        from app.models import FinancialFact, TrendAnalysis
+        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE
+
+        company_id = _seed_company_with_history()
+        if cached:
+            await _drain(company_id, monkeypatch, [_selection()])
+        db = SessionLocal()
+        db.query(FinancialFact).filter_by(company_id=company_id, concept="revenue", fiscal_year=2022).update(
+            {"unit": "JPY"}, synchronize_session=False)
+        db.commit()
+        rows_before = db.query(TrendAnalysis).filter_by(company_id=company_id).count()
+        db.close()
+
+        calls = []
+        events = await _drain(company_id, monkeypatch, ["MUST NOT RUN"], calls=calls)
+        assert events[-1] == {"type": "error", "message": INCOMPATIBLE_UNITS_MESSAGE}
+        assert {event["type"] for event in events[:-1]} <= {"progress"}
+        assert calls == []
+        db = SessionLocal()
+        assert db.query(TrendAnalysis).filter_by(company_id=company_id).count() == rows_before == int(cached)
+        db.close()
+
 
 @pytest.mark.requires_db
 class TestObservationSelectionBoundary:
@@ -716,6 +744,17 @@ class TestStreamRouteMetering:
         assert response.status_code == 429
         assert metered == []
         assert released == []
+
+    def test_a_unit_refusal_never_meters_and_gives_the_lease_back(self, monkeypatch):
+        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE
+
+        events = [{"type": "error", "message": INCOMPATIBLE_UNITS_MESSAGE}]
+        client, metered, released = self._client(monkeypatch, events)
+        response = client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert response.status_code == 200
+        assert INCOMPATIBLE_UNITS_MESSAGE in response.text
+        assert metered == []
+        assert released == ["lease-1"]
 
     def test_pipeline_error_releases_the_lease(self, monkeypatch):
         from app.routers import analysis as analysis_router

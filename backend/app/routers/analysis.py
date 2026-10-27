@@ -40,6 +40,7 @@ from app.schemas.analysis import (
     StreamRequest,
 )
 from app.services import analysis_data_access, facts_service, filing_list_service, trend_analysis_service
+from app.services.trend_analysis.dataset_quality import IncompatibleUnitsError
 from app.services.durable_tasks import enqueue_task
 from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -513,6 +514,9 @@ async def export_analysis_pdf(
                 current_dataset = trend_analysis_service.build_dataset(
                     db, company, analysis.mode, start_period, end_period
                 )
+            except IncompatibleUnitsError as exc:
+                # Re-running cannot help: the filed figures themselves mix units (E102).
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Company, FinancialFact
 from app.services.fact_provenance import CALCULATION_VERSION, calculated_provenance
-from app.services.trend_analysis.dataset_quality import add_comparisons, data_notes, dataset_point
+from app.services.trend_analysis.dataset_quality import add_comparisons, data_notes, dataset_point, require_one_unit
 from app.services.trend_analysis.detectors import detect_inflections
 from app.services.trend_analysis.formatting import NOT_MEANINGFUL
 from app.services.trend_analysis.periods import (
@@ -204,7 +204,10 @@ def _attach_growth(
     points: list[dict[str, Any]], periods: list[dict[str, Any]], mode: str, concept: str,
 ) -> tuple[str, bool]:
     """Attach the existing comparisons with the concept's percentage convention."""
-    unit = next((p["unit"] for p in points if p.get("unit")), "USD")
+    # The valued points' one unit (require_one_unit); a series with none takes a listed point's, as before.
+    unit = next((p["unit"] for p in points if p.get("value") is not None and p.get("unit")), None) or next(
+        (p["unit"] for p in points if p.get("unit")), "USD"
+    )
     is_percent = concept in _PERCENT_CONCEPTS
     # Percent-unit series (margins) report YoY/QoQ as percentage-POINT deltas — the
     # convention finance readers expect for a ratio already expressed as a percentage — never
@@ -308,6 +311,8 @@ def _series_points(
             points.append(dataset_point(row, bucket["key"], getattr(company, "cik", None), documents))
         if not any_value:
             continue
+        # One unit per series before anything compares, compounds or cites its points (E102).
+        require_one_unit(points)
 
         unit, is_percent = _attach_growth(points, periods, mode, concept)
         cagr, cagr_window, window_pp, window_pp_range = _series_window_figures(

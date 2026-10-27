@@ -14,6 +14,9 @@ from fastapi import HTTPException
 
 from app.dependencies import require_entitlement
 from app.services import trend_analysis_service as svc
+from app.services.trend_analysis.dataset_quality import (
+    INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError, require_one_unit,
+)
 
 
 class TestPeriodKeys:
@@ -950,6 +953,101 @@ class TestBuildDataset:
         second = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
         assert svc.dataset_fingerprint(second) != fp_before
         db.close()
+
+
+# Each period's (fiscal_year, fiscal_period, period_end, period_start) for the unit cases below.
+_ANNUAL = [(fy, "FY", date(fy, 12, 31), date(fy, 1, 1)) for fy in (2021, 2022, 2023)]
+_QUARTERLY = [(2023, fp, date(2023, month, 30), date(2023, month - 2, 1))
+              for fp, month in (("Q1", 3), ("Q2", 6), ("Q3", 9))]
+
+
+@pytest.mark.requires_db
+class TestIncompatibleUnits:
+    """A series whose valued points name different units, or none, refuses the whole dataset before any
+    comparison (E102): no split series, no conversion, no dropped point."""
+
+    def _build(self, mode, rows):
+        """Seed a company with revenue and net income in USD for every period plus ``rows``
+        ((concept, value, unit, period index), in seed order), then build its dataset."""
+        from app.database import SessionLocal
+
+        periods = _ANNUAL if mode == "annual" else _QUARTERLY
+        db = SessionLocal()
+        try:
+            company = _seed_company(db)
+            for fy, fp, end, start in periods:
+                _seed_fact(db, company.id, "net_income", 100.0, fy=fy, fp=fp, end=end, start=start)
+            for concept, value, unit, index in rows:
+                fy, fp, end, start = periods[index]
+                _seed_fact(db, company.id, concept, value, fy=fy, fp=fp, end=end, start=start, unit=unit)
+            db.commit()
+            first, last = periods[0], periods[-1]
+            key = (lambda p: f"FY{p[0]}") if mode == "annual" else (lambda p: f"{p[0]}{p[1]}")
+            return svc.build_dataset(db, company, mode, key(first), key(last))
+        finally:
+            db.close()
+
+    MIXTURES = [
+        pytest.param("annual", "revenue", ["USD", "JPY", "JPY"], id="annual USD beside JPY"),
+        pytest.param("quarterly", "revenue", ["JPY", "JPY", "USD"], id="quarterly JPY beside USD"),
+        pytest.param("annual", "earnings_per_share", ["USD/shares", "CNY/shares", "CNY/shares"],
+                     id="annual USD/shares beside CNY/shares"),
+        pytest.param("quarterly", "earnings_per_share", ["CNY/shares", "USD/shares", "CNY/shares"],
+                     id="quarterly CNY/shares beside USD/shares"),
+    ]
+
+    @pytest.mark.parametrize("mode, concept, units", MIXTURES)
+    @pytest.mark.parametrize("order", [(0, 1, 2), (2, 1, 0), (1, 2, 0)], ids=["seeded in order", "reversed", "rotated"])
+    def test_a_mixed_unit_series_refuses_the_dataset_in_any_seed_order(self, mode, concept, units, order):
+        rows = [(concept, 10.0 + index, units[index], index) for index in order]
+        with pytest.raises(IncompatibleUnitsError) as refused:
+            self._build(mode, rows)
+        assert str(refused.value) == INCOMPATIBLE_UNITS_MESSAGE
+        assert refused.value.code == "analysis_incompatible_units"
+
+    def test_a_zero_valued_point_with_no_unit_refuses_the_dataset(self):
+        # Numeric zero is a value; a stored row with no unit cannot be compared with its neighbours.
+        rows = [("revenue", 1000.0, "USD", 0), ("revenue", 0.0, "", 1), ("revenue", 1500.0, "USD", 2)]
+        with pytest.raises(IncompatibleUnitsError):
+            self._build("annual", rows)
+
+    def test_a_missing_observation_is_absent_never_incompatible(self):
+        rows = [("revenue", 1000.0, "JPY", 0), ("revenue", 1500.0, "JPY", 2)]
+        dataset = self._build("annual", rows)
+        revenue = next(series for series in dataset["series"] if series["concept"] == "revenue")
+        assert revenue["unit"] == "JPY"
+        assert [point["value"] for point in revenue["points"]] == [1000.0, None, 1500.0]
+
+    def test_a_pure_ratio_series_beside_a_monetary_one_still_builds(self):
+        rows = [("revenue", 1000.0 + 100 * index, "USD", index) for index in range(3)]
+        rows += [("net_margin", 0.1 + 0.01 * index, "pure", index) for index in range(3)]
+        dataset = self._build("annual", rows)
+        units = {series["concept"]: series["unit"] for series in dataset["series"]}
+        assert units["net_margin"] == "pure" and units["revenue"] == "USD"
+        margin = next(series for series in dataset["series"] if series["concept"] == "net_margin")
+        assert margin["points"][1]["yoy"] == pytest.approx(0.01)  # a point delta of the ratio, as before
+
+
+class TestRequireOneUnit:
+    @pytest.mark.parametrize("points", [
+        [],
+        [{"value": None, "unit": "USD"}, {"value": None, "unit": "JPY"}],
+        # A point with no value is absent: its unit, or none, never makes the series incompatible.
+        [{"value": 1.0, "unit": "JPY"}, {"value": None, "unit": "USD"}, {"value": None}],
+        [{"value": 0.1, "unit": "pure"}, {"value": 0.2, "unit": "pure"}],
+    ])
+    def test_accepts_one_unit_across_the_valued_points(self, points):
+        require_one_unit(points)
+
+    @pytest.mark.parametrize("points", [
+        [{"value": 1.0, "unit": "USD"}, {"value": 2.0, "unit": "JPY"}],
+        [{"value": 0.0, "unit": "USD"}, {"value": 0.0}],
+        [{"value": 1.0, "unit": "USD"}, {"value": 0.0, "unit": "  "}],
+        [{"value": 1.0, "unit": None}],
+    ])
+    def test_refuses_two_units_or_a_valued_point_with_none(self, points):
+        with pytest.raises(IncompatibleUnitsError):
+            require_one_unit(points)
 
 
 class TestPromptRendering:
