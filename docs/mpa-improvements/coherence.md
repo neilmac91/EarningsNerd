@@ -880,7 +880,9 @@ workbook's lists, the chart footnotes). So each sentence:
 
 Neither a sentence nor a summary clause has a semicolon of its own, since the summary and a chart's
 footnotes list places with "; " ("Revenue FY2021; Net income FY2023: Not in our data. Never shown as
-zero."). `backend/tests/unit/test_analysis_data_notes.py` holds all four rules, each tested both ways. WP5's
+zero."). `backend/tests/unit/test_analysis_data_notes.py` fails the phrasings its patterns for the first three
+rules match and any semicolon, each rule tested both ways; a phrasing the patterns do not match passes, and chief
+design reviews the words. WP5's
 "select it to see both filings" therefore belongs to the page, not to a reason's sentence.
 
 The final words, beside main's (`data_notes.REASONS` and `provenance.ts` REASONS, held equal by the

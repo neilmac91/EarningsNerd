@@ -1040,9 +1040,10 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
                  marked letters), tests/unit/data-notes.spec.ts and the backend's
                  tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
-                 summary words held to the shared notes fixture; marked notes lettered first; no reason's
-                 words ask for a page action, say how a gap is drawn or name one figure (“the figure”,
-                 “that value”), and no words or summary clause carry a semicolon (the summary and a
+                 summary words held to the shared notes fixture; marked notes lettered first; a reason's
+                 words fail where they match its page-action, drawing or one-figure patterns (“the
+                 figure”, “that value”), while a phrasing the patterns do not match passes and chief design
+                 reviews the words, and no words or summary clause carry a semicolon (the summary and a
                  chart's footnotes list places with one), each rule tested both ways;
                  each DATA_NOTES_VERSION's words and letters
                  pinned by digest, so a change to them takes a new version), the
