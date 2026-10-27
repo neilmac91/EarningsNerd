@@ -1597,14 +1597,15 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  example" became "Request an invite" (E220). The compact bar's account link holds its label the same
                  way, one cell of every short label (`ctaShort`) it can print in the mode (`accountShortLabels`),
                  the shown one visible and the rest `invisible` and `aria-hidden`, as the hero's access line holds
-                 its lines (§7), so its name is the shown label and the bar keeps its height as readiness lands:
-                 under 200% text in CI's fonts it grew 14px at 370 and 450px in invite mode as "Live example", on
-                 one line, became "Request invite", on two, and in public mode shrank 14 to 88px at 320 to 440px as
-                 "Live example" became "Sign up" (E223, chief design on #1686, comment 6436319684). The held bar is
-                 the taller layout: in invite mode the one a ready answer gives, so the hold costs nothing; in
-                 public mode the checking one, which keeps those 14 to 88px for the visit. The full bar's cell holds
-                 min-h-10, the md button's height, so the bar is one height while the check runs and after it, for a
-                 guest and a signed-in
+                 its lines (§7), and centred both ways, as Steady loading's cell is, so its name is the shown label
+                 and the bar keeps its height as readiness lands: under 200% text in CI's fonts it grew 14px at 370
+                 and 450px in invite mode as "Live example", on one line, became "Request invite", on two, and in
+                 public mode (simulated on the invite build by rewriting the label) shrank 14 to 88px at 320 to
+                 440px as "Live example" became "Sign up" (E223, chief design on #1686, comment 6436319684). The
+                 held bar is the taller layout: in invite mode the one a ready answer gives, so the hold costs
+                 nothing; in public mode the checking one, which keeps those 14 to 88px for the visit. The full
+                 bar's cell holds min-h-10, the md button's height, so the bar is one height while the check runs
+                 and after it, for a guest and a signed-in
                  reader (E174, E175; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open,
                  scrolls, and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and
                  under 200% text in the compact bar at 640, 800, 1024 and 1440px and the full bar at 2304px:
@@ -1620,11 +1621,11 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  under enlarged text the mark stands alone where a guest's row needs the room. Below about
                  15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
                  the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
-                 compact bar still grows: in CI's fonts, measured every 10px, a row of its own (88 to 102px)
-                 at 320 to 380px under 200% text, a wrapped label (14px) at 390 to 450px in invite mode and 390
-                 to 440px in public mode, and 10.5px at 320 to 340px under 150% text (to 330px in public mode),
-                 since the link holds both its labels from the first (E223). Chief design accepts that band, since any
-                 reservation would give every reader the same extra row (#1558, comment 6377073723). A
+                 compact bar still grows: in CI's fonts, measured every 10px, a row of its own (88 to 102px) at 320
+                 to 380px under 200% text, a wrapped label (14px) at 390 to 450px in invite mode and 390 to 440px in
+                 public mode (simulated), and 10.5px at 320 to 340px under 150% text (to 330px in public mode),
+                 since the link holds both its labels from the first (E223). Chief design accepts that band, since
+                 any reservation would give every reader the same extra row (#1558, comment 6377073723). A
                  signed-in reader's bell joins the compact bar as the check settles (E176) and needs less:
                  below about 10.4rem (332px under 200% text) the bell and the menu button take a row of their
                  own as it appears, the bar 137 to 225px at 320 and 330px under 200% text, within the same

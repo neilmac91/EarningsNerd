@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -42,6 +42,10 @@ vi.mock('@/features/auth/api/auth-api', () => ({
 // Header layout/auth cases run with collection released, unless a case holds readiness checking.
 // publicAccess.spec.tsx holds the real reader.
 const readiness = vi.hoisted(() => ({ checking: false }))
+// Reset after every case, so a case that fails while readiness checks cannot leave the next ones checking too.
+afterEach(() => {
+  readiness.checking = false
+})
 vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
   const { ACCESS_COPY, publicAccessCopy } = await import('@/features/marketing/lib/access')
   return {
@@ -144,26 +148,27 @@ describe('Header auth state', () => {
         const shown = checking ? publicAccessCopy(accessMode, null, true).ctaShort : ACCESS_COPY[accessMode].ctaShort
         const where = `${accessMode}, ${checking ? 'checking' : 'open'}`
         const link = await screen.findByRole('link', { name: shown })
-        // The held labels in their own order whatever is shown, so nothing reorders as readiness lands, a space between
-        // them in the text the server sends, as the hero's access line holds its lines.
+        // The held labels in their own order whatever is shown, so nothing reorders as readiness lands, with a space
+        // between them in the link's text, as the hero's access line holds its lines.
         const cells = [...link.querySelectorAll('.col-start-1.row-start-1')]
         expect(cells.map((cell) => cell.textContent), where).toEqual([...accountShortLabels(accessMode)])
         expect(link.textContent, where).toBe(accountShortLabels(accessMode).join(' '))
         // One grid, so the link is as wide and as tall as the larger label, never the two side by side.
         expect(new Set(cells.map((cell) => cell.parentElement)).size, where).toBe(1)
-        expect(cells[0].parentElement, where).toHaveClass('grid', 'justify-items-center')
+        // Centred both ways, so a one-line label sits mid-button beside a held two-line one; the cell takes no pointer
+        // events, so a press lands on the link, and the held labels are kept out of autocapture's text.
+        expect(cells[0].parentElement, where).toHaveClass('grid', 'place-items-center', 'pointer-events-none')
         const visible = cells.filter((cell) => !cell.classList.contains('invisible'))
         expect(visible.map((cell) => cell.textContent), where).toEqual([shown])
         expect(visible[0], where).not.toHaveAttribute('aria-hidden')
         for (const held of cells.filter((cell) => cell !== visible[0])) {
-          expect(held, where).toHaveClass('invisible')
+          expect(held, where).toHaveClass('invisible', 'ph-no-capture')
           expect(held, where).toHaveAttribute('aria-hidden', 'true')
         }
         expect(link, where).toHaveAccessibleName(shown)
         unmount()
       }
     }
-    readiness.checking = false
   })
 
   it('shows Log in / the account CTA only on a definitive logged-out (null)', async () => {

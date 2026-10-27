@@ -335,18 +335,20 @@ export default function Header({
               {/* The label holds, in one cell, every short label the link can print in this mode (accountShortLabels:
                   the mode's own and the live example's), the shown one visible and the rest invisible and aria-hidden,
                   as the hero's access line holds its lines, so the link keeps its size as registration readiness lands
-                  and its accessible name is the shown label. A space between the cells renders nothing in the grid and
-                  keeps the labels apart in the server HTML's text. Under 200% text the bar grew 14px at 370 and 450px
-                  as "Live example", on one line, became "Request invite", on two (E223, chief design on #1686, comment
-                  6436319684). */}
-              <span className="grid justify-items-center">
+                  and its accessible name is the shown label. The cell centres each label, as Button's held cell does,
+                  so a one-line label sits mid-button beside a held two-line one. It takes no pointer events and the
+                  held labels carry ph-no-capture, so a press lands on the link and autocapture reads the shown label
+                  alone; a space between the cells keeps the labels apart in the link's text. Under 200% text, in CI's
+                  fonts, the bar grew 14px at 370 and 450px as "Live example", on one line, became "Request invite", on
+                  two (E223, chief design on #1686, comment 6436319684). */}
+              <span className="pointer-events-none grid place-items-center">
                 {(shortLabels.includes(account.ctaShort) ? shortLabels : [...shortLabels, account.ctaShort]).map((label, index) => (
                   <Fragment key={label}>
                     {index > 0 && ' '}
                     {label === account.ctaShort ? (
                       <span className="col-start-1 row-start-1">{label}</span>
                     ) : (
-                      <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+                      <span aria-hidden="true" className="ph-no-capture invisible col-start-1 row-start-1">
                         {label}
                       </span>
                     )}
