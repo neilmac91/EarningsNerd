@@ -15,7 +15,7 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { accountLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, accountShortLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
@@ -331,7 +331,27 @@ export default function Header({
           {user && <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
-              {account.ctaShort}
+              {/* The label holds, in one cell, every label the link can print in this mode (accountShortLabels: the
+                  mode's own and the live example's), the shown one visible and the rest invisible and aria-hidden, so
+                  the bar keeps its height as registration readiness lands: under 200% text at 370 and 450px, "Live
+                  example" took one line and "Request invite" two, and the bar grew 14px (E223, chief design on #1686,
+                  comment 6436319684). The link's name stays the shown label, and items-center and text-center keep that
+                  label central in a cell a taller or wider twin sets. The rest carry ph-no-capture: PostHog's
+                  autocapture records the text of every span in a clicked link, so a click records the shown label
+                  alone, as it did before the hold. */}
+              <span className="grid items-center text-center">
+                {accountShortLabels(accessMode).map((label) =>
+                  label === account.ctaShort ? (
+                    <span key={label} className="col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ) : (
+                    <span key={label} aria-hidden="true" className="ph-no-capture invisible col-start-1 row-start-1">
+                      {label}
+                    </span>
+                  ),
+                )}
+              </span>
             </Link>
           )}
           <button
