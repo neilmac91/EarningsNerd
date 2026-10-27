@@ -525,7 +525,9 @@ const REACH_WORD = String.raw`(?!(?:and|but|or|nor|so|then|yet|which|that|who|wh
     verb's own complement ("does not need to end", "does not have to end") is a denial, while a purpose infinitive
     after the verb's object ("does not take any time to end every session", "does not force a reload to end every
     session") promises the end, which main's reach refuses past three words. The one longer complement is the verb's
-    person and their own end ("does not require you to be signed out", "does not cause everyone to get logged out"). */
+    person and their own end ("does not require you to be signed out", "does not cause everyone to get logged out").
+    participleAt counts the same reach in tokens: a negation's last word, four more, then its verb (the routine lens on
+    bca1801a). */
 const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|then)\s+(?:(?!to\b)${REACH_WORD}){0,3}|(?:(?!to\b)${REACH_WORD}){0,4}|(?:${REACH_WORD}){0,3}|${REACH_WORD}(?:you|everyone|everybody)\s+to\s+(?:be|get)\s+)`
 /** A word of a causative verb's object (CAUSED): no word that opens a clause of time or comparison, nor "to". */
 const OBJECT_WORD = String.raw`(?!(?:before|after|until|till|once|since|as|than|to)\b)${REACH_WORD}`
@@ -2250,7 +2252,9 @@ const clauseByClause = (sentence: string): string[] => {
     sweep, the one consequence the shared denial step reads, is read in the sentence whole and, since E162's stage 4c,
     in each clause alone as well (clauseByClause), so a negation outside a clause or nested in its subject denies no
     sweep there ("Nobody doubts that reusing a refresh token signs everyone out." and "Reusing a refresh token you do
-    not own signs everyone out." fail), while the reuse may stand in another clause of the sentence ("If a refresh
+    not own signs everyone out." fail), but for one in a clause a subordinator opens before the clause's verb, which
+    the reader runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out." passes, as
+    on main: the routine lens on bca1801a), while the reuse may stand in another clause of the sentence ("If a refresh
     token is reused, every session ends."). */
 const reuseOfTheToken = (sentence: string) =>
   A_REUSE.test(sentence) && (REVOKED_OR_LOCKED.test(sentence) || clauseByClause(sentence).some((text) => SWEPT.test(text)))
@@ -4403,6 +4407,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
       ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
+      // And a negation in a clause a subordinator opens before the clause's verb, which the reader runs on to that
+      // verb, denies that verb in either family, as on main (the routine lens on bca1801a).
+      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', 'gap'],
+      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', 'gap'],
+      ['<li>Logging out when it is not needed ends every session.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)

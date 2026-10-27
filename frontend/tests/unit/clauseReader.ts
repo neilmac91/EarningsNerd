@@ -92,9 +92,11 @@
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, with a noun phrase
  * and a verb group after it read as a relative clause on it ("A refresh token presented a second time does not by
  * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
- * clause-by-clause reading reads as a participle: participleAt), and a noun the
- * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
- * record every call" reads as "the access" and a verb); a gerund's object with a determiner or a pronoun reads as a
+ * clause-by-clause reading reads as a participle: participleAt); a clause a subordinator opens between a clause's
+ * subject and its verb runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out."
+ * reads "because it is not valid signs everyone out" as one); and a noun the lexicon also lists as a verb ends a
+ * phrase after another noun unless its own verb group follows ("the access logs record every call" reads as "the
+ * access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your
  * password ends every session" as one, which legalTruth.spec.tsx's session-end family reads as the object: gerundAt); a
  * subject named twice ("each endpoint and each page") reads as
