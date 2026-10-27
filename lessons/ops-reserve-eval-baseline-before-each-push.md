@@ -68,6 +68,11 @@ one draw.
   [6308009782](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308009782) and
   [6308352547](https://github.com/neilmac91/EarningsNerd/pull/1451#issuecomment-6308352547): the
   three runs and the readings.
+- #1673's comment
+  [6429626919](https://github.com/neilmac91/EarningsNerd/pull/1673#issuecomment-6429626919): five full
+  and two partial draws, none reserved beforehand, three of them from ready marks after a return to
+  draft made to request a Codex review (runs 40391708791, 40404785109 and 40418689755); the last
+  cancelled its push's run 3 minutes into the paid step.
 
 **Gate**: partly gated since F55. `backend/tests/unit/test_eval_parity.py` runs the scope step against a
 stubbed live draft flag and fails if a draft, a failed read or any answer but `true` or `false` would

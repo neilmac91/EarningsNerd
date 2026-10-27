@@ -36,8 +36,9 @@ in place of the candidate, ran twice more on those companies afterwards.
   - no broken net cash stated as fact, where K0 stated it in 8 of 12 analyses of companies with a data break;
   - no probe-detected mislabel left for a reader: each goes to repair, and an output that keeps one fails the gate;
   - p50 10.9 s and p90 12.1 s pooled, at $0.0066–0.0067 an analysis, against the control's 12.8 s, 17.8 s and
-    $0.0071. By run, P's p50 was 10.54 and 10.9 s, just over the 10.5 s target in both. That is off-peak; the
-    peak-hour run has not happened yet;
+    $0.0071. By run, P's p50 was 10.54 and 10.9 s, just over the 10.5 s target in both. That is off-peak; in
+    DeepSeek's peak hours (`eval-v2-peak`, one run on 27 October) it was 11.1 s at p50 and 12.1 s at p90, at twice
+    the price;
   - the cause count kept: 6.6 cause sentences per analysis over six runs, the same as K0.
 - **The candidate prompt (C) fixed calibration but cost depth.** Its judgement share was 11.6% (K0 1.0%), with no
   evaluative words in data sentences and no forecasts in watch items, and the judge preferred C to K0 overall in
@@ -54,8 +55,8 @@ in place of the candidate, ran twice more on those companies afterwards.
     calibration that keeps the cause guard, or adopt C under a recorded exception to the guard.
   - Then add deterministic checks for the errors that remain, starting with "above or below a reference level".
 
-  Nothing in production has changed. The peak-hour latency run (`eval-v2-peak`) is scheduled for 2026-10-27
-  06:05 UTC and has not run.
+  Nothing in production has changed. The peak-hour latency run (`eval-v2-peak`) ran on 2026-10-27 from 06:12 UTC,
+  one held-out run each of P and C: p50 11.1 and 10.9 s, p90 12.1 and 13.3 s, about as off-peak (§5.7).
 
 **Diagnosis (25 October, §1–§3):**
 
@@ -1110,9 +1111,9 @@ section is implemented in production.
 | `eval-v2-r1`, `eval-v2-r2` | 3 | K0 and C, frozen at `fc5b808c` and the gate of 3115165, on the 10 held-out companies | 40 | from 16:11, off-peak |
 | `eval-v2-v1control` | 3, added | The production control on the 10 held-out companies, the same evening | 10 | 16:40, off-peak |
 | `eval-v2-p-r1`, `eval-v2-p-r2` | 3, added after eval-v2's results were seen | P on the 10 held-out companies: the build §3's guard rule leaves once it drops the candidate prompt (§5.2). Frozen prompt and `packs-v2/` at the same commit; nothing was changed | 20 | from 17:39, off-peak |
-| `eval-v2-peak` | 4 (harness README) | C, one held-out run inside DeepSeek's peak window, for latency only; P now runs beside it (`--arms deepseek-flash-p,deepseek-flash-c`) | — | **scheduled for 2026-10-27 06:05 UTC, not yet run** |
+| `eval-v2-peak` | 4 (harness README) | P and C, one held-out run each inside DeepSeek's peak window, for latency only. The README's step 4 names C alone; P ran beside it (`--arms deepseek-flash-p,deepseek-flash-c`) as the build §5.10 proposes. Same prompts and `packs-v2/` as eval-v2 and eval-v2-p (the report's build line) | 20 | 27 Oct, 06:12–06:13, peak |
 
-- The start times come from the runs' commit messages.
+- The start times come from the runs' commit messages; the peak run's, from its log.
 - Every generation finished. No generation failed, no repair is owed and there was no provider error (each report's
   rows).
 - **Audits.** Opus audited every K0, C and control output: the semantic audit under view 2, and the cause audit.
@@ -1123,7 +1124,8 @@ section is implemented in production.
 
 **Spend** (`runs/spend.jsonl`). The ledger's audit rows carry no label. Each is assigned by its place in the ledger,
 between a run's generation rows and its judge rows. The first 40 rows are step 0's. The control's 20 audits are rows
-1,041–1,060, and the last 72 rows are P's: 32 generation calls and 40 Opus audits.
+1,041–1,060, and rows 1,061–1,132 are P's: 32 generation calls and 40 Opus audits. The last 29, rows 1,133–1,161, are
+the peak run's generation calls, tagged `eval-v2-peak`.
 
 | Label | DeepSeek flash | DeepSeek V4 Pro (second auditor) | Opus through `claude -p` (notional) |
 |---|---|---|---|
@@ -1134,10 +1136,12 @@ between a run's generation rows and its judge rows. The first 40 rows are step 0
 | eval-v2, 2 runs | $0.27 | $0.42 | $13.13 |
 | Control | $0.02 | — | $2.01 |
 | P on held out, 2 runs (`eval-v2-p`) | $0.13 | — | $3.67 |
-| **Total** | **$1.53** | **$1.26** | **$52.01** |
+| Peak run, P and C (`eval-v2-peak`), at the off-peak list price | $0.13 | — | — |
+| **Total** | **$1.66** | **$1.26** | **$52.01** |
 
-- **DeepSeek: $2.79 billed.** §3 estimated about $2.1–2.5, and at most about $4.3. The peak run is not in the
-  ledger yet; §3 prices C's at about $0.14, so with P beside it about $0.28.
+- **DeepSeek: about $3.05 billed.** The ledger prices every call at the off-peak list price, and the peak price
+  doubles it, so the peak run's $0.13 bills about $0.26: $2.79 for the rest, plus that. §3 estimated about
+  $2.1–2.5, and at most about $4.3; it priced the peak run at about $0.14 for C alone.
 - **Opus: $52.01**, at the CLI's notional rates. It runs on the Claude subscription, not the API key. §3 estimated
   about $30–43. Most of the difference has three sources:
   - the second development round audited and judged all of K0 and C ($13.44, against the $8.9 planned for an
@@ -1194,17 +1198,18 @@ as the pooled reports print none. P's hand-read rows are the third reading's.
 | API list cost per analysis, off-peak | at most $0.0075 | $0.0065 · $0.0067 | met | $0.0068 · $0.0067 | $0.0066 · $0.0067 | $0.0071 |
 | Latency p50 (s) | at most 10.5 | 10.1 · 12.0 (11.2) | **missed** in run 2 | 12.3 · 11.3 (11.8) | 10.54 · 10.9 (10.9) | 12.8 |
 | Latency p90 (s) | at most 13 | 12.5 · 12.8 (12.5) | met | 13.7 · 613.7 (74.5; 14.1 with each stall's 600 s taken out) | 12.2 · 11.4 (12.1) | 17.8 |
-| Latency at peak hours (`eval-v2-peak`) | the same targets | scheduled for 2026-10-27 06:05 UTC, not yet run | open | — | scheduled with C, not yet run | — |
+| Latency at peak hours (`eval-v2-peak`), p50 / p90 (s) | the same targets | 10.9 / 13.3, one run | **missed** (both, p90 by 0.3 s) | — | 11.1 / 12.1, one run: p50 missed, p90 met | — |
 | Logic slips (probe measures, read by hand) | — | 0 · 0 | — | 1 · 0 | 0 · 1 (DUK's "conversion fell to 2.32x": it rose from 2.12x, a real error) | 0 |
 
-- **C missed seven of its targets and guards:**
+- **C missed eight of its targets and guards:**
   - passes without a repair;
   - real first-try errors;
   - real mislabels in run 1;
   - cause support;
   - cause count;
   - depth;
-  - p50 in run 2.
+  - p50 in run 2;
+  - p50 and p90 at peak hours.
 - **The stopping rule** (§3, "When to stop"):
   - The held-out half ran once per arm, and nothing was changed after its results.
   - C missed by more than it did on development. Passes fell from dev-v6's 60% to 45%, and first-try gate failures
@@ -1594,8 +1599,28 @@ speed is the median over first attempts.
   - The stalls above are a different path, the client's own timeout and retry, and their full time is recorded.
   - Since the fix, a call records its whole wait, with its retries and its last attempt's time in its meta. The
     peak-hour run is measured that way.
-- **Peak hours:** not measured. `eval-v2-peak` is scheduled for 2026-10-27 06:05 UTC and has not run. It now runs
-  P beside C (one held-out run each), since P is the build §5.10 proposes.
+- **Peak hours** (`eval-v2-peak`): one held-out run each of P and C on Tuesday 27 October, 06:12:20–06:13:07 UTC,
+  inside DeepSeek's 06:00–10:00 window, with the same builds and the same concurrency (3 per arm) as the off-peak
+  runs.
+
+  | Build | p50 / p90 at peak (s) | p50 / p90 off-peak, by run (s) | Repaired at peak (off-peak, by run) | First attempt at peak, median (off-peak) |
+  |---|---|---|---|---|
+  | P | 11.1 / 12.1 | 10.54 / 12.2 · 10.9 / 11.4 | 4 of 10 (5 · 7) | 10.2 s at 5.6 ms a token (8.8–9.4 s at 5.1–5.3 ms) |
+  | C | 10.9 / 13.3 | 10.1 / 12.5 · 12.0 / 12.8 | 5 of 10 (4 · 7) | 10.2 s at 5.5 ms a token (9.3–9.4 s at 5.2 ms) |
+
+  - **The result.** P's p90 meets 13 s and its p50 misses 10.5 s, as off-peak. C's p50 sits inside its off-peak
+    range and its p90 is 0.5 s above its slower run, missing 13 s by 0.3 s. Each figure rests on 10 analyses.
+  - **Why so little moved.** First attempts ran 4–10% slower per output token than off-peak, 0.7–1.5 s more at the
+    median (the records' first attempts over 1,000 output tokens). P repaired fewer analyses than in either off-peak
+    run, which partly offsets that at p50. Patches took 2.5 s (P) and 2.35 s (C) at the median, as off-peak.
+  - **No retry and no stall.** No call's record carries `retries`, so none met a 429 or 5xx, and the longest of the
+    29 calls took 12.9 s.
+  - **Cost:** $0.0066 an analysis for each build at the off-peak list price, about $0.013 at the peak price.
+  - **Not read further.** The run is for latency only: no audit and no judge. Its deterministic counts are in line
+    with the off-peak runs (cause sentences per analysis P 6.1 and C 5.5; after one repair P 10 of 10 and C 9 of 10
+    pass the gate). C's CVX keeps one U1 hit, "net margin of 6.7% sat 2.5pp below the prior year's level", the
+    shape §2 lists among the withdrawn rules' false positives (a change placed against the year before). The run is
+    not in §5.2's guard-rule table, which counts the measured runs.
 
 ### 5.8 What the experiment resolved, and what it did not
 
@@ -1623,7 +1648,8 @@ prompt" is the candidate prompt, which only Q and C carry.
   - After one repair, 20 of C's outputs passed the gate, 19 of P's (DE: a gate false positive), 18 of K0's and 9 of
     the control's 10.
 - **Cost and p90, off-peak:** P and C cost $0.0065–0.0067 an analysis, with a p90 of 11.4–12.8 s. The same evening's
-  control cost $0.0071, with a p90 of 17.8 s. Peak hours are not measured yet.
+  control cost $0.0071, with a p90 of 17.8 s. At peak hours, one run each, P's p90 was 12.1 s and C's 13.3 s, at
+  twice the price (§5.7).
 
 **Resolved by the prompt only** (C, not P):
 - **Calibration** (mechanism 3, as to judgements):
@@ -1651,7 +1677,8 @@ prompt" is the candidate prompt, which only Q and C carry.
   - The repair hides them from the reader, at about 2.5 s each.
 - **p50 off-peak:** P 10.54 and 10.9 s, over the 10.5 s target in both runs (run 1 by 0.04 s). C 10.1–12.0 s. The
   founder's figure is "about 10 s".
-- **Peak-hour latency:** not yet measured.
+- **Peak-hour latency:** p50 11.1 s for P and 10.9 s for C, over 10.5 s as off-peak; p90 12.1 s for P (met) and
+  13.3 s for C (missed by 0.3 s). One run each (§5.7).
 - **Stalls:** 8 of 442 recorded calls (1.8%) waited out a 600 s timeout. The harness keeps that timeout; a production call cannot.
 
 **Made worse by the prompt: depth.**
@@ -1685,7 +1712,8 @@ prompt" is the candidate prompt, which only Q and C carry.
   - K0's cause count: 6.6 cause sentences per analysis over six runs. No judge read P, so its depth itself is not
     judged.
 
-  These were measured off-peak on the same evening. The peak-hour run is pending.
+  These were measured off-peak on the same evening. At peak hours, in one run on 27 October, P's p50 was 11.1 s
+  and its p90 12.1 s (§5.7).
 - **The prompt (C, over P):**
   - It brought calibration within target.
   - The judge preferred C to K0: overall in 10 pairs to 5, calibration 12 to 2, grounding 10 to 4.
@@ -1864,11 +1892,12 @@ and C's 23 over six runs, and P's 7 over its two held-out runs.
 
 **Before switching on** (REPORT.md §10, item 6, as it now stands):
 - the founder's approval of the grounding rule;
-- the peak-hour run, `eval-v2-peak`, now P and C (scheduled for 2026-10-27 06:05 UTC, not yet run), against p50
-  10.5 s and p90 13 s;
 - the per-attempt deadline above;
 - the blind human pack (REPORT.md §9c), rebuilt on the adopted build's outputs. It has not been rated, and it holds
   Sonnet's analyses, not DeepSeek's.
+
+The peak-hour run, on this list until 27 October, is done (§5.7): P's p50 11.1 s and p90 12.1 s, against 10.5 s and
+13 s, as off-peak.
 
 The long-term-debt mapping in production's facts layer is a separate decision (REPORT.md §10, item 5; §4 here).
 

@@ -37,7 +37,11 @@ Never draw again on the same code to get a green result:
   push of b1a8587 started its draw (run 40404764572, created 21:29:18Z). A toggle at 21:29:23-24Z, made to request
   Codex's review, started run 40404785082 (created 21:29:27Z), which cancelled the push's draw and then refused to
   draw. After a push, let `copilot-eval`
-  finish before any toggle, one made to request a Codex review included.
+  finish before any toggle, one made to request a Codex review included. Waiting for `copilot-eval` alone is not
+  enough: the toggle's ready mark also starts a CI run that cancels the push's run still in progress, and
+  `eval-baseline` draws again (5ec6984's was cancelled 3 minutes into its paid step;
+  `ops-reserve-eval-baseline-before-each-push.md`). Better, ask the founder to post Codex's review command, which
+  starts no CI run.
 - **A push only to draw again.** Never push a commit that changes nothing under `backend/` or
   `.github/` just to draw again, outside a predeclared protocol. The gate does not catch this, because
   it keys on the head commit. Gating it is follow-up 11 in
