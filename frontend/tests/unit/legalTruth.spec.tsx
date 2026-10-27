@@ -2080,18 +2080,31 @@ const OPENS_A_CLAUSE = /^(?:after|although|as|because|before|except|for|if|like|
     after it" in "replayed a second time after it was not used", "after the weekend was not over", "on Monday after the
     launch did not succeed", "for it was not used": the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on
     a5c5a491 and a033404c), so the reading there stays main's, as it does for a time after such a word ("after a
-    week"). Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
-    "one", with a relative clause whose subject is a phrase of time, reads as a participle ("a news feed the weekend
-    does not cover", "one feed the weekend does not cover"), and a participle right after a determiner keeps the
-    misreading, as on main ("Those presented a second time do not by themselves ..."). */
+    week"). And a finite verb group where the reader's misread clause ends (finiteAt), with no word that opens a
+    clause between it and the group found, is the clause's own: the group found is then a clause's that the phrase
+    of time holds, or a noun's relative clause's, so the reading there stays main's too ("a second time knowing it is
+    not valid ends every session", "a news feed the weekend does not cover ends every session": the routine lens on
+    3b4b8a69). Out of reach: a participle right after a determiner keeps the misreading, as on main ("Those presented
+    a second time do not by themselves ..."). */
 const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } | null => {
   const first = phrase.postmodifiers[0]
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
   if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
   if (tokens.slice(time.start, time.end).some((token) => OPENS_A_CLAUSE.test(token.text))) return null
-  for (let k = time.end; k < first.end; k++) if (startsVerbGroup(tokens, k)) return { end: k, nests: readOf(tokens, time).nests }
+  for (let k = time.end; k < first.end; k++) {
+    if (!startsVerbGroup(tokens, k)) continue
+    if (finiteAt(tokens, first.end) && !tokens.slice(k, first.end).some((token) => OPENS_A_CLAUSE.test(token.text))) return null
+    return { end: k, nests: readOf(tokens, time).nests }
+  }
   return null
+}
+/** Whether a finite verb group starts at a token: an auxiliary or a modal in it, or a verb in its third person's -s or a
+    past form ("ends", "does not end", "will end"; not "sign" after "does not by itself"). */
+const finiteAt = (tokens: Token[], at: number): boolean => {
+  if (!startsVerbGroup(tokens, at)) return false
+  const group = verbGroupAt(tokens, at)
+  return tokens.slice(group.start, group.verb + 1).some((token) => AUXILIARY.test(token.text)) || ['third', 'past'].includes(formOf(tokens[group.verb]))
 }
 /** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
     clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
@@ -4323,6 +4336,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time on Monday after the launch did not succeed ends every session.</li>', true],
       ['<li>Logging out of a session replayed a second time for it was not used ends every session.</li>', true],
       ['<li>A refresh token presented a second time like you did not log out signs everyone out.</li>', true],
+      // A finite verb group where the reader's misread clause ends is the clause's own, so the group found before it is
+      // a clause's that the phrase of time holds, and the reading stays main's (finiteAt: the routine lens on
+      // 3b4b8a69), as it does for a noun in -ed whose relative clause's subject is a phrase of time.
+      ['<li>Logging out of a session replayed a second time knowing it is not valid ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time knowing it is not valid will end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', true],
       ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', true],
       // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
       // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
@@ -4351,10 +4371,6 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
       ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
-      // And a noun in -ed after a word the reader reads as a premodifier, another noun or "one", with a relative clause
-      // whose subject is a phrase of time, reads as a participle (participleAt).
-      ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', 'gap'],
-      ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
