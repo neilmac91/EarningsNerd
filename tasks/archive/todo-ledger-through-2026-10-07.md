@@ -6906,6 +6906,16 @@ Full local and hosted verification plus independent exact-head review precede re
   spend; no ledger event; 102 runs by other writers whose paid steps started, 76 balance readouts and fourteen
   Ops runs on GitHub. No chief defect, classifier denial or hook refusal of the chief's commands in the window.
   Closure 205.
+- 2026-10-27 (record 55, `runtime/control/DECISIONS-55.md`): PR #1672 (record 54) merged `d4c4fb81` by the
+  chief's own squash on the founder's word (fiftieth deploy-skip proof: its main run succeeded and its deploy
+  job skipped every deploy step); before it, its fact-check, a merge of main, its reviewer's two passes and the
+  chief's one ready mark, whose own Codex review completed with no finding; the merge held twice for other
+  writers' backend deploys. Closure 206 registers record 54's survey, fact-check and reviewer and pre-registers
+  this record's survey and fact-check and record 56's reviewer. A read-only survey of the window before the
+  record was written. Fifteen main merges, six of them backend deploys, healthy, none applying a migration; no
+  job cut off at its time limit; production not read live. No CODE RED spend; no ledger event; 24 runs by other
+  writers whose paid steps started and five balance readouts on GitHub. Chief defect 36, a mask that a cut ran
+  ahead of; no classifier denial or hook refusal of the chief's commands in the window. Closure 206.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
