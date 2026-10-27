@@ -18,7 +18,8 @@ durations and FY-end instants, the newest ``--years`` fiscal years) it compares:
   (``facts/own_reports._own_report``: an annual report whose own period end, per ``own_period_ends``,
   is this period, for the winner's span; the original before an amendment, then the earliest filed),
   looked up within the winning tag and, separately, across all of the concept's tags (that rule within
-  each tag, then the earliest filed, then the tag's priority).
+  each tag, for the winner's span; then the original before an amendment, the earliest filed, and the
+  tag's priority).
 
 Within the winning tag, a cell whose own value differs from the winner's under another accession is a
 history row a sync stores (``meta["history"]``), except that ingest drops an own value that is
@@ -569,7 +570,8 @@ def render(cells: list[dict[str, Any]], coverage: list[dict[str, Any]], args: ar
             "original before amendment, then earliest filed). *within* = own looked up in the winning tag "
             "only: where it differs under another accession, the history row a sync stores (bar a negative "
             "own value of a non-negative concept, which ingest drops); *across* = own looked up in all the "
-            "concept's tags (that rule within each tag, then earliest filed, then tag priority), which "
+            "concept's tags (that rule within each tag, then original before amendment, then earliest "
+            "filed, then tag priority), which "
             "ingest does not keep. *later filing* = own found and its accession differs from the winner's. "
             "Gap = |winner - own| / |own|.", ""]
 

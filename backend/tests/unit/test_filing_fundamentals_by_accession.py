@@ -922,19 +922,22 @@ def test_a_line_missing_two_years_shows_only_the_years_after_the_latest(db):
     assert _chart(db, filing)["revenue"] == _own(k18, REV)[-1:]
 
 
-@pytest.mark.parametrize("fy,span,value", [(2019, ("2019-01-06", "2020-01-05"), 101.0),
-                                           (2021, ("2020-12-27", "2021-12-25"), 119.0)],
-                         ids=["the-earlier-year-five-days-later", "the-later-year-six-days-earlier"])
-def test_a_row_of_either_years_own_end_under_another_date_fills_no_gap(db, fy, span, value):
-    """Another filing gives a year either side of the fresh-start report's gap a period end a few days off
-    the report's (a 52/53-week end): fiscal 2019 five days later, or the report's own year six days
-    earlier. Within ``DRIFT_DAYS`` of that year's end, it is that year, not the one missing between, so
-    the line charts whole, as main does."""
+@pytest.mark.parametrize("tag,fy,span,value", [(REV, 2019, ("2019-01-06", "2020-01-05"), 101.0),
+                                               (REV, 2021, ("2020-12-27", "2021-12-25"), 119.0),
+                                               ("NetIncomeLoss", 2020, ("2020-01-01", "2020-12-31"), 11.0)],
+                         ids=["the-earlier-year-five-days-later", "the-later-year-six-days-earlier",
+                              "the-year-between-of-another-line"])
+def test_a_row_that_is_not_the_lines_missing_year_fills_no_gap(db, tag, fy, span, value):
+    """Another filing gives a row near the fresh-start report's revenue gap that is no revenue year missing
+    between: a year either side of the gap under a period end a few days off the report's (a 52/53-week
+    end), fiscal 2019 five days later or the report's own year six days earlier, which within
+    ``DRIFT_DAYS`` of that year's end is that year; or the whole of 2020 for net income alone, another
+    line's year. So the revenue line charts whole, as main does."""
     company = _company(db)
     [report] = _fresh_start(company)
     filing = _filing(db, company, report)
-    other = _spans(_accession(company, fy + 1, 40), fy, f"{fy + 1}-04-01", [span], {}, **{REV: [value]})
-    _sync(db, company, *sorted((report, other), key=lambda items: items[REV][0]["filed"]))
+    other = _spans(_accession(company, fy + 1, 40), fy, f"{fy + 1}-04-01", [span], {}, **{tag: [value]})
+    _sync(db, company, *sorted((report, other), key=lambda items: items[tag][0]["filed"]))
     _process(db, filing, _annual(report))
 
     assert _chart(db, filing)["revenue"] == _own(_annual(report), REV)
