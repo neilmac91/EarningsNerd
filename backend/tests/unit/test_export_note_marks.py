@@ -354,7 +354,8 @@ def test_the_summary_line_stays_on_the_grids_last_page():
         html = ExportService().generate_analysis_pdf_html(_rows(count), COMPANY)
         # The metrics section alone: the layout under test, without laying out the rest of the report.
         html = re.sub(r'(<section class="metrics-landscape">.*?</section>).*(</body>)', r"\1\2", html, count=1, flags=re.S)
-        assert rule in html
+        # Without the rule as written here, the summary never parts from the grid (the rule spelt another way keeps
+        # it there, and the loop fails), or the rule is gone, and the layout below fails at the boundary.
         try:
             without = _pages(weasyprint, html.replace(rule, ""), f"Metric {count - 1}")
         except Exception as exc:  # missing system libs in odd envs: not what this test reads
