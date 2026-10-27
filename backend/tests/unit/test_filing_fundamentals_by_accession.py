@@ -922,39 +922,51 @@ def test_a_line_missing_two_years_shows_only_the_years_after_the_latest(db):
     assert _chart(db, filing)["revenue"] == _own(k18, REV)[-1:]
 
 
-def test_a_row_of_the_later_years_own_end_under_another_date_fills_no_gap(db):
-    """Another filing gives the fresh-start report's own year a period end six days earlier (a 52/53-week
-    end): within ``DRIFT_DAYS`` of the report's own year, it is that year, not the one missing between,
-    so the line charts whole, as main does."""
+@pytest.mark.parametrize("fy,span,value", [(2019, ("2019-01-06", "2020-01-05"), 101.0),
+                                           (2021, ("2020-12-27", "2021-12-25"), 119.0)],
+                         ids=["the-earlier-year-five-days-later", "the-later-year-six-days-earlier"])
+def test_a_row_of_either_years_own_end_under_another_date_fills_no_gap(db, fy, span, value):
+    """Another filing gives a year either side of the fresh-start report's gap a period end a few days off
+    the report's (a 52/53-week end): fiscal 2019 five days later, or the report's own year six days
+    earlier. Within ``DRIFT_DAYS`` of that year's end, it is that year, not the one missing between, so
+    the line charts whole, as main does."""
     company = _company(db)
     [report] = _fresh_start(company)
     filing = _filing(db, company, report)
-    other = _spans(_accession(company, 2022, 40), 2021, "2022-04-01", [("2020-12-27", "2021-12-25")], {},
-                   **{REV: [119.0]})
-    _sync(db, company, report, other)
+    other = _spans(_accession(company, fy + 1, 40), fy, f"{fy + 1}-04-01", [span], {}, **{REV: [value]})
+    _sync(db, company, *sorted((report, other), key=lambda items: items[REV][0]["filed"]))
     _process(db, filing, _annual(report))
 
     assert _chart(db, filing)["revenue"] == _own(_annual(report), REV)
 
 
+@pytest.mark.parametrize("next_first", [False, True], ids=["the-year-between-synced", "the-year-between-written"])
 @pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
 @pytest.mark.parametrize("tag,concept,restated", [("NetIncomeLoss", "net_income", False), (REV, "revenue", True)],
                          ids=["no-later-report-changed-it", "a-later-report-restated-it"])
-def test_a_line_read_for_its_own_year_alone_charts_that_year_in_either_order(db, sync_first, tag, concept, restated):
+def test_a_line_read_for_its_own_year_alone_charts_that_year_in_either_order(
+        db, sync_first, tag, concept, restated, next_first):
     """The extractor gave one point of a line (no comparative series): the report's own year. The sync holds
     the line's oldest year, two years before it, and the next report's row holds the year between, so the
     line misses that year and shows only its own. Who holds the own-year cell turns on the order the
     writers ran: the writer, processed first or where no later report changed the year; else, synced
-    first, the own-report row. Either way the chart is the same."""
+    first, the own-report row. Who holds the year between does too: the sync, or the next report's writer
+    where that report was processed before the sync. Either way the chart is the same."""
     company = _company(db)
     reports = _regn(company)
     filing = _filing(db, company, reports[2018])
+    if next_first:
+        _process(db, _filing(db, company, reports[2019]), reports[2019])
     read = {**{key: reports[2018][key] for key in (REV, "NetIncomeLoss")}, tag: reports[2018][tag][-1:]}
     steps = [lambda: _sync(db, company, *reports.values()),
              lambda: facts_service.process_filing_facts(db, filing, standardized=_standardized(read))]
     for step in steps if sync_first else steps[::-1]:
         step()
 
+    between = db.query(FinancialFact).filter_by(company_id=company.id, concept=concept, period_end=date(2017, 12, 31),
+                                                fiscal_period="FY").all()
+    assert [(row.accession, row.filing_id is not None) for row in between] == [
+        (reports[2019][tag][0]["accn"], next_first)]
     rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=filing.accession_number,
                                              concept=concept).all()
     assert sorted((row.period_end.year, row.filing_id) for row in rows) == [
@@ -1027,11 +1039,11 @@ def test_a_september_year_reports_own_report_row(db, read_revenue):
     assert _years(db, k23, "net_income") == [(2021, 94.7e9), (2022, 99.8e9), (2023, 97.0e9)]  # 2021 a stand-in
 
 
-def _spans(accn: str, fy: int, filed: str, spans: list[tuple[str, str]], balances: dict[str, float],
-           **lines: list[float]) -> dict[str, list[dict]]:
-    """One 10-K's companyfacts items over explicit (start, end) spans, a transition period's included, and
-    its year-end balances."""
-    common = {"accn": accn, "fy": fy, "fp": "FY", "form": "10-K", "filed": filed, "unit": "USD"}
+def _spans(accn: str, fy: int, filed: str, spans: list[tuple[str, str]], balances: dict[str, float], *,
+           form: str = "10-K", fp: str = "FY", **lines: list[float]) -> dict[str, list[dict]]:
+    """One report's companyfacts items over explicit (start, end) spans, a transition period's or a 10-Q's
+    quarter and year to date included, and its balances."""
+    common = {"accn": accn, "fy": fy, "fp": fp, "form": form, "filed": filed, "unit": "USD"}
     items = {tag: [{**common, "val": value, "start": start, "end": end} for (start, end), value in zip(spans, values)]
              for tag, values in lines.items()}
     return items | {"Assets": [{**common, "val": value, "end": end} for end, value in balances.items()]}
@@ -1047,8 +1059,10 @@ def _annual(report: dict[str, list[dict]]) -> dict[str, list[dict]]:
 
 def _september_to_december(company: Company, recast: bool = False) -> list[dict[str, list[dict]]]:
     """Years to 30 September, then a three-month transition period to 31 December 2019, then calendar
-    years: the FY2019 10-K, the change report (the year to 31 December 2020) and the one after it, which
-    gives, with ``recast``, the calendar 2019 recast in place of the transition period and fiscal 2019."""
+    years: the FY2019 10-K, the 10-Q for the third quarter of 2020 (its quarter and nine months to 30
+    September 2020, 366 days after fiscal 2019's end), the change report (the year to 31 December 2020)
+    and the one after it, which gives, with ``recast``, the calendar 2019 recast in place of the
+    transition period and fiscal 2019."""
     years = [("2016-10-01", "2017-09-30"), ("2017-10-01", "2018-09-30"), ("2018-10-01", "2019-09-30"),
              ("2019-10-01", "2019-12-31"), ("2020-01-01", "2020-12-31"), ("2021-01-01", "2021-12-31")]
     revenue, net_income = [100.0, 110.0, 120.0, 32.0, 130.0, 140.0], [10.0, 11.0, 12.0, 3.0, 13.0, 14.0]
@@ -1064,13 +1078,17 @@ def _september_to_december(company: Company, recast: bool = False) -> list[dict[
         later = _spans(_accession(company, 2022), 2021, "2022-02-15", [("2019-01-01", "2019-12-31"), *years[4:]],
                        {end: balances[end] for end in ("2020-12-31", "2021-12-31")},
                        **{REV: [125.0, 130.0, 140.0], "NetIncomeLoss": [12.5, 13.0, 14.0]})
-    return [report(2019, "2019-11-15", 0, 3, ("2018-09-30", "2019-09-30")),
+    third_quarter = _spans(_accession(company, 2020, 30), 2020, "2020-11-05",
+                           [("2020-07-01", "2020-09-30"), ("2020-01-01", "2020-09-30")], {}, form="10-Q", fp="Q3",
+                           **{REV: [33.0, 97.0], "NetIncomeLoss": [3.3, 9.8]})
+    return [report(2019, "2019-11-15", 0, 3, ("2018-09-30", "2019-09-30")), third_quarter,
             report(2020, "2021-02-15", 1, 5, ("2019-12-31", "2020-12-31")), later]
 
 
 def _december_to_june(company: Company) -> list[dict[str, list[dict]]]:
-    """Calendar years, then a six-month transition period to 30 June 2022, then years to 30 June: the
-    change report (the year to 30 June 2023) and the one after it."""
+    """Calendar years, then a six-month transition period to 30 June 2022, then years to 30 June: the 10-Q
+    for the second quarter of fiscal 2023 (its quarter and six months to 31 December 2022, 365 days after
+    calendar 2021's end), the change report (the year to 30 June 2023) and the one after it."""
     years = [("2020-01-01", "2020-12-31"), ("2021-01-01", "2021-12-31"), ("2022-01-01", "2022-06-30"),
              ("2022-07-01", "2023-06-30"), ("2023-07-01", "2024-06-30")]
     revenue, net_income = [100.0, 110.0, 50.0, 130.0, 140.0], [10.0, 11.0, 5.0, 13.0, 14.0]
@@ -1080,7 +1098,10 @@ def _december_to_june(company: Company) -> list[dict[str, list[dict]]]:
         return _spans(_accession(company, fy), fy, filed, years[first:last], {end: balances[end] for end in ends},
                       **{REV: revenue[first:last], "NetIncomeLoss": net_income[first:last]})
 
-    return [report(2023, "2023-08-25", 0, 4, ("2022-06-30", "2023-06-30")),
+    second_quarter = _spans(_accession(company, 2023, 30), 2023, "2023-02-08",
+                            [("2022-10-01", "2022-12-31"), ("2022-07-01", "2022-12-31")], {}, form="10-Q", fp="Q2",
+                            **{REV: [33.0, 65.0], "NetIncomeLoss": [3.3, 6.5]})
+    return [second_quarter, report(2023, "2023-08-25", 0, 4, ("2022-06-30", "2023-06-30")),
             report(2024, "2024-08-23", 1, 5, ("2023-06-30", "2024-06-30"))]
 
 
@@ -1101,11 +1122,12 @@ def test_a_gap_no_filing_of_the_company_fills_is_no_missing_year(db, shape, sync
     """A fiscal-year change's transition period, or a fresh-start split year, is no FY row, so a line runs
     from the old year end to the new one (458 days from 30 September 2019 to 31 December 2020, 546 from
     31 December 2021 to 30 June 2023) or across the split year (731 days). No filing of the company holds
-    a year there, so the line misses none, and in either order the change report and the one after it
-    (the fresh-start report alone) chart every year they gave, as main does: synced first, the newest
-    report owns no row and its lines are all stand-ins; processed first, every report owns its own. A
-    recast calendar 2019, three months after fiscal 2019, is off the change report's cadence and fills
-    no year of it."""
+    a year there. The 10-Q whose quarter ends a whole year after the old year end (30 September 2020, 31
+    December 2022) holds a quarter, and only an FY row fills a gap. So the line misses none, and in either
+    order the change report and the one after it (the fresh-start report alone) chart every year they
+    gave, as main does: synced first, the newest report owns no row and its lines are all stand-ins;
+    processed first, every report owns its own. A recast calendar 2019, three months after fiscal 2019, is
+    off the change report's cadence and fills no year of it."""
     company = _company(db)
     reports = shape(company)
     filings = [_filing(db, company, report) for report in reports]
@@ -1115,6 +1137,9 @@ def test_a_gap_no_filing_of_the_company_fills_is_no_missing_year(db, shape, sync
     for step in steps if sync_first else steps[1:] + steps[:1]:
         step()
 
+    quarters = {(item["end"], item["fp"]) for report in reports for item in report[REV] if item["form"] == "10-Q"}
+    assert quarters <= {(row.period_end.isoformat(), row.fiscal_period) for row in db.query(FinancialFact).filter_by(
+        company_id=company.id, concept="revenue")}  # the 10-Q's quarter is stored, beside the gap
     for filing, report in list(zip(filings, reports))[-2:]:
         read = _annual(report)
         chart = _chart(db, filing)

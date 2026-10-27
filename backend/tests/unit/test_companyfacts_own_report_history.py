@@ -144,6 +144,13 @@ class TestOwnReportHistory:
         _facts, meta = svc.normalize_companyfacts(1, _payload(refiled + _items(_REVENUE)))
         assert _history(meta, "revenue")[("revenue", 2018)] == (6_710.8e6, K18)
 
+    def test_of_two_own_items_filed_the_same_day_the_first_listed_is_the_own_report(self):
+        # The FY2018 10-K tags its own year twice, the later-listed item with another figure: both are the
+        # year's own report, originals filed the same day, and companyfacts' filing order breaks the tie.
+        revenue = _items(_REVENUE) + [_item(6_700.0e6, 2018, 2018)]
+        _facts, meta = svc.normalize_companyfacts(1, _payload(revenue))
+        assert _history(meta, "revenue")[("revenue", 2018)] == (6_710.8e6, K18)
+
     def test_an_item_with_no_form_at_an_annual_reports_accession_is_read_as_its_original(self):
         # One FY2018 10-K item carries no form; the report's other items name it, so its accession is an
         # annual report's own. The item is that report's, read as an original, and the sync goes on.
@@ -259,6 +266,30 @@ class TestTheCensusTakesIngestsOwnReport:
                   for cell in cells if cell["within_later"] and cell["within"]["value"] != cell["winner"]["value"]}
         assert census == _history(meta)
         assert ("revenue", 2018) in census or shape == "another-span"
+
+    @pytest.mark.parametrize("shape", ["filed-first-under-a-lower-tag", "another-span-wins-the-tag"])
+    def test_the_census_across_the_tags_takes_the_winners_span_then_the_earliest_filed_then_the_tags_priority(
+            self, shape):
+        # The FY2018 10-K gave its revenue under "Revenues" alone. Either the same 10-K, filed again five
+        # weeks later, gave it under the winning tag, whose priority is higher: the original, filed first,
+        # is the own report across the tags. Or the FY2019 10-K gave FY2018 under "Revenues" for another
+        # span, so that tag's latest item starts on another day than the winner: the original is still the
+        # own report, for the winner's span.
+        from scripts import restatement_census
+
+        k18b = "0001532176-19-000040"
+        revenues = _items({2018: _REVENUE[2018]})
+        refiled = [_item(value, year, 2018, accn=k18b, filed="2019-03-15")
+                   for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: 6_700.0e6}.items()]
+        if shape == "another-span-wins-the-tag":
+            refiled, revenues = [], revenues + [{**_item(6_705.0e6, 2018, 2019), "start": "2018-01-02"}]
+        payload = _payload(refiled + _items({**_REVENUE, 2018: {}}), tags={"Revenues": {"units": {"USD": revenues}}})
+        cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
+        [cell] = [cell for cell in cells if (cell["concept"], cell["fy"]) == ("revenue", 2018)]
+        assert (cell["winner"]["value"], cell["winner"]["accession"]) == (5_145.6e6, K20)
+        assert (cell["within"] or {}).get("accession") == (k18b if refiled else None)
+        assert (cell["across"]["value"], cell["across"]["accession"], cell["across"]["tag"]) == (
+            6_710.8e6, K18, "us-gaap:Revenues")
 
 
 @pytest.fixture(scope="module", autouse=True)
