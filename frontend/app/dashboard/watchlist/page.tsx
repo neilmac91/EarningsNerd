@@ -251,7 +251,16 @@ export default function WatchlistDashboardPage() {
 
                     <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
                       <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Summary freshness</div>
-                      {latest && latest.summary_id ? (
+                      {latest && summaryStatusKind(latest.summary_status) === 'placeholder' ? (
+                        // A stored summary the filing page shows no body for (failure filler, the in-progress marker,
+                        // a writer error or nothing) has no freshness to give: the tile says what the card's
+                        // Unavailable chip and its next step say (E221), in their status ink with the glyph, as the
+                        // missing state's line below.
+                        <div className="flex items-center space-x-2 text-sm text-warning-light dark:text-warning-dark">
+                          <WarningCircleIcon className="h-4 w-4" />
+                          <span>This summary isn&apos;t available</span>
+                        </div>
+                      ) : latest && latest.summary_id ? (
                         <>
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Updated {formatRelative(latest.summary_updated_at || latest.summary_created_at)}

@@ -122,12 +122,12 @@ def _filing(cid: int, ftype: str, filed: datetime) -> int:
     return fid
 
 
-def _summary(fid: int, overview: str) -> int:
+def _summary(fid: int, overview: str, raw_summary: dict | None = None, risk_factors: list | None = None) -> int:
     from app.database import SessionLocal
     from app.models import Summary
 
     db = SessionLocal()
-    row = Summary(filing_id=fid, business_overview=overview)
+    row = Summary(filing_id=fid, business_overview=overview, raw_summary=raw_summary, risk_factors=risk_factors)
     db.add(row)
     db.commit()
     sid = row.id
@@ -262,3 +262,52 @@ def test_insights_status_mapping_ordering_and_tie_break(client, user_id):
     m = by_ticker[tickers["M"]]["latest_filing"]
     assert (m["id"], m["summary_status"], m["needs_regeneration"], m["progress"]) == (missing, "missing", True, None)
     assert m["summary_created_at"] is None and m["summary_updated_at"] is None
+
+
+@pytest.mark.parametrize(
+    ("overview", "stored", "ready"),
+    [
+        pytest.param("A real overview of the business.", {}, True, id="an overview"),
+        # Prose that mentions the phrase is content on the filing page, whose in-progress marker is case-sensitive.
+        pytest.param("A real overview about generating summary reports.", {}, True, id="prose naming the phrase"),
+        pytest.param("Generating summary... please wait", {}, False, id="the in-progress marker"),
+        pytest.param("Summary temporarily unavailable. Please retry.", {}, False, id="failure filler"),
+        pytest.param("", {}, False, id="an empty body"),
+        pytest.param("A real overview of the business.", {"raw_summary": {"writer_error": "timeout"}}, False,
+                     id="a writer error"),
+        # The page is served an empty body's sections, rendered, a legacy row's risk list as its Risks section, and a
+        # stored Risks section replaced, whatever it carried.
+        pytest.param("", {"raw_summary": {"sections": {"executive_snapshot": {"headline": "Revenue rose 6%."}}}},
+                     True, id="an empty body with its sections"),
+        pytest.param(" \n", {"risk_factors": [{"title": "Supply chain", "description": "Supply constraints persisted."}]},
+                     True, id="a blank body with a legacy risk list"),
+        pytest.param("## Risks\n\nGenerating summary...", {}, True, id="the marker in its Risks section alone"),
+    ],
+)
+def test_the_watchlist_and_the_dashboard_call_ready_what_the_filing_page_shows(
+    client, user_id, overview, stored, ready
+):
+    # The watchlist insights (the watchlist card's chip, the dashboard's Your companies rows) and the dashboard feed (its
+    # card's link) read the filing page's rule on the body the page is served (E221): Ready exactly when the page shows
+    # a summary, else Unavailable ("placeholder") with a regeneration to offer. The feed's status is read on a detached
+    # row, as test_force_regenerate_keeps_xbrl.py reads it: the rule needs only the row's own columns.
+    from app.database import SessionLocal
+    from app.models import Summary
+    from app.services.dashboard_feed_service import _summary_status
+    from app.services.summary_placeholders import is_summary_ready
+
+    ticker = f"S{uuid.uuid4().hex[:5].upper()}"
+    cid = _company(ticker)
+    _watch(user_id, cid, T0)
+    fid = _filing(cid, "10-K", datetime(2026, 3, 1, tzinfo=timezone.utc))
+    sid = _summary(fid, overview, **stored)
+    page = client.get(f"/api/summaries/filing/{fid}").json()
+    assert is_summary_ready(page["business_overview"], (page["raw_summary"] or {}).get("writer_error")) is ready
+    status = "ready" if ready else "placeholder"
+
+    [row] = client.get("/api/watchlist/insights").json()
+    snap = row["latest_filing"]
+    assert (snap["summary_id"], snap["summary_status"], snap["needs_regeneration"]) == (sid, status, not ready)
+    with SessionLocal() as db:
+        stored_row = db.get(Summary, sid)
+    assert _summary_status(stored_row, None) == {"summary_id": sid, "summary_status": status}
