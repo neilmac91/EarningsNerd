@@ -247,6 +247,50 @@ class TestEnrichRawSummary:
         assert "source_url" not in raw["sections"]["results_that_matter"]["table"][0]
 
 
+# Each takes the place of every space between an excerpt's words. A stored filing span carries line breaks, and every
+# read projects it again.
+_RISK_PADDINGS = [("two spaces", "  "), ("a line break", "\n  "), ("two tabs", "\t\t"), ("a no-break space", "\u00a0 ")]
+
+
+class TestRiskExcerptFloor:
+    """Risks match whitespace-exact, so the floor counts what the match compares: the words, with the whitespace
+    between them collapsed and every other character as written. The model's evidence and the filing span it selects
+    share them, so padding of any kind, on either side, carries no short excerpt over the floor, and a stored span
+    keeps its place when a read projects it again (E180)."""
+
+    SHORT = "Supply chain risk rose."
+    AT_THE_FLOOR = "Supply chain risks rose."
+    LONG = "Our business depends on a limited number of suppliers."
+
+    @pytest.mark.parametrize("pad_evidence, pad_filing, padding", [
+        pytest.param(on_evidence, on_filing, padding, id=f"{side} padding, {name}")
+        for side, on_evidence, on_filing in (("the model's", True, False), ("the filing's", False, True), ("both", True, True))
+        for name, padding in _RISK_PADDINGS
+    ])
+    def test_padding_carries_no_short_excerpt_over_the_floor(self, pad_evidence, pad_filing, padding):
+        evidence = self.SHORT.replace(" ", padding) if pad_evidence else self.SHORT
+        filed = self.SHORT.replace(" ", padding) if pad_filing else self.SHORT
+        assert len(self.SHORT) == prov._MIN_VERIFIABLE_LEN - 1
+        assert max(len(evidence), len(filed)) > prov._MIN_VERIFIABLE_LEN
+        filing = _filing(critical_excerpt=f"{filed}\n{self.LONG}")
+        raw = {"sections": {"risk_factors": [{"supporting_evidence": evidence}, {"supporting_evidence": self.LONG}]}}
+
+        sections = prov.project_raw_summary_risks(raw, filing, summary_filing_id=filing.id)["sections"]
+        assert [risk["supporting_evidence"] for risk in sections["risk_factors"]] == [self.LONG]
+        assert sections[prov.RISK_PROJECTION_KEY]["withheld_count"] == 1
+
+    @pytest.mark.parametrize("padding", [padding for _name, padding in _RISK_PADDINGS],
+                             ids=[name for name, _padding in _RISK_PADDINGS])
+    def test_an_excerpt_whose_words_reach_the_floor_is_kept_however_padded(self, padding):
+        assert len(self.AT_THE_FLOOR) == prov._MIN_VERIFIABLE_LEN
+        filed = self.AT_THE_FLOOR.replace(" ", padding)
+        filing = _filing(critical_excerpt=f"{filed}\n{self.LONG}")
+        raw = {"sections": {"risk_factors": [{"supporting_evidence": self.AT_THE_FLOOR.replace(" ", padding)}]}}
+
+        sections = prov.project_raw_summary_risks(raw, filing, summary_filing_id=filing.id)["sections"]
+        assert [risk["supporting_evidence"] for risk in sections["risk_factors"]] == [filed]
+
+
 class TestEnrichSummaryProvenance:
     def test_shapes_response_and_enriches_both_paths(self):
         risk = {
