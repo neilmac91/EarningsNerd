@@ -14,6 +14,8 @@ checks with their own token sets and match semantics; consolidating them here wo
 """
 from typing import Any, Optional
 
+from app.services.provenance_service import source_safe_business_overview
+
 # Substrings that mark a summary body as interim/error filler rather than real content.
 SUMMARY_PLACEHOLDER_TOKENS = (
     "generating summary",
@@ -29,8 +31,8 @@ SUMMARY_PLACEHOLDER_TOKENS = (
 # The in-progress marker an earlier pipeline stored mid-run, matched case-sensitively as the filing
 # page and the sitemap always have, so prose about "generating summary reports" stays content.
 IN_PROGRESS_MARKER = "Generating summary"
-# The other tokens mark a stored failure, which the page shows as its "Summary temporarily
-# unavailable" card. Real analysis never carries them.
+# The other tokens mark a stored failure, which the page shows as its stored-failure card ("This
+# summary did not finish"). Real analysis never carries them.
 SUMMARY_FAILURE_TOKENS = tuple(token for token in SUMMARY_PLACEHOLDER_TOKENS if token != "generating summary")
 
 
@@ -48,9 +50,22 @@ def is_summary_ready(overview: Optional[str], writer_error: object = None) -> bo
 
 
 def is_stored_summary_ready(summary: Any) -> bool:
-    """``is_summary_ready`` for a stored Summary row, its writer error read from ``raw_summary``. The watchlist
-    and the dashboard's Your companies rows label the row Ready by it, else Unavailable (``placeholder``), so
-    their chip says what the filing page shows (E221)."""
+    """``is_summary_ready`` for a stored Summary row, on the body the filing page is served
+    (``source_safe_business_overview``), its writer error read from ``raw_summary`` (E221). The watchlist insights
+    label the row Ready by it, else Unavailable (``placeholder``), for the watchlist card's chip and the dashboard's
+    Your companies rows; the dashboard feed labels its card's link by it (``_summary_status``), "Read summary" or
+    else "Regenerate summary". Each then says what the filing page shows.
+
+    A writer error is never ready. A body ready as stored is read as stored, since serving rewrites only its Risks
+    section. Any other is read as served: an empty body is served the row's sections, rendered, or its legacy risk
+    list instead, and a Risks section is replaced, whatever it carried. The body is rendered without the filing,
+    whose text decides only which excerpts the Risks section quotes, never whether there is a body, so the rule
+    reads the row's own columns alone, with no query. It departs from the page's reading in one case: a quoted
+    excerpt that itself carries the filler or the marker, which the filing's own text would have to contain."""
     raw = getattr(summary, "raw_summary", None)
-    writer_error = raw.get("writer_error") if isinstance(raw, dict) else None
-    return is_summary_ready(getattr(summary, "business_overview", None), writer_error)
+    if isinstance(raw, dict) and raw.get("writer_error"):
+        return False
+    body = getattr(summary, "business_overview", None)
+    if is_summary_ready(body):
+        return True
+    return is_summary_ready(source_safe_business_overview(summary, None))
