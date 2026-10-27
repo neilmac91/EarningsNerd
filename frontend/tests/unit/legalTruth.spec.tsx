@@ -2059,11 +2059,13 @@ const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
     on 767a60d1). */
 const UNIT_OF_TIME = /^(?:time|second|minute|hour|day|night|week|weekend|month|year|morning|evening|afternoon|moment)$/i
 const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
-/** The words that may open a clause of time, cause, condition or manner, which the reader takes for a preposition before
-    a pronoun or a noun phrase where it does not take them for a clause's opening ("until it" in "does not wait until it
-    ends every session", "after it" in "replayed a second time after it was not used", "for it" in "... for it was not
-    used": the routine lens on 95be62e7 and a033404c). */
-const OPENS_A_CLAUSE = /^(?:after|although|as|because|before|except|for|if|like|once|since|than|though|till|unless|until|when|whenever|whereas|while)$/i
+/** The phrases the reader leaves out of a verb group, so that its words stop before the verb ("does not by itself |
+    sign", "cannot on its own | end", "does not alone | sign"): a reflexive after "by", "in" or "of", "own" after a
+    possessive, and "alone". */
+const LEFT_OUT = /^(?:by (?:itself|themselves)|on (?:its|their) own|in (?:itself|themselves)|of itself|alone)$/
+/** A wait with "until" or "till" after it, whose clause holds the verb group after it ("does not wait until it ends every
+    session"), as stage 4b reads "until": "wait" takes no object, so no noun's relative clause ends so. */
+const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till)$/
 /** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
     the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
     with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
@@ -2073,45 +2075,44 @@ const OPENS_A_CLAUSE = /^(?:after|although|as|because|before|except|for|if|like|
     weekend does not cover"), on one right after its determiner ("a feed the weekend does not cover"), or with a subject
     that is no phrase of time, a time word only modifying it or a plural unit heading it ("a feed you do not own", "a
     device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on e03913eb,
-    78fcbd93 and 767a60d1). Such a span runs to the first verb group after the phrase of time, which is its clause's
-    own, and nests what that phrase nests, an agent's relative clause or its own ("a second time by a client you do not
-    own", "a second time that you did not send": the routine lens on c6060a93): where that group starts and those spans,
-    or null. Where the clause's own verb group stands after the group found, the reading stays main's. A finite one
-    (finiteAt) where the reader's misread clause ends, with no word that may open a clause (OPENS_A_CLAUSE) between the
-    two, makes the group found another clause's: one such a word opens in the phrase of time, which the reader takes for
-    a preposition, however deep in the phrase it stands ("a second time after it was not used ends", "on Monday after
-    the launch did not succeed ends", "for it was not used ends": the routine lens on 95be62e7, a5c5a491 and a033404c,
-    Codex on a5c5a491 and a033404c), one an -ing word opens there ("a second time knowing it is not valid ends": the
-    routine lens on 3b4b8a69), or a noun's relative clause whose subject is the phrase of time ("a news feed the weekend
-    does not cover ends"). And one of any form past the verb where that clause ends, within the reach of a negation in
-    the group found (NEGATION_REACH: four words between a negation and the verb it denies), is the clause's own, which
-    that negation would deny if the reading held: the verb before it is a noun's relative clause's, whose object is the
-    noun ("a news feed the weekend does not by itself cover ends every session", "Logouts of a news feed the weekend
-    does not by itself cover all end every session", "... does not alone cover on Mondays ends ..."), where the
-    misread's verb takes its own object ("sign you out of every device"). Past that reach the negation denies nothing
-    either way. Out of reach: a participle right after a determiner keeps the misreading, as on main ("Those presented a
-    second time do not by themselves ..."). */
+    78fcbd93 and 767a60d1). The first verb group after the phrase of time is the clause's own: read whole, its verb the
+    clause's ("a second time signs everyone out", "... ends when you log out"), or stopped at a phrase the reader leaves
+    out of a verb group (LEFT_OUT), its verb then where the misread clause ends ("a second time does not by itself |
+    sign"), as a wait's is after "until" or "till", whose clause holds the verb group there (BOUNDS_A_WAIT: "does not
+    wait until it | ends every session"), since "wait" takes no object. Such a span runs to that group and nests what
+    the phrase of time nests, an agent's relative clause or its own ("a second time by a client you do not own", "a
+    second time that you did not send": the routine lens on c6060a93): where that group starts and those spans, or null.
+    The reading keeps a negation from that group on in the clause read alone, where main's cuts it, so it holds only
+    where that negation reaches no verb group past the clause's verb (NEGATION_REACH: four words between a negation and
+    the verb it denies). One there is the clause's own, and the group found another clause's, whose negation the reading
+    would read as the clause's, so the reading stays main's: a clause the phrase of time holds, after a word the reader
+    takes for a preposition, however deep in the phrase it stands ("a second time after it was not used ends", "on
+    Monday after the launch did not succeed ends", "for it was not used ends": the routine lens on 95be62e7, a5c5a491
+    and a033404c, Codex on a5c5a491 and a033404c), or after an -ing word ("knowing it is not valid ends": the routine
+    lens on 3b4b8a69), and a noun's relative clause whose subject is the phrase of time, its group whole or split, a
+    phrase after its verb or not ("a news feed the weekend does not cover ends", "... does not run for you ends", "...
+    does not by itself cover ends every session", "Logouts of ... does not by itself cover all end ...", "... does not
+    alone cover on Mondays ends ..."), where the misread's own verb takes its object ("sign you out of every device").
+    Past that reach the negation denies nothing either way. Out of reach: a participle right after a determiner keeps
+    the misreading, as on main ("Those presented a second time do not by themselves ..."), and a split by a phrase
+    LEFT_OUT does not list, or with commas ("does not, by itself, sign"), keeps main's reading. */
 const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } | null => {
   const first = phrase.postmodifiers[0]
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
   if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
+  const words = (from: number, to: number) => tokens.slice(from, to).map((token) => token.lower).join(' ')
   for (let k = time.end; k < first.end; k++) {
     if (!startsVerbGroup(tokens, k)) continue
-    if (finiteAt(tokens, first.end) && !tokens.slice(k, first.end).some((token) => OPENS_A_CLAUSE.test(token.text))) return null
-    const after = startsVerbGroup(tokens, first.end) ? verbGroupAt(tokens, first.end).verb + 1 : first.end
+    const group = verbGroupAt(tokens, k)
+    const goesOn = LEFT_OUT.test(words(group.verb, first.end)) || BOUNDS_A_WAIT.test(words(group.verb, group.verb + 2))
+    if (goesOn && !startsVerbGroup(tokens, first.end)) return null
+    const verb = goesOn ? verbGroupAt(tokens, first.end).verb : group.verb
     const reach = tokens.slice(k, first.end).reduce((end, token, i) => (negates(token, tokens[k + i + 1]) ? k + i + 5 : end), -1)
-    if (tokens.some((_, j) => j >= after && j <= reach && startsVerbGroup(tokens, j))) return null
+    if (tokens.some((_, j) => j > verb && j <= reach && startsVerbGroup(tokens, j))) return null
     return { end: k, nests: readOf(tokens, time).nests }
   }
   return null
-}
-/** Whether a finite verb group starts at a token: an auxiliary or a modal in it, or a verb in its third person's -s or a
-    past form ("ends", "does not end", "will end"; not "sign" after "does not by itself"). */
-const finiteAt = (tokens: Token[], at: number): boolean => {
-  if (!startsVerbGroup(tokens, at)) return false
-  const group = verbGroupAt(tokens, at)
-  return tokens.slice(group.start, group.verb + 1).some((token) => AUXILIARY.test(token.text)) || ['third', 'past'].includes(formOf(tokens[group.verb]))
 }
 /** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
     clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
@@ -4316,11 +4317,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Reusing a refresh token does not sign everyone out.</li>', false],
       ['<li>Nothing guarantees that reusing a refresh token signs everyone out.</li>', false],
       ['<li>A refresh token presented a second time does not by itself sign you out of every device.</li>', false],
-      ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
       ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
       ['<li>A refresh token replayed an hour later does not by itself sign everyone out.</li>', false],
       ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
+      ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
+      ['<li>A refresh token presented a second time does not on its own sign you out of every device.</li>', false],
+      ['<li>A refresh token presented a second time has not by itself ended every session.</li>', false],
       ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
       // A phrase of time with an agent's relative clause or its own: what it nests is cut, as a noun's relative clause
@@ -4331,9 +4334,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
       ['<li>A refresh token presented a second time today does not by itself sign you out of every device.</li>', false],
       // A clause of time or cause after the phrase of time, opened by a word the reader takes for a preposition, holds
-      // the verb group after the phrase, whatever its subject and however deep in the phrase it opens, and the clause's
-      // own finite verb group stands where the reader's misread clause ends, so the reading there stays main's
-      // (finiteAt: the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on a5c5a491 and a033404c).
+      // the verb group after the phrase, whatever its subject and however deep in the phrase it opens, and its negation
+      // reaches the clause's own verb group after it, so the reading there stays main's (the routine lens on 95be62e7,
+      // a5c5a491 and a033404c, Codex on a5c5a491 and a033404c).
       ['<li>Logging out of a session replayed a second time after it was not used ends every session.</li>', true],
       ['<li>A refresh token presented a second time after you did not log out signs everyone out.</li>', true],
       ['<li>Logging out of a session replayed a second time before you could not log in ends every session.</li>', true],
@@ -4345,13 +4348,19 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A refresh token presented a second time like you did not log out signs everyone out.</li>', true],
       // A phrase after such a word that holds no verb group is the phrase of time's own, so the denial after it passes.
       ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', false],
-      // A finite verb group where the reader's misread clause ends is the clause's own, so the group found before it is
-      // a clause's that the phrase of time holds, and the reading stays main's (finiteAt: the routine lens on
-      // 3b4b8a69), as it does for a noun in -ed whose relative clause's subject is a phrase of time.
+      // So it does after an -ing word (the routine lens on 3b4b8a69), and for a noun in -ed whose relative clause's
+      // subject is a phrase of time, a phrase after its verb or not ("for you", or "until noon" after a verb other than
+      // "wait"), a plural subject's bare verb too; with no negation there, the clause's own verb group after a clause
+      // of time stays its own ("ends when you log out").
       ['<li>Logging out of a session replayed a second time knowing it is not valid ends every session.</li>', true],
       ['<li>Logging out of a session replayed a second time knowing it is not valid will end every session.</li>', true],
+      ['<li>Logouts of a session replayed a second time knowing they are not valid end every session.</li>', true],
       ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', true],
       ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not run for you ends every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend does not run end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not hold until noon ends every session.</li>', true],
+      ['<li>Every session presented a second time by a client you do not own ends when you log out.</li>', true],
       // A verb group of any form past the verb the misread clause ends at, within the reach of the negation before it
       // (NEGATION_REACH), is the clause's own, so the reading stays main's; past that reach the negation denies nothing
       // either way, and the misread's own denial passes.
