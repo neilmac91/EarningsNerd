@@ -7,7 +7,7 @@ line sits over the rows the checking line leaves. Its records gave that cost as 
 at the readiness e2e case's widths (320, 390, 1152 and 1440px, and 640, 1440 and 2304px under 200% text) and at chief
 design's (320, 390 and 1440px, and 640 and 1440px under 200% text). A verification lens's font model put it at 80 to
 120px at phone widths under 200% text. A sweep of a production build, 15 widths at the default size and 18 under 200%
-text (20 to 40px apart below 520px, coarser above), found 40 to 120px under 200% text. The widths at each figure
+text (15 to 50px apart below 520px, coarser above), found 40 to 120px under 200% text. The widths at each figure
 depended on the font: in the cloud sandbox, whose fontconfig paints the body stack in a static Inter, 120px came at
 320 and 340px and 80px at 360px, at 480 to 500px and at 1100px; in CI's fonts (the site's Inter web font), 120px at
 320px and 80px at 340 and 1024px. A second sweep, every 10px, found the compact bar changing height as readiness
@@ -32,5 +32,6 @@ also runs at the sweep's worst phone width under 200% text (`frontend/tests/e2e/
 320px).
 
 **Evidence.** #1686: `2b123383` recorded "40px under 200% text" (`frontend/DESIGN_SYSTEM.md` §7 and
-`PublicAccessLine.tsx`); its verification lens found the model's figures; #1686's last head records the measured
-range in CI's fonts and adds the 320px case. E223 in `tasks/todo.md` records the compact bar.
+`PublicAccessLine.tsx`), and its verification lens found the model's figures; `afd3046c` records the measured range
+in CI's fonts and adds the 320px case, and `3b7b384a` names the fonts in §7. E223 in `tasks/todo.md` records the
+compact bar.
