@@ -893,7 +893,7 @@ class TestAnalysisPdfHtml:
         assert "a. Saved source wording <retain>. Revenue (Q1 2026). 1 figure." in overview
         assert "Saved citation-only wording" not in overview and "raw full-precision dollars" not in overview
         # The citation's own note lists under the narrative's sources, as on the page, not in the grid's fine print.
-        assert ('<p class="fine-print"><strong>Data notes for these sources</strong></p><ul class="data-notes">'
+        assert ('<p class="fine-print"><strong>Data notes for narrative sources</strong></p><ul class="data-notes">'
                 '<li id="analysis-data-note-e"><span class="note-letter">e.</span>Saved citation-only wording.</li></ul>') in html
         sources = list(workbook["Sources & methods"].values)
         assert next(row for row in sources if row[2] == "QOQ")[16] == "Data note b"

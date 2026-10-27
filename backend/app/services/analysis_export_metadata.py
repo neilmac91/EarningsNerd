@@ -32,9 +32,10 @@ _FORMULA_LABELS = {
     "compound_annual_growth": "(last / first) ^ (1 / fiscal years between endpoints) - 1",
     "percentage_point_change": "current percentage - comparison percentage",
 }
-# The fine print's closing line. The page's asks the reader to select a figure, which a file cannot offer (data_notes'
-# reason words follow the same rule), so each export names where it keeps a figure's evidence instead.
-AUTOMATED_CHECKS = ("Automated checks confirm that reported figures come from the company’s filed data (XBRL). "
+# The fine print's closing line. The page's asks the reader to select a figure, which a file cannot offer, so each
+# export names where it keeps a figure's evidence instead; its words hold the surface rules data_notes' reason words
+# hold (test_export_note_marks.py), so the page's "confirm that reported figures" drops its "that".
+AUTOMATED_CHECKS = ("Automated checks confirm reported figures come from the company’s filed data (XBRL). "
                     "They are not an audit of the company’s accounts.")
 PDF_CLOSING = f"Sources & methods gives each figure’s source filing, method and inputs. {AUTOMATED_CHECKS}"
 WORKBOOK_CLOSING = ("Sources & methods gives each figure’s source filing, method and inputs, and a figure with a data "

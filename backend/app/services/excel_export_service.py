@@ -484,6 +484,9 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=1 + len(periods)))
     chart.series[0].graphicalProperties.solidFill = CHART_SERIES[0]
+    # The axis keeps the figures' own format, never linked to its cells': a marked cell's format prints its letter, which
+    # a linked axis set after every tick (LibreOffice: "1,600 a").
+    chart.y_axis.number_format = _number_format(unit, False)
     chart.width, chart.height = 20, 10
     ws.add_chart(chart, _anchor_for(ws, len(headers)))
 
@@ -525,6 +528,7 @@ def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any], indexed: dict)
         chart.add_data(data, titles_from_data=True)
         chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=1 + len(periods)))
         _style_line_series(chart)
+        chart.y_axis.number_format = _number_format(maps[0][1], maps[0][2])  # unlinked, as the bar chart's
         chart.width, chart.height = 20, 10
         ws.add_chart(chart, _anchor_for(ws, len(headers)))
 
