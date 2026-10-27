@@ -526,8 +526,8 @@ const REACH_WORD = String.raw`(?!(?:and|but|or|nor|so|then|yet|which|that|who|wh
     after the verb's object ("does not take any time to end every session", "does not force a reload to end every
     session") promises the end, which main's reach refuses past three words. The one longer complement is the verb's
     person and their own end ("does not require you to be signed out", "does not cause everyone to get logged out").
-    participleAt counts the same reach in tokens: a negation's last word, four more, then its verb (the routine lens on
-    bca1801a). */
+    participleAt reads the same reach on the words between a negation and a verb (REACHES; the routine lens on bca1801a
+    and 8563d054). */
 const NEGATION_REACH = String.raw`(?!(?:only|just|merely|simply)\b)(?:(?:yet|then)\s+(?:(?!to\b)${REACH_WORD}){0,3}|(?:(?!to\b)${REACH_WORD}){0,4}|(?:${REACH_WORD}){0,3}|${REACH_WORD}(?:you|everyone|everybody)\s+to\s+(?:be|get)\s+)`
 /** A word of a causative verb's object (CAUSED): no word that opens a clause of time or comparison, nor "to". */
 const OBJECT_WORD = String.raw`(?!(?:before|after|until|till|once|since|as|than|to)\b)${REACH_WORD}`
@@ -2075,6 +2075,13 @@ const BOUNDS_A_WAIT = /^wait(?:s|ed|ing)? (?:until|till) (?:i|you|he|she|it|we|t
     the lexicon may lack ("terminates", "kills", "invalidates", "times out"): a negation those readings read denies it
     as it does a verb group (Codex on 8846ebfa). */
 const OPENS_AN_END = new RegExp(String.raw`^${END_VERB}`, 'i')
+/** What the end readings' denial step reads across from a negation to the verb it denies (NOT), on the words between
+    them as the sentence spaces them: up to four words (NEGATION_REACH), each whole however the reader splits it ("our
+    users' pages", "the '90s archive", "admin--level": the routine lens on 8563d054), or an aside in commas. */
+const REACHES = new RegExp(String.raw`^(?:\s+(?:${NEGATION_REACH})|\s*,[^,.;:!?]{1,40},\s*)$`, 'i')
+/** A negation as that step reads it: "not", "never", "nor", "cannot", a contraction in "n't" or "n’t", and "no longer",
+    read from "longer". */
+const DENIAL_WORD = /^(?:not|never|nor|cannot|[a-z]+n['’]t)$/i
 /** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
     the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
     with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
@@ -2093,9 +2100,10 @@ const OPENS_AN_END = new RegExp(String.raw`^${END_VERB}`, 'i')
     the phrase of time nests, an agent's relative clause or its own ("a second time by a client you do not own", "a
     second time that you did not send": the routine lens on c6060a93): where that group starts and those spans, or null.
     The reading keeps a negation from that group on in the clause read alone, where main's cuts it, so it holds only
-    where that negation reaches no verb group past the clause's verb (NEGATION_REACH: four words between a negation, "no
-    longer" whole, and the verb it denies: Codex on bca1801a), nor an end the lexicon lacks (OPENS_AN_END: "... does not
-    by itself cover terminates every session": Codex on 8846ebfa). One there is the clause's own, and the group found
+    where that negation, as the denial step reads it, reaches no verb group past the clause's verb (REACHES: four words
+    between a negation, "no longer" whole, and the verb it denies, each whole however the reader splits it: Codex on
+    bca1801a, the routine lens on 8563d054), nor an end the lexicon lacks (OPENS_AN_END: "... does not by itself cover
+    terminates every session": Codex on 8846ebfa). One there is the clause's own, and the group found
     another clause's, whose negation the reading would read as the clause's, so the reading stays main's: a clause the
     phrase of time holds, after a word the reader takes for a preposition, however deep in the phrase it stands ("a
     second time after it was not used ends", "on Monday after the launch did not succeed ends", "for it was not used
@@ -2114,14 +2122,20 @@ const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
   if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
   const words = (from: number, to: number) => tokens.slice(from, to).map((token) => token.lower).join(' ')
+  // The text between two tokens as the sentence spaces it, a space for any whitespace, the one before the second too.
+  const between = (from: number, to: number) =>
+    tokens.slice(from + 1, to + 1).map((token, i) => (token.start > tokens[from + i].end ? ' ' : '') + (from + 1 + i < to ? token.text : '')).join('')
   for (let k = time.end; k < first.end; k++) {
     if (!startsVerbGroup(tokens, k)) continue
     const group = verbGroupAt(tokens, k)
     const goesOn = LEFT_OUT.test(words(group.verb, first.end)) || BOUNDS_A_WAIT.test(words(group.verb, first.end))
     if (goesOn && !startsVerbGroup(tokens, first.end)) return null
     const verb = goesOn ? verbGroupAt(tokens, first.end).verb : group.verb
-    const reach = tokens.slice(k, first.end).reduce((end, token, i) => (negates(token, tokens[k + i + 1]) ? k + i + (token.lower === 'no' ? 6 : 5) : end), -1)
-    if (tokens.some((_, j) => j > verb && j <= reach && (startsVerbGroup(tokens, j) || OPENS_AN_END.test(words(j, j + 3))))) return null
+    const denied = (j: number) => tokens.slice(k, first.end).some((token, i) => {
+      const last = token.lower === 'no' && tokens[k + i + 1]?.lower === 'longer' ? k + i + 1 : k + i
+      return (last > k + i || DENIAL_WORD.test(token.text)) && j > last && REACHES.test(between(last, j))
+    })
+    if (tokens.some((_, j) => j > verb && (startsVerbGroup(tokens, j) || OPENS_AN_END.test(words(j, j + 3))) && denied(j))) return null
     return { end: k, nests: readOf(tokens, time).nests }
   }
   return null
@@ -4396,6 +4410,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // The reach runs from a negation's last word, "longer" in "no longer" (Codex on bca1801a).
       ['<li>Logging out of a session replayed a second time after the launch no longer needs any extra effort ends every session.</li>', true],
       ['<li>Logging out of a news feed the weekend no longer covers in any way ends every session.</li>', true],
+      // The reach counts words as the denial step does, each whole however the reader splits it (the routine lens on
+      // 8563d054).
+      ["<li>Logging out of a news feed the weekend does not cover our users' pages ends every session.</li>", true],
+      ["<li>Logging out of a news feed the weekend does not cover the '90s archive ends every session.</li>", true],
+      ['<li>Logging out of a news feed the weekend does not cover our admin--level pages ends every session.</li>', true],
+      ["<li>Logging out of a session replayed a second time does not affect our users' pages ends every session.</li>", true],
       ['<li>A refresh token presented a second time does not by itself sign you out of every device it covers.</li>', false],
       // Its cost: a verb the lexicon lists right after the misread's verb reads as such a group ("end access"), so
       // that denial is refused, as on main.
