@@ -2053,11 +2053,11 @@ const nestedIn = (phrase: NounPhrase | null): Array<[number, number]> =>
     not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it, its object
     and its clause's verb group ("Changing your password ends every session." reads "your password ends every session"
     as one, and "Changing your password does not on its own end every session." "your password does not on its own").
-    null where none stands there, or a verb group does. */
+    null where none stands there. */
 const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase | null => {
   const first = phrase.postmodifiers[0]
   const gerund = phrase.head === tokens[at] && /^[a-z]+ing$/.test(phrase.head.lower) && knowsVerb(phrase.head, /./)
-  return gerund && (!first || (first.kind === 'relative' && first.start === at + 1)) && !startsVerbGroup(tokens, at + 1) ? nounPhraseAt(tokens, at + 1) : null
+  return gerund && (!first || (first.kind === 'relative' && first.start === at + 1)) ? nounPhraseAt(tokens, at + 1) : null
 }
 /** A clause's subject at a token, as a clause read alone reads it (E162 stage 4b): the reader's noun phrase, or a
     gerund with its object (gerundAt); where it ends and the spans it nests (nestedIn). */
