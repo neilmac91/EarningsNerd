@@ -350,14 +350,20 @@ list included) and the str of a log's body that is not text only after `before_s
   5xx, a transport error or timeout whose text quotes the keyed URL, and a malformed answer each exit non-zero
   naming the route and the status, the error's class or the answer's shape, and the key, the URL and the host reach no log record,
   stdout or stderr.
+- **Stripe's messages** (E18), in `backend/tests/unit/test_subscription_routes.py`: checkout and the billing portal each
+  meet four Stripe failures whose message quotes a masked key's last four characters and a customer's id (an invalid
+  key, a missing customer, no answer, and a request id of another shape). Each answers its route's fixed 400 detail,
+  its one log line is exactly the call, the error's class and Stripe's request id (`unknown` when there is none or it
+  has another shape), and the planted text reaches neither the JSON, a log record nor the process's output.
 
 The agent clause is not machine-gated and stays session reading.
 
-**Known ungated echoes.** One is an open follow-up in `tasks/todo.md` (E18); the rest are accepted limits,
-each with its reason:
+**Known ungated echoes.** The first is open, reported to the CTO by E18's pull request; the rest are accepted
+limits, each with its reason:
 - a provider's own error text can quote a masked key's last four characters (Stripe's and the AI providers'
-  invalid-key messages): callers log it, and `app/routers/subscriptions.py` returns Stripe's message as the
-  checkout and portal error detail (todo E18);
+  invalid-key messages): callers log it, and the account deletion (`app/routers/users.py`) puts a failed Stripe
+  cancellation's message in its answer (`third_party_deletions`) and its audit row. Checkout and the billing portal no
+  longer do (E18): they answer a fixed detail and log the error's class and Stripe's request id alone (**Gate**);
 - an incoming request's URL reaches Sentry unscrubbed: the Google OAuth callback's single-use `code` in its query
   string and the waitlist verification token in its path (a user's, not a settings secret);
 - the request-body walk reads the API's OpenAPI schemas: the Stripe and Resend webhooks read their bodies by hand
@@ -375,7 +381,7 @@ each with its reason:
   the port segment of a legacy key pair without a host); the DSN's key is public by Sentry's design (the task
   worker logs its start's status alone, and a task child prints nothing);
 - Sentry's value scrubber matches each value whole, stripped, as the settings held it at startup. A part of one passes
-  (a prefix, a provider's masked last four (todo E18)), and so does another form of it (repr- or JSON-escaped,
+  (a prefix, a provider's masked last four), and so does another form of it (repr- or JSON-escaped,
   percent-encoded other than as the URL holds it (a `password` query parameter as SQLAlchemy renders it aside), base64,
   hex, a case change: the documented secrets are hex or alphanumeric with `_` and `-`, which no such escape changes), a
   value under 8 characters once stripped (one that reaches 8 only with its surrounding whitespace holds a secret of 7

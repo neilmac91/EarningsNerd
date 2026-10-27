@@ -7,6 +7,7 @@ from typing import Literal, Optional
 from datetime import datetime
 import json
 import logging
+import re
 import stripe
 from app.database import get_db
 from app.models import User
@@ -45,6 +46,25 @@ def _resolve_price_id(price_id: str) -> Optional[str]:
     resolved = aliases.get(price_id, price_id)
     allowed = {settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PRICE_YEARLY_ID} - {""}
     return resolved if resolved in allowed else None
+
+
+# Stripe's id for one API request, as its `Request-Id` header carries it: it finds the call in the dashboard's logs.
+_STRIPE_REQUEST_ID = re.compile(r"req_[A-Za-z0-9]{1,64}")
+
+
+def _log_stripe_failure(call: str, error: stripe.error.StripeError) -> None:
+    """Log a failed Stripe call by its error's class and Stripe's request id, never by its message (E18).
+
+    Stripe's message can quote the key's last four characters (an invalid-key answer) or name a customer
+    (lessons/ops-never-echo-environment-values.md), so neither the route's answer nor its log carries it;
+    the request id finds the whole call in Stripe's dashboard. A header value of another shape is provider
+    text and is left out (rule 9).
+    """
+    request_id = error.request_id
+    if not (isinstance(request_id, str) and _STRIPE_REQUEST_ID.fullmatch(request_id)):
+        request_id = "unknown"
+    logger.error("%s failed at Stripe (%s, request %s)", call, type(error).__name__, request_id)
+
 
 class UsageResponse(BaseModel):
     summaries_used: int
@@ -358,10 +378,11 @@ async def create_checkout_session(
 
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
+        _log_stripe_failure("Checkout", e)
         raise HTTPException(
             status_code=400,
-            detail=f"Stripe error: {str(e)}"
-        )
+            detail="Checkout could not start. Try again in a moment."
+        ) from None
 
 @router.post("/create-portal-session")
 async def create_portal_session(
@@ -395,10 +416,11 @@ async def create_portal_session(
 
         return {"url": portal_session.url}
     except stripe.error.StripeError as e:
+        _log_stripe_failure("Billing portal", e)
         raise HTTPException(
             status_code=400,
-            detail=f"Stripe error: {str(e)}"
-        )
+            detail="The billing portal could not open. Try again in a moment."
+        ) from None
 
 @router.post("/webhook")
 async def stripe_webhook(

@@ -13,6 +13,9 @@ what that mock cannot:
   never one written over it (E166), and an account deleted while checkout creates its customer gets
   no checkout session.
 - Checkout's plan comes from the reader's own row when there is one, not the ``is_pro`` mirror (E144).
+- A Stripe failure in checkout or the billing portal answers the route's fixed 400 detail and logs its
+  error's class and Stripe's request id alone: Stripe's message, which can quote the key's last four
+  characters or name a customer, reaches neither the answer nor a log (E18).
 
 The reader is loaded through the request's own ``get_db`` session, as ``get_current_user`` does, so
 checkout's first unit reads it, and the row its plan loads, on that session and releases the session
@@ -21,6 +24,7 @@ before any Stripe call, as in production.
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -43,6 +47,8 @@ from app.services import legal_readiness_service
 from main import app
 
 PERIOD_END = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+CHECKOUT_FAILED = "Checkout could not start. Try again in a moment."
+PORTAL_FAILED = "The billing portal could not open. Try again in a moment."
 
 
 @pytest.fixture(autouse=True)
@@ -195,8 +201,60 @@ def test_the_customer_id_is_committed_before_the_checkout_session_is_created(cli
     resp, _, _ = _checkout(client, monkeypatch, session_error=stripe.error.APIConnectionError("checkout down"))
 
     assert resp.status_code == 400
-    assert resp.json()["detail"].startswith("Stripe error:")
+    assert resp.json() == {"detail": CHECKOUT_FAILED}
     assert _stored_customer_id(email) == "cus_new"  # the next attempt reuses this customer
+
+
+# What Stripe's messages can say: a masked key's last four characters ("Zq9X") and a customer's id. Built at run
+# time, so no secret scanner reads a key in this file.
+_KEY_TAIL = "Zq9X"
+_PROVIDER_TEXT = f"Invalid API Key provided: {'sk_' + 'live_'}{'*' * 20}{_KEY_TAIL}. No such customer: 'cus_planted'"
+_LEAKS = (_KEY_TAIL, "sk_live", "cus_planted", "Invalid API Key", "No such customer")
+
+_STRIPE_FAILURES = [
+    pytest.param(lambda: stripe.error.AuthenticationError(_PROVIDER_TEXT, http_status=401,
+                                                          headers={"request-id": "req_E18auth"}),
+                 "AuthenticationError", "req_E18auth", id="invalid-key"),
+    pytest.param(lambda: stripe.error.InvalidRequestError(_PROVIDER_TEXT, "customer", code="resource_missing",
+                                                          http_status=404, headers={"request-id": "req_E18miss"}),
+                 "InvalidRequestError", "req_E18miss", id="no-such-customer"),
+    pytest.param(lambda: stripe.error.APIConnectionError(_PROVIDER_TEXT), "APIConnectionError", "unknown",
+                 id="no-answer"),
+    # A request id is provider text too: one of another shape is left out.
+    pytest.param(lambda: stripe.error.RateLimitError(_PROVIDER_TEXT, http_status=429,
+                                                     headers={"request-id": f"req_{_KEY_TAIL} {_PROVIDER_TEXT}"}),
+                 "RateLimitError", "unknown", id="request-id-of-another-shape"),
+]
+
+
+@pytest.mark.parametrize("route", ["checkout", "portal"])
+@pytest.mark.parametrize("error,error_class,request_id", _STRIPE_FAILURES)
+def test_a_stripe_failure_answers_a_fixed_detail_and_logs_its_class_and_request_id_alone(
+        client, monkeypatch, caplog, capfd, route, error, error_class, request_id):
+    """Stripe's message can quote the key's last four characters or name a customer: the route answers its
+    fixed 400 detail, and its one log line names the call, the error's class and Stripe's request id, no
+    account, customer or provider text (E18)."""
+    email = _new_user(stripe_customer_id="cus_existing")
+    _sign_in(email)
+    caplog.set_level(logging.DEBUG)
+
+    if route == "checkout":
+        resp, _, _ = _checkout(client, monkeypatch, session_error=error())
+        call, detail = "Checkout", CHECKOUT_FAILED
+    else:
+        with patch.object(stripe.billing_portal.Session, "create", side_effect=error()):
+            resp = client.post("/api/subscriptions/create-portal-session")
+        call, detail = "Billing portal", PORTAL_FAILED
+
+    assert resp.status_code == 400
+    assert resp.json() == {"detail": detail}
+    output = "".join(capfd.readouterr())
+    for leak in _LEAKS:
+        assert leak not in resp.text
+        assert leak not in caplog.text
+        assert leak not in output
+    [line] = [r.getMessage() for r in caplog.records if r.name == "app.routers.subscriptions"]
+    assert line == f"{call} failed at Stripe ({error_class}, request {request_id})"
 
 
 def test_an_existing_customer_is_retrieved_not_recreated(client, monkeypatch):
