@@ -1,0 +1,51 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 3,
+ "output_sha256": "ac154262c1f96ffd43e72604e593a060f8d4d88231386b12ed9f84efb54f191e",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The filing attributes the decline to sales volumes down 30% in the U.S. and Canada, partly offset by a 22% volume increase in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states sales volumes decreased 30% in U.S. and Canada, partially offset by 22% increase in Brazil."
+  },
+  {
+   "sentence": "Small Agriculture & Turf profit fell on lower sales volumes and higher tariffs, partly offset by price realization .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit decreased primarily due to lower sales volumes/ sales mix and higher tariffs, partially offset by price realization."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating profit decreased due to lower sales volumes/mix and higher tariffs, partially offset by price realization."
+  },
+  {
+   "sentence": "The filing credits operating inflows to net income adjusted for non-cash provisions and a decrease in sales receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states cash inflows driven by net income adjusted for non-cash provisions and decrease in sales receivables, partially offset by OPEB contribution."
+  }
+ ],
+ "cost_usd": 0.000638,
+ "backend": "openai_compat",
+ "input_tokens": 495,
+ "cached_input_tokens": 0,
+ "output_tokens": 157
+}

@@ -1,0 +1,106 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ed5403930041053940f67a84b23189477b54cf7d908cea5e939e70d6db356738",
+ "y_sha256": "b5b65f1d4585e1449661ec2941f598c4e8d46ad45fec615e2bb5cc979780db42",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A compares operating cash flow to net income (1.32x) with a peer median that measures free cash flow to net income. It also attributes rising net debt to 'debt-funded buybacks outran free cash flow', which its cited flag does not state; payouts were 89% of FCF. Draft B discloses that current debt maturities are missing, so net debt is understated, and labels its interpretation as analysis. A offers slightly more segment and peer depth."
+   },
+   "cost_usd": 0.139553,
+   "latency_s": 13.171,
+   "backend": "claude_cli",
+   "input_tokens": 16004,
+   "cached_input_tokens": 727,
+   "output_tokens": 860,
+   "reasoning_tokens": 643,
+   "meta": {
+    "duration_api_ms": 8482,
+    "cache_creation_input_tokens": 15275,
+    "list_cost_usd": 0.078453
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A compares operating cash flow to net income (1.32x) with a peer median that measures free cash flow to net income. It also attributes rising net debt to 'debt-funded buybacks outran free cash flow', which its cited flag does not state; payouts were 89% of FCF. Draft B discloses that current debt maturities are missing, so net debt is understated, and labels its interpretation as analysis. A offers slightly more segment and peer depth.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds real depth: Power & Energy's rising share, Power Generation's growth, operating-income CAGR and ROE versus peers. But it compares OCF/NI with a peer FCF/NI median and cites unsupported tax/other-income causes. It also says buybacks 'outran' FCF, which its own 89% payout contradicts. B omits the excluded current debt maturities, so its net-debt figures look complete. A's claims match its sources, and it flags that data gap with labelled analysis."
+   },
+   "cost_usd": 0.142749,
+   "latency_s": 14.66,
+   "backend": "claude_cli",
+   "input_tokens": 16006,
+   "cached_input_tokens": 727,
+   "output_tokens": 1019,
+   "reasoning_tokens": 785,
+   "meta": {
+    "duration_api_ms": 9752,
+    "cache_creation_input_tokens": 15277,
+    "list_cost_usd": 0.081641
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds real depth: Power & Energy's rising share, Power Generation's growth, operating-income CAGR and ROE versus peers. But it compares OCF/NI with a peer FCF/NI median and cites unsupported tax/other-income causes. It also says buybacks 'outran' FCF, which its own 89% payout contradicts. B omits the excluded current debt maturities, so its net-debt figures look complete. A's claims match its sources, and it flags that data gap with labelled analysis.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.282302
+}

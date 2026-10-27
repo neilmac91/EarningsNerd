@@ -1,0 +1,478 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "TGT",
+ "split": "holdout",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.007496,
+ "items": [
+  {
+   "sentence": "Revenue compounded at 4.5% a year, from $70.3 billion in FY2016  to $105 billion in FY2025 .",
+   "claim": "4.5%",
+   "match": "cited: F205 = Revenue CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Revenue CAGR 4.5% FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 4.5% a year, from $70.3 billion in FY2016  to $105 billion in FY2025 .",
+   "claim": "$70.3 billion",
+   "match": "cited: F1 = Revenue, FY2016",
+   "label": "consistent",
+   "reason": "Revenue $70.3B FY2016 matches."
+  },
+  {
+   "sentence": "Revenue compounded at 4.5% a year, from $70.3 billion in FY2016  to $105 billion in FY2025 .",
+   "claim": "$105 billion",
+   "match": "cited: F10 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "Revenue $105B FY2025 matches."
+  },
+  {
+   "sentence": "The shape is a step change: revenue rose 19.8% in FY2020 to $93.6 billion .",
+   "claim": "19.8%",
+   "match": "cited: D183 = Revenue growth, FY2020",
+   "label": "consistent",
+   "reason": "Revenue growth 19.8% FY2020 matches."
+  },
+  {
+   "sentence": "The shape is a step change: revenue rose 19.8% in FY2020 to $93.6 billion .",
+   "claim": "$93.6 billion",
+   "match": "cited: F5 = Revenue, FY2020",
+   "label": "consistent",
+   "reason": "Revenue $93.6B FY2020 matches."
+  },
+  {
+   "sentence": "The filing ties that jump to a 19.3% comparable sales increase and new stores .",
+   "claim": "19.3%",
+   "match": "passage P51: P51 = a figure in a FY2020 10-K passage",
+   "label": "consistent",
+   "reason": "Comparable sales increase 19.3% from FY2020 10-K passage."
+  },
+  {
+   "sentence": "Operating margin peaked at 8.4% in FY2021  and fell 4.9pp to 3.5% in FY2022 , which the filing links to markdowns and inventory costs .",
+   "claim": "8.4%",
+   "match": "cited: D589 = Operating margin window high (FY2021), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin peak 8.4% FY2021 matches."
+  },
+  {
+   "sentence": "Operating margin peaked at 8.4% in FY2021  and fell 4.9pp to 3.5% in FY2022 , which the filing links to markdowns and inventory costs .",
+   "claim": "4.9pp",
+   "match": "cited: D290 = Operating margin change, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin change -4.9pp FY2022 matches."
+  },
+  {
+   "sentence": "Operating margin peaked at 8.4% in FY2021  and fell 4.9pp to 3.5% in FY2022 , which the filing links to markdowns and inventory costs .",
+   "claim": "3.5%",
+   "match": "cited: F31 = Operating margin, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin 3.5% FY2022 matches."
+  },
+  {
+   "sentence": "In FY2020 Merchandise sales added 19.5pp of the 19.8% growth , with Hardlines the largest category at 5.2pp .",
+   "claim": "19.5pp",
+   "match": "cited: D452 = Merchandise sales \u2014 Product (product) contribution to revenue growth (pp), FY2020",
+   "label": "consistent",
+   "reason": "Merchandise sales contribution 19.5pp FY2020 matches."
+  },
+  {
+   "sentence": "In FY2020 Merchandise sales added 19.5pp of the 19.8% growth , with Hardlines the largest category at 5.2pp .",
+   "claim": "19.8%",
+   "match": "cited: D183 = Revenue growth, FY2020",
+   "label": "consistent",
+   "reason": "Revenue growth 19.8% FY2020 matches."
+  },
+  {
+   "sentence": "In FY2020 Merchandise sales added 19.5pp of the 19.8% growth , with Hardlines the largest category at 5.2pp .",
+   "claim": "5.2pp",
+   "match": "cited: D525 = Hardlines (product) contribution to revenue growth (pp), FY2020",
+   "label": "consistent",
+   "reason": "Hardlines contribution 5.2pp FY2020 matches."
+  },
+  {
+   "sentence": "In FY2025 revenue fell 1.7% ; Food and beverage, at 23.0% of sales , was the largest positive contributor at 0.3pp .",
+   "claim": "1.7%",
+   "match": "cited: D416 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth -1.7% FY2025 matches."
+  },
+  {
+   "sentence": "In FY2025 revenue fell 1.7% ; Food and beverage, at 23.0% of sales , was the largest positive contributor at 0.3pp .",
+   "claim": "23.0%",
+   "match": "cited: D506 = Food & beverage \u2014 Food And Beverage (product) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Food and beverage share 23.0% FY2025 matches."
+  },
+  {
+   "sentence": "In FY2025 revenue fell 1.7% ; Food and beverage, at 23.0% of sales , was the largest positive contributor at 0.3pp .",
+   "claim": "0.3pp",
+   "match": "cited: D508 = Food & beverage \u2014 Food And Beverage (product) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Food and beverage contribution 0.3pp FY2025 matches."
+  },
+  {
+   "sentence": "The filing cites a 2.6% comparable sales decline, driven by a 2.2% traffic drop .",
+   "claim": "2.6%",
+   "match": "passage P14: P14 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Comparable sales decline 2.6% from FY2025 10-K passage."
+  },
+  {
+   "sentence": "The filing cites a 2.6% comparable sales decline, driven by a 2.2% traffic drop .",
+   "claim": "2.2%",
+   "match": "passage P14: P14 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Traffic drop 2.2% from FY2025 10-K passage."
+  },
+  {
+   "sentence": "Operating income fell 8.1% , as operating costs grew faster than revenue .",
+   "claim": "8.1%",
+   "match": "cited: D417 = Operating income growth, FY2025",
+   "label": "consistent",
+   "reason": "Operating income growth -8.1% FY2025 matches."
+  },
+  {
+   "sentence": "Diluted EPS compounded at 6.3% against 3.4% for net income , with diluted shares down from 582.5 million to 455.6 million .",
+   "claim": "6.3%",
+   "match": "cited: F210 = EPS (diluted) CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "EPS CAGR 6.3% FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "Diluted EPS compounded at 6.3% against 3.4% for net income , with diluted shares down from 582.5 million to 455.6 million .",
+   "claim": "3.4%",
+   "match": "cited: F208 = Net income CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net income CAGR 3.4% FY2016-FY2025 matches."
+  },
+  {
+   "sentence": "Diluted EPS compounded at 6.3% against 3.4% for net income , with diluted shares down from 582.5 million to 455.6 million .",
+   "claim": "582.5 million",
+   "match": "cited: X107 = Diluted weighted-average shares, FY2016",
+   "label": "consistent",
+   "reason": "Diluted shares 582.5M FY2016 matches."
+  },
+  {
+   "sentence": "Diluted EPS compounded at 6.3% against 3.4% for net income , with diluted shares down from 582.5 million to 455.6 million .",
+   "claim": "455.6 million",
+   "match": "cited: X116 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted shares 455.6M FY2025 matches."
+  },
+  {
+   "sentence": "Operating margin of 4.9%  sits below its 5.6% window median  but above the 4.7% retail peer median .",
+   "claim": "4.9%",
+   "match": "cited: F34 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Operating margin 4.9% FY2025 matches."
+  },
+  {
+   "sentence": "Operating margin of 4.9%  sits below its 5.6% window median  but above the 4.7% retail peer median .",
+   "claim": "5.6%",
+   "match": "cited: D590 = Operating margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window median 5.6% matches."
+  },
+  {
+   "sentence": "Operating margin of 4.9%  sits below its 5.6% window median  but above the 4.7% retail peer median .",
+   "claim": "4.7%",
+   "match": "cited: D607 = Operating margin: retail peer median (n=6), FY2025",
+   "label": "consistent",
+   "reason": "Retail peer median 4.7% FY2025 matches."
+  },
+  {
+   "sentence": "Cost of revenue cut 0.3pp from the operating margin , SG&A added 0.1pp , and gross margin slipped to 27.9% from 28.2% .",
+   "claim": "0.3pp",
+   "match": "cited: D440 = Operating-margin effect of cost of revenue (pp), FY2025",
+   "label": "consistent",
+   "reason": "Cost of revenue effect -0.3pp FY2025 matches."
+  },
+  {
+   "sentence": "Cost of revenue cut 0.3pp from the operating margin , SG&A added 0.1pp , and gross margin slipped to 27.9% from 28.2% .",
+   "claim": "0.1pp",
+   "match": "cited: D441 = Operating-margin effect of SG&A (pp), FY2025",
+   "label": "consistent",
+   "reason": "SG&A effect +0.1pp FY2025 matches."
+  },
+  {
+   "sentence": "Cost of revenue cut 0.3pp from the operating margin , SG&A added 0.1pp , and gross margin slipped to 27.9% from 28.2% .",
+   "claim": "27.9%",
+   "match": "passage P12: P12 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Gross margin 27.9% from FY2025 10-K passage."
+  },
+  {
+   "sentence": "Cost of revenue cut 0.3pp from the operating margin , SG&A added 0.1pp , and gross margin slipped to 27.9% from 28.2% .",
+   "claim": "28.2%",
+   "match": "passage P12: P12 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Gross margin 28.2% from FY2025 10-K passage."
+  },
+  {
+   "sentence": "SG&A held at 20.6% , helped by a 0.6pp interchange settlement benefit and partly offset by 0.2pp of transformation costs .",
+   "claim": "20.6%",
+   "match": "cited: D397 = SG&A % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "SG&A % of revenue 20.6% FY2025 matches."
+  },
+  {
+   "sentence": "SG&A held at 20.6% , helped by a 0.6pp interchange settlement benefit and partly offset by 0.2pp of transformation costs .",
+   "claim": "0.6pp",
+   "match": "passage P11: P11 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Interchange settlement benefit 0.6pp from FY2025 10-K passage."
+  },
+  {
+   "sentence": "SG&A held at 20.6% , helped by a 0.6pp interchange settlement benefit and partly offset by 0.2pp of transformation costs .",
+   "claim": "0.2pp",
+   "match": "passage P11: P11 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Transformation costs 0.2pp from FY2025 10-K passage."
+  },
+  {
+   "sentence": "In FY2022 cost of revenue took 4.6pp off the margin , the largest cost-line move in the window.",
+   "claim": "4.6pp",
+   "match": "cited: D301 = Operating-margin effect of cost of revenue (pp), FY2022",
+   "label": "consistent",
+   "reason": "Cost of revenue effect -4.6pp FY2022 matches."
+  },
+  {
+   "sentence": "Net margin of 3.5%  sits 1.4pp below operating margin , partly because net interest rose to $445 million  from $411 million  on higher average debt .",
+   "claim": "3.5%",
+   "match": "cited: F54 = Net margin, FY2025",
+   "label": "consistent",
+   "reason": "Net margin 3.5% FY2025 matches."
+  },
+  {
+   "sentence": "Net margin of 3.5%  sits 1.4pp below operating margin , partly because net interest rose to $445 million  from $411 million  on higher average debt .",
+   "claim": "1.4pp",
+   "match": "pp F54-F34: F54 = Net margin, FY2025; F34 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Difference 1.4pp between net and operating margin matches."
+  },
+  {
+   "sentence": "Net margin of 3.5%  sits 1.4pp below operating margin , partly because net interest rose to $445 million  from $411 million  on higher average debt .",
+   "claim": "$445 million",
+   "match": "cited: X66 = Interest expense, FY2025",
+   "label": "consistent",
+   "reason": "Interest expense $445M FY2025 matches."
+  },
+  {
+   "sentence": "Net margin of 3.5%  sits 1.4pp below operating margin , partly because net interest rose to $445 million  from $411 million  on higher average debt .",
+   "claim": "$411 million",
+   "match": "cited: X65 = Interest expense, FY2024",
+   "label": "consistent",
+   "reason": "Interest expense $411M FY2024 matches."
+  },
+  {
+   "sentence": "Free cash flow was $2.84 billion in FY2025 , only 0.77x net income  against a 1.01x window median .",
+   "claim": "$2.84 billion",
+   "match": "cited: F104 = Free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow $2.84B FY2025 matches."
+  },
+  {
+   "sentence": "Free cash flow was $2.84 billion in FY2025 , only 0.77x net income  against a 1.01x window median .",
+   "claim": "0.77x",
+   "match": "cited: D405 = Free cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "FCF/net income 0.77x FY2025 matches."
+  },
+  {
+   "sentence": "Free cash flow was $2.84 billion in FY2025 , only 0.77x net income  against a 1.01x window median .",
+   "claim": "1.01x",
+   "match": "cited: D599 = Free cash flow / net income window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "FCF/net income window median 1.01x matches."
+  },
+  {
+   "sentence": "Operating cash flow fell from $7.37 billion  to $6.56 billion  on lower net earnings and weaker payables leverage .",
+   "claim": "$7.37 billion",
+   "match": "cited: F83 = Operating cash flow, FY2024",
+   "label": "consistent",
+   "reason": "Operating cash flow $7.37B FY2024 matches."
+  },
+  {
+   "sentence": "Operating cash flow fell from $7.37 billion  to $6.56 billion  on lower net earnings and weaker payables leverage .",
+   "claim": "$6.56 billion",
+   "match": "cited: F84 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Operating cash flow $6.56B FY2025 matches."
+  },
+  {
+   "sentence": "Capex of $3.73 billion was 3.6% of revenue  and 1.19x D&A , and the FY2026 plan is about $5 billion .",
+   "claim": "$3.73 billion",
+   "match": "cited: F94 = Capital expenditures, FY2025",
+   "label": "consistent",
+   "reason": "Capex $3.73B FY2025 matches."
+  },
+  {
+   "sentence": "Capex of $3.73 billion was 3.6% of revenue  and 1.19x D&A , and the FY2026 plan is about $5 billion .",
+   "claim": "3.6%",
+   "match": "cited: D400 = Capex % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Capex % of revenue 3.6% FY2025 matches."
+  },
+  {
+   "sentence": "Capex of $3.73 billion was 3.6% of revenue  and 1.19x D&A , and the FY2026 plan is about $5 billion .",
+   "claim": "1.19x",
+   "match": "cited: D406 = Capex / D&A, FY2025",
+   "label": "consistent",
+   "reason": "Capex/D&A 1.19x FY2025 matches."
+  },
+  {
+   "sentence": "Capex of $3.73 billion was 3.6% of revenue  and 1.19x D&A , and the FY2026 plan is about $5 billion .",
+   "claim": "$5 billion",
+   "match": "passage P4: P4 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2026 capex plan $5B from FY2025 10-K passage."
+  },
+  {
+   "sentence": "Net debt was $4.30 billion in FY2025 , or 4.1% of revenue , down from $5.25 billion in FY2024 .",
+   "claim": "$4.30 billion",
+   "match": "cited: D410 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net debt $4.30B FY2025 matches."
+  },
+  {
+   "sentence": "Net debt was $4.30 billion in FY2025 , or 4.1% of revenue , down from $5.25 billion in FY2024 .",
+   "claim": "4.1%",
+   "match": "cited: D411 = Net cash % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Net cash % of revenue 4.1% FY2025 matches."
+  },
+  {
+   "sentence": "Net debt was $4.30 billion in FY2025 , or 4.1% of revenue , down from $5.25 billion in FY2024 .",
+   "claim": "$5.25 billion",
+   "match": "cited: D364 = Net cash (cash and investments less debt), FY2024",
+   "label": "consistent",
+   "reason": "Net debt $5.25B FY2024 matches."
+  },
+  {
+   "sentence": "That ratio ranks at the 50th percentile among six retail peers, whose median is -3.5% .",
+   "claim": "50th percentile",
+   "match": "cited: D612 = Net cash % of revenue: percentile vs retail peers (n=6), FY2025",
+   "label": "consistent",
+   "reason": "Percentile 50th vs retail peers FY2025 matches."
+  },
+  {
+   "sentence": "That ratio ranks at the 50th percentile among six retail peers, whose median is -3.5% .",
+   "claim": "-3.5%",
+   "match": "cited: D613 = Net cash % of revenue: retail peer median (n=6), FY2025",
+   "label": "consistent",
+   "reason": "Retail peer median -3.5% FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks and dividends absorbed 86.8% of FY2025 free cash flow , with $408 million of repurchases  and $2.05 billion of dividends .",
+   "claim": "86.8%",
+   "match": "cited: D413 = Buybacks plus dividends % of free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Buybacks+dividends % of FCF 86.8% FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks and dividends absorbed 86.8% of FY2025 free cash flow , with $408 million of repurchases  and $2.05 billion of dividends .",
+   "claim": "$408 million",
+   "match": "cited: X126 = Share repurchases (cash), FY2025",
+   "label": "consistent",
+   "reason": "Share repurchases $408M FY2025 matches."
+  },
+  {
+   "sentence": "Buybacks and dividends absorbed 86.8% of FY2025 free cash flow , with $408 million of repurchases  and $2.05 billion of dividends .",
+   "claim": "$2.05 billion",
+   "match": "cited: X136 = Dividends paid (cash), FY2025",
+   "label": "consistent",
+   "reason": "Dividends paid $2.05B FY2025 matches."
+  },
+  {
+   "sentence": "Revenue has fallen three years running, with FY2025 down 1.7%  and a 3-year CAGR of -1.3%  .",
+   "claim": "1.7%",
+   "match": "cited: D416 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth -1.7% FY2025 matches."
+  },
+  {
+   "sentence": "Revenue has fallen three years running, with FY2025 down 1.7%  and a 3-year CAGR of -1.3%  .",
+   "claim": "-1.3%",
+   "match": "cited: D603 = Revenue 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Revenue 3-year CAGR -1.3% FY2022-FY2025 matches."
+  },
+  {
+   "sentence": "The filings cite discretionary category declines in FY2023  and a 2.6% comparable sales drop in FY2025 .",
+   "claim": "2.6%",
+   "match": "passage P14: P14 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Comparable sales drop 2.6% from FY2025 10-K passage."
+  },
+  {
+   "sentence": "Operating margin has fallen two years running, by 0.4pp in total , as SG&A deleveraged on lower sales .",
+   "claim": "0.4pp",
+   "match": "passage R4: R4 = red-flag text: Operating margin fell 2 years in a row, 0.4pp in total.",
+   "label": "consistent",
+   "reason": "Operating margin total decline 0.4pp from red-flag text."
+  },
+  {
+   "sentence": "R3 refers to the FY2022 burn of $1.51 billion , not the latest year, so it is dropped .",
+   "claim": "$1.51 billion",
+   "match": "cited: D275 = Cash burn (negative free cash flow), FY2022",
+   "label": "consistent",
+   "reason": "Cash burn $1.51B FY2022 matches."
+  },
+  {
+   "sentence": "Operating margin returning to its 5.6% window median , from 4.9% , would confirm recovery; a fall below 4.9% would reverse it, in the FY2026 10-K.",
+   "claim": "5.6%",
+   "match": "cited: D590 = Operating margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window median 5.6% matches."
+  },
+  {
+   "sentence": "Operating margin returning to its 5.6% window median , from 4.9% , would confirm recovery; a fall below 4.9% would reverse it, in the FY2026 10-K.",
+   "claim": "4.9%",
+   "match": "cited: F34 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Operating margin 4.9% FY2025 matches."
+  },
+  {
+   "sentence": "Operating margin returning to its 5.6% window median , from 4.9% , would confirm recovery; a fall below 4.9% would reverse it, in the FY2026 10-K.",
+   "claim": "4.9%",
+   "match": "cited: F34 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Operating margin 4.9% FY2025 matches."
+  },
+  {
+   "sentence": "Revenue growth turning positive from the $105 billion FY2025 base  would signal the decline has stopped; a fall below the -1.3% three-year CAGR  would confirm deterioration, in the FY2026 10-K.",
+   "claim": "$105 billion",
+   "match": "cited: F10 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "Revenue $105B FY2025 matches."
+  },
+  {
+   "sentence": "Revenue growth turning positive from the $105 billion FY2025 base  would signal the decline has stopped; a fall below the -1.3% three-year CAGR  would confirm deterioration, in the FY2026 10-K.",
+   "claim": "-1.3%",
+   "match": "cited: D603 = Revenue 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Revenue 3-year CAGR -1.3% FY2022-FY2025 matches."
+  },
+  {
+   "sentence": "Capex moving toward the $5 billion 2026 plan , from $3.73 billion in FY2025 , would press free cash flow unless the FCF margin holds above its 4.5% window median .",
+   "claim": "$5 billion",
+   "match": "passage P4: P4 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "FY2026 capex plan $5B from FY2025 10-K passage."
+  },
+  {
+   "sentence": "Capex moving toward the $5 billion 2026 plan , from $3.73 billion in FY2025 , would press free cash flow unless the FCF margin holds above its 4.5% window median .",
+   "claim": "$3.73 billion",
+   "match": "cited: F94 = Capital expenditures, FY2025",
+   "label": "consistent",
+   "reason": "Capex $3.73B FY2025 matches."
+  },
+  {
+   "sentence": "Capex moving toward the $5 billion 2026 plan , from $3.73 billion in FY2025 , would press free cash flow unless the FCF margin holds above its 4.5% window median .",
+   "claim": "4.5%",
+   "match": "cited: D596 = Free cash flow margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "FCF margin window median 4.5% matches."
+  }
+ ]
+}

@@ -1,0 +1,106 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "520de3d6a1bd2d82796b981958469a6913b5869294016ac0abcb13224d6fbd98",
+ "y_sha256": "2c73aa861801926c0b35244ef2931c58b2af7f305bd39095404b67cc6f8ec1a1",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A explains more: it ties the opex rise to specific cost lines and attributes the net-margin jump to the $6.5bn OpenAI gain. But it misreads ROE, calling 34.0% 'at' the 38.8% peer median when it is below. It also lists 1.37x cash coverage as a red flag and frames a watch item as predicting AI costs 'biting'. B is fully supported, explains the FY2023 slowdown, labels its analysis clearly and adds a useful Intelligent Cloud margin threshold."
+   },
+   "cost_usd": 0.145045,
+   "latency_s": 14.168,
+   "backend": "claude_cli",
+   "input_tokens": 16263,
+   "cached_input_tokens": 727,
+   "output_tokens": 1031,
+   "reasoning_tokens": 787,
+   "meta": {
+    "duration_api_ms": 10111,
+    "cache_creation_input_tokens": 15534,
+    "list_cost_usd": 0.082909
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A explains more: it ties the opex rise to specific cost lines and attributes the net-margin jump to the $6.5bn OpenAI gain. But it misreads ROE, calling 34.0% 'at' the 38.8% peer median when it is below. It also lists 1.37x cash coverage as a red flag and frames a watch item as predicting AI costs 'biting'. B is fully supported, explains the FY2023 slowdown, labels its analysis clearly and adds a useful Intelligent Cloud margin threshold.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B explains more: TCJA and the FY2019 tax benefit, opex drivers, OpenAI gains in net margin, and Copilot/E5. But it says ROE of 34.0% 'sits at' a 38.8% peer median, a misread. It presents 'AI costs biting' as a signal without labelling it, and lists 1.37x OCF coverage as a red flag. A is fully supported and labels its analysis. Both cite the $51.4bn capex figure from a truncated passage. Grounding tips it to A."
+   },
+   "cost_usd": 0.146609,
+   "latency_s": 15.141,
+   "backend": "claude_cli",
+   "input_tokens": 16261,
+   "cached_input_tokens": 727,
+   "output_tokens": 1110,
+   "reasoning_tokens": 868,
+   "meta": {
+    "duration_api_ms": 11100,
+    "cache_creation_input_tokens": 15532,
+    "list_cost_usd": 0.084481
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B explains more: TCJA and the FY2019 tax benefit, opex drivers, OpenAI gains in net margin, and Copilot/E5. But it says ROE of 34.0% 'sits at' a 38.8% peer median, a misread. It presents 'AI costs biting' as a signal without labelling it, and lists 1.37x OCF coverage as a red flag. A is fully supported and labels its analysis. Both cite the $51.4bn capex figure from a truncated passage. Grounding tips it to A.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.291654
+}

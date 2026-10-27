@@ -1,0 +1,106 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "df34308dcd4937a45758ac386d2a21023480c4d76ab42abcc748629d8d6db547",
+ "y_sha256": "6244f034850cf243c520630e4a282d101d5b61efcf189b4488e7a559e1e5dd03",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A makes two claims its sources don't support. The $919m payables figure is absent from the truncated passage. 'Funded partly by debt' clashes with long-term debt falling 8.6%. B's only lapse is 'safety stock and new products', also cut from the passage. B adds a filing-cited cause for the FY2020 rebound, investing-cash drivers, debt reduction and an ROE peer comparison. A has clearer watch thresholds and an inventory flag, but grounding decides."
+   },
+   "cost_usd": 0.141441,
+   "latency_s": 15.313,
+   "backend": "claude_cli",
+   "input_tokens": 15690,
+   "cached_input_tokens": 727,
+   "output_tokens": 1080,
+   "reasoning_tokens": 848,
+   "meta": {
+    "duration_api_ms": 10822,
+    "cache_creation_input_tokens": 14961,
+    "list_cost_usd": 0.081597
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A makes two claims its sources don't support. The $919m payables figure is absent from the truncated passage. 'Funded partly by debt' clashes with long-term debt falling 8.6%. B's only lapse is 'safety stock and new products', also cut from the passage. B adds a filing-cited cause for the FY2020 rebound, investing-cash drivers, debt reduction and an ROE peer comparison. A has clearer watch thresholds and an inventory flag, but grounding decides.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B is deeper and has better watch items, but more of it is unsupported. It labels a FY2023\u201326 CAGR as 'since FY2020' and cites a $919m payables figure missing from the truncated passage. It says payouts were 'funded partly by debt' while long-term debt fell 8.6%, and calls 5.1% capex intensity a window high though FY2017 was about 5.2%. A also invents inventory causes and garbles the tax point, but has fewer errors."
+   },
+   "cost_usd": 0.152073,
+   "latency_s": 18.825,
+   "backend": "claude_cli",
+   "input_tokens": 15694,
+   "cached_input_tokens": 727,
+   "output_tokens": 1610,
+   "reasoning_tokens": 1377,
+   "meta": {
+    "duration_api_ms": 15281,
+    "cache_creation_input_tokens": 14965,
+    "list_cost_usd": 0.092213
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"B is deeper and has better watch items, but more of it is unsupported. It labels a FY2023\u201326 CAGR as 'since FY2020' and cites a $919m payables figure missing from the truncated passage. It says payouts were 'funded partly by debt' while long-term debt fell 8.6%, and calls 5.1% capex intensity a window high though FY2017 was about 5.2%. A also invents inventory causes and garbles the tax point, but has fewer errors.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.293514
+}

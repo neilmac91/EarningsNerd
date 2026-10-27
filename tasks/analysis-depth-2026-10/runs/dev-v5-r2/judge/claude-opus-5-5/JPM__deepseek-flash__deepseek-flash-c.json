@@ -1,0 +1,106 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "5962da3de33aa305069d882d8942c73f92a88ea8b08f559fc383a633e93bc0ae",
+ "y_sha256": "2ec76b08504011bb27169e445805fcb0da6a9ccc9758dc72ccfa56c1506e5469",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A cites Healthcare and Chemicals & Plastics as drivers of criticized exposure, but its source passage is cut off before naming them. A also garbles the 10-K net income correction and lists a data issue as its top red flag. B ranks credit risk first, labels its judgements as analysis, and adds North America growth contributions over time. B's flaws: a meaningless net-margin-versus-NII-share comparison, possibly wholesale loan growth read as total, and an overstated 'credit cycle turning' claim."
+   },
+   "cost_usd": 0.131685,
+   "latency_s": 20.299,
+   "backend": "claude_cli",
+   "input_tokens": 13218,
+   "cached_input_tokens": 727,
+   "output_tokens": 1581,
+   "reasoning_tokens": 1341,
+   "meta": {
+    "duration_api_ms": 16175,
+    "cache_creation_input_tokens": 12489,
+    "list_cost_usd": 0.081729
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A cites Healthcare and Chemicals & Plastics as drivers of criticized exposure, but its source passage is cut off before naming them. A also garbles the 10-K net income correction and lists a data issue as its top red flag. B ranks credit risk first, labels its judgements as analysis, and adds North America growth contributions over time. B's flaws: a meaningless net-margin-versus-NII-share comparison, possibly wholesale loan growth read as total, and an overstated 'credit cycle turning' claim.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B attributes criticized-exposure growth to Healthcare and Chemicals & Plastics, which its truncated source never names. It also garbles the net income reconciliation by giving $57.0bn as the 10-K figure when the 10-K says $57,048m. A's 'credit cycle turning' overreaches, since the criticized share fell, but it is labelled analysis. B adds useful depth: NII versus fee CAGRs, loan-to-deposit history and tax rate. Grounding decides it narrowly for A."
+   },
+   "cost_usd": 0.121517,
+   "latency_s": 14.603,
+   "backend": "claude_cli",
+   "input_tokens": 13222,
+   "cached_input_tokens": 727,
+   "output_tokens": 1071,
+   "reasoning_tokens": 829,
+   "meta": {
+    "duration_api_ms": 11312,
+    "cache_creation_input_tokens": 12493,
+    "list_cost_usd": 0.071545
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B attributes criticized-exposure growth to Healthcare and Chemicals & Plastics, which its truncated source never names. It also garbles the net income reconciliation by giving $57.0bn as the 10-K figure when the 10-K says $57,048m. A's 'credit cycle turning' overreaches, since the criticized share fell, but it is labelled analysis. B adds useful depth: NII versus fee CAGRs, loan-to-deposit history and tax rate. Grounding decides it narrowly for A.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.253202
+}

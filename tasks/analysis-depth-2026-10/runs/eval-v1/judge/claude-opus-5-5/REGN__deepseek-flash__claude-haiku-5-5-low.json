@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A has more depth: it covers the collaboration-revenue shift, EYLEA HD and the revenue recast. But it calls EYLEA erosion 'structural', which the cited passage does not say. It also links FY2025 capex to a FY2023 filing about 2023\u201324 spending. B attributes each cause to the correct year and states when filings give no explanation. However, B omits the recast disclosure. Grounding is weighted first, which tips the result to B."
+   },
+   "cost_usd": 0.141129,
+   "latency_s": 13.557,
+   "input_tokens": 15966,
+   "output_tokens": 954,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A has more depth: it covers the collaboration-revenue shift, EYLEA HD and the revenue recast. But it calls EYLEA erosion 'structural', which the cited passage does not say. It also links FY2025 capex to a FY2023 filing about 2023\u201324 spending. B attributes each cause to the correct year and states when filings give no explanation. However, B omits the recast disclosure. Grounding is weighted first, which tips the result to B.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper. It adds the EYLEA HD offset, the margin bridge, the tax rate, the recast disclosure and better watch items. But it presents unsupported interpretations as fact: it calls EYLEA erosion 'structural' and ties FY2025 capex to a FY2023 passage. A stays within its sources and flags where filings give no explanation. A misses the revenue recast and has weaker watch items. Since grounding is weighted first, A edges ahead."
+   },
+   "cost_usd": 0.141101,
+   "latency_s": 13.915,
+   "input_tokens": 15970,
+   "output_tokens": 951,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper. It adds the EYLEA HD offset, the margin bridge, the tax rate, the recast disclosure and better watch items. But it presents unsupported interpretations as fact: it calls EYLEA erosion 'structural' and ties FY2025 capex to a FY2023 passage. A stays within its sources and flags where filings give no explanation. A misses the revenue recast and has weaker watch items. Since grounding is weighted first, A edges ahead.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.28223
+}

@@ -1,0 +1,547 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "VRTX",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue compounded at 24.2% a year from FY2016 to FY2025, rising from $1.70 billion to $12.0 billion .",
+   "claim": "24.2%",
+   "match": "cited: F196 = Revenue CAGR, FY2016..FY2025, 24.24%",
+   "label": "consistent",
+   "reason": "Revenue CAGR FY2016\u2013FY2025, 24.24%."
+  },
+  {
+   "sentence": "Revenue compounded at 24.2% a year from FY2016 to FY2025, rising from $1.70 billion to $12.0 billion .",
+   "claim": "$1.70 billion",
+   "match": "cited: F1 = Revenue, FY2016, $1.70 billion; same value as X1 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2016 revenue $1.70 billion."
+  },
+  {
+   "sentence": "Revenue compounded at 24.2% a year from FY2016 to FY2025, rising from $1.70 billion to $12.0 billion .",
+   "claim": "$12.0 billion",
+   "match": "cited: F10 = Revenue, FY2025, $12.00 billion; same value as S106 = Pharmaceuticals (segment), X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2025 revenue $12.00 billion."
+  },
+  {
+   "sentence": "The step change came in FY2020, when revenue grew 49.1% as TRIKAFTA launched in the U.S. and KAFTRIO in the EU .",
+   "claim": "49.1%",
+   "match": "cited: D194 = Revenue growth, FY2020, 49.08%",
+   "label": "consistent",
+   "reason": "FY2020 revenue growth 49.08%."
+  },
+  {
+   "sentence": "FY2024 broke the pattern: revenue still grew 11.7% , but operating income fell to a $233 million loss on $4.6 billion of acquired in-process R&D, $4.4 billion of it from the Alpine acquisition .",
+   "claim": "11.7%",
+   "match": "cited: D402 = Revenue growth, FY2024, 11.66%; same value as D656 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2024 revenue growth 11.66%."
+  },
+  {
+   "sentence": "FY2024 broke the pattern: revenue still grew 11.7% , but operating income fell to a $233 million loss on $4.6 billion of acquired in-process R&D, $4.4 billion of it from the Alpine acquisition .",
+   "claim": "$233 million",
+   "match": "cited: F24 = Operating income, FY2024, -$232.90 million",
+   "label": "consistent",
+   "reason": "FY2024 operating income -$232.9M, stated as a loss."
+  },
+  {
+   "sentence": "FY2024 broke the pattern: revenue still grew 11.7% , but operating income fell to a $233 million loss on $4.6 billion of acquired in-process R&D, $4.4 billion of it from the Alpine acquisition .",
+   "claim": "$4.6 billion",
+   "match": "passage P11: P11 = a figure in the FY2024 10-K, Item 7. Management's Discussion and Analysis: \"In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d).\"",
+   "label": "consistent",
+   "reason": "Passage: FY2024 total AIPR&D $4.6 billion."
+  },
+  {
+   "sentence": "FY2024 broke the pattern: revenue still grew 11.7% , but operating income fell to a $233 million loss on $4.6 billion of acquired in-process R&D, $4.4 billion of it from the Alpine acquisition .",
+   "claim": "$4.4 billion",
+   "match": "passage P11: P11 = a figure in the FY2024 10-K, Item 7. Management's Discussion and Analysis: \"In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d).\"",
+   "label": "consistent",
+   "reason": "Passage: $4.4 billion of AIPR&D related to Alpine acquisition."
+  },
+  {
+   "sentence": "FY2025 recovered to a 34.8% operating margin and $3.95 billion of net income , though revenue growth slowed to 8.9% .",
+   "claim": "34.8%",
+   "match": "cited: F35 = Operating margin, FY2025, 34.77%",
+   "label": "consistent",
+   "reason": "FY2025 operating margin 34.77%."
+  },
+  {
+   "sentence": "FY2025 recovered to a 34.8% operating margin and $3.95 billion of net income , though revenue growth slowed to 8.9% .",
+   "claim": "$3.95 billion",
+   "match": "cited: F45 = Net income, FY2025, $3.95 billion; same value as S103 = Pharmaceuticals (segment, NetIncomeLoss), X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "FY2025 net income $3.95 billion."
+  },
+  {
+   "sentence": "FY2025 recovered to a 34.8% operating margin and $3.95 billion of net income , though revenue growth slowed to 8.9% .",
+   "claim": "8.9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 8.90%."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO carried the window, contributing 29.5pp of FY2021 growth and 26.3pp in FY2022 , and still 85.9% of FY2025 revenue .",
+   "claim": "29.5pp",
+   "match": "cited: D519 = TRIKAFTA/KAFTRIO (product) contribution to revenue growth (pp), FY2021, +29.54pp",
+   "label": "consistent",
+   "reason": "TRIKAFTA/KAFTRIO FY2021 growth contribution +29.54pp."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO carried the window, contributing 29.5pp of FY2021 growth and 26.3pp in FY2022 , and still 85.9% of FY2025 revenue .",
+   "claim": "26.3pp",
+   "match": "cited: D522 = TRIKAFTA/KAFTRIO (product) contribution to revenue growth (pp), FY2022, +26.27pp",
+   "label": "consistent",
+   "reason": "TRIKAFTA/KAFTRIO FY2022 growth contribution +26.27pp."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO carried the window, contributing 29.5pp of FY2021 growth and 26.3pp in FY2022 , and still 85.9% of FY2025 revenue .",
+   "claim": "85.9%",
+   "match": "cited: D529 = TRIKAFTA/KAFTRIO (product) share of revenue, FY2025, 85.93%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S106 = Pharmaceuticals (segment)",
+   "label": "consistent",
+   "reason": "TRIKAFTA/KAFTRIO share of FY2025 revenue 85.93%."
+  },
+  {
+   "sentence": "In FY2025 net product revenues rose $950.5 million, or 9%, primarily due to continued growth , with ALYFTREK contributing 7.6pp of the 8.9% total .",
+   "claim": "$950.5 million",
+   "match": "passage P3: P3 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"In 2025, our net product revenues increased $950.5 million, or 9%, as compared to 2024, primarily due to continued\"",
+   "label": "consistent",
+   "reason": "Passage: 2025 net product revenues increased $950.5 million."
+  },
+  {
+   "sentence": "In FY2025 net product revenues rose $950.5 million, or 9%, primarily due to continued growth , with ALYFTREK contributing 7.6pp of the 8.9% total .",
+   "claim": "9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 8.90%, rounded to 9%."
+  },
+  {
+   "sentence": "In FY2025 net product revenues rose $950.5 million, or 9%, primarily due to continued growth , with ALYFTREK contributing 7.6pp of the 8.9% total .",
+   "claim": "7.6pp",
+   "match": "cited: D590 = ALYFTREK (product) contribution to revenue growth (pp), FY2025, +7.60pp",
+   "label": "consistent",
+   "reason": "ALYFTREK FY2025 growth contribution +7.60pp."
+  },
+  {
+   "sentence": "In FY2025 net product revenues rose $950.5 million, or 9%, primarily due to continued growth , with ALYFTREK contributing 7.6pp of the 8.9% total .",
+   "claim": "8.9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 total revenue growth 8.90%."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO itself grew only 0.7% in FY2025 , and Europe contributed just 0.1pp as its growth stalled at 0.2% .",
+   "claim": "0.7%",
+   "match": "cited: D530 = TRIKAFTA/KAFTRIO (product) growth, FY2025, 0.72%",
+   "label": "consistent",
+   "reason": "TRIKAFTA/KAFTRIO FY2025 growth 0.72%."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO itself grew only 0.7% in FY2025 , and Europe contributed just 0.1pp as its growth stalled at 0.2% .",
+   "claim": "0.1pp",
+   "match": "cited: D496 = Europe (geography) contribution to revenue growth (pp), FY2025, +0.06pp",
+   "label": "consistent",
+   "reason": "Europe FY2025 growth contribution +0.06pp."
+  },
+  {
+   "sentence": "TRIKAFTA/KAFTRIO itself grew only 0.7% in FY2025 , and Europe contributed just 0.1pp as its growth stalled at 0.2% .",
+   "claim": "0.2%",
+   "match": "cited: D495 = Europe (geography) growth, FY2025, 0.19%",
+   "label": "consistent",
+   "reason": "Europe FY2025 growth 0.19%."
+  },
+  {
+   "sentence": "Operating leverage was strong: operating income grew 95.6% a year against 24.2% for revenue , and FY2025 incremental margin was 449.1% .",
+   "claim": "95.6%",
+   "match": "cited: F197 = Operating income CAGR, FY2016..FY2025, 95.65%",
+   "label": "consistent",
+   "reason": "Operating income CAGR 95.65%, stated as annual growth."
+  },
+  {
+   "sentence": "Operating leverage was strong: operating income grew 95.6% a year against 24.2% for revenue , and FY2025 incremental margin was 449.1% .",
+   "claim": "24.2%",
+   "match": "cited: F196 = Revenue CAGR, FY2016..FY2025, 24.24%",
+   "label": "consistent",
+   "reason": "Revenue CAGR 24.24%."
+  },
+  {
+   "sentence": "Operating leverage was strong: operating income grew 95.6% a year against 24.2% for revenue , and FY2025 incremental margin was 449.1% .",
+   "claim": "449.1%",
+   "match": "cited: D463 = Incremental operating margin (change in operating income / change in revenue), FY2025, 449.06%",
+   "label": "consistent",
+   "reason": "FY2025 incremental operating margin 449.06%."
+  },
+  {
+   "sentence": "Diluted EPS rose to $15.32 in FY2025  while the diluted share count was flat at 258.0 million , so per-share growth tracked net income.",
+   "claim": "$15.32",
+   "match": "cited: F75 = EPS (diluted), FY2025, $15.32 per share",
+   "label": "consistent",
+   "reason": "FY2025 diluted EPS $15.32."
+  },
+  {
+   "sentence": "Diluted EPS rose to $15.32 in FY2025  while the diluted share count was flat at 258.0 million , so per-share growth tracked net income.",
+   "claim": "258.0 million",
+   "match": "cited: X137 = Diluted weighted-average shares, FY2025, 258,000,000.00 shares",
+   "label": "consistent",
+   "reason": "FY2025 diluted weighted-average shares 258.0 million."
+  },
+  {
+   "sentence": "The FY2025 operating margin of 34.8%  sits above the 31.8% window median but below the 48.2% FY2022 high .",
+   "claim": "34.8%",
+   "match": "cited: F35 = Operating margin, FY2025, 34.77%",
+   "label": "consistent",
+   "reason": "FY2025 operating margin 34.77%."
+  },
+  {
+   "sentence": "The FY2025 operating margin of 34.8%  sits above the 31.8% window median but below the 48.2% FY2022 high .",
+   "claim": "31.8%",
+   "match": "cited: D663 = Operating margin window median, FY2016..FY2025, 31.77%",
+   "label": "consistent",
+   "reason": "Operating margin window median 31.77%."
+  },
+  {
+   "sentence": "The FY2025 operating margin of 34.8%  sits above the 31.8% window median but below the 48.2% FY2022 high .",
+   "claim": "48.2%",
+   "match": "cited: D662 = Operating margin window high (FY2022), FY2016..FY2025, 48.23%",
+   "label": "consistent",
+   "reason": "Operating margin window high, FY2022, 48.23%."
+  },
+  {
+   "sentence": "Cost of revenue held at 13.8% of revenue in FY2025  as a lower overall royalty rate for CF medicines offset other costs .",
+   "claim": "13.8%",
+   "match": "cited: D425 = Cost of revenue % of revenue, FY2025, 13.76%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S106 = Pharmaceuticals (segment)",
+   "label": "consistent",
+   "reason": "FY2025 cost of revenue 13.76% of revenue."
+  },
+  {
+   "sentence": "SG&A was the drag, costing 1.3pp of margin as it grew 19.7% against revenue's 8.9% .",
+   "claim": "1.3pp",
+   "match": "cited: D467 = Operating-margin effect of SG&A (pp), FY2025, -1.32pp",
+   "label": "consistent",
+   "reason": "SG&A margin effect -1.32pp, stated as a cost."
+  },
+  {
+   "sentence": "SG&A was the drag, costing 1.3pp of margin as it grew 19.7% against revenue's 8.9% .",
+   "claim": "19.7%",
+   "match": "cited: D456 = SG&A growth, FY2025, 19.72%",
+   "label": "consistent",
+   "reason": "FY2025 SG&A growth 19.72%."
+  },
+  {
+   "sentence": "SG&A was the drag, costing 1.3pp of margin as it grew 19.7% against revenue's 8.9% .",
+   "claim": "8.9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 8.90%."
+  },
+  {
+   "sentence": "The FY2024 margin collapse of 40.9pp  came from the $4.6 billion of AIPR&D, including $4.4 billion for Alpine .",
+   "claim": "40.9pp",
+   "match": "cited: D408 = Operating margin change, FY2024, -40.94pp",
+   "label": "consistent",
+   "reason": "FY2024 operating margin change -40.94pp, stated as a collapse."
+  },
+  {
+   "sentence": "The FY2024 margin collapse of 40.9pp  came from the $4.6 billion of AIPR&D, including $4.4 billion for Alpine .",
+   "claim": "$4.6 billion",
+   "match": "passage P11: P11 = a figure in the FY2024 10-K, Item 7. Management's Discussion and Analysis: \"In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d).\"",
+   "label": "consistent",
+   "reason": "Passage: FY2024 AIPR&D $4.6 billion."
+  },
+  {
+   "sentence": "The FY2024 margin collapse of 40.9pp  came from the $4.6 billion of AIPR&D, including $4.4 billion for Alpine .",
+   "claim": "$4.4 billion",
+   "match": "passage P11: P11 = a figure in the FY2024 10-K, Item 7. Management's Discussion and Analysis: \"In 2024, total acquired in-process research and development expenses (\u201cAIPR&D\u201d) of $4.6 billion included $4.4 billion related to our acquisition of Alpine Immune Sciences, Inc. (\u201cAlpine\u201d).\"",
+   "label": "consistent",
+   "reason": "Passage: $4.4 billion of AIPR&D for Alpine."
+  },
+  {
+   "sentence": "Below the line, the FY2024 effective tax rate of 315.5%  reflected non-deductible AIPR&D that lowered pre-tax income , while FY2025's 14.9%  is near the window norm.",
+   "claim": "315.5%",
+   "match": "cited: D390 = Effective tax rate, FY2024, 315.53%",
+   "label": "consistent",
+   "reason": "FY2024 effective tax rate 315.53%."
+  },
+  {
+   "sentence": "Below the line, the FY2024 effective tax rate of 315.5%  reflected non-deductible AIPR&D that lowered pre-tax income , while FY2025's 14.9%  is near the window norm.",
+   "claim": "14.9%",
+   "match": "cited: D433 = Effective tax rate, FY2025, 14.86%",
+   "label": "consistent",
+   "reason": "FY2025 effective tax rate 14.86%."
+  },
+  {
+   "sentence": "Operating cash flow was $3.63 billion in FY2025, primarily due to income from operations of $4.2 billion .",
+   "claim": "$3.63 billion",
+   "match": "cited: F85 = Operating cash flow, FY2025, $3.63 billion",
+   "label": "consistent",
+   "reason": "FY2025 operating cash flow $3.63 billion."
+  },
+  {
+   "sentence": "Operating cash flow was $3.63 billion in FY2025, primarily due to income from operations of $4.2 billion .",
+   "claim": "$4.2 billion",
+   "match": "passage P1: P1 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Cash provided by operating activities was $3.6 billion in 2025, primarily due to income from operations of $4.2 billion\"",
+   "label": "consistent",
+   "reason": "Passage: 2025 income from operations $4.2 billion."
+  },
+  {
+   "sentence": "Free cash flow of $3.19 billion was 26.6% of revenue , below the 32.8% window median , and free cash flow covered net income only 0.81x  against a 1.07x median .",
+   "claim": "$3.19 billion",
+   "match": "cited: F105 = Free cash flow, FY2025, $3.19 billion",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow $3.19 billion."
+  },
+  {
+   "sentence": "Free cash flow of $3.19 billion was 26.6% of revenue , below the 32.8% window median , and free cash flow covered net income only 0.81x  against a 1.07x median .",
+   "claim": "26.6%",
+   "match": "cited: D431 = Free cash flow margin, FY2025, 26.61%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S106 = Pharmaceuticals (segment)",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow margin 26.61%."
+  },
+  {
+   "sentence": "Free cash flow of $3.19 billion was 26.6% of revenue , below the 32.8% window median , and free cash flow covered net income only 0.81x  against a 1.07x median .",
+   "claim": "32.8%",
+   "match": "cited: D669 = Free cash flow margin window median, FY2016..FY2025, 32.80%",
+   "label": "consistent",
+   "reason": "Free cash flow margin window median 32.80%."
+  },
+  {
+   "sentence": "Free cash flow of $3.19 billion was 26.6% of revenue , below the 32.8% window median , and free cash flow covered net income only 0.81x  against a 1.07x median .",
+   "claim": "0.81x",
+   "match": "cited: D435 = Free cash flow / net income, FY2025, 0.81x; its input F45 = Net income has the same value as S103 = Pharmaceuticals (segment, NetIncomeLoss), X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow / net income 0.81x."
+  },
+  {
+   "sentence": "Free cash flow of $3.19 billion was 26.6% of revenue , below the 32.8% window median , and free cash flow covered net income only 0.81x  against a 1.07x median .",
+   "claim": "1.07x",
+   "match": "cited: D675 = Free cash flow / net income window median, FY2017..FY2025, 1.07x",
+   "label": "consistent",
+   "reason": "Free cash flow / net income window median 1.07x."
+  },
+  {
+   "sentence": "Capex rose 47.0% to $438 million, 2.09x D&A , lifting capital intensity to 3.6% of revenue .",
+   "claim": "47.0%",
+   "match": "cited: D447 = Capital expenditures growth, FY2025, 46.99%",
+   "label": "consistent",
+   "reason": "FY2025 capex growth 46.99%."
+  },
+  {
+   "sentence": "Capex rose 47.0% to $438 million, 2.09x D&A , lifting capital intensity to 3.6% of revenue .",
+   "claim": "$438 million",
+   "match": "cited: F95 = Capital expenditures, FY2025, $437.60 million",
+   "label": "consistent",
+   "reason": "FY2025 capex $437.6 million."
+  },
+  {
+   "sentence": "Capex rose 47.0% to $438 million, 2.09x D&A , lifting capital intensity to 3.6% of revenue .",
+   "claim": "2.09x",
+   "match": "cited: D436 = Capex / D&A, FY2025, 2.09x",
+   "label": "consistent",
+   "reason": "FY2025 capex / D&A 2.09x."
+  },
+  {
+   "sentence": "Capex rose 47.0% to $438 million, 2.09x D&A , lifting capital intensity to 3.6% of revenue .",
+   "claim": "3.6%",
+   "match": "cited: D430 = Capex % of revenue, FY2025, 3.65%; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S106 = Pharmaceuticals (segment)",
+   "label": "consistent",
+   "reason": "FY2025 capex 3.65% of revenue."
+  },
+  {
+   "sentence": "Stock-based compensation of $686 million equalled 18.9% of operating cash flow , a persistent non-cash add-back.",
+   "claim": "$686 million",
+   "match": "cited: X87 = Stock-based compensation, FY2025, $685.90 million",
+   "label": "consistent",
+   "reason": "FY2025 stock-based compensation $685.9 million."
+  },
+  {
+   "sentence": "Stock-based compensation of $686 million equalled 18.9% of operating cash flow , a persistent non-cash add-back.",
+   "claim": "18.9%",
+   "match": "cited: D437 = Stock-based compensation % of operating cash flow, FY2025, 18.89%",
+   "label": "consistent",
+   "reason": "FY2025 SBC 18.89% of operating cash flow."
+  },
+  {
+   "sentence": "Net cash of $12.3 billion is 102.7% of revenue , in the 88th percentile of eight biopharma peers whose median is -50.7% .",
+   "claim": "$12.3 billion",
+   "match": "cited: D439 = Net cash (cash and investments less debt), FY2025, $12.32 billion; same value as D438 = Cash and investments",
+   "label": "consistent",
+   "reason": "FY2025 net cash $12.32 billion, positive."
+  },
+  {
+   "sentence": "Net cash of $12.3 billion is 102.7% of revenue , in the 88th percentile of eight biopharma peers whose median is -50.7% .",
+   "claim": "102.7%",
+   "match": "cited: D440 = Net cash % of revenue, FY2025, 102.66%; its input D439 = Net cash (cash and investments less debt) has the same value as D438 = Cash and investments; its input X10 = Total revenues as reported has the same value as F10 = Revenue, S106 = Pharmaceuticals (segment)",
+   "label": "consistent",
+   "reason": "FY2025 net cash 102.66% of revenue."
+  },
+  {
+   "sentence": "Net cash of $12.3 billion is 102.7% of revenue , in the 88th percentile of eight biopharma peers whose median is -50.7% .",
+   "claim": "88th percentile",
+   "match": "cited: D691 = Net cash % of revenue: percentile vs biopharma peers (n=8), FY2025, 87.50 (percentile)",
+   "label": "consistent",
+   "reason": "Net cash % of revenue at 87.5th peer percentile."
+  },
+  {
+   "sentence": "Net cash of $12.3 billion is 102.7% of revenue , in the 88th percentile of eight biopharma peers whose median is -50.7% .",
+   "claim": "-50.7%",
+   "match": "cited: D692 = Net cash % of revenue: biopharma peer median (n=8), FY2025, -50.67%",
+   "label": "consistent",
+   "reason": "Peer median net cash % of revenue -50.67%, minus sign kept."
+  },
+  {
+   "sentence": "Cash and investments rose 9.8% in FY2025 , primarily due to increased cash and marketable securities from product revenue .",
+   "claim": "9.8%",
+   "match": "cited: D460 = Cash and investments growth, FY2025, 9.77%",
+   "label": "consistent",
+   "reason": "FY2025 cash and investments growth 9.77%."
+  },
+  {
+   "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow , yet the diluted share count was unchanged .",
+   "claim": "$2.02 billion",
+   "match": "cited: D441 = Buybacks plus dividends, FY2025, $2.02 billion; same value as X147 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Share repurchases $2.02 billion, same value as cited figure."
+  },
+  {
+   "sentence": "Buybacks of $2.02 billion absorbed 63.2% of free cash flow , yet the diluted share count was unchanged .",
+   "claim": "63.2%",
+   "match": "cited: D442 = Buybacks plus dividends % of free cash flow, FY2025, 63.17%; its input D441 = Buybacks plus dividends has the same value as X147 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Repurchases replace their input inside the % of FCF calculation."
+  },
+  {
+   "sentence": "Return on average equity of 22.5%  trails the 38.7% peer median , reflecting the large cash balance.",
+   "claim": "22.5%",
+   "match": "cited: D445 = Return on average equity, FY2025, 22.54%",
+   "label": "consistent",
+   "reason": "FY2025 return on average equity 22.54%."
+  },
+  {
+   "sentence": "Return on average equity of 22.5%  trails the 38.7% peer median , reflecting the large cash balance.",
+   "claim": "38.7%",
+   "match": "cited: D696 = Return on average equity: biopharma peer median (n=8), FY2025, 38.70%",
+   "label": "consistent",
+   "reason": "Peer median return on average equity 38.70%."
+  },
+  {
+   "sentence": "Days inventory outstanding jumped 85 days to 373 in FY2025 , far above the 156 days of FY2022 , a build that ties up cash as inventory grew 39.9% against revenue's 8.9% .",
+   "claim": "85 days",
+   "match": "difference D444-D397 = 85.38 days: D444 = Days inventory outstanding (year-end inventory), FY2025, 372.85 days | D397 = Days inventory outstanding (year-end inventory), FY2024, 287.47 days",
+   "label": "consistent",
+   "reason": "DIO rose 85.38 days, FY2024 to FY2025."
+  },
+  {
+   "sentence": "Days inventory outstanding jumped 85 days to 373 in FY2025 , far above the 156 days of FY2022 , a build that ties up cash as inventory grew 39.9% against revenue's 8.9% .",
+   "claim": "373",
+   "match": "cited: D444 = Days inventory outstanding (year-end inventory), FY2025, 372.85 days",
+   "label": "consistent",
+   "reason": "FY2025 DIO 372.85 days."
+  },
+  {
+   "sentence": "Days inventory outstanding jumped 85 days to 373 in FY2025 , far above the 156 days of FY2022 , a build that ties up cash as inventory grew 39.9% against revenue's 8.9% .",
+   "claim": "156 days",
+   "match": "cited: D298 = Days inventory outstanding (year-end inventory), FY2022, 155.62 days",
+   "label": "consistent",
+   "reason": "FY2022 DIO 155.62 days."
+  },
+  {
+   "sentence": "Days inventory outstanding jumped 85 days to 373 in FY2025 , far above the 156 days of FY2022 , a build that ties up cash as inventory grew 39.9% against revenue's 8.9% .",
+   "claim": "39.9%",
+   "match": "cited: D462 = Inventory growth, FY2025, 39.94%",
+   "label": "consistent",
+   "reason": "FY2025 inventory growth 39.94%."
+  },
+  {
+   "sentence": "Days inventory outstanding jumped 85 days to 373 in FY2025 , far above the 156 days of FY2022 , a build that ties up cash as inventory grew 39.9% against revenue's 8.9% .",
+   "claim": "8.9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 8.90%."
+  },
+  {
+   "sentence": "The effective tax rate swung -300.7pp to 14.9% in FY2025 , but this reverses FY2024's Alpine-driven distortion  and looks benign.",
+   "claim": "-300.7pp",
+   "match": "pp D433-D390 = -300.67pp: D433 = Effective tax rate, FY2025, 14.86% | D390 = Effective tax rate, FY2024, 315.53%",
+   "label": "consistent",
+   "reason": "Tax rate change FY2024 to FY2025, -300.67pp."
+  },
+  {
+   "sentence": "The effective tax rate swung -300.7pp to 14.9% in FY2025 , but this reverses FY2024's Alpine-driven distortion  and looks benign.",
+   "claim": "14.9%",
+   "match": "cited: D433 = Effective tax rate, FY2025, 14.86%",
+   "label": "consistent",
+   "reason": "FY2025 effective tax rate 14.86%."
+  },
+  {
+   "sentence": "FY2019 share repurchases were later restated to $186.0 million from the $192.0 million used here , a data-quality note that does not change any conclusion.",
+   "claim": "$186.0 million",
+   "match": "passage R3: R3 = red-flag text: share repurchases for FY2019 was later reported as 186.0M against 192.0M first reported; the pack uses the first-reported value, which that year's MD&A discusses.",
+   "label": "consistent",
+   "reason": "Red flag: FY2019 repurchases later reported as 186.0M."
+  },
+  {
+   "sentence": "FY2019 share repurchases were later restated to $186.0 million from the $192.0 million used here , a data-quality note that does not change any conclusion.",
+   "claim": "$192.0 million",
+   "match": "cited: X141 = Share repurchases (cash), FY2019, $192.01 million; same value as D137 = Buybacks plus dividends",
+   "label": "consistent",
+   "reason": "FY2019 first-reported share repurchases $192.0 million."
+  },
+  {
+   "sentence": "If TRIKAFTA/KAFTRIO growth stays at or below the FY2025 level of 0.7%  while ALYFTREK's 7.6pp contribution  does not offset it, total growth would fall below the 8.9% of FY2025 ; watch the product table in the FY2026 10-K.",
+   "claim": "0.7%",
+   "match": "cited: D530 = TRIKAFTA/KAFTRIO (product) growth, FY2025, 0.72%",
+   "label": "consistent",
+   "reason": "TRIKAFTA/KAFTRIO FY2025 growth 0.72%, used as bound reference."
+  },
+  {
+   "sentence": "If TRIKAFTA/KAFTRIO growth stays at or below the FY2025 level of 0.7%  while ALYFTREK's 7.6pp contribution  does not offset it, total growth would fall below the 8.9% of FY2025 ; watch the product table in the FY2026 10-K.",
+   "claim": "7.6pp",
+   "match": "cited: D590 = ALYFTREK (product) contribution to revenue growth (pp), FY2025, +7.60pp",
+   "label": "consistent",
+   "reason": "ALYFTREK FY2025 growth contribution 7.60pp."
+  },
+  {
+   "sentence": "If TRIKAFTA/KAFTRIO growth stays at or below the FY2025 level of 0.7%  while ALYFTREK's 7.6pp contribution  does not offset it, total growth would fall below the 8.9% of FY2025 ; watch the product table in the FY2026 10-K.",
+   "claim": "8.9%",
+   "match": "cited: D446 = Revenue growth, FY2025, 8.90%; same value as D659 = Pharmaceuticals (segment) growth",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 8.90% used as reference level."
+  },
+  {
+   "sentence": "Days inventory outstanding at 373  should be watched against the FY2022 level of 156 ; a further rise would confirm the working-capital drag.",
+   "claim": "373",
+   "match": "cited: D444 = Days inventory outstanding (year-end inventory), FY2025, 372.85 days",
+   "label": "consistent",
+   "reason": "FY2025 DIO 372.85 days."
+  },
+  {
+   "sentence": "Days inventory outstanding at 373  should be watched against the FY2022 level of 156 ; a further rise would confirm the working-capital drag.",
+   "claim": "156",
+   "match": "cited: D298 = Days inventory outstanding (year-end inventory), FY2022, 155.62 days",
+   "label": "consistent",
+   "reason": "FY2022 DIO 155.62 days."
+  },
+  {
+   "sentence": "Free cash flow conversion of 0.81x  against the 1.07x window median  would confirm improvement if it returns above the median in the FY2026 cash flow statement.",
+   "claim": "0.81x",
+   "match": "cited: D435 = Free cash flow / net income, FY2025, 0.81x; its input F45 = Net income has the same value as S103 = Pharmaceuticals (segment, NetIncomeLoss), X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow / net income 0.81x."
+  },
+  {
+   "sentence": "Free cash flow conversion of 0.81x  against the 1.07x window median  would confirm improvement if it returns above the median in the FY2026 cash flow statement.",
+   "claim": "1.07x",
+   "match": "cited: D675 = Free cash flow / net income window median, FY2017..FY2025, 1.07x",
+   "label": "consistent",
+   "reason": "Free cash flow / net income window median 1.07x."
+  }
+ ],
+ "output_sha256": "6971452774ab2287abca76055154fb681b1dd437812708314c830966af0c7efc",
+ "view": 2,
+ "cost_usd": 0.164999,
+ "backend": "claude_cli",
+ "input_tokens": 12142,
+ "cached_input_tokens": 1014,
+ "output_tokens": 3789
+}

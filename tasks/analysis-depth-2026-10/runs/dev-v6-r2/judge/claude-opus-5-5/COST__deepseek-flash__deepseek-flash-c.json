@@ -1,0 +1,106 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "d6b071d3751cb2629c0c7849d89b27c29f987a82f9e2fcb70f58ea6bb6225193",
+ "y_sha256": "7cae7cee0aaa7379fc0ecb8e0f2281db57d4e4bf0f5f162b963262f99b329110",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts claim an inventory-turns cause for operating cash flow that the truncated passage never states. A also blends the reported and ex-gasoline gross margin figures and asserts the membership model as cause without support. B claims an unsourced $1.1bn of repurchase capacity, has a garbled cash-conversion sentence and cites an unsupported FY2025 gap. B adds sourced membership drivers, category contributions and peer comparisons, and labels its analysis separately. A spots the current-debt jump."
+   },
+   "cost_usd": 0.141357,
+   "latency_s": 16.32,
+   "backend": "claude_cli",
+   "input_tokens": 15447,
+   "cached_input_tokens": 727,
+   "output_tokens": 1173,
+   "reasoning_tokens": 933,
+   "meta": {
+    "duration_api_ms": 12136,
+    "cache_creation_input_tokens": 14718,
+    "list_cost_usd": 0.082485
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts claim an inventory-turns cause for operating cash flow that the truncated passage never states. A also blends the reported and ex-gasoline gross margin figures and asserts the membership model as cause without support. B claims an unsourced $1.1bn of repurchase capacity, has a garbled cash-conversion sentence and cites an unsupported FY2025 gap. B adds sourced membership drivers, category contributions and peer comparisons, and labels its analysis separately. A spots the current-debt jump.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both cite a truncated cash-flow passage for causes it doesn't state. B misreads the gross-margin bridge, mixing ex-gasoline basis points with the reported -3bp, and adds an unsourced 'membership model' cause and 'window high' claim. A has a garbled OCF sentence and an unsourced FY2025 gap, but labels its analysis. B's added depth (membership contribution, gross-margin mix, FCF peer comparison, receivables and current-debt flags, sharper watch items) narrowly outweighs that."
+   },
+   "cost_usd": 0.143797,
+   "latency_s": 17.54,
+   "backend": "claude_cli",
+   "input_tokens": 15447,
+   "cached_input_tokens": 727,
+   "output_tokens": 1295,
+   "reasoning_tokens": 1041,
+   "meta": {
+    "duration_api_ms": 12531,
+    "cache_creation_input_tokens": 14718,
+    "list_cost_usd": 0.084925
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both cite a truncated cash-flow passage for causes it doesn't state. B misreads the gross-margin bridge, mixing ex-gasoline basis points with the reported -3bp, and adds an unsourced 'membership model' cause and 'window high' claim. A has a garbled OCF sentence and an unsourced FY2025 gap, but labels its analysis. B's added depth (membership contribution, gross-margin mix, FCF peer comparison, receivables and current-debt flags, sharper watch items) narrowly outweighs that.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.285154
+}

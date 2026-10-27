@@ -1,0 +1,106 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "70724b9e706c37ca58f9bbfb9174d726c78bed1879b73a2a437e2dd22d0d1fd8",
+ "y_sha256": "d30ce34d1dd0f41ec8d59e1a37ecd10605e62307368a9433dcaca1783ca72a75",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A explains more: it ties the FY2025 margin rebound to FY2024's AIPR&D and is cleaner prose. But it inverts the royalty-offset direction in the cost-of-sales passage, asserts multi-year inventory growth from one year's figure, and leans on a misleading 95.6% operating-income CAGR. B attributes claims more carefully, discloses a data-quality caveat and adds the ROE peer gap and SBC share. It is clunkier, and its 'third consecutive year' claim is weakly supported."
+   },
+   "cost_usd": 0.131665,
+   "latency_s": 15.069,
+   "backend": "claude_cli",
+   "input_tokens": 14368,
+   "cached_input_tokens": 727,
+   "output_tokens": 1120,
+   "reasoning_tokens": 875,
+   "meta": {
+    "duration_api_ms": 10674,
+    "cache_creation_input_tokens": 13639,
+    "list_cost_usd": 0.077109
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A explains more: it ties the FY2025 margin rebound to FY2024's AIPR&D and is cleaner prose. But it inverts the royalty-offset direction in the cost-of-sales passage, asserts multi-year inventory growth from one year's figure, and leans on a misleading 95.6% operating-income CAGR. B attributes claims more carefully, discloses a data-quality caveat and adds the ROE peer gap and SBC share. It is clunkier, and its 'third consecutive year' claim is weakly supported.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has more grounding errors. It calls 214\u2192287\u2192373 days a 'third consecutive' rise and reads a truncated filing quote as naming no product. Its circular '-30.4% cost growth' sentence ignores AIPR&D. B ties the 37.7pp residual to the lapsed AIPR&D, explains SG&A and tax, and reads more clearly. A covers more ground (ROE, SBC, FY2019 data caveat) and is better calibrated. Both misapply the working-capital passage, and B overstates the inventory trend."
+   },
+   "cost_usd": 0.133369,
+   "latency_s": 16.356,
+   "backend": "claude_cli",
+   "input_tokens": 14366,
+   "cached_input_tokens": 727,
+   "output_tokens": 1206,
+   "reasoning_tokens": 957,
+   "meta": {
+    "duration_api_ms": 12126,
+    "cache_creation_input_tokens": 13637,
+    "list_cost_usd": 0.078821
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has more grounding errors. It calls 214\u2192287\u2192373 days a 'third consecutive' rise and reads a truncated filing quote as naming no product. Its circular '-30.4% cost growth' sentence ignores AIPR&D. B ties the 37.7pp residual to the lapsed AIPR&D, explains SG&A and tax, and reads more clearly. A covers more ground (ROE, SBC, FY2019 data caveat) and is better calibrated. Both misapply the working-capital passage, and B overstates the inventory trend.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.265034
+}

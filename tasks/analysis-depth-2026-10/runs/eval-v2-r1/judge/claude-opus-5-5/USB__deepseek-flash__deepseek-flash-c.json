@@ -1,0 +1,106 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "41fdc463125fc5fbe9729cecf0473433d4afe804f061ba8988c4d054198bbd65",
+ "y_sha256": "004dbed7d09f320f71f0bc5d0fc2cbdcf31aaebecced0df85043aa2126d06a3c",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts add an FDIC special-assessment cause that their cited passages do not state. A has further grounding errors: an unsupported $734m figure, and it calls FY2024 the window's only revenue decline when FY2021 also fell (about 2.2%). A offers richer peer context on efficiency and credit costs, and reads more cleanly. B adds the FY2022 inflection, flags the long-term-debt data gap, and gives numeric thresholds, so it edges ahead on grounding and calibration."
+   },
+   "cost_usd": 0.124809,
+   "latency_s": 16.403,
+   "backend": "claude_cli",
+   "input_tokens": 13221,
+   "cached_input_tokens": 727,
+   "output_tokens": 1236,
+   "reasoning_tokens": 992,
+   "meta": {
+    "duration_api_ms": 11907,
+    "cache_creation_input_tokens": 12492,
+    "list_cost_usd": 0.074841
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts add an FDIC special-assessment cause that their cited passages do not state. A has further grounding errors: an unsupported $734m figure, and it calls FY2024 the window's only revenue decline when FY2021 also fell (about 2.2%). A offers richer peer context on efficiency and credit costs, and reads more cleanly. B adds the FY2022 inflection, flags the long-term-debt data gap, and gives numeric thresholds, so it edges ahead on grounding and calibration.\"}\n```",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts wrongly attribute cost moves to an FDIC charge their cited passages never mention. B worsens this with an uncited $734m figure and an unsupported 'dividends rose'. That gives A a narrow grounding edge. But A's grounding gain is small, and B adds real insight A lacks: peer efficiency and credit-cost comparisons, capital accumulation, and segment mix. A also includes a meaningless net-margin versus efficiency-ratio comparison. B's depth outweighs its marginal grounding deficit."
+   },
+   "cost_usd": 0.129325,
+   "latency_s": 17.6,
+   "backend": "claude_cli",
+   "input_tokens": 13223,
+   "cached_input_tokens": 727,
+   "output_tokens": 1461,
+   "reasoning_tokens": 1213,
+   "meta": {
+    "duration_api_ms": 14231,
+    "cache_creation_input_tokens": 12494,
+    "list_cost_usd": 0.079349
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts wrongly attribute cost moves to an FDIC charge their cited passages never mention. B worsens this with an uncited $734m figure and an unsupported 'dividends rose'. That gives A a narrow grounding edge. But A's grounding gain is small, and B adds real insight A lacks: peer efficiency and credit-cost comparisons, capital accumulation, and segment mix. A also includes a meaningless net-margin versus efficiency-ratio comparison. B's depth outweighs its marginal grounding deficit.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.254134
+}

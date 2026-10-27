@@ -116,11 +116,31 @@ const withProgress = (summary_status: string, stage: string, elapsedSeconds: num
   return { ...base, latest_filing: { ...base.latest_filing!, progress: { stage, elapsedSeconds } } }
 }
 
-describe("the card's Summary freshness tile (E219)", () => {
+describe("the card's Summary freshness tile (E219, E221)", () => {
   const freshnessTile = async () => {
     const card = (await screen.findByRole('heading', { level: 2, name: 'Apple Inc.' })).closest('div.p-cap-6') as HTMLElement
     return within(card).getByText('Summary freshness').parentElement as HTMLElement
   }
+
+  it("reads a summary the card calls unavailable as its chip does, with no update time or id", async () => {
+    api.getWatchlistInsights.mockResolvedValue([insight('placeholder', true)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    expect(within(tile).getByText("This summary isn't available")).toBeInTheDocument()
+    expect(within(tile).queryByText(/Updated/)).toBeNull()
+    expect(within(tile).queryByText(/Summary ID/)).toBeNull()
+  })
+
+  it('keeps a ready summary\'s update time and id', async () => {
+    api.getWatchlistInsights.mockResolvedValue([insight('ready', false)])
+    renderPage()
+
+    const tile = await freshnessTile()
+    expect(within(tile).getByText(/^Updated /)).toBeInTheDocument()
+    expect(within(tile).getByText('Summary ID #3')).toBeInTheDocument()
+    expect(within(tile).queryByText("This summary isn't available")).toBeNull()
+  })
 
   it('reads a failed run as the stored failure, not as work under way, with no elapsed count', async () => {
     api.getWatchlistInsights.mockResolvedValue([withProgress('error', 'error', 7200)])

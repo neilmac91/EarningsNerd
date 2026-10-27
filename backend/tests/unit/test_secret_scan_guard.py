@@ -4036,8 +4036,11 @@ def test_turn_on_names_a_moved_clone_s_old_path_and_leaves_it(project: Project, 
     again = Project(tmp_path / "again", project.cache, project.log)
     moved.root.rename(again.root)
     proc = _turned_on(again, root=linked)
-    assert proc.returncode == 1 and proc.stdout.startswith(f"{OFF}git cannot read the clone (fatal: not a git "
-                                                           "repository: "), proc.stdout
+    # in git's own words, which differ by release: git 2.43 says "not a git repository" and git 2.56 (CI's runner
+    # image of 2026-10-25) "gitfile does not point to a valid repository"
+    assert proc.returncode == 1 and proc.stdout.startswith(tuple(
+        f"{OFF}git cannot read the clone (fatal: {words}: "
+        for words in ("not a git repository", "gitfile does not point to a valid repository"))), proc.stdout
     proc = _session_start(again, CLOUD, linked)
     assert proc.returncode == 0 and proc.stdout.startswith(f"{OFF}git cannot read the clone (fatal: "), proc.stdout
 

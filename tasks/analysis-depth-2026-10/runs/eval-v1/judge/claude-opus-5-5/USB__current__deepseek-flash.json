@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A is fully sourced but only restates table values, leaves margins blank and misses the FY2024 revenue decline. Draft B explains segment drivers, the efficiency spike, peer position and capital return, mostly backed by quoted filings. It has gaps: the FDIC special assessment cited twice is absent from the passages, it calls OCF 'not meaningful' without support, and the 67.4% vs 66.7% efficiency gap is undisclosed. B still wins on substance."
+   },
+   "cost_usd": 0.089073,
+   "latency_s": 12.783,
+   "input_tokens": 9774,
+   "output_tokens": 828,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A is fully sourced but only restates table values, leaves margins blank and misses the FY2024 revenue decline. Draft B explains segment drivers, the efficiency spike, peer position and capital return, mostly backed by quoted filings. It has gaps: the FDIC special assessment cited twice is absent from the passages, it calls OCF 'not meaningful' without support, and the 67.4% vs 66.7% efficiency gap is undisclosed. B still wins on substance.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "A's grounding has gaps. The $734m FDIC special assessment (FY2023) and the prior-year FDIC assessment (FY2025) do not appear in the cited passages. 'Steadiest contributor' rests on one year, and 'cyclical' is stated as fact. B is fully supported but thin, misses the FY2024 revenue decline and compares bank operating cash flow to net income without caveat. A's segment, cost, peer and capital-return analysis outweighs its limited errors."
+   },
+   "cost_usd": 0.092297,
+   "latency_s": 14.983,
+   "input_tokens": 9772,
+   "output_tokens": 990,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"A's grounding has gaps. The $734m FDIC special assessment (FY2023) and the prior-year FDIC assessment (FY2025) do not appear in the cited passages. 'Steadiest contributor' rests on one year, and 'cyclical' is stated as fact. B is fully supported but thin, misses the FY2024 revenue decline and compares bank operating cash flow to net income without caveat. A's segment, cost, peer and capital-return analysis outweighs its limited errors.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.18137
+}

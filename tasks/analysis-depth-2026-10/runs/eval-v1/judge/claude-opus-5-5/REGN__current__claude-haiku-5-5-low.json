@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "Both drafts are essentially well grounded. B's causal claims match the filing passages it quotes for EYLEA, Dupixent, SG&A and capex, and it says where the filings are silent. A only restates table values. B explains the FY2021 REGEN-COV spike, EYLEA erosion, R&D-driven margin compression, other income, peer context, buybacks and receivables. A offers no causes and its watch items have no thresholds."
+   },
+   "cost_usd": 0.099801,
+   "latency_s": 12.252,
+   "input_tokens": 11250,
+   "output_tokens": 774,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"Both drafts are essentially well grounded. B's causal claims match the filing passages it quotes for EYLEA, Dupixent, SG&A and capex, and it says where the filings are silent. A only restates table values. B explains the FY2021 REGEN-COV spike, EYLEA erosion, R&D-driven margin compression, other income, peer context, buybacks and receivables. A offers no causes and its watch items have no thresholds.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Both drafts are well supported by their sources. Draft A ties its causal claims to quoted filing passages: REGEN-COV, Dupixent profit share, EYLEA competition, SG&A charity and capex expansion. It also states openly where the filings give no explanation, such as the FY2022 decline and the R&D rise. Draft B only restates table values and gives no drivers, peer comparison or capital allocation. A has far more depth and coverage at equal grounding."
+   },
+   "cost_usd": 0.099029,
+   "latency_s": 12.287,
+   "input_tokens": 11246,
+   "output_tokens": 737,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"Both drafts are well supported by their sources. Draft A ties its causal claims to quoted filing passages: REGEN-COV, Dupixent profit share, EYLEA competition, SG&A charity and capex expansion. It also states openly where the filings give no explanation, such as the FY2022 decline and the R&D rise. Draft B only restates table values and gives no drivers, peer comparison or capital allocation. A has far more depth and coverage at equal grounding.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.19883
+}

@@ -1,0 +1,1658 @@
+{
+ "ticker": "COP",
+ "arm": "claude-sonnet-5-5",
+ "family": "claude",
+ "model": "claude-sonnet-5-5",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "5d0473d9daf6f9436675ec8f4cb0268e5629c126a9cf601e6530152c7867cdca",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 53108,
+   "cached_input_tokens": 2978,
+   "output_tokens": 5993,
+   "reasoning_tokens": 3203,
+   "latency_s": 43.203,
+   "cost_usd": 0.260744,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 39325,
+    "cache_creation_input_tokens": 50128,
+    "list_cost_usd": 0.160786
+   },
+   "problems": [],
+   "raw": "{\"sections\":[{\"key\":\"arc\",\"title\":\"The arc\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Revenue compounded at 9.1% a year from $23.7 billion in FY2016 to $51.8 billion in FY2025 [F1][F10][F168], but the table mixes recast revenue with the first-reported figures, whose FY2025 value is $58.9 billion [X10], so growth rates here are indicative only.\",\"evidence\":[]},{\"type\":\"fact\",\"text\":\"The shape is cyclical: revenue fell 58.0% in FY2020 [D161], rose 153.2% in FY2021 [D200] and 76.5% to $61.0 billion in FY2022 [D238][F7].\"},{\"type\":\"cause\",\"text\":\"The FY2022 jump came mainly from higher realized commodity prices and higher volumes from the Shell Permian acquisition, and sales and other operating revenues rose $32,666 million [P59].\"},{\"type\":\"cause\",\"text\":\"FY2017 was a loss year, with a net loss of $855 million [F12] and impairment charges of $6,601 million [X113], including $2.5 billion after tax on the San Juan Basin and Barnett [P80].\"},{\"type\":\"cause\",\"text\":\"Revenue fell 20.5% to $48.5 billion in FY2023 [D274][F8] because lower realized commodity prices outweighed higher sales volumes, and sales and other operating revenues fell $22,353 million [P47].\"}]},{\"key\":\"drivers\",\"title\":\"What drove growth\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Crude oil's share of revenue rose from 40.7% in FY2017 [D529] to 66.3% in FY2025 [D551], but it added only 0.1pp to FY2025 growth [D553].\",\"evidence\":[]},{\"type\":\"fact\",\"text\":\"Revenue grew 4.9% in FY2025 [D342], with Lower 48 contributing 8.0pp [D713] on a 70.2% revenue share [D711] and natural gas adding 4.4pp [D586].\"},{\"type\":\"cause\",\"text\":\"Sales and other operating revenues rose $4,199 million, as higher volumes of $6,197 million, including Marathon Oil, outweighed $4,615 million of lower realized crude prices [P28].\"},{\"type\":\"comparison\",\"text\":\"Operating leverage was negative: cost of revenue grew 11.6% [D352] against revenue growth of 4.9% [D342], and net income fell 13.6% [D343].\"},{\"type\":\"comparison\",\"text\":\"Basic EPS fell 18.7% [D344], more than net income's 13.6% decline [D343], because the diluted share count rose 6.1% to 1,253.4 million [D356][X131]; the filings cited do not explain the increase.\"}]},{\"key\":\"margins\",\"title\":\"Margins and costs\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"The pack has no operating income line, so net margin is the guide: 15.4% in FY2025 [F30] against a window median of 17.9% [D831], a high of 30.6% [D830] and a low of -19.8% [D829].\",\"evidence\":[]},{\"type\":\"comparison\",\"text\":\"That still ranks at the 83rd percentile of six energy peers, whose median is 8.1% [D846][D847].\"},{\"type\":\"comparison\",\"text\":\"Cost of revenue rose to 37.9% of revenue from 36.6% [D326][D292], and D&A rose to 19.5% from 17.5% [D330][D296].\"},{\"type\":\"cause\",\"text\":\"DD&A increased $1,901 million, mainly from the Marathon Oil acquisition and higher production volumes [P22].\"},{\"type\":\"cause\",\"text\":\"SG&A fell to 1.5% of revenue from 2.1% [D328][D294] because FY2024 carried $545 million of Marathon transaction expenses [P23].\"},{\"type\":\"comparison\",\"text\":\"The effective tax rate rose to 36.9% from 32.4% [D332][D298], and earnings in Other fell $366 million, mainly from the absence of a $455 million tax benefit [P8].\"}]},{\"key\":\"cash\",\"title\":\"Cash conversion\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Operating cash flow of $19.8 billion was 2.48x net income in FY2025 [F59][D333], up from 2.18x in FY2024 [D299], with operating cash flow at 33.6% of revenue [D331].\"},{\"type\":\"cause\",\"text\":\"Operating cash flow slipped from $20.1 billion because lower commodity prices were mostly offset by Marathon Oil operations [F58][P6].\"},{\"type\":\"fact\",\"text\":\"Capex and free cash flow lines stop at FY2022 in the pack, so current capital intensity cannot be measured; the FY2018 to FY2022 free-cash-flow-to-net-income median was 0.98x [D840].\"}]},{\"key\":\"balance_sheet\",\"title\":\"Balance sheet and capital allocation\",\"sentences\":[{\"type\":\"fact\",\"text\":\"The pack shows net cash of $7.1 billion in FY2025, up from $6.1 billion [D337][D303], and the 100th percentile among six energy peers, whose median is -7.7% of revenue [D850][D851].\"},{\"type\":\"fact\",\"text\":\"That net cash rests on total debt of $1.0 billion [D336], which matches the current portion alone [X203]; long-term debt is untagged after FY2020, when it was $19.1 billion [F157].\"},{\"type\":\"judgement\",\"text\":\"Net cash and its peer rank are therefore unreliable, and I draw no conclusion from them [D337][D850].\"},{\"type\":\"cause\",\"text\":\"In 2025 the company spent $5.0 billion on buybacks, $4.0 billion on dividends and $0.9 billion on debt retirement [P7].\"},{\"type\":\"comparison\",\"text\":\"Buybacks and dividends totalled $9.0 billion [D339], 46% of operating cash flow [P31], yet the diluted share count rose 6.1% [D356].\"},{\"type\":\"comparison\",\"text\":\"Return on average equity of 12.4% sits at the 33rd percentile, below the peer median of 14.9% [D341][D852][D853].\"}]},{\"key\":\"red_flags\",\"title\":\"Red flags\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Data quality [R1]: FY2025 revenue is $51.8 billion in the table against $58.9 billion in that year's 10-K [F10][X10], so margins and growth mix two presentations.\"},{\"type\":\"fact\",\"text\":\"Earnings erosion: net income fell from $18.7 billion in FY2022 to $8.0 billion in FY2025 [F17][F20], a 3-year CAGR of -24.7% [D845].\"},{\"type\":\"cause\",\"text\":\"Lower realized crude prices cut FY2025 revenue by $4,615 million [P28].\"},{\"type\":\"judgement\",\"text\":\"Three straight years of decline [D275][D309][D343] show earnings still tracking prices rather than the volume added by acquisitions.\"},{\"type\":\"fact\",\"text\":\"Rising fixed charges: interest expense reached $1,176 million against $941 million [X81][X80], driven by debt assumed with Marathon Oil [P10].\"},{\"type\":\"judgement\",\"text\":\"Higher D&A and interest raise the breakeven price [D330][X81].\"}]},{\"key\":\"watch\",\"title\":\"What to watch\",\"sentences\":[{\"type\":\"judgement\",\"text\":\"Net margin at or above the window median of 17.9% [D831] would confirm stabilisation, while a reading below the FY2025 level of 15.4% [F30] would extend the decline; both appear in the FY2026 10-K.\"},{\"type\":\"judgement\",\"text\":\"Operating cash flow to net income falling below the FY2024 level of 2.18x [D299], from 2.48x [D333], would show earnings catching up with cash; check the FY2026 10-K.\"},{\"type\":\"judgement\",\"text\":\"A diluted share count below the FY2024 level of 1,180.9 million [X130], from 1,253.4 million [X131], would show buybacks outrunning issuance in the FY2026 10-K.\"},{\"type\":\"judgement\",\"text\":\"Disposition proceeds of less than the $5 billion target [P32], against $3.2 billion completed in 2025 [P32], would mean the FY2026 10-K shows a miss.\"}]}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 53108,
+  "cached_input_tokens": 2978,
+  "output_tokens": 5993,
+  "reasoning_tokens": 3203
+ },
+ "latency_s": 43.203,
+ "cost_usd": 0.260744,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Revenue compounded at 9.1% a year from $23.7 billion in FY2016 to $51.8 billion in FY2025 [F1][F10][F168], but the table mixes recast revenue with the first-reported figures, whose FY2025 value is $58.9 billion [X10], so growth rates here are indicative only.",
+      "evidence": []
+     },
+     {
+      "type": "fact",
+      "text": "The shape is cyclical: revenue fell 58.0% in FY2020 [D161], rose 153.2% in FY2021 [D200] and 76.5% to $61.0 billion in FY2022 [D238][F7]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 jump came mainly from higher realized commodity prices and higher volumes from the Shell Permian acquisition, and sales and other operating revenues rose $32,666 million [P59]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2017 was a loss year, with a net loss of $855 million [F12] and impairment charges of $6,601 million [X113], including $2.5 billion after tax on the San Juan Basin and Barnett [P80]."
+     },
+     {
+      "type": "cause",
+      "text": "Revenue fell 20.5% to $48.5 billion in FY2023 [D274][F8] because lower realized commodity prices outweighed higher sales volumes, and sales and other operating revenues fell $22,353 million [P47]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Crude oil's share of revenue rose from 40.7% in FY2017 [D529] to 66.3% in FY2025 [D551], but it added only 0.1pp to FY2025 growth [D553].",
+      "evidence": []
+     },
+     {
+      "type": "fact",
+      "text": "Revenue grew 4.9% in FY2025 [D342], with Lower 48 contributing 8.0pp [D713] on a 70.2% revenue share [D711] and natural gas adding 4.4pp [D586]."
+     },
+     {
+      "type": "cause",
+      "text": "Sales and other operating revenues rose $4,199 million, as higher volumes of $6,197 million, including Marathon Oil, outweighed $4,615 million of lower realized crude prices [P28]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating leverage was negative: cost of revenue grew 11.6% [D352] against revenue growth of 4.9% [D342], and net income fell 13.6% [D343]."
+     },
+     {
+      "type": "comparison",
+      "text": "Basic EPS fell 18.7% [D344], more than net income's 13.6% decline [D343], because the diluted share count rose 6.1% to 1,253.4 million [D356][X131]; the filings cited do not explain the increase."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The pack has no operating income line, so net margin is the guide: 15.4% in FY2025 [F30] against a window median of 17.9% [D831], a high of 30.6% [D830] and a low of -19.8% [D829].",
+      "evidence": []
+     },
+     {
+      "type": "comparison",
+      "text": "That still ranks at the 83rd percentile of six energy peers, whose median is 8.1% [D846][D847]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cost of revenue rose to 37.9% of revenue from 36.6% [D326][D292], and D&A rose to 19.5% from 17.5% [D330][D296]."
+     },
+     {
+      "type": "cause",
+      "text": "DD&A increased $1,901 million, mainly from the Marathon Oil acquisition and higher production volumes [P22]."
+     },
+     {
+      "type": "cause",
+      "text": "SG&A fell to 1.5% of revenue from 2.1% [D328][D294] because FY2024 carried $545 million of Marathon transaction expenses [P23]."
+     },
+     {
+      "type": "comparison",
+      "text": "The effective tax rate rose to 36.9% from 32.4% [D332][D298], and earnings in Other fell $366 million, mainly from the absence of a $455 million tax benefit [P8]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $19.8 billion was 2.48x net income in FY2025 [F59][D333], up from 2.18x in FY2024 [D299], with operating cash flow at 33.6% of revenue [D331]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash flow slipped from $20.1 billion because lower commodity prices were mostly offset by Marathon Oil operations [F58][P6]."
+     },
+     {
+      "type": "fact",
+      "text": "Capex and free cash flow lines stop at FY2022 in the pack, so current capital intensity cannot be measured; the FY2018 to FY2022 free-cash-flow-to-net-income median was 0.98x [D840]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "The pack shows net cash of $7.1 billion in FY2025, up from $6.1 billion [D337][D303], and the 100th percentile among six energy peers, whose median is -7.7% of revenue [D850][D851]."
+     },
+     {
+      "type": "fact",
+      "text": "That net cash rests on total debt of $1.0 billion [D336], which matches the current portion alone [X203]; long-term debt is untagged after FY2020, when it was $19.1 billion [F157]."
+     },
+     {
+      "type": "judgement",
+      "text": "Net cash and its peer rank are therefore unreliable, and I draw no conclusion from them [D337][D850]."
+     },
+     {
+      "type": "cause",
+      "text": "In 2025 the company spent $5.0 billion on buybacks, $4.0 billion on dividends and $0.9 billion on debt retirement [P7]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks and dividends totalled $9.0 billion [D339], 46% of operating cash flow [P31], yet the diluted share count rose 6.1% [D356]."
+     },
+     {
+      "type": "comparison",
+      "text": "Return on average equity of 12.4% sits at the 33rd percentile, below the peer median of 14.9% [D341][D852][D853]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Data quality [R1]: FY2025 revenue is $51.8 billion in the table against $58.9 billion in that year's 10-K [F10][X10], so margins and growth mix two presentations."
+     },
+     {
+      "type": "fact",
+      "text": "Earnings erosion: net income fell from $18.7 billion in FY2022 to $8.0 billion in FY2025 [F17][F20], a 3-year CAGR of -24.7% [D845]."
+     },
+     {
+      "type": "cause",
+      "text": "Lower realized crude prices cut FY2025 revenue by $4,615 million [P28]."
+     },
+     {
+      "type": "judgement",
+      "text": "Three straight years of decline [D275][D309][D343] show earnings still tracking prices rather than the volume added by acquisitions."
+     },
+     {
+      "type": "fact",
+      "text": "Rising fixed charges: interest expense reached $1,176 million against $941 million [X81][X80], driven by debt assumed with Marathon Oil [P10]."
+     },
+     {
+      "type": "judgement",
+      "text": "Higher D&A and interest raise the breakeven price [D330][X81]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Net margin at or above the window median of 17.9% [D831] would confirm stabilisation, while a reading below the FY2025 level of 15.4% [F30] would extend the decline; both appear in the FY2026 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "Operating cash flow to net income falling below the FY2024 level of 2.18x [D299], from 2.48x [D333], would show earnings catching up with cash; check the FY2026 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "A diluted share count below the FY2024 level of 1,180.9 million [X130], from 1,253.4 million [X131], would show buybacks outrunning issuance in the FY2026 10-K."
+     },
+     {
+      "type": "judgement",
+      "text": "Disposition proceeds of less than the $5 billion target [P32], against $3.2 billion completed in 2025 [P32], would mean the FY2026 10-K shows a miss."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 829,
+ "gate": {
+  "passed": true,
+  "sentences": 35,
+  "sentence_types": {
+   "comparison": 11,
+   "fact": 8,
+   "cause": 9,
+   "judgement": 7
+  },
+  "claims": 89,
+  "verified": 87,
+  "unverified_counts": 0,
+  "names": 2,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 9.1% a year from $23.7 billion in FY2016 to $51.8 billion in FY2025 [F1][F10][F168], but the table mixes recast revenue with the first-reported figures, whose FY2025 value is $58.9 billion [X10], so growth rates here are indicative only.",
+    "type": "comparison",
+    "citations": [
+     "F1",
+     "F10",
+     "F168",
+     "X10"
+    ],
+    "claims": [
+     {
+      "claim": "9.1%",
+      "value": 9.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F168"
+      ]
+     },
+     {
+      "claim": "$23.7 billion",
+      "value": 23.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$51.8 billion",
+      "value": 51.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "$58.9 billion",
+      "value": 58.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The shape is cyclical: revenue fell 58.0% in FY2020 [D161], rose 153.2% in FY2021 [D200] and 76.5% to $61.0 billion in FY2022 [D238][F7].",
+    "type": "fact",
+    "citations": [
+     "D161",
+     "D200",
+     "D238",
+     "F7"
+    ],
+    "claims": [
+     {
+      "claim": "58.0%",
+      "value": 58.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D161"
+      ]
+     },
+     {
+      "claim": "153.2%",
+      "value": 153.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D200"
+      ]
+     },
+     {
+      "claim": "76.5%",
+      "value": 76.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D238"
+      ]
+     },
+     {
+      "claim": "$61.0 billion",
+      "value": 61.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2022 jump came mainly from higher realized commodity prices and higher volumes from the Shell Permian acquisition, and sales and other operating revenues rose $32,666 million [P59].",
+    "type": "cause",
+    "citations": [
+     "P59"
+    ],
+    "claims": [
+     {
+      "claim": "$32,666 million",
+      "value": 32666.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P59",
+      "ids": [
+       "P59"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2017 was a loss year, with a net loss of $855 million [F12] and impairment charges of $6,601 million [X113], including $2.5 billion after tax on the San Juan Basin and Barnett [P80].",
+    "type": "cause",
+    "citations": [
+     "F12",
+     "X113",
+     "P80"
+    ],
+    "claims": [
+     {
+      "claim": "$855 million",
+      "value": 855.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F12"
+      ]
+     },
+     {
+      "claim": "$6,601 million",
+      "value": 6601.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X113"
+      ]
+     },
+     {
+      "claim": "$2.5 billion",
+      "value": 2.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P80",
+      "ids": [
+       "P80"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Revenue fell 20.5% to $48.5 billion in FY2023 [D274][F8] because lower realized commodity prices outweighed higher sales volumes, and sales and other operating revenues fell $22,353 million [P47].",
+    "type": "cause",
+    "citations": [
+     "D274",
+     "F8",
+     "P47"
+    ],
+    "claims": [
+     {
+      "claim": "20.5%",
+      "value": 20.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D274"
+      ]
+     },
+     {
+      "claim": "$48.5 billion",
+      "value": 48.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F8"
+      ]
+     },
+     {
+      "claim": "$22,353 million",
+      "value": 22353.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P47",
+      "ids": [
+       "P47"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Crude oil's share of revenue rose from 40.7% in FY2017 [D529] to 66.3% in FY2025 [D551], but it added only 0.1pp to FY2025 growth [D553].",
+    "type": "comparison",
+    "citations": [
+     "D529",
+     "D551",
+     "D553"
+    ],
+    "claims": [
+     {
+      "claim": "40.7%",
+      "value": 40.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D529"
+      ]
+     },
+     {
+      "claim": "66.3%",
+      "value": 66.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D551"
+      ]
+     },
+     {
+      "claim": "0.1pp",
+      "value": 0.1,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D553"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Revenue grew 4.9% in FY2025 [D342], with Lower 48 contributing 8.0pp [D713] on a 70.2% revenue share [D711] and natural gas adding 4.4pp [D586].",
+    "type": "fact",
+    "citations": [
+     "D342",
+     "D713",
+     "D711",
+     "D586"
+    ],
+    "claims": [
+     {
+      "claim": "4.9%",
+      "value": 4.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     },
+     {
+      "claim": "48",
+      "value": 48.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "8.0pp",
+      "value": 8.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D713"
+      ]
+     },
+     {
+      "claim": "70.2%",
+      "value": 70.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D711"
+      ]
+     },
+     {
+      "claim": "4.4pp",
+      "value": 4.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D586"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Sales and other operating revenues rose $4,199 million, as higher volumes of $6,197 million, including Marathon Oil, outweighed $4,615 million of lower realized crude prices [P28].",
+    "type": "cause",
+    "citations": [
+     "P28"
+    ],
+    "claims": [
+     {
+      "claim": "$4,199 million",
+      "value": 4199.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P28",
+      "ids": [
+       "P28"
+      ]
+     },
+     {
+      "claim": "$6,197 million",
+      "value": 6197.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P28",
+      "ids": [
+       "P28"
+      ]
+     },
+     {
+      "claim": "$4,615 million",
+      "value": 4615.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P28",
+      "ids": [
+       "P28"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating leverage was negative: cost of revenue grew 11.6% [D352] against revenue growth of 4.9% [D342], and net income fell 13.6% [D343].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "D342",
+     "D343"
+    ],
+    "claims": [
+     {
+      "claim": "11.6%",
+      "value": 11.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     },
+     {
+      "claim": "4.9%",
+      "value": 4.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     },
+     {
+      "claim": "13.6%",
+      "value": 13.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D343"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Basic EPS fell 18.7% [D344], more than net income's 13.6% decline [D343], because the diluted share count rose 6.1% to 1,253.4 million [D356][X131]; the filings cited do not explain the increase.",
+    "type": "comparison",
+    "citations": [
+     "D344",
+     "D343",
+     "D356",
+     "X131"
+    ],
+    "claims": [
+     {
+      "claim": "18.7%",
+      "value": 18.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D344"
+      ]
+     },
+     {
+      "claim": "13.6%",
+      "value": 13.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D343"
+      ]
+     },
+     {
+      "claim": "6.1%",
+      "value": 6.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D356"
+      ]
+     },
+     {
+      "claim": "1,253.4 million",
+      "value": 1253.4,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X131"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The pack has no operating income line, so net margin is the guide: 15.4% in FY2025 [F30] against a window median of 17.9% [D831], a high of 30.6% [D830] and a low of -19.8% [D829].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D831",
+     "D830",
+     "D829"
+    ],
+    "claims": [
+     {
+      "claim": "15.4%",
+      "value": 15.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "17.9%",
+      "value": 17.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D831"
+      ]
+     },
+     {
+      "claim": "30.6%",
+      "value": 30.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D830"
+      ]
+     },
+     {
+      "claim": "-19.8%",
+      "value": -19.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D829"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "That still ranks at the 83rd percentile of six energy peers, whose median is 8.1% [D846][D847].",
+    "type": "comparison",
+    "citations": [
+     "D846",
+     "D847"
+    ],
+    "claims": [
+     {
+      "claim": "83rd percentile",
+      "value": 83.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D846"
+      ]
+     },
+     {
+      "claim": "8.1%",
+      "value": 8.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D847"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Cost of revenue rose to 37.9% of revenue from 36.6% [D326][D292], and D&A rose to 19.5% from 17.5% [D330][D296].",
+    "type": "comparison",
+    "citations": [
+     "D326",
+     "D292",
+     "D330",
+     "D296"
+    ],
+    "claims": [
+     {
+      "claim": "37.9%",
+      "value": 37.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D326"
+      ]
+     },
+     {
+      "claim": "36.6%",
+      "value": 36.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D292"
+      ]
+     },
+     {
+      "claim": "19.5%",
+      "value": 19.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D330"
+      ]
+     },
+     {
+      "claim": "17.5%",
+      "value": 17.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D296"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "DD&A increased $1,901 million, mainly from the Marathon Oil acquisition and higher production volumes [P22].",
+    "type": "cause",
+    "citations": [
+     "P22"
+    ],
+    "claims": [
+     {
+      "claim": "$1,901 million",
+      "value": 1901.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P22",
+      "ids": [
+       "P22"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "SG&A fell to 1.5% of revenue from 2.1% [D328][D294] because FY2024 carried $545 million of Marathon transaction expenses [P23].",
+    "type": "cause",
+    "citations": [
+     "D328",
+     "D294",
+     "P23"
+    ],
+    "claims": [
+     {
+      "claim": "1.5%",
+      "value": 1.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D328"
+      ]
+     },
+     {
+      "claim": "2.1%",
+      "value": 2.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D294"
+      ]
+     },
+     {
+      "claim": "$545 million",
+      "value": 545.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P23",
+      "ids": [
+       "P23"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The effective tax rate rose to 36.9% from 32.4% [D332][D298], and earnings in Other fell $366 million, mainly from the absence of a $455 million tax benefit [P8].",
+    "type": "comparison",
+    "citations": [
+     "D332",
+     "D298",
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "36.9%",
+      "value": 36.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D332"
+      ]
+     },
+     {
+      "claim": "32.4%",
+      "value": 32.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D298"
+      ]
+     },
+     {
+      "claim": "$366 million",
+      "value": 366.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     },
+     {
+      "claim": "$455 million",
+      "value": 455.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $19.8 billion was 2.48x net income in FY2025 [F59][D333], up from 2.18x in FY2024 [D299], with operating cash flow at 33.6% of revenue [D331].",
+    "type": "comparison",
+    "citations": [
+     "F59",
+     "D333",
+     "D299",
+     "D331"
+    ],
+    "claims": [
+     {
+      "claim": "$19.8 billion",
+      "value": 19.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F59"
+      ]
+     },
+     {
+      "claim": "2.48x",
+      "value": 2.48,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     },
+     {
+      "claim": "2.18x",
+      "value": 2.18,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D299"
+      ]
+     },
+     {
+      "claim": "33.6%",
+      "value": 33.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D331"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow slipped from $20.1 billion because lower commodity prices were mostly offset by Marathon Oil operations [F58][P6].",
+    "type": "cause",
+    "citations": [
+     "F58",
+     "P6"
+    ],
+    "claims": [
+     {
+      "claim": "$20.1 billion",
+      "value": 20.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F58"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex and free cash flow lines stop at FY2022 in the pack, so current capital intensity cannot be measured; the FY2018 to FY2022 free-cash-flow-to-net-income median was 0.98x [D840].",
+    "type": "fact",
+    "citations": [
+     "D840"
+    ],
+    "claims": [
+     {
+      "claim": "0.98x",
+      "value": 0.98,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D840"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "The pack shows net cash of $7.1 billion in FY2025, up from $6.1 billion [D337][D303], and the 100th percentile among six energy peers, whose median is -7.7% of revenue [D850][D851].",
+    "type": "fact",
+    "citations": [
+     "D337",
+     "D303",
+     "D850",
+     "D851"
+    ],
+    "claims": [
+     {
+      "claim": "$7.1 billion",
+      "value": 7.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D337"
+      ]
+     },
+     {
+      "claim": "$6.1 billion",
+      "value": 6.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D303"
+      ]
+     },
+     {
+      "claim": "100th percentile",
+      "value": 100.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D850"
+      ]
+     },
+     {
+      "claim": "-7.7%",
+      "value": -7.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D851"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "That net cash rests on total debt of $1.0 billion [D336], which matches the current portion alone [X203]; long-term debt is untagged after FY2020, when it was $19.1 billion [F157].",
+    "type": "fact",
+    "citations": [
+     "D336",
+     "X203",
+     "F157"
+    ],
+    "claims": [
+     {
+      "claim": "$1.0 billion",
+      "value": 1.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D336"
+      ]
+     },
+     {
+      "claim": "$19.1 billion",
+      "value": 19.1,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F157"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash and its peer rank are therefore unreliable, and I draw no conclusion from them [D337][D850].",
+    "type": "judgement",
+    "citations": [
+     "D337",
+     "D850"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "In 2025 the company spent $5.0 billion on buybacks, $4.0 billion on dividends and $0.9 billion on debt retirement [P7].",
+    "type": "cause",
+    "citations": [
+     "P7"
+    ],
+    "claims": [
+     {
+      "claim": "$5.0 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     },
+     {
+      "claim": "$4.0 billion",
+      "value": 4.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     },
+     {
+      "claim": "$0.9 billion",
+      "value": 0.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P7",
+      "ids": [
+       "P7"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks and dividends totalled $9.0 billion [D339], 46% of operating cash flow [P31], yet the diluted share count rose 6.1% [D356].",
+    "type": "comparison",
+    "citations": [
+     "D339",
+     "P31",
+     "D356"
+    ],
+    "claims": [
+     {
+      "claim": "$9.0 billion",
+      "value": 9.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D339"
+      ]
+     },
+     {
+      "claim": "46%",
+      "value": 46.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P31",
+      "ids": [
+       "P31"
+      ]
+     },
+     {
+      "claim": "6.1%",
+      "value": 6.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D356"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Return on average equity of 12.4% sits at the 33rd percentile, below the peer median of 14.9% [D341][D852][D853].",
+    "type": "comparison",
+    "citations": [
+     "D341",
+     "D852",
+     "D853"
+    ],
+    "claims": [
+     {
+      "claim": "12.4%",
+      "value": 12.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "33rd percentile",
+      "value": 33.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D852"
+      ]
+     },
+     {
+      "claim": "14.9%",
+      "value": 14.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D853"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Data quality [R1]: FY2025 revenue is $51.8 billion in the table against $58.9 billion in that year's 10-K [F10][X10], so margins and growth mix two presentations.",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "F10",
+     "X10"
+    ],
+    "claims": [
+     {
+      "claim": "$51.8 billion",
+      "value": 51.8,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "$58.9 billion",
+      "value": 58.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Earnings erosion: net income fell from $18.7 billion in FY2022 to $8.0 billion in FY2025 [F17][F20], a 3-year CAGR of -24.7% [D845].",
+    "type": "fact",
+    "citations": [
+     "F17",
+     "F20",
+     "D845"
+    ],
+    "claims": [
+     {
+      "claim": "$18.7 billion",
+      "value": 18.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F17"
+      ]
+     },
+     {
+      "claim": "$8.0 billion",
+      "value": 8.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     },
+     {
+      "claim": "3",
+      "value": 3.0,
+      "unit": "count",
+      "qualifier": "",
+      "status": "name"
+     },
+     {
+      "claim": "-24.7%",
+      "value": -24.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D845"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Lower realized crude prices cut FY2025 revenue by $4,615 million [P28].",
+    "type": "cause",
+    "citations": [
+     "P28"
+    ],
+    "claims": [
+     {
+      "claim": "$4,615 million",
+      "value": 4615.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P28",
+      "ids": [
+       "P28"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Three straight years of decline [D275][D309][D343] show earnings still tracking prices rather than the volume added by acquisitions.",
+    "type": "judgement",
+    "citations": [
+     "D275",
+     "D309",
+     "D343"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Rising fixed charges: interest expense reached $1,176 million against $941 million [X81][X80], driven by debt assumed with Marathon Oil [P10].",
+    "type": "fact",
+    "citations": [
+     "X81",
+     "X80",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "$1,176 million",
+      "value": 1176.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X81"
+      ]
+     },
+     {
+      "claim": "$941 million",
+      "value": 941.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X80"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Higher D&A and interest raise the breakeven price [D330][X81].",
+    "type": "judgement",
+    "citations": [
+     "D330",
+     "X81"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net margin at or above the window median of 17.9% [D831] would confirm stabilisation, while a reading below the FY2025 level of 15.4% [F30] would extend the decline; both appear in the FY2026 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D831",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "17.9%",
+      "value": 17.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D831"
+      ]
+     },
+     {
+      "claim": "15.4%",
+      "value": 15.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating cash flow to net income falling below the FY2024 level of 2.18x [D299], from 2.48x [D333], would show earnings catching up with cash; check the FY2026 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D299",
+     "D333"
+    ],
+    "claims": [
+     {
+      "claim": "2.18x",
+      "value": 2.18,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D299"
+      ]
+     },
+     {
+      "claim": "2.48x",
+      "value": 2.48,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D333"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "A diluted share count below the FY2024 level of 1,180.9 million [X130], from 1,253.4 million [X131], would show buybacks outrunning issuance in the FY2026 10-K.",
+    "type": "judgement",
+    "citations": [
+     "X130",
+     "X131"
+    ],
+    "claims": [
+     {
+      "claim": "1,180.9 million",
+      "value": 1180.9,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X130"
+      ]
+     },
+     {
+      "claim": "1,253.4 million",
+      "value": 1253.4,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X131"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Disposition proceeds of less than the $5 billion target [P32], against $3.2 billion completed in 2025 [P32], would mean the FY2026 10-K shows a miss.",
+    "type": "judgement",
+    "citations": [
+     "P32",
+     "P32"
+    ],
+    "claims": [
+     {
+      "claim": "$5 billion",
+      "value": 5.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P32",
+      "ids": [
+       "P32"
+      ]
+     },
+     {
+      "claim": "$3.2 billion",
+      "value": 3.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P32",
+      "ids": [
+       "P32"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ }
+}

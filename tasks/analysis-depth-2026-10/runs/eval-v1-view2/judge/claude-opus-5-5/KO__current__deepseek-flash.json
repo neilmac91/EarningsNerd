@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B is far richer, with segment drivers, the fairlife and IRS-deposit explanations, the recast disclosure and peer context. But it claims $8.8B net cash, a 100th-percentile peer rank, and $1.5B total debt, while the table shows about $35B of long-term debt. The bottling-revenue cause also rests on an SG&A passage. A is thin and mostly restates the table, but every statement is supported. Grounding is weighted first."
+   },
+   "cost_usd": 0.124461,
+   "latency_s": 16.036,
+   "input_tokens": 13390,
+   "output_tokens": 1151,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B is far richer, with segment drivers, the fairlife and IRS-deposit explanations, the recast disclosure and peer context. But it claims $8.8B net cash, a 100th-percentile peer rank, and $1.5B total debt, while the table shows about $35B of long-term debt. The bottling-revenue cause also rests on an SG&A passage. A is thin and mostly restates the table, but every statement is supported. Grounding is weighted first.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains causes from cited filings: refranchising, the fairlife remeasurement, the IRS deposit, and SG&A drivers. It also flags the recast revenue figures. But its $8.8B net cash and $1.5B total debt contradict the table's ~$35B long-term debt, and A does not disclose this. B is mostly supported but only restates figures. Its 1.31x conversion average is skewed by FY2017, and its watch items have no thresholds. A's depth outweighs its debt-data error."
+   },
+   "cost_usd": 0.124081,
+   "latency_s": 16.563,
+   "input_tokens": 13390,
+   "output_tokens": 1132,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains causes from cited filings: refranchising, the fairlife remeasurement, the IRS deposit, and SG&A drivers. It also flags the recast revenue figures. But its $8.8B net cash and $1.5B total debt contradict the table's ~$35B long-term debt, and A does not disclose this. B is mostly supported but only restates figures. Its 1.31x conversion average is skewed by FY2017, and its watch items have no thresholds. A's depth outweighs its debt-data error.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "current",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "current",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.248542
+}

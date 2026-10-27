@@ -1,0 +1,86 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts link software growth to the Joint Venture through a passage that never mentions it. B adds a worse error: it says the filing warns of reduced gross profit in 2028, but the cited passage is cut off before saying so. A gives more causal detail on automotive cost, SG&A and the 45W credit. B labels its judgements as analysis and adds refinancing and R2 watch items, but its grounding is weaker."
+   },
+   "cost_usd": 0.138537,
+   "latency_s": 14.188,
+   "input_tokens": 15642,
+   "output_tokens": 954,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"Both drafts link software growth to the Joint Venture through a passage that never mentions it. B adds a worse error: it says the filing warns of reduced gross profit in 2028, but the cited passage is cut off before saying so. A gives more causal detail on automotive cost, SG&A and the 45W credit. B labels its judgements as analysis and adds refinancing and R2 watch items, but its grounding is weaker.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's red flag says the filing warns joint-venture work may cut gross profit in 2028; passage [69] says gross profit should keep rising and never mentions 2028. B's main lapse is linking software growth to the joint venture, which its passage omits. B explains more: the FY2022 inflection, causes of cheaper automotive costs and higher SG&A, the falling current ratio and the peer operating-margin gap. A labels analysis better and cites R2 timing."
+   },
+   "cost_usd": 0.139637,
+   "latency_s": 14.606,
+   "input_tokens": 15642,
+   "output_tokens": 1009,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's red flag says the filing warns joint-venture work may cut gross profit in 2028; passage [69] says gross profit should keep rising and never mentions 2028. B's main lapse is linking software growth to the joint venture, which its passage omits. B explains more: the FY2022 inflection, causes of cheaper automotive costs and higher SG&A, the falling current ratio and the peer operating-margin gap. A labels analysis better and cites R2 timing.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.278174
+}

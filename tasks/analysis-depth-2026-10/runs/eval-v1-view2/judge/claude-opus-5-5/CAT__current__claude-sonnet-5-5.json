@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully supported but only restates table values. Its 'no flags' line ignores real issues. B explains drivers with quoted MD&A passages: segment price and volume, tariff-driven manufacturing costs, and the FY2023 Rail impairment base. It covers capex and buybacks, gives peer context and numeric watch thresholds, and discloses the proxy net-income discrepancy. One mild overreach: it reads the Q1 2026 passage as saying tariff costs will persist, which it does not state."
+   },
+   "cost_usd": 0.105929,
+   "latency_s": 13.535,
+   "input_tokens": 11706,
+   "output_tokens": 898,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A is fully supported but only restates table values. Its 'no flags' line ignores real issues. B explains drivers with quoted MD&A passages: segment price and volume, tariff-driven manufacturing costs, and the FY2023 Rail impairment base. It covers capex and buybacks, gives peer context and numeric watch thresholds, and discloses the proxy net-income discrepancy. One mild overreach: it reads the Q1 2026 passage as saying tariff costs will persist, which it does not state.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "A explains the drivers from cited filings: the volume swings in FY2017 and FY2020, the FY2023 price realization and Rail impairment, and FY2025 tariffs and Construction Industries pricing. It adds peer and history context, capital allocation, and the proxy data issue. Its one stretch is saying tariff costs will persist, which the passage only implies. B is fully supported but only restates table values, misses the net-debt flag, and offers no thresholds or causes."
+   },
+   "cost_usd": 0.103533,
+   "latency_s": 12.953,
+   "input_tokens": 11704,
+   "output_tokens": 779,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"strong\",\n \"rationale\": \"A explains the drivers from cited filings: the volume swings in FY2017 and FY2020, the FY2023 price realization and Rail impairment, and FY2025 tariffs and Construction Industries pricing. It adds peer and history context, capital allocation, and the proxy data issue. Its one stretch is saying tariff costs will persist, which the passage only implies. B is fully supported but only restates table values, misses the net-debt flag, and offers no thresholds or causes.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.209462
+}

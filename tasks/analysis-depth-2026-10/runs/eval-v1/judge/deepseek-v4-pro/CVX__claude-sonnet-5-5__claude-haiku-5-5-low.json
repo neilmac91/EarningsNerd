@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "claude-sonnet-5-5",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, well-supported analysis of drivers, margins, cash conversion, and balance sheet, with explicit data-quality caveats and concrete watch items. Draft B is solid but less comprehensive and occasionally less precise in sourcing."
+   },
+   "cost_usd": 0.003133,
+   "latency_s": 2.778,
+   "input_tokens": 10582,
+   "output_tokens": 117,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, well-supported analysis of drivers, margins, cash conversion, and balance sheet, with explicit data-quality caveats and concrete watch items. Draft B is solid but less comprehensive and occasionally less precise in sourcing.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A offers deeper causal analysis, better peer context, and clearer red flags. Draft B has a serious grounding error: it claims net cash likely overstates strength based on incomplete debt data, but its own cited sources show total debt of $3.3B and debt issued of $11.4B, which does not support the inference. A's claims are well-sourced."
+   },
+   "cost_usd": 0.003114,
+   "latency_s": 2.897,
+   "input_tokens": 10582,
+   "output_tokens": 149,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"B\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A offers deeper causal analysis, better peer context, and clearer red flags. Draft B has a serious grounding error: it claims net cash likely overstates strength based on incomplete debt data, but its own cited sources show total debt of $3.3B and debt issued of $11.4B, which does not support the inference. A's claims are well-sourced.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.006247
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "gemma-4-31b",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides significantly more depth and coverage. It breaks down growth by geography (North America, Europe, Rest of World), whereas Draft B only addresses product segments. Additionally, Draft A provides a detailed breakdown of the current year's operating expenses (S&M, R&D, and G&A drivers), while Draft B focuses on the prior year's R&D. Both drafts are exceptionally well-grounded, but Draft A's comprehensive approach to the P&L and growth drivers is more valuable to the reader."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 93.753,
+   "input_tokens": 13410,
+   "output_tokens": 2020,
+   "raw": "<thought>The user wants me to evaluate two drafts of a \"trend analysis\" for Snap Inc. (SNAP).\nI need to score them on five criteria: depth, grounding, coverage, clarity, and calibration.\nFinally, I provide an overall preference, strength, and rationale.\n\n- Revenue (FY16-FY25), FCF, Investing CF, Operating Income, Financing CF, Total Assets, Cash, Current Assets, Current Liabilities, Working Capital, Current Ratio, Long-term Debt, Shareholders' Equity, Operating Margin, Net Income, Net Margin, EPS, Operating CF, Capex.\n- Loss-making profile.\n\n- Depth: Explains drivers (segments, products, cost lines), margin/cash conversion reasons, inflections, peer comparison.\n- Grounding: Factual/causal claims must be supported by cited sources.\n- Coverage: Period shape, growth drivers, operating leverage, margins, cash conversion, balance sheet, capital allocation, red flags, watch items with numeric thresholds.\n- Clarity: Plain, specific, no padding/jargon.\n- Calibration: Judgments separated from facts, no hype/advice/forecasts.\n\n- Depth:\n    - Explains FY17 loss driver (SBC/IPO/CEO award).\n    - Explains FY22 loss widening (cost of revenue/operating expenses).\n    - Growth drivers: North America, Rest of World, Europe; Advertising vs Other Revenue (impressions vs cost per impression, subscription growth).\n    - Margins: Peer comparison (internet median), cost of revenue, R&D, S&M, G&A drivers.\n    - Cash conversion: Non-cash add-backs (SBC, D&A), capex use (leased facilities).\n    - Balance sheet: Debt movements (repurchases, issuance), buybacks vs FCF.\n- Grounding:\n    - Claims about FY17 loss [8][9] - supported.\n    - FY22 reversal [10-13] - supported.\n    - Geographies [17-23] - supported by calculated figures.\n    - Advertising drivers [24-26] - supported by filing passage.\n    - Other revenue [27-29] - supported.\n    - Operating costs/incremental margin [30-31] - supported.\n    - Margin bridge (CoR, R&D, others) [35-40] - supported.\n    - S&M, R&D, G&A specifics [41-46] - supported.\n    - Debt extinguishment gain [47-48] - supported.\n    - Cash conversion components [49-55] - supported.\n    - Capex [56-61] - supported.\n    - Net cash/debt [62-65] - supported.\n    - Debt repurchases/issuance [66-68] - supported.\n    - Liquidity/Current ratio [69-71] - supported.\n    - Buybacks/Shares [72-75] - supported.\n    - Red flags [76-84] - supported.\n    - What to watch [15, 32, 85, 86, 63] - supported.\n- Coverage: Very comprehensive.\n- Clarity: Clear, structured.\n- Calibration: Facts and judgments are separated.\n\n- Depth:\n    - Explains FY17 loss (SBC/CEO award).\n    - Explains FY24 margin improvement (R&D fall/SBC/headcount).\n    - Growth drivers: Ad vs Other revenue (impressions/cost per impression).\n    - Margins: Peer comparison (percentile), bridge.\n    - Cash conversion: SBC as % of OCF.\n    - Balance sheet: Net debt trajectory, interest expense rise.\n- Grounding:\n    - FY17 loss [7-9] - supported.\n    - FY24 R&D fall [10-11] - supported.\n    - Ad/Other revenue growth [12-16] - supported.\n    - Margins [22-28] - supported.\n    - Net margin analysis [30-32] - supported.\n    - Cash conversion [33-38] - supported.\n    - Capex [39-42] - supported.\n    - Net debt [43-48] - supported.\n    - Current ratio [49-51] - supported.\n    - Buybacks [52-54] - supported.\n    - Red flags: Net loss, SBC, Net cash, Interest expense [55-64] - supported.\n    - Watch items [65-67] - supported.\n- Coverage: Good, but slightly less detailed on the cost lines (S&M and G&A are not detailed as in A).\n- Clarity: Good.\n- Calibration: Uses \"Analysis\" tags to separate judgment.\n\n- Depth: Draft A is deeper. It provides a more detailed breakdown of operating expenses (S&M, R&D, G&A) for FY2025, whereas B focuses on FY2024 R&D. A explains the growth contributors by geography, which B ignores. A explains the capex usage better (leased facilities).\n- Grounding: Both are well-grounded.\n- Coverage: Draft A covers more ground (geographies, specific cost line drivers for the mos"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides significantly more depth regarding growth drivers by including a geographical breakdown (North America, RoW, Europe), which is essential for a global platform. It also identifies and explains the FY2022 inflection point (widening losses), whereas Draft A skips this period. Additionally, Draft B offers better detail on the balance sheet by specifying the amounts of debt repurchased and issued, providing a clearer picture of capital allocation."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 93.723,
+   "input_tokens": 13410,
+   "output_tokens": 2887,
+   "raw": "<thought>The user wants an equity analyst review of two trend analysis drafts (A and B) for Snap Inc. (SNAP).\nI need to score them on depth, grounding, coverage, clarity, and calibration, then provide an overall preference with a rationale.\n\n    *   Revenue: FY2016 $404.5m to FY2025 $5,931.4m.\n    *   Operating Income: Consistently negative, FY2017 very low (-$3.4B), FY2025 - $532.2m.\n    *   Free Cash Flow: Became positive in FY2021. FY2025 $437.2m.\n    *   Net Income: Consistently negative.\n    *   Balance Sheet: Net cash turned to net debt recently.\n    *   Metrics provided include Op Margin, Net Margin, Current Ratio, Debt, etc.\n\n    *   *Depth:*\n        *   Revenue CAGR (34.8%), growth inflection points (FY2021 to FY2023).\n        *   FY2017 margin cause: SBC ($2.64B), CEO award, IPO RSUs.\n        *   FY2024 margin improvement: R&D fall ($219.2m), lower SBC/headcount.\n        *   Growth drivers FY2025: Ad revenue and Other revenue (subscriptions). Specific numbers for impressions (+17%) and cost per impression (-10%).\n        *   Margin bridge FY2025: cost of revenue, R&D, other lines.\n        *   Other income: Debt extinguishment gains ($96.7m).\n        *   Cash conversion: SBC as main add-back. Capex details.\n        *   Balance sheet: Net debt trend, peer comparison.\n        *   Red flags: Net losses, SBC as % of revenue, Net cash to net debt, Interest expense jump (2033/2034 notes), Buybacks > FCF.\n        *   What to watch: Specific numeric thresholds.\n    *   *Grounding:*\n        *   Cited sources for almost everything. Cites 10-Ks for specific causes (R&D decrease, Ad revenue drivers, Other income, Capex use, Note issuance).\n    *   *Coverage:* High. Covers arc, growth, margins, cash, balance sheet, red flags, and thresholds.\n    *   *Clarity:* Good, structured.\n    *   *Calibration:* Separates analysis (explicitly labeled) from facts. No hype.\n\n    *   *Depth:*\n        *   Revenue CAGR (34.8%).\n        *   FY2017 margin cause: SBC ($2.6B).\n        *   FY2022 reversal: Op loss widened 98.7% due to higher costs and slow growth.\n        *   Growth drivers FY2025: Geography (North America, RoW, Europe). Ad revenue and Other revenue (subscriptions).\n        *   Margin bridge FY2025: Cost of revenue, R&D, other lines.\n        *   Other income: Debt extinguishment gains.\n        *   Cash conversion: SBC and D&A add-backs. Capex details.\n        *   Balance sheet: Net cash to net debt, debt repurchase and issuance ($1.4B repurchased, $1.5B issued).\n        *   Red flags: Net losses, SBC, Net cash slide, Buybacks > FCF.\n        *   What to watch: Thresholds.\n    *   *Grounding:*\n        *   Cited sources. Cites 10-Ks for specific causes.\n    *   *Coverage:* High. Similar to A, but adds geography.\n    *   *Clarity:* Good.\n    *   *Calibration:* Good.\n\n    *   *Depth:* Draft B provides more geographical breakdown and specifics on the FY2022 loss widening. Draft A provides more detail on the FY2024 margin improvement (R&D decrease details). Draft B provides more detail on the balance sheet movement (specific debt repurchase/issuance amounts).\n    *   *Grounding:* Both are well-grounded.\n    *   *Coverage:* Both cover all required bases. B adds geography.\n    *   *Clarity:* Both are similar.\n    *   *Calibration:* Both are professional.\n\n    *   Draft B adds the geographical growth drivers (North America, RoW, Europe), which adds significant depth to \"What drove growth\" beyond just product lines.\n    *   Draft B's \"The arc\" section explains the FY2022 widening loss, whereas A skips from FY2017 to FY2024.\n    *   Draft B's balance sheet section is more detailed regarding the actual debt transactions (repurchase vs. issuance).\n    *   Draft A's \"What to watch\" section is slightly better as it uses specific thresholds from the data, but Draft B also does this.\n    *   Draft A's explanation of the FY2024 improvement (R&D cut) is good, but Draft B's overall trend coverage (FY2022, Geography) is more comprehensive for a long-term wi"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.0
+}

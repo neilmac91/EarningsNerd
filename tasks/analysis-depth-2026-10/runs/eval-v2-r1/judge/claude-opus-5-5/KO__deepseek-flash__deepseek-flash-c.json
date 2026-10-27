@@ -1,0 +1,106 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "5b3f227677dc0c9ee5b9830bacbec98dcb30810a734d1172b4f936ea92f0e437",
+ "y_sha256": "5f4ed807f0e0118f8c4c60d71c218c472fad67ea7e8685579c3e4b2c5f1aec40",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A presents FY2025 net cash of $8.8bn, the 'flip' from $32.4bn net debt and a 97.3% debt fall as fact. These almost certainly reflect debt no longer being reported after FY2023, and B discloses exactly that. A also asserts, without support, that working capital and tax timing explain weak conversion. A gives more drivers, such as gross-margin causes and the FY2025 OCF recovery, but grounding comes first. B labels its judgements separately from facts."
+   },
+   "cost_usd": 0.138645,
+   "latency_s": 14.686,
+   "backend": "claude_cli",
+   "input_tokens": 15238,
+   "cached_input_tokens": 727,
+   "output_tokens": 1121,
+   "reasoning_tokens": 887,
+   "meta": {
+    "duration_api_ms": 10843,
+    "cache_creation_input_tokens": 14509,
+    "list_cost_usd": 0.080609
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A presents FY2025 net cash of $8.8bn, the 'flip' from $32.4bn net debt and a 97.3% debt fall as fact. These almost certainly reflect debt no longer being reported after FY2023, and B discloses exactly that. A also asserts, without support, that working capital and tax timing explain weak conversion. A gives more drivers, such as gross-margin causes and the FY2025 OCF recovery, but grounding comes first. B labels its judgements separately from facts.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B adds real depth: gross-margin causes, the FY2025 cash recovery, geographic mix, and the dividend/buyback split. But it presents an $8.8bn net cash position and a 'flip' from $32bn net debt as fact. That rests on an implausible 97% total-debt drop that it never flags as a data problem. It also states SBC rules out compensation as a cause without support. A is thinner but discloses the debt-data gap and stays closer to its sources."
+   },
+   "cost_usd": 0.139961,
+   "latency_s": 16.843,
+   "backend": "claude_cli",
+   "input_tokens": 15240,
+   "cached_input_tokens": 727,
+   "output_tokens": 1186,
+   "reasoning_tokens": 963,
+   "meta": {
+    "duration_api_ms": 12520,
+    "cache_creation_input_tokens": 14511,
+    "list_cost_usd": 0.081917
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B adds real depth: gross-margin causes, the FY2025 cash recovery, geographic mix, and the dividend/buyback split. But it presents an $8.8bn net cash position and a 'flip' from $32bn net debt as fact. That rests on an implausible 97% total-debt drop that it never flags as a data problem. It also states SBC rules out compensation as a cause without support. A is thinner but discloses the debt-data gap and stays closer to its sources.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.278606
+}

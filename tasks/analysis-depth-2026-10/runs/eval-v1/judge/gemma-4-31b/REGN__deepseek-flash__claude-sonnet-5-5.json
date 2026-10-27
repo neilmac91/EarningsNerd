@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "gemma-4-31b",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Draft B provides superior depth by quantifying the structural erosion of the EYLEA franchise (comparing its FY2017 vs FY2025 share of revenue) and detailing the specific drivers of the FY2022 margin inflection (Libtayo commercialization). It also demonstrates better calibration by explicitly identifying a data gap regarding the increase in other income. Both drafts are exceptionally well-grounded and clear."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 58.83,
+   "input_tokens": 13537,
+   "output_tokens": 1269,
+   "raw": "<thought>The user wants a review of two drafts of a \"trend analysis\" for Regeneron Pharmaceuticals, Inc. (REGN).\n\n    *   Revenue: Compounded 12.8% (FY16-FY25).\n    *   Step changes: FY21 jump (REGEN-COV), FY22 drop (REGEN-COV gone), and later Sanofi profit share.\n    *   FY25 Growth: Driven by Sanofi profit share (Dupixent), offset by US EYLEA sales drop.\n    *   Operating Income: FY25 fell 10.3%.\n    *   EPS: Grew 8.2% despite net income growth of 2.1% (due to share count reduction).\n    *   Operating Margin: FY25 low (24.9%). Trend: Falling since FY21 (55.7%).\n    *   Costs: R&D rising (40.8% of revenue in FY25), SG&A falling (Good Days contributions).\n    *   Cash Conversion: FCF margin 28.4% (above median).\n    *   Capex: Rising (expansion in NY).\n    *   Balance Sheet: High net cash, low debt.\n    *   Dividends/Buybacks: 93.3% of FCF.\n    *   Red Flags: Margin slide, EYLEA erosion, revenue recasts (FY18/19).\n\n    *   Depth: Good. Explains REGEN-COV, Sanofi/Dupixent, EYLEA HD transition, R&D vs SG&A drivers. Mentions share count impact on EPS.\n    *   Grounding: Strong citations. Links the \"Good Days\" contribution to SG&A decrease. Links EYLEA HD to volume increase.\n    *   Coverage: Covers arc, growth drivers, margins, cash conversion, balance sheet, red flags, and watch items.\n    *   Clarity: Professional, clear, avoids jargon.\n    *   Calibration: Separates facts from analysis in red flags.\n\n    *   Depth: Also good. Adds a bit more detail on the FY22 margin drop (Libtayo commercialization).\n    *   Grounding: Strong citations.\n    *   Coverage: Covers all required areas.\n    *   Clarity: Very clear.\n    *   Calibration: Similar to A.\n\n    *   *Depth:* Draft B explains the FY2022 margin drop (Libtayo), whereas Draft A focuses on the FY2025 cost move. Draft B also provides a historical perspective on EYLEA's share of revenue (19.2% vs 63%), which is very useful for an investor.\n    *   *Grounding:* Both are well-grounded. Draft B's mention of \"September 2021 U.S. government supply agreement\" adds specific grounding to the REGEN-COV spike.\n    *   *Coverage:* Both are comprehensive.\n    *   *Clarity:* Both are high quality.\n    *   *Calibration:* Both are good. Draft B's \"Red flags\" section is slightly more data-rich (EYLEA 3-year trend).\n\n    Draft B provides slightly more depth on the structural shift of the business (the EYLEA revenue share decline from 63% to 19.2%) and the cause of the FY22 margin dip (Libtayo). These are insights that go beyond just restating the table. Draft A is excellent, but Draft B's specific historical context for EYLEA and the 3-year sales trend makes it more useful for a self-directed investor.\n\n    *   Depth: B (Better historical context on EYLEA and FY22 margin drivers).\n    *   Grounding: Tie (Both excellent).\n    *   Coverage: Tie (Both cover all bases).\n    *   Clarity: Tie.\n    *   Calibration: Tie.\n    *   Overall: B.\n    *   Strength: Slight.\n\n    *Self-Correction during review:* Draft A mentions the \"revenue basis break\" (recasts) more prominently in the \"Arc\" section, whereas B puts it in \"Red flags\". B's analysis of the EYLEA decline (3-year trend and % of revenue) is a significant value-add for depth.\n\n    *Wait, let's re-check grounding on the \"Other income\" red flag in Draft B:* Draft B notes other income rose from $789m to $1.65bn and says \"cited filings do not explain the rise.\" This is a good \"calibration\" move (admitting a data gap).\n\n    Draft B's depth regarding the structural erosion of EYLEA (the percentage of revenue shift) is a key differentiator.\n\n    Rationale: Draft B provides superior depth by quantifying the structural erosion of the EYLEA franchise (comparing its 2017 vs 2025 share of revenue) and detailing the specific drivers of the FY2022 margin inflection (Libtayo commercialization). It also identifies a data gap regarding the rise in other income, showing better calibration. Both drafts are exceptionally well-grounded and clear.</thought>{\"criteria\": {\"de"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides superior depth and coverage by breaking down the EYLEA franchise erosion into the decline of the base product versus the growth of EYLEA HD. It also adds critical context regarding the quality of cash flow by analyzing stock-based compensation as a percentage of operating cash flow and includes return on equity peer rankings. Both drafts are excellently grounded, but B's granular analysis of the revenue mix better explains the company's trajectory."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 42.659,
+   "input_tokens": 13537,
+   "output_tokens": 1168,
+   "raw": "<thought>The user wants a review of two drafts of a \"trend analysis\" for Regeneron Pharmaceuticals (REGN).\nThe analysis covers FY2016 to FY2025.\nThe metrics table provided includes Revenue, FCF, Investing CF, Operating Income, Financing CF, Total Assets, Cash, Current Assets/Liabilities, Working Capital, Current Ratio, LT Debt, Equity, Margins, Net Income, EPS, OCF, and Capex.\n\n- Depth: Explaining drivers (segments, products), margins, cash conversion, inflection points, history, and peers. No mere restating of values.\n- Grounding: Every factual/causal claim must be supported by cited sources. Check causal claims against quoted passages.\n- Coverage: Period shape, growth drivers, operating leverage, margins, cash conversion, balance sheet, capital allocation, red flags, and watch-items with thresholds.\n- Clarity: Plain, specific, organized, no padding/jargon.\n- Calibration: Proportionate judgments, separation of fact/opinion, disclosure of uncertainty, no hype/advice/forecasts.\n\n- *Depth*: Good. Breaks down REGEN-COV impact, EYLEA vs. Sanofi/Dupixent, R&D and SG&A drivers, buybacks/dividends, and peer comparisons.\n- *Grounding*: Citations provided. Checks:\n    - REGEN-COV US sales $5.83B (Source 6).\n    - EYLEA sales fall due to competition, compounded bevacizumab, shift to HD (Source 22).\n    - Sanofi profits driven by Dupixent (Source 26).\n    - SG&A fall due to Good Days (Source 39).\n    - Libtayo commercialization costs (Source 43).\n- *Coverage*: Covers growth, margins, cash, balance sheet, red flags, and watch-items.\n- *Clarity*: Professional and concise.\n- *Calibration*: Clear separation of facts. No forecasts.\n\n- *Depth*: Very good. Adds more granular detail on EYLEA HD growth (36.3%), Stock-Based Compensation (SBC) impact on OCF, and Return on Equity (ROE) peer ranking.\n- *Grounding*: Citations provided. Checks:\n    - EYLEA HD growth (Source 26/27).\n    - SBC as % of OCF (Source 63/64).\n    - ROE (Source 75/76).\n    - Capex build-out mention (Source 62).\n- *Coverage*: Covers all requested areas, possibly better than A by adding SBC and ROE.\n- *Clarity*: Well-organized and specific.\n- *Calibration*: Good.\n\n- *Depth*: B provides more insight into the \"second step\" of growth (Sanofi profit share as a percentage of revenue) and the SBC's role in cash conversion. It also identifies EYLEA HD as a partial offset to EYLEA's decline.\n- *Grounding*: Both are well-grounded. B's citations are robust.\n- *Coverage*: B covers SBC and ROE, which A misses.\n- *Clarity*: Both are clear.\n- *Calibration*: Both are calibrated.\n\nDraft B provides slightly more depth regarding the composition of revenue (EYLEA HD's growth vs EYLEA's decline) and the quality of cash flow (SBC add-back), which are critical for a biotech analyst. Draft A is very strong, but B is more comprehensive.\n\nWait, let's check grounding again.\nDraft A: \"Other income of $1.65 billion in FY2025 compares with $789 million in FY2024, and the cited filings do not explain the rise.\" (Correct, identifies a gap).\nDraft B: \"Net margin held at 31.4% even as operating margin fell, because other income of $1.65 billion and a 13.9% tax rate lifted net income 2.1%.\" (Explains the mathematical relationship).\n\nDraft B's breakdown of EYLEA HD vs EYLEA is a significant depth improvement because the table just shows total figures (or the user sees total figures), but the *trend* is the shift from EYLEA to EYLEA HD.\n\nOverall Preference: B.\nStrength: Clear.\nRationale: B offers superior depth by analyzing the internal shift from EYLEA to EYLEA HD and the impact of stock-based compensation on cash conversion. It provides more comprehensive coverage of the balance sheet (ROE) and peer comparisons. Both are exceptionally well-grounded, but B's insights into the revenue mix and cash flow quality better serve the self-directed investor.</thought>{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"},\n \"overall\": \"B\",\n \"strength\": \"clear\",\n \"rationale\""
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.0
+}

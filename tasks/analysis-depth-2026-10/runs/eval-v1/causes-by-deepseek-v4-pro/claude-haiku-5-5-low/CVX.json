@@ -1,0 +1,128 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 9,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2022 revenue rose 51.5%  and net income reached $35.5 billion , which the filing ties to higher upstream realizations and downstream margins .",
+   "passages": [
+    {
+     "id": "P55",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "International income before tax increased from $12.0 billion in 2021 to $28.7 billion in 2022. This $16.7 billion increase in income was primarily driven by higher upstream realizations and downstream margins. The increased income primarily drove the $5.2 billion increase in international income tax expense between year-over-year periods, from $4.3 billion in 2021 to $9.6 billion in 2022."
+    },
+    {
+     "id": "P56",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "U.S. income before tax increased from $9.7 billion in 2021 to $21.0 billion in 2022. This $11.3 billion increase in income was primarily driven by higher upstream realizations and downstream margins, partially offset by higher operating expenses and lower asset sale gains. The increase in income had a direct impact on the company\u2019s U.S. income tax resulting in an increase to tax expense of $2.9 billion between year-over-year periods, from $1.6 billion in 2021 to $4.5 billion in 2022."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passages cite higher upstream realizations and downstream margins as drivers of income increases."
+  },
+  {
+   "sentence": "FY2023 revenue fell 16.5%  on lower upstream realizations and downstream margins, per the filing .",
+   "passages": [
+    {
+     "id": "P43",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "International income before tax decreased from $28.7 billion in 2022 to $21.0 billion in 2023. This $7.7 billion decrease in income was primarily driven by lower upstream realizations, partly offset by the absence of a 2022 write-off and impairment charges. The decrease in income primarily drove the $3.2 billion decrease in international income tax expense between year-over-year periods, from $9.6 billion in 2022 to $6.4 billion in 2023."
+    },
+    {
+     "id": "P44",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "U.S. income before tax decreased from $21.0 billion in 2022 to $8.6 billion in 2023. This $12.4 billion decrease in income was primarily driven by lower upstream realizations and downstream margins, charges related to abandonment and decommissioning obligations, and higher impairment charges, partially offset by higher sales volumes. The decrease in income had a direct impact on the company\u2019s U.S. income tax resulting in a decrease to tax expense of $2.7 billion between year-over-year periods, from $4.5 billion in 2022 to $1.8 billion in 2023."
+    }
+   ],
+   "label": "partial",
+   "reason": "Only U.S. segment cites both lower upstream realizations and downstream margins; international cites only upstream."
+  },
+  {
+   "sentence": "Revenue fell 4.6% to $184 billion  mainly on lower crude oil and refined product prices .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states sales decreased mainly due to lower crude oil and refined product prices."
+  },
+  {
+   "sentence": "The largest positive contributor was U.S. upstream, up 34.0%  and adding 2.5pp , as Hess and Permian production grew .",
+   "passages": [
+    {
+     "id": "P24",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net oil-equivalent production was up 259,000 barrels per day, or 16 percent, primarily due to the acquisition of Hess and higher production in the Permian Basin and the Gulf of America."
+    }
+   ],
+   "label": "unsupported",
+   "reason": "Passage attributes production increase to Hess acquisition and Permian, but no revenue contribution or percentage."
+  },
+  {
+   "sentence": "Cost of revenue fell 9.2% , faster than revenue's 4.6% , as purchased crude and products decreased on lower prices and volumes .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Purchased crude oil and products decreased in 2025 due to lower crude oil and refined product prices and volumes, partially offset by higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states purchased crude oil and products decreased due to lower prices and volumes."
+  },
+  {
+   "sentence": "D&A rose to $20.1 billion  from $17.3 billion , which the filing ties to higher production and rates .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Depreciation, depletion and amortization expenses increased in 2025 primarily due to higher production and higher rates."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states DD&A increased primarily due to higher production and higher rates."
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.8%  from 27.6% , a move that mix effects across jurisdictions can drive .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Income Taxes The effective tax rate for the company can change substantially during periods of significant earnings volatility. This is due to the mix effects that are impacted by both the absolute level of earnings or losses and whether they arise in higher or lower tax rate jurisdictions. As a result, a decline or increase in the effective income tax rate in one period may not be indicative of expected results in future periods. Additional information related to the company\u2019s effective income tax rate is included in Note 17 Taxes to the Consolidated Financial Statements."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage explains effective tax rate changes due to mix effects across jurisdictions."
+  },
+  {
+   "sentence": "Operating cash flow fell 28.2% in FY2023  on lower upstream realizations and refining margins .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash, Cash Equivalents and Marketable Securities Total balances were $8.2 billion and $17.9 billion at December\u00a031, 2023 and 2022, respectively. The company holds its cash with a diverse group of major financial institutions and has processes and safeguards in place designed to manage its cash balances and mitigate the risk of loss. Cash provided by operating activities in 2023 was $35.6 billion, compared to $49.6 billion in 2022, primarily due to lower upstream realizations and refining margins. Cash provided by operating activities was net of contributions to employee pension plans of approximately $1.1 billion in 2023 and $1.3 billion in 2022. Capital expenditures totaled $15.8 billion in 2023 compared to $12.0 billion in 2022. Proceeds and deposits related to asset sales and return of investments totaled $669 million in 2023 compared to $2.6 billion in 2022. Cash flow from financing activities includes proceeds from shares issued for stock options of $261 million in 2023, compared with a higher than typical $5.8 billion in 2022 when a large number of stock options were exercised."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states operating cash flow decreased primarily due to lower upstream realizations and refining margins."
+  },
+  {
+   "sentence": "Interest expense rose to $1.22 billion  from $594 million , and the filing names higher interest expense as the main driver of higher net charges .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net charges increased by $877 million, primarily due to higher interest expense, and higher pension settlement and curtailment costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net charges increased primarily due to higher interest expense."
+  }
+ ],
+ "cost_usd": 0.001822
+}

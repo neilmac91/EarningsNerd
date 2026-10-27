@@ -1,0 +1,70 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "CAT",
+ "split": "dev",
+ "claims": 5,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2017 rebound came from higher sales volume on improved end-user demand and favorable dealer-inventory changes .",
+   "passages": [
+    {
+     "id": "P86",
+     "filing": "FY2017 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2017 were $45.462 billion, an 18 percent increase from 2016 sales and revenues of $38.537 billion. The increase was primarily due to higher sales volume, mostly due to improved end-user demand. In addition, favorable changes in dealer inventories contributed to increased sales volume. The improvement in end-user demand was across all regions and most end markets. The favorable change in dealer inventories was primarily due to a decrease in 2016, compared to dealer inventories that were about flat in 2017. Favorable price realization, mostly in Construction Industries, also contributed to the sales improvement. Profit per share for 2017 was $1.26, compared to a loss per share of $0.11 in 2016. Profit was $754 million in 2017, compared to a loss of $67 million in 2016."
+    }
+   ],
+   "label": "supported",
+   "reason": "P86 attributes the 2017 increase to higher volume from improved end-user demand and favorable dealer inventory changes."
+  },
+  {
+   "sentence": "The FY2020 decline reflected lower end-user demand and dealer inventory reductions across all three primary segments .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2020 were $41.748 billion, a decrease of $12.052 billion, or 22 percent, compared with $53.800 billion in 2019. The decline was due to lower sales volume driven by lower end-user demand for equipment and services and the impact from changes in dealer inventories across the three primary segments. Sales were lower across all regions and in the three primary segments. Profit per share was $5.46 in 2020, compared with profit per share of $10.74 in 2019. Profit was $2.998 billion in 2020, compared with $6.093 billion in 2019. The decrease was primarily due to lower sales volume, unfavorable price realization, lower profit from Financial Products and higher restructuring costs, partially offset by lower selling, general and administrative (SG&A) and research and development (R&D) expenses and favorable manufacturing costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P59 cites lower end-user demand and dealer inventory changes across the three primary segments. 'Reductions' is implied, not stated."
+  },
+  {
+   "sentence": "The FY2025 top line rose on higher sales volume of $3.389 billion, partly offset by unfavorable price realization of $817 million .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2025 were $67.589 billion, an increase of $2.780 billion, or 4 percent, compared with $64.809 billion in 2024. The increase was primarily driven by higher sales volume of $3.389 billion, partially offset by unfavorable price realization of $817 million. The increase in sales volume was mainly driven by higher sales of equipment to end users."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 states the increase came from higher sales volume, partially offset by unfavorable price realization."
+  },
+  {
+   "sentence": "Operating profit fell $1.921 billion on unfavorable manufacturing costs of $2.148 billion and unfavorable price realization of $817 million, with manufacturing costs largely reflecting higher tariffs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $11.151 billion in 2025, a decrease of $1.921 billion, or 15 percent, compared with $13.072 billion in 2024. The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion and unfavorable price realization of $817 million, partially offset by the profit impact of higher sales volume of $1.218 billion. Unfavorable manufacturing costs largely reflected the impact of higher tariffs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 cites unfavorable manufacturing costs and price realization, and says manufacturing costs largely reflected higher tariffs."
+  },
+  {
+   "sentence": "Machinery, Power & Energy operating cash flow rose on lower working capital requirements and lower cash taxes paid .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $12.278 billion in 2025, compared with $11.437 billion in 2024. The increase was primarily due to lower working capital requirements and lower cash taxes paid. These were partially offset by lower profit before taxes, adjusted for non-cash items. Within working capital, changes in customer advances, accounts payable, and accrued wages, salaries, and employee benefits favorably impacted cash flow, partially offset by changes in inventories and  receivables."
+    }
+   ],
+   "label": "partial",
+   "reason": "P4 gives these causes for consolidated operating cash flow, not specifically the Machinery, Power & Energy cash flow."
+  }
+ ],
+ "cost_usd": 0.035044
+}

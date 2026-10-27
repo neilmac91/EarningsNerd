@@ -1,0 +1,97 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 6,
+ "output_sha256": "0a0ebc172f6df3bc1397e7c59d4385fae0169d1f592439b20770eef8500370dc",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2024 step came from Data Center revenue up 217% on Hopper GPU shipments for LLM training and inference .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year-on-year increase was due to higher Data Center revenue. Compute grew 266% due to higher shipments of the NVIDIA Hopper GPU computing platform for the training and inference of LLMs, recommendation engines and generative AI applications. Networking was up 133% due to higher shipments of InfiniBand."
+    },
+    {
+     "id": "P23",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217% from fiscal year 2023. In Data Center, we launched AI inference platforms that combine our full-stack inference software with NVIDIA Ada, NVIDIA Hopper and NVIDIA Grace Hopper processors optimized for generative AI, LLMs and other AI workloads. We introduced NVIDIA DGX Cloud and AI Foundations to help businesses create and operate custom large language models and generative AI models. As AV algorithms move to video transformers, and more cars are equipped with cameras, we expect NVIDIA\u2019s automotive data center processing demand to grow significantly. We estimate that in fiscal year 2024, approximately 40% of Data Center revenue was for AI inference. In the fourth quarter of fiscal year 2024, large cloud providers represented more than half of our Data Center revenue, supporting both internal workloads and external customers. We announced NVIDIA Spectrum-X, an accelerated networking platform for AI."
+    }
+   ],
+   "label": "partial",
+   "reason": "P22 attributes Hopper shipments to the 266% compute growth, while networking grew on InfiniBand. The 217% Data Center figure itself is stated without a cause."
+  },
+  {
+   "sentence": "FY2026 growth was driven by data center compute and networking for accelerated computing and AI, with Blackwell the majority of Data Center revenue .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states growth was driven by data center compute and networking for accelerated computing and AI, with Blackwell the majority of Data Center revenue."
+  },
+  {
+   "sentence": "Within it, Data Center computing grew 59% on Blackwell demand and networking grew 142% on NVLink for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 attributes the 59% compute growth to Blackwell demand and the 142% networking growth to the NVLink ramp for GB200/GB300."
+  },
+  {
+   "sentence": "That cost growth reflected higher compensation and benefits from employee growth and higher compute and infrastructure costs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating expenses for fiscal year 2026 were up 41% from a year ago, driven by higher compensation and benefits expenses due to employee growth and compute and infrastructure costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the operating expense rise to compensation and benefits from employee growth, and to compute and infrastructure costs."
+  },
+  {
+   "sentence": "The FY2023 low of 15.7% followed $2.17 billion of inventory provisions against excess Ampere supply, cutting gross margin 8.0pp .",
+   "passages": [
+    {
+     "id": "P35",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin was 56.9% and 64.9% for fiscal years 2023 and 2022, respectively. The decrease in fiscal year 2023 was primarily due to $2.17 billion of inventory provisions in fiscal year 2023, which consists of approximately $1.04 billion for inventory on hand and approximately $1.13 billion for inventory purchase obligations in excess of our current demand projections."
+    },
+    {
+     "id": "P38",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin for fiscal year 2023 declined from a year ago, driven by $2.17 billion of inventory charges largely relating to excess supply of NVIDIA Ampere architecture Gaming and Data Center products as compared to the demand expectations for these products, particularly for the expected demand in China. The inventory charges were comprised of $1.04 billion for inventory on hand and $1.13 billion for inventory purchase obligations in excess of our demand expectations."
+    }
+   ],
+   "label": "supported",
+   "reason": "P35 and P38 attribute the gross margin decline to $2.17B of inventory provisions, largely for excess Ampere supply."
+  },
+  {
+   "sentence": "Cash used in investing rose to $52.2 billion, driven by higher equity investment purchases and a non-exclusive license agreement with Groq .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 attributes the higher investing cash use to equity investment purchases and the Groq non-exclusive license agreement."
+  }
+ ],
+ "cost_usd": 0.041752,
+ "backend": "claude_cli",
+ "input_tokens": 3240,
+ "cached_input_tokens": 0,
+ "output_tokens": 792
+}

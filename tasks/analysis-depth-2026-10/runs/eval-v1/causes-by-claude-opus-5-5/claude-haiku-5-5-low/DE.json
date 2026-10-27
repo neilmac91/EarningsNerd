@@ -1,0 +1,94 @@
+{
+ "system": "claude-haiku-5-5-low",
+ "ticker": "DE",
+ "split": "holdout",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The largest inflection was FY2021, when revenue grew 23.9%  and operating margin rose 6.1pp , which the filing attributes to higher shipment volumes and price realization .",
+   "passages": [
+    {
+     "id": "P43",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales and revenues increased in 2021 due mostly to higher shipment volumes / sales mix and price realization. The growth in operating profit was due primarily to increased shipment volumes / sales mix and price realization, partially offset by higher production costs. Results in 2020 were negatively impacted by impairment charges and employee-separation expenses."
+    }
+   ],
+   "label": "supported",
+   "reason": "P43 attributes FY2021 revenue and operating profit growth to higher shipment volumes/sales mix and price realization."
+  },
+  {
+   "sentence": "The filing attributes the segment's fall to a 30% drop in U.S. and Canada volumes, partly offset by growth in Brazil .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales volumes decreased 30% in the U.S. and Canada, partially offset by an increase of 22% in Brazil. Price realization was up 1% in the U.S. and Canada. In Brazil, price realization was up 4% as demand was strong due to higher grower production. Price realization in the rest of the world was down slightly due to moderating market conditions."
+    }
+   ],
+   "label": "partial",
+   "reason": "P10 reports the 30% U.S./Canada volume drop and Brazil increase but does not explicitly name them as causes of the segment's decline."
+  },
+  {
+   "sentence": "Material costs fell, but manufacturing overhead rose on lower volumes and production inefficiencies .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production costs were favorable in 2024 due to lower material and employee profit-sharing incentives costs, partially offset by higher manufacturing overhead costs driven by lower volumes and production inefficiencies."
+    }
+   ],
+   "label": "supported",
+   "reason": "P16: lower material costs, partly offset by higher manufacturing overhead from lower volumes and production inefficiencies."
+  },
+  {
+   "sentence": "Operating cash flow of $7.5 billion  reflected net income adjusted for non-cash items and lower receivables, partly offset by an OPEB contribution .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash inflows from operating activities were $7.5 billion in 2025, driven by net income adjusted for non-cash provisions and a decrease in receivables related to sales, partially offset by an other postretirement benefit (OPEB) contribution."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 cites net income adjusted for non-cash provisions and lower receivables, partially offset by an OPEB contribution."
+  },
+  {
+   "sentence": "Conversion was weakest in FY2022 at 0.66x , when the filing cites higher receivables, inventory build and a voluntary OPEB contribution .",
+   "passages": [
+    {
+     "id": "P27",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Positive cash flows from consolidated operating activities in 2022 were $4,699 million. This resulted from net income adjusted for non-cash provisions, partially offset by an increase in receivables related to sales, an increase in inventories, and a $1,000 million voluntary contribution to a U.S. other postretirement benefit (OPEB) plan. Cash outflows from investing activities were $8,485 million in 2022. The primary drivers were growth in the retail customer receivable and lease portfolios; purchases of property and equipment; a change in collateral on derivatives - net; and acquisitions of businesses, net of cash acquired. Cash inflows from financing activities were $826 million in 2022, due to an increase in borrowings, partially offset by repurchases of common stock and dividends paid. Cash, cash equivalents, and restricted cash decreased $3,184 million during 2022."
+    }
+   ],
+   "label": "supported",
+   "reason": "P27 cites higher receivables, higher inventories and a $1,000 million voluntary OPEB contribution offsetting 2022 operating cash flow."
+  },
+  {
+   "sentence": "The FY2024 filing ties lower shipments to rising grain stocks, lower commodity prices and elevated interest rates .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Each equipment operations segment experienced lower shipment volumes partially offset by price realization during 2024. Rising global grain stocks, lower commodity prices, elevated interest rates, and the effect of inventory management contributed to lower shipment volumes for large and small agriculture. Declines in housing starts, decreases in rental purchases, lower levels of commercial real estate construction, and the effect of inventory management contributed to lower shipment volumes for construction equipment."
+    }
+   ],
+   "label": "partial",
+   "reason": "P17 gives these causes only for agriculture shipments; construction declines are attributed to housing starts and other factors."
+  },
+  {
+   "sentence": "The FY2025 filing says the allowance grew on higher expected losses in agriculture and turf accounts , with the provision still $296.0 million  against $310.0 million in FY2024 .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During 2025, the allowance for credit losses increased, primarily due to higher expected losses on agriculture and turf customer accounts as a result of elevated delinquencies and a decline in market conditions."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the allowance increase to higher expected losses on agriculture and turf customer accounts."
+  }
+ ],
+ "cost_usd": 0.041888
+}

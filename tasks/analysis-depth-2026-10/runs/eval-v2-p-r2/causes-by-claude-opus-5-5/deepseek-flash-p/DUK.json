@@ -1,0 +1,68 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "DUK",
+ "split": "holdout",
+ "claims": 4,
+ "output_sha256": "93e028fabe321af2f9a91ea579dcffddc3353d691d584657cf01fd50622ef9c7",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2020 was the trough: revenue fell 4.5% and operating income 19.9% on coal-ash settlement charges and pandemic-driven volume losses .",
+   "passages": [
+    {
+     "id": "P60",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Electric Utilities and Infrastructure\u2019s variance is primarily due to impairment charges and revenue reductions related to the CCR settlement agreement filed with the NCUC to resolve coal ash cost recovery issues, unfavorable weather and lower volumes driven by impacts from the COVID-19 pandemic, partially offset by base rate adjustments in various jurisdictions. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "partial",
+   "reason": "P60 cites the CCR settlement and pandemic volume losses, but for the Electric Utilities and Infrastructure segment variance, not consolidated revenue and operating income."
+  },
+  {
+   "sentence": "FY2022 was the step change, with revenue up 17.1% on rate cases, favorable weather and higher volumes .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022 a $320 million increase in net income after adjustment for non-cash items primarily due to higher revenues from rate cases in various jurisdictions, favorable weather and volumes, partially offset by an estimated impairment on the Commercial Renewables Disposal Groups."
+    },
+    {
+     "id": "P33",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "EU&I\u2019s higher segment income is due to higher retail sales volumes and favorable weather, partially offset by higher depreciation and higher interest expense. The following is a detailed discussion of the variance drivers by line item."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 attributes higher revenues to rate cases in various jurisdictions, favorable weather and volumes."
+  },
+  {
+   "sentence": "FY2024 net income rose 59.2% largely because the prior year carried impairments on the Commercial Renewables sale .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Duke Energy's 2024 Net Income Available to Duke Energy Corporation (GAAP Reported Earnings) increased primarily due to higher impairments on the sale of the Commercial Renewables business in the prior year. Additional drivers primarily include growth from rate increases and riders, improved weather and higher sales volumes, partially offset by higher interest expense, depreciation on a growing asset base and storm costs, along with a higher effective tax rate. See \u201cResults of Operations\u201d below for a detailed discussion of the consolidated results of operations and a detailed discussion of financial results for each of Duke Energy\u2019s reportable business segments, as well as Other."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 says 2024 net income rose primarily because of higher Commercial Renewables sale impairments in the prior year."
+  },
+  {
+   "sentence": "FY2022 conversion fell to 2.32x as rising fuel costs drove undercollections that increased borrowings .",
+   "passages": [
+    {
+     "id": "P36",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As a result of rapidly rising commodity costs, including natural gas, fuel and purchased power prices in excess of amounts included in fuel-related revenues has led to an increase in the undercollection of fuel costs from customers at certain jurisdictions including Duke Energy Carolinas, Duke Energy Progress and Duke Energy Florida. These amounts have been deferred in regulatory assets and have impacted the cash flows of the registrants, including increased borrowings to temporarily finance related expenditures until recovery. The Duke Energy Registrants are working with various state commissions on the timing of recovery of these amounts. See Note 4 to the Consolidated Financial Statements, \"Regulatory Matters\" for more information."
+    }
+   ],
+   "label": "supported",
+   "reason": "P36 says rising fuel costs caused undercollections that hurt cash flows and increased borrowings."
+  }
+ ],
+ "cost_usd": 0.033668,
+ "backend": "claude_cli",
+ "input_tokens": 2672,
+ "cached_input_tokens": 0,
+ "output_tokens": 615
+}

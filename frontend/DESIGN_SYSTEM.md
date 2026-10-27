@@ -1619,14 +1619,23 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  also finds it) and the live controls at the cell's right edge, so the cell keeps a guest's
                  width whatever the auth check shows, in any font and either access mode, and the nav keeps
                  its place as the check settles; a reader's toggle, bell and avatar stay together at the
-                 right. The cell holds min-h-10, the md button's height, so the bar is one height while the
-                 check runs and after it, for a guest and a signed-in reader (E174, E175; gate:
-                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
-                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
-                 bar at 640, 800, 1024 and 1440px and the full bar at 2304px: the header keeps its height, the
-                 full bar's nav its left edge, and a guest's compact bar its height with either access mode's
-                 label; tests/unit/Header.spec.tsx holds the copy unfocusable, unread and in step with a
-                 guest's live controls in either access mode). The wordmark shows from 40rem
+                 right. The copy's account link holds, in one cell, every full-bar label (`cta`)
+                 `publicAccessCopy` can print in the build's access mode (`accountLabels`: the mode's own and
+                 the live example's, which the link shows while registration readiness checks or once it
+                 answers closed or unconfirmed), so the nav keeps its place as readiness lands too: in invite
+                 mode it moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text as "See a live
+                 example" became "Request an invite" (E220). The cell holds min-h-10, the md button's height,
+                 so the bar is one height while the check runs and after it, for a guest and a signed-in
+                 reader (E174, E175; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open,
+                 scrolls, and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and
+                 under 200% text in the compact bar at 640, 800, 1024 and 1440px and the full bar at 2304px:
+                 the header keeps its height, the full bar's nav its left edge, and a guest's compact bar its
+                 height with either access mode's label; its readiness case holds readiness open and answers
+                 it, and the header keeps its height at 320, 390, 1152 and 1440px and at 640, 1440 and 2304px
+                 under 200% text, and the full bar's nav its left edge (E220); tests/unit/Header.spec.tsx
+                 holds the copy unfocusable, unread and holding, in one grid, every label a guest's live link
+                 can print in either access mode, and tests/unit/publicAccess.spec.tsx every full-bar label
+                 `publicAccessCopy` can print). The wordmark shows from 40rem
                  (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
                  under enlarged text the mark stands alone where a guest's row needs the room. Below about
                  15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
@@ -2402,6 +2411,20 @@ row after Reporting this week (E90): one hairline line per filing the backend se
 Reporting this week's anatomy (the mark at 32, the ticker in the data face with the form and its filed date where
 Reporting this week has its day, the name beneath through `formatCompanyName`), each opening its company page, under
 a line that says what the feed is and nothing the backend's query does not do; no reason chip.
+
+**The hero's access line** (`PublicAccessLine.tsx`, under the hero's call to action) keeps one height as
+registration readiness answers open (E220). The lines it holds (`heldAccessLines`: the checking line it opens on and
+the access mode's own) share one grid cell, the shown one visible and the rest `invisible` and `aria-hidden`, so the
+page under it holds still: as the checking line became the invite line, the page moved up 20px from 320 to 460px and
+40 to 120px under 200% text (120px at 320px; measured in the site's Inter web font, as CI paints it). Where the
+checking line takes more rows than the mode's, the settled line sits over the rows it leaves, the same 20px, or 40
+to 120px; chief design chose that over the shift on #1686. A space between the cells keeps the lines apart in the
+server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it: the closed line
+takes a row more than the checking line at some widths, and holding it would put a closed notice in every visit's
+server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's
+and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 640, 1440 and 2304px
+under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
+answers, and the lines it holds).
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either

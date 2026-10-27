@@ -1,0 +1,86 @@
+{
+ "ticker": "DUK",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A offers deeper, better-supported analysis: it explains FY2022 and FY2020 drivers with cited passages, quantifies segment contributions, and ties cash conversion to fuel undercollections. Draft B adds peer ROE and debt issuance but includes unsupported claims (e.g., residential growth unexplained) and misreads FY2023 revenue as a decline. A's grounding and depth are stronger."
+   },
+   "cost_usd": 0.004721,
+   "latency_s": 2.867,
+   "input_tokens": 9175,
+   "output_tokens": 151,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A offers deeper, better-supported analysis: it explains FY2022 and FY2020 drivers with cited passages, quantifies segment contributions, and ties cash conversion to fuel undercollections. Draft B adds peer ROE and debt issuance but includes unsupported claims (e.g., residential growth unexplained) and misreads FY2023 revenue as a decline. A's grounding and depth are stronger.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better peer context, and more precise red flags with thresholds. It is fully grounded in cited sources and clearly separates analysis from facts. Draft B has some unsupported claims and less interpretive depth."
+   },
+   "cost_usd": 0.004654,
+   "latency_s": 2.676,
+   "input_tokens": 9175,
+   "output_tokens": 117,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better peer context, and more precise red flags with thresholds. It is fully grounded in cited sources and clearly separates analysis from facts. Draft B has some unsupported claims and less interpretive depth.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.009375
+}

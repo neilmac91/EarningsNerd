@@ -1,0 +1,92 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "ORCL",
+ "split": "holdout",
+ "claims": 6,
+ "output_sha256": "1de563a1af1c970199e75cd95d3fbe8039ad117acb809eaa0f15f8f89cf2d42a",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2023 step came primarily from revenue contributions from the Cerner acquisition, which added $5.9 billion, 11.8% of that year's revenue .",
+   "passages": [
+    {
+     "id": "P48",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Excluding the effects of foreign currency rate fluctuations, our total revenues increased across our three businesses during fiscal 2023 relative to fiscal 2022 primarily due to revenue contributions from our acquisition of Cerner. Excluding the impact of our acquisition of Cerner, the constant currency revenues increase during fiscal 2023 relative to fiscal 2022 in our cloud and license business was attributable to growth in our cloud services and license support revenues as customers purchased our applications and infrastructure technologies via cloud and license deployment models and also renewed their related cloud contracts and license support contracts to continue to gain access to the latest versions of our technologies and to receive support services, partially offset by a decrease in our cloud license and on-premise license revenues. In our hardware business, the increase during fiscal 2023 was primarily due to growth in our Oracle Exadata and certain other strategic hardware product offerings."
+    }
+   ],
+   "label": "supported",
+   "reason": "P48 says FY2023 revenue growth was primarily due to contributions from the Cerner acquisition."
+  },
+  {
+   "sentence": "The FY2026 step came from cloud revenues as customers purchased applications and infrastructure technologies and renewed cloud contracts, with cloud infrastructure contributing 84% of constant-currency cloud growth .",
+   "passages": [
+    {
+     "id": "P17",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cloud and software business\u2019 total revenues increased by $9.3 billion in reported currency in fiscal 2026 relative to fiscal 2025 primarily due to an increase in cloud revenues as customers purchased our applications and infrastructure technologies and renewed their related cloud contracts. Excluding the favorable impact of currency rate fluctuations of 2% in fiscal 2026, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the constant currency growth in cloud revenues in fiscal 2026. The Americas, the EMEA and the Asia Pacific regions contributed 87%, 6% and 7%, respectively, to the constant currency revenue growth for this business during fiscal 2026."
+    },
+    {
+     "id": "P20",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total revenues increased by $10.0 billion in reported currency in fiscal 2026 relative to fiscal 2025 due to a $9.3 billion increase in cloud and software revenues, a $510 million increase in services revenues and a $148 million increase in hardware revenues, in each case during fiscal 2026 relative to fiscal 2025. The increase in our cloud and software business revenues was primarily due to growth in our cloud revenues as customers purchased our applications and infrastructure technologies and also renewed their related cloud contracts. In constant currency, cloud applications and cloud infrastructure contributed 16% and 84%, respectively, to the growth in cloud revenues in fiscal 2026. In our hardware business, the increase in revenues was primarily due to the growth in revenues from our Oracle Exadata and certain other strategic hardware product offerings. In our services business, the increase in"
+    }
+   ],
+   "label": "supported",
+   "reason": "P17 and P20 attribute FY2026 growth to cloud purchases and renewals, with infrastructure contributing 84% of constant-currency cloud growth."
+  },
+  {
+   "sentence": "The FY2026 margin slipped 0.2pp as cloud and software total margin fell on higher infrastructure expenses to support cloud infrastructure growth .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Excluding the effects of currency rate fluctuations, our cloud and software business\u2019 total margin increased in fiscal 2026 relative to fiscal 2025 due to increases in total revenues for this business as discussed above. Total margin as a percentage of revenues in constant currency decreased in fiscal 2026 relative to fiscal 2025 due to an increase in total expenses driven by higher infrastructure expenses to support growth in our cloud infrastructure offering."
+    }
+   ],
+   "label": "partial",
+   "reason": "Only the segment margin percentage fell on infrastructure expenses; total margin dollars rose. The passage covers the segment, not company-wide margin."
+  },
+  {
+   "sentence": "That increase was primarily due to higher net income adjusted for non-cash charges and favorable working capital, including $4.6 billion of customer prepayments with a significant financing component .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities increased by $11.2 billion in fiscal 2026 relative to fiscal 2025 primarily due to higher net income adjusted for certain non-cash charges and higher cash favorable working capital changes, net, which includes $4.6 billion cash inflows from customer prepayments with significant financing component."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 cites higher adjusted net income and favorable working capital, including $4.6 billion of customer prepayments."
+  },
+  {
+   "sentence": "Investing outflows rose $30.1 billion primarily on a $34.4 billion increase in capital expenditures .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used for investing activities increased by $30.1 billion in fiscal 2026 relative to fiscal 2025 primarily due to a $34.4 billion increase in capital expenditures, partially offset by $4.3 billion of cash proceeds from the sale of our investment in Ampere."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 attributes the investing outflow increase primarily to a $34.4 billion rise in capital expenditures."
+  },
+  {
+   "sentence": "Total debt rose 39.9% to $129.5 billion as the company issued $42.7 billion of senior notes and $5.0 billion of mandatory convertible preferred .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "was primarily due to proceeds from the issuance of senior notes, net of issuance costs, of $42.7 billion during fiscal 2026; $32.0 billion of cash inflows from our operations; $5.0 billion of cash proceeds from the issuance of Mandatory Convertible Preferred Stock, net of issuance costs; $4.9 billion of cash inflows from the sale of our investments, primarily in Ampere; $3.3 billion of cash inflows from short-term financing related to capital expenditures, net; and $1.3 billion of net cash provided by our employee stock programs, partially offset by $55.7 billion of cash used for capital expenditures; $5.8 billion of cash used to pay dividends to our common and preferred stockholders; $5.0 billion of cash used for scheduled repayments of debt; $851 million of cash used for repayment of commercial paper, net; $337 million of cash outflows for other financing activities, net; $864 million of cash used for purchases of non-current investments; and $95 million of cash used for repurchases of our common stock, in each case during fiscal 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "P7 explains cash sources, not the debt increase. Senior notes fit, but convertible preferred stock is equity, not debt."
+  }
+ ],
+ "cost_usd": 0.043796,
+ "backend": "claude_cli",
+ "input_tokens": 3718,
+ "cached_input_tokens": 0,
+ "output_tokens": 703
+}

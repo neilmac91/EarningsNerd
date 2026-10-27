@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A is fully supported but only restates table values. Draft B has some grounding slips. The $919m payables figure is absent from the truncated quote, and it attributes the net-margin decline to tax while ignoring the operating-margin drop and other-income offset. Otherwise B is well sourced. It explains the FY2019 impairment, FX- and pricing-led growth, cost drivers, payouts versus FCF and peer leverage, flags the FY2018 data mismatch and sets numeric watch thresholds."
+   },
+   "cost_usd": 0.097573,
+   "latency_s": 11.272,
+   "input_tokens": 11359,
+   "output_tokens": 619,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A is fully supported but only restates table values. Draft B has some grounding slips. The $919m payables figure is absent from the truncated quote, and it attributes the net-margin decline to tax while ignoring the operating-margin drop and other-income offset. Otherwise B is well sourced. It explains the FY2019 impairment, FX- and pricing-led growth, cost drivers, payouts versus FCF and peer leverage, flags the FY2018 data mismatch and sets numeric watch thresholds.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values, so it adds nothing for the reader. A explains the FY2019 Shave Care impairment, the segment and FX drivers, the cost lines, tax, payouts versus free cash flow and peers, and it flags data problems. A has one grounding slip: the $919m payables figure is not in the truncated passage it cites. That slip is minor next to A's substantive, labelled analysis."
+   },
+   "cost_usd": 0.100665,
+   "latency_s": 11.787,
+   "input_tokens": 11363,
+   "output_tokens": 772,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values, so it adds nothing for the reader. A explains the FY2019 Shave Care impairment, the segment and FX drivers, the cost lines, tax, payouts versus free cash flow and peers, and it flags data problems. A has one grounding slip: the $919m payables figure is not in the truncated passage it cites. That slip is minor next to A's substantive, labelled analysis.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.198238
+}

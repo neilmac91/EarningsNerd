@@ -1,0 +1,86 @@
+{
+ "ticker": "AMD",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Each draft has one unsupported cause. A's PC-demand and inventory-correction story is not in its passage; B's claim that Xilinx amortization drove the FY2022 margin drop is not in its passage either. B adds 'each year' inventory days without full data, so A edges grounding. B offers more interpretation: the FY2017 charge, discontinued-ops cash disclosure and labelled analysis. Its watch thresholds are sharper, so it slightly wins overall."
+   },
+   "cost_usd": 0.144325,
+   "latency_s": 16.847,
+   "input_tokens": 15703,
+   "output_tokens": 1219,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Each draft has one unsupported cause. A's PC-demand and inventory-correction story is not in its passage; B's claim that Xilinx amortization drove the FY2022 margin drop is not in its passage either. B adds 'each year' inventory days without full data, so A edges grounding. B offers more interpretation: the FY2017 charge, discontinued-ops cash disclosure and labelled analysis. Its watch thresholds are sharper, so it slightly wins overall.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A blames FY2022's margin collapse on Xilinx amortization, but its cited passage never mentions amortization or gross margin. Its $1.2bn discontinued-operations figure is also not in the quoted text. B's only stretch is adding 'weak PC demand and inventory correction' to the FY2023 Client decline. B explains the period's shape better, citing FY2021\u2013FY2025 inflections, quantified Xilinx Embedded revenue, the SG&A drag and the ROE peer gap. A's FY2017 charge explanation is well grounded but does not offset its unsupported cause."
+   },
+   "cost_usd": 0.144313,
+   "latency_s": 15.998,
+   "input_tokens": 15709,
+   "output_tokens": 1216,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A blames FY2022's margin collapse on Xilinx amortization, but its cited passage never mentions amortization or gross margin. Its $1.2bn discontinued-operations figure is also not in the quoted text. B's only stretch is adding 'weak PC demand and inventory correction' to the FY2023 Client decline. B explains the period's shape better, citing FY2021\u2013FY2025 inflections, quantified Xilinx Embedded revenue, the SG&A drag and the ROE peer gap. A's FY2017 charge explanation is well grounded but does not offset its unsupported cause.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.288638
+}

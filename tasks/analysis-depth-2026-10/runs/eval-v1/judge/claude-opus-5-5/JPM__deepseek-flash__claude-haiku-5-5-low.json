@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A explains the firmwide $14.2bn provision with a passage describing a $2.6bn provision, and states unsupported judgements: buybacks 'funded from liquidity', 'limited cushion'. Its 33.8% NII watch threshold is unrealistic. B ties segment passages more carefully and covers the Visa-gain base effect, the FY2021 inflection and the NII mix shift. It also admits the unexplained tax-rate move. B's minor flaws: an unnamed watch metric and 'downgrades' wording the passage does not state."
+   },
+   "cost_usd": 0.129001,
+   "latency_s": 14.347,
+   "input_tokens": 14350,
+   "output_tokens": 994,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A explains the firmwide $14.2bn provision with a passage describing a $2.6bn provision, and states unsupported judgements: buybacks 'funded from liquidity', 'limited cushion'. Its 33.8% NII watch threshold is unrealistic. B ties segment passages more carefully and covers the Visa-gain base effect, the FY2021 inflection and the NII mix shift. It also admits the unexplained tax-rate move. B's minor flaws: an unnamed watch metric and 'downgrades' wording the passage does not state.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds more context: the geographic growth split, the FY2023 step change and the payout ratio. But it misapplies a $2.6bn segment provision passage as the cause of the firmwide $14.2bn provision. It also asserts unsupported funding and 'limited cushion' claims and links the 10-year EPS CAGR to a one-year share cut. A has minor stretches, such as calling criticized exposure the provision's cause and a garbled watch bullet, but it labels its analysis and admits the unexplained tax move."
+   },
+   "cost_usd": 0.132145,
+   "latency_s": 16.609,
+   "input_tokens": 14348,
+   "output_tokens": 1152,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds more context: the geographic growth split, the FY2023 step change and the payout ratio. But it misapplies a $2.6bn segment provision passage as the cause of the firmwide $14.2bn provision. It also asserts unsupported funding and 'limited cushion' claims and links the 10-year EPS CAGR to a one-year share cut. A has minor stretches, such as calling criticized exposure the provision's cause and a garbled watch bullet, but it labels its analysis and admits the unexplained tax move.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.261146
+}

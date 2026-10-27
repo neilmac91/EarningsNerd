@@ -1,0 +1,86 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A is fully sourced but only restates table values, and its '+23.2% net income growth' framing for a shrinking loss is misleading. Draft B explains the causes with quoted filings: segment mix, cost-of-revenue drivers, Normal Factory capex, Volkswagen equity and SBC dilution. It adds peer context, ranked flags and the segment-overlap caveat. Minor stretches lower its grounding: 'operating costs grew 6.9%' is ambiguous, and 'as deliveries began' goes beyond the passage."
+   },
+   "cost_usd": 0.102201,
+   "latency_s": 16.688,
+   "input_tokens": 11265,
+   "output_tokens": 888,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A is fully sourced but only restates table values, and its '+23.2% net income growth' framing for a shrinking loss is misleading. Draft B explains the causes with quoted filings: segment mix, cost-of-revenue drivers, Normal Factory capex, Volkswagen equity and SBC dilution. It adds peer context, ranked flags and the segment-overlap caveat. Minor stretches lower its grounding: 'operating costs grew 6.9%' is ambiguous, and 'as deliveries began' goes beyond the passage.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A ties its causes to filing passages: deliveries, the 45W credit expiry, joint-venture software revenue, cost-of-revenue efficiencies, Normal Factory capex and the VW share issuance. Its overreaches are minor, such as 'above the 75th percentile' when the source says 75th. Draft B only restates table values. It labels a narrower loss '+23.2% net income growth' and flags 9,346.8% debt growth from a tiny base without context. It offers no drivers, peer comparison or thresholds."
+   },
+   "cost_usd": 0.098757,
+   "latency_s": 11.94,
+   "input_tokens": 11267,
+   "output_tokens": 715,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"Draft A ties its causes to filing passages: deliveries, the 45W credit expiry, joint-venture software revenue, cost-of-revenue efficiencies, Normal Factory capex and the VW share issuance. Its overreaches are minor, such as 'above the 75th percentile' when the source says 75th. Draft B only restates table values. It labels a narrower loss '+23.2% net income growth' and flags 9,346.8% debt growth from a tiny base without context. It offers no drivers, peer comparison or thresholds.\"}\n```"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.200958
+}

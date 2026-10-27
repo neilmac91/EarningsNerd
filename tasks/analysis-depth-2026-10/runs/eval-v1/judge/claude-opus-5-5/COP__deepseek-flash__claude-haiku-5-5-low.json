@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A has two factual errors. It reports the FY2022\u201325 revenue CAGR as +5.3% when its source says -5.3%. It also says a further margin fall would extend the decline to a 'fifth year' when it would be the fourth. B is fully supported, labels its interpretation as analysis and says where passages lack explanations. A reads more easily and covers more ground (uses of cash, peer ROE, recast flags), but grounding weighs most."
+   },
+   "cost_usd": 0.128709,
+   "latency_s": 15.077,
+   "input_tokens": 14206,
+   "output_tokens": 1037,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A has two factual errors. It reports the FY2022\u201325 revenue CAGR as +5.3% when its source says -5.3%. It also says a further margin fall would extend the decline to a 'fifth year' when it would be the fourth. B is fully supported, labels its interpretation as analysis and says where passages lack explanations. A reads more easily and covers more ground (uses of cash, peer ROE, recast flags), but grounding weighs most.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft B has more depth: the FY2021 rebound, the natural gas growth driver, OCF/NI against FY2022, uses of cash and ROE against peers. But it misreads the -5.3% three-year CAGR as positive. It also says a further FY2026 margin drop would 'extend a fifth year' when it would be the fourth, and asserts the tax rate 'rose' without a source. Draft A is almost fully supported and openly flags what its passages don't explain. Grounding decides it."
+   },
+   "cost_usd": 0.127533,
+   "latency_s": 12.931,
+   "input_tokens": 14204,
+   "output_tokens": 979,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Draft B has more depth: the FY2021 rebound, the natural gas growth driver, OCF/NI against FY2022, uses of cash and ROE against peers. But it misreads the -5.3% three-year CAGR as positive. It also says a further FY2026 margin drop would 'extend a fifth year' when it would be the fourth, and asserts the tax rate 'rose' without a source. Draft A is almost fully supported and openly flags what its passages don't explain. Grounding decides it.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.256242
+}

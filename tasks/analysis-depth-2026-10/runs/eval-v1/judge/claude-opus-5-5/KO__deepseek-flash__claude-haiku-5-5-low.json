@@ -1,0 +1,86 @@
+{
+ "ticker": "KO",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B spots that the FY2024\u201325 total debt line is incomplete: $1.1bn equals short-term borrowings alone, against $41.7bn in FY2023. It discloses that this undermines the net cash peer rank and the 31.3% debt rise. Draft A presents both as fact. A's refranchising cause for the Bottling Investments revenue drop rests on an SG&A passage. B adds a margin bridge, the Corporate loss and the FY2024 other-income gains, all sourced. A explains the FY2017\u201318 arc better."
+   },
+   "cost_usd": 0.138789,
+   "latency_s": 12.597,
+   "input_tokens": 15791,
+   "output_tokens": 907,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft B spots that the FY2024\u201325 total debt line is incomplete: $1.1bn equals short-term borrowings alone, against $41.7bn in FY2023. It discloses that this undermines the net cash peer rank and the 31.3% debt rise. Draft A presents both as fact. A's refranchising cause for the Bottling Investments revenue drop rests on an SG&A passage. B adds a margin bridge, the Corporate loss and the FY2024 other-income gains, all sourced. A explains the FY2017\u201318 arc better.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A spots that FY2024-25 total debt is only short-term borrowings, a broken series. It labels the net cash figure and the peer rank as resting on that gap. B presents $1.5bn debt as 'small against cash' and a 100th-percentile net cash rank as fact, despite citing $5.0bn of debt issued. B also ties the Bottling decline to refranchising using an SG&A passage. B adds the real refranchising arc and volume detail, but A's grounding and calibration are stronger."
+   },
+   "cost_usd": 0.144169,
+   "latency_s": 16.42,
+   "input_tokens": 15791,
+   "output_tokens": 1176,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A spots that FY2024-25 total debt is only short-term borrowings, a broken series. It labels the net cash figure and the peer rank as resting on that gap. B presents $1.5bn debt as 'small against cash' and a 100th-percentile net cash rank as fact, despite citing $5.0bn of debt issued. B also ties the Bottling decline to refranchising using an SG&A passage. B adds the real refranchising arc and volume detail, but A's grounding and calibration are stronger.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.282958
+}

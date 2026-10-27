@@ -1,0 +1,86 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "gemma-4-31b",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides superior depth by quantifying the decay of the main product's contribution to growth over multiple years, rather than just the most recent. It also offers better coverage by explicitly listing product concentration as a red flag\u2014a critical risk for a biopharma company\u2014and including ROE peer benchmarking. While Draft A's prose is slightly more fluid, Draft B's analytical insights provide more value to the investor."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 94.478,
+   "input_tokens": 11003,
+   "output_tokens": 1861,
+   "raw": "<thought>The user wants an equity analyst review of two drafts (Draft A and Draft B) of a trend analysis for Vertex Pharmaceuticals (VRTX).\n\n    *   Revenue: Compounded growth FY16-FY25, step changes (FY17, FY20), slowdown FY25.\n    *   Free Cash Flow (FCF): Fluctuations, negative in FY24.\n    *   Investing/Financing cash flow: Large negative investing in FY23/FY24 (acquisitions?), negative financing (buybacks?).\n    *   Operating Income/Margin: Peak in FY22, crash in FY24 (negative), recovery FY25.\n    *   Net Income/Margin: Follows operating income.\n    *   Current Ratio/Working Capital: Generally strong but dropped in FY24.\n    *   Cash & Equivalents: High, though dropped in FY24.\n\n    *   *Depth:*\n        *   Explains revenue growth drivers (TRIKAFTA/KAFTRIO, ALYFTREK).\n        *   Explains FY2024 operating loss (AIPR&D for Alpine).\n        *   Analyzes margins (royalty rates, SG&A growth).\n        *   Analyzes cash conversion (FCF/Net Income) and capex.\n        *   Balance sheet: Net cash position vs peers.\n        *   Red flags: Inventory days (DIO).\n    *   *Grounding:*\n        *   Cites specific sources for CAGR, growth rates, specific products, and the Alpine charge.\n        *   Cites tax rate explanation for FY24.\n    *   *Coverage:*\n        *   Shape of period: Yes.\n        *   Growth drivers: Yes.\n        *   Margin drivers: Yes.\n        *   Cash conversion: Yes.\n        *   Balance sheet/Cap alloc: Yes.\n        *   Red flags: Yes (DIO, tax rate).\n        *   Watch items: Yes (TRIKAFTA growth, DIO, FCF conversion).\n    *   *Clarity:*\n        *   Professional, clear headings, no padding.\n    *   *Calibration:*\n        *   Separates facts from analysis. No hype. No forecasts.\n\n    *   *Depth:*\n        *   Similar to A: Revenue growth, TRIKAFTA/KAFTRIO, ALYFTREK.\n        *   Detailed breakdown of TRIKAFTA's contribution to growth over several years (FY21, FY22, FY25).\n        *   Mentions 3-year CAGR for revenue and operating income.\n        *   ROA/ROE comparison with peers.\n    *   *Grounding:*\n        *   Cites sources.\n        *   Checks sources against claims.\n    *   *Coverage:*\n        *   Shape of period: Yes.\n        *   Growth drivers: Yes.\n        *   Margin drivers: Yes.\n        *   Cash conversion: Yes.\n        *   Balance sheet/Cap alloc: Yes (includes ROE).\n        *   Red flags: Yes (DIO, FCF conversion, product concentration, tax rate).\n        *   Watch items: Yes (DIO, Revenue growth, FCF conversion).\n    *   *Clarity:*\n        *   Clear, though slightly more repetitive in the \"What to watch\" section using \"*Analysis:*\" prefixes.\n    *   *Calibration:*\n        *   Separates facts/analysis. No hype.\n\n    *   *Depth:* Draft B provides slightly more depth on the *evolution* of the growth driver (TRIKAFTA's contribution in FY21 vs FY25) and adds ROE peer analysis. Draft A focuses more on the most recent transition.\n    *   *Grounding:* Both are well-grounded. Draft B is very explicit with source numbering.\n    *   *Coverage:* Draft B has slightly better coverage by adding ROE and explicitly highlighting product concentration as a red flag (TRIKAFTA is 85.9% of revenue).\n    *   *Clarity:* Draft A's prose feels slightly more natural for a research website. Draft B's \"What to watch\" section is structured as \"Analysis: ... in the FY2026 10-K\", which is a bit robotic.\n    *   *Calibration:* Both are well-calibrated.\n\n    *   Draft B's red flags section is more comprehensive (adds product concentration and FCF percentile).\n    *   Draft B's growth section better illustrates the \"plateau\" by showing the drop in TRIKAFTA's contribution to growth from FY21/22 to FY25.\n    *   However, Draft A's \"What to watch\" is more concise.\n    *   Let's check grounding specifically.\n        *   Draft A: \"Buybacks of $2.02 billion absorbed 63.2% of free cash flow in FY2025, yet the diluted share count was unchanged [49][50][19].\" (Source 19: Diluted share count change FY2025 0.0%).\n        *   Draft B: \"Return on average equ"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Draft A provides superior depth regarding the growth trajectory. By analyzing the 3-year CAGR and specific percentage point contributions of products to revenue growth, it reveals the growth slowdown and product saturation more effectively than Draft B's use of a long-term CAGR, which obscures recent volatility. Draft A also includes more useful peer-relative context, such as Return on Equity percentiles."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 73.831,
+   "input_tokens": 11003,
+   "output_tokens": 1146,
+   "raw": "<thought>The objective is to evaluate two drafts of a \"trend analysis\" for Vertex Pharmaceuticals (VRTX) based on specific criteria: depth, grounding, coverage, clarity, and calibration.\n\n    *   Revenue: FY2016 $1.7B $\\rightarrow$ FY2025 $12B.\n    *   Operating Income: Significant jump, but FY2024 is negative (-$232.9m) due to an Alpine acquisition (AIPR&D charge of $4.6B).\n    *   Net Income: Similar pattern, FY2024 negative.\n    *   Free Cash Flow: Fluctuates, FY2024 negative.\n    *   Operating Margin: FY2024 -2.1%.\n    *   Current Ratio/Cash: Very strong liquidity.\n\n    *   *Depth:* Explains the FY2020 jump (Trikafta/Kaftrio), the FY2024 drop (Alpine AIPR&D), and the shift in growth drivers (Alyftrek taking over for Trikafta/Kaftrio). Compares to peers (Net cash, ROE, FCF conversion).\n    *   *Grounding:* Every statement has a citation. The Alpine charge is correctly attributed.\n    *   *Coverage:* Covers arc, growth drivers, margins, cash conversion, balance sheet, red flags (inventory, concentration), and watch items.\n    *   *Clarity:* Professional, well-organized.\n    *   *Calibration:* Separates analysis from facts. Discloses the tax rate swing as benign.\n\n    *   *Depth:* Similar to Draft A. Explains the arc, the FY2020 step change, and the FY2024 loss. Also mentions Alyftrek and the Trikafta/Kaftrio plateau.\n    *   *Grounding:* Every statement has a citation.\n    *   *Coverage:* Similar coverage. Mentions the tax rate normalization in the red flags section.\n    *   *Clarity:* Good, clear prose.\n    *   *Calibration:* Similar to Draft A.\n\n    *   *Depth:* Draft A provides a bit more nuance on the growth drivers (specifically the percentage point contribution to growth in FY2021/2022 vs FY2025). Draft B mentions Operating Income CAGR over the whole window (95.6%), which is a bit misleading given the volatility, though mathematically correct. Draft A focuses on the 3-year CAGR to highlight recent slowdown.\n    *   *Grounding:* Both are well-grounded.\n    *   *Coverage:* Both are comprehensive.\n    *   *Clarity:* Draft B's \"step change\" description of the arc is quite intuitive.\n    *   *Calibration:* Both handle the FY2024 anomaly well.\n\n    *   Draft A identifies the ROE percentile compared to peers, which adds depth.\n    *   Draft A's breakdown of the margin recovery in FY2025 is slightly more detailed regarding the \"residual line\" and the non-repeating nature of the Alpine charge.\n    *   Draft B's analysis of inventory (\"Inventory has now outgrown revenue for several years\") is a stronger analytical insight than Draft A's (\"The filings cited do not explain the build\").\n    *   However, Draft A's focus on the *specifics* of the growth contribution (pp) for the main products provides better depth for an investor trying to understand *why* growth slowed.\n\n    *   Draft A mentions the 3-year Operating Income CAGR was -1.0% vs Revenue 10.4%, highlighting a specific disconnect in recent performance.\n    *   Draft B mentions a 10-year Operating Income CAGR of 95.6%, which obscures the recent trend.\n    *   Draft A's \"Red Flags\" section is more comprehensive (including ROE peer comparison and the specific tax recast note).\n    *   Draft B's \"What to Watch\" is slightly more concise but covers the same ground.\n\n    *   Grounding: Tie (both excellent).\n    *   Depth: A (better nuance on recent growth trends and peer comparisons).\n    *   Coverage: Tie.\n    *   Clarity: Tie.\n    *   Calibration: Tie.\n\n    *   Overall: A.\n    *   Strength: Slight.\n    *   Rationale: Draft A provides better depth by focusing on the 3-year trend rather than a long-term average that obscures recent volatility. It also includes more peer-relative data (ROE) and a more detailed analysis of how specific products contributed to growth in percentage points, which is more useful for investors than simple CAGR.</thought>{\"criteria\": {\"depth\": \"A\", \"grounding\": \"tie\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"tie\"},\n \"overall\": \"A\",\n \"strength"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.0
+}

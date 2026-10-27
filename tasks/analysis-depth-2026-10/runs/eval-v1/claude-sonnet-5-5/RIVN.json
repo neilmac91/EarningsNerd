@@ -1,0 +1,1204 @@
+{
+ "ticker": "RIVN",
+ "arm": "claude-sonnet-5-5",
+ "family": "claude",
+ "model": "claude-sonnet-5-5",
+ "split": "holdout",
+ "profile": "loss_making",
+ "window": "FY2019..FY2025",
+ "snapshot_id": "60dae8fed89701ffc33a8cc3d84997bed9593f76ff2a7994afb8726d159265eb",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 35098,
+   "cached_input_tokens": 3056,
+   "output_tokens": 5790,
+   "reasoning_tokens": 3668,
+   "latency_s": 44.097,
+   "cost_usd": 0.18637,
+   "backend": "claude_cli",
+   "model_served": "claude-sonnet-5-5",
+   "meta": {
+    "duration_api_ms": 39236,
+    "cache_creation_input_tokens": 32040,
+    "list_cost_usd": 0.122595
+   },
+   "problems": [],
+   "raw": "{\"sections\":[{\"key\":\"arc\",\"title\":\"The arc\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% [F4][F7][D342].\"},{\"type\":\"comparison\",\"text\":\"Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion [F28][F31][F26].\"},{\"type\":\"cause\",\"text\":\"The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries [D83][P67].\"},{\"type\":\"cause\",\"text\":\"Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement [F14][F13][P20].\"}]},{\"key\":\"drivers\",\"title\":\"What drove growth\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth [S26][D322][D323].\"},{\"type\":\"cause\",\"text\":\"The filing attributes the increase to vehicle electrical architecture and software development services, remarketing sales, and repair and maintenance services [P18].\"},{\"type\":\"comparison\",\"text\":\"Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 [D315][D316][D314][D311].\"},{\"type\":\"cause\",\"text\":\"The automotive decline came from 9,332 fewer deliveries, due in part to the expiry of 45W tax credits, and lower regulatory credit sales [P22].\"},{\"type\":\"comparison\",\"text\":\"Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% [D260][D241][D242].\"}]},{\"key\":\"margins\",\"title\":\"Margins and costs\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 [D325][D326][D324].\"},{\"type\":\"fact\",\"text\":\"In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp [D267][D268][D269].\"},{\"type\":\"cause\",\"text\":\"Cost of revenue fell 15.0%, which the filing ties to fewer vehicles produced and delivered and lower material and conversion costs [D255][P21].\"},{\"type\":\"cause\",\"text\":\"Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement [F43][F31][P10].\"}]},{\"key\":\"cash\",\"title\":\"Cash conversion\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% [F78][F38][D226].\"},{\"type\":\"cause\",\"text\":\"Operating cash outflow narrowed to $779 million, which the filing attributes to a significant reduction in net loss [F64][P4].\"},{\"type\":\"cause\",\"text\":\"Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory [F71][D246][D228][P3].\"}]},{\"key\":\"balance_sheet\",\"title\":\"Balance sheet and capital allocation\",\"sentences\":[{\"type\":\"comparison\",\"text\":\"Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion [D231][D179][F135].\"},{\"type\":\"comparison\",\"text\":\"Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median [D232][D351][D352].\"},{\"type\":\"cause\",\"text\":\"Financing inflow of $886 million came primarily from shares issued to Volkswagen Group and capital contributed by outside parties in Mind Robotics [F92][P2].\"},{\"type\":\"comparison\",\"text\":\"Diluted shares rose 17.1% in FY2025, after 7.0% in FY2024, so funding the burn is diluting holders [D260][D209].\"}]},{\"key\":\"red_flags\",\"title\":\"Red flags\",\"sentences\":[{\"type\":\"fact\",\"text\":\"Rivian has posted a net loss in each of seven years, including $3.65 billion in FY2025, and its accumulated deficit reached $27.0 billion [R1][F38][P5].\"},{\"type\":\"fact\",\"text\":\"Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years [R2][D223].\"},{\"type\":\"fact\",\"text\":\"Cash and investments of $6.08 billion cover 2.4 years of the latest burn, and the filing expects significant capital investment over the next several years [R3][D229][D236][P5].\"},{\"type\":\"fact\",\"text\":\"Automotive was 71.1% of revenue and fell 14.6% in FY2025, with the filing citing fewer deliveries and expired 45W credits [R5][D314][D315][P22].\"},{\"type\":\"fact\",\"text\":\"Product-axis revenue members overlap, so this analysis uses segment figures rather than adding product lines together [R6].\"}]},{\"key\":\"watch\",\"title\":\"What to watch\",\"sentences\":[{\"type\":\"judgement\",\"text\":\"Gross margin staying above the FY2025 level of 2.7% would confirm the turn; a fall below it would reverse it, visible in the FY2026 10-K [F19].\"},{\"type\":\"judgement\",\"text\":\"Free cash flow burn below the FY2025 level of $2.49 billion would confirm narrowing losses, while burn above it would reverse the trend, visible in the FY2026 10-K [D235].\"},{\"type\":\"judgement\",\"text\":\"Automotive revenue growth above the FY2025 decline of 14.6% would confirm stabilisation, with R2 deliveries expected from the second quarter of 2026 [D315][P31].\"}]}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 35098,
+  "cached_input_tokens": 3056,
+  "output_tokens": 5790,
+  "reasoning_tokens": 3668
+ },
+ "latency_s": 44.097,
+ "cost_usd": 0.18637,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% [F4][F7][D342]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion [F28][F31][F26]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries [D83][P67]."
+     },
+     {
+      "type": "cause",
+      "text": "Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement [F14][F13][P20]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth [S26][D322][D323]."
+     },
+     {
+      "type": "cause",
+      "text": "The filing attributes the increase to vehicle electrical architecture and software development services, remarketing sales, and repair and maintenance services [P18]."
+     },
+     {
+      "type": "comparison",
+      "text": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 [D315][D316][D314][D311]."
+     },
+     {
+      "type": "cause",
+      "text": "The automotive decline came from 9,332 fewer deliveries, due in part to the expiry of 45W tax credits, and lower regulatory credit sales [P22]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% [D260][D241][D242]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 [D325][D326][D324]."
+     },
+     {
+      "type": "fact",
+      "text": "In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp [D267][D268][D269]."
+     },
+     {
+      "type": "cause",
+      "text": "Cost of revenue fell 15.0%, which the filing ties to fewer vehicles produced and delivered and lower material and conversion costs [D255][P21]."
+     },
+     {
+      "type": "cause",
+      "text": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement [F43][F31][P10]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% [F78][F38][D226]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating cash outflow narrowed to $779 million, which the filing attributes to a significant reduction in net loss [F64][P4]."
+     },
+     {
+      "type": "cause",
+      "text": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory [F71][D246][D228][P3]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion [D231][D179][F135]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median [D232][D351][D352]."
+     },
+     {
+      "type": "cause",
+      "text": "Financing inflow of $886 million came primarily from shares issued to Volkswagen Group and capital contributed by outside parties in Mind Robotics [F92][P2]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted shares rose 17.1% in FY2025, after 7.0% in FY2024, so funding the burn is diluting holders [D260][D209]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Rivian has posted a net loss in each of seven years, including $3.65 billion in FY2025, and its accumulated deficit reached $27.0 billion [R1][F38][P5]."
+     },
+     {
+      "type": "fact",
+      "text": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years [R2][D223]."
+     },
+     {
+      "type": "fact",
+      "text": "Cash and investments of $6.08 billion cover 2.4 years of the latest burn, and the filing expects significant capital investment over the next several years [R3][D229][D236][P5]."
+     },
+     {
+      "type": "fact",
+      "text": "Automotive was 71.1% of revenue and fell 14.6% in FY2025, with the filing citing fewer deliveries and expired 45W credits [R5][D314][D315][P22]."
+     },
+     {
+      "type": "fact",
+      "text": "Product-axis revenue members overlap, so this analysis uses segment figures rather than adding product lines together [R6]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Gross margin staying above the FY2025 level of 2.7% would confirm the turn; a fall below it would reverse it, visible in the FY2026 10-K [F19]."
+     },
+     {
+      "type": "judgement",
+      "text": "Free cash flow burn below the FY2025 level of $2.49 billion would confirm narrowing losses, while burn above it would reverse the trend, visible in the FY2026 10-K [D235]."
+     },
+     {
+      "type": "judgement",
+      "text": "Automotive revenue growth above the FY2025 decline of 14.6% would confirm stabilisation, with R2 deliveries expected from the second quarter of 2026 [D315][P31]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 602,
+ "gate": {
+  "passed": true,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 9,
+   "comparison": 7,
+   "cause": 9,
+   "judgement": 3
+  },
+  "claims": 58,
+  "verified": 58,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue rose from $1.66 billion in FY2022 to $5.39 billion in FY2025, a three-year CAGR of 48.1% [F4][F7][D342].",
+    "type": "fact",
+    "citations": [
+     "F4",
+     "F7",
+     "D342"
+    ],
+    "claims": [
+     {
+      "claim": "$1.66 billion",
+      "value": 1.66,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F4"
+      ]
+     },
+     {
+      "claim": "$5.39 billion",
+      "value": 5.39,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F7"
+      ]
+     },
+     {
+      "claim": "48.1%",
+      "value": 48.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating margin improved from -413.5% in FY2022 to -66.5% in FY2025, yet the operating loss was still $3.59 billion [F28][F31][F26].",
+    "type": "comparison",
+    "citations": [
+     "F28",
+     "F31",
+     "F26"
+    ],
+    "claims": [
+     {
+      "claim": "-413.5%",
+      "value": -413.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     },
+     {
+      "claim": "-66.5%",
+      "value": -66.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F31"
+      ]
+     },
+     {
+      "claim": "$3.59 billion",
+      "value": 3.59,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F26"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2022 revenue jump of 2914.5% came primarily from 19,412 more vehicle deliveries [D83][P67].",
+    "type": "cause",
+    "citations": [
+     "D83",
+     "P67"
+    ],
+    "claims": [
+     {
+      "claim": "2914.5%",
+      "value": 2914.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D83"
+      ]
+     },
+     {
+      "claim": "19,412",
+      "value": 19412.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P67",
+      "ids": [
+       "P67"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Gross profit turned positive at $144 million in FY2025 from -$1.20 billion in FY2024, and the filing credits higher selling prices and lower cost per vehicle for the automotive improvement [F14][F13][P20].",
+    "type": "cause",
+    "citations": [
+     "F14",
+     "F13",
+     "P20"
+    ],
+    "claims": [
+     {
+      "claim": "$144 million",
+      "value": 144.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F14"
+      ]
+     },
+     {
+      "claim": "-$1.20 billion",
+      "value": -1.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F13"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Software and Services segment revenue grew 221.7% to $1.56 billion in FY2025, adding 21.6pp to total revenue growth [S26][D322][D323].",
+    "type": "fact",
+    "citations": [
+     "S26",
+     "D322",
+     "D323"
+    ],
+    "claims": [
+     {
+      "claim": "221.7%",
+      "value": 221.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D322"
+      ]
+     },
+     {
+      "claim": "$1.56 billion",
+      "value": 1.56,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "S26"
+      ]
+     },
+     {
+      "claim": "21.6pp",
+      "value": 21.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D323"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The filing attributes the increase to vehicle electrical architecture and software development services, remarketing sales, and repair and maintenance services [P18].",
+    "type": "cause",
+    "citations": [
+     "P18"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Automotive revenue fell 14.6% and subtracted 13.2pp from growth, leaving it at 71.1% of revenue versus 90.3% in FY2024 [D315][D316][D314][D311].",
+    "type": "comparison",
+    "citations": [
+     "D315",
+     "D316",
+     "D314",
+     "D311"
+    ],
+    "claims": [
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D315"
+      ]
+     },
+     {
+      "claim": "13.2pp",
+      "value": 13.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D316"
+      ]
+     },
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D314"
+      ]
+     },
+     {
+      "claim": "90.3%",
+      "value": 90.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D311"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "The automotive decline came from 9,332 fewer deliveries, due in part to the expiry of 45W tax credits, and lower regulatory credit sales [P22].",
+    "type": "cause",
+    "citations": [
+     "P22"
+    ],
+    "claims": [
+     {
+      "claim": "9,332",
+      "value": 9332.0,
+      "unit": "plain",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P22",
+      "ids": [
+       "P22"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted shares rose 17.1% in FY2025 while the net loss shrank 23.2%, so the per-share loss narrowed by 34.5% [D260][D241][D242].",
+    "type": "comparison",
+    "citations": [
+     "D260",
+     "D241",
+     "D242"
+    ],
+    "claims": [
+     {
+      "claim": "17.1%",
+      "value": 17.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D260"
+      ]
+     },
+     {
+      "claim": "23.2%",
+      "value": 23.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D241"
+      ]
+     },
+     {
+      "claim": "34.5%",
+      "value": 34.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D242"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of -66.5% is the window high, against a median of -129.4% and a low of -7,672.7% in FY2021 [D325][D326][D324].",
+    "type": "comparison",
+    "citations": [
+     "D325",
+     "D326",
+     "D324"
+    ],
+    "claims": [
+     {
+      "claim": "-66.5%",
+      "value": -66.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D325"
+      ]
+     },
+     {
+      "claim": "-129.4%",
+      "value": -129.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D326"
+      ]
+     },
+     {
+      "claim": "-7,672.7%",
+      "value": -7672.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D324"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In the FY2025 bridge, cost of revenue added 26.8pp to operating margin, R&D added 1.5pp and SG&A subtracted 0.5pp [D267][D268][D269].",
+    "type": "fact",
+    "citations": [
+     "D267",
+     "D268",
+     "D269"
+    ],
+    "claims": [
+     {
+      "claim": "26.8pp",
+      "value": 26.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D267"
+      ]
+     },
+     {
+      "claim": "1.5pp",
+      "value": 1.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D268"
+      ]
+     },
+     {
+      "claim": "0.5pp",
+      "value": 0.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D269"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Cost of revenue fell 15.0%, which the filing ties to fewer vehicles produced and delivered and lower material and conversion costs [D255][P21].",
+    "type": "cause",
+    "citations": [
+     "D255",
+     "P21"
+    ],
+    "claims": [
+     {
+      "claim": "15.0%",
+      "value": 15.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D255"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of -67.7% sits below operating margin of -66.5% because other expense included $186 million for a securities class action settlement [F43][F31][P10].",
+    "type": "cause",
+    "citations": [
+     "F43",
+     "F31",
+     "P10"
+    ],
+    "claims": [
+     {
+      "claim": "-67.7%",
+      "value": -67.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F43"
+      ]
+     },
+     {
+      "claim": "-66.5%",
+      "value": -66.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F31"
+      ]
+     },
+     {
+      "claim": "$186 million",
+      "value": 186.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P10",
+      "ids": [
+       "P10"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow was -$2.49 billion in FY2025 against a net loss of $3.65 billion, a free cash flow margin of -46.2% [F78][F38][D226].",
+    "type": "fact",
+    "citations": [
+     "F78",
+     "F38",
+     "D226"
+    ],
+    "claims": [
+     {
+      "claim": "-$2.49 billion",
+      "value": -2.49,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F78"
+      ]
+     },
+     {
+      "claim": "$3.65 billion",
+      "value": 3.65,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F38"
+      ]
+     },
+     {
+      "claim": "-46.2%",
+      "value": -46.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash outflow narrowed to $779 million, which the filing attributes to a significant reduction in net loss [F64][P4].",
+    "type": "cause",
+    "citations": [
+     "F64",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "$779 million",
+      "value": 779.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F64"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex rose 49.9% to $1.71 billion, or 2.18x D&A, on expansion of production capacity at the Normal Factory [F71][D246][D228][P3].",
+    "type": "cause",
+    "citations": [
+     "F71",
+     "D246",
+     "D228",
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "49.9%",
+      "value": 49.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D246"
+      ]
+     },
+     {
+      "claim": "$1.71 billion",
+      "value": 1.71,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F71"
+      ]
+     },
+     {
+      "claim": "2.18x",
+      "value": 2.18,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D228"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash fell to $1.64 billion in FY2025 from $3.26 billion in FY2024, with debt flat at $4.44 billion [D231][D179][F135].",
+    "type": "comparison",
+    "citations": [
+     "D231",
+     "D179",
+     "F135"
+    ],
+    "claims": [
+     {
+      "claim": "$1.64 billion",
+      "value": 1.64,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D231"
+      ]
+     },
+     {
+      "claim": "$3.26 billion",
+      "value": 3.26,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D179"
+      ]
+     },
+     {
+      "claim": "$4.44 billion",
+      "value": 4.44,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F135"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net cash at 30.5% of revenue ranks in the 75th percentile of four autos peers, above their 17.8% median [D232][D351][D352].",
+    "type": "comparison",
+    "citations": [
+     "D232",
+     "D351",
+     "D352"
+    ],
+    "claims": [
+     {
+      "claim": "30.5%",
+      "value": 30.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D232"
+      ]
+     },
+     {
+      "claim": "75th percentile",
+      "value": 75.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D351"
+      ]
+     },
+     {
+      "claim": "17.8%",
+      "value": 17.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Financing inflow of $886 million came primarily from shares issued to Volkswagen Group and capital contributed by outside parties in Mind Robotics [F92][P2].",
+    "type": "cause",
+    "citations": [
+     "F92",
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "$886 million",
+      "value": 886.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F92"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Diluted shares rose 17.1% in FY2025, after 7.0% in FY2024, so funding the burn is diluting holders [D260][D209].",
+    "type": "comparison",
+    "citations": [
+     "D260",
+     "D209"
+    ],
+    "claims": [
+     {
+      "claim": "17.1%",
+      "value": 17.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D260"
+      ]
+     },
+     {
+      "claim": "7.0%",
+      "value": 7.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D209"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Rivian has posted a net loss in each of seven years, including $3.65 billion in FY2025, and its accumulated deficit reached $27.0 billion [R1][F38][P5].",
+    "type": "fact",
+    "citations": [
+     "R1",
+     "F38",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$3.65 billion",
+      "value": 3.65,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F38"
+      ]
+     },
+     {
+      "claim": "$27.0 billion",
+      "value": 27.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P5",
+      "ids": [
+       "P5"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Stock-based compensation was 13.8% of revenue in FY2025 and at least 10% in each of the last five years [R2][D223].",
+    "type": "fact",
+    "citations": [
+     "R2",
+     "D223"
+    ],
+    "claims": [
+     {
+      "claim": "13.8%",
+      "value": 13.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D223"
+      ]
+     },
+     {
+      "claim": "10%",
+      "value": 10.0,
+      "unit": "pct",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D223"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Cash and investments of $6.08 billion cover 2.4 years of the latest burn, and the filing expects significant capital investment over the next several years [R3][D229][D236][P5].",
+    "type": "fact",
+    "citations": [
+     "R3",
+     "D229",
+     "D236",
+     "P5"
+    ],
+    "claims": [
+     {
+      "claim": "$6.08 billion",
+      "value": 6.08,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D229"
+      ]
+     },
+     {
+      "claim": "2.4 years",
+      "value": 2.4,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D236"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Automotive was 71.1% of revenue and fell 14.6% in FY2025, with the filing citing fewer deliveries and expired 45W credits [R5][D314][D315][P22].",
+    "type": "fact",
+    "citations": [
+     "R5",
+     "D314",
+     "D315",
+     "P22"
+    ],
+    "claims": [
+     {
+      "claim": "71.1%",
+      "value": 71.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D314"
+      ]
+     },
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D315"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Product-axis revenue members overlap, so this analysis uses segment figures rather than adding product lines together [R6].",
+    "type": "fact",
+    "citations": [
+     "R6"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Gross margin staying above the FY2025 level of 2.7% would confirm the turn; a fall below it would reverse it, visible in the FY2026 10-K [F19].",
+    "type": "judgement",
+    "citations": [
+     "F19"
+    ],
+    "claims": [
+     {
+      "claim": "2.7%",
+      "value": 2.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F19"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow burn below the FY2025 level of $2.49 billion would confirm narrowing losses, while burn above it would reverse the trend, visible in the FY2026 10-K [D235].",
+    "type": "judgement",
+    "citations": [
+     "D235"
+    ],
+    "claims": [
+     {
+      "claim": "$2.49 billion",
+      "value": 2.49,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D235"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Automotive revenue growth above the FY2025 decline of 14.6% would confirm stabilisation, with R2 deliveries expected from the second quarter of 2026 [D315][P31].",
+    "type": "judgement",
+    "citations": [
+     "D315",
+     "P31"
+    ],
+    "claims": [
+     {
+      "claim": "14.6%",
+      "value": 14.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D315"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ }
+}

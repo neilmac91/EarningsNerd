@@ -1,0 +1,415 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "COP",
+ "split": "dev",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.005853,
+ "items": [
+  {
+   "sentence": "Revenue compounded at 9.1% from $23.7 billion in FY2016 to $51.8 billion in FY2025 on the table's basis, which differs from as-reported totals in every year .",
+   "claim": "9.1%",
+   "match": "cited: F168 = Revenue CAGR, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "CAGR matches revenue growth FY2016-FY2025"
+  },
+  {
+   "sentence": "Revenue compounded at 9.1% from $23.7 billion in FY2016 to $51.8 billion in FY2025 on the table's basis, which differs from as-reported totals in every year .",
+   "claim": "$23.7 billion",
+   "match": "cited: F1 = Revenue, FY2016",
+   "label": "consistent",
+   "reason": "Revenue FY2016 matches $23.7B"
+  },
+  {
+   "sentence": "Revenue compounded at 9.1% from $23.7 billion in FY2016 to $51.8 billion in FY2025 on the table's basis, which differs from as-reported totals in every year .",
+   "claim": "$51.8 billion",
+   "match": "cited: F10 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "Revenue FY2025 matches $51.8B"
+  },
+  {
+   "sentence": "The path was cyclical: revenue fell 58.0% in FY2020  and rose 153.2% in FY2021 .",
+   "claim": "58.0%",
+   "match": "cited: D161 = Revenue growth, FY2020",
+   "label": "consistent",
+   "reason": "Revenue growth FY2020 -58.0%"
+  },
+  {
+   "sentence": "The path was cyclical: revenue fell 58.0% in FY2020  and rose 153.2% in FY2021 .",
+   "claim": "153.2%",
+   "match": "cited: D200 = Revenue growth, FY2021",
+   "label": "consistent",
+   "reason": "Revenue growth FY2021 153.2%"
+  },
+  {
+   "sentence": "Revenue rose 76.5% in FY2022  on higher realized prices and volumes, mainly from the Shell Permian acquisition .",
+   "claim": "76.5%",
+   "match": "cited: D238 = Revenue growth, FY2022",
+   "label": "consistent",
+   "reason": "Revenue growth FY2022 76.5%"
+  },
+  {
+   "sentence": "Net income then fell from $18.7 billion in FY2022  to $7.99 billion in FY2025 , a three-year CAGR of -24.7% .",
+   "claim": "$18.7 billion",
+   "match": "cited: F17 = Net income, FY2022",
+   "label": "consistent",
+   "reason": "Net income FY2022 $18.7B"
+  },
+  {
+   "sentence": "Net income then fell from $18.7 billion in FY2022  to $7.99 billion in FY2025 , a three-year CAGR of -24.7% .",
+   "claim": "$7.99 billion",
+   "match": "cited: F20 = Net income, FY2025",
+   "label": "consistent",
+   "reason": "Net income FY2025 $7.99B"
+  },
+  {
+   "sentence": "Net income then fell from $18.7 billion in FY2022  to $7.99 billion in FY2025 , a three-year CAGR of -24.7% .",
+   "claim": "-24.7%",
+   "match": "cited: D845 = Net income 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Net income CAGR -24.7%"
+  },
+  {
+   "sentence": "Lower 48 contributed 8.0pp  of FY2025 revenue growth of 4.9%  and makes up 70.2% of revenue .",
+   "claim": "8.0pp",
+   "match": "cited: D713 = Lower 48 \u2014 Lower Forty Eight (segment) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Lower 48 contribution 8.0pp"
+  },
+  {
+   "sentence": "Lower 48 contributed 8.0pp  of FY2025 revenue growth of 4.9%  and makes up 70.2% of revenue .",
+   "claim": "4.9%",
+   "match": "cited: D342 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth FY2025 4.9%"
+  },
+  {
+   "sentence": "Lower 48 contributed 8.0pp  of FY2025 revenue growth of 4.9%  and makes up 70.2% of revenue .",
+   "claim": "70.2%",
+   "match": "cited: D711 = Lower 48 \u2014 Lower Forty Eight (segment) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Lower 48 share 70.2%"
+  },
+  {
+   "sentence": "Production rose 332 MBOED, mainly from new wells in the Delaware, Eagle Ford, Bakken and Midland basins and the Marathon Oil acquisition .",
+   "claim": "332",
+   "match": "passage P16: P16 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Production rise 332 MBOED"
+  },
+  {
+   "sentence": "Cost of revenue rose 11.6%  on revenue growth of 4.9% , and net income fell 13.6% .",
+   "claim": "11.6%",
+   "match": "cited: D352 = Cost of revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Cost of revenue growth 11.6%"
+  },
+  {
+   "sentence": "Cost of revenue rose 11.6%  on revenue growth of 4.9% , and net income fell 13.6% .",
+   "claim": "4.9%",
+   "match": "cited: D342 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth 4.9%"
+  },
+  {
+   "sentence": "Cost of revenue rose 11.6%  on revenue growth of 4.9% , and net income fell 13.6% .",
+   "claim": "13.6%",
+   "match": "cited: D343 = Net income growth, FY2025",
+   "label": "consistent",
+   "reason": "Net income growth -13.6%"
+  },
+  {
+   "sentence": "Basic EPS fell 18.7% , faster than net income , as diluted shares rose 6.1% .",
+   "claim": "18.7%",
+   "match": "cited: D344 = EPS (basic) growth, FY2025",
+   "label": "consistent",
+   "reason": "EPS growth -18.7%"
+  },
+  {
+   "sentence": "Basic EPS fell 18.7% , faster than net income , as diluted shares rose 6.1% .",
+   "claim": "6.1%",
+   "match": "cited: D356 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share change 6.1%"
+  },
+  {
+   "sentence": "Net margin of 15.4% in FY2025  sits below the window median of 17.9%  and the FY2022 high of 30.6% .",
+   "claim": "15.4%",
+   "match": "cited: F30 = Net margin, FY2025",
+   "label": "consistent",
+   "reason": "Net margin FY2025 15.4%"
+  },
+  {
+   "sentence": "Net margin of 15.4% in FY2025  sits below the window median of 17.9%  and the FY2022 high of 30.6% .",
+   "claim": "17.9%",
+   "match": "cited: D831 = Net margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net margin median 17.9%"
+  },
+  {
+   "sentence": "Net margin of 15.4% in FY2025  sits below the window median of 17.9%  and the FY2022 high of 30.6% .",
+   "claim": "30.6%",
+   "match": "cited: D830 = Net margin window high (FY2022), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net margin high 30.6%"
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.9%  from 32.4% , so tax of $4.67 billion  took more of pre-tax income of $12.7 billion .",
+   "claim": "36.9%",
+   "match": "cited: D332 = Effective tax rate, FY2025",
+   "label": "consistent",
+   "reason": "Effective tax rate FY2025 36.9%"
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.9%  from 32.4% , so tax of $4.67 billion  took more of pre-tax income of $12.7 billion .",
+   "claim": "32.4%",
+   "match": "cited: D298 = Effective tax rate, FY2024",
+   "label": "consistent",
+   "reason": "Effective tax rate FY2024 32.4%"
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.9%  from 32.4% , so tax of $4.67 billion  took more of pre-tax income of $12.7 billion .",
+   "claim": "$4.67 billion",
+   "match": "cited: X101 = Income tax expense, FY2025",
+   "label": "consistent",
+   "reason": "Income tax expense $4.67B"
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.9%  from 32.4% , so tax of $4.67 billion  took more of pre-tax income of $12.7 billion .",
+   "claim": "$12.7 billion",
+   "match": "cited: X91 = Income before income taxes, FY2025",
+   "label": "consistent",
+   "reason": "Pre-tax income $12.7B"
+  },
+  {
+   "sentence": "Purchased commodities and production costs both rose on the Marathon Oil acquisition , lifting cost of revenue 11.6% .",
+   "claim": "11.6%",
+   "match": "cited: D352 = Cost of revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Cost of revenue growth 11.6%"
+  },
+  {
+   "sentence": "Net margin rose 43.1pp in FY2021 , above the 41.8pp fall in FY2020 , and the filings cited do not explain it.",
+   "claim": "43.1pp",
+   "match": "cited: D208 = Net margin change, FY2021",
+   "label": "consistent",
+   "reason": "Net margin change FY2021 43.1pp"
+  },
+  {
+   "sentence": "Net margin rose 43.1pp in FY2021 , above the 41.8pp fall in FY2020 , and the filings cited do not explain it.",
+   "claim": "41.8pp",
+   "match": "cited: D170 = Net margin change, FY2020",
+   "label": "consistent",
+   "reason": "Net margin change FY2020 -41.8pp"
+  },
+  {
+   "sentence": "Operating cash flow of $19.8 billion  was 2.48x net income , up from 2.18x in FY2024 .",
+   "claim": "$19.8 billion",
+   "match": "cited: F59 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Operating cash flow $19.8B"
+  },
+  {
+   "sentence": "Operating cash flow of $19.8 billion  was 2.48x net income , up from 2.18x in FY2024 .",
+   "claim": "2.48x",
+   "match": "cited: D333 = Operating cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "OCF/NI ratio 2.48x"
+  },
+  {
+   "sentence": "Operating cash flow of $19.8 billion  was 2.48x net income , up from 2.18x in FY2024 .",
+   "claim": "2.18x",
+   "match": "cited: D299 = Operating cash flow / net income, FY2024",
+   "label": "consistent",
+   "reason": "OCF/NI ratio FY2024 2.18x"
+  },
+  {
+   "sentence": "Cash flow fell 1.6%  on lower commodity prices, mostly offset by Marathon Oil operations .",
+   "claim": "1.6%",
+   "match": "cited: D346 = Operating cash flow growth, FY2025",
+   "label": "consistent",
+   "reason": "OCF growth -1.6%"
+  },
+  {
+   "sentence": "Capital expenditure is carried only through FY2022 , when it was 12.9% of revenue  and 1.35x D&A , so FY2025 free cash flow is not measured.",
+   "claim": "12.9%",
+   "match": "cited: D222 = Capex % of revenue, FY2022",
+   "label": "consistent",
+   "reason": "Capex % revenue 12.9%"
+  },
+  {
+   "sentence": "Capital expenditure is carried only through FY2022 , when it was 12.9% of revenue  and 1.35x D&A , so FY2025 free cash flow is not measured.",
+   "claim": "1.35x",
+   "match": "cited: D228 = Capex / D&A, FY2022",
+   "label": "consistent",
+   "reason": "Capex/D&A 1.35x"
+  },
+  {
+   "sentence": "Operating cash flow rose 66.6% in FY2022  on higher realized prices and Shell Permian volumes .",
+   "claim": "66.6%",
+   "match": "cited: D242 = Operating cash flow growth, FY2022",
+   "label": "consistent",
+   "reason": "OCF growth FY2022 66.6%"
+  },
+  {
+   "sentence": "Net cash was $7.11 billion at FY2025 , up from $6.13 billion in FY2024 .",
+   "claim": "$7.11 billion",
+   "match": "cited: D337 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net cash FY2025 $7.11B"
+  },
+  {
+   "sentence": "Net cash was $7.11 billion at FY2025 , up from $6.13 billion in FY2024 .",
+   "claim": "$6.13 billion",
+   "match": "cited: D303 = Net cash (cash and investments less debt), FY2024",
+   "label": "consistent",
+   "reason": "Net cash FY2024 $6.13B"
+  },
+  {
+   "sentence": "On that basis, net cash of 12.1% of revenue  ranks at the 100th percentile of six energy peers , against a peer median of -7.7% .",
+   "claim": "12.1%",
+   "match": "cited: D338 = Net cash % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Net cash % revenue 12.1%"
+  },
+  {
+   "sentence": "On that basis, net cash of 12.1% of revenue  ranks at the 100th percentile of six energy peers , against a peer median of -7.7% .",
+   "claim": "100th percentile",
+   "match": "cited: D850 = Net cash % of revenue: percentile vs energy peers (n=6), FY2025",
+   "label": "consistent",
+   "reason": "Percentile 100th"
+  },
+  {
+   "sentence": "On that basis, net cash of 12.1% of revenue  ranks at the 100th percentile of six energy peers , against a peer median of -7.7% .",
+   "claim": "-7.7%",
+   "match": "cited: D851 = Net cash % of revenue: energy peer median (n=6), FY2025",
+   "label": "consistent",
+   "reason": "Peer median -7.7%"
+  },
+  {
+   "sentence": "Buybacks of $5.02 billion  and dividends of $4.00 billion  totalled $9.01 billion , together 46 percent of operating cash flow .",
+   "claim": "$5.02 billion",
+   "match": "cited: X141 = Share repurchases (cash), FY2025",
+   "label": "consistent",
+   "reason": "Buybacks $5.02B"
+  },
+  {
+   "sentence": "Buybacks of $5.02 billion  and dividends of $4.00 billion  totalled $9.01 billion , together 46 percent of operating cash flow .",
+   "claim": "$4.00 billion",
+   "match": "cited: X151 = Dividends paid (cash), FY2025",
+   "label": "consistent",
+   "reason": "Dividends $4.00B"
+  },
+  {
+   "sentence": "Buybacks of $5.02 billion  and dividends of $4.00 billion  totalled $9.01 billion , together 46 percent of operating cash flow .",
+   "claim": "$9.01 billion",
+   "match": "cited: D339 = Buybacks plus dividends, FY2025",
+   "label": "consistent",
+   "reason": "Total $9.01B"
+  },
+  {
+   "sentence": "Buybacks of $5.02 billion  and dividends of $4.00 billion  totalled $9.01 billion , together 46 percent of operating cash flow .",
+   "claim": "46 percent",
+   "match": "passage P31: P31 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "46% of OCF"
+  },
+  {
+   "sentence": "Revenue basis (high severity, all ten years) : FY2025 is $51.8 billion in the table  and $58.9 billion as first reported .",
+   "claim": "$51.8 billion",
+   "match": "cited: F10 = Revenue, FY2025",
+   "label": "consistent",
+   "reason": "Table revenue $51.8B"
+  },
+  {
+   "sentence": "Revenue basis (high severity, all ten years) : FY2025 is $51.8 billion in the table  and $58.9 billion as first reported .",
+   "claim": "$58.9 billion",
+   "match": "cited: X10 = Total revenues as reported, FY2025",
+   "label": "consistent",
+   "reason": "As reported $58.9B"
+  },
+  {
+   "sentence": "Net income has fallen three years running, down 15.6% in FY2024  and 13.6% in FY2025 , which the filings tie to lower commodity prices .",
+   "claim": "15.6%",
+   "match": "cited: D309 = Net income growth, FY2024",
+   "label": "consistent",
+   "reason": "Net income growth FY2024 -15.6%"
+  },
+  {
+   "sentence": "Net income has fallen three years running, down 15.6% in FY2024  and 13.6% in FY2025 , which the filings tie to lower commodity prices .",
+   "claim": "13.6%",
+   "match": "cited: D343 = Net income growth, FY2025",
+   "label": "consistent",
+   "reason": "Net income growth FY2025 -13.6%"
+  },
+  {
+   "sentence": "Diluted shares rose 6.1% in FY2025  to 1.25 billion , and the filings cited do not explain the increase.",
+   "claim": "6.1%",
+   "match": "cited: D356 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share change 6.1%"
+  },
+  {
+   "sentence": "Diluted shares rose 6.1% in FY2025  to 1.25 billion , and the filings cited do not explain the increase.",
+   "claim": "1.25 billion",
+   "match": "cited: X131 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted shares 1.25B"
+  },
+  {
+   "sentence": "The FY2023 revenue fall of 20.5%  is dropped as a single-year commodity move ; the SG&A recast and segment overlap  are not used.",
+   "claim": "20.5%",
+   "match": "cited: D274 = Revenue growth, FY2023",
+   "label": "consistent",
+   "reason": "Revenue growth FY2023 -20.5%"
+  },
+  {
+   "sentence": "Net margin: a reading below 15.4%  would extend the decline, while holding above the 17.9% window median  would signal recovery in the FY2026 10-K.",
+   "claim": "15.4%",
+   "match": "cited: F30 = Net margin, FY2025",
+   "label": "consistent",
+   "reason": "Net margin FY2025 15.4%"
+  },
+  {
+   "sentence": "Net margin: a reading below 15.4%  would extend the decline, while holding above the 17.9% window median  would signal recovery in the FY2026 10-K.",
+   "claim": "17.9%",
+   "match": "cited: D831 = Net margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Net margin median 17.9%"
+  },
+  {
+   "sentence": "Operating cash flow: a fall below $19.8 billion  would extend the decline, measured against a stated return framework of greater than 30 percent of cash flow .",
+   "claim": "$19.8 billion",
+   "match": "cited: F59 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "OCF $19.8B"
+  },
+  {
+   "sentence": "Operating cash flow: a fall below $19.8 billion  would extend the decline, measured against a stated return framework of greater than 30 percent of cash flow .",
+   "claim": "30 percent",
+   "match": "passage P31: P31 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "30% threshold"
+  },
+  {
+   "sentence": "Dispositions: $3.2 billion delivered against a $5 billion target by year-end 2026 ; diluted shares below 1.25 billion  would show buybacks outrunning dilution.",
+   "claim": "$3.2 billion",
+   "match": "passage P32: P32 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Dispositions $3.2B"
+  },
+  {
+   "sentence": "Dispositions: $3.2 billion delivered against a $5 billion target by year-end 2026 ; diluted shares below 1.25 billion  would show buybacks outrunning dilution.",
+   "claim": "$5 billion",
+   "match": "passage P32: P32 = a figure in a FY2025 10-K passage",
+   "label": "consistent",
+   "reason": "Target $5B"
+  },
+  {
+   "sentence": "Dispositions: $3.2 billion delivered against a $5 billion target by year-end 2026 ; diluted shares below 1.25 billion  would show buybacks outrunning dilution.",
+   "claim": "1.25 billion",
+   "match": "cited: X131 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted shares 1.25B"
+  }
+ ]
+}

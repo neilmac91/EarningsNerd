@@ -1,0 +1,75 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "RIVN",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "6ba92fac840b9b5297fdd4983f1a8e64db12b585806b60b5512693bbeb6d5f3f",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Software and services revenue rose 221.7% to $1.56 billion, which the filing attributes to vehicle electrical architecture and software development services for the Joint Venture, remarketing and repair and maintenance .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Software and services revenues increased significantly for the year ended December 31, 2025 primarily due to an increase in vehicle electrical architecture and software development services, as well as increases in remarketing sales and vehicle repair and maintenance services."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes increase to same causes."
+  },
+  {
+   "sentence": "Automotive revenue fell 14.6% to $3.83 billion, primarily on 9,332 fewer deliveries after the 45W tax credits expired, partly offset by higher average selling prices .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Automotive revenues decreased for the year ended December 31, 2025, primarily resulting from a decrease in deliveries of 9,332 vehicles, due in part to the expiration of 45W tax credits after September 30, 2025, as well as a decrease in sales of automotive regulatory credits, partially offset by higher average selling prices and a higher mix of R1 deliveries. The increase in average selling prices was driven by a consumer shift towards higher performance variants along with a decline in discounting."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states fewer deliveries due to 45W expiration, offset by higher ASP."
+  },
+  {
+   "sentence": "The FY2025 operating margin improved 27.8pp, with cost of revenue adding 26.8pp as it fell 15.0% on fewer vehicles produced and lower material and conversion costs .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "For the year ended December 31, 2025, Automotive cost of revenues included $484 million of depreciation and amortization expense and $43 million of stock-based compensation expense. The year-over-year decrease in Automotive cost of revenues was primarily due to fewer vehicles being produced and delivered, as well as reductions in the cost of raw materials, product components, and conversion costs, resulting in part from the cost of revenue efficiency initiatives and accelerated depreciation that occurred during the prior year."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passage supports cost decrease causes, not margin improvement."
+  },
+  {
+   "sentence": "The FY2025 improvement in operating cash flow was primarily driven by a significant reduction in net loss .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in operating activities decreased during the year ended December 31, 2025 compared to the year ended December 31, 2024, primarily driven by a significant reduction in net loss."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease in cash used driven by reduction in net loss."
+  },
+  {
+   "sentence": "Financing brought in $886 million, primarily from $750 million of Class A shares issued to Volkswagen Group on the Financial Milestone .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by financing activities during the year ended December 31, 2025 primarily resulted from the issuance of $750 million in shares of Class A common stock to Volkswagen Group in connection with the achievement of the Financial Milestone, as well as capital contributed by outside parties in the formation of Mind Robotics, Inc. and Mind Robotics, LLC (see Note 1 \"Presentation and Nature of Operations\" and Note 19 \u201cVariable Interest Entities\u201d to our consolidated financial statements included in this Form 10-K for more information). Net cash provided by financing activities during the year ended December 31, 2024 primarily resulted from the issuance of the 2026 Convertible Note (see Note 10 \u201cDebt\u201d to our consolidated financial statements included in this Form 10-K for more information)."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states financing primarily from $750M Class A issuance."
+  }
+ ],
+ "cost_usd": 0.00098,
+ "backend": "openai_compat",
+ "input_tokens": 924,
+ "cached_input_tokens": 0,
+ "output_tokens": 187
+}

@@ -1,0 +1,99 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "TGT",
+ "split": "holdout",
+ "claims": 7,
+ "output_sha256": "26852538370d45a80c11e92b4bf4d627f39b77551e1c0e7d008cf456b3fdcd7a",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2020 surge came from a 19.3% comparable sales increase and new stores, with the pandemic shifting category and channel mix .",
+   "passages": [
+    {
+     "id": "P51",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in 2020 sales compared to 2019 is due to a 19.3 percent comparable sales increase and the contribution from new stores. The COVID-19 pandemic has affected the amount and mix of sales across channels and categories."
+    }
+   ],
+   "label": "supported",
+   "reason": "P51 attributes 2020 sales increase to 19.3% comparable sales growth and new stores, with COVID-19 affecting channel and category mix."
+  },
+  {
+   "sentence": "The recent decline reflects a 2.6% comparable sales decrease in FY2025, driven by a 2.2% drop in traffic and a 0.4% drop in average transaction .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Comparable sales decreased 2.6 percent, driven by a 2.2 percent decrease in traffic and a 0.4 percent decrease in average transaction amount."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states comparable sales fell 2.6%, driven by a 2.2% traffic decrease and 0.4% average transaction decrease."
+  },
+  {
+   "sentence": "The filings attribute the discretionary weakness to sales declines in Apparel & Accessories, Hardlines and Home Furnishings & Decor, partly offset by Frequency categories .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2023, we experienced sales declines across our business, primarily in each of our Discretionary categories (Apparel & Accessories, Hardlines, and Home Furnishings & Decor) partially offset by growth in Frequency categories (Beauty & Household Essentials and Food & Beverage). This trend of decreased Discretionary category sales began in 2022. In response, during 2022, we took actions and employed strategies to align inventories with sales trends. These actions, as well as improvements in the supply chain, have resulted in decreased inventory in 2023 compared with 2022, as well as a reduction in costs related to managing elevated inventory levels."
+    }
+   ],
+   "label": "supported",
+   "reason": "P30 cites declines in Apparel & Accessories, Hardlines and Home Furnishings & Decor, partially offset by Frequency category growth."
+  },
+  {
+   "sentence": "Gross margin fell to 27.9% from 28.2% on the net impact of several items the filing lists without quantifying .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross margin rate was 27.9\u00a0percent in 2025 and 28.2\u00a0percent in 2024. The decrease reflected the net impact of:"
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 attributes the 27.9% vs 28.2% decline to 'the net impact of' listed items."
+  },
+  {
+   "sentence": "The SG&A rate held at 20.6% only because of a 0.6pp interchange settlement benefit; excluding it, the adjusted rate rose to 20.9% on sales deleverage .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our SG&A expense rate was 20.6\u00a0percent in 2025, consistent with 2024. The 2025 rate included a 0.6 percentage point benefit from interchange fee settlements, partially offset by 0.2 percentage points of business transformation costs. Excluding these items, our Adjusted SG&A expense rate was 20.9 percent in 2025, compared with 20.6 percent in 2024, reflecting the deleveraging impact of lower Net Sales and the net impact of other costs."
+    }
+   ],
+   "label": "partial",
+   "reason": "P11 also cites 0.2pp transformation costs offsetting the benefit, and the adjusted rate excludes both. 'Only because of' the settlement overstates the passage."
+  },
+  {
+   "sentence": "The effective tax rate rose to 22.3% from 22.2% on global minimum taxes and share-based compensation expense .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our 2025 effective income tax rate was 22.3\u00a0percent compared with 22.2\u00a0percent in 2024. The increase reflects global minimum taxes and discrete tax expense in the current year related to share-based compensation, primarily offset by benefits from tax credits."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 cites global minimum taxes and discrete share-based compensation tax expense, though the claim omits the offsetting tax credits."
+  },
+  {
+   "sentence": "The operating cash flow decline reflects lower net earnings plus lower accounts payable leverage and inventory purchases .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash flows provided by operating activities were $6.6 billion in 2025 compared with $7.4 billion in 2024. The operating cash flow decrease reflects lower net earnings, as well as the net impact of lower accounts payable leverage and inventory purchases in the current year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 cites lower net earnings and the net impact of lower accounts payable leverage and inventory purchases."
+  }
+ ],
+ "cost_usd": 0.038132,
+ "backend": "claude_cli",
+ "input_tokens": 2915,
+ "cached_input_tokens": 0,
+ "output_tokens": 741
+}

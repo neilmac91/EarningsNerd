@@ -1,0 +1,106 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "8ab2480b68f1a5eb36e468243f9ddd4332e4ea6e402d8d74584e57be59a16785",
+ "y_sha256": "1c833432899ffee141895eef19e93cf412b5d40891c317734f1a3960bd2f5fe1",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A states FY2026 net cash ($2.1bn), a 75.5% drop in cash and investments, and a peer rank as fact. Short-term investments were not reported that year, so these figures are artefacts, and A builds a watch item on them. Draft B flags the gap and labels its judgements as analysis. A has richer drivers (H20 charge, China, customer concentration), but grounding outweighs that."
+   },
+   "cost_usd": 0.134945,
+   "latency_s": 10.874,
+   "backend": "claude_cli",
+   "input_tokens": 15853,
+   "cached_input_tokens": 727,
+   "output_tokens": 690,
+   "reasoning_tokens": 484,
+   "meta": {
+    "duration_api_ms": 7010,
+    "cache_creation_input_tokens": 15124,
+    "list_cost_usd": 0.074449
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A states FY2026 net cash ($2.1bn), a 75.5% drop in cash and investments, and a peer rank as fact. Short-term investments were not reported that year, so these figures are artefacts, and A builds a watch item on them. Draft B flags the gap and labels its judgements as analysis. A has richer drivers (H20 charge, China, customer concentration), but grounding outweighs that.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B's net cash 'collapse' from $34.7bn to $2.1bn, its peer rank and one watch item are artifacts of short-term investments going unreported in FY2026. A discloses that gap correctly. B also attributes the gross-margin fall to the H20 charge, but its passage ties the charge to segment operating income only. B adds real depth on customer concentration, China and peers, yet these do not offset a misread liquidity picture."
+   },
+   "cost_usd": 0.137985,
+   "latency_s": 13.839,
+   "backend": "claude_cli",
+   "input_tokens": 15853,
+   "cached_input_tokens": 727,
+   "output_tokens": 842,
+   "reasoning_tokens": 628,
+   "meta": {
+    "duration_api_ms": 8844,
+    "cache_creation_input_tokens": 15124,
+    "list_cost_usd": 0.077489
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B's net cash 'collapse' from $34.7bn to $2.1bn, its peer rank and one watch item are artifacts of short-term investments going unreported in FY2026. A discloses that gap correctly. B also attributes the gross-margin fall to the H20 charge, but its passage ties the charge to segment operating income only. B adds real depth on customer concentration, China and peers, yet these do not offset a misread liquidity picture.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.27293
+}

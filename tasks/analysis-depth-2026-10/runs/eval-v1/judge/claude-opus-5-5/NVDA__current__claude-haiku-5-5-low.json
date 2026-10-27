@@ -1,0 +1,86 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "A only restates table values. Its debt red flag is misleading: it compares mismatched XBRL tags and ignores that debt has fallen since FY2022. B quotes filings for causes (Blackwell, inventory provisions, Intel gains), discloses the missing short-term-investment data, and labels its judgements as analysis. B has minor overreach: the FY2023 operating-cash-flow drop is pinned mainly on Arm, and 'net income leans on' gains overstates their share. B is still far more useful and well grounded."
+   },
+   "cost_usd": 0.094313,
+   "latency_s": 11.558,
+   "input_tokens": 10684,
+   "output_tokens": 726,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"strong\", \"rationale\": \"A only restates table values. Its debt red flag is misleading: it compares mismatched XBRL tags and ignores that debt has fallen since FY2022. B quotes filings for causes (Blackwell, inventory provisions, Intel gains), discloses the missing short-term-investment data, and labels its judgements as analysis. B has minor overreach: the FY2023 operating-cash-flow drop is pinned mainly on Arm, and 'net income leans on' gains overstates their share. B is still far more useful and well grounded.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "A ties its causal claims to quoted filings: FY2023 inventory provisions, Blackwell-led growth, opex drivers, the Arm termination cost and Intel equity gains. It says the filings do not explain the FY2026 gross-margin fall, flags missing FY2026 short-term investments and labels its analysis. B mostly restates table values. Its debt 'red flag' mixes two XBRL debt tags and ignores that debt has fallen since FY2022. Its watch items have no thresholds."
+   },
+   "cost_usd": 0.093133,
+   "latency_s": 11.539,
+   "input_tokens": 10684,
+   "output_tokens": 667,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"strong\", \"rationale\": \"A ties its causal claims to quoted filings: FY2023 inventory provisions, Blackwell-led growth, opex drivers, the Arm termination cost and Intel equity gains. It says the filings do not explain the FY2026 gross-margin fall, flags missing FY2026 short-term investments and labels its analysis. B mostly restates table values. Its debt 'red flag' mixes two XBRL debt tags and ignores that debt has fallen since FY2022. Its watch items have no thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.187446
+}

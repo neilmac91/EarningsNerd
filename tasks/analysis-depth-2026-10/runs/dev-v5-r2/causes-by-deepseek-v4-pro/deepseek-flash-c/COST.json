@@ -1,0 +1,109 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "COST",
+ "split": "dev",
+ "claims": 7,
+ "output_sha256": "ee16e4eb49445ac79b91c382400e3492c8117e504c6e3dbe13200951c42f44a3",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2021 jump came from comparable sales up 16%, with e-commerce comparable sales up 44%, plus gasoline and currency tailwinds .",
+   "passages": [
+    {
+     "id": "P54",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Comparable sales increased 16% during 2021 and were positively impacted by increases in shopping frequency and average ticket. There was an increase of 44% in e-commerce comparable sales in 2021, driven by an increase of 80% in the first half of the year."
+    },
+    {
+     "id": "P55",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Changes in foreign currencies relative to the U.S. dollar positively impacted net sales by approximately $2,759, or 169 basis points, compared to 2020, attributable to our Canadian and Other International operations. Changes in gasoline prices positively impacted net sales by $1,636, or 100 basis points, compared to 2020, due to a 12% increase in the average price per gallon. The volume of gasoline sold increased approximately 10%, positively impacting net sales by $1,469, or 90 basis points."
+    },
+    {
+     "id": "P56",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $28,832 or 18% during 2021. The improvement was attributable to an increase in comparable sales of 16%, and sales at new warehouses opened in 2020 and 2021. While sales in all core merchandise categories increased, sales were particularly strong in non-foods. Sales increases were also strong in our warehouse ancillary and other businesses, predominantly e-commerce and gasoline. Certain merchandise categories were impacted by inflation higher than what we have experienced in recent years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P54 states comparable sales up 16% and e-commerce up 44%; P55 states gasoline and currency positively impacted net sales."
+  },
+  {
+   "sentence": "FY2022 growth was driven by a 14% comparable sales increase and $14.8 billion of warehouse ancillary sales, strongest in gasoline, business centers and travel .",
+   "passages": [
+    {
+     "id": "P42",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $30,678 or 16% during 2022. The improvement was attributable to an increase in comparable sales of 14%, and sales at new warehouses opened in 2021 and 2022. Sales increased $15,830 in core merchandise categories and $14,848 in warehouse ancillary and other businesses. The rate of increase was strongest in our gasoline, business centers, and travel businesses. Sales continued to be impacted by inflation, higher than what we experienced in previous fiscal years."
+    }
+   ],
+   "label": "supported",
+   "reason": "P42 states comparable sales up 14%, warehouse ancillary sales $14,848, strongest in gasoline, business centers, travel."
+  },
+  {
+   "sentence": "Net sales rose $27.3 billion, or 10%, on comparable sales up 8% (5% average ticket, 3% frequency) plus 25 net new warehouses .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net sales increased $27,335 or 10% during 2026. The improvement was primarily attributable to an increase in comparable sales of $22,457 or 8%. Comparable sales were positively impacted by increases of 5% in average ticket and 3% in shopping frequency. The remaining increase in net sales was driven by sales at the 25 net new warehouses opened since the end of 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 states net sales up $27,335 (10%), comparable sales up 8% (5% ticket, 3% frequency), 25 net new warehouses."
+  },
+  {
+   "sentence": "SG&A fell 10 basis points as a share of sales, though excluding gasoline price inflation it rose one basis point, with currency adding $126 million .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "SG&A expenses as a percentage of net sales decreased 10 basis points compared to 2025. SG&A expenses as a percentage of net sales excluding the impact of gasoline price inflation was 9.26%, an increase of one basis point. Changes in foreign currencies relative to the U.S. dollar increased SG&A expenses by $126, attributable to our Other International and Canadian operations. SG&A expenses as a percentage of net sales increased in our Canadian and Other International segments and were flat in our U.S. segment compared to 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 states SG&A as % of sales decreased 10 bps, ex-gasoline increased 1 bp, currency increased SG&A by $126."
+  },
+  {
+   "sentence": "The increase was primarily due to higher operating income and reduced net investment in merchandise inventories from faster turns and improved supplier payment terms .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our cash flow provided by operations is primarily from net sales and membership fees. Cash flow used in operations generally consists of payments to merchandise suppliers, warehouse operating costs, including wages and employee benefits, utilities, credit and debit card processing fees, and operating leases. Cash used in operations also includes payments for income taxes. Changes in our net investment in merchandise inventories (the difference between merchandise inventories and accounts payable) is impacted by several factors, including inventory levels and turnover, payment terms with suppliers, and early payments to obtain discounts. Net cash provided by operating activities totaled $15,817 in 2026, compared to $13,335 in 2025. The increase was primarily due to higher operating income, as well as reduced net investment in merchandise inventories. The latter was a result of faster inventory turns and improved payment terms with suppliers."
+    }
+   ],
+   "label": "supported",
+   "reason": "P6 states increase in operating cash flow due to higher operating income and reduced net investment in inventories from faster turns and improved payment terms."
+  },
+  {
+   "sentence": "Investing outflow rose to $6.4 billion, primarily capital expenditures .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in investing activities totaled $6,378 in 2026, compared to $5,311 in 2025, and is primarily related to capital expenditures. Net cash from investing activities also includes purchases and maturities of short-term investments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 states net cash used in investing activities $6,378, primarily related to capital expenditures."
+  },
+  {
+   "sentence": "Financing outflow of $3.4 billion mainly reflected dividends, repurchases and debt repayments .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash used in financing activities totaled $3,355 in 2026, compared to $3,775 in 2025. Cash flow used in financing activities primarily related to the payment of dividends, repurchases of common stock, repayments of short-term borrowings and long-term debt, and withholding taxes on stock-based awards. Cash flow provided by financing activities included proceeds from short-term borrowings and issuance of long-term debt."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 states net cash used in financing $3,355, primarily related to dividends, repurchases, and debt repayments."
+  }
+ ],
+ "cost_usd": 0.001684,
+ "backend": "openai_compat",
+ "input_tokens": 1462,
+ "cached_input_tokens": 0,
+ "output_tokens": 363
+}
