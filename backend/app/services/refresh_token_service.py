@@ -39,8 +39,8 @@ class RefreshTokenError(Exception):
 class RefreshTokenReuseError(RefreshTokenError):
     """Raised when a rotated-away refresh token is replayed (reuse/theft signal).
 
-    Distinct from the base error because handling it modifies the database (the user's
-    active token chain is revoked), so the caller must commit — whereas a missing/expired/
+    Distinct from the base error because handling it modifies the database (the replayed
+    token's chain is revoked: the live tokens its rotations lead to), so the caller must commit — whereas a missing/expired/
     unknown token makes no writes and must not trigger a commit on unauthenticated traffic.
     """
 

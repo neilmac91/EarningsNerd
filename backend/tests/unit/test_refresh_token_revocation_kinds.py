@@ -341,10 +341,13 @@ def test_a_replay_over_a_link_no_rotation_writes_revokes_nothing_past_it(form, c
 
 @pytest.mark.requires_db
 def test_a_refresh_token_no_minting_could_produce_is_refused_as_unknown(laptop):
-    """Tokens are URL-safe ASCII; one holding a lone surrogate answered 500 where it was hashed (E97's review)."""
+    """Tokens are URL-safe ASCII; one holding a lone surrogate answered 500 where it was hashed (E97's review). A
+    logout reads only the cookie, which Starlette decodes as latin-1, so its guard is held at the service."""
     body = json.dumps({"refresh_token": "tok\ud800"})  # json.dumps escapes it, as a client sends it
     resp = laptop.post("/api/auth/refresh", content=body, headers={"content-type": "application/json"})
     assert resp.status_code == 401 and resp.json() == REFUSED, resp.text
+    with SessionLocal() as db:
+        assert refresh_token_service.revoke_and_commit(db, "tok\ud800") is None
 
 
 # ── the refresh route's per-IP limit (E96) ───────────────────────────────────────────────────────────────────
@@ -367,6 +370,30 @@ def test_a_burst_of_tabs_passes_and_a_loop_is_limited(laptop):
     assert limited.status_code == 429, limited.text
     assert int(limited.headers["retry-after"]) > 0
     assert limited.json() == {"detail": "Too many session refreshes. Try again in a minute."}
+
+
+@pytest.mark.requires_db
+def test_a_limited_refresh_does_no_database_work(laptop, mail):
+    """The limit is checked before the rotation: a refused request with a live cookie leaves that token unrotated,
+    so the same cookie still rotates once the window has passed."""
+    email, user_id = _register(laptop)
+    live = _login(laptop, email)
+    with auth_module.REFRESH_LIMITER._lock:
+        auth_module.REFRESH_LIMITER._hits.clear()
+    laptop.cookies.clear()  # the window fills with signed-out refreshes, which rotate nothing
+    for _ in range(auth_module.REFRESH_LIMITER.limit):
+        assert laptop.post("/api/auth/refresh").status_code == 401
+    laptop.cookies.set(settings.REFRESH_COOKIE_NAME, live)
+    limited = laptop.post("/api/auth/refresh")
+    assert limited.status_code == 429, limited.text
+    assert "set-cookie" not in limited.headers
+    with SessionLocal() as db:
+        token = db.query(RefreshToken).filter(RefreshToken.user_id == user_id).one()
+        assert (token.revoked_at, token.replaced_by_id) == (None, None)  # nothing read it, nothing rotated it
+    with auth_module.REFRESH_LIMITER._lock:
+        auth_module.REFRESH_LIMITER._hits.clear()  # the window has passed
+    laptop.cookies.set(settings.REFRESH_COOKIE_NAME, live)
+    assert laptop.post("/api/auth/refresh").status_code == 200
 
 
 def test_a_forged_forwarded_for_shares_the_real_clients_bucket(laptop, monkeypatch):
