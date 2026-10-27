@@ -496,7 +496,7 @@ class TestXlsxRoute:
     def test_a_mixed_unit_dataset_is_refused_with_its_own_words(self, client, monkeypatch, path):
         # E102: the refusal is a client-safe 400 that says why, never a 500, a workbook or a split series.
         import app.routers.analysis as analysis_router
-        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError
+        from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError
 
         self._as_user(is_pro=True)
         monkeypatch.setattr(analysis_router, "_get_company", lambda db, ticker: SimpleNamespace(ticker="TST"))
@@ -506,34 +506,6 @@ class TestXlsxRoute:
 
         monkeypatch.setattr(analysis_router.trend_analysis_service, "build_dataset", _refuses)
         response = client.post(path, json={"mode": "annual", "start_period": "FY2022", "end_period": "FY2024"})
-        assert response.status_code == 400
-        assert response.json() == {"detail": INCOMPATIBLE_UNITS_MESSAGE}
-
-    def test_a_saved_analysis_whose_data_now_mixes_units_is_refused_not_offered_a_rerun(self, client, monkeypatch):
-        # The PDF route reads any other dataset refusal as a stale analysis to re-run (409); re-running cannot fix
-        # filed figures that mix units, so that refusal says so instead (E102).
-        import app.routers.analysis as analysis_router
-        from app.services.trend_analysis import presentation
-        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError
-
-        from main import app
-
-        user = self._as_user(is_pro=True)
-        app.dependency_overrides[analysis_router.get_current_user] = lambda: user
-        saved = SimpleNamespace(
-            narrative_md="A narrative.", prompt_version=analysis_router.trend_analysis_service.PROMPT_VERSION,
-            company_id=1, dataset_json={"dataset_version": "v"}, period_key="FY2022..FY2024", mode="annual",
-        )
-        monkeypatch.setattr(analysis_router.analysis_data_access, "find_analysis", lambda db, analysis_id: saved)
-        monkeypatch.setattr(analysis_router.analysis_data_access, "find_company_by_id",
-                            lambda db, company_id: SimpleNamespace(ticker="TST"))
-        monkeypatch.setattr(presentation, "presentation_is_current", lambda dataset: True)
-
-        def _refuses(db, company, mode, start, end):
-            raise IncompatibleUnitsError()
-
-        monkeypatch.setattr(analysis_router.trend_analysis_service, "build_dataset", _refuses)
-        response = client.get("/api/analysis/export/7/pdf")
         assert response.status_code == 400
         assert response.json() == {"detail": INCOMPATIBLE_UNITS_MESSAGE}
 

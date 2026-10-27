@@ -14,9 +14,7 @@ from fastapi import HTTPException
 
 from app.dependencies import require_entitlement
 from app.services import trend_analysis_service as svc
-from app.services.trend_analysis.dataset_quality import (
-    INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError, require_one_unit,
-)
+from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE, IncompatibleUnitsError, series_unit
 
 
 class TestPeriodKeys:
@@ -1018,6 +1016,58 @@ class TestIncompatibleUnits:
         assert revenue["unit"] == "JPY"
         assert [point["value"] for point in revenue["points"]] == [1000.0, None, 1500.0]
 
+    @pytest.mark.parametrize("usd_first", [True, False], ids=["USD twin stored first", "USD twin stored last"])
+    def test_two_current_facts_for_one_period_in_two_units_refuse_in_either_order(self, usd_first):
+        # A native row and a leftover USD row both current for FY2022: the index kept whichever came last, so the
+        # dataset built from one and dropped the other, or refused, by storage order. Either order now refuses.
+        twins = [("revenue", 1100.0, "JPY", 1), ("revenue", 1100.0, "USD", 1)]
+        rows = [("revenue", 1000.0, "JPY", 0), *(twins[::-1] if usd_first else twins), ("revenue", 1200.0, "JPY", 2)]
+        with pytest.raises(IncompatibleUnitsError):
+            self._build("annual", rows)
+
+    def test_twins_outside_the_selected_periods_refuse_nothing(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            company = _seed_company(db)
+            for fy, fp, end, start in _ANNUAL:
+                _seed_fact(db, company.id, "revenue", 1000.0 + fy, fy=fy, fp=fp, end=end, start=start, unit="JPY")
+                _seed_fact(db, company.id, "net_income", 100.0, fy=fy, fp=fp, end=end, start=start, unit="JPY")
+            _seed_fact(db, company.id, "revenue", 9.0, fy=2020, fp="FY", end=date(2020, 12, 31), start=date(2020, 1, 1),
+                       unit="USD")
+            _seed_fact(db, company.id, "revenue", 9.0, fy=2020, fp="FY", end=date(2020, 12, 31), start=date(2020, 1, 1),
+                       unit="JPY")
+            db.commit()
+            dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        finally:
+            db.close()
+        assert next(s for s in dataset["series"] if s["concept"] == "revenue")["unit"] == "JPY"
+
+    def test_a_withheld_point_does_not_name_the_series_unit(self):
+        # A derived EPS fact is withheld (published_value None) whatever unit it was stored in: the series is the valued
+        # points' CNY/shares, never the withheld point's USD/shares.
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            company = _seed_company(db)
+            for fy, fp, end, start in _ANNUAL:
+                _seed_fact(db, company.id, "net_income", 100.0, fy=fy, fp=fp, end=end, start=start)
+            (fy, fp, end, start) = _ANNUAL[0]
+            _seed_fact(db, company.id, "earnings_per_share", 5.0, fy=fy, fp=fp, end=end, start=start, unit="USD/shares",
+                       source="derived")
+            for fy, fp, end, start in _ANNUAL[1:]:
+                _seed_fact(db, company.id, "earnings_per_share", 30.0, fy=fy, fp=fp, end=end, start=start,
+                           unit="CNY/shares")
+            db.commit()
+            dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        finally:
+            db.close()
+        eps = next(s for s in dataset["series"] if s["concept"] == "earnings_per_share")
+        assert [p["value"] for p in eps["points"]] == [None, 30.0, 30.0]
+        assert eps["unit"] == "CNY/shares"
+
     def test_a_pure_ratio_series_beside_a_monetary_one_still_builds(self):
         rows = [("revenue", 1000.0 + 100 * index, "USD", index) for index in range(3)]
         rows += [("net_margin", 0.1 + 0.01 * index, "pure", index) for index in range(3)]
@@ -1028,16 +1078,16 @@ class TestIncompatibleUnits:
         assert margin["points"][1]["yoy"] == pytest.approx(0.01)  # a point delta of the ratio, as before
 
 
-class TestRequireOneUnit:
-    @pytest.mark.parametrize("points", [
-        [],
-        [{"value": None, "unit": "USD"}, {"value": None, "unit": "JPY"}],
-        # A point with no value is absent: its unit, or none, never makes the series incompatible.
-        [{"value": 1.0, "unit": "JPY"}, {"value": None, "unit": "USD"}, {"value": None}],
-        [{"value": 0.1, "unit": "pure"}, {"value": 0.2, "unit": "pure"}],
+class TestSeriesUnit:
+    @pytest.mark.parametrize("points, unit", [
+        ([], "USD"),
+        ([{"value": None, "unit": "USD"}, {"value": None, "unit": "JPY"}], "USD"),
+        # A point with no value is absent: its unit, or none, never makes the series incompatible or names its unit.
+        ([{"value": None, "unit": "USD"}, {"value": 1.0, "unit": "JPY"}, {"value": None}], "JPY"),
+        ([{"value": 0.1, "unit": "pure"}, {"value": 0.2, "unit": "pure"}], "pure"),
     ])
-    def test_accepts_one_unit_across_the_valued_points(self, points):
-        require_one_unit(points)
+    def test_names_the_one_unit_of_the_valued_points(self, points, unit):
+        assert series_unit(points) == unit
 
     @pytest.mark.parametrize("points", [
         [{"value": 1.0, "unit": "USD"}, {"value": 2.0, "unit": "JPY"}],
@@ -1047,7 +1097,7 @@ class TestRequireOneUnit:
     ])
     def test_refuses_two_units_or_a_valued_point_with_none(self, points):
         with pytest.raises(IncompatibleUnitsError):
-            require_one_unit(points)
+            series_unit(points)
 
 
 class TestPromptRendering:

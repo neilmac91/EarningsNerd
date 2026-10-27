@@ -4,35 +4,6 @@ from typing import Any, Callable, Mapping
 from app.services.fact_provenance import calculated_provenance, provenance_for_fact, published_value
 from app.services.trend_analysis.data_notes import data_notes as data_notes
 
-INCOMPATIBLE_UNITS_MESSAGE = (
-    "This company's filed figures for these periods are in more than one currency or unit, so they can't be "
-    "compared. Analysis isn't available for this range."
-)
-
-
-class IncompatibleUnitsError(ValueError):
-    """A series whose valued points name different units, or a valued point that names none (E102).
-
-    The whole dataset is refused before any comparison, window figure, observation, narrative or export reads it:
-    a USD point beside native-currency points, or USD/shares beside CNY/shares, would chart, compare and compound
-    as one series. No series is split, no value converted and no point dropped. ``code`` is the stable domain code
-    for the analysis routes' error adapter once the shared error vocabulary (E31) lands; until then each route
-    sends the message as it sends every dataset refusal, a ValueError."""
-
-    code = "analysis_incompatible_units"
-
-    def __init__(self) -> None:
-        super().__init__(INCOMPATIBLE_UNITS_MESSAGE)
-
-
-def require_one_unit(points: list[dict]) -> None:
-    """Refuse a series unless every valued point names the same unit (``IncompatibleUnitsError``). A point with no
-    value is absent, never incompatible; a numeric zero is a value. A ratio series names ``pure`` throughout."""
-    units = {point.get("unit") for point in points if point.get("value") is not None}
-    if len(units) > 1 or not all(isinstance(unit, str) and unit.strip() for unit in units):
-        raise IncompatibleUnitsError()
-
-
 def dataset_point(row: Any, period: str, cik: str | None, documents: Mapping[str, str] | None = None) -> dict[str, Any]:
     provenance = provenance_for_fact(row, cik, documents)
     return {

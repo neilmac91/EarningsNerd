@@ -377,7 +377,7 @@ class TestStreamTrendNarrative:
         # no narrative is stored, and a narrative cached before the guard is not served.
         from app.database import SessionLocal
         from app.models import FinancialFact, TrendAnalysis
-        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE
+        from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE
 
         company_id = _seed_company_with_history()
         if cached:
@@ -746,7 +746,7 @@ class TestStreamRouteMetering:
         assert released == []
 
     def test_a_unit_refusal_never_meters_and_gives_the_lease_back(self, monkeypatch):
-        from app.services.trend_analysis.dataset_quality import INCOMPATIBLE_UNITS_MESSAGE
+        from app.services.trend_analysis.units import INCOMPATIBLE_UNITS_MESSAGE
 
         events = [{"type": "error", "message": INCOMPATIBLE_UNITS_MESSAGE}]
         client, metered, released = self._client(monkeypatch, events)
