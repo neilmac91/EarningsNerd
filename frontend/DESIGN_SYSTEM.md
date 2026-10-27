@@ -2386,15 +2386,15 @@ a line that says what the feed is and nothing the backend's query does not do; n
 registration readiness answers open (E220). The lines it holds (`heldAccessLines`: the checking line it opens on and
 the access mode's own) share one grid cell, the shown one visible and the rest `invisible` and `aria-hidden`, so the
 page under it holds still: as the checking line became the invite line, the page moved up 20px from 320 to 460px and
-40 to 120px under 200% text (120px at 320px). Where the checking line takes more rows than the mode's, the
-settled line sits over the rows it leaves, the same 20px, or 40 to 120px; chief design chose that over the shift on
-#1686. A space between the cells keeps the lines apart in the server HTML's text. A closed or unconfirmed answer
-joins the cell when shown and can still grow it: the closed line takes a row more than the checking line at some
-widths, and holding it would put a closed notice in every visit's server HTML. Gates:
-`tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's and a scrolled page's
-place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 640, 1440 and 2304px under 200% text) and
-`tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers, and the lines
-it holds).
+40 to 120px under 200% text (120px at 320px; measured in the site's Inter web font, as CI paints it). Where the
+checking line takes more rows than the mode's, the settled line sits over the rows it leaves, the same 20px, or 40
+to 120px; chief design chose that over the shift on #1686. A space between the cells keeps the lines apart in the
+server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it: the closed line
+takes a row more than the checking line at some widths, and holding it would put a closed notice in every visit's
+server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's
+and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 640, 1440 and 2304px
+under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
+answers, and the lines it holds).
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either

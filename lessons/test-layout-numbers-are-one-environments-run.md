@@ -31,10 +31,11 @@ of links to every rule but that one: `-apple-system` then matches DejaVu Sans, w
 text paints in the web font, as on CI.
 
 **Recurrence (2026-10-27, #1686)**: the landing hero's access line paints in the body stack, so in the sandbox it
-took the static Inter (`CSS.getPlatformFontsForNode`: `isCustomFont` false), and every figure chief design and the
-author measured for its held cost and for the closed line's bands was the alias's. With the alias left out, the
-web font moved the bands under 200% text, and the compact bar's 74px drop at 390px under 200% text disappeared
-(`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
+took the static Inter (`CSS.getPlatformFontsForNode`: `isCustomFont` false). Chief design's five widths for its held
+cost measure the same in CI's fonts, but the alias moved the widths where the cost reaches 80 and 120px under 200%
+text, and the closed line's bands there (chief design's, 960 to 992, 1136 to 1216 and 1984 to 2048px, are the
+sandbox's rows, not CI's). It also put a 74px drop in the compact bar at 390px under 200% text that CI's fonts do not
+show (`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
 
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
