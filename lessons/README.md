@@ -161,6 +161,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 - test-deselected-markers-need-ci-paths.md — Give every deselected pytest marker an explicit CI execution path
 - test-deterministic-guards-for-scorer-blind-spots.md — Add a dedicated deterministic guard for every error class invisible to existing scorers
 - test-e2e-runs-without-backend.md — CI Playwright runs against `next start` with NO backend — specs must tolerate a dead API
+- test-load-a-changed-e2e-spec-before-you-push-it.md — Load an e2e spec you changed before you push it (`npx playwright test --list <spec>`): the typecheck's CI config leaves the tests out, and lint passes a duplicate declaration that stops the whole spec from loading (gated after the push by CI's e2e job)
 - test-empty-truth-sets-score-perfect.md — An empty truth set scores 1.0, not 0 — guard the decision, not the scorer
 - test-eval-iteration-ergonomics.md — Exploit prompt-cache and pinned-accession ergonomics when iterating on evals
 - test-fixture-months-are-never-the-wall-clock-month.md — Seed fixture months that can never be the wall-clock month; pin the clock where cases depend on it
