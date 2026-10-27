@@ -4293,8 +4293,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
       ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
-      // A phrase of time with an agent's relative clause or its own: the clause's verb group comes after it, and what it
-      // nests is cut, as a noun's relative clause is (the routine lens on c6060a93), however far on that group stands.
+      // A phrase of time with an agent's relative clause or its own: what it nests is cut, as a noun's relative clause
+      // is, and the clause's verb group is the first after it (the routine lens on c6060a93). The reader takes a word
+      // after the phrase into it ("a second time today").
       ['<li>A refresh token presented a second time by a client you do not own signs everyone out.</li>', true],
       ['<li>A refresh token replayed a second time that you did not send signs everyone out.</li>', true],
       ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
