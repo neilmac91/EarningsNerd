@@ -52,7 +52,8 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
 /** The account action while readiness is checking, closed or unconfirmed: the live example. */
 const EXAMPLE_ACCOUNT = { cta: 'See a live example', ctaShort: 'Live example' } as const
 
-const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
+/** The access line while registration readiness checks, which the hero's line and the waitlist page's status hold. */
+export const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
 
 /** Registration policy does not imply collection readiness. Never use this display state as authorization. */
 export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {

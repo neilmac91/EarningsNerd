@@ -2407,6 +2407,22 @@ and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px a
 2304px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
 answers, and the lines it holds).
 
+**The waitlist page's status** (`WaitlistAccessStatus`, above the waitlist form) holds the same way (E222, chief
+design on #1686, comment 6433704320). The checking line and the counter's pill as it opens (`WaitlistPill` on
+`PILL_LABEL`) share one grid cell, the shown one visible and the other `invisible` and `aria-hidden`, and
+`items-center` keeps the shown one central where the other is taller. As the line became the pill, the form under it
+moved 2px up from 320 to 460px and 18px down from 470 to 1440px, and under 200% text 6 to 86px up, or 34px down from
+900 to 1000px and from 1760px (in CI's fonts, every 10px at the default size and every 20 to 40px under 200% text).
+The cell keeps the taller of the two: the pill sits in the line's room where the line is taller (2px, or 6 to 86px
+under 200% text), and the line, or a closed or unconfirmed one, in the pill's where the pill is (18px, or 34px). The
+held pill is static, so the counter's stats load only once readiness answers open. A closed or unconfirmed answer
+joins the cell when shown and can still grow it. A count of 25 or more lengthens the pill's label ("Join 1,234+ others
+on the waitlist"), which under 200% text wraps where "Join the waitlist" does not, so the cell still grows 34px as the
+count lands at the sampled widths 360, 480 to 560 and 1040 to 1160px (E225). Gates:
+`tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre as readiness answers open, at 390
+and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the
+cell through checking, open, closed and unconfirmed answers).
+
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
 ground, with `text-tertiary-dark` (`#9CA3AF`, 7.4:1 on navy) its dark twin (§2); copy the reader must

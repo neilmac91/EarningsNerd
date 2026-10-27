@@ -9,6 +9,7 @@ import PublicAccessLine from '@/features/marketing/components/PublicAccessLine'
 import ClosingLine from '@/features/marketing/components/ClosingLine'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
+import { PILL_LABEL } from '@/features/waitlist/components/WaitlistPill'
 import Header from '@/components/Header'
 import { ACCESS_COPY, accountLabels, accountShortLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
 
@@ -247,5 +248,47 @@ describe('the header and the hero keep their place as readiness lands (E220)', (
     fireEvent(window, new Event('focus'))
     await screen.findByRole('link', { name: publicAccessCopy(mode, ...closedAnswer).ctaShort })
     expect(cell(publicAccessCopy(mode, ...closedAnswer).ctaShort)).toEqual({ held: accountShortLabels(mode), read: [example], recorded: [example] })
+  })
+
+  it("keeps the waitlist page's status in one cell with the checking line and the counter's pill, the shown one alone read (E222)", async () => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <WaitlistAccessStatus />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    // Chief design on #1686 (comment 6433704320): the status above the waitlist form holds the checking line and the
+    // counter's pill in one cell, as the hero's access line holds its lines, so the form keeps its place as readiness
+    // answers open. The held pill is static: the counter's stats load only once readiness answers open. The shown
+    // item's place in the cell is the e2e case's to measure (legal-readiness.spec.ts).
+    const cell = () => {
+      const status = container.firstElementChild!
+      expect(status).toHaveClass('grid')
+      const items = [...status.children] as HTMLElement[]
+      for (const item of items) expect(item).toHaveClass('col-start-1', 'row-start-1')
+      for (const item of items) expect(item.classList.contains('invisible')).toBe(item.hasAttribute('aria-hidden'))
+      return {
+        held: items.filter((item) => item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+        read: items.filter((item) => !item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+      }
+    }
+    const checkingLine = publicAccessCopy('invite', ...checking).line
+    expect(cell()).toEqual({ held: [PILL_LABEL], read: [checkingLine] })
+    expect(mocks.stats).not.toHaveBeenCalled()
+    await act(async () => pending.resolve(legalReady))
+    await waitFor(() => expect(mocks.stats).toHaveBeenCalledTimes(1))
+    expect(cell()).toEqual({ held: [checkingLine], read: [PILL_LABEL] })
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...closedAnswer).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
+    mocks.read.mockRejectedValueOnce(new Error('offline'))
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...unconfirmed).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
   })
 })
