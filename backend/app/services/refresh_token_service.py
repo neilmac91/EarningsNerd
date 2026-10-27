@@ -3,8 +3,10 @@
 Refresh tokens are opaque random strings. Only their SHA-256 hash is stored, so the
 database never holds a usable credential. Every refresh rotates the token (the old one is
 revoked and points at its replacement); presenting a token that was already rotated away is
-treated as a reuse/theft signal and revokes the user's entire active chain. A token revoked any
-other way (logout, logout-all, a password change or reset, or that theft sweep) is simply refused.
+treated as a reuse/theft signal and revokes that token's chain: the live tokens its rotations lead to
+(E96; ``docs/audit/contracts/refresh-chain-migration.md``). The account's other sessions are left alone.
+A token revoked any other way (logout, logout-all, a password change or reset, or that theft sweep) is
+simply refused.
 
 Every rotation and revocation of a user's tokens (a refresh, logout, logout-all, the sweep, a password
 change or reset) first takes the account's users row lock and reads what it writes under it, so two of
@@ -21,7 +23,8 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
 from app.models import RefreshToken, User
@@ -71,6 +74,58 @@ def _read_again(db: Session, token: RefreshToken) -> Optional[RefreshToken]:
 
 def _hash_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _is_token_shaped(raw_token: Optional[str]) -> bool:
+    """Whether ``raw_token`` could be a token this module minted: ``secrets.token_urlsafe`` writes ASCII. Anything
+    else is refused as unknown before its hash, whose encode raised on a lone surrogate and answered 500 (E97's
+    review)."""
+    return bool(raw_token) and raw_token.isascii()
+
+
+def _live_descendants(db: Session, token: RefreshToken) -> list[int]:
+    """The ids of the live tokens ``token``'s rotations lead to: its chain from here on (E96).
+
+    One recursive query follows ``replaced_by_id`` forward from ``token``, and only through a link to a token of
+    the same user with a higher id (rotation mints the successor after the token it replaces), so a cross-user or
+    backward link, or a cycle, ends the walk instead of reaching another account's sessions. A link the walk does
+    not follow is logged with ids only. Revoked descendants are left as they are; live ones are returned whatever
+    their expiry, so a later clock or setting change cannot revive one. The caller holds the users row lock."""
+    chain = (
+        select(RefreshToken.id, RefreshToken.user_id, RefreshToken.replaced_by_id, RefreshToken.revoked_at)
+        .where(RefreshToken.id == token.id)
+        .cte("refresh_chain", recursive=True)
+    )
+    successor = aliased(RefreshToken)
+    chain = chain.union_all(
+        select(successor.id, successor.user_id, successor.replaced_by_id, successor.revoked_at)
+        .join(chain, successor.id == chain.c.replaced_by_id)
+        .where(successor.user_id == chain.c.user_id, successor.id > chain.c.id)
+    )
+    rows = db.execute(select(chain.c.id, chain.c.replaced_by_id, chain.c.revoked_at)).all()
+    reached = {row.id for row in rows}
+    unfollowed = [
+        row.id for row in rows
+        if row.replaced_by_id is not None and (row.replaced_by_id <= row.id or row.replaced_by_id not in reached)
+    ]
+    if unfollowed:
+        logger.warning(
+            "Refresh chain of user_id=%s has links the walk did not follow, from token id(s) %s",
+            token.user_id,
+            unfollowed,
+        )
+    return [row.id for row in rows if row.id != token.id and row.revoked_at is None]
+
+
+def _revoke(db: Session, token_ids: list[int], now: datetime) -> int:
+    """Revoke those of ``token_ids`` still live, at ``now``; returns how many."""
+    if not token_ids:
+        return 0
+    return (
+        db.query(RefreshToken)
+        .filter(RefreshToken.id.in_(token_ids), RefreshToken.revoked_at.is_(None))
+        .update({RefreshToken.revoked_at: now}, synchronize_session=False)
+    )
 
 
 def _hash_ip(ip: Optional[str]) -> Optional[str]:
@@ -124,6 +179,8 @@ def rotate_refresh_token(
     """
     if not raw_token:
         raise RefreshTokenError("Missing refresh token")
+    if not _is_token_shaped(raw_token):
+        raise RefreshTokenError("Unknown refresh token")
 
     token = (
         db.query(RefreshToken)
@@ -146,13 +203,13 @@ def rotate_refresh_token(
             # token grants nothing. Refusing it is enough; sweeping would only revoke the sessions
             # the user signed in to since.
             raise RefreshTokenError("Refresh token has been revoked")
-        # A rotated-away token is being replayed — the legitimate holder already rotated it, so
-        # this is a stolen/leaked copy. Revoke every active token for the user. The sweep is
-        # user-wide, so it also ends sessions minted after a later reset or logout-all
-        # (lessons/arch-only-a-rotated-refresh-token-signals-theft.md).
-        revoked = revoke_all_for_user(db, token.user_id)
+        # A rotated-away token is being replayed: two parties hold copies of it, and one of them holds the
+        # chain's live tip. Revoke that chain, the live tokens this token's rotations lead to, and nothing else:
+        # the account's other devices, and a session minted after a reset or logout-all, keep theirs (E96, no
+        # grace window; lessons/arch-only-a-rotated-refresh-token-signals-theft.md).
+        revoked = _revoke(db, _live_descendants(db, token), now)
         logger.warning(
-            "Refresh token reuse detected for user_id=%s; revoked %s active token(s)",
+            "Refresh token reuse detected for user_id=%s; revoked %s token(s) of its chain",
             token.user_id,
             revoked,
         )
@@ -180,10 +237,11 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]
     Idempotent and best-effort: unknown or already-revoked tokens return None. A token that refreshes
     rotated away revokes its chain's live tip instead, the session it belonged to: a refresh may have
     taken the lock first with the same cookie, or another tab may have rotated the chain on, and their
-    new cookie may reach the browser after the logout clears it. The caller is responsible for
+    new cookie may reach the browser after the logout clears it. The walk is the replay sweep's
+    (``_live_descendants``), so the two agree on what a chain is. The caller is responsible for
     committing the session.
     """
-    if not raw_token:
+    if not _is_token_shaped(raw_token):
         return None
     token = (
         db.query(RefreshToken)
@@ -194,13 +252,11 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]
         return None
     lock_user_tokens(db, token.user_id)
     token = _read_again(db, token)  # as a rotation does
-    # Each link points at a newer token (only a rotation writes it, to the successor it mints), so the
-    # walk ends, at the chain's live tip or at a token revoked some other way.
-    while token is not None and token.revoked_at is not None and token.replaced_by_id is not None:
-        token = db.get(RefreshToken, token.replaced_by_id)
-    if token is None or token.revoked_at is not None:
+    if token is None:
         return None
-    token.revoked_at = datetime.utcnow()
+    now = datetime.utcnow()
+    if not _revoke(db, [token.id] if token.revoked_at is None else _live_descendants(db, token), now):
+        return None
     return token.user_id
 
 

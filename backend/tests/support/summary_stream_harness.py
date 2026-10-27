@@ -114,7 +114,7 @@ def reset_rate_limiters():
 
     for name in (
         "LOGIN_LIMITER", "REGISTER_LIMITER", "RESET_REQUEST_LIMITER",
-        "RESEND_VERIFY_LIMITER", "RESET_RESEND_IP_LIMITER",
+        "RESEND_VERIFY_LIMITER", "RESET_RESEND_IP_LIMITER", "REFRESH_LIMITER",
     ):
         limiter = getattr(auth_module, name, None)
         if limiter is not None and hasattr(limiter, "_hits"):

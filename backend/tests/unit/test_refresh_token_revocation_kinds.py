@@ -14,10 +14,18 @@ Each case runs over HTTP with two clients, so the two devices keep separate cook
 signed-out device's refresh is refused with a 401 that revokes nothing, and the other device's new
 session still refreshes. A logout that presents a token rotated away follows the rotation links to its
 chain's live tip and revokes that alone; it is no theft signal either. Replaying a rotated-away token still takes the theft path; that half is
-gated by ``test_refresh_replay.py`` and ``test_auth_token_flows.py``. The last test pins that it
-still does after a reset, which is the residual the lesson records: the sweep is user-wide, so it
-also ends the new login.
+gated by ``test_refresh_replay.py`` and ``test_auth_token_flows.py``.
+
+Since E96 the theft path revokes the replayed token's chain alone: the live tokens its rotations lead to, followed
+only through links to the same user's newer tokens (``refresh_token_service._live_descendants``). A replay on one
+device ends that device's chain and leaves the account's other devices signed in, and a copy rotated away before a
+reset no longer ends the login made after it. A link the walk must not follow (to another user, to an older token,
+to itself or to no row) refuses the replay and revokes nothing past it. The refresh route also takes a per-IP limit
+before any database work, above a burst of tabs, keyed by the trusted client address, and refuses a refresh token
+no minting could produce (a lone surrogate) as an unknown one instead of answering 500.
 """
+import json
+import logging
 import uuid
 from datetime import timezone
 from types import SimpleNamespace
@@ -36,6 +44,8 @@ from main import app
 from app.config import settings
 from app.database import SessionLocal
 from app.models import RefreshToken, User
+from app.routers import auth as auth_module
+from app.services import refresh_token_service
 from tests.support.summary_stream_harness import reset_rate_limiters
 
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -227,14 +237,14 @@ def test_a_logout_whose_cookie_rotations_moved_past_signs_out_only_its_chains_li
 
 
 @pytest.mark.requires_db
-def test_a_copy_rotated_away_before_a_reset_still_takes_the_user_wide_sweep(
+def test_a_copy_rotated_away_before_a_reset_no_longer_ends_the_login_made_after_it(
     laptop, phone, mail, postgres_shaped_reset_expiry
 ):
-    """The residual the lesson records. A thief copies the phone's token and never uses it; the
-    phone's own silent refresh then rotates it away. After a reset and a new login, replaying the
-    copy is still detected as theft, and the sweep is user-wide, so it ends the new login too.
-    Scoping the sweep to the replayed token's own chain (deferred) would flip the last two
-    assertions."""
+    """The residual the lesson recorded, closed by E96. A thief copies the phone's token and never uses it; the
+    phone's own silent refresh then rotates it away. After a reset and a new login, replaying the copy is still
+    detected as theft and refused, but the sweep now ends the copy's own chain, which the reset already ended, so
+    the new login survives. Before E96 the sweep was user-wide and these last two assertions read 0 and 401 (the
+    accepted replay-scope change, Neil 2026-10-25)."""
     email, user_id = _register(laptop)
     stolen = _login(phone, email)
     assert phone.post("/api/auth/refresh").status_code == 200  # the owner rotates the copy away
@@ -247,5 +257,121 @@ def test_a_copy_rotated_away_before_a_reset_still_takes_the_user_wide_sweep(
     phone.cookies.clear()
     replay = phone.post("/api/auth/refresh", json={"refresh_token": stolen})
     assert replay.status_code == 401 and replay.json() == REFUSED, replay.text
-    assert _live_tokens(user_id) == 0
-    assert laptop.post("/api/auth/refresh").status_code == 401
+    assert _live_tokens(user_id) == 1
+    assert laptop.post("/api/auth/refresh").status_code == 200
+
+
+# ── a replay ends its own chain (E96) ─────────────────────────────────────────────────────────────────────────
+
+@pytest.mark.requires_db
+def test_a_replay_on_one_device_ends_that_devices_chain_and_leaves_the_other_signed_in(laptop, phone, mail):
+    """Two chains of one account: the phone's and the laptop's. A copy of the laptop's token, replayed after the
+    laptop rotated it away, is refused and ends the laptop's chain, its live tip included; the phone's session is
+    another chain and still refreshes. Before E96 the sweep revoked every token of the account."""
+    email, user_id = _register(laptop)
+    _login(phone, email)
+    stolen = _login(laptop, email)
+    assert laptop.post("/api/auth/refresh").status_code == 200  # the laptop rotates its copy away
+    tip = laptop.cookies.get(settings.REFRESH_COOKIE_NAME)
+    assert _live_tokens(user_id) == 2
+
+    laptop.cookies.clear()
+    replay = laptop.post("/api/auth/refresh", json={"refresh_token": stolen})
+    assert replay.status_code == 401 and replay.json() == REFUSED, replay.text
+    assert _live_tokens(user_id) == 1  # the phone's
+
+    laptop.cookies.set(settings.REFRESH_COOKIE_NAME, tip)
+    assert laptop.post("/api/auth/refresh").status_code == 401  # the laptop's tip went with its chain
+    assert phone.post("/api/auth/refresh").status_code == 200
+
+
+def _chain_user() -> User:
+    with SessionLocal() as db:
+        user = User(email=f"chain_{uuid.uuid4().hex[:12]}@example.com", is_active=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        db.expunge(user)
+        return user
+
+
+def _minted(user: User) -> tuple[int, str]:
+    with SessionLocal() as db:
+        token, raw = refresh_token_service.create_refresh_token(db, db.get(User, user.id))
+        db.commit()
+        return token.id, raw
+
+
+def _link(token_id: int, replaced_by_id: int) -> None:
+    """Write a link no rotation writes: the forms the walk must refuse to follow."""
+    with SessionLocal() as db:
+        token = db.get(RefreshToken, token_id)
+        token.revoked_at, token.replaced_by_id = token.created_at.replace(tzinfo=None), replaced_by_id
+        db.commit()
+
+
+def _live(token_id: int) -> bool:
+    with SessionLocal() as db:
+        return db.get(RefreshToken, token_id).revoked_at is None
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize("form", ["to-another-user", "to-an-older-token", "to-itself", "to-no-row"])
+def test_a_replay_over_a_link_no_rotation_writes_revokes_nothing_past_it(form, caplog):
+    # Each form is decided by one guard alone (lessons/test-pin-each-guard-where-it-alone-decides.md): the other
+    # user's token is newer than the replayed one, so only the same-user guard refuses that link, and the older token
+    # is the owner's, so only the increasing-id guard refuses that one.
+    owner, other = _chain_user(), _chain_user()
+    older_id, _ = _minted(owner)
+    replayed_id, raw = _minted(owner)
+    others_id, _ = _minted(other)
+    target = {"to-another-user": others_id, "to-an-older-token": older_id, "to-itself": replayed_id,
+              "to-no-row": replayed_id + 10_000}[form]
+    _link(replayed_id, target)
+
+    with caplog.at_level(logging.WARNING, logger="app.services.refresh_token_service"):
+        with SessionLocal() as db, pytest.raises(refresh_token_service.RefreshTokenReuseError):
+            refresh_token_service.rotate_and_commit(db, raw)
+        with SessionLocal() as db:
+            assert refresh_token_service.revoke_and_commit(db, raw) is None  # a logout's walk is the same walk
+    assert _live(older_id) and _live(others_id)
+    unfollowed = [r.getMessage() for r in caplog.records if "did not follow" in r.getMessage()]
+    assert unfollowed and all(str(replayed_id) in line and raw not in line for line in unfollowed), unfollowed
+
+
+@pytest.mark.requires_db
+def test_a_refresh_token_no_minting_could_produce_is_refused_as_unknown(laptop):
+    """Tokens are URL-safe ASCII; one holding a lone surrogate answered 500 where it was hashed (E97's review)."""
+    body = json.dumps({"refresh_token": "tok\ud800"})  # json.dumps escapes it, as a client sends it
+    resp = laptop.post("/api/auth/refresh", content=body, headers={"content-type": "application/json"})
+    assert resp.status_code == 401 and resp.json() == REFUSED, resp.text
+
+
+# ── the refresh route's per-IP limit (E96) ───────────────────────────────────────────────────────────────────
+
+def _refresh_from(client: TestClient, forwarded_for: Optional[str] = None):
+    headers = {"x-forwarded-for": forwarded_for} if forwarded_for else {}
+    return client.post("/api/auth/refresh", headers=headers)
+
+
+def test_a_burst_of_tabs_passes_and_a_loop_is_limited(laptop):
+    limit = auth_module.REFRESH_LIMITER.limit
+    burst = [_refresh_from(laptop).status_code for _ in range(20)]  # twenty tabs waking at once
+    assert set(burst) == {401}, burst  # refused as signed out (no cookie), never limited
+    for _ in range(limit - 20):
+        assert _refresh_from(laptop).status_code == 401
+    limited = _refresh_from(laptop)
+    assert limited.status_code == 429, limited.text
+    assert int(limited.headers["retry-after"]) > 0
+    assert limited.json() == {"detail": "Too many session refreshes. Try again in a minute."}
+
+
+def test_a_forged_forwarded_for_shares_the_real_clients_bucket(laptop, monkeypatch):
+    # Cloud Run's front end appends the address it saw as the last entry; with one trusted hop (the deployed value)
+    # that entry is the key, so a client rewriting the entries before it stays in its own bucket.
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    limit = auth_module.REFRESH_LIMITER.limit
+    for n in range(limit):
+        assert _refresh_from(laptop, f"198.51.100.{n % 250}, 203.0.113.7").status_code == 401
+    assert _refresh_from(laptop, "192.0.2.1, 203.0.113.7").status_code == 429
+    assert _refresh_from(laptop, "203.0.113.8").status_code == 401  # another real client has a bucket of its own
