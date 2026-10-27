@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, SkeletonText, buttonVariants } from '@/components/ui'
+import { CheckIcon } from '@/lib/icons'
 import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
@@ -150,9 +151,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
               }`}
             >
               {status === 'complete' ? (
-                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
+                <CheckIcon weight="bold" className="h-3 w-3" aria-hidden="true" />
               ) : status === 'active' ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
               ) : null}

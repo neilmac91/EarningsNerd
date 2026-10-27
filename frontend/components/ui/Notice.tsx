@@ -34,6 +34,7 @@
 ============================================================================= */
 
 import { type ReactNode } from 'react'
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@/lib/icons'
 import { cx } from './cx'
 
 export type NoticeVariant = 'error' | 'info' | 'success'
@@ -61,32 +62,17 @@ const ICON: Record<NoticeVariant, string> = {
   success: 'text-success-light dark:text-success-dark',
 }
 
-/** Outline glyphs matched to Phosphor regular weight (same set as GuidanceCard). */
+/** The variant's glyph, Phosphor's from lib/icons at regular weight, as every glyph in the app is (DESIGN.md ›
+    Icons): the warning circle, the info circle or the check circle, 18px in the variant's ink (ICON). */
+const GLYPH: Record<NoticeVariant, typeof InfoIcon> = {
+  error: WarningCircleIcon,
+  info: InfoIcon,
+  success: CheckCircleIcon,
+}
+
 function DefaultIcon({ variant }: { variant: NoticeVariant }) {
-  if (variant === 'error') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M12 7.5v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        <circle cx="12" cy="16.4" r="1" fill="currentColor" />
-      </svg>
-    )
-  }
-  if (variant === 'success') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-        <path d="m8.2 12.3 2.6 2.6 5-5.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M12 11v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="12" cy="7.6" r="1" fill="currentColor" />
-    </svg>
-  )
+  const Glyph = GLYPH[variant]
+  return <Glyph className="h-[18px] w-[18px]" aria-hidden="true" />
 }
 
 export interface NoticeProps {

@@ -14,6 +14,7 @@
 ============================================================================= */
 
 import { useId, type ReactNode, type Ref } from 'react'
+import { MagnifyingGlassIcon, WarningCircleIcon } from '@/lib/icons'
 import { cx } from './cx'
 
 export type GuidanceCardVariant = 'empty' | 'error'
@@ -53,19 +54,11 @@ const ICON_WRAP: Record<GuidanceCardVariant, string> = {
   ),
 }
 
+/** The variant's glyph, Phosphor's from lib/icons at regular weight (DESIGN.md › Icons), as Notice's are: the
+    magnifier for an empty state, the warning circle for an error, 20px in the tile's ink (ICON_WRAP). */
 function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
-  return variant === 'error' ? (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M12 7.5v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="12" cy="16.4" r="1" fill="currentColor" />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.7" />
-      <path d="m15.8 15.8 3.7 3.7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    </svg>
-  )
+  const Glyph = variant === 'error' ? WarningCircleIcon : MagnifyingGlassIcon
+  return <Glyph className="h-5 w-5" aria-hidden="true" />
 }
 
 export function GuidanceCard({
