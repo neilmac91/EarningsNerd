@@ -514,7 +514,7 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   `formatCompanyName.spec.ts` both run, the Python test also holding the two modules' word lists equal.
 - **Mail** (`email_service.py`, `app/routers/contact.py`): footers read "EarningsNerd · AI summaries
   of SEC filings"; the waitlist subjects lose their exclamation marks and emoji; the verification
-  mail ends "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
+  mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
   said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
   "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
   can check it."), where it said "so you don't have to read the whole filing".

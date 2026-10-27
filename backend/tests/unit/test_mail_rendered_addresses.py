@@ -1635,9 +1635,11 @@ def test_each_mail_lists_by_its_own_line(rendered):
 
 
 # The verification mail asks for what verifying gates, as the site's banner does (E46): checkout refuses an unverified
-# address (routers/subscriptions.py) and nothing else a reader does waits on it, so the mail names subscribing to Pro
-# and promises no reading, where it said "Verify your email address and you can start reading." The banner's line is
-# read from its source, so a change to either sentence is a change here.
+# address (routers/subscriptions.py), and a Google or Apple login links to an existing account only once its address
+# is verified (services/oauth_account_service.py); reading waits on neither. So the mail names subscribing to Pro and
+# promises no reading, where it said "Verify your email address and you can start reading." The banner's line is
+# read from its source, so a change to either sentence is a change here. This holds the two to one ask; whether
+# that ask should follow checkout's state while new checkout is closed is F56's question.
 VERIFICATION_BANNER = REPO / "frontend" / "features" / "auth" / "components" / "VerificationBanner.tsx"
 VERIFY_ASK = "Verify your email address to subscribe to Pro."
 _PROMISES_READING = re.compile(r"start reading|\bunlock|\bread (?:the|your|any|every) (?:filing|summar)", re.IGNORECASE)
