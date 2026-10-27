@@ -371,8 +371,8 @@ import {
  *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
  *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
  *    without the relative clauses, participles and asides on its subject (but for a phrase of time and a verb group the
- *    reader reads as a relative clause on a participle it lacks, the clause's own: participleAt, since stage 4c), so a
- *    negation outside a clause or nested in
+ *    reader reads as a relative clause on a participle in -ed it lacks after a noun, the clause's own: participleAt,
+ *    since stage 4c), so a negation outside a clause or nested in
  *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
  *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
  *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
@@ -2053,24 +2053,31 @@ const deniable = (re: RegExp) => new RegExp(String.raw`${AFFIRMED}(?![\w'’-]+$
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
-/** The units of time a passive participle takes after it in place of an object ("presented a second time", "replayed
-    the next day", "reused an hour later"), and the words the reader takes for the head of such a phrase after one. */
-const UNIT_OF_TIME = /^(?:times?|seconds?|minutes?|hours?|days?|nights?|weeks?|weekends?|months?|years?|mornings?|evenings?|afternoons?|moments?)$/i
+/** The units of time a passive participle takes after it in place of an object, one occasion each ("presented a second
+    time", "replayed the next day", "reused an hour later"), and the words the reader takes for the head of such a phrase
+    after one. A plural unit after "the" is a noun of its own ("the minutes", "the hours", "the Times": the routine lens
+    on 767a60d1). */
+const UNIT_OF_TIME = /^(?:time|second|minute|hour|day|night|week|weekend|month|year|morning|evening|afternoon|moment)$/i
 const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
-/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): the reader reads a phrase of time
-    after it, with a verb group, as a relative clause on it ("A refresh token presented a second time does not by
-    itself sign you out of every device." reads "a second time does not by itself" as one). A passive participle takes
-    no object, and no relative clause's subject is a phrase of time: one headed by a unit of time, or by "later",
-    "earlier" or "ago" after one ("an hour later"). A noun's own relative clause keeps its reading, its subject a time
-    word only modifies too ("a feed you do not own", "a device the night shift does not own", "a device a second user
-    does not own": Codex and the routine lens on e03913eb and 78fcbd93). Such a span runs to its first verb group,
-    which is its clause's own: where that group starts, or null where no phrase of time opens the phrase's first
-    postmodifier. */
+/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
+    the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
+    with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
+    out of every device." reads "a second time does not by itself" as one). A passive participle takes no object, so
+    what follows it there is a phrase of time: one headed by a unit of time, or by "later", "earlier" or "ago" after one
+    ("an hour later"). A noun's own relative clause keeps its reading: on a noun not in -ed ("a hotel booking the
+    weekend does not cover"), on one right after its determiner ("a feed the weekend does not cover"), or with a subject
+    that is no phrase of time, a time word only modifying it or a plural unit heading it ("a feed you do not own", "a
+    device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on
+    e03913eb, 78fcbd93 and 767a60d1). Such a span runs to its first verb group, which is its clause's own: where that
+    group starts, or null. Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
+    "one", with a relative clause whose subject is a phrase of time, reads as a participle ("a news feed the weekend
+    does not cover", "one feed the weekend does not cover"), and a participle right after a determiner keeps the
+    misreading, as on main ("Those presented a second time do not by themselves ..."). */
 const participleAt = (tokens: Token[], phrase: NounPhrase): number | null => {
   const first = phrase.postmodifiers[0]
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
-  if (!first || !unit || !UNIT_OF_TIME.test(unit.text)) return null
+  if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !unit || !UNIT_OF_TIME.test(unit.text)) return null
   for (let k = first.start; k < first.end; k++) if (startsVerbGroup(tokens, k)) return k
   return null
 }
@@ -4284,14 +4291,22 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
       ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
-      // A noun's own relative clause, in -ed or not, keeps its reading, its subject no phrase of time, though a time word
-      // may modify it (Codex and the routine lens on e03913eb and 78fcbd93).
+      // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
+      // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
+      // routine lens on e03913eb, 78fcbd93 and 767a60d1).
       ['<li>Changing the password on a feed you do not own ends every session.</li>', true],
       ['<li>Logging out of a feed you do not share with anyone ends every session.</li>', true],
       ['<li>Logging out of a feed the account does not own ends every session.</li>', true],
       ['<li>Logging out of a device the night shift does not own ends every session.</li>', true],
       ['<li>Logging out of a device a second user does not own ends every session.</li>', true],
       ['<li>Logging out of an app the launch did not include ends every session.</li>', true],
+      ['<li>Logging out of a meeting the minutes do not record ends every session.</li>', true],
+      ['<li>Logging out of a story the Times did not run ends every session.</li>', true],
+      ['<li>Logging out of a feed the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a hotel booking the weekend does not cover ends every session.</li>', true],
+      ['<li>Logging out of a news feed the night shift does not monitor ends every session.</li>', true],
+      ['<li>Logging out of a news feed the launch did not include ends every session.</li>', true],
+      ['<li>Logging out of a news feed the minutes do not mention ends every session.</li>', true],
       // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
       // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
@@ -4300,6 +4315,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
       ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
+      // And a noun in -ed after a word the reader reads as a premodifier, another noun or "one", with a relative clause
+      // whose subject is a phrase of time, reads as a participle (participleAt).
+      ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', 'gap'],
+      ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
