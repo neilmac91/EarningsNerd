@@ -2396,6 +2396,10 @@ function literals(rel: string): string[] {
 /** A case that parses every module under the scan directories: the default 5s times out on a loaded machine. */
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
+/** A case that reads every planted form of the reuse and session-end families through the clause reader: 3.5s alone
+    since E162 stage 4c (#1688, 385 rows), and the default 5s timed out in a full local run on a loaded machine. */
+const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
+
 const copyModules = () =>
   execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRONTEND, encoding: 'utf8' })
     .split('\n')
@@ -3903,7 +3907,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(sentence, 'the PostHog line scopes the consent to the browser').toBeDefined()
   })
 
-  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', () => {
+  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', READS_EVERY_PLANTED_FORM, () => {
     const { container, unmount } = render(<SecurityPage />)
     const blocks = blockTexts(container)
     unmount()

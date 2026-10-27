@@ -302,6 +302,54 @@ test.describe('Public collection readiness', () => {
     })
   }
 
+  // The status above the waitlist form holds the checking line and the counter's pill in one cell (E222, chief design on
+  // #1686, comment 6433704320), so the form keeps its place as readiness answers open. As the line became the pill, in
+  // CI's fonts, the form moved 2px up at 390px and 18px down at 1440px, and under 200% text 86px up at 320px, 46px up at
+  // 390px, 6px up at 640 and 1440px and 34px down at 960 and 1800px. The shown line sits central in the cell the pill
+  // sets. Light only: the theme changes no layout here.
+  for (const { width, textSize } of [
+    { width: 390, textSize: 16 }, { width: 1440, textSize: 16 },
+    { width: 320, textSize: 32 }, { width: 390, textSize: 32 }, { width: 640, textSize: 32 },
+    { width: 960, textSize: 32 }, { width: 1440, textSize: 32 }, { width: 1800, textSize: 32 },
+  ]) {
+    test(`the waitlist keeps its form in place while opening at ${width}px and ${textSize}px text`, async ({ page, baseURL }) => {
+      const state = await harness(page, baseURL!)
+      await page.setViewportSize({ width, height: 900 })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: textSize, fixed: textSize === 32 ? 26 : 13 } })
+      const pending = deferred<Answer>()
+      state.respond = () => pending.promise
+      await page.goto('/waitlist')
+      await expect(page.getByRole('status', { name: 'Checking waitlist availability' })).toBeVisible()
+      // The auth check answers at once: its guest link is in the bar before the first read, so the reads see readiness.
+      await expect(page.getByRole('banner').getByRole('link', { name: /^(Live example|See a live example)$/ })).toHaveCount(1)
+      await page.evaluate(() => document.fonts.ready)
+      const form = page.locator('#waitlist')
+      const status = form.locator('xpath=preceding-sibling::div[1]')
+      const centred = () => status.evaluate((cell) => {
+        const shown = cell.querySelector(':scope > div > :not([aria-hidden])')!
+        const range = document.createRange()
+        range.selectNodeContents(shown)
+        const text = range.getBoundingClientRect()
+        const box = cell.firstElementChild!.getBoundingClientRect()
+        return Math.abs(text.y + text.height / 2 - (box.y + box.height / 2))
+      })
+      const before = await form.boundingBox()
+      expect(await centred(), 'the checking line sits central in its cell').toBeLessThanOrEqual(1)
+      pending.resolve(answer(READY))
+      await expect(page.getByLabel('Email address', { exact: true })).toBeVisible()
+      await expect(status.getByText('Join the waitlist', { exact: true })).toBeVisible()
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+      const after = await form.boundingBox()
+      expect(Math.abs(after!.y - before!.y), `the form at ${before!.y}px while readiness checked and ${after!.y}px once it answered open`).toBeLessThanOrEqual(1)
+      expect(await centred(), "the counter's pill sits central in its cell").toBeLessThanOrEqual(1)
+      expect(await page.evaluate(() => window.scrollY)).toBe(0)
+      expect(state.mutations).toEqual([])
+      await cdp.detach()
+    })
+  }
+
   for (const surface of surfaces) {
     for (const [name, response] of [
       ['readiness error', UNAVAILABLE],

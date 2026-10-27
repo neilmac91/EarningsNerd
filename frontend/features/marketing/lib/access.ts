@@ -52,7 +52,8 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
 /** The account action while readiness is checking, closed or unconfirmed: the live example. */
 const EXAMPLE_ACCOUNT = { cta: 'See a live example', ctaShort: 'Live example' } as const
 
-const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
+/** The access line while registration readiness checks, which the hero's line and the waitlist page's status hold. */
+export const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
 
 /** Registration policy does not imply collection readiness. Never use this display state as authorization. */
 export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {
@@ -72,6 +73,12 @@ export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | n
  *  or once it answers closed or unconfirmed. The header's hidden copy holds them all, so the nav keeps its place as
  *  readiness lands (E220). */
 export const accountLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].cta, EXAMPLE_ACCOUNT.cta]
+
+/** Every label the compact bar's account link can print in `mode` (`ctaShort`): the mode's own, and the live example's
+ *  while readiness checks or once it answers closed or unconfirmed. The link holds them in one cell, so the bar keeps
+ *  its height as readiness lands: under 200% text at 370 and 450px, "Live example" took one line and "Request invite"
+ *  two, and the bar grew 14px (E223; chief design on #1686, comment 6436319684). */
+export const accountShortLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].ctaShort, EXAMPLE_ACCOUNT.ctaShort]
 
 /** The access lines the hero's line keeps the height of: the checking line it opens on and the mode's own, so the page
  *  under it holds still as readiness answers open. A closed or unconfirmed answer joins the cell when shown and can

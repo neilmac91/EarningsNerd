@@ -58,7 +58,8 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
       broken net cash as fact, and no probe-detected mislabel reaches a reader. Its p50 was 10.9 s and its p90
       12.1 s pooled, at $0.0066–0.0067 an analysis, against the version-1 procedure's 12.8 s, 17.8 s and $0.0071.
       By run, its p50 was 10.54 and 10.9 s, just over the plan's 10.5 s target in both. It wrote as many cause
-      sentences as the frozen prompt; no judge read it. Peak hours are not measured yet.
+      sentences as the frozen prompt; no judge read it. In DeepSeek's peak hours, one run on 27 October, its p50
+      was 11.1 s and its p90 12.1 s, at twice the price.
     - **The candidate prompt fixed calibration but cost depth.** It brought judgement share, evaluative words and
       watch forecasts within their targets, and the judge preferred it to the frozen prompt overall, 10 pairs
       to 5. It also wrote fewer cause sentences than the frozen prompt in every run, 1.0 fewer per analysis on
@@ -83,7 +84,6 @@ grounding rule waits for approval (`GROUNDING-RULE.md`).
     - No judge compared the candidate or P with Sonnet.
 - **Still open:**
   - the founder's decision on the grounding rule, on the proposed build and on the candidate prompt (§10);
-  - the peak-hour latency run (`eval-v2-peak`), scheduled for 2026-10-27 06:05 UTC, not yet run;
   - the next DeepSeek fixes (`DEEPSEEK-ERRORS.md` §5.10);
   - the blind human pack (§9c), which is built but not yet rated, and holds no DeepSeek analysis yet;
   - the long-term-debt mapping breaks in 6 of 20 packs, which probably also affect production's metrics
@@ -638,8 +638,9 @@ Gate figures here use the current gate.
      - Mislabelled numbers in the final text stayed about where the control's are. Read by hand, P had 7 in 1,364
        verified claims (5.1 per 1,000) and the candidate 5 in 1,405 (3.6), against the control's 3 in 735 (4.1).
        Each figure rests on a handful of sentences.
-     - p90 fell to 11.4–12.8 s, from the control's 17.8 s, and the cost to $0.0065–0.0067. Peak hours are not
-       measured yet.
+     - p90 fell to 11.4–12.8 s, from the control's 17.8 s, and the cost to $0.0065–0.0067.
+   - **At peak hours,** one held-out run each on 27 October: p90 12.1 s for P and 13.3 s for the candidate, at twice
+     the price (`DEEPSEEK-ERRORS.md` §5.7).
    - **Next:** deterministic checks in place of the prompt lines the model ignored, first "above or below a
      reference level". Then the calibration round, the bank profile, period slips and net-debt signs.
    - **Evidence and plan:** `DEEPSEEK-ERRORS.md`, §5 for the results.
@@ -651,14 +652,15 @@ Gate figures here use the current gate.
    - the XOM CIK.
 6. **Before switching on:**
    - your approval of the grounding rule (item 3), and your decision on the candidate prompt (item 2);
-   - the peak-hour latency run (`eval-v2-peak`), now for P and the candidate, scheduled for 2026-10-27 06:05 UTC
-     and not yet run, against p50 10.5 s and p90 13 s;
-   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 442 recorded calls waited out a 600 s
+   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 471 recorded calls waited out a 600 s
      client timeout (`DEEPSEEK-ERRORS.md` §5.7);
    - run the human pack (§9c), rebuilt on the adopted build's outputs.
 
    The held-out measurements are done: two runs each of the candidate, the frozen prompt and P, with nothing
-   changed after the results were seen (`DEEPSEEK-ERRORS.md` §5.2).
+   changed after the results were seen (`DEEPSEEK-ERRORS.md` §5.2). So is the peak-hour latency run
+   (`eval-v2-peak`, 27 October, one run each): P's p50 11.1 s and p90 12.1 s, the candidate's 10.9 s and 13.3 s,
+   against 10.5 s and 13 s. P stayed as off-peak, p50 over and p90 under; the candidate's p90 went just over 13 s,
+   which it met off-peak (`DEEPSEEK-ERRORS.md` §5.7).
 
    The Claude API run (`eval-v2-api`) and the Gemini arm were set aside with the decision. The harness keeps
    both paths.
