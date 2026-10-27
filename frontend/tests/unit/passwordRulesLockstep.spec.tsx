@@ -1344,10 +1344,14 @@ describe('the password rule moves in lockstep with the backend', () => {
     expect(PASSWORD_MIN_LENGTH).toBe(Number(match[1]))
   })
 
-  it('the validator checks length only, so PASSWORD_RULE states the whole rule', () => {
+  it('the validator checks length only, besides valid text, so PASSWORD_RULE states the whole rule', () => {
     const body = pythonBody(backend('app/services/password_utils.py'), /^def validate_password_strength\b/)
     if (!body) throw new Error('validate_password_strength not found in backend/app/services/password_utils.py')
+    // The first check refuses a lone surrogate (E97), which no keyboard types and so no rule a person reads needs to
+    // state: it encodes to no UTF-8, and the breach check and bcrypt raised on it.
     expect(body, 'a new password rule on the server: state it in PASSWORD_RULE, then update this list').toEqual([
+      'if not is_valid_unicode(value):',
+      'raise ValueError("Password contains a character that is not valid text.")',
       'if len(value) < settings.PASSWORD_MIN_LENGTH:',
       'raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")',
       'if len(value) > PASSWORD_MAX_LENGTH:',

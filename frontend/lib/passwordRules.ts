@@ -17,7 +17,8 @@
  * Not mirrored: the server's ceiling (password_utils.PASSWORD_MAX_LENGTH, 128 characters, far past
  * any passphrase a person types) and its unit (Python counts code points; the browser's `minLength`
  * and `.length` count UTF-16 units, so a password of astral characters such as emoji can clear the
- * field and still be refused). Either way the server refuses with a 422 whose `detail` is a list, and
+ * field and still be refused), nor its refusal of a password that is not valid text (a lone surrogate, which no
+ * keyboard types). Either way the server refuses with a 422 whose `detail` is a list, and
  * how that reads on the form is the API client's (`lib/api/client.ts`), not this module's.
  */
 export const PASSWORD_MIN_LENGTH = 12
