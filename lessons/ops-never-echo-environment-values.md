@@ -1,6 +1,6 @@
 # Never let a settings error, an output or Sentry carry a secret
 
-Date: 2026-10-11 (follow-ups 2026-10-12, #1281; value scrubber 2026-10-13, todo E19; task processes 2026-10-25, F50) · Area: ops / secrets
+Date: 2026-10-11 (follow-ups 2026-10-12, #1281; value scrubber 2026-10-13, todo E19; task processes 2026-10-25, F50; Stripe's messages 2026-10-28, E18) · Area: ops / secrets
 
 **Context.** On two consecutive days a review agent imported `app.config` outside the test harness to
 probe a detail, and environment values reached its own tool output (CODE RED records 22 and 23). The
@@ -354,7 +354,9 @@ list included) and the str of a log's body that is not text only after `before_s
   meet four Stripe failures whose message quotes a masked key's last four characters and a customer's id (an invalid
   key, a missing customer, no answer, and a request id of another shape). Each answers its route's fixed 400 detail,
   its one log line is exactly the call, the error's class and Stripe's request id (`unknown` when there is none or it
-  has another shape), and the planted text reaches neither the JSON, a log record nor the process's output.
+  has another shape), and the planted text reaches neither the JSON nor any captured log record, read whole: its
+  message, arguments, extra fields and exception, as the production formatters and Sentry's logging integration read
+  it (`caplog.text` renders the message alone).
 
 The agent clause is not machine-gated and stays session reading.
 

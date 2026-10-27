@@ -47,7 +47,7 @@ from app.services import legal_readiness_service
 from main import app
 
 PERIOD_END = datetime(2030, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
-CHECKOUT_FAILED = "Checkout could not start. Try again in a moment."
+CHECKOUT_FAILED = "Nothing was charged. Try again in a moment."
 PORTAL_FAILED = "The billing portal could not open. Try again in a moment."
 
 
@@ -230,10 +230,12 @@ _STRIPE_FAILURES = [
 @pytest.mark.parametrize("route", ["checkout", "portal"])
 @pytest.mark.parametrize("error,error_class,request_id", _STRIPE_FAILURES)
 def test_a_stripe_failure_answers_a_fixed_detail_and_logs_its_class_and_request_id_alone(
-        client, monkeypatch, caplog, capfd, route, error, error_class, request_id):
+        client, monkeypatch, caplog, route, error, error_class, request_id):
     """Stripe's message can quote the key's last four characters or name a customer: the route answers its
     fixed 400 detail, and its one log line names the call, the error's class and Stripe's request id, no
-    account, customer or provider text (E18)."""
+    account, customer or provider text (E18). Each record is read whole (its message, arguments, extra
+    fields and exception), as the production formatters and Sentry's logging integration read it, since
+    ``caplog.text`` renders the message alone."""
     email = _new_user(stripe_customer_id="cus_existing")
     _sign_in(email)
     caplog.set_level(logging.DEBUG)
@@ -248,11 +250,10 @@ def test_a_stripe_failure_answers_a_fixed_detail_and_logs_its_class_and_request_
 
     assert resp.status_code == 400
     assert resp.json() == {"detail": detail}
-    output = "".join(capfd.readouterr())
+    records = [repr(vars(record)) for record in caplog.records]
     for leak in _LEAKS:
         assert leak not in resp.text
-        assert leak not in caplog.text
-        assert leak not in output
+        assert not [record for record in records if leak in record]
     [line] = [r.getMessage() for r in caplog.records if r.name == "app.routers.subscriptions"]
     assert line == f"{call} failed at Stripe ({error_class}, request {request_id})"
 

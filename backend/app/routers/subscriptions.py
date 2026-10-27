@@ -381,7 +381,9 @@ async def create_checkout_session(
         _log_stripe_failure("Checkout", e)
         raise HTTPException(
             status_code=400,
-            detail="Checkout could not start. Try again in a moment."
+            # The pricing page shows this under its own "Checkout didn't start" title. Every call that can
+            # fail here comes before Stripe's payment page, so nothing was charged.
+            detail="Nothing was charged. Try again in a moment."
         ) from None
 
 @router.post("/create-portal-session")
