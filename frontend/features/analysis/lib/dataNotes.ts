@@ -74,7 +74,8 @@ export function noteMarksFigure(note: Pick<DataNote, 'kind' | 'reasons'> | null 
 }
 
 /** A marked note's words in the fine print: each questioning reason's clause (REASON_SUMMARIES, or SUMMARY_FALLBACK),
- *  once, in reason order, joined by "; ". The backend's data_notes.note_summary writes the same, for the exports (WP3). */
+ *  once, in reason order, joined by "; ". The backend's data_notes.note_summary writes the same for the PDF's and the
+ *  workbook's summary line. */
 export function noteSummary(reasons: readonly string[]): string {
   const clauses = reasons.filter((reason) => !RECORD_ONLY_REASONS.has(reason))
     .map((reason) => Object.hasOwn(REASON_SUMMARIES, reason) ? REASON_SUMMARIES[reason] : SUMMARY_FALLBACK)

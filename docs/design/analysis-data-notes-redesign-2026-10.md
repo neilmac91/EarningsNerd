@@ -6,7 +6,8 @@ decisions are taken (2026-10-10); amended decision 4 and decisions 6–9 were ad
 the follow-ups in §11 are open; this document itself ships nothing; on 2026-10-25 the table window
 (§4.5) was retired with the metrics-table number system (see the note under §4.5's window control), and
 the current table rule is `frontend/DESIGN_SYSTEM.md` §4, Analysis table; the same day the founder also narrowed the marking rule (`docs/brand/decisions-log.md` D-061), so the
-figure affix (§4.2), the strip (§4.3) and the web row of §4.10 are superseded where their notes say,
+figure affix (§4.2), the strip (§4.3) and the web row of §4.10 are superseded where their notes say (its PDF and
+Excel rows on 2026-10-27, by the exports' own change),
 while §9's decisions stand · Support material:
 [`tasks/analysis-redesign-2026-10/`](../../tasks/analysis-redesign-2026-10/README.md) (runnable
 prototype, measurement harnesses, recorded measurements).
@@ -616,6 +617,16 @@ corrections of §11:
 figure reads `26.1%` (no dagger) and carries `ᵃ` only where its note questions the number, a gap is `—`
 alone, and the summary is the fine print under the table; a chart's PNG prints its card's footnote lines, which
 name the marked letters and state a gap in words (§4.7, E195). The PDF and Excel rows move with the exports' own change. §9's decisions stand.
+
+**Superseded (2026-10-27)** for the PDF and Excel rows (MPA WP3-B, `docs/mpa-improvements/coherence.md` §2.5): the
+exports follow D-061 as the page does. The PDF prints a figure with no dagger and a raised letter only where its note
+questions the number, in the grid, the appendix, the citations and the narrative; a gap is `—` alone; the sentence above
+the grid names the calculated metrics, and the fine print sits under the grid (a bold "Data notes" lead, no heading),
+its summary line on the grid's last page, with a citation's own notes under Narrative sources. The workbook's letter
+is `#,##0" a"`, not `#,##0" (a)"`, on marked figures only, "n/m" taking it from the format's text section; every note
+stays a cell comment, naming its letter only where it marks; the cover sheet prints the page's fine print and the
+Metrics header row keys the letters its grid prints. The Note column (17) names a marked note's letter and an unmarked
+note's words.
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter

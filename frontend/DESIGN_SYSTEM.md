@@ -1005,8 +1005,9 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  summary words (noteSummary: each reason's clause from provenance.ts REASON_SUMMARIES,
                  “not yet matched to the filing”, a record-only reason passed over and any other reason on
                  SUMMARY_FALLBACK, “questioned by an automated check”, each clause once, joined by “; ”; the
-                 backend's data_notes.SUMMARIES and note_summary hold the same words for the exports, which
-                 print none of them yet: their summary line counts the notes until WP3); then “ · N not in our data,
+                 backend's data_notes.SUMMARIES and note_summary hold the same words, which the PDF's and the
+                 workbook's summary line print, test_export_note_marks.py holding both exports to the page's
+                 marks); then “ · N not in our data,
                  shown as —”, the table's dash itself, alone in a MissingValue whose words are “a dash”;
                  “ · N figures with no check recorded” and, kept apart, “ · N growth figures with no
                  check recorded”; “ · N calculated from filed figures”; and, for a

@@ -1086,6 +1086,24 @@ openpyxl and Pillow. The full pass/fail table is in
 
 The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
 
+**As built (WP3-B, 2026-10-27, after WP2's #1659).** Both exports take the page's fine print from one port
+(`analysis_export_metadata.fine_print_summary` and `detail_entries`) and mark through `data_notes.marks_figure`:
+- **PDF.** No dagger after a figure; a letter only where its note questions the number, in the note ink, in the
+  grid, the appendix, the citations and the narrative. Above the grid: "Figures are rounded for display.", the
+  calculated metrics ("Margins and free cash flow are calculated from filed figures.") and, where the page asks
+  the reader to select a value, "Sources & methods gives each figure's full precision, formula and inputs."; a
+  quarterly run adds the page's legend and its Q4 header †. Under the grid: the summary line with a bold
+  "Data notes" lead (no heading, so the outline loses its "Data notes" entry), kept on the grid's last page
+  (`break-before: avoid`), every note in the detail and a closing line naming Sources & methods. A citation's
+  own notes list under Narrative sources ("Data notes for narrative sources").
+- **Workbook.** A marked figure's letter is set by its number format (`#,##0" a"`, `0.0%" a"`, `0.00"x a"`,
+  `0.0" pp a"`, and `@" a"` for "n/m"), so the cell stays a number; a chart's value axis carries the figures' own
+  format, unlinked, since LibreOffice set a linked axis's letter on every tick. Every note stays a comment,
+  naming its letter only where it marks. The Overview prints the fine print ("N not in our data, left blank"),
+  and the Metrics header row ends, one cell past the grid, in the key to the letters its grid prints.
+- `backend/tests/unit/test_export_note_marks.py` is the rule-12 gate's export half: over every case of the shared
+  notes fixture, each export draws exactly its marked letters.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 
@@ -1144,8 +1162,8 @@ unresolved conflict.
 | 2 | **WP1** quiet notation: routine tier | Nothing open: it builds on main, where #1606 merged | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
 | 3 | **WP2** data-notes words and **WP5** later-filing evidence, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue shows both filings in its dialog, its growth across the change reads n/m, and one line in the fine print's detail counts and places it |
 | 4a | **WP3-png** (`chartExport.ts`) | #1609 (merged) | Chart marks only for notes in question; the PNG states its period range |
-| 4b | **WP3-xlsx** (`excel_export_service.py`) | WP1 | A letter in the workbook grid for figures in question |
-| 4c | **WP3-pdf** (`export_service.py`) | WP1 (#1601 has merged) | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
+| 4b | **WP3-xlsx** (`excel_export_service.py`; built with 4c as WP3-B, §5) | WP1 | A letter in the workbook grid for figures in question |
+| 4c | **WP3-pdf** (`export_service.py`; the name and dates in #1621, the rest in WP3-B, §5) | WP1 (#1601 has merged) | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
 | 5 | **WP4** surfaces and results header | WP1 (it moves the KPI strip, under the heading rail #1606 landed) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
 
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,

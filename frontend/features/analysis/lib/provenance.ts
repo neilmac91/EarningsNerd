@@ -84,9 +84,9 @@ export const REASONS: Readonly<Record<string, string>> = {
 }
 
 /** The fine print's words for a note that marks its figure (DataNotes, through noteSummary); any other questioning
- *  reason reads SUMMARY_FALLBACK. The backend's data_notes.SUMMARIES holds the same strings for the exports, which print
- *  none of them yet (WP3); the fixture's summaries pins both. A clause has no semicolon: the summary lists places, and
- *  joins clauses, with "; ". */
+ *  reason reads SUMMARY_FALLBACK. The backend's data_notes.SUMMARIES holds the same strings, which the PDF's and the
+ *  workbook's summary line print; the fixture's summaries pins both. A clause has no semicolon: the summary lists places,
+ *  and joins clauses, with "; ". */
 export const REASON_SUMMARIES: Readonly<Record<string, string>> = {
   source_check_needed: 'not yet matched to the filing',
   source_conflict: 'the filings report different values (the most recent shown)',
