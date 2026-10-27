@@ -345,7 +345,9 @@ import {
  *    revoking the account or sweeping its sessions (every session ended, signed out on every device; a session that
  *    ends on its own beside "again" is no sweep; read beyond main's words only in a sentence about the token, as the
  *    one-use forms are: "A verification code cannot be used more than once and can be revoked from settings." is
- *    another credential's), or a session that ends after logging out or a password change, within a time or with none
+ *    another credential's; since E162's stage 4c the sweep is read clause by clause, as below: "Nobody doubts that
+ *    reusing a refresh token signs everyone out." fails), or a session that ends after logging out or a password
+ *    change, within a time or with none
  *    named (every session, everywhere, a session token revoked), a logout in each spelling (logout,
  *    logged out, a sign-out; a revocation alone, as a renewal's of the token it replaces, is none), and what ends named
  *    before its verb ("a session open elsewhere then ends", "every device is signed out") or signed out with no pronoun
@@ -364,7 +366,8 @@ import {
  *    time or to what ends ("does not end your sessions in a day but within 30 minutes", "does not end this session but
  *    every session": BUT_AFFIRMS). Main's timed and untimed readings read the same denial, so "Logging out does not end
  *    every session within 30 minutes" passes, and every promise they refuse in main's spec is refused here too. Since
- *    E162's stage 4b each clause is read alone as well (clauseByClause, through tests/unit/clauseReader.ts): a clause
+ *    E162's stage 4b each clause is read alone as well (clauseByClause, through tests/unit/clauseReader.ts; the reuse
+ *    family's sweep since stage 4c): a clause
  *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
  *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
  *    without the relative clauses, participles and asides on its subject, so a negation outside a clause or nested in
@@ -2032,10 +2035,12 @@ const oneUseOfARefreshToken = (block: string, blocks: string[]) => {
 }
 /** Main's reuse reading, as main reads it, in any sentence: a revocation beside main's reuse words. */
 const MAIN_REUSE = /^(?=.*\brevok).*\b(?:a second time|again|twice|re-?us(?:e|ed|es|ing)|replay(?:s|ed|ing)?)\b/i
-/** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
-    read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
-    verification code cannot be used more than once and can be revoked from settings." is another credential's. */
-const REUSE_OF_THE_TOKEN = new RegExp(String.raw`^(?=.*${REUSED})(?=.*(?:\brevok|${SWEEP}|\block(?:s|ed)?\s+(?:the account|you out)\b))`, 'i')
+/** A reuse, as REUSED names it, in a sentence. */
+const A_REUSE = new RegExp(REUSED, 'i')
+/** What follows a reuse beyond main's words, other than a sweep: a revocation, or a lock on the account. */
+const REVOKED_OR_LOCKED = /\brevok|\block(?:s|ed)?\s+(?:the account|you out)\b/i
+/** A sweep of the account's sessions (SWEEP), read with the shared denial step. */
+const SWEPT = new RegExp(SWEEP, 'i')
 /** Main's timed and untimed readings on every logging-out word (LOGGING_OUT and PASSWORD, main's own words among
     them), with a denial read as SESSION_END_MORE reads one, before the verb or on the subject (NOT) or on its object
     (DENIED_OBJECT): "Logging out does not end every session within 30 minutes", "No session ends within 30 minutes of
@@ -2097,9 +2102,10 @@ const TAKES_A_CLAUSE = /^(?:doubts?|doubted|disputes?|disputed|questions?|questi
 /** An auxiliary or a modal, a negated one fused or contracted too ("cannot", "doesn't"), which governs each verb "and"
     carries on in its verb's form (E162 stage 4b; Codex on #1683). */
 const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|may|might|must|shall|should|will|would|cannot|[a-z]+n['’]t)$/i
-/** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings read
-    the sentence as before, and each clause in it alone too, so a negation in another clause, or nested in a clause's
-    subject, denies nothing in a clause read alone. Read alone are: a clause with a subject of its own, opened at the
+/** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings, and
+    since stage 4c the reuse family's sweep (reuseOfTheToken), read the sentence as before, and each clause in it alone
+    too, so a negation in another clause, or nested in a clause's subject, denies nothing in a clause read alone. Read
+    alone are: a clause with a subject of its own, opened at the
     sentence's start, after a semicolon or a colon, or by "and", "but", "so", "yet" or a comma (a gerund the reader
     carries a predicate on to counts: "..., and logging out of a device you do not own ends ..."); a predicate those
     words but the comma carry on, where main's reach stops too ("Logging out does not clear cookies and revokes your
@@ -2158,6 +2164,16 @@ const clauseByClause = (sentence: string): string[] => {
   })
   return [...texts].filter(Boolean)
 }
+/** The reuse forms this pull request reads beyond main's (REUSED's other words, a sweep or a lock as what follows),
+    read as the one-use forms are, only in a sentence about the refresh or session token (#1456's eighth round): "A
+    verification code cannot be used more than once and can be revoked from settings." is another credential's. The
+    sweep, the one consequence the shared denial step reads, is read in the sentence whole and, since E162's stage 4c,
+    in each clause alone as well (clauseByClause), so a negation outside a clause or nested in its subject denies no
+    sweep there ("Nobody doubts that reusing a refresh token signs everyone out." and "Reusing a refresh token you do
+    not own signs everyone out." fail), while the reuse may stand in another clause of the sentence ("If a refresh
+    token is reused, every session ends."). */
+const reuseOfTheToken = (sentence: string) =>
+  A_REUSE.test(sentence) && (REVOKED_OR_LOCKED.test(sentence) || clauseByClause(sentence).some((text) => SWEPT.test(text)))
 
 /** A logging-out action as a sentence names it: a logout or a sign-out in their spellings, or a password changed or
     reset. A password only named ("Passwords are hashed") is no action. */
@@ -2206,7 +2222,7 @@ const E127_PROMISES: Array<[string, (block: string, blocks: string[]) => boolean
   [
     'a reused refresh token revoking the account',
     (block) =>
-      inASentence(MAIN_REUSE)(block) || sentencesOf(block).some((sentence) => REUSE_OF_THE_TOKEN.test(sentence) && aboutTheToken(block)(sentence)),
+      inASentence(MAIN_REUSE)(block) || sentencesOf(block).some((sentence) => reuseOfTheToken(sentence) && aboutTheToken(block)(sentence)),
   ],
   [
     'a session that ends after logging out, within a time or with none named',
@@ -4203,6 +4219,32 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // ("reset"), and a negated participle on the subject, which reads as the clause's verb group.
       ['<li>A password reset on a device you do not own ends every session.</li>', 'gap'],
       ['<li>Sessions not opened here end within 30 minutes of logging out.</li>', 'gap'],
+      // E162 stage 4c: the reuse family's sweep is read in each clause alone too (reuseOfTheToken), so #1456's three
+      // shapes of the shared step deny no sweep (a negation before a word of time, in a relative clause on the subject,
+      // a denied subject before "that"), nor does a participle on the subject or a clause of its own after "and" ...
+      ['<li>Nobody doubts that reusing a refresh token signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token does not take long before it signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Reusing a refresh token issued to a device you do not own logs everyone out.</li>', true],
+      ['<li>Nothing remains once a refresh token presented a second time signs everyone out.</li>', true],
+      ['<li>No one denies that a refresh token presented a second time ends every session on the account.</li>', true],
+      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', true],
+      ['<li>Passwords are hashed, and replaying a refresh token you do not own signs you out everywhere.</li>', true],
+      // ... while a denial on the sweep's own clause still passes, as does a verb that asserts the clause after "that",
+      // and a participle the lexicon reads as one ("presented") keeps the denial after it its clause's own: read as a
+      // noun, it read "a second time does not by itself" as a relative clause on it, and stage 4b's session-end
+      // family refused the sentence on that reading.
+      ['<li>Reusing a refresh token does not sign everyone out.</li>', false],
+      ['<li>Nothing guarantees that reusing a refresh token signs everyone out.</li>', false],
+      ['<li>A refresh token presented a second time does not by itself sign you out of every device.</li>', false],
+      ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
+      ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
+      ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
+      // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
+      ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
+      // A noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"), so the
+      // gerund's object is not read and its relative clause is not cut.
+      ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
