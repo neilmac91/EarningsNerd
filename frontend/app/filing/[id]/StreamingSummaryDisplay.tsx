@@ -151,6 +151,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
               }`}
             >
               {status === 'complete' ? (
+                // Bold: at 12px regular's stroke is 0.75px, under a device pixel (DESIGN.md › Icons).
                 <CheckIcon weight="bold" className="h-3 w-3" aria-hidden="true" />
               ) : status === 'active' ? (
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" />

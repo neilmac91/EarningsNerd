@@ -156,7 +156,7 @@ function OpenContactForm({ recheck }: { recheck: () => Promise<LegalReadiness | 
       <div className="rounded-2xl border border-border-light bg-panel-light p-cap-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-light/10 dark:bg-success-dark/15">
-            <CheckIcon weight="bold" className="h-6 w-6 text-success-light dark:text-success-dark" aria-hidden="true" />
+            <CheckIcon className="h-6 w-6 text-success-light dark:text-success-dark" aria-hidden="true" />
           </div>
           <h2
             ref={successHeadingRef}

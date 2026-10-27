@@ -62,8 +62,9 @@ const ICON: Record<NoticeVariant, string> = {
   success: 'text-success-light dark:text-success-dark',
 }
 
-/** The variant's glyph, Phosphor's from lib/icons at regular weight, as every glyph in the app is (DESIGN.md ›
-    Icons): the warning circle, the info circle or the check circle, 18px in the variant's ink (ICON). */
+/** The variant's glyph, Phosphor's from lib/icons at regular weight, the system's weight wherever its stroke holds a
+    device pixel (DESIGN.md › Icons): the warning circle, the info circle or the check circle, 18px in the variant's
+    ink (ICON). */
 const GLYPH: Record<NoticeVariant, typeof InfoIcon> = {
   error: WarningCircleIcon,
   info: InfoIcon,
