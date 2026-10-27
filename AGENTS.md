@@ -85,9 +85,10 @@ file instead.
   or `.claude/agents/` change also runs `backend/tests/unit/test_e8_launch_kit_matches_allow_rules.py`,
   `test_ops_readback_allow_rules.py` and `test_agent_files_stack_truth.py`; a `.claude/settings.json` or `.claude/hooks/` change also runs
   `test_codex_mention_guard.py`, `test_secret_scan_guard.py` and `test_ops_approval_guard.py` (both
-  hooks reuse the first one's shell reader); a `tasks/todo.md`, `lessons/` or `.claude/workflows/`
-  change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/` change also runs that
-  script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
+  hooks reuse the first one's shell reader); a `tasks/todo.md` change also runs
+  `test_review_gate.py`, which reads its open rows' owners; a `tasks/todo.md`, `lessons/` or
+  `.claude/workflows/` change also runs `test_agent_workflow_rules.py`, and a `.claude/workflows/`
+  change also runs that script's own spec under `frontend/tests/unit/` (every script has one, the gate insists;
   `premergeReviewWorkflow.spec.ts` for the review script: it runs the script with stubbed agents,
   and the text gate alone misses a spread or a tier key that overrides `model`). Do not write tests
   for prose.
@@ -124,8 +125,10 @@ is never clearance. Record the tier and the review in the PR body under "Review"
 `review-gate.yml` requires a Codex review of the PR head (comment `@codex review` after each
 push) or a `Review override: <reason>` line in the PR body, and an override line passes the gate
 the moment the PR is marked ready, before Codex reviews, unless the title, body or a commit message puts a
-closing keyword before a reference (`lessons/ops-closing-keywords-close-what-they-name.md`) or the PR
-lists 250 commits, the most GitHub returns. So record the tier as a `Review tier:
+closing keyword before a reference (`lessons/ops-closing-keywords-close-what-they-name.md`), the PR
+lists 250 commits, the most GitHub returns, or it changes a path an open row of `tasks/todo.md` leaves
+to its next change until its title, body or a commit names each such row
+(`lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md`). So record the tier as a `Review tier:
 <tier> — <what ran>` line, which the gate ignores, and write `Review override:` only while Codex
 cannot review (credits exhausted, service down), naming the tier and the substitute review
 (`Review override: routine tier per AGENTS.md §5, one Opus lens, 0 blockers`). Codex reviews
@@ -194,8 +197,16 @@ idea. State the action directly; no filler phrases. Messages and PR bodies are r
 Handover: one page, written as the top block of `tasks/todo.md`, never a new file. It holds, in
 this order: the date and author; where things stand (at most five lines: production revision,
 balance, open PRs, holds by pointer); the open items, one line each with owner and next step; and
-what to doubt first. Anything longer belongs in the PR that produced it. Closed items leave
-`tasks/todo.md` in the PR that closes them; the file never grows into a ledger again.
+what to doubt first. An open item reads `- [ ] <id> — <DISPOSITION> (<owner>): <text>`. An owner
+segment that names a next change and a path in backticks ("the next writer of `routers/auth.py`")
+holds that path's next pull request in `review-gate` until it names the row.
+`backend/tests/unit/test_review_gate.py` fails a span there that names no tracked file (a call,
+`name()`, of a function that a code file the row leaves to its next change defines, outside the
+test roots, is excepted, so the row holds the function's own file), a "next" in a phrase the gate
+does not bind (the framework's name and paths aside), and such a segment in a row whose head the
+gate does not read. Anything longer belongs in the PR that produced it.
+Closed items leave `tasks/todo.md` in the PR that closes them; the file never grows into a ledger
+again.
 
 Founder deliberations (pricing, fundraising, strategy, council transcripts) never enter this
 repository. The repository API reported public visibility on 2026-10-11; do not assume that
