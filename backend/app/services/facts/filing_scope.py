@@ -133,11 +133,12 @@ def annual_filing_rows(db: Session, filing: Filing) -> list[FinancialFact]:
     the cells this filing reported last (an older report's oldest year and older balance; an interim
     report's prior year-end balance, which the sync labels FY although the per-filing writer stores no
     FY row for an interim report), and a line of those alone would read as all it disclosed. A line
-    that misses a year another of the company's rows holds shows only its years after the latest one it
-    misses (``_first_years_after_a_missing_one``), the filing's own rows among them, so which writer
-    holds a cell before the gap, which the order the writers ran decides, does not decide the line. No
-    ``is_latest`` filter: a later restatement demotes the rows, never removes them from their filing's
-    chart.
+    that misses a year, one an FY row of the company's in the line's concept holds, not withheld, a
+    whole number of years after the row before and more than ``DRIFT_DAYS`` before the row after
+    (``_first_years_after_a_missing_one``), shows only its years after the latest one it misses, the
+    filing's own rows among them, so which writer holds a cell before the gap, which the order the
+    writers ran decides, does not decide the line. No ``is_latest`` filter: a later restatement demotes
+    the rows, never removes them from their filing's chart.
     """
     rows = (
         db.query(FinancialFact)

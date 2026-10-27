@@ -267,23 +267,31 @@ class TestTheCensusTakesIngestsOwnReport:
         assert census == _history(meta)
         assert ("revenue", 2018) in census or shape == "another-span"
 
-    @pytest.mark.parametrize("shape", ["filed-first-under-a-lower-tag", "another-span-wins-the-tag"])
+    @pytest.mark.parametrize("shape", ["filed-first-under-a-lower-tag", "another-span-wins-the-tag",
+                                       "the-own-report-under-two-tags"])
     def test_the_census_across_the_tags_takes_the_winners_span_then_the_earliest_filed_then_the_tags_priority(
             self, shape):
-        # The FY2018 10-K gave its revenue under "Revenues" alone. Either the same 10-K, filed again five
-        # weeks later, gave it under the winning tag, whose priority is higher: the original, filed first,
-        # is the own report across the tags. Or the FY2019 10-K gave FY2018 under "Revenues" for another
-        # span, so that tag's latest item starts on another day than the winner: the original is still the
-        # own report, for the winner's span.
+        # The FY2018 10-K gave its revenue under "Revenues", not the winning tag, and across the tags that
+        # item is the own report:
+        # - filed-first-under-a-lower-tag: the same 10-K, filed again five weeks later, gave it under the
+        #   winning tag, whose priority is higher; the original was filed first.
+        # - another-span-wins-the-tag: the FY2019 10-K gave FY2018 under "Revenues" for another span, so
+        #   that tag's latest item starts on another day than the winner; the original's span is the winner's.
+        # - the-own-report-under-two-tags: the 10-K also gave another figure under "SalesRevenueNet", an
+        #   original filed the same day; "Revenues" ranks before it.
         from scripts import restatement_census
 
         k18b = "0001532176-19-000040"
-        revenues = _items({2018: _REVENUE[2018]})
         refiled = [_item(value, year, 2018, accn=k18b, filed="2019-03-15")
                    for year, value in {2016: 4_860.4e6, 2017: 5_872.2e6, 2018: 6_700.0e6}.items()]
+        tags = {"Revenues": {"units": {"USD": _items({2018: _REVENUE[2018]})}}}
         if shape == "another-span-wins-the-tag":
-            refiled, revenues = [], revenues + [{**_item(6_705.0e6, 2018, 2019), "start": "2018-01-02"}]
-        payload = _payload(refiled + _items({**_REVENUE, 2018: {}}), tags={"Revenues": {"units": {"USD": revenues}}})
+            tags["Revenues"]["units"]["USD"].append({**_item(6_705.0e6, 2018, 2019), "start": "2018-01-02"})
+        if shape == "the-own-report-under-two-tags":
+            tags["SalesRevenueNet"] = {"units": {"USD": [_item(6_700.0e6, 2018, 2018)]}}
+        if shape != "filed-first-under-a-lower-tag":
+            refiled = []
+        payload = _payload(refiled + _items({**_REVENUE, 2018: {}}), tags=tags)
         cells, _info = restatement_census.measure_company("REGN", payload, False, 10)
         [cell] = [cell for cell in cells if (cell["concept"], cell["fy"]) == ("revenue", 2018)]
         assert (cell["winner"]["value"], cell["winner"]["accession"]) == (5_145.6e6, K20)

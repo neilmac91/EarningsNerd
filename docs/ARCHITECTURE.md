@@ -412,11 +412,12 @@ unused since generation became account-required in #619; kept because migrations
   shows): short of it, the rows left at the accession are only the cells the filing reported last,
   such as an older report's oldest year or a 10-Q's prior year-end balance, which the sync labels
   FY. A line that misses a year shows only its rows after it, the filing's own included: two rows
-  more than a year and `DRIFT_DAYS` apart with an FY row of the company's between them, a whole
-  number of years after the earlier one (an older report's line the writer read nothing of can hold
+  more than a year and `DRIFT_DAYS` apart with an FY row of the company's in the line's concept
+  between them, a whole number of years after the earlier one and more than `DRIFT_DAYS` before the
+  later one (a withheld row fills none). An older report's line the writer read nothing of can hold
   its oldest year and its own-report row, below, the year between under the next report's
-  accession). A gap no row of the company fills (a fiscal-year change's transition period, a
-  fresh-start split year) is no missing year, so the line charts whole. A stand-in shows under the
+  accession. A gap no such row fills (a fiscal-year change's transition period, a fresh-start split
+  year) is no missing year, so the line charts whole. A stand-in shows under the
   year counted in whole years, back or forward, from the latest period end the filing's own rows name
   (`fiscal_naming.years_back`; with none, under its own label), since a companyfacts row stored before
   the fiscal-year-window writer names its year by the calendar year of its end. The Copilot reads the

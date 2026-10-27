@@ -24,8 +24,9 @@ nothing of reached its period end through one and charted its oldest year beside
 between missing (REGN's FY2018 and FY2019 10-Ks); condition 6 closes that. Its first form counted
 any two rows more than a year apart as a missing year, so a fiscal-year change's transition period or a
 fresh-start split year dropped every stand-in of a line, and the newest report after the change, synced
-first and owning no row, lost its flow lines: it now counts only a year another of the company's rows
-holds.
+first and owning no row, lost its flow lines: it now counts only a year an FY row of the company's in
+the line's concept holds, not withheld, a whole number of years after the earlier row and more than
+`DRIFT_DAYS` before the later one.
 
 **Rule**: select one filing's facts with `company_id == filing.company_id` and
 `accession == filing.accession_number`, current or not; for its annual figures, call
@@ -87,12 +88,15 @@ these holds:
    and where the extractor gave the own year alone beside the oldest-year stand-in (main charted that
    one with the year between missing). The rule reads the rows, not their writer, so the chart is the
    same whichever writer ran first: the own year is the own-report row synced first, the filing's own
-   row processed first. A gap no FY row of the company fills is the company's own, no missing year,
-   and the line charts as main does, in either order: a fiscal-year change's transition period (30
-   September 2019 to 31 December 2020, 458 days; 31 December 2021 to 30 June 2023, 546), a fresh-start
-   split year, a year no filing reported. Nor does a row off the earlier row's cadence fill one (a
-   recast calendar year three months after the old fiscal year end), nor a withheld row. A 53-week
-   year (371 days) is no gap.
+   row processed first. A gap no FY row of the line's concept fills is the company's own, no missing
+   year, and the line charts as main does, in either order: a fiscal-year change's transition period
+   (30 September 2019 to 31 December 2020, 458 days; 31 December 2021 to 30 June 2023, 546), a
+   fresh-start split year, a year no filing reported. Nor does a row off the earlier row's cadence fill
+   one (a recast calendar year three months after the old fiscal year end), nor a withheld row. A
+   53-week year (371 days) is no gap. Trimming the filing's own rows differs from main, which charted
+   every own row of such a line: one filing's chart can now change when another filing is processed,
+   only ever losing the own rows before a gap that filing's row fills, until the company's first sync
+   holds every year.
 
 Keep another company's rows out (a combined report shares one accession), and show a row another
 writer stored under the year counted, back or forward, from the latest period end the filing's own

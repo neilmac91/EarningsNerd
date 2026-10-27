@@ -1153,6 +1153,44 @@ def test_a_gap_no_filing_of_the_company_fills_is_no_missing_year(db, shape, sync
         assert chart["total_assets"] == _own(read, "Assets")
 
 
+@pytest.mark.parametrize("sync_first", [True, False], ids=["synced-first", "processed-first"])
+def test_a_change_reports_line_read_nothing_of_shows_its_restated_own_year_alone(db, sync_first):
+    """The September-to-December change report, its net income read nothing of, and the next report gives
+    its own year (2020) another value. The sync holds the line's oldest year (fiscal 2018, which the report
+    filed last) and its own year (the own-report row), while fiscal 2019 sits under the next report's
+    accession: the line misses it and shows its own year alone, in either order. Revenue, which the
+    writer read, has the transition gap from fiscal 2019's end, which no FY row fills, and charts whole.
+    The two lines' gaps start on different year ends, so the one read of the rows between them starts
+    after the earlier."""
+    company = _company(db)
+    reports = _september_to_december(company)
+    later = reports[-1]
+    later["NetIncomeLoss"] = [{**item, "val": 13.5} if item["end"] == "2020-12-31" else item
+                              for item in later["NetIncomeLoss"]]
+    filings = [_filing(db, company, report) for report in reports]
+    change, change_report = filings[2], reports[2]
+    read = {tag: items for tag, items in _annual(change_report).items() if tag != "NetIncomeLoss"}
+
+    def process_all() -> None:
+        for filing, report in zip(filings, reports):
+            if filing is change:
+                facts_service.process_filing_facts(db, change, standardized=_standardized(read))
+            else:
+                _process(db, filing, _annual(report))
+
+    steps = [lambda: _sync(db, company, *reports), process_all]
+    for step in steps if sync_first else steps[::-1]:
+        step()
+
+    rows = db.query(FinancialFact).filter_by(company_id=company.id, accession=change.accession_number,
+                                             concept="net_income", fiscal_period="FY").all()
+    assert sorted((row.period_end.isoformat(), float(row.value), row.is_latest, row.filing_id) for row in rows) == [
+        ("2018-09-30", 11.0, True, None), ("2020-12-31", 13.0, False, None)]
+    chart = _chart(db, change)
+    assert chart["net_income"] == [("2020-12-31", 13.0, "USD", change.accession_number)]
+    assert chart["revenue"] == _own(_annual(change_report), REV)
+
+
 def test_a_withheld_row_fills_no_gap(db):
     """The audited repair retired a legacy companyfacts row labelled FY at the fresh-start report's split
     year end (a rolling span, not a fiscal year): withheld, it is no year of the company, so the line
