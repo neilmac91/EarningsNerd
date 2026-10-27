@@ -122,6 +122,7 @@ describe('CitationChip with an in-app filing viewer', () => {
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: 'https://www.sec.gov/filing',
+      fact: true,
     }
     const { rerender } = render(<CitationChip citation={textCitation} />)
     expect(screen.getByRole('link', { name: /citation 1/i })).toHaveAttribute(
@@ -133,6 +134,13 @@ describe('CitationChip with an in-app filing viewer', () => {
     expect(screen.getByRole('link', { name: /citation f1/i })).toHaveAttribute(
       'data-citation-kind',
       'xbrl',
+    )
+
+    // The label is the model's to write: without the server's payload the chip stays a passage's (E179).
+    rerender(<CitationChip citation={{ ...factCitation, fact: undefined }} />)
+    expect(screen.getByRole('link', { name: /citation f1/i })).toHaveAttribute(
+      'data-citation-kind',
+      'text',
     )
   })
 })

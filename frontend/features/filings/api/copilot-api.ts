@@ -25,12 +25,12 @@ export interface CopilotCitation {
   calculated?: true
 }
 
-// A citation backed by an XBRL financial fact (server-assigned "F#" marker + an "XBRL · <tag>"
-// section_ref), not a quoted filing-text excerpt. These read as hard data (figures, not prose),
-// so the UI renders them as dense data rows. Detection mirrors the backend marker/section_ref shape.
-export const isXbrlCitation = (c: CopilotCitation): boolean =>
-  (typeof c.n === 'string' && /^f\s*\d+$/i.test(c.n)) ||
-  !!c.section_ref?.toUpperCase().startsWith('XBRL')
+// A figure citation: a filed XBRL fact or a figure the server calculated from filed ones, never a quoted
+// filing-text excerpt. These read as hard data (figures, not prose), so the UI renders them as dense data
+// rows and the viewer finds them by text, never as a located passage. The kind comes from the server's
+// payload alone (`fact` or `calculated`, set by parseCompletion): a model can label an excerpt "XBRL · …" or
+// write an "F#" marker, but cannot give it a concept (E179). Every Copilot consumer reads the kind here.
+export const isXbrlCitation = (c: CopilotCitation): boolean => c.fact === true || c.calculated === true
 
 // The raw XBRL tag (e.g. "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax") from an
 // XBRL citation's section_ref ("XBRL · <tag>"), or null if it isn't an XBRL citation. Strips the

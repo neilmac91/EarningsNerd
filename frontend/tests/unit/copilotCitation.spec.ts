@@ -14,12 +14,28 @@ const base: CopilotCitation = {
 }
 
 describe('isXbrlCitation', () => {
-  it('detects XBRL facts by F-marker or XBRL section_ref, and ignores prose citations', () => {
-    expect(isXbrlCitation({ ...base, n: 'F1' })).toBe(true)
-    expect(isXbrlCitation({ ...base, n: 'f 2' })).toBe(true) // tolerant of casing/spacing
-    expect(isXbrlCitation({ ...base, section_ref: 'XBRL · us-gaap:Revenue' })).toBe(true)
+  it('reads a figure from the fact or calculated payload alone, whatever the label or marker says', () => {
+    expect(isXbrlCitation({ ...base, section_ref: 'XBRL · us-gaap:Revenue', fact: true })).toBe(true)
+    expect(isXbrlCitation({ ...base, section_ref: 'XBRL · us-gaap:Revenue', calculated: true })).toBe(true)
+    // The payload decides even under a passage's label or none.
+    expect(isXbrlCitation({ ...base, section_ref: 'Item 7 — MD&A', fact: true })).toBe(true)
+    expect(isXbrlCitation({ ...base, section_ref: null, calculated: true })).toBe(true)
+  })
+
+  it('keeps a citation with no payload a passage, an "XBRL · …" label or an "F#" marker included (E179)', () => {
+    // A model can label an excerpt "XBRL · …" or write [F1]; neither is the server's numerical proof.
+    expect(isXbrlCitation({ ...base, section_ref: 'XBRL · us-gaap:Revenue' })).toBe(false)
+    expect(isXbrlCitation({ ...base, n: 'F1', section_ref: 'XBRL · us-gaap:Revenue' })).toBe(false)
+    expect(isXbrlCitation({ ...base, n: 'f 2' })).toBe(false)
     expect(isXbrlCitation({ ...base, n: 1, section_ref: 'Item 7 — MD&A' })).toBe(false)
     expect(isXbrlCitation({ ...base, n: 2, section_ref: null })).toBe(false)
+  })
+
+  it('fails safe on a malformed payload: only the literal true marks a figure', () => {
+    for (const value of ['true', 1, {}, null, false]) {
+      const malformed = { ...base, section_ref: 'XBRL · us-gaap:Revenue', fact: value, calculated: value } as unknown as CopilotCitation
+      expect(isXbrlCitation(malformed)).toBe(false)
+    }
   })
 })
 

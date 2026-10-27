@@ -8,6 +8,7 @@ import { ChatCircleTextIcon, XIcon } from '@/lib/icons'
 import {
   askFilingStream,
   isCopilotPaywallError,
+  isXbrlCitation,
   type CopilotCompletion,
   type CopilotTurn,
 } from '@/features/filings/api/copilot-api'
@@ -338,9 +339,7 @@ export default function AskCopilotRail({
             kind: c.kind,
             grounded: c.grounded,
             citations: c.citations.length,
-            usedXbrl: c.citations.some(
-              (cit) => cit?.section_ref?.toUpperCase().startsWith('XBRL') ?? false,
-            ),
+            usedXbrl: c.citations.some(isXbrlCitation),
           })
           setIsStreaming(false)
           abortRef.current = null
