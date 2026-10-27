@@ -47,7 +47,7 @@ vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import Header, { SITE_HEADER_HEIGHT_PROPERTY } from '@/components/Header'
-import { ACCESS_COPY } from '@/features/marketing/lib/access'
+import { ACCESS_COPY, accountLabels } from '@/features/marketing/lib/access'
 
 const mockUser = {
   id: 1,
@@ -101,7 +101,7 @@ describe('Header auth state', () => {
     // live controls' grid cell, which sets them at its right edge.
     const copy = container.querySelector('span[aria-hidden="true"].invisible')
     expect(copy).not.toBeNull()
-    expect(copy).toHaveTextContent(new RegExp(`^Log in${ACCESS_COPY.invite.cta}$`))
+    expect(copy).toHaveTextContent(new RegExp(`^Log in${accountLabels('invite').join('')}$`))
     expect(copy!.querySelectorAll('a, button, input, select, textarea, [tabindex]')).toHaveLength(0)
     const live = copy!.nextElementSibling as HTMLElement
     expect([copy, live].map((el) => el!.className.includes('col-start-1 row-start-1'))).toEqual([true, true])
@@ -109,15 +109,18 @@ describe('Header auth state', () => {
     expect(within(live).getByTestId('user-menu')).toBeInTheDocument()
   })
 
-  it("keeps the copy in step with a guest's own controls in either access mode", async () => {
+  it("keeps the copy in step with a guest's own controls in either access mode, holding every account label", async () => {
     vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
     for (const accessMode of ['invite', 'public'] as const) {
       const { container, unmount } = renderHeader({ accessMode })
       await screen.findByRole('link', { name: /log in/i })
-      // The copy takes the build's own account label, so its width is a guest's in either mode.
+      // The copy's account link holds every label the live one can print in the build's mode, the mode's own and the
+      // live example's, in one cell, so its width is a guest's in either mode whatever readiness answers (E220).
       const copy = container.querySelector('span[aria-hidden="true"].invisible')!
-      expect(copy.textContent, accessMode).toBe(`Log in${ACCESS_COPY[accessMode].cta}`)
-      expect(copy.nextElementSibling!.textContent, accessMode).toBe(copy.textContent)
+      const labels = [...copy.querySelectorAll('.col-start-1.row-start-1')].map((cell) => cell.textContent)
+      expect(labels, accessMode).toEqual(accountLabels(accessMode))
+      expect(copy.textContent, accessMode).toBe(`Log in${accountLabels(accessMode).join('')}`)
+      expect(copy.nextElementSibling!.textContent, accessMode).toBe(`Log in${ACCESS_COPY[accessMode].cta}`)
       unmount()
     }
   })

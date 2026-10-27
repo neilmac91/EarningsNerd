@@ -49,17 +49,29 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
   },
 }
 
+/** The account action while readiness is checking, closed or unconfirmed: the live example. */
+const EXAMPLE_ACCOUNT = { cta: 'See a live example', ctaShort: 'Live example' } as const
+
+const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
+const CLOSED_LINE = 'New registrations are currently closed. Existing members can log in.'
+const UNCONFIRMED_LINE = 'Registration availability could not be confirmed. You can explore a live example or log in.'
+
 /** Registration policy does not imply collection readiness. Never use this display state as authorization. */
 export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {
   if (!loading && readiness?.collection_available === true) return ACCESS_COPY[mode]
   return {
-    cta: 'See a live example',
-    ctaShort: 'Live example',
+    ...EXAMPLE_ACCOUNT,
     href: exampleFilingHref('access_example'),
-    line: loading
-      ? 'Checking registration availability. You can explore a live example.'
-      : readiness
-        ? 'New registrations are currently closed. Existing members can log in.'
-        : 'Registration availability could not be confirmed. You can explore a live example or log in.',
+    line: loading ? CHECKING_LINE : readiness ? CLOSED_LINE : UNCONFIRMED_LINE,
   }
 }
+
+/** Every account label the full bar can print in `mode`: the mode's own, and the live example's while readiness checks
+ *  or once it answers closed or unconfirmed. The header's hidden copy holds them all, so the nav keeps its place as
+ *  readiness lands (E220). */
+export const accountLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].cta, EXAMPLE_ACCOUNT.cta]
+
+/** The access lines the hero's line keeps the height of: the checking line it opens on, the mode's own and the closed
+ *  one, so the page under it keeps its place as readiness lands. An unconfirmed read's longer line can still grow it:
+ *  a failed read is an outage, not a settle (E220). */
+export const heldAccessLines = (mode: AccessMode): readonly string[] => [CHECKING_LINE, ACCESS_COPY[mode].line, CLOSED_LINE]
