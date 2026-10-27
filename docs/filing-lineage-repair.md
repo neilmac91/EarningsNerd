@@ -28,13 +28,17 @@ never a target. Companyfacts-owned legacy calculations belong to the quarterly r
 
 **Which operands.** The calculator matches each input among every row of the company under the
 target's accession, whatever its owner: the writer that stored an identity first owns it, so an
-operand can be a companyfacts row. An input matches on company, accession, period end, fiscal year
-and fiscal period, and must match exactly one row. The two inputs need the same unit and the same
-start date, a flow (the margins, free cash flow) needs a start date, and the target's own start, if
-it has one, must be the same. The recomputed value must agree with the stored one within a
-relative and absolute tolerance of 1e-9. Each operand keeps its own record: a version-1 record as
-stored, otherwise the reader's legacy projection, which passes a reported row whose `reconciled` is
-true.
+operand can be a companyfacts row, a demoted winner or a year's own-report row (`facts/own_reports.py`,
+stored only where no row held the identity) among them. Such a row can move a re-run's counts: where
+the gate had dropped the writer's operand, it supplies the report's own figure (a held target can
+then pass or gain a concern); beside a legacy USD read of a 20-F, a CNY own-report row makes the
+input ambiguous and the target is held (`test_filing_fundamentals_by_accession.py` pins both). An
+input matches on company, accession, period end, fiscal year and fiscal period, and must match
+exactly one row. The two inputs need the same unit and the same start date, a flow (the margins,
+free cash flow) needs a start date, and the target's own start, if it has one, must be the same.
+The recomputed value must agree with the stored one within a relative and absolute tolerance of
+1e-9. Each operand keeps its own record: a version-1 record as stored, otherwise the reader's legacy
+projection, which passes a reported row whose `reconciled` is true.
 
 ## What each row gets
 

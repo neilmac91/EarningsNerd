@@ -1165,11 +1165,12 @@ def test_the_copilot_reads_a_reports_own_year_and_its_growth_as_first_reported(d
 def test_the_repairs_that_read_every_row_plan_alike_beside_the_own_report_rows(db, monkeypatch):
     """The lineage backfill (WP0) and the quarterly repair read a company's rows current or not. An own-report
     row is a reported row at its report's accession, stored only where no row held its identity, never
-    current and never a calculation. The backfill's targets are filing-owned calculations: one the writer
-    stored before the sync has its operands at its accession already (the FY2019 10-K's), and where the
-    own-report row holds a cell the writer would have stored after it (the FY2018 10-K's own-year revenue),
-    it holds the same figure. The quarterly repair relabels current rows and recomputes untagged ones.
-    Both plan the same with and without the rows."""
+    current and never a calculation: a demoted winner's shape. In REGN's shape the backfill's targets are
+    filing-owned calculations whose operands their accession holds either way: one the writer stored before
+    the sync has them already (the FY2019 10-K's), and where the own-report row holds a cell the writer
+    would have stored after it (the FY2018 10-K's own-year revenue), it holds the same figure. The quarterly
+    repair relabels current rows and recomputes untagged ones. Here both plan the same with and without
+    the rows; the two shapes where the backfill's plan moves follow."""
     from app.services import filing_lineage_repair
     from app.services.facts import companyfacts
 
@@ -1213,6 +1214,76 @@ def test_the_repairs_that_read_every_row_plan_alike_beside_the_own_report_rows(d
     assert without[0]["outcomes"] == {"passed": 5, "needs_review": 0}
     [fy2018] = [json.loads(row) for row in beside[1] if '"accession": "FY2018"' in row and '"fiscal_year": 2018' in row]
     assert sorted(fy2018["inputs"]) == [["net_income", 2_444.4e6], ["revenue", 6_710.8e6]]
+
+
+def _wp0_plan(db, company: Company, monkeypatch, keep_history: bool, *reports) -> dict:
+    """Store the filing-owned margins as the writer did before #1191 (no record, not flagged); sync these
+    reports, with or without own-report rows; the lineage backfill's dry-run plan."""
+    from app.services import filing_lineage_repair
+    from app.services.facts import companyfacts
+
+    for row in db.query(FinancialFact).filter(FinancialFact.company_id == company.id,
+                                              FinancialFact.concept == "net_margin",
+                                              FinancialFact.filing_id.isnot(None)):
+        row.provenance, row.reconciled = None, True
+    db.commit()
+    with monkeypatch.context() as patch:
+        if not keep_history:
+            patch.setattr(companyfacts, "own_report_history", lambda *args: [])
+        assert (_sync(db, company, *reports)["history"] > 0) is keep_history
+    plan = filing_lineage_repair.backfill_company(db, company.id, apply=False, run_id="wp5b-probe")
+    db.rollback()
+    return plan
+
+
+@pytest.mark.parametrize("keep_history", [False, True], ids=["without-own-report-rows", "beside-them"])
+def test_the_lineage_backfill_checks_a_margin_whose_operand_the_gate_dropped_against_the_own_report_row(
+        db, monkeypatch, keep_history):
+    """The extractor read the FY2018 10-K's own-year revenue with the wrong sign: the per-filing gate dropped
+    it (a negative revenue) and kept the margin computed from it, -36.4%. Without own-report rows the
+    backfill finds no revenue at the report's accession and holds the margin (its operands not found).
+    Beside them the own-report row there gives the report's own 6,710.8M, the margin recomputes to 36.4%,
+    and the backfill marks it for review with the mismatch, positive evidence it is wrong: a new concern,
+    not a wrong write."""
+    company = _company(db)
+    reports = _regn(company)
+    filing = _filing(db, company, reports[2018])
+    read = {**reports[2018], REV: [{**item, "val": -item["val"]} if item["end"] == "2018-12-31" else item
+                                   for item in reports[2018][REV]]}
+    assert facts_service.process_filing_facts(db, filing, standardized=_standardized(read))["rejected"] == 1
+
+    plan = _wp0_plan(db, company, monkeypatch, keep_history, *reports.values())
+    [own_year] = [row for row in plan["rows"] if row["fiscal_year"] == 2018]
+    assert own_year["value"] == pytest.approx(-2_444.4 / 6_710.8 * 100)
+    if keep_history:
+        assert (own_year["outcome"], own_year["reasons"]) == ("needs_review", ["calculation_mismatch"])
+        assert sorted(own_year["inputs"]) == [["net_income", 2_444.4e6], ["revenue", 6_710.8e6]]
+    else:
+        assert (own_year["outcome"], own_year["diagnostic"]["label"]) == ("inputs_not_found", "no_operand_row")
+
+
+@pytest.mark.parametrize("keep_history", [False, True], ids=["without-own-report-rows", "beside-them"])
+def test_the_lineage_backfill_holds_a_usd_read_margin_beside_a_cny_own_report_row(db, monkeypatch, keep_history):
+    """Before the extractor read a 20-F's reporting currency, the writer read its USD convenience figures:
+    the FY2023 20-F's own year of revenue and net income, and the margin over them, under its accession.
+    The FY2024 20-F gives FY2023 revenue another value, so the sync keeps the FY2023 20-F's own CNY revenue
+    there too. The calculator matches operands by accession and period, not unit: with two revenue rows it
+    takes neither, and the backfill holds the margin (an ambiguous operand) where without the row it
+    passes. The hold writes nothing; the margin keeps its legacy record, as before the backfill."""
+    company = _company(db)
+    (n23, u23), (n24, u24) = (_foreign(company, fy, "20-F", net_income=True) for fy in (2023, 2024))
+    n24[REV] = [{**item, "val": 24_150.0} if item["end"] == "2023-03-31" else item for item in n24[REV]]
+    older, _newer = _filing(db, company, n23), _filing(db, company, n24)
+    _process(db, older, u23)
+
+    plan = _wp0_plan(db, company, monkeypatch, keep_history, n23, u23, n24, u24)
+    [margin] = plan["rows"]
+    assert (margin["period_end"], margin["fiscal_period"]) == ("2023-03-31", "FY")
+    if keep_history:
+        assert (margin["outcome"], margin["diagnostic"]["label"]) == ("inputs_not_found", "ambiguous_operand")
+        assert plan["writes"] == 0
+    else:
+        assert margin["outcome"] == "passed"
 
 
 def test_a_years_own_report_row_stands_in_for_that_report_after_a_restatement(db):
