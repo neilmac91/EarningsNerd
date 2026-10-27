@@ -352,10 +352,12 @@ test.describe('Public collection readiness', () => {
     })
   }
 
-  // A count of 25 or more lands after the pill shows, and its counted label is as short as the opening one, so the form
-  // keeps its place (E225, chief design on #1699). "Join 1,234+ others on the waitlist" wrapped under 200% text where
-  // "Join the waitlist" did not, and in CI's fonts the status grew 34px as the count landed at 360px, 480 to 560px and
-  // 1040 to 1160px, and at 1200px with 12,345+. At the default size the two labels always took the same lines.
+  // A count of 25 or more lands after the pill shows, and its counted label is short enough that the form keeps its
+  // place (E225, chief design on #1699). "Join 1,234+ others on the waitlist" wrapped under 200% text where "Join the
+  // waitlist" did not, and in CI's fonts the status grew 34px as the count landed at 360px, 480 to 560px and 1040 to
+  // 1160px, and at 1200px with 12,345+. At the default size the two labels always took the same lines. "Join 1,234+
+  // others" still takes a line more than "Join the waitlist" at about 330 to 390px under 200% text, where the checking
+  // line in the status's cell is taller still: the 360px case holds that band (chief design on #1709).
   for (const { width, textSize, signups, shown } of [
     { width: 360, textSize: 32, signups: 1234, shown: '1,234+' },
     { width: 480, textSize: 32, signups: 1234, shown: '1,234+' },
