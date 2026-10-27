@@ -2059,6 +2059,9 @@ const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
     on 767a60d1). */
 const UNIT_OF_TIME = /^(?:time|second|minute|hour|day|night|week|weekend|month|year|morning|evening|afternoon|moment)$/i
 const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
+/** The words that open a clause of time or cause and that the reader takes for a preposition before a pronoun or a noun
+    phrase ("after it" in "replayed a second time after it was not used"). */
+const OPENS_A_CLAUSE = /^(?:after|before|as)$/i
 /** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
     the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
     with a verb group, as a relative clause on it ("A refresh token presented a second time does not by itself sign you
@@ -2071,7 +2074,9 @@ const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
     e03913eb, 78fcbd93 and 767a60d1). Such a span runs to the first verb group after the phrase of time, which is its
     clause's own, and nests what that phrase nests, an agent's relative clause or its own ("a second time by a client
     you do not own", "a second time that you did not send": the routine lens on c6060a93): where that group starts and
-    those spans, or null. Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
+    those spans, or null. A phrase after "after", "before" or "as" in the phrase of time, on anything but a time, may
+    open a clause of time or cause that holds the verb group after it ("a second time after it" in "replayed a second
+    time after it was not used": the routine lens on 95be62e7), so the reading there stays main's. Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
     "one", with a relative clause whose subject is a phrase of time, reads as a participle ("a news feed the weekend
     does not cover", "one feed the weekend does not cover"), and a participle right after a determiner keeps the
     misreading, as on main ("Those presented a second time do not by themselves ..."). */
@@ -2080,6 +2085,7 @@ const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
   if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
+  if (time.postmodifiers.some((m) => m.kind === 'preposition' && OPENS_A_CLAUSE.test(tokens[m.start].text) && !A_TIME.test(m.object?.head.text ?? ''))) return null
   for (let k = time.end; k < first.end; k++) if (startsVerbGroup(tokens, k)) return { end: k, nests: readOf(tokens, time).nests }
   return null
 }
@@ -4300,6 +4306,14 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A refresh token replayed a second time that you did not send signs everyone out.</li>', true],
       ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
       ['<li>A refresh token presented a second time today does not by itself sign you out of every device.</li>', false],
+      // A clause of time or cause after the phrase of time, opened by a word the reader takes for a preposition, holds
+      // the verb group after the phrase, so the reading there stays main's (the routine lens on 95be62e7); a time after
+      // that word is the phrase of time's own.
+      ['<li>Logging out of a session replayed a second time after it was not used ends every session.</li>', true],
+      ['<li>A refresh token presented a second time after you did not log out signs everyone out.</li>', true],
+      ['<li>Logging out of a session replayed a second time before you could not log in ends every session.</li>', true],
+      ['<li>Logging out of a session replayed a second time as it is not yours ends every session.</li>', true],
+      ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', false],
       // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
       // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
       // routine lens on e03913eb, 78fcbd93 and 767a60d1).
@@ -4316,8 +4330,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a news feed the night shift does not monitor ends every session.</li>', true],
       ['<li>Logging out of a news feed the launch did not include ends every session.</li>', true],
       ['<li>Logging out of a news feed the minutes do not mention ends every session.</li>', true],
-      // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
+      // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone, and so is a
+      // phrase after "after" or "before" that the reader reads as a clause of time, wherever it stands ("Nothing
+      // guarantees that logging out after a week ends every session." fails on main too).
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
+      ['<li>Nothing guarantees that reusing a refresh token after a week signs everyone out.</li>', true],
       // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
       // so the gerund's object and its relative clause are not read; and a verb the lexicon lacks opens no clause after
       // "and" and reads as a noun in a relative clause, so the phrase runs on over it ("reusing", "reuses").
