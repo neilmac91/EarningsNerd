@@ -52,6 +52,8 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
 /** The account action while readiness is checking, closed or unconfirmed: the live example. */
 const EXAMPLE_ACCOUNT = { cta: 'See a live example', ctaShort: 'Live example' } as const
 
+const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
+
 /** Registration policy does not imply collection readiness. Never use this display state as authorization. */
 export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {
   if (!loading && readiness?.collection_available === true) return ACCESS_COPY[mode]
@@ -59,7 +61,7 @@ export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | n
     ...EXAMPLE_ACCOUNT,
     href: exampleFilingHref('access_example'),
     line: loading
-      ? 'Checking registration availability. You can explore a live example.'
+      ? CHECKING_LINE
       : readiness
         ? 'New registrations are currently closed. Existing members can log in.'
         : 'Registration availability could not be confirmed. You can explore a live example or log in.',
@@ -70,3 +72,9 @@ export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | n
  *  or once it answers closed or unconfirmed. The header's hidden copy holds them all, so the nav keeps its place as
  *  readiness lands (E220). */
 export const accountLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].cta, EXAMPLE_ACCOUNT.cta]
+
+/** The access lines the hero's line keeps the height of: the checking line it opens on and the mode's own, so the page
+ *  under it holds still as readiness answers open. A closed or unconfirmed answer joins the cell when shown and can
+ *  grow it: the closed line takes a row more than the checking line at some widths, and holding it would put a closed
+ *  notice in every visit's server HTML (E220; chief design on #1686). */
+export const heldAccessLines = (mode: AccessMode): readonly string[] => [CHECKING_LINE, ACCESS_COPY[mode].line]

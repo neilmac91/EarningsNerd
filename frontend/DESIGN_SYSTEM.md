@@ -2382,6 +2382,18 @@ Reporting this week's anatomy (the mark at 32, the ticker in the data face with 
 Reporting this week has its day, the name beneath through `formatCompanyName`), each opening its company page, under
 a line that says what the feed is and nothing the backend's query does not do; no reason chip.
 
+**The hero's access line** (`PublicAccessLine.tsx`, under the hero's call to action) keeps one height as
+registration readiness answers open (E220). The lines it holds (`heldAccessLines`: the checking line it opens on and
+the access mode's own) share one grid cell, the shown one visible and the rest `invisible` and `aria-hidden`, so the
+page under it holds still: as the checking line became the invite line, the page moved up 20px at 320 and 390px and
+40px under 200% text. Where the checking line wraps and the mode's does not, the settled line sits over an empty line
+(20px, 40px under 200% text); chief design chose that over the shift on #1686. A closed or unconfirmed answer joins
+the cell when shown and can still grow it: the closed line takes a row more than the checking line at some widths, and
+holding it would put a closed notice in every visit's server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts`
+(the readiness case: the line's height, the header's and a scrolled page's place as readiness answers, at 320, 390,
+1152 and 1440px and at 640, 1440 and 2304px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through
+checking, open, closed and unconfirmed answers, and the lines it holds).
+
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
 ground, with `text-tertiary-dark` (`#9CA3AF`, 7.4:1 on navy) its dark twin (§2); copy the reader must
