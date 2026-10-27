@@ -765,20 +765,21 @@ test.describe('the site header holds one height as its auth check settles (E174,
 /**
  * The header and the hero keep their place as registration readiness lands (E220, found by #1642's gates). Readiness
  * relabels the account link ("See a live example" while it checks, then the access mode's label) and the hero's
- * access line (the checking line, then the mode's). In invite mode, the e2e build's, the full bar's label narrowed by
- * 9px, so the nav moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text, and the access line lost a row, so
- * the page under it moved up 20px at 320 and 390px and 40px under 200% text. The header's hidden copy now holds every
- * label its account link can print in the mode (accountLabels), and the access line the checking line and the mode's
- * own (heldAccessLines). With the auth check answered (a guest) and readiness held open, the case scrolls, reads the
- * header, the nav's left edge, the access line's height and the page's scroll, answers readiness, and reads them
- * again. The compact bar's link relabels too ("Live example", then "Request invite"); at these widths it keeps the
- * bar's height.
+ * access line (the checking line, then the mode's). In invite mode, the e2e build's, the full bar's label narrowed
+ * by 9px, so the nav moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text, and the access line lost
+ * rows, so the page under it moved up 20px at 320 and 390px and 40 to 120px under 200% text. The header's hidden copy
+ * now holds every label its account link can print in the mode (accountLabels), and the access line the checking
+ * line and the mode's own (heldAccessLines). With the auth check answered (a guest) and readiness held open, the
+ * case scrolls, reads the header, the nav's left edge, the access line's height and the page's scroll, answers
+ * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"); at
+ * these widths it keeps the bar's height, and below 15rem under 200% text it can change it (E223).
  */
 const READINESS_STATES = [
   { width: 320, doubled: false },
   { width: 390, doubled: false },
   { width: 1152, doubled: false },
   { width: 1440, doubled: false },
+  { width: 320, doubled: true },
   { width: 640, doubled: true },
   { width: 1440, doubled: true },
   { width: 2304, doubled: true },

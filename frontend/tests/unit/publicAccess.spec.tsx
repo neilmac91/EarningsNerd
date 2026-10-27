@@ -135,14 +135,11 @@ describe('the header and the hero keep their place as readiness lands (E220)', (
     }
   })
 
-  it.each(MODES)("holds the %s hero line's checking and open lines, and neither a closed nor an unconfirmed one", (mode) => {
-    for (const [readiness, loading] of [checking, opened]) {
-      expect(heldAccessLines(mode)).toContain(publicAccessCopy(mode, readiness, loading).line)
-    }
-    // Chief design on #1686: the closed line would add a row at some widths and a closed notice to every visit's HTML.
-    for (const [readiness, loading] of [closedAnswer, unconfirmed]) {
-      expect(heldAccessLines(mode)).not.toContain(publicAccessCopy(mode, readiness, loading).line)
-    }
+  it.each(MODES)("holds the %s hero line's checking and open lines and no other", (mode) => {
+    // Chief design on #1686: the closed line would add a row at some widths and a closed notice to every visit's HTML,
+    // and the other mode's line would put a promise this mode does not make there.
+    expect(heldAccessLines(mode)).toEqual([publicAccessCopy(mode, ...checking).line, publicAccessCopy(mode, ...opened).line])
+    for (const answer of [closedAnswer, unconfirmed]) expect(heldAccessLines(mode)).not.toContain(publicAccessCopy(mode, ...answer).line)
   })
 
   it.each(MODES)('keeps the %s hero line in one cell with the lines it holds, the shown one alone read', async (mode) => {
@@ -161,6 +158,8 @@ describe('the header and the hero keep their place as readiness lands (E220)', (
     const held = () => {
       for (const cell of cells()) expect(cell).toHaveClass('col-start-1', 'row-start-1')
       for (const cell of cells()) expect(cell.classList.contains('invisible')).toBe(cell.hasAttribute('aria-hidden'))
+      // The server HTML's text keeps the lines apart, for a reader of the page without its styles.
+      expect(container.querySelector('p')!.textContent).toBe(cells().map((cell) => cell.textContent).join(' '))
       return cells().map((cell) => cell.textContent)
     }
     expect(container.querySelector('p')).toHaveClass('grid')

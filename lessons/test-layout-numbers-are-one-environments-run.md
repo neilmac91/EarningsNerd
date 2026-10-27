@@ -30,6 +30,12 @@ the browser with `FONTCONFIG_FILE` naming a copy of `/etc/fonts/fonts.conf` whos
 of links to every rule but that one: `-apple-system` then matches DejaVu Sans, which Chrome declines, and the body
 text paints in the web font, as on CI.
 
+**Recurrence (2026-10-27, #1686)**: the landing hero's access line paints in the body stack, so in the sandbox it
+took the static Inter (`CSS.getPlatformFontsForNode`: `isCustomFont` false), and every figure chief design and the
+author measured for its held cost and for the closed line's bands was the alias's. With the alias left out, the
+web font moved the bands under 200% text, and the compact bar's 74px drop at 390px under 200% text disappeared
+(`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
+
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
 `tasks/analysis-redesign-2026-10/harness/browser-pin.mjs`; the founder's review on #1197 (2026-10-11).
