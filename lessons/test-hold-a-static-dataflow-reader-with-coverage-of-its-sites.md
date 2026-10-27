@@ -13,11 +13,12 @@ a bare call bound to another module's function of the same name; in the fifth, a
 line a driver ran, written through in a branch none did; in the sixth, the reverse (a list filled under
 another name in such a branch, then stored as the reasons or folded into them) and a loop or `with` target
 bound to the list; in the seventh, a generator's element over an iterable no driver fills, on a line a driver
-ran, and a list folded in through `dict.fromkeys`. Each fix widened the reader by the forms a review had named. The second round added a
-runtime check, but it compared codes, not branches, and drove only four of the five emitter modules, behind
-a comment that called the fifth undrivable. The third held it by line, but nothing tested the line naming
-(dropping it passed every test), and a write the reader could not see named no line, so it escaped both
-halves: an alias, a setdefault, or any write in a module with no site the reader knew.
+ran, and a list folded in through `dict.fromkeys`. Each fix widened the reader by the forms a review had
+named. The second round added a runtime check, but it compared codes, not branches, and drove only four of
+the five emitter modules, behind a comment that called the fifth undrivable. The third held it by line, but
+nothing tested the line naming (dropping it passed every test), and a write the reader could not see named
+no line, so it escaped both halves: an alias, a setdefault, or any write in a module with no site the reader
+knew.
 
 **Rule**:
 - Expect the reader to be incomplete. Python's dataflow has no end of forms, so a reader that gains one
