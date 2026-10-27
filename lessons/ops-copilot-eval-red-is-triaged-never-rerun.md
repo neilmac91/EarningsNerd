@@ -1,6 +1,6 @@
 # Triage a red copilot-eval run by the RUNBOOK rule; never re-run it to get a green one
 
-Date: 2026-10-09   Area: ops / evals
+Date: 2026-10-09, updated 2026-10-27 (#1673)   Area: ops / evals
 
 **Context**: On #1148 (the homepage part of the design critique; no Copilot code), `copilot-eval`'s
 first attempt went red on four heads. Each time one row ended `publication withheld: Unverified or
@@ -38,10 +38,13 @@ Never draw again on the same code to get a green result:
   Codex's review, started run 40404785082 (created 21:29:27Z), which cancelled the push's draw and then refused to
   draw. After a push, let `copilot-eval`
   finish before any toggle, one made to request a Codex review included. Waiting for `copilot-eval` alone is not
-  enough: the toggle's ready mark also starts a CI run that cancels the push's run still in progress, and
-  `eval-baseline` draws again (5ec6984's was cancelled 3 minutes into its paid step;
-  `ops-reserve-eval-baseline-before-each-push.md`). Better, ask the founder to post Codex's review command, which
-  starts no CI run.
+  enough: the toggle's ready mark also starts a `ci.yml` run that cancels the push's run still in progress, and
+  `eval-baseline` draws again (5ec6984's push run 40418250386 was cancelled 3 minutes into its paid step by the
+  toggle's run 40418689755; `ops-reserve-eval-baseline-before-each-push.md`). To request the review of a pushed head,
+  post Codex's review command instead, as AGENTS.md §5 and `ops-merge-after-the-ready-marks-own-codex-review.md`
+  say: it starts a `review-gate` run but no `ci.yml` run. A session that cannot post it (on #1673 `gh pr comment`
+  failed, its GraphQL call blocked) asks the founder to, rather than toggling. A fresh transition stays the fix only
+  where that lesson requires one (a finding answered in the body alone, an abandoned ready review).
 - **A push only to draw again.** Never push a commit that changes nothing under `backend/` or
   `.github/` just to draw again, outside a predeclared protocol. The gate does not catch this, because
   it keys on the head commit. Gating it is follow-up 11 in

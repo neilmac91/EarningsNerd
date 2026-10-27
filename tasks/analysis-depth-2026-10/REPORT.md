@@ -638,8 +638,9 @@ Gate figures here use the current gate.
      - Mislabelled numbers in the final text stayed about where the control's are. Read by hand, P had 7 in 1,364
        verified claims (5.1 per 1,000) and the candidate 5 in 1,405 (3.6), against the control's 3 in 735 (4.1).
        Each figure rests on a handful of sentences.
-     - p90 fell to 11.4–12.8 s, from the control's 17.8 s, and the cost to $0.0065–0.0067. In peak hours, one
-       run each on 27 October, p90 was 12.1 s for P and 13.3 s for the candidate, at twice the price.
+     - p90 fell to 11.4–12.8 s, from the control's 17.8 s, and the cost to $0.0065–0.0067.
+   - **At peak hours,** one held-out run each on 27 October: p90 12.1 s for P and 13.3 s for the candidate, at twice
+     the price (`DEEPSEEK-ERRORS.md` §5.7).
    - **Next:** deterministic checks in place of the prompt lines the model ignored, first "above or below a
      reference level". Then the calibration round, the bank profile, period slips and net-debt signs.
    - **Evidence and plan:** `DEEPSEEK-ERRORS.md`, §5 for the results.
@@ -651,14 +652,15 @@ Gate figures here use the current gate.
    - the XOM CIK.
 6. **Before switching on:**
    - your approval of the grounding rule (item 3), and your decision on the candidate prompt (item 2);
-   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 442 recorded calls waited out a 600 s
+   - a per-attempt deadline on each DeepSeek call, with one retry. 8 of 471 recorded calls waited out a 600 s
      client timeout (`DEEPSEEK-ERRORS.md` §5.7);
    - run the human pack (§9c), rebuilt on the adopted build's outputs.
 
    The held-out measurements are done: two runs each of the candidate, the frozen prompt and P, with nothing
    changed after the results were seen (`DEEPSEEK-ERRORS.md` §5.2). So is the peak-hour latency run
    (`eval-v2-peak`, 27 October, one run each): P's p50 11.1 s and p90 12.1 s, the candidate's 10.9 s and 13.3 s,
-   against 10.5 s and 13 s, about as off-peak (`DEEPSEEK-ERRORS.md` §5.7).
+   against 10.5 s and 13 s. P stayed as off-peak, p50 over and p90 under; the candidate's p90 went just over 13 s,
+   which it met off-peak (`DEEPSEEK-ERRORS.md` §5.7).
 
    The Claude API run (`eval-v2-api`) and the Gemini arm were set aside with the decision. The harness keeps
    both paths.
