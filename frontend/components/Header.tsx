@@ -15,7 +15,7 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { accountLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, accountShortLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
@@ -331,7 +331,18 @@ export default function Header({
           {user && <NotificationBell className="min-h-11 min-w-11" open={bellOpen} onOpenChange={onBellOpenChange} />}
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
-              {account.ctaShort}
+              {/* The label holds, in one cell, every short label the link can print in this mode (accountShortLabels:
+                  the mode's own and the live example's), the shown one first and the rest invisible and aria-hidden, so
+                  the link keeps its size as registration readiness lands and its accessible name is the shown label.
+                  Under 200% text the bar grew 14px at 370 and 450px as "Live example", on one line, became "Request
+                  invite", on two (E223, chief design on #1686, comment 6436319684). */}
+              <span className="grid justify-items-center">
+                {[account.ctaShort, ...accountShortLabels(accessMode).filter((label) => label !== account.ctaShort)].map((label, index) => (
+                  <span key={label} aria-hidden={index > 0 || undefined} className={index > 0 ? 'invisible col-start-1 row-start-1' : 'col-start-1 row-start-1'}>
+                    {label}
+                  </span>
+                ))}
+              </span>
             </Link>
           )}
           <button

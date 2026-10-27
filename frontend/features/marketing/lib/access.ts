@@ -73,6 +73,11 @@ export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | n
  *  readiness lands (E220). */
 export const accountLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].cta, EXAMPLE_ACCOUNT.cta]
 
+/** Every short label the compact bar's account link can print in `mode`: the mode's own, and the live example's while
+ *  readiness checks or once it answers closed or unconfirmed. The link holds them all in one cell, so the bar keeps its
+ *  height as readiness lands (E223). */
+export const accountShortLabels = (mode: AccessMode): readonly string[] => [ACCESS_COPY[mode].ctaShort, EXAMPLE_ACCOUNT.ctaShort]
+
 /** The access lines the hero's line keeps the height of: the checking line it opens on and the mode's own, so the page
  *  under it holds still as readiness answers open. A closed or unconfirmed answer joins the cell when shown and can
  *  grow it: the closed line takes a row more than the checking line at some widths, and holding it would put a closed

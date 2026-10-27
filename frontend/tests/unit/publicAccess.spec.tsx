@@ -9,7 +9,7 @@ import ClosingLine from '@/features/marketing/components/ClosingLine'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
 import Header from '@/components/Header'
-import { ACCESS_COPY, accountLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
+import { ACCESS_COPY, accountLabels, accountShortLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), pathname: '/', stats: vi.fn() }))
 vi.mock('@/features/legal/api/legal-api', () => ({ getLegalReadiness: mocks.read }))
@@ -133,6 +133,14 @@ describe('the header and the hero keep their place as readiness lands (E220)', (
     for (const [readiness, loading] of [checking, opened, closedAnswer, unconfirmed]) {
       expect(accountLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).cta)
     }
+  })
+
+  it.each(MODES)('holds every short label the %s compact bar can print in its account link (E223)', (mode) => {
+    for (const [readiness, loading] of [checking, opened, closedAnswer, unconfirmed]) {
+      expect(accountShortLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).ctaShort)
+    }
+    // The mode's own and the live example's: the other mode's label would hold room for a promise this mode does not make.
+    expect(accountShortLabels(mode)).toEqual([publicAccessCopy(mode, ...opened).ctaShort, publicAccessCopy(mode, ...checking).ctaShort])
   })
 
   it.each(MODES)("holds the %s hero line's checking and open lines and no other", (mode) => {

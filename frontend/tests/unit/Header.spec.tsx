@@ -39,15 +39,19 @@ vi.mock('@/features/auth/api/auth-api', () => ({
   logout: vi.fn(),
 }))
 
-// Header layout/auth cases run with collection released. publicAccess.spec.tsx holds the real reader.
+// Header layout/auth cases run with collection released, unless a case holds readiness checking.
+// publicAccess.spec.tsx holds the real reader.
+const readiness = vi.hoisted(() => ({ checking: false }))
 vi.mock('@/features/marketing/components/PublicAccessProvider', async () => {
-  const { ACCESS_COPY } = await import('@/features/marketing/lib/access')
-  return { usePublicAccess: (mode: keyof typeof ACCESS_COPY) => ACCESS_COPY[mode] }
+  const { ACCESS_COPY, publicAccessCopy } = await import('@/features/marketing/lib/access')
+  return {
+    usePublicAccess: (mode: keyof typeof ACCESS_COPY) => (readiness.checking ? publicAccessCopy(mode, null, true) : ACCESS_COPY[mode]),
+  }
 })
 
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import Header, { SITE_HEADER_HEIGHT_PROPERTY } from '@/components/Header'
-import { ACCESS_COPY, accountLabels } from '@/features/marketing/lib/access'
+import { ACCESS_COPY, accountLabels, accountShortLabels, publicAccessCopy } from '@/features/marketing/lib/access'
 
 const mockUser = {
   id: 1,
@@ -126,6 +130,37 @@ describe('Header auth state', () => {
       expect(copy.nextElementSibling!.textContent, accessMode).toBe(`Log in${ACCESS_COPY[accessMode].cta}`)
       unmount()
     }
+  })
+
+  it("holds the compact bar's account link at every short label it can print, in one cell, the shown one alone read", async () => {
+    vi.mocked(getCurrentUserSafe).mockResolvedValue(null)
+    for (const accessMode of ['invite', 'public'] as const) {
+      for (const checking of [true, false]) {
+        readiness.checking = checking
+        const { unmount } = renderHeader({ accessMode })
+        // While readiness checks the link offers the live example, then the mode's own label; the cell holds both from
+        // the first, so the bar keeps its height as readiness lands (E223: under 200% text it grew 14px at 370 and
+        // 450px as "Live example", on one line, became "Request invite", on two).
+        const shown = checking ? publicAccessCopy(accessMode, null, true).ctaShort : ACCESS_COPY[accessMode].ctaShort
+        const where = `${accessMode}, ${checking ? 'checking' : 'open'}`
+        const link = await screen.findByRole('link', { name: shown })
+        const cells = [...link.querySelectorAll('.col-start-1.row-start-1')]
+        expect(cells.map((cell) => cell.textContent).sort(), where).toEqual([...accountShortLabels(accessMode)].sort())
+        // One grid, so the link is as wide and as tall as the larger label, never the two side by side.
+        expect(new Set(cells.map((cell) => cell.parentElement)).size, where).toBe(1)
+        expect(cells[0].parentElement, where).toHaveClass('grid', 'justify-items-center')
+        expect(cells[0], where).toHaveTextContent(shown)
+        expect(cells[0], where).not.toHaveClass('invisible')
+        expect(cells[0], where).not.toHaveAttribute('aria-hidden')
+        for (const held of cells.slice(1)) {
+          expect(held, where).toHaveClass('invisible')
+          expect(held, where).toHaveAttribute('aria-hidden', 'true')
+        }
+        expect(link, where).toHaveAccessibleName(shown)
+        unmount()
+      }
+    }
+    readiness.checking = false
   })
 
   it('shows Log in / the account CTA only on a definitive logged-out (null)', async () => {

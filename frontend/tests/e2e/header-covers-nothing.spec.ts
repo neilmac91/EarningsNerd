@@ -745,12 +745,17 @@ test.describe('the site header holds one height as its auth check settles (E174,
             expect(pending.navLeft, 'the full bar shows its nav while the check is held').not.toBeNull()
             expect(Math.abs(after.navLeft! - pending.navLeft!), `the nav's left edge while the check ran (${pending.navLeft}px) and after (${after.navLeft}px)`).toBeLessThanOrEqual(0.5)
           }
-          // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
+          // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either. The
+          // fixture rewrites the shown label, the cell's first, and leaves the live example's held beside it, as each
+          // mode's build holds it (E223).
           if (bar === 'compact' && who === 'guest') {
             for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
               await settled.evaluate((link, text) => {
-                link.textContent = text
+                const shown = link.querySelector('.col-start-1.row-start-1:not([aria-hidden])')
+                if (!shown) throw new Error('the account link has no shown label in its cell')
+                shown.textContent = text
               }, label)
+              await expect(settled).toHaveAccessibleName(label)
               await settle(page)
               const held = await headerAt(page)
               expect(held.height, `the header with a guest's "${label}" (${held.height}px), as while the check ran (${pending.height}px)`).toBe(pending.height)
@@ -771,8 +776,10 @@ test.describe('the site header holds one height as its auth check settles (E174,
  * now holds every label its account link can print in the mode (accountLabels), and the access line the checking
  * line and the mode's own (heldAccessLines). With the auth check answered (a guest) and readiness held open, the
  * case scrolls, reads the header, the nav's left edge, the access line's height and the page's scroll, answers
- * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"); at
- * these widths it keeps the bar's height, and below 15rem under 200% text it can change it (E223).
+ * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"), and
+ * under 200% text, in CI's fonts, the bar grew 14px at 370 and 450px, where "Live example" fits on one line and "Request
+ * invite" takes two; the link now holds both labels in one cell (accountShortLabels), and the case runs at those two
+ * widths (E223, chief design on #1686, comment 6436319684).
  */
 const READINESS_STATES = [
   { width: 320, doubled: false },
@@ -780,6 +787,8 @@ const READINESS_STATES = [
   { width: 1152, doubled: false },
   { width: 1440, doubled: false },
   { width: 320, doubled: true },
+  { width: 370, doubled: true },
+  { width: 450, doubled: true },
   { width: 640, doubled: true },
   { width: 1440, doubled: true },
   { width: 2304, doubled: true },

@@ -33,5 +33,6 @@ also runs at the sweep's worst phone width under 200% text (`frontend/tests/e2e/
 
 **Evidence.** #1686: `2b123383` recorded "40px under 200% text" (`frontend/DESIGN_SYSTEM.md` §7 and
 `PublicAccessLine.tsx`), and its verification lens found the model's figures; `afd3046c` records the measured range
-in CI's fonts and adds the 320px case, and `3b7b384a` names the fonts in §7. E223 in `tasks/todo.md` records the
-compact bar.
+in CI's fonts and adds the 320px case, and `3b7b384a` names the fonts in §7. E223's pull request holds the compact
+bar's account label in one cell (`frontend/components/Header.tsx`) and runs the readiness case at 370 and 450px under
+200% text.
