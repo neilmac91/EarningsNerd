@@ -37,6 +37,13 @@ text, and the closed line's bands there (chief design's, 960 to 992, 1136 to 121
 sandbox's rows, not CI's). It also put a 74px drop in the compact bar at 390px under 200% text that CI's fonts do not
 show (`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
 
+**Recurrence (2026-10-27, E223)**: the compact bar's account link now holds both its labels in one cell, so the bar
+keeps the taller of their layouts. In CI's fonts that is the ready bar at every width. In the sandbox's static Inter,
+"Live example"'s longest word no longer fits beside the logo at 390px under 200% text, so the held bar keeps two rows
+(225px) where main's settled to one (151px) as readiness landed, and `reflow-200.spec.ts`'s one-row case at 390px
+fails on every route in the sandbox while it passes there on main, which reads after readiness lands, and in CI's
+fonts. Run the e2e with the CI fontconfig before reading a sandbox failure as a regression.
+
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
 `tasks/analysis-redesign-2026-10/harness/browser-pin.mjs`; the founder's review on #1197 (2026-10-11).

@@ -1603,9 +1603,13 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  public mode (simulated on the invite build by rewriting the label) shrank 14 to 88px at 320 to
                  440px as "Live example" became "Sign up" (E223, chief design on #1686, comment 6436319684). The
                  held bar is the taller layout: in invite mode the one a ready answer gives, so the hold costs
-                 nothing; in public mode the checking one, which keeps those 14 to 88px for the visit. The full
-                 bar's cell holds min-h-10, the md button's height, so the bar is one height while the check runs
-                 and after it, for a guest and a signed-in
+                 nothing; in public mode the checking one, which keeps those 14 to 88px for the visit. In a face
+                 wider than the web font the taller layout can be a row more: in the agents' sandbox, whose
+                 fontconfig paints the body stack in a static Inter, the held invite bar keeps two rows at 390px
+                 under 200% text where main's settled to one, so `reflow-200.spec.ts`'s one-row case fails there and
+                 passes in CI's fonts (`lessons/test-layout-numbers-are-one-environments-run.md`). The full bar's
+                 cell holds min-h-10, the md button's height, so the bar is one height while the check runs and
+                 after it, for a guest and a signed-in
                  reader (E174, E175; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open,
                  scrolls, and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and
                  under 200% text in the compact bar at 640, 800, 1024 and 1440px and the full bar at 2304px:

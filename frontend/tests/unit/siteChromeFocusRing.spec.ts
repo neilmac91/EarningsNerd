@@ -152,6 +152,7 @@ const NOT_SCANNED: Record<string, string> = {}
 const THIRD_PARTY: Record<string, string> = {
   'next/link Link': 'renders an <a>: scanned as a Tab stop like any other',
   'react Suspense': 'renders no control',
+  'react Fragment': 'renders no element: groups the compact account link held labels (Header.tsx, E223)',
   '@vercel/analytics/next Analytics': 'renders no control',
   'posthog-js/react PHProvider': 'a provider: renders no control',
   '@phosphor-icons/react IconContext.Provider': 'a provider: renders no control',
