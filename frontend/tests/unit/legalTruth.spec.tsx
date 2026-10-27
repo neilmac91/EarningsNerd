@@ -2060,8 +2060,9 @@ const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 const UNIT_OF_TIME = /^(?:time|second|minute|hour|day|night|week|weekend|month|year|morning|evening|afternoon|moment)$/i
 const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
 /** The words that may open a clause of time, cause, condition or manner, which the reader takes for a preposition before
-    a pronoun or a noun phrase where it does not take them for a clause's opening ("after it" in "replayed a second time
-    after it was not used", "for it" in "... for it was not used": the routine lens on 95be62e7 and a033404c). */
+    a pronoun or a noun phrase where it does not take them for a clause's opening ("until it" in "does not wait until it
+    ends every session", "after it" in "replayed a second time after it was not used", "for it" in "... for it was not
+    used": the routine lens on 95be62e7 and a033404c). */
 const OPENS_A_CLAUSE = /^(?:after|although|as|because|before|except|for|if|like|once|since|than|though|till|unless|until|when|whenever|whereas|while)$/i
 /** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase after
     the noun it modifies, which the reader reads as a premodifier, with a phrase of time after it that the reader reads,
@@ -2071,30 +2072,36 @@ const OPENS_A_CLAUSE = /^(?:after|although|as|because|before|except|for|if|like|
     ("an hour later"). A noun's own relative clause keeps its reading: on a noun not in -ed ("a hotel booking the
     weekend does not cover"), on one right after its determiner ("a feed the weekend does not cover"), or with a subject
     that is no phrase of time, a time word only modifying it or a plural unit heading it ("a feed you do not own", "a
-    device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on
-    e03913eb, 78fcbd93 and 767a60d1). Such a span runs to the first verb group after the phrase of time, which is its
-    clause's own, and nests what that phrase nests, an agent's relative clause or its own ("a second time by a client
-    you do not own", "a second time that you did not send": the routine lens on c6060a93): where that group starts and
-    those spans, or null. A word that may open a clause (OPENS_A_CLAUSE) anywhere in the phrase of time may open one
-    that holds the verb group after it, whatever its subject and however deep in the phrase it stands ("a second time
-    after it" in "replayed a second time after it was not used", "after the weekend was not over", "on Monday after the
-    launch did not succeed", "for it was not used": the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on
-    a5c5a491 and a033404c), so the reading there stays main's, as it does for a time after such a word ("after a
-    week"). And a finite verb group where the reader's misread clause ends (finiteAt), with no word that opens a
-    clause between it and the group found, is the clause's own: the group found is then a clause's that the phrase
-    of time holds, or a noun's relative clause's, so the reading there stays main's too ("a second time knowing it is
-    not valid ends every session", "a news feed the weekend does not cover ends every session": the routine lens on
-    3b4b8a69). Out of reach: a participle right after a determiner keeps the misreading, as on main ("Those presented
-    a second time do not by themselves ..."). */
+    device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on e03913eb,
+    78fcbd93 and 767a60d1). Such a span runs to the first verb group after the phrase of time, which is its clause's
+    own, and nests what that phrase nests, an agent's relative clause or its own ("a second time by a client you do not
+    own", "a second time that you did not send": the routine lens on c6060a93): where that group starts and those spans,
+    or null. Where the clause's own verb group stands after the group found, the reading stays main's. A finite one
+    (finiteAt) where the reader's misread clause ends, with no word that may open a clause (OPENS_A_CLAUSE) between the
+    two, makes the group found another clause's: one such a word opens in the phrase of time, which the reader takes for
+    a preposition, however deep in the phrase it stands ("a second time after it was not used ends", "on Monday after
+    the launch did not succeed ends", "for it was not used ends": the routine lens on 95be62e7, a5c5a491 and a033404c,
+    Codex on a5c5a491 and a033404c), one an -ing word opens there ("a second time knowing it is not valid ends": the
+    routine lens on 3b4b8a69), or a noun's relative clause whose subject is the phrase of time ("a news feed the weekend
+    does not cover ends"). And one of any form past the verb where that clause ends, within the reach of a negation in
+    the group found (NEGATION_REACH: four words between a negation and the verb it denies), is the clause's own, which
+    that negation would deny if the reading held: the verb before it is a noun's relative clause's, whose object is the
+    noun ("a news feed the weekend does not by itself cover ends every session", "Logouts of a news feed the weekend
+    does not by itself cover all end every session", "... does not alone cover on Mondays ends ..."), where the
+    misread's verb takes its own object ("sign you out of every device"). Past that reach the negation denies nothing
+    either way. Out of reach: a participle right after a determiner keeps the misreading, as on main ("Those presented a
+    second time do not by themselves ..."). */
 const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } | null => {
   const first = phrase.postmodifiers[0]
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
   if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
-  if (tokens.slice(time.start, time.end).some((token) => OPENS_A_CLAUSE.test(token.text))) return null
   for (let k = time.end; k < first.end; k++) {
     if (!startsVerbGroup(tokens, k)) continue
     if (finiteAt(tokens, first.end) && !tokens.slice(k, first.end).some((token) => OPENS_A_CLAUSE.test(token.text))) return null
+    const after = startsVerbGroup(tokens, first.end) ? verbGroupAt(tokens, first.end).verb + 1 : first.end
+    const reach = tokens.slice(k, first.end).reduce((end, token, i) => (negates(token, tokens[k + i + 1]) ? k + i + 5 : end), -1)
+    if (tokens.some((_, j) => j >= after && j <= reach && startsVerbGroup(tokens, j))) return null
     return { end: k, nests: readOf(tokens, time).nests }
   }
   return null
@@ -4324,9 +4331,9 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
       ['<li>A refresh token presented a second time today does not by itself sign you out of every device.</li>', false],
       // A clause of time or cause after the phrase of time, opened by a word the reader takes for a preposition, holds
-      // the verb group after the phrase, whatever its subject and however deep in the phrase it opens, so the reading
-      // there stays main's (the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on a5c5a491 and a033404c), and so
-      // it does for a time after such a word, whose denial is refused as on main.
+      // the verb group after the phrase, whatever its subject and however deep in the phrase it opens, and the clause's
+      // own finite verb group stands where the reader's misread clause ends, so the reading there stays main's
+      // (finiteAt: the routine lens on 95be62e7, a5c5a491 and a033404c, Codex on a5c5a491 and a033404c).
       ['<li>Logging out of a session replayed a second time after it was not used ends every session.</li>', true],
       ['<li>A refresh token presented a second time after you did not log out signs everyone out.</li>', true],
       ['<li>Logging out of a session replayed a second time before you could not log in ends every session.</li>', true],
@@ -4336,6 +4343,8 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time on Monday after the launch did not succeed ends every session.</li>', true],
       ['<li>Logging out of a session replayed a second time for it was not used ends every session.</li>', true],
       ['<li>A refresh token presented a second time like you did not log out signs everyone out.</li>', true],
+      // A phrase after such a word that holds no verb group is the phrase of time's own, so the denial after it passes.
+      ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', false],
       // A finite verb group where the reader's misread clause ends is the clause's own, so the group found before it is
       // a clause's that the phrase of time holds, and the reading stays main's (finiteAt: the routine lens on
       // 3b4b8a69), as it does for a noun in -ed whose relative clause's subject is a phrase of time.
@@ -4343,7 +4352,17 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time knowing it is not valid will end every session.</li>', true],
       ['<li>Logging out of a news feed the weekend does not cover ends every session.</li>', true],
       ['<li>Logging out of one feed the weekend does not cover ends every session.</li>', true],
-      ['<li>A refresh token presented a second time after a week does not by itself sign you out of every device.</li>', true],
+      // A verb group of any form past the verb the misread clause ends at, within the reach of the negation before it
+      // (NEGATION_REACH), is the clause's own, so the reading stays main's; past that reach the negation denies nothing
+      // either way, and the misread's own denial passes.
+      ['<li>Logging out of a news feed the weekend does not by itself cover ends every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend does not by itself cover all end every session.</li>', true],
+      ['<li>Logouts of a news feed the weekend cannot by itself cover alone end every session.</li>', true],
+      ['<li>Logging out of a news feed the weekend does not alone cover on Mondays ends every session.</li>', true],
+      ['<li>A refresh token presented a second time does not by itself sign you out of every device it covers.</li>', false],
+      // Its cost: a verb the lexicon lists right after the misread's verb reads as such a group ("end access"), so
+      // that denial is refused, as on main.
+      ['<li>A refresh token presented a second time does not by itself end access everywhere.</li>', true],
       // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
       // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
       // routine lens on e03913eb, 78fcbd93 and 767a60d1).
