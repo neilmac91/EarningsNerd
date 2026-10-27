@@ -94,7 +94,8 @@ describe('the watchlist card states each summary status', () => {
   })
 
   // The stage after `generating:` is the pipeline's key; the chip never prints it (the filing page's
-  // step log speaks in phrases, not keys), so every stage the server can send reads the same word.
+  // step log speaks in phrases, not keys), so every stage a server can send reads the same word (one from before E43
+  // also sent `completed` and `partial`).
   it.each(['generating', 'generating:initializing', 'generating:queued', 'generating:fetching', 'generating:parsing',
     'generating:analyzing', 'generating:summarizing', 'generating:completed', 'generating:partial'])(
     '%s: the chip reads "Generating" and names no stage key',

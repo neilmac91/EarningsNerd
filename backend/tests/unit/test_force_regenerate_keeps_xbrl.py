@@ -234,5 +234,6 @@ def test_the_progress_row_the_route_clears_is_invisible_while_the_summary_exists
         assert db.query(SummaryGenerationProgress).filter_by(filing_id=filing_id).count() == 0  # it ran
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).one()
     assert before == after == {"stage": "completed", "elapsedSeconds": 0}
-    assert _summary_status(summary, {"stage": "summarizing"}) == _summary_status(summary, None) \
+    in_flight = SummaryGenerationProgress(filing_id=filing_id, stage="summarizing")
+    assert _summary_status(summary, in_flight) == _summary_status(summary, None) \
         == {"summary_id": summary.id, "summary_status": "ready"}

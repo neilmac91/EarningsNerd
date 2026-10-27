@@ -291,7 +291,7 @@ async def get_watchlist_insights(
                     summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
 
                     progress_row = progress_by_filing.get(latest_filing.id)
-                    progress_snapshot = progress_as_dict(progress_row) if progress_row else None
+                    progress_snapshot: Optional[Dict[str, Any]] = None
 
                     summary_status = "missing"
                     needs_regeneration = True
@@ -303,6 +303,7 @@ async def get_watchlist_insights(
                         summary_id = summary.id
                         summary_created_at = summary.created_at.isoformat() if summary.created_at else None
                         summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
+                        progress_snapshot = progress_as_dict(progress_row) if progress_row else None
 
                         if is_stored_summary_ready(summary):
                             summary_status = "ready"
