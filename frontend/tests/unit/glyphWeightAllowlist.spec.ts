@@ -11,12 +11,15 @@
    0.75px stroke renders grey and broken on its disc.
 
    The scan reads each file's TypeScript AST (a .js file as JSX, as Next allows)
-   and counts every `weight` JSX attribute and every `weight:` property whose
-   value names a Phosphor weight other than regular (thin, light, bold, fill,
-   duotone), a conditional's branches included. A `weight` attribute whose value
-   names no weight at all (a variable) counts too, since it could name any. Each
-   listed file is pinned, with its reason, to its count: a new heavier weight, an
-   extra one in a listed file and a stale entry all fail.
+   and counts every `weight` JSX attribute that can take a weight other than
+   regular. It reads each value the attribute can take (a conditional's branches,
+   the operands of ?? and ||, the right of &&, through parentheses and type
+   assertions): one that names thin, light, bold, fill or duotone counts, and so
+   does one that is not a string literal at all (a variable, a constant, a call),
+   since it could name any. A `weight:` property counts when its value names such
+   a weight. Each listed file is pinned, with its reason, to its count: a new
+   weight other than regular, an extra one in a listed file and a stale entry all
+   fail.
 
    Limits: a weight spread in from another object ({...props}) and a `weight:`
    property set from a variable are not read; review reads them.
@@ -55,6 +58,23 @@ function literals(node: ts.Node): string[] {
   return out
 }
 
+/** The values a weight expression can take: a conditional's branches and the operands of ?? and ||, the right of &&,
+    through parentheses and type assertions. Any other expression is a value of its own. */
+function weightValues(node: ts.Expression): ts.Expression[] {
+  if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)) {
+    return weightValues(node.expression)
+  }
+  if (ts.isConditionalExpression(node)) return [...weightValues(node.whenTrue), ...weightValues(node.whenFalse)]
+  if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind
+    if (op === ts.SyntaxKind.QuestionQuestionToken || op === ts.SyntaxKind.BarBarToken) {
+      return [...weightValues(node.left), ...weightValues(node.right)]
+    }
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) return weightValues(node.right)
+  }
+  return [node]
+}
+
 /** The glyph weights other than regular in `source`: `weight` attributes and `weight:` properties. */
 function countNonRegularWeights(source: string, fileName: string): number {
   const sourceFile = ts.createSourceFile(
@@ -67,8 +87,9 @@ function countNonRegularWeights(source: string, fileName: string): number {
   let count = 0
   const visit = (node: ts.Node): void => {
     if (ts.isJsxAttribute(node) && node.name.getText(sourceFile) === 'weight' && node.initializer) {
-      const named = literals(node.initializer)
-      if (named.length === 0 || named.some((w) => NOT_REGULAR.has(w))) count += 1
+      const value = ts.isJsxExpression(node.initializer) ? node.initializer.expression : node.initializer
+      // A value that is not a string literal (a variable, a constant, a call) could name any weight.
+      if (!value || weightValues(value).some((v) => !ts.isStringLiteralLike(v) || NOT_REGULAR.has(v.text))) count += 1
     } else if (ts.isPropertyAssignment(node) && node.name.getText(sourceFile).replace(/['"]/g, '') === 'weight') {
       if (literals(node.initializer).some((w) => NOT_REGULAR.has(w))) count += 1
     }
@@ -105,6 +126,12 @@ describe('a glyph is regular, heavier only under a device pixel or as a toggle\'
     expect(count('const a = <CheckIcon weight="bold" className="h-3 w-3" />')).toBe(1)
     expect(count("const a = <StarIcon weight={on ? 'fill' : 'regular'} />")).toBe(1)
     expect(count('const a = <BellIcon weight={weight} />')).toBe(1)
+    // A branch, an operand or a call that is not a string literal could name any weight.
+    expect(count("const ON = 'fill'\nconst a = <StarIcon weight={on ? ON : 'regular'} />")).toBe(1)
+    expect(count("const a = <StarIcon weight={on ? w : 'regular'} />")).toBe(1)
+    expect(count("const a = <StarIcon weight={w ?? 'regular'} />")).toBe(1)
+    expect(count("const a = <StarIcon weight={on && 'fill'} />")).toBe(1)
+    expect(count('const a = <StarIcon weight={pick(on)} />')).toBe(1)
     expect(count("const a = <XIcon weight={'thin'} />")).toBe(1)
     expect(count("const p: IconProps = { size: 24, weight: 'bold' }")).toBe(1)
     expect(count("const p = { 'weight': 'duotone' }")).toBe(1)
@@ -114,6 +141,7 @@ describe('a glyph is regular, heavier only under a device pixel or as a toggle\'
     // Regular, no weight, a font's weight and a weight's type are not a glyph drawn heavier.
     expect(count('const a = <CheckIcon weight="regular" />')).toBe(0)
     expect(count("const a = <CheckIcon weight={'regular'} />")).toBe(0)
+    expect(count("const a = <StarIcon weight={on ? 'regular' : ('regular' as const)} />")).toBe(0)
     expect(count('const a = <CheckIcon className="h-6 w-6" />')).toBe(0)
     expect(count("const ICON_DEFAULTS: IconProps = { size: 24, weight: 'regular' }")).toBe(0)
     expect(count('interface Panel { weight: number }\nconst font = (weight: number) => `${weight} 12px Inter`')).toBe(0)
