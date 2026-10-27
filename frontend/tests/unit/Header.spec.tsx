@@ -144,15 +144,18 @@ describe('Header auth state', () => {
         const shown = checking ? publicAccessCopy(accessMode, null, true).ctaShort : ACCESS_COPY[accessMode].ctaShort
         const where = `${accessMode}, ${checking ? 'checking' : 'open'}`
         const link = await screen.findByRole('link', { name: shown })
+        // The held labels in their own order whatever is shown, so nothing reorders as readiness lands, a space between
+        // them in the text the server sends, as the hero's access line holds its lines.
         const cells = [...link.querySelectorAll('.col-start-1.row-start-1')]
-        expect(cells.map((cell) => cell.textContent).sort(), where).toEqual([...accountShortLabels(accessMode)].sort())
+        expect(cells.map((cell) => cell.textContent), where).toEqual([...accountShortLabels(accessMode)])
+        expect(link.textContent, where).toBe(accountShortLabels(accessMode).join(' '))
         // One grid, so the link is as wide and as tall as the larger label, never the two side by side.
         expect(new Set(cells.map((cell) => cell.parentElement)).size, where).toBe(1)
         expect(cells[0].parentElement, where).toHaveClass('grid', 'justify-items-center')
-        expect(cells[0], where).toHaveTextContent(shown)
-        expect(cells[0], where).not.toHaveClass('invisible')
-        expect(cells[0], where).not.toHaveAttribute('aria-hidden')
-        for (const held of cells.slice(1)) {
+        const visible = cells.filter((cell) => !cell.classList.contains('invisible'))
+        expect(visible.map((cell) => cell.textContent), where).toEqual([shown])
+        expect(visible[0], where).not.toHaveAttribute('aria-hidden')
+        for (const held of cells.filter((cell) => cell !== visible[0])) {
           expect(held, where).toHaveClass('invisible')
           expect(held, where).toHaveAttribute('aria-hidden', 'true')
         }

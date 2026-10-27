@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -81,6 +81,7 @@ export default function Header({
   const router = useRouter()
   const queryClient = useQueryClient()
   const account = usePublicAccess(accessMode)
+  const shortLabels = accountShortLabels(accessMode)
   const headerRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -332,15 +333,24 @@ export default function Header({
           {(user === null || isError) && (
             <Link href={account.href} className={buttonVariants({ variant: 'primary', size: 'md', className: 'min-h-11 min-w-0 py-2 [@media(max-width:24rem)]:px-2' })}>
               {/* The label holds, in one cell, every short label the link can print in this mode (accountShortLabels:
-                  the mode's own and the live example's), the shown one first and the rest invisible and aria-hidden, so
-                  the link keeps its size as registration readiness lands and its accessible name is the shown label.
-                  Under 200% text the bar grew 14px at 370 and 450px as "Live example", on one line, became "Request
-                  invite", on two (E223, chief design on #1686, comment 6436319684). */}
+                  the mode's own and the live example's), the shown one visible and the rest invisible and aria-hidden,
+                  as the hero's access line holds its lines, so the link keeps its size as registration readiness lands
+                  and its accessible name is the shown label. A space between the cells renders nothing in the grid and
+                  keeps the labels apart in the server HTML's text. Under 200% text the bar grew 14px at 370 and 450px
+                  as "Live example", on one line, became "Request invite", on two (E223, chief design on #1686, comment
+                  6436319684). */}
               <span className="grid justify-items-center">
-                {[account.ctaShort, ...accountShortLabels(accessMode).filter((label) => label !== account.ctaShort)].map((label, index) => (
-                  <span key={label} aria-hidden={index > 0 || undefined} className={index > 0 ? 'invisible col-start-1 row-start-1' : 'col-start-1 row-start-1'}>
-                    {label}
-                  </span>
+                {(shortLabels.includes(account.ctaShort) ? shortLabels : [...shortLabels, account.ctaShort]).map((label, index) => (
+                  <Fragment key={label}>
+                    {index > 0 && ' '}
+                    {label === account.ctaShort ? (
+                      <span className="col-start-1 row-start-1">{label}</span>
+                    ) : (
+                      <span aria-hidden="true" className="invisible col-start-1 row-start-1">
+                        {label}
+                      </span>
+                    )}
+                  </Fragment>
                 ))}
               </span>
             </Link>

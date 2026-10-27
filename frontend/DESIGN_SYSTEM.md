@@ -1594,25 +1594,36 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  the live example's, which the link shows while registration readiness checks or once it
                  answers closed or unconfirmed), so the nav keeps its place as readiness lands too: in invite
                  mode it moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text as "See a live
-                 example" became "Request an invite" (E220). The cell holds min-h-10, the md button's height,
-                 so the bar is one height while the check runs and after it, for a guest and a signed-in
+                 example" became "Request an invite" (E220). The compact bar's account link holds its label the same
+                 way, one cell of every short label (`ctaShort`) it can print in the mode (`accountShortLabels`),
+                 the shown one visible and the rest `invisible` and `aria-hidden`, as the hero's access line holds
+                 its lines (§7), so its name is the shown label and the bar keeps its height as readiness lands:
+                 under 200% text in CI's fonts it grew 14px at 370 and 450px in invite mode as "Live example", on
+                 one line, became "Request invite", on two, and in public mode shrank 14 to 88px at 320 to 440px as
+                 "Live example" became "Sign up" (E223, chief design on #1686, comment 6436319684). The held bar is
+                 the taller layout: in invite mode the one a ready answer gives, so the hold costs nothing; in
+                 public mode the checking one, which keeps those 14 to 88px for the visit. The full bar's cell holds
+                 min-h-10, the md button's height, so the bar is one height while the check runs and after it, for a
+                 guest and a signed-in
                  reader (E174, E175; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open,
                  scrolls, and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and
                  under 200% text in the compact bar at 640, 800, 1024 and 1440px and the full bar at 2304px:
                  the header keeps its height, the full bar's nav its left edge, and a guest's compact bar its
                  height with either access mode's label; its readiness case holds readiness open and answers
-                 it, and the header keeps its height at 320, 390, 1152 and 1440px and at 640, 1440 and 2304px
-                 under 200% text, and the full bar's nav its left edge (E220); tests/unit/Header.spec.tsx
-                 holds the copy unfocusable, unread and holding, in one grid, every label a guest's live link
-                 can print in either access mode, and tests/unit/publicAccess.spec.tsx every full-bar label
-                 `publicAccessCopy` can print). The wordmark shows from 40rem
+                 it, and the header keeps its height at 320, 390, 1152 and 1440px and at 320, 370, 450, 640,
+                 1440 and 2304px under 200% text, and the full bar's nav its left edge (E220, E223);
+                 tests/unit/Header.spec.tsx holds the copy unfocusable, unread and holding, in one grid, every
+                 label a guest's live link can print in either access mode, and the compact link's cell its
+                 short labels in one grid, the shown one alone visible and read; tests/unit/publicAccess.spec.tsx
+                 holds every full-bar and compact label `publicAccessCopy` can print). The wordmark shows from 40rem
                  (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
                  under enlarged text the mark stands alone where a guest's row needs the room. Below about
                  15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
                  the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
-                 compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
-                 "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
-                 and at 360 and 375px with "Request invite". Chief design accepts that band, since any
+                 compact bar still grows: in CI's fonts, measured every 10px, a row of its own (88 to 102px)
+                 at 320 to 380px under 200% text, a wrapped label (14px) at 390 to 450px in invite mode and 390
+                 to 440px in public mode, and 10.5px at 320 to 340px under 150% text (to 330px in public mode),
+                 since the link holds both its labels from the first (E223). Chief design accepts that band, since any
                  reservation would give every reader the same extra row (#1558, comment 6377073723). A
                  signed-in reader's bell joins the compact bar as the check settles (E176) and needs less:
                  below about 10.4rem (332px under 200% text) the bell and the menu button take a row of their
@@ -2392,8 +2403,8 @@ to 120px; chief design chose that over the shift on #1686. A space between the c
 server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it: the closed line
 takes a row more than the checking line at some widths, and holding it would put a closed notice in every visit's
 server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's
-and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 640, 1440 and 2304px
-under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
+and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 370, 450, 640, 1440 and
+2304px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
 answers, and the lines it holds).
 
 Muted text on the cream page ground is `text-secondary`;
