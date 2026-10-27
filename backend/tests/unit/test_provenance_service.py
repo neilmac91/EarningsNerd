@@ -546,6 +546,30 @@ class TestFigureCheck:
             "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
         assert self._check("Total assets", "$331.5B", "$365.0B", quarter)["source_checkable"] is False
 
+    THIS_FILING, EARLIER_FILING = "0000320193-25-000073", "0000320193-25-000057"
+
+    @pytest.mark.parametrize("current_accn, earlier_accn, verified", [
+        # Another filing's fact of equal value proves nothing about this one's (E184).
+        (THIS_FILING, EARLIER_FILING, False),
+        # This filing's own comparative, as its companyfacts entries record it: the match stands.
+        (THIS_FILING, THIS_FILING, True),
+        # A fact that records no filing (the filing's own instance records none) is read as before: an accession on one
+        # side alone neither proves nor refuses the other's source.
+        (None, EARLIER_FILING, True),
+        (THIS_FILING, None, True),
+        (None, None, True),
+    ])
+    def test_an_earlier_instant_another_filing_recorded_is_not_this_filings(self, current_accn, earlier_accn, verified):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
+        earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets"}
+        current = {**current, **({"accn": current_accn} if current_accn else {})}
+        earlier = {**earlier, **({"accn": earlier_accn} if earlier_accn else {})}
+        quarter = {"reporting_currency": "USD", "total_assets": {
+            "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
+        out = self._check("Total assets", "$331.5B", "$365.0B", quarter)
+        assert (out["source_checkable"], out["source_verified"]) == (verified, verified)
+        assert "source_mismatched" not in out
+
     # A concept's extraction candidates differ in scope (edgar/instance/concepts.py), and the extractor records the
     # winner as raw_tag. A figure is replaced only by the line its label names; one that differs from another line is
     # not shown wrong, and the row is left unchecked (the expert review of #1530).
@@ -1297,11 +1321,12 @@ class TestScopeTagsHoldTheirSources:
     @staticmethod
     def recorded_candidates() -> dict[str, set[str]]:
         """Every tag a path may record as ``raw_tag``: the instance extractor's candidates and financial profiles'
-        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's cash candidates
-        (it records no other tag). Classifying each errs on the safe side."""
+        anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's candidates: cash,
+        whose tag it records, and revenue, net income and total assets, whose tag it does not today (E184).
+        Classifying each errs on the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
-        from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
+        from app.services.edgar import xbrl_companyfacts as companyfacts
 
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
@@ -1310,7 +1335,13 @@ class TestScopeTagsHoldTheirSources:
         for profile in FINANCIAL_PROFILES:
             for key, anchors, _standard_concept in profile["selectors"]:
                 out.setdefault(key, set()).update(anchors)
-        out.setdefault("cash_and_equivalents", set()).update(CASH_TAG_CANDIDATES)
+        for key, tags in (
+            ("cash_and_equivalents", companyfacts.CASH_TAG_CANDIDATES),
+            ("revenue", companyfacts.REVENUE_TAG_CANDIDATES),
+            ("net_income", companyfacts.NET_INCOME_TAG_CANDIDATES),
+            ("total_assets", companyfacts.TOTAL_ASSETS_TAG_CANDIDATES),
+        ):
+            out.setdefault(key, set()).update(tags)
         return out
 
     def test_each_concept_the_check_covers_is_classified(self):
@@ -1326,6 +1357,36 @@ class TestScopeTagsHoldTheirSources:
             assert named & other == set(), key
         for key, tags in self.ONE_SCOPE.items():
             assert candidates[key] == tags, f"{key}: a new candidate may be another scope"
+
+    def test_each_candidate_keeps_its_tag_and_filing_through_normalisation(self):
+        # The figure check reads a fact's scope from its tag and its source from its filing: normalise_series, which
+        # every standardized series passes through, keeps both for every candidate a path records (E184).
+        from app.services.edgar.xbrl_standardized import normalise_series
+
+        for key, tags in self.recorded_candidates().items():
+            for tag in sorted(tags):
+                entry = {"period": "2025-06-28", "value": 1.0, "form": "10-Q", "currency": "USD",
+                         "raw_tag": f"us-gaap:{tag}", "accn": "0000320193-25-000073"}
+                [kept] = normalise_series([entry])
+                assert (kept["raw_tag"], kept["accn"]) == (entry["raw_tag"], entry["accn"]), (key, tag)
+
+    def test_the_companyfacts_path_records_each_facts_filing(self):
+        # Each companyfacts entry names the filing that reported it, the cash entry its tag too, and normalisation keeps
+        # them: the series match can refuse another filing's fact.
+        from app.services.edgar.xbrl_companyfacts import parse_company_facts
+        from app.services.edgar.xbrl_standardized import normalise_series
+
+        accn = "0000320193-25-000073"
+        fact = {"end": "2025-06-28", "val": 5.0, "form": "10-Q", "accn": accn, "fy": 2025, "fp": "Q3", "filed": "2025-08-01"}
+        us_gaap = {"Assets": {"units": {"USD": [fact]}},
+                   "CashAndCashEquivalentsAtCarryingValue": {"units": {"USD": [fact]}},
+                   "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [
+                       {**fact, "start": "2025-03-30"}]}}}
+        parsed = parse_company_facts({"facts": {"us-gaap": us_gaap}}, accn)
+        for key in ("total_assets", "cash_and_equivalents", "revenue"):
+            [kept] = normalise_series(parsed[key])
+            assert kept["accn"] == accn, key
+        assert normalise_series(parsed["cash_and_equivalents"])[0]["raw_tag"] == "us-gaap:CashAndCashEquivalentsAtCarryingValue"
 
 
 class TestRefreshNormalized:

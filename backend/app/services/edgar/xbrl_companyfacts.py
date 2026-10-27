@@ -24,6 +24,15 @@ CASH_TAG_CANDIDATES: List[str] = [
     "CashCashEquivalentsAndShortTermInvestments",
     "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
 ]
+# The other concepts' candidates, in priority order. This path records a tag (``raw_tag``) for cash
+# alone; provenance_service's scope classification reads these lists too
+# (test_provenance_service.py::TestScopeTagsHoldTheirSources), so a candidate added here is classified.
+REVENUE_TAG_CANDIDATES: List[str] = [
+    "Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "SalesRevenueNet", "NetSales", "TotalRevenue",
+]
+NET_INCOME_TAG_CANDIDATES: List[str] = ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]
+TOTAL_ASSETS_TAG_CANDIDATES: List[str] = ["Assets"]
 
 
 async def fallback_to_company_facts(
@@ -226,11 +235,11 @@ def parse_company_facts(
             return result
 
         append_items(result, normalized_accession, "revenue", select_fact_data(
-            us_gaap, normalized_accession, ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-             "SalesRevenueNet", "NetSales", "TotalRevenue"]))
+            us_gaap, normalized_accession, REVENUE_TAG_CANDIDATES))
         append_items(result, normalized_accession, "net_income", select_fact_data(
-            us_gaap, normalized_accession, ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
-        append_items(result, normalized_accession, "total_assets", select_fact_data(us_gaap, normalized_accession, ["Assets"]))
+            us_gaap, normalized_accession, NET_INCOME_TAG_CANDIDATES))
+        append_items(result, normalized_accession, "total_assets", select_fact_data(
+            us_gaap, normalized_accession, TOTAL_ASSETS_TAG_CANDIDATES))
         append_items(result, normalized_accession, "total_liabilities", select_fact_data(us_gaap, normalized_accession, ["Liabilities"]))
         cash_data, cash_tag = select_fact_data_with_concept(us_gaap, normalized_accession, CASH_TAG_CANDIDATES)
         append_items(result, normalized_accession, "cash_and_equivalents", cash_data, cash_tag)

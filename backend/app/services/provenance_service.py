@@ -656,8 +656,12 @@ def _shows_a_figure(text: Any) -> bool:
 
 
 def _same_series_concept(current: dict, fact: dict) -> bool:
-    """Whether a series fact is the current fact's concept on an earlier date, where both name it."""
-    for field in ("currency", "raw_tag", "form"):
+    """Whether a series fact is the current fact's concept on an earlier date, where both name it.
+
+    Where both record their filing (``accn``), the fact must be this filing's own: an equal value another
+    filing reported proves nothing about this one (E184). A fact that records none is read as before, and
+    gains no source it did not have."""
+    for field in ("currency", "raw_tag", "form", "accn"):
         left, right = current.get(field), fact.get(field)
         if left is not None and right is not None and left != right:
             return False
