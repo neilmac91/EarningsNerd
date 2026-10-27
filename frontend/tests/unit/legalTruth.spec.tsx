@@ -370,8 +370,9 @@ import {
  *    family's sweep since stage 4c): a clause
  *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
  *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
- *    without the relative clauses, participles and asides on its subject (since stage 4c a participle the lexicon
- *    lacks too, which the reader reads as the subject's head: participleAt), so a negation outside a clause or nested in
+ *    without the relative clauses, participles and asides on its subject (but for a phrase of time and a verb group the
+ *    reader reads as a relative clause on a participle it lacks, the clause's own: participleAt, since stage 4c), so a
+ *    negation outside a clause or nested in
  *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
  *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
  *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
@@ -2052,22 +2053,25 @@ const deniable = (re: RegExp) => new RegExp(String.raw`${AFFIRMED}(?![\w'’-]+$
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
-/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase, with
-    what follows it read as a relative clause on it ("A refresh token presented a second time does not by itself sign
-    you out of every device." reads "a second time does not by itself" as a relative clause on "presented"). The
-    participle runs to the first verb group there, which is its clause's own: where that group starts, or null where
-    no such word heads the phrase. */
+/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): the reader reads a phrase of time
+    after it, with a verb group, as a relative clause on it ("A refresh token presented a second time does not by
+    itself sign you out of every device." reads "a second time does not by itself" as one). No relative clause's
+    subject is a time (A_TIME, any word of the phrase: "a second time", "the next day", "an hour later"), and a noun's
+    own relative clause keeps its reading ("a feed you do not own", "a feed the app does not share with anyone": Codex
+    and the routine lens on e03913eb). Such a span runs to its first verb group, which is its clause's own: where that
+    group starts, or null where no phrase of time opens the phrase's first postmodifier. */
 const participleAt = (tokens: Token[], phrase: NounPhrase): number | null => {
   const first = phrase.postmodifiers[0]
-  if (!/^[a-z]+ed$/.test(phrase.head.lower) || first?.kind !== 'relative') return null
+  const time = first ? nounPhraseAt(tokens, first.start) : null
+  if (!first || !time || ![...time.premodifiers, time.head].some((word) => A_TIME.test(word.text))) return null
   for (let k = first.start; k < first.end; k++) if (startsVerbGroup(tokens, k)) return k
   return null
 }
 /** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
     clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
     do not own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb.
-    Since stage 4c a participle the reader reads as a head ends the phrase at its clause's verb group, and the phrase a
-    preposition takes it in (participleAt), and the reader's relative clause on it is no span the phrase nests. */
+    Since stage 4c a phrase of time the reader reads as a relative clause ends the phrase at its clause's verb group,
+    and the phrase a preposition takes it in (participleAt), and is no span the phrase nests. */
 const readOf = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } => {
   const verbGroup = participleAt(tokens, phrase)
   if (verbGroup !== null) return { end: verbGroup, nests: [] }
@@ -2148,7 +2152,9 @@ const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did
     subject nests (subjectAt). So "Logging out does not take long before it ends every session.", "Logging out of a
     device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
     session." fail, as main refuses them, while a denial on a clause's own verb, subject or object reads as before. The
-    readings only gain texts, so nothing main refuses passes. */
+    readings only gain texts, so nothing main refuses passes, but for a phrase of time the reader reads as a relative
+    clause, which holds its clause's own denial (participleAt: "A refresh token presented a second time does not by
+    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). */
 const clauseByClause = (sentence: string): string[] => {
   const reading = readSentence(sentence)
   const { tokens, clauses } = reading
@@ -4266,10 +4272,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A refresh token presented a second time does not by itself sign you out of every device.</li>', false],
       ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
       ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
+      ['<li>A refresh token replayed an hour later does not by itself sign everyone out.</li>', false],
       ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
       ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
+      // A noun in -ed keeps its relative clause, whose subject is no time (Codex and the routine lens on e03913eb).
+      ['<li>Changing the password on a feed you do not own ends every session.</li>', true],
+      ['<li>Logging out of a feed you do not share with anyone ends every session.</li>', true],
+      ['<li>Logging out of a feed the account does not own ends every session.</li>', true],
       // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
       // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
