@@ -785,14 +785,6 @@ const READINESS_STATES = [
 /** The account link while readiness checks: the full bar's label or the compact bar's. */
 const EXAMPLE_LINK = /^(See a live example|Live example)$/
 
-/** The header's height, and the full bar's nav's left edge where the full bar shows. */
-const headerAt = (page: Page) =>
-  page.evaluate(() => {
-    const header = document.querySelector('header[data-site-header]')!
-    const nav = header.querySelector('nav[aria-label="Main navigation"]')!.getBoundingClientRect()
-    return { height: header.getBoundingClientRect().height, navLeft: nav.width > 0 ? nav.left : null }
-  })
-
 test.describe('the header keeps its place as registration readiness lands (E220)', () => {
   for (const { width, doubled } of READINESS_STATES) {
     test.describe(`${width}px${doubled ? ' and 200% text' : ''}, a guest`, () => {
