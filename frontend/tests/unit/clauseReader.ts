@@ -91,8 +91,8 @@
  *
  * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, with a noun phrase
  * and a verb group after it read as a relative clause on it ("A refresh token presented a second time does not by
- * itself sign you out of every device." read "a second time does not by itself" as one until stage 4c gave the
- * lexicon "presented": PARTICIPLES_ONLY), and a noun the
+ * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
+ * clause-by-clause reading reads as a participle: participleAt), and a noun the
  * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
  * record every call" reads as "the access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your
@@ -233,11 +233,8 @@ const DOUBLED = words('log cap plan ship stop drop permit submit control')
 /** Past forms the rules below do not make. */
 const IRREGULAR_PAST = words('had did done took taken sat stood kept sent held wrote written ran got gotten gave given went gone came became saw seen knew known told said led sold found left paid built chose chosen forgot forgotten hid hidden lost meant met made broke broken shown spent brought fell understood lay lain')
 const IRREGULAR_OTHER = words('has does doing goes setting getting letting putting running hitting cutting sitting forgetting')
-/** Participles and gerunds of verbs the lemmas leave out (E162 stage 4c), since these pages use the verbs' other forms
-    as nouns and adjectives ("analytics present on the page", "token reuse", "session replays"). */
-const PARTICIPLES_ONLY = words('presented replayed replaying reused reusing')
 
-const VERB_FORMS = new Set<string>([...IRREGULAR_OTHER, ...PARTICIPLES_ONLY])
+const VERB_FORMS = new Set<string>(IRREGULAR_OTHER)
 const PAST_FORMS = new Set<string>(IRREGULAR_PAST)
 for (const lemma of words(LEMMAS)) {
   const y = /[^aeiou]y$/.test(lemma)

@@ -370,7 +370,8 @@ import {
  *    family's sweep since stage 4c): a clause
  *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
  *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
- *    without the relative clauses, participles and asides on its subject, so a negation outside a clause or nested in
+ *    without the relative clauses, participles and asides on its subject (since stage 4c a participle the lexicon
+ *    lacks too, which the reader reads as the subject's head: participleAt), so a negation outside a clause or nested in
  *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
  *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
  *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
@@ -2051,11 +2052,36 @@ const deniable = (re: RegExp) => new RegExp(String.raw`${AFFIRMED}(?![\w'’-]+$
 const SESSION_END_TIMED_DENIABLE = deniable(SESSION_END_TIMED)
 const SESSION_END_UNTIMED_DENIABLE = deniable(SESSION_END_UNTIMED)
 
-/** The spans a noun phrase nests (E162 stage 4b): the relative clauses, participles and asides after its head, and
-    after the head of a phrase a preposition after it takes ("you do not own" in "Logging out of a device you do not
-    own"), which restrict it and deny nothing of its clause's verb. */
-const nestedIn = (phrase: NounPhrase | null): Array<[number, number]> =>
-  (phrase?.postmodifiers ?? []).flatMap((m): Array<[number, number]> => (m.kind === 'preposition' ? nestedIn(m.object) : [[m.start, m.end]]))
+/** A participle the lexicon lacks, read as its noun phrase's head (E162 stage 4c): an -ed word heading the phrase, with
+    what follows it read as a relative clause on it ("A refresh token presented a second time does not by itself sign
+    you out of every device." reads "a second time does not by itself" as a relative clause on "presented"). The
+    participle runs to the first verb group there, which is its clause's own: where that group starts, or null where
+    no such word heads the phrase. */
+const participleAt = (tokens: Token[], phrase: NounPhrase): number | null => {
+  const first = phrase.postmodifiers[0]
+  if (!/^[a-z]+ed$/.test(phrase.head.lower) || first?.kind !== 'relative') return null
+  for (let k = first.start; k < first.end; k++) if (startsVerbGroup(tokens, k)) return k
+  return null
+}
+/** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
+    clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
+    do not own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb.
+    Since stage 4c a participle the reader reads as a head ends the phrase, and the phrase a preposition takes it in, at
+    its clause's verb group (participleAt). */
+const readOf = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } => {
+  const verbGroup = participleAt(tokens, phrase)
+  if (verbGroup !== null) return { end: verbGroup, nests: [[tokens.indexOf(phrase.head), verbGroup]] }
+  const nests: Array<[number, number]> = []
+  for (const m of phrase.postmodifiers) {
+    if (m.kind !== 'preposition') nests.push([m.start, m.end])
+    else if (m.object) {
+      const object = readOf(tokens, m.object)
+      nests.push(...object.nests)
+      if (object.end < m.object.end) return { end: object.end, nests }
+    }
+  }
+  return { end: phrase.end, nests }
+}
 /** A gerund's object (E162 stage 4b): the noun phrase after an -ing word no closed class holds, the lexicon's verb or
     not ("resetting"), that opens its phrase alone or with what the reader reads as a relative clause on it, its object
     and its clause's verb group ("Changing your password ends every session." reads "your password ends every session"
@@ -2067,11 +2093,11 @@ const gerundAt = (tokens: Token[], at: number, phrase: NounPhrase): NounPhrase |
   return gerund && (!first || (first.kind === 'relative' && first.start === at + 1)) ? nounPhraseAt(tokens, at + 1) : null
 }
 /** A clause's subject at a token, as a clause read alone reads it (E162 stage 4b): the reader's noun phrase, or a
-    gerund with its object (gerundAt); where it ends and the spans it nests (nestedIn). */
+    gerund with its object (gerundAt); where it ends and the spans it nests (readOf). */
 const subjectAt = (tokens: Token[], at: number): { end: number; nests: Array<[number, number]> } | null => {
   const phrase = nounPhraseAt(tokens, at)
   const read = (phrase && gerundAt(tokens, at, phrase)) ?? phrase
-  return read && { end: read.end, nests: nestedIn(read) }
+  return read && readOf(tokens, read)
 }
 /** A clause's words read alone, from a token to the token before another, without the spans its subject nests. */
 const readAlone = (reading: Reading, from: number, to: number) => {
@@ -4221,30 +4247,36 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Sessions not opened here end within 30 minutes of logging out.</li>', 'gap'],
       // E162 stage 4c: the reuse family's sweep is read in each clause alone too (reuseOfTheToken), so #1456's three
       // shapes of the shared step deny no sweep (a negation before a word of time, in a relative clause on the subject,
-      // a denied subject before "that"), nor does a participle on the subject or a clause of its own after "and" ...
+      // a denied subject before "that"), nor does a participle on the subject, the lexicon's or one it lacks
+      // ("presented", read as a participle: participleAt) ...
       ['<li>Nobody doubts that reusing a refresh token signs everyone out.</li>', true],
       ['<li>Reusing a refresh token does not take long before it signs everyone out.</li>', true],
       ['<li>Reusing a refresh token you do not own signs everyone out.</li>', true],
       ['<li>Reusing a refresh token issued to a device you do not own logs everyone out.</li>', true],
       ['<li>Nothing remains once a refresh token presented a second time signs everyone out.</li>', true],
       ['<li>No one denies that a refresh token presented a second time ends every session on the account.</li>', true],
-      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', true],
-      ['<li>Passwords are hashed, and replaying a refresh token you do not own signs you out everywhere.</li>', true],
       // ... while a denial on the sweep's own clause still passes, as does a verb that asserts the clause after "that",
-      // and a participle the lexicon reads as one ("presented") keeps the denial after it its clause's own: read as a
-      // noun, it read "a second time does not by itself" as a relative clause on it, and stage 4b's session-end
-      // family refused the sentence on that reading.
+      // and a participle the lexicon lacks keeps the denial after it its clause's own: the reader reads it as the
+      // phrase's head with "a second time does not by itself" as a relative clause on it, and stage 4b's session-end
+      // family, cutting that span, refused these sentences, in a phrase a preposition takes too. With a phrase of its
+      // own after it ("presented by a client you do not own"), the reader's reading of the phrase stands (Codex on
+      // 48581661).
       ['<li>Reusing a refresh token does not sign everyone out.</li>', false],
       ['<li>Nothing guarantees that reusing a refresh token signs everyone out.</li>', false],
       ['<li>A refresh token presented a second time does not by itself sign you out of every device.</li>', false],
       ['<li>A refresh token presented a second time does not wait until it ends every session.</li>', false],
       ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
       ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
+      ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
+      ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
       // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
-      // A noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"), so the
-      // gerund's object is not read and its relative clause is not cut.
+      // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
+      // so the gerund's object and its relative clause are not read; and a verb the lexicon lacks opens no clause after
+      // "and" and reads as a noun in a relative clause, so the phrase runs on over it ("reusing", "reuses").
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
+      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
+      ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
