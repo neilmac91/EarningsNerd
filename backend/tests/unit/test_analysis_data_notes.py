@@ -89,24 +89,33 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
         assert [note["letter"] for note in notes if marks_figure(note)] == case["marked_letters"]
 
 
-# A page action, which no export or PNG can honour. A verb only a screen answers fails in any form ("Click for the source
-# filing", "Clicked on, it opens", "Hover for its inputs", "Drag to zoom", "Mouse over for details"), as does a part only
-# the page has (a tooltip, a button, a cursor, a dialog, a popover, a link, a panel but "a panel of directors"). A verb a
-# filing also uses (tap, press, select, choose, drag, open, pick, expand, follow) fails as an imperative opening a
-# sentence or clause ("Press for details", "Open it to see both filings", "Follow the link"), as a participle set off by
-# a comma ("Selected, it opens the filing") and in its base form aimed at something ("Tap it", "Expand the row");
-# tap, press, select, choose, drag and pick fail as a gerund too ("Selecting shows the filing"). Their other forms pass,
-# since a filing uses them otherwise: "the earnings press release", "selected financial data", "the company selected a
-# different fiscal year end", "chose", "tapped its credit facility", "a drag on margins", "the open market", "open
-# positions", "the opening balance", "the following period", "expand operations", "linked to LIBOR". Out of reach, so
-# planted as passing: a third-person form ("Taps open the filing"), which a sentence describing our own process also
-# takes ("Selects the most recent filing's value"), and a verb not listed here.
+# A page action, which no export or PNG can honour. A verb only a screen answers fails in any form ("Click for the
+# source filing", "Clicked on, it opens", "Hover for its inputs", "Drag to zoom", "Mouse over for details", "Mouse-over
+# for details"), as does a part only the page has (a tooltip, a button, a cursor, a dialog, a popover, a panel but "a
+# panel of directors"). A link fails only where the sentence asks the reader to use one, aimed at by see, use, follow,
+# open, click, tap, select, visit or via ("See the link for the filing", "Use the link to the filing"): the PDF prints
+# source links and the workbook sets hyperlinks, but the chart PNG prints the note's words with no link, so such a
+# sentence is false there, while "No link to the original filing is available" holds on every surface. A verb a filing
+# also uses (tap, press, select, choose, drag, open, pick, expand, follow) fails as an imperative opening a sentence or
+# clause ("Press for details", "Open it to see both filings", "Follow the link"), as a participle set off by a comma
+# ("Selected, it opens the filing") and in its base form aimed at something ("Tap it", "Expand the row"); tap, press,
+# select, choose, drag and pick fail as a gerund too ("Selecting shows the filing"). Their other forms pass, since a
+# filing uses them otherwise: "the earnings press release", "selected financial data", "the company selected a different
+# fiscal year end", "chose", "tapped its credit facility", "a drag on margins", "the open market", "open positions",
+# "the opening balance", "the following period", "expand operations", "linked to LIBOR", and a hyphenated compound
+# opening a sentence ("Open-market repurchases", "Follow-on offering proceeds", "Press-release figures"). Out of reach,
+# so planted as passing: a third-person form ("Taps open the filing"), which a sentence describing our own process also
+# takes ("Selects the most recent filing's value"), a verb not listed here, a part not listed (a pop-up, a modal, a tool
+# tip), and an imperative after an introductory phrase aimed through a possessive ("To compare, select its source"),
+# since aiming through "its" would fail filing English ("expand its operations").
 PAGE_ACTIONS = re.compile(
     r"\b(?:click(?:s|ed|ing)?|hover(?:s|ed|ing)?|scroll(?:s|ed|ing)?|swip(?:e|es|ed|ing)|toggl(?:e|es|ed|ing)"
-    r"|zoom(?:s|ed|ing)?|mouse(?:s|d)?\s*over|mousing\s+over|tooltips?|buttons?|cursors?|dialogs?|popovers?|links?"
+    r"|zoom(?:s|ed|ing)?|mouse(?:s|d)?[\s-]*over|mousing\s+over|tooltips?|buttons?|cursors?|dialogs?|popovers?"
     r"|panels?(?!\s+of\b))\b"
+    r"|\b(?:see|use|follow|open|click|tap|select|visit|via)\s+(?:the|this|that|its|a|each)\s+(?:[\w'\u2019-]+\s+){0,2}"
+    r"links?\b"
     r"|(?:^|[.;:!?(]\s*)(?:(?:tap|press(?!\s+releases?\b)|select|choose|drag|open(?!\s+(?:market|positions?)\b)|pick"
-    r"|expand|follow)\b|(?:tapped|pressed|selected|chosen|dragged|opened|picked|expanded)\s*,)"
+    r"|expand|follow)\b(?!-)|(?:tapped|pressed|selected|chosen|dragged|opened|picked|expanded)\s*,)"
     r"|\b(?:tapp|press|select|choos|dragg|pick)ing\b"
     r"|\b(?:tap|press|select|choose)\s+(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|for|from|through)\b"
     r"|\b(?:open|pick|expand)\s+(?:it|them|one|any|this|that|these|those|here|for"
@@ -117,21 +126,27 @@ PAGE_ACTIONS = re.compile(
 )
 # How a missing figure is drawn differs by surface: a dash in the table, the PDF's tables and the page's and PNG's bar
 # charts; a break in a line chart; an empty cell and an empty chart slot in the workbook; "Unavailable" in the PDF's
-# Sources & methods. So words never say it: not the dash or the em dash, not a cell or a slot, and no form of show, draw,
-# print, display, render, plot or appear, nor "left", before a glyph, a blank, a gap or a break, with "as", an article,
-# a quote or a place between ("Shown in the table as a blank cell", "Shows as a gap", "Drew a gap in the line", "Shown as
-# 'N/A'"). "Never shown as zero", "shown as stored" and "we show the most recent filing's value" say what the value is,
-# and pass, as does a range's en dash. A subjectless "left blank" fails even where it means the filing ("Left blank in
-# the filing"), since it reads as our drawing; the filing's own blank takes its subject ("The filing left it blank"), and
-# passes. Out of reach, so planted as passing: a drawing said with no verb ("Blank in the table, never zero.").
+# Sources & methods. So words never say it: not the dash or the em dash, not a cell or a slot, and no form of show,
+# draw, print, display, render, plot or appear, nor "left", before a glyph, a blank, a gap or a break, with "as" (and an
+# article), a quote or a place ("in" or "on", an article and up to three words) between, or an article alone where the
+# verb opens a sentence or clause ("Shown in the line chart as a gap", "Shown on the chart as a gap", "Shows as a gap",
+# "Drew a gap in the line", "Shown as 'N/A'"). "Never shown as zero", "shown as stored" and "we show the most recent
+# filing's value" say what the value is, and pass, as does a range's en dash. A subjectless "left blank" fails even
+# where it means the filing ("Left blank in the filing"), since it reads as our drawing; the filing's own blank or gap
+# takes its subject ("The filing left it blank", "The filings show a gap between the two periods"), and passes. A comma
+# opens no clause here, as for PAGE_ACTIONS, since a participle after one is as often the filing's sense ("The company
+# changed its fiscal year end, showing a gap between the two periods"). Out of reach, so planted as passing: a drawing
+# said with no verb ("Blank in the table, never zero."), a verb not listed here (becomes, leaves, charted, marked), and
+# the article form after a comma ("Not in our data, shows a gap in the line").
 _DRAWN = (r"(?:show(?:s|n|ed|ing)?|draw(?:s|n|ing)?|drew|print(?:s|ed|ing)?|display(?:s|ed|ing)?|render(?:s|ed|ing)?"
           r"|plot(?:s|ted|ting)?|appear(?:s|ed|ing)?|left)")
+_PLACE = r"(?:(?:in|on)\s+(?:the|a|an|each)\s+(?:[\w'\u2019]+\s+){1,3})?"
+_GAP = r"[\"'\u2018\u201c]?(?:hyphen|blank|empty|gap|break|n/a|space)\b"
 DRAWING = re.compile(
     r"\bdash(?:es)?\b|\u2014|\b(?:cell|slot)s?\b"
-    rf"|\b{_DRAWN}\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?"
-    r"(?:as\s+)?(?:an?\s+|the\s+)?[\"'\u2018\u201c]?(?:hyphen|blank|empty|gap|break|n/a|space)\b"
-    rf"|\b{_DRAWN.replace('|left', '')}\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?as\s+"
-    r"[\"'\u2018\u201c]?[\u2013-]",
+    rf"|\b{_DRAWN}\s+{_PLACE}(?:as\s+(?:an?\s+|the\s+)?)?{_GAP}"
+    rf"|(?:^|[.;:!?(]\s*){_DRAWN}\s+{_PLACE}(?:an?|the)\s+{_GAP}"
+    rf"|\b{_DRAWN.replace('|left', '')}\s+{_PLACE}as\s+[\"'\u2018\u201c]?[\u2013-]",
     re.IGNORECASE,
 )
 # A note's message is read for one figure (the dialog, a workbook comment) and once for all of a note's figures (the
@@ -178,6 +193,8 @@ def _surface_problems(words: str) -> list[str]:
     "Open it to see both filings.", "Pick one to see both filings.", "Open the dialog to compare.",
     "See the dialog for both filings.", "Expand the row for both filings.", "Follow the link to the filing.",
     "Mouse over for details.", "See the panel for the inputs.", "Opened, it shows both filings.",
+    # Round 6: a link the sentence asks the reader to use, and a hyphenated mouse-over.
+    "See the link for the filing.", "Use the link to the filing.", "Mouse-over for details.",
     # Drawing.
     "Shown as a dash.", "Shown as \u2014, never as zero.", "Not in our data, shown as a blank cell, never as zero.",
     "Not in our data, left empty, never zero.", "Drawn as a gap in the line.", "Shown as a hyphen.",
@@ -188,6 +205,9 @@ def _surface_problems(words: str) -> list[str]:
     "Shows as a gap.", "Shows as blank, never zero.", "Displays as a blank.", "Prints as a blank in the PDF.",
     "Draws as a break in the line.", "Drew a gap in the line.", "Renders as empty.", "Showing as a gap, never zero.",
     "Show as blank.", "Appeared as a gap.", "Plots as a gap.", "Showed as \u2013.", "Shows the gap in the line.",
+    # Round 6: a place of more than one word, or "on".
+    "Shown on the chart as a gap.", "Shown in the line chart as a gap.", "Shown in the bar chart as a blank.",
+    "Drawn in the line chart as a break.",
     # One figure or set.
     "Filings report different values for this figure.", "Different values for that figure.",
     "Those figures differ from the filing.", "The figure\u2019s period ends on a different date.",
@@ -221,8 +241,26 @@ def test_the_surface_words_check_fails_what_it_names(words):
     "Bought on the open market.", "The company\u2019s open positions were closed.", "Approved by a panel of directors.",
     "Interest is linked to LIBOR.", "The company plans to expand operations.", "Restated in the following year.",
     "Never shown as zero.", "Shows the same period in each filing.", "Picked up in a later filing.",
-    # Out of reach: a third-person form, which our own process takes too, and a drawing said with no verb.
+    # Round 6: a place that holds no drawing, a link stated rather than offered, a subject's own gap and a participle
+    # after a comma, and a hyphenated compound opening a sentence.
+    "Shown in thousands.", "Shown in the filing as reported.", "Shown in the most recent filing as restated.",
+    "Shown on the company\u2019s income statement as a single line.",
+    "No link to the original filing is available.", "Shown as stored, with no link to its inputs.",
+    "Its inputs have no links to their filings.", "The source link could not be established.",
+    "Calculated from figures with no filing link.",
+    "The filings show a gap between the two periods.", "Its filings show a gap between fiscal years.",
+    "The filing shows a break in its segment reporting.", "The filing shows a blank for the period.",
+    "The company changed its fiscal year end, showing a gap between the two periods.",
+    "Open-market repurchases are excluded.", "Open-ended durations are excluded.",
+    "Follow-on offering proceeds are excluded.", "Revenue is restated (follow-on filings included).",
+    "Press-release figures differ from the filing.",
+    # Out of reach: a third-person form, which our own process takes too, a drawing said with no verb or with a verb
+    # not listed, the article form after a comma, a part not listed, and an imperative after an introductory phrase
+    # aimed through a possessive.
     "Taps open the filing.", "Selects the most recent filing\u2019s value.", "Blank in the table, never zero.",
+    "Becomes a gap in the line chart.", "Charted as a gap.", "Not in our data, shows a gap in the line.",
+    "See the pop-up for both filings.", "See the modal for both filings.", "See the tool tip.",
+    "To compare, select its source.",
 ])
 def test_the_surface_words_check_passes_ordinary_words(words):
     assert _surface_problems(words) == []
