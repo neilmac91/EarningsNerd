@@ -55,7 +55,9 @@ the reader would collect if it reached the form, so a change that reaches one fa
   comprehension or by `dict()`, a container's `.get()`, or a function's return (a loop over one included);
 - a starred target (`head, *rest = ...`), and an element at an index at or past a starred item (`(*HEAD, code)[1]`);
 - a write through a receiver that is neither a name nor a `reasons` target
-  (`provenance.setdefault("reasons", []).append(...)`) or through an alias (`flags = reasons`);
+  (`provenance.setdefault("reasons", []).append(...)`), through a name bound to the list (`flags = reasons`,
+  `bucket = provenance.setdefault("reasons", [])`) or through a helper's parameter (`_tag(provenance["reasons"], code)`);
+- a key built at run time (`"rea" + "sons"`) or held in a module's constant (`KEY = "reasons"`);
 - a call through a name assigned a function (`quarantine = _quarantine`), a lambda, a callee looked up at run time
   (`getattr(self, name)(...)`), or an object that holds a module (`module.f(...)` with `module` a parameter);
   arguments spread at a call (`f(*pair)`, `f(**{"reason": code})`) or gathered by `*args` and `**kwargs`; and a
@@ -65,11 +67,13 @@ That list is what the reader is known to miss, not all it may miss: a form on ne
 The run. An emitter module is one where the reader finds a reason, a site (forms 1 to 4) or a call that binds a reason
 parameter. In each, every line that writes a reason (a site, a binding call, the line that runs each literal it
 collects: its own, or the first line of a display of constants, which CPython folds into one constant loaded there) and
-every line that mentions `reasons` at all (a name, an attribute, a keyword or a string, so an alias, a setdefault or a
-read too) must run. `_drive` runs those modules, traced with `sys.settrace`, and
+every line that mentions `reasons` must run: `reasons` as a name, an attribute, a keyword or a string, or a local name
+the function binds from an expression with a mention in it, to a fixpoint (so after `flags = reasons` or
+`bucket = provenance.setdefault("reasons", [])`, each line that uses `flags` or `bucket`). `_drive` runs those modules, traced with `sys.settrace`, and
 `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds` fails when (a) an emitter
 writes a code with no words; (b) such a line runs in no driver, unless UNDRIVEN names it by function and text with why
-none can (and an entry that names no unreached line fails); or (c) a driver writes a code the reader did not find in
+none can (and an entry that names no unreached line, or more than one, fails); or (c) a driver writes a code the
+reader did not find in
 those modules, so a form the reader cannot follow fails wherever a driver reaches it. A module's own top level runs on
 import, before the trace, so its lines are read but not required.
 
@@ -80,10 +84,17 @@ checks. EXEMPT names each such site by file and function, and an exempt site mus
 an exemption cannot outlive its code. READS_ONLY names each function that reads, counts, prints or logs reasons and
 writes none, held exact: each entry still mentions `reasons` and the reader finds no reason in it.
 
-What escapes, exactly: a write that never names `reasons` in `app/` (a key built at run time, a record copied whole
-from outside `app/`); an EXEMPT or READS_ONLY entry whose stated reason is wrong (review-checked); a line in UNDRIVEN;
-and, since (b) holds lines rather than arms, a form the reader misses in an arm no driver takes on a line a driver runs
-(`reasons.append("period_mismatch" if late else f"period_{kind}")`), which (c) catches only once a driver takes it.
+What escapes. The gate is not complete, and five review rounds each found a form it missed. What it is known to pass,
+by class (the first three planted among the reader's gaps, the other two shown by this PR's mutation proofs):
+- a write whose key or receiver the reader cannot trace to `reasons`, on a line no driver runs: through a helper's
+  parameter (`_tag(provenance["reasons"], code)`, the helper writing `codes.append(code)`) or a function's return
+  (`reasons.extend(_extra(kind))`);
+- a key built at run time (`provenance["rea" + "sons"]`);
+- a key held in a module's constant (`KEY = "reasons"`), since a module's top level is read but not required;
+- an EXEMPT, READS_ONLY or UNDRIVEN entry whose stated reason is wrong (review-checked);
+- an unworded arm on a line a driver runs (`reasons.append("period_mismatch" if late else f"period_{kind}")`), since
+  (b) holds lines rather than arms; (c) catches it once a driver takes that arm.
+Any of these on a line a driver does run still fails (a) or (c).
 """
 from __future__ import annotations
 
@@ -700,27 +711,57 @@ def _app_sources() -> dict[str, str]:
     return {f"app/{path.relative_to(APP).as_posix()}": path.read_text(encoding="utf-8") for path in APP.rglob("*.py")}
 
 
+def _mention(node: ast.AST, aliases: set[str]) -> bool:
+    """Whether a node names the list: `reasons` as a name, an attribute, a keyword or a string, or a name bound to it."""
+    return ((isinstance(node, ast.Name) and (node.id == "reasons" or node.id in aliases))
+            or (isinstance(node, ast.Attribute) and node.attr == "reasons")
+            or (isinstance(node, ast.Constant) and node.value == "reasons")
+            or (isinstance(node, ast.keyword) and node.arg == "reasons"))
+
+
 def _mentions(sources: dict[str, str]) -> dict[tuple[str, str], set[int | None]]:
-    """Each (file, function) whose body mentions `reasons` (a name, an attribute, a keyword or a string; "<module>" for
-    a module or class body) and the lines that run each mention (_folded; None at module level). Whatever form a write
-    takes, it names the list: an alias (`flags = reasons`), a setdefault ("reasons") or a helper's call site in a
-    function that does."""
+    """Each (file, function) whose body mentions `reasons` ("<module>" for a module or class body) and the lines that run
+    each mention (_folded; None at module level). A mention is `reasons` as a name, an attribute, a keyword or a string,
+    or a local name bound, in the same function, from an expression with a mention in it, to a fixpoint: so after
+    `flags = reasons` or `bucket = provenance.setdefault("reasons", [])`, each line that uses `flags` or `bucket` is one.
+    A write through a name the function did not bind from such an expression (a helper's parameter, a function's return,
+    a key built at run time or held in a module's constant) names no line here."""
     found: dict[tuple[str, str], set[int | None]] = {}
     for path, source in sources.items():
         tree = ast.parse(source)
         folded = _folded(tree)
-        stack: list[tuple[ast.AST, str]] = [(tree, "<module>")]
+        # Each node with its innermost function (None for the module and class bodies).
+        owned: dict[ast.AST | None, list[ast.AST]] = {}
+        stack: list[tuple[ast.AST, ast.AST | None]] = [(tree, None)]
         while stack:
             node, function = stack.pop()
             for child in ast.iter_child_nodes(node):
-                if ((isinstance(child, ast.Name) and child.id == "reasons")
-                        or (isinstance(child, ast.Attribute) and child.attr == "reasons")
-                        or (isinstance(child, ast.Constant) and child.value == "reasons")
-                        or (isinstance(child, ast.keyword) and child.arg == "reasons")):
-                    line = folded.get(id(child), child.lineno) if function != "<module>" else None
-                    found.setdefault((path, function), set()).add(line)
-                inner = child.name if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else function
-                stack.append((child, inner))
+                owned.setdefault(function, []).append(child)
+                stack.append((child, child if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else function))
+        for function, nodes in owned.items():
+            aliases: set[str] = set()
+            if function is not None:
+                bindings = [(targets, node.value) for node in nodes
+                            for targets in ([node.targets] if isinstance(node, ast.Assign) else [[node.target]]
+                                            if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) else [])
+                            if node.value is not None]
+                while True:
+                    # The names a binding gives: a name, or each name a tuple or list target unpacks into. A subscript
+                    # or attribute target (`updates[row_id] = state`) binds no name.
+                    bound = {name.id for targets, value in bindings
+                             if any(_mention(item, aliases) for item in ast.walk(value))
+                             for target in targets
+                             for name in ([target] if isinstance(target, ast.Name) else ast.walk(target)
+                                          if isinstance(target, (ast.Tuple, ast.List, ast.Starred)) else [])
+                             if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)}
+                    if bound <= aliases:
+                        break
+                    aliases |= bound
+            name = function.name if function is not None else "<module>"
+            for node in nodes:
+                if _mention(node, aliases):
+                    line = folded.get(id(node), node.lineno) if function is not None else None
+                    found.setdefault((path, name), set()).add(line)
     return found
 
 
@@ -743,9 +784,10 @@ def test_every_reason_the_backend_writes_has_words():
 
 
 def test_every_function_that_mentions_reasons_is_driven_exempt_or_reads_only():
-    """A write the reader cannot see still names the list. So every function under app/ that mentions `reasons` is in
-    an emitter module, whose every mention line the runtime half must run, or in EXEMPT, or in READS_ONLY, which is held
-    exact and finds no reason: a new module that writes reasons in a form the reader misses fails here or there."""
+    """A write in a form the reader misses usually still names the list somewhere in its function. So every function
+    under app/ that mentions `reasons` is in an emitter module, whose every mention line the runtime half must run, or
+    in EXEMPT, or in READS_ONLY, which is held exact and finds no reason. A write that names the list nowhere in its
+    function (the header's escapes) is outside this guard."""
     sources = _app_sources()
     found, lines = read_reasons(sources)
     emitters = _emitter_modules(found, lines)
@@ -815,6 +857,10 @@ def _drive(monkeypatch) -> set[str]:
         SimpleNamespace(concept="eps_basic", raw_tag=None, source="derived", reconciled=True),
     ]
     codes |= set().union(*(reasons(provenance_for_fact(row)) for row in legacy))
+    # With a CIK, a reported value's record gains its filing's links.
+    codes |= reasons(provenance_for_fact(SimpleNamespace(
+        concept="revenue", raw_tag="us-gaap:Revenues", source="companyfacts", reconciled=True,
+        accession="0000000001-25-000001"), cik="1"))
     codes |= reasons(reported_provenance({"reconciled": False}))
     dataset = {"mode": "annual", "period_key": "FY2024", "periods": [{"key": "FY2024"}], "series": [
         {"concept": "revenue", "label": "Revenue",
@@ -956,15 +1002,21 @@ def test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_
     skipped = EXEMPT.keys() | READS_ONLY.keys()
     named = {(path, function, line) for (path, function), numbers in [*lines.items(), *_mentions(sources).items()]
              if path in emitters and (path, function) not in skipped for line in numbers if line is not None}
-    # Each emitter module has lines to run, so a reader that stopped naming them fails here, not silently.
-    assert {path for path, _function, _line in named} == emitters
+    # Each emitter module has lines the reader names (sites, binding calls, literals), so a reader that stopped naming
+    # them fails here, not only in the planted test.
+    assert {path for (path, function), numbers in lines.items() if numbers and (path, function) not in skipped} == emitters
     emitted, executed = _executed(lambda: _drive(monkeypatch), emitters)
     assert sorted(emitted - set(REASONS)) == [], "an emitter writes a reason with no words in data_notes.REASONS"
-    unreached = {(path, function, sources[path].splitlines()[line - 1].strip()): line
-                 for path, function, line in named if (path, line) not in executed}
+    unreached: dict[tuple[str, str, str], list[int]] = {}
+    for path, function, line in sorted(named):
+        if (path, line) not in executed:
+            unreached.setdefault((path, function, sources[path].splitlines()[line - 1].strip()), []).append(line)
     assert sorted(UNDRIVEN.keys() - unreached.keys()) == [], "an UNDRIVEN entry names no unreached line: drop it"
-    assert sorted((path, line, text) for (path, _function, text), line in unreached.items()
-                  if (path, _function, text) not in UNDRIVEN) == [], (
+    assert sorted((key, unreached[key]) for key in UNDRIVEN if len(unreached[key]) > 1) == [], (
+        "an UNDRIVEN entry's text names more than one unreached line: each line needs its own reason"
+    )
+    assert sorted((path, line, text) for (path, function, text), numbers in unreached.items()
+                  if (path, function, text) not in UNDRIVEN for line in numbers) == [], (
         "a reason-writing line (a site, a call that binds a reason, a literal, or any mention of `reasons`) in an "
         "emitter module that no driver executes: run its branch in _drive, or name it in UNDRIVEN with why it cannot"
     )
@@ -1230,6 +1282,21 @@ def gaps(provenance, kind):
 def built():
     return ["planted_gap_return"]
 
+KEY = "reasons"
+
+def _tag(codes, code):
+    codes.append(code)
+
+def escapes(provenance, kind):
+    flags = provenance["reasons"]
+    flags.append("planted_gap_list_alias")
+    bucket = provenance.setdefault("reasons", [])
+    bucket.append("planted_gap_setdefault_alias")
+    _tag(provenance["reasons"], "planted_gap_helper_parameter")
+    provenance["rea" + "sons"] = ["planted_gap_runtime_key"]
+    provenance[KEY] = ["planted_gap_constant_key"]
+    return provenance
+
 def starred(state, *codes, **named):
     return {**state, "reasons": [*codes, named["reason"]]}
 
@@ -1319,11 +1386,18 @@ def test_the_reader_finds_each_form_and_names_its_gaps():
     assert lines[(forms, "outer")] == {at('code = "planted_closure"')}
     assert lines[(forms, "inner")] == {at('return {**state, "reasons": [code]}')}
     assert lines[(forms, "folded")] == {at("reasons = ["), at('return {**state, "reasons": reasons, "folded": True}')}
+    # The runtime half's mentions: a name bound to the list makes each line that uses it one, so a write through it is a
+    # line a driver must run; a helper's parameter does not (the header's first escape).
+    mentioned = _mentions(PLANTED)
+    assert {at('flags.append("planted_gap_list_alias")'), at('bucket.append("planted_gap_setdefault_alias")')} <= (
+        mentioned[(forms, "escapes")])
+    assert (forms, "_tag") not in mentioned
     # The documented gaps, each planted above with a literal the reader would collect if it reached the form: a key a
     # call reads, a receiver other than a name or a reasons target, a string built at run time (an f-string, a .format,
     # a join), a class's attribute, a dict built by a comprehension or by dict(), a .get(), a loop over a function's
     # return, a starred target, a name alias, a lambda, a getattr callee, a module function through an object,
-    # arguments spread at a call, a class-body default, a function's return, *args and **kwargs, and an element at an
-    # index past a starred item.
+    # arguments spread at a call, a class-body default, a function's return, *args and **kwargs, an element at an
+    # index past a starred item, a name bound to the list, a setdefault's result, a helper's parameter, a key built at
+    # run time and a key held in a module's constant.
     assert not codes & {"planted_key_read", "planted_gap", "join"}
     assert {code for code in codes if code.startswith("planted_gap")} == set()

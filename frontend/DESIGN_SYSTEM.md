@@ -1054,7 +1054,7 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  (quarterly_fact_repair and filing_lineage_repair on in-memory SQLite) fails on a code
                  written with no words, on a named line no driver executes, and on a code a driver writes
                  that the reader did not find; every other function that mentions reasons is named
-                 exempt or read-only),
+                 exempt or read-only; what still passes is listed by class in its docstring),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
