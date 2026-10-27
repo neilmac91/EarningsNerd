@@ -2066,11 +2066,11 @@ const participleAt = (tokens: Token[], phrase: NounPhrase): number | null => {
 /** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
     clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
     do not own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb.
-    Since stage 4c a participle the reader reads as a head ends the phrase, and the phrase a preposition takes it in, at
-    its clause's verb group (participleAt). */
+    Since stage 4c a participle the reader reads as a head ends the phrase at its clause's verb group, and the phrase a
+    preposition takes it in (participleAt), and the reader's relative clause on it is no span the phrase nests. */
 const readOf = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } => {
   const verbGroup = participleAt(tokens, phrase)
-  if (verbGroup !== null) return { end: verbGroup, nests: [[tokens.indexOf(phrase.head), verbGroup]] }
+  if (verbGroup !== null) return { end: verbGroup, nests: [] }
   const nests: Array<[number, number]> = []
   for (const m of phrase.postmodifiers) {
     if (m.kind !== 'preposition') nests.push([m.start, m.end])
@@ -4268,6 +4268,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>A refresh token replayed a second time does not by itself sign everyone out.</li>', false],
       ['<li>One reused a second time does not by itself sign you out of every device.</li>', false],
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
+      ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
       // Its cost, as stage 4b's: "sure" is no verb that asserts its clause, so the clause is read alone.
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
