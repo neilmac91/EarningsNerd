@@ -3,7 +3,7 @@ import json
 from app.services.excerpt_provenance import excerpt_provenance
 from app.utils.datetimes import utcnow
 from datetime import timedelta, timezone
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Callable
 from sqlalchemy import DateTime, extract, func, literal
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -475,10 +475,13 @@ def get_or_cache_excerpt(
     *,
     reuse_stored: bool = True,
     persist: bool = True,
+    on_provenance: Optional[Callable[[Dict[str, Any]], None]] = None,
 ) -> Optional[str]:
     # ``reuse_stored=False`` builds with the current extraction even when an excerpt is stored;
     # ``persist=False`` returns the built excerpt without writing it (a forced run's finalize stores it
     # with the summary it grounds). The defaults are the cache-and-reuse behaviour every other caller has.
+    # ``on_provenance`` receives the excerpt source record this call logs (``excerpt_provenance``, the E80-C1
+    # contract), so a harness reads the builder's own outcome rather than re-deriving it.
     # ``sections`` (when provided) is section text parsed from the fetched primary document; it
     # lets us build a high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit
     # path). We still need one of the two inputs to produce anything.
@@ -501,30 +504,40 @@ def get_or_cache_excerpt(
     filing_type = filing_reattached.filing_type
     accession = filing_reattached.accession_number
 
-    def observe(excerpt: str, source: str) -> None:
+    filing_type_key = (filing_type or "10-K").upper()
+
+    def observe(excerpt: str, source: str, fallback_reason: Optional[str] = None) -> None:
         metadata = excerpt_provenance(
             excerpt, accession=accession,
             source=source, sections=sections,
+            filing_type=filing_type_key, fallback_reason=fallback_reason, document_text=filing_text,
         )
         logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
+        if on_provenance is not None:
+            on_provenance(metadata)
 
     if reuse_stored and cache and cache.critical_excerpt:
         observe(cache.critical_excerpt, "legacy_cached_excerpt")
         return cache.critical_excerpt
 
-    filing_type_key = (filing_type or "10-K").upper()
-
     # Prefer the sections edgartools' HTML parser found in the fetched document (precise, robust to
     # fragmented HTML); fall back to the legacy regex + dense-window extractor when sections are
-    # unavailable or too thin.
+    # unavailable or too thin, and record which of those it was.
     excerpt = None
     source = "edgartools"
-    if sections and settings.USE_EDGARTOOLS_SECTIONS:
+    fallback_reason = None
+    if not settings.USE_EDGARTOOLS_SECTIONS:
+        fallback_reason = "native_sections_disabled"
+    elif not sections:
+        fallback_reason = "sections_not_supplied"
+    else:
         excerpt = openai_service.assemble_excerpt_from_sections(
             sections, filing_type_key, filing_text=filing_text
         )
         if excerpt and len(excerpt) < _EDGARTOOLS_EXCERPT_MIN:
             excerpt = None
+        if not excerpt:
+            fallback_reason = "native_excerpt_thin"
     if not excerpt:
         source = "regex_fallback"
         excerpt = openai_service.extract_critical_sections(filing_text or "", filing_type_key)
@@ -537,7 +550,7 @@ def get_or_cache_excerpt(
                 cache.critical_excerpt = excerpt
             db.flush()
             db.commit()
-        observe(excerpt, source)
+    observe(excerpt or "", source, fallback_reason)
     return excerpt
 
 def _prepare_background_generation(filing_id: int, user_id: Optional[int], *, force_regenerate: bool) -> bool:
