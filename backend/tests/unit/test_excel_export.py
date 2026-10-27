@@ -138,7 +138,7 @@ class TestWorkbookStructure:
             ],
         }
         wb = load_workbook(io.BytesIO(build_analysis_workbook(nii_only, exported_at=EXPORTED_AT)))
-        # No margins / balance-sheet concepts → those panels collapse, like the frontend's.
+        # No margins / balance-sheet concepts → those panels get no sheet (the page keeps their cards).
         assert wb.sheetnames == [
             "Overview", "Metrics", "Sources & methods", "Net interest income & growth", "Cash generation",
         ]

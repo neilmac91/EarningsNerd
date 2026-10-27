@@ -743,9 +743,9 @@ def progress_read_status(
 
     A fresh run in a stage short of the end is ``generating:<stage>``, with its snapshot. A failed run is ``error``,
     and so is a run ``progress_is_stalled`` calls orphaned, whose snapshot carries the stage and error the poll's mark
-    writes (``error``, ``STALLED_ERROR``); its ``updated_at`` stays the stored one, since nothing is written. No row is ``missing``, and so is a ``completed`` or
-    ``partial`` row with no summary beside it, with no snapshot: its run has ended, none is writing a summary, and
-    none failed."""
+    writes (``error``, ``STALLED_ERROR``); its ``updated_at`` stays the stored one, since nothing is written. No row
+    is ``missing``, and so is a ``completed`` or ``partial`` row with no summary beside it, with no snapshot: its run
+    has ended, none is writing a summary, and none failed."""
     if progress is None:
         return "missing", None
     if progress.stage == "error":

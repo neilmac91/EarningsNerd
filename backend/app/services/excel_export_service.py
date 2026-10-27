@@ -72,10 +72,11 @@ _FOOTNOTE_FONT = Font(color=PALETTE["ink_tertiary"].lstrip("#"), size=9)
 _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
 
-# The three line charts of the page's chart model (frontend/features/analysis/lib/charts/model.ts:
-# Margins, Cash generation, Balance sheet; the top-line bar chart is built separately, its concept
-# being dataset-dependent). A panel whose concepts are all absent gets no sheet (a bank has no gross
-# margin), where the page keeps that chart's card and says why it does not apply (E195).
+# The page's Margins, Cash generation and Balance sheet charts (frontend/features/analysis/lib/charts/
+# model.ts), each one line chart here: the page draws the balance sheet's equity as a bar panel beside
+# its debt and cash lines. The top-line bar chart is built separately, its concept being dataset-
+# dependent. A panel whose concepts are all absent gets no sheet (a bank has no gross margin), where
+# the page keeps that chart's card and says why it does not apply (E195).
 _LINE_PANELS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Margins",
