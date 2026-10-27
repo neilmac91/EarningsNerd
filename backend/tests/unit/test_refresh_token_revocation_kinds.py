@@ -2,7 +2,7 @@
 
 Every refresh rotates the presented token: it is revoked and ``replaced_by_id`` points at its
 successor. Presenting a rotated-away token again means two parties hold copies of it, so
-``refresh_token_service.rotate_refresh_token`` revokes every live token of the user. Logout,
+``refresh_token_service.rotate_refresh_token`` revokes that token's chain (since E96; below). Logout,
 logout-all, a password change and a password reset also revoke tokens, but they do not rotate them
 (``replaced_by_id`` stays NULL). A device signed out that way keeps its cookie and presents it on
 its next silent refresh. Treating that as theft revoked the session the user had just been given:
@@ -191,8 +191,8 @@ def test_a_password_reset_then_a_new_login_keeps_the_new_session(
     device, or a stolen copy nobody refreshed before the reset) presenting it again must not sign
     the owner out of the new login. A stolen copy that was rotated away before the reset, by the
     attacker using it or by the owner's own device refreshing after the theft, still takes the
-    user-wide theft sweep: the last test pins that residual, which the lesson
-    arch-only-a-rotated-refresh-token-signals-theft.md records."""
+    theft path, which since E96 ends only that copy's chain: a later test pins that the new login
+    survives it (arch-only-a-rotated-refresh-token-signals-theft.md)."""
     email, user_id = _register(laptop)
     _login(phone, email)
 
@@ -355,6 +355,9 @@ def _refresh_from(client: TestClient, forwarded_for: Optional[str] = None):
 
 
 def test_a_burst_of_tabs_passes_and_a_loop_is_limited(laptop):
+    # The documented cap (E96's pull request records the burst it was set from): 60 a minute per trusted address,
+    # per API process.
+    assert (auth_module.REFRESH_LIMITER.limit, auth_module.REFRESH_LIMITER.window_seconds) == (60, 60)
     limit = auth_module.REFRESH_LIMITER.limit
     burst = [_refresh_from(laptop).status_code for _ in range(20)]  # twenty tabs waking at once
     assert set(burst) == {401}, burst  # refused as signed out (no cookie), never limited

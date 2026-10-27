@@ -173,9 +173,10 @@ def rotate_refresh_token(
 
     Single-use rotation: the presented token is revoked and superseded by a fresh one.
     Raises :class:`RefreshTokenError` if the token is unknown, expired, or already revoked.
-    Replaying a token that was already rotated away revokes the user's entire active chain and
-    raises :class:`RefreshTokenReuseError` (theft mitigation); a token revoked without rotation
-    writes nothing. The caller is responsible for committing the session.
+    Replaying a token that was already rotated away revokes that token's chain (its live
+    descendants, ``_live_descendants``) and raises :class:`RefreshTokenReuseError` (theft
+    mitigation); a token revoked without rotation writes nothing. The caller is responsible for
+    committing the session.
     """
     if not raw_token:
         raise RefreshTokenError("Missing refresh token")
@@ -254,9 +255,18 @@ def revoke_refresh_token(db: Session, raw_token: Optional[str]) -> Optional[int]
     token = _read_again(db, token)  # as a rotation does
     if token is None:
         return None
-    now = datetime.utcnow()
-    if not _revoke(db, [token.id] if token.revoked_at is None else _live_descendants(db, token), now):
+    if token.revoked_at is None:
+        targets = [token]
+    else:
+        tips = _live_descendants(db, token)
+        targets = db.query(RefreshToken).filter(RefreshToken.id.in_(tips)).all() if tips else []
+    if not targets:
         return None
+    # Attribute writes, flushed at the caller's commit, as before E96: the logout's failure contract (a token store
+    # that refuses the write answers 503) is pinned on the flush (tests/unit/test_logout_failure_clears_cookies.py).
+    now = datetime.utcnow()
+    for target in targets:
+        target.revoked_at = now
     return token.user_id
 
 
