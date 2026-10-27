@@ -2128,19 +2128,19 @@ const clauseByClause = (sentence: string): string[] => {
   // Where a clause's predicate starts, after its subject as a clause read alone reads it (subjectAt: past a gerund's
   // object, where the reader takes the verb group into the subject).
   const predicateOf = (c: Clause) => (c.carried || !c.subject ? c.predicate : (subjectAt(tokens, c.subject.start)?.end ?? c.predicate))
-  // Whether a predicate "and" carries on shares the negation of the verb group before it: it opens at its verb, in the
-  // form of the negated verb, which an auxiliary or a modal in that group governs ("Logging out does not clear cookies
-  // and revoke your session tokens."; "never clears cookies and revokes" says its second verb in its own right, as the
-  // consent family reads "and": distributesNegation).
+  // Whether a predicate "and" carries on shares the negation of the verb group that heads its run, past the predicates
+  // a list carries on between them ("does not clear, keep and revoke"): it has no auxiliary or modal of its own ("and
+  // will revoke" says its verb in its own right), and its verb is in the form of the head's negated verb, which an
+  // auxiliary or a modal in that group governs ("Logging out does not clear cookies and revoke your session tokens.";
+  // "never clears cookies and revokes" says its second verb in its own right, as the consent family reads "and":
+  // distributesNegation).
   const shares = (i: number) => {
     const own = verbGroupAt(tokens, clauses[i].predicate)
-    if (!clauses[i].carried || clauses[i].joinedBy !== 'and' || own.verb !== clauses[i].predicate) return false
-    for (let j = i - 1; j >= 0; j--) {
-      const group = verbGroupAt(tokens, predicateOf(clauses[j]))
-      if (group.negated) return formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
-      if (!clauses[j].carried || clauses[j].joinedBy !== 'and' || group.verb !== clauses[j].predicate) return false
-    }
-    return false
+    if (!clauses[i].carried || clauses[i].joinedBy !== 'and' || tokens.slice(own.start, own.verb).some((t) => AUXILIARY.test(t.text))) return false
+    let head = i - 1
+    while (head > 0 && clauses[head].carried && /^(?:and|,)$/.test(clauses[head].joinedBy ?? '')) head--
+    const group = verbGroupAt(tokens, predicateOf(clauses[head]))
+    return group.negated && formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
   }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
@@ -4170,8 +4170,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Resetting any password you do not use ends every session.</li>', true],
       ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
       ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
-      // ... and a finite verb "and" carries on after "never", in its own right, as the consent family reads "and".
+      // ... and a finite verb "and" carries on after "never", in its own right, as the consent family reads "and", and a
+      // verb with an auxiliary of its own (the routine lens on c5db4552).
       ['<li>Logging out never clears cookies and revokes your session tokens.</li>', true],
+      ['<li>Logging out does not wait and will revoke your session tokens.</li>', true],
       // ... while what governs a clause from outside still denies it: "until" bounds a wait, "after" in a subject is its
       // preposition, "as long as" and "provided that" suppose their clause, a verb that asserts the clause after "that"
       // governs it (ASSERTS), "or" and "nor" say neither clause, and a participle after "once" or a clause the reader
@@ -4187,6 +4189,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // #1683).
       ['<li>Logging out does not clear cookies and revoke your session tokens.</li>', false],
       ['<li>Changing your password cannot clear cookies and revoke your session tokens.</li>', false],
+      ['<li>Logging out does not clear, keep and revoke your session tokens.</li>', false],
       ['<li>Neither logging out nor a password change ends every session.</li>', false],
       ['<li>Logging out ends no session, nor does a password change end every session.</li>', false],
       ['<li>No password reset or password change ends every session.</li>', false],
