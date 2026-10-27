@@ -122,12 +122,12 @@ def _filing(cid: int, ftype: str, filed: datetime) -> int:
     return fid
 
 
-def _summary(fid: int, overview: str) -> int:
+def _summary(fid: int, overview: str, raw_summary: dict | None = None) -> int:
     from app.database import SessionLocal
     from app.models import Summary
 
     db = SessionLocal()
-    row = Summary(filing_id=fid, business_overview=overview)
+    row = Summary(filing_id=fid, business_overview=overview, raw_summary=raw_summary)
     db.add(row)
     db.commit()
     sid = row.id
@@ -262,3 +262,39 @@ def test_insights_status_mapping_ordering_and_tie_break(client, user_id):
     m = by_ticker[tickers["M"]]["latest_filing"]
     assert (m["id"], m["summary_status"], m["needs_regeneration"], m["progress"]) == (missing, "missing", True, None)
     assert m["summary_created_at"] is None and m["summary_updated_at"] is None
+
+
+@pytest.mark.parametrize(
+    ("overview", "raw_summary", "ready"),
+    [
+        pytest.param("A real overview of the business.", None, True, id="an overview"),
+        # Prose that mentions the phrase is content on the filing page, whose in-progress marker is case-sensitive.
+        pytest.param("A real overview about generating summary reports.", None, True, id="prose naming the phrase"),
+        pytest.param("Generating summary... please wait", None, False, id="the in-progress marker"),
+        pytest.param("Summary temporarily unavailable. Please retry.", None, False, id="failure filler"),
+        pytest.param("", None, False, id="an empty body"),
+        pytest.param("A real overview of the business.", {"writer_error": "timeout"}, False, id="a writer error"),
+    ],
+)
+def test_the_watchlist_and_the_dashboard_call_ready_what_the_filing_page_shows(
+    client, user_id, overview, raw_summary, ready
+):
+    # Both chips read the filing page's rule (is_summary_ready, E221): Ready exactly when the page shows the stored
+    # body, else Unavailable ("placeholder") with a regeneration to offer.
+    from app.database import SessionLocal
+    from app.models import Summary
+    from app.services.dashboard_feed_service import _summary_status
+    from app.services.summary_placeholders import is_summary_ready
+
+    assert is_summary_ready(overview, (raw_summary or {}).get("writer_error")) is ready
+    ticker = f"S{uuid.uuid4().hex[:5].upper()}"
+    cid = _company(ticker)
+    _watch(user_id, cid, T0)
+    sid = _summary(_filing(cid, "10-K", datetime(2026, 3, 1, tzinfo=timezone.utc)), overview, raw_summary)
+    status = "ready" if ready else "placeholder"
+
+    [row] = client.get("/api/watchlist/insights").json()
+    snap = row["latest_filing"]
+    assert (snap["summary_id"], snap["summary_status"], snap["needs_regeneration"]) == (sid, status, not ready)
+    with SessionLocal() as db:
+        assert _summary_status(db.get(Summary, sid), None) == {"summary_id": sid, "summary_status": status}

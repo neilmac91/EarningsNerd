@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import progress_as_dict
-from app.services.summary_placeholders import is_summary_placeholder
+from app.services.summary_placeholders import is_stored_summary_ready
 from app.config import settings
 from app.services import filing_list_service, legal_readiness_service, watchlist_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -304,14 +304,12 @@ async def get_watchlist_insights(
                         summary_created_at = summary.created_at.isoformat() if summary.created_at else None
                         summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
 
-                        has_placeholder = is_summary_placeholder(summary.business_overview)
-
-                        if has_placeholder:
-                            summary_status = "placeholder"
-                            needs_regeneration = True
-                        else:
+                        if is_stored_summary_ready(summary):
                             summary_status = "ready"
                             needs_regeneration = False
+                        else:
+                            summary_status = "placeholder"
+                            needs_regeneration = True
                     elif progress_snapshot:
                         stage = progress_snapshot.get("stage", "generating")
                         if stage == "error":

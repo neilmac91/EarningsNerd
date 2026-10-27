@@ -1,9 +1,10 @@
 """Canonical detector for an AI summary body that is not-ready placeholder filler.
 
 A summary's ``business_overview`` sometimes holds interim/error filler ("generating summary…",
-"summary temporarily unavailable", "requires OpenAI API key") instead of real analysis. Both the
-dashboard feed and the watchlist need to recognize that state to label the summary "placeholder"
-and offer regeneration — this is the ONE home for those tokens so the two surfaces can't drift.
+"summary temporarily unavailable", "requires OpenAI API key") instead of real analysis. This is the
+ONE home for those tokens and for the rule the filing page shows a stored summary by
+(``is_summary_ready``), which the dashboard feed and the watchlist label their summary status by
+(``is_stored_summary_ready``), so the surfaces can't drift.
 
 Deliberately NARROW — the interim/error summary *body*. It is NOT the section-level "Not
 disclosed"/"N/A" placeholders (``ai/normalize._PLACEHOLDER_STRINGS``, exact-match), the
@@ -11,7 +12,7 @@ frontend-mirrored export filter (``summary_sections.PLACEHOLDER_PATTERNS``), or 
 failure-detection list (``summary_generation_service``). Those are separate, context-specific
 checks with their own token sets and match semantics; consolidating them here would change behavior.
 """
-from typing import Optional
+from typing import Any, Optional
 
 # Substrings that mark a summary body as interim/error filler rather than real content.
 SUMMARY_PLACEHOLDER_TOKENS = (
@@ -19,12 +20,6 @@ SUMMARY_PLACEHOLDER_TOKENS = (
     "summary temporarily unavailable",
     "requires openai api key",
 )
-
-
-def is_summary_placeholder(text: Optional[str]) -> bool:
-    """True when a summary body is interim/error placeholder filler (case-insensitive substring)."""
-    lowered = (text or "").lower()
-    return any(token in lowered for token in SUMMARY_PLACEHOLDER_TOKENS)
 
 
 # Whether the filing page shows a stored summary's body: the rule its display, its metadata
@@ -50,3 +45,12 @@ def is_summary_ready(overview: Optional[str], writer_error: object = None) -> bo
         and not any(token in lowered for token in SUMMARY_FAILURE_TOKENS)
         and not writer_error
     )
+
+
+def is_stored_summary_ready(summary: Any) -> bool:
+    """``is_summary_ready`` for a stored Summary row, its writer error read from ``raw_summary``. The watchlist
+    and the dashboard's Your companies rows label the row Ready by it, else Unavailable (``placeholder``), so
+    their chip says what the filing page shows (E221)."""
+    raw = getattr(summary, "raw_summary", None)
+    writer_error = raw.get("writer_error") if isinstance(raw, dict) else None
+    return is_summary_ready(getattr(summary, "business_overview", None), writer_error)
