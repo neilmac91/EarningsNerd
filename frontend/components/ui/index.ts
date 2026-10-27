@@ -11,6 +11,8 @@ export { SegmentedControl, MAX_SEGMENTS, type SegmentedControlProps, type Segmen
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'
+// A plan's monthly usage as a bar, sage to warning at 80% and error at 100% (E196): the dashboard and pricing pages.
+export { UsageMeter, usageMeterFill, type UsageMeterProps } from './UsageMeter'
 export { Checkbox, type CheckboxProps } from './Checkbox'
 // v3: the ONE dialog primitive (DS-04) — the dialog role ships only through Modal
 // (plus the documented copilot sheets; gated by tests/unit/dialogAllowlist.spec.ts).

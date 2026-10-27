@@ -241,11 +241,9 @@ EXEMPT: dict[str, tuple[int, str]] = {
     "app/routers/contact.py::send_contact_notifications": (11, "backend-mail-templates"),
     "app/routers/feedback.py::_notify_admin": (5, "backend-mail-templates"),
     "app/services/email_service.py": (
-        25,
-        "backend-mail-templates; also the verification mail's 'Verify your email address and you can start "
-        "reading', which promises a gate the code does not have (only checkout checks email_verified), and the "
-        "OAuth-linked mail's 'sign-in' and 'sign in', five places the account verb found when E45 taught it "
-        "(tasks/todo.md E46)",
+        19,
+        "backend-mail-templates: the retired colour #6B7280, the em-dashes and the data-quality report's tick "
+        "(E46 took the OAuth-linked mail's account verb and its em-dash)",
     ),
 
     "app/services/ai/issuer_cash_disclosure.py": (1, "backend-copy-high: the issuer cash-flow table's column heading"),
