@@ -1,0 +1,106 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "40af407fc0b5880f1129ab052521fd4c1523b016959f88eeeb84a181f41906cc",
+ "y_sha256": "8d7ebd5f60e1c6bf755e6f7f56b8b20ba8e9e108dfd061edc3ff3e905ad8c663",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts have grounding slips. A says ROE of 34.0% 'sits at' a 38.8% peer median. B credits FY2024 growth to Gaming and applies the 44-point Activision impact to Gaming rather than Xbox content. Both cite $51.4bn capex detail missing from the truncated passage. B adds more history: the FY2023 stall, the Activision effect, the XBOX drag, and operating cash flow conversion. It also labels analysis more carefully and discloses the FY2017 investment gap."
+   },
+   "cost_usd": 0.147597,
+   "latency_s": 18.66,
+   "backend": "claude_cli",
+   "input_tokens": 15482,
+   "cached_input_tokens": 727,
+   "output_tokens": 1471,
+   "reasoning_tokens": 1224,
+   "meta": {
+    "duration_api_ms": 14700,
+    "cache_creation_input_tokens": 14753,
+    "list_cost_usd": 0.088585
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts have grounding slips. A says ROE of 34.0% 'sits at' a 38.8% peer median. B credits FY2024 growth to Gaming and applies the 44-point Activision impact to Gaming rather than Xbox content. Both cite $51.4bn capex detail missing from the truncated passage. B adds more history: the FY2023 stall, the Activision effect, the XBOX drag, and operating cash flow conversion. It also labels analysis more carefully and discloses the FY2017 investment gap.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite the $51.4bn property-and-equipment increase to a truncated passage that never shows it. A has more misreads: it applies the 44-point Activision impact to Gaming rather than Xbox content, credits Gaming with FY2024 growth without support, and cites an unshown $22.2bn figure. B wrongly says ROE 'sits at' a higher peer median. B adds well-sourced depth: TCJA and tax inflections, OpenAI gains, opex leverage, current ratio low, and segment margin to watch."
+   },
+   "cost_usd": 0.140597,
+   "latency_s": 14.833,
+   "backend": "claude_cli",
+   "input_tokens": 15482,
+   "cached_input_tokens": 727,
+   "output_tokens": 1121,
+   "reasoning_tokens": 871,
+   "meta": {
+    "duration_api_ms": 10865,
+    "cache_creation_input_tokens": 14753,
+    "list_cost_usd": 0.081585
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite the $51.4bn property-and-equipment increase to a truncated passage that never shows it. A has more misreads: it applies the 44-point Activision impact to Gaming rather than Xbox content, credits Gaming with FY2024 growth without support, and cites an unshown $22.2bn figure. B wrongly says ROE 'sits at' a higher peer median. B adds well-sourced depth: TCJA and tax inflections, OpenAI gains, opex leverage, current ratio low, and segment margin to watch.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.288194
+}

@@ -1,0 +1,106 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "USB",
+ "split": "holdout",
+ "claims": 8,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The 15.8% FY2023 rise  reflected higher rates on earning assets and the MUB acquisition .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2023 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Total net revenue for 2023 was $3.8 billion (15.8 percent) higher than 2022, reflecting an 18.1 percent increase in net interest income and a 12.3 percent increase in noninterest income. The increase in net interest income from the prior year was primarily due to higher interest rates on earning assets and the MUB acquisition, partially offset by the impact of deposit mix and pricing. The increase in noninterest income reflected higher commercial products revenue, payment services revenue, trust and investment management fees and other noninterest income, partially offset by losses on investment securities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states increase due to higher rates and MUB acquisition."
+  },
+  {
+   "sentence": "Net income rose 60.6% to $7.96 billion in FY2021 , driven by a provision swing to a $1.17 billion release  on improving economic conditions .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2021 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "The Company earned $8.0 billion in 2021, an increase of $3.0 billion (60.6 percent) from 2020, reflecting a decrease in the provision for credit losses, partially offset by lower pre-provision operating income. The decrease in the provision for credit losses was driven by improvement in the global economy, as well as strong credit and collateral performance. Net interest income decreased due to lower loan spreads and declining average loan balances driven by commercial loan payoffs by business customers, partially offset by changes in deposit and funding mix and higher loan fees. Noninterest income decreased due to lower mortgage banking revenue, commercial products revenue and securities gains, partially offset by improvements in payment services revenue, trust and investment management fees, deposit service charges, treasury management fees and investment products fees."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes increase to decrease in provision driven by improving economy."
+  },
+  {
+   "sentence": "Noninterest income grew 7.6% in FY2025 , with payment services revenue up on merchant processing and card volumes .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Income Noninterest income in 2025 was $11.9 billion, compared with $11.0 billion in 2024. The $845 million (7.6 percent) increase in 2025 from 2024 reflected higher trust and investment management fees, payment services revenue, capital markets revenue, other noninterest income and lower losses on the sales of investment securities. Trust and investment management fees increased primarily due to business growth and favorable market conditions. Payment services revenue increased primarily driven by higher merchant processing services revenue and card revenue, both driven by higher sales volume. Capital markets revenue increased primarily due to higher syndication activity, commercial loan fees and trading revenue. Other noninterest income increased primarily due to higher tax credit investment activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states payment services revenue increased due to merchant processing and card volumes."
+  },
+  {
+   "sentence": "Consumer and Business Banking fell 3.9% and subtracted 1.3pp from growth , on lower net interest income from deposit mix and loan sales .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue decreased $358 million (3.9 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, decreased $377 million (4.9 percent) in 2025, compared with 2024, primarily due to changes in deposit mix, along with the impact of loan sales in the second quarter of 2025. Noninterest income increased $19 million (1.2 percent) in 2025, compared with 2024, primarily due to higher mortgage banking revenue driven by gain on sale activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes decrease to deposit mix and loan sales."
+  },
+  {
+   "sentence": "The 3.9pp fall from 62.9% in FY2024  followed a 2.0% expense decline , attributed to lower compensation and prior-year merger and FDIC charges .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Expense Noninterest expense in 2025 was $16.8 billion, compared with $17.2 billion in 2024. The $351 million (2.0 percent) decrease in noninterest expense in 2025, compared to 2024, reflected the impact of merger and integration charges in the prior year, lower compensation and employee benefits expense and other noninterest expense, partially offset by higher technology and communications expense and marketing and business development expense. Compensation and employee benefits expense decreased primarily due to cost savings from operational efficiencies, partially offset by merit increases. Other noninterest expense decreased primarily due to the impact in the prior year of the FDIC special assessment. Technology and communications expense increased primarily due to investments in infrastructure and technology development. Marketing and business development expense increased primarily due to increased initiatives in 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes expense decrease to lower compensation and prior-year merger and FDIC charges."
+  },
+  {
+   "sentence": "The largest window move was a 5.8pp rise to 67.4% in FY2023 from 61.6% , attributed to merger, MUB and FDIC special assessment costs .",
+   "passages": [
+    {
+     "id": "P30",
+     "filing": "FY2023 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Expense Noninterest expense in 2023 was $18.9 billion, compared with $14.9 billion in 2022. The Company\u2019s efficiency ratio was 66.7 percent in 2023, compared with 61.4 percent in 2022. The $4.0 billion (26.6 percent) increase in noninterest expense in 2023 over 2022 reflected the impact of increased merger and integration charges, as well as operating expenses related to the MUB acquisition, higher compensation and employee benefits expense, and higher other intangibles and other noninterest expense. Compensation and employee benefits expense increased 13.7 percent in 2023 over 2022, primarily due to MUB expense as well as merit increases and hiring to support business growth. Other intangibles expense increased primarily due to the core deposit intangible created as a result of the MUB acquisition. Other noninterest expense increased 58.2 percent primarily due to the $734 million FDIC special assessment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes increase to merger, MUB, and FDIC special assessment costs."
+  },
+  {
+   "sentence": "Credit-loss provision was 7.7% of revenue in FY2025  and fell 2.3% to $2.19 billion  on improved credit quality and loan sales .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "The provision for credit losses was $2.2 billion in 2025, representing a $52 million (2.3 percent) decrease from 2024. The decrease from the prior year was primarily driven by improved credit quality and the impact of loan sales during the second quarter of 2025, partially offset by loan growth. Net charge-offs increased $12 million (0.6 percent) in 2025, compared with 2024, reflecting higher other retail loan net charge-offs, partially offset by lower commercial real estate loan net charge-offs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes decrease to improved credit quality and loan sales."
+  },
+  {
+   "sentence": "The FY2025 segment decline is attributed to deposit mix and loan sales .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue decreased $358 million (3.9 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, decreased $377 million (4.9 percent) in 2025, compared with 2024, primarily due to changes in deposit mix, along with the impact of loan sales in the second quarter of 2025. Noninterest income increased $19 million (1.2 percent) in 2025, compared with 2024, primarily due to higher mortgage banking revenue driven by gain on sale activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes decline to deposit mix and loan sales."
+  }
+ ],
+ "cost_usd": 0.0018
+}

@@ -1,0 +1,135 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 10,
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2017 is the first step change: net income fell 80.9% to $1.25 billion , which the filing ties to North America refranchising charges in other income .",
+   "passages": [
+    {
+     "id": "P53",
+     "filing": "FY2019 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2017, other income (loss) \u2014 net was a loss of $1,763 million. The Company recognized net charges of $2,140 million due to the refranchising of certain bottling territories in North America and charges of $313 million primarily related to payments made to convert the bottling agreements for certain North America bottling partners' territories to a single form of CBA with additional requirements. The Company also recorded net charges of $255 million resulting from special termination benefits and curtailment credits primarily related to North America refranchising and the Company's productivity and reinvestment program. Additionally, the Company recorded an other-than-temporary impairment charge of $50 million related to one of our international equity method investees, primarily driven by foreign currency exchange rate fluctuations. The Company also incurred a charge of $26 million related to our former German bottling operations. These charges were partially offset by a gain of $445 million related to the integration of Coca-Cola West Co., Ltd."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net charges of $2,140 million due to North America refranchising in other income."
+  },
+  {
+   "sentence": "FY2025 operating margin reached 28.7% , the window high , on a 37.7% rise in operating income  that laps prior-year charges .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating income and margin increase primarily to lower other operating charges."
+  },
+  {
+   "sentence": "The 10-K cites worldwide concentrate volume growth of 1% as the volume driver .",
+   "passages": [
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, worldwide concentrate sales volume grew 1% and unit case volume was even compared to 2024. The difference between concentrate sales volume and unit case volume growth rates for our Latin America operating segment was primarily due to the timing of concentrate shipments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states worldwide concentrate sales volume grew 1%."
+  },
+  {
+   "sentence": "Operating income rose 37.7%  on revenue growth of 1.9% , a gap the 10-K ties mainly to lower other operating charges .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes operating income increase primarily to lower other operating charges."
+  },
+  {
+   "sentence": "Of the 7.5pp gain in FY2025 , 6.2pp came from other lines , which the 10-K ties to lower other operating charges after the fairlife remeasurement .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes margin increase primarily to lower other operating charges."
+  },
+  {
+   "sentence": "Gross margin rose 0.6pp to 61.6%  on pricing and the prior-year refranchising, offset by currency and commodity costs .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our gross profit margin increased to 61.6% in 2025 from 61.1% in 2024. This increase was primarily due to the impact of favorable pricing initiatives and the impact of the prior year refranchising of our bottling operations in the Philippines, Bangladesh and certain territories in India, partially offset by the unfavorable impact of foreign currency exchange rate fluctuations and higher commodity costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage attributes gross margin increase to pricing and prior year refranchising, offset by currency and commodity costs."
+  },
+  {
+   "sentence": "Net margin of 27.3%  sits 1.4pp below operating margin , and the filing attributes the 17.9% tax rate  partly to incentive grants worth $383 million .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our effective tax rate reflects the tax impact of having significant operations outside the United States, which are generally taxed at rates different than the statutory U.S. federal tax rate. As a result of employment actions and capital investments made by the Company, certain tax jurisdictions provide income tax incentive grants, including Brazil, Costa Rica, Singapore and Eswatini. The terms of these grants expire from 2031 to 2045. We anticipate that we will be able to extend or renew the grants in these locations. The decision of whether we decide to pursue the renewal of these grants and the impact of the grants going forward is dependent on various factors. Tax incentive grants favorably impacted our income tax expense by $383 million and $346 million for the years ended December\u00a031, 2025 and 2024, respectively. In addition, our effective tax rate reflects the benefits of having significant earnings generated in investments accounted for under the equity method."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states tax incentive grants favorably impacted income tax expense by $383 million."
+  },
+  {
+   "sentence": "Operating cash flow fell 41.3% to $6.81 billion in FY2024 , driven by a $6.0 billion IRS tax litigation deposit .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2024 and 2023 was $6,805\u00a0million and $11,599\u00a0million, respectively, a decrease of $4,794\u00a0million, or 41%. This decrease was primarily driven by the $6.0 billion IRS Tax Litigation Deposit, an unfavorable impact due to foreign currency exchange rate fluctuations, higher other tax payments, increased charitable donations, and the reduced operating cash flows resulting from the refranchising of our bottling operations. The decrease was also impacted by additional annual incentive payments in the current year due to improved business performance in the prior year. These items were partially offset by strong cash operating results, the transfer of surplus international plan assets from pension trusts to general assets of the Company, payments in the prior year resulting from the buildup of inventory to manage potential supply chain disruptions, increased dividend payments from our equity method investees, and $167\u00a0million of the $275\u00a0million milestone payment for fairlife in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease primarily driven by $6.0 billion IRS Tax Litigation Deposit."
+  },
+  {
+   "sentence": "Operating cash flow recovered 8.9% to $7.41 billion in FY2025 , which the filing ties mainly to lower tax payments and working-capital timing .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2025 and 2024 was $7,408\u00a0million and $6,805\u00a0million, respectively, an increase of $603\u00a0million, or 9%. This increase was primarily driven by strong cash operating results, lower tax payments, the timing of changes in working capital and lower contributions to The Coca-Cola Foundation compared to the prior year. These items were partially offset by the prior year benefit of the trade accounts receivable factoring program and higher transfers of surplus non-U.S. plan assets from pension trusts to general assets of the Company in the prior year. The increase was also partially offset by unfavorable hedging activity, higher marketing payments, tax deposits related to Israel and Vietnam, and higher net interest payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states increase primarily driven by lower tax payments and timing of working capital changes."
+  },
+  {
+   "sentence": "Currency cut consolidated operating income by 12% in FY2025 , with Latin America down to $3.74 billion from $3.79 billion .",
+   "passages": [
+    {
+     "id": "P11",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "In 2025, fluctuations in foreign currency exchange rates, including the effects of our hedging activities, unfavorably impacted consolidated operating income by 12% due to a stronger U.S. dollar compared to certain foreign currencies, including the Mexican peso, Argentine peso, Brazilian real and Turkish lira, which had an unfavorable impact on our Latin America and EMEA operating segments. The unfavorable impact of a stronger U.S. dollar compared to the currencies listed above was partially offset by the impact of a weaker U.S. dollar compared to certain other foreign currencies, including the euro and British pound, which had a favorable impact on our EMEA operating segment. Refer to the heading \u201cLiquidity, Capital Resources and Financial Position\u00a0\u2014 Foreign Exchange\u201d below."
+    },
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Latin America reported operating income of $3,742\u00a0million and $3,792\u00a0million for the years ended December\u00a031, 2025 and 2024, respectively. The decrease in operating income was primarily driven by a decrease in concentrate sales volume of 1%, increased marketing spending and an unfavorable foreign currency exchange rate impact of 21%, partially offset by favorable pricing initiatives, lower commodity costs and lower other operating charges."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states currency unfavorably impacted consolidated operating income by 12% and Latin America figures."
+  }
+ ],
+ "cost_usd": 0.002295
+}

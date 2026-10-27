@@ -1,0 +1,106 @@
+{
+ "ticker": "NEE",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "aa4f112d0162a797a5cea8dd79710272a226bfe32c4b338f341698bd3ed45d31",
+ "y_sha256": "f06bf2bacec17b9627c0147208cbff7d729ca8e72fc8cb7c588287837349ec97",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A misreads its FY2021 source: the passage says NEER's results increased, yet A presents those items as causes of the operating income fall. A also cites a $585m tax-credit rise from a truncated passage and pins the 5.8% OCF fall on an $89m figure its passage never states. B shares the $89m claim but grounds the FY2024 decline precisely and labels its judgements as analysis. A explains more (NEER, hedges, restatement), but less reliably."
+   },
+   "cost_usd": 0.135909,
+   "latency_s": 16.351,
+   "backend": "claude_cli",
+   "input_tokens": 14696,
+   "cached_input_tokens": 727,
+   "output_tokens": 1201,
+   "reasoning_tokens": 978,
+   "meta": {
+    "duration_api_ms": 11828,
+    "cache_creation_input_tokens": 13967,
+    "list_cost_usd": 0.080041
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A misreads its FY2021 source: the passage says NEER's results increased, yet A presents those items as causes of the operating income fall. A also cites a $585m tax-credit rise from a truncated passage and pins the 5.8% OCF fall on an $89m figure its passage never states. B shares the $89m claim but grounds the FY2024 decline precisely and labels its judgements as analysis. A explains more (NEER, hedges, restatement), but less reliably.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper: it explains the FY2021 and FY2023 inflections, NEER's drivers and incremental margin, and flags the FY2019 restatement. But it misreads its FY2021 source, which says NEER results increased, so the source does not explain the drop. Its $585m tax-credit figure is cut off in the quoted passage. Both cite an $89m cash-flow figure the passage omits. A has fewer errors and labels its judgements as Analysis, so grounding tips it to A."
+   },
+   "cost_usd": 0.129701,
+   "latency_s": 13.291,
+   "backend": "claude_cli",
+   "input_tokens": 14700,
+   "cached_input_tokens": 727,
+   "output_tokens": 889,
+   "reasoning_tokens": 654,
+   "meta": {
+    "duration_api_ms": 9234,
+    "cache_creation_input_tokens": 13971,
+    "list_cost_usd": 0.073817
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper: it explains the FY2021 and FY2023 inflections, NEER's drivers and incremental margin, and flags the FY2019 restatement. But it misreads its FY2021 source, which says NEER results increased, so the source does not explain the drop. Its $585m tax-credit figure is cut off in the quoted passage. Both cite an $89m cash-flow figure the passage omits. A has fewer errors and labels its judgements as Analysis, so grounding tips it to A.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.26561
+}

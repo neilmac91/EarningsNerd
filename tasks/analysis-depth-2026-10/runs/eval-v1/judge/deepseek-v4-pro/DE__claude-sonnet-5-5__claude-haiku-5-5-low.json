@@ -1,0 +1,86 @@
+{
+ "ticker": "DE",
+ "split": "holdout",
+ "x": "claude-sonnet-5-5",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper causal analysis, better grounding with precise citations, and more comprehensive coverage including peer comparisons and specific red flags. It clearly separates facts from analysis and offers concrete numeric thresholds to watch. Draft B is solid but less detailed and occasionally less precise."
+   },
+   "cost_usd": 0.002713,
+   "latency_s": 2.68,
+   "input_tokens": 9310,
+   "output_tokens": 123,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper causal analysis, better grounding with precise citations, and more comprehensive coverage including peer comparisons and specific red flags. It clearly separates facts from analysis and offers concrete numeric thresholds to watch. Draft B is solid but less detailed and occasionally less precise.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, well-sourced analysis of segment drivers, margin decomposition, cash conversion, and balance sheet, with clear red flags and numeric watch items. Draft B has some unsupported claims (e.g., incremental margin, segment margin unexplained) and less precise grounding. A is more thorough and reliable."
+   },
+   "cost_usd": 0.002817,
+   "latency_s": 2.829,
+   "input_tokens": 9310,
+   "output_tokens": 134,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, well-sourced analysis of segment drivers, margin decomposition, cash conversion, and balance sheet, with clear red flags and numeric watch items. Draft B has some unsupported claims (e.g., incremental margin, segment margin unexplained) and less precise grounding. A is more thorough and reliable.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.00553
+}

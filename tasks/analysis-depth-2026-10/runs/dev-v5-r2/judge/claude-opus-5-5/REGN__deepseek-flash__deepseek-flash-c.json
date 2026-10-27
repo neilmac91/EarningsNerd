@@ -1,0 +1,106 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "09d3033ca2ec8242bd320310414d02f020b871a25ba2a76e50fce577e0fb095a",
+ "y_sha256": "07577c3df989c24ad72ac54fb12c22157cf369bff4b034979037f4d7daaf68c6",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A goes deeper, with mix inversion, Libtayo/EYLEA HD, peer R&D and ROE, but its grounding breaks in several places. It says FCF/NI of 0.91x is 'below' a 0.88x median. It attributes other income to the IRS settlement, which [46] ties to the tax rate. The R&D and capex causes are uncited, and the 2026 donation resumption isn't in the truncated passage. B's causal claims match its passages, and it labels its interpretations as analysis. One B analysis line is weakly supported."
+   },
+   "cost_usd": 0.133129,
+   "latency_s": 14.076,
+   "backend": "claude_cli",
+   "input_tokens": 15146,
+   "cached_input_tokens": 727,
+   "output_tokens": 882,
+   "reasoning_tokens": 630,
+   "meta": {
+    "duration_api_ms": 8654,
+    "cache_creation_input_tokens": 14417,
+    "list_cost_usd": 0.075461
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A goes deeper, with mix inversion, Libtayo/EYLEA HD, peer R&D and ROE, but its grounding breaks in several places. It says FCF/NI of 0.91x is 'below' a 0.88x median. It attributes other income to the IRS settlement, which [46] ties to the tax rate. The R&D and capex causes are uncited, and the 2026 donation resumption isn't in the truncated passage. B's causal claims match its passages, and it labels its interpretations as analysis. One B analysis line is weakly supported.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds real depth: the mix inversion, Libtayo, EYLEA HD, R&D and ROE versus peers. But it has several unsupported or wrong causal claims. It calls 0.91x 'below' a 0.88x median. It credits the IRS settlement, a tax item, for other income. It asserts 'facility expansion' and 'clinical development spending grew' without a supporting source, and says matching donations resume in 2026 from a truncated passage. A is narrower but nearly fully grounded and labels its analysis."
+   },
+   "cost_usd": 0.130877,
+   "latency_s": 11.099,
+   "backend": "claude_cli",
+   "input_tokens": 15152,
+   "cached_input_tokens": 727,
+   "output_tokens": 767,
+   "reasoning_tokens": 524,
+   "meta": {
+    "duration_api_ms": 7240,
+    "cache_creation_input_tokens": 14423,
+    "list_cost_usd": 0.073185
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B adds real depth: the mix inversion, Libtayo, EYLEA HD, R&D and ROE versus peers. But it has several unsupported or wrong causal claims. It calls 0.91x 'below' a 0.88x median. It credits the IRS settlement, a tax item, for other income. It asserts 'facility expansion' and 'clinical development spending grew' without a supporting source, and says matching donations resume in 2026 from a truncated passage. A is narrower but nearly fully grounded and labels its analysis.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.264006
+}

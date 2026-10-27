@@ -1,0 +1,104 @@
+{
+ "system": "gold",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 7,
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue fell 24.3% in FY2022  because there were no US REGEN-COV sales that year : the company had completed its final U.S. government deliveries in 2021 , and the FDA revised the antibody's authorization after data showed it was unlikely to work against Omicron .",
+   "passages": [
+    {
+     "id": "Q3",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During the years ended December\u00a031, 2021 and 2020, we recorded net product sales of REGEN-COV in connection with our agreements with the U.S. government. As of December 31, 2021, the Company had completed its final deliveries of drug product under its agreements with the U.S. government; as a result, there were no net product sales of REGEN-COV in the United States recorded during the year ended December\u00a031, 2022. Refer to Part I, Item 1. \"Business - Agreements Related to COVID-19 - U.S. Government\" for further details."
+    },
+    {
+     "id": "Q1",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "During the years ended December\u00a031, 2021 and 2020, net product sales of REGEN-COV were recorded in connection with our agreements with the U.S. government. As of December 31, 2021, the Company had completed its final deliveries of drug product under its agreements with the U.S. government. Refer to Part I, Item 1. \"Business - Agreements Related to COVID-19 - U.S. Government\" for further details. The degree to which future sales of our COVID-19 monoclonal antibodies will continue is highly uncertain and will depend on, among other factors, the number of new COVID-19 cases and effectiveness of our product against variants of concern. Refer to Part I, Item 1. \"Business - Products - REGEN-COV - Emergency and Temporary Use Authorizations\"  for additional information."
+    },
+    {
+     "id": "Q2",
+     "filing": "FY2021 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cost of goods sold increased in 2021, compared to 2020, primarily due to the recognition of manufacturing costs in connection with the product sales of REGEN-COV. During 2021, the Company also recorded a $259.6 million true-up payment owed in connection with global gross profits under our Roche collaboration agreement described above. Additionally, during the fourth quarter of 2021, the Company recorded a $231.7\u00a0million charge to write down its REGEN-COV inventory as a result of data that showed REGEN-COV was highly unlikely to be active against the Omicron variant and the FDA revision of the EUA for REGEN-COV, pursuant to which REGEN-COV was no longer authorized for use in any U.S. states, territories, or jurisdictions. Refer to Part I, Item 1. \"Business - Products - REGEN-COV - Emergency and Temporary Use Authorizations\" for additional information."
+    }
+   ],
+   "label": "partial",
+   "reason": "Q3 ties no 2022 US REGEN-COV sales to completed deliveries. The FDA EUA revision is cited only as the 2021 inventory write-down cause, not 2022 sales."
+  },
+  {
+   "sentence": "US EYLEA sales fell 42.4% , taking 14.2 points off growth , on lower volumes (competition, compounded bevacizumab, patients moving to EYLEA HD) and a lower net price .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 attributes the EYLEA decline to lower volumes (competition, compounded bevacizumab, shift to EYLEA HD) and a lower net selling price."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi collaboration profits rose 33.6% to $5.24 billion , adding 9.3 points , on higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 says the higher Sanofi profit share was driven primarily by increased Dupixent sales."
+  },
+  {
+   "sentence": "In FY2025 R&D took 4.7 points off the margin ; SG&A gave back 2.0 points  because charitable contributions to the Good Days patient-assistance fund fell .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 says SG&A fell primarily due to lower charitable contributions to Good Days. The R&D point is stated without a cause."
+  },
+  {
+   "sentence": "The largest move was FY2022's 16.7-point fall , when R&D took 11.4 more points of revenue , partly because amended Sanofi agreements ended Sanofi's reimbursement of half of Libtayo's development costs and brought Regeneron's share of antibody research costs onto its own books .",
+   "passages": [
+    {
+     "id": "Q7",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total research and development expenses increased in 2022, compared to 2021, partially due to the impact of the amendments to the Sanofi collaboration agreements described above in Part I, Item 1. \"Business - Collaboration, License, and Other Agreements - Sanofi,\" as (i) Sanofi is no longer reimbursing us for 50% of Libtayo development costs, and (ii) effective July 1, 2022, we recognize our 50% share of research and development expenses in connection with the Sanofi Antibody Collaboration."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q7 says R&D rose partially due to Sanofi amendments ending Libtayo reimbursement and recognizing a 50% share of antibody collaboration R&D."
+  },
+  {
+   "sentence": "Net margin held at 31.4% , above the operating margin, on $1.65 billion of other income  and a 13.9% tax rate , which the company attributes to lower-tax foreign income, research credits and an IRS audit settlement .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our effective tax rate for 2025 was positively impacted, compared to the U.S. federal statutory rate, primarily by income earned in foreign jurisdictions with tax rates lower than the U.S. federal statutory rate and federal tax credits for research activities, partially offset by the impact of the OBBBA being signed into law. In addition, our effective tax rate for 2025 was positively impacted by the release of liabilities for uncertain tax positions recognized upon the effective settlement of the IRS audit of our 2017 and 2018 federal income tax returns."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 cites lower-tax foreign income, research credits and the IRS audit settlement as lowering the effective tax rate."
+  },
+  {
+   "sentence": "Capital spending rose 18.9% to $898 million in FY2025 , 1.65 times depreciation , to expand research and manufacturing sites in New York; the company expects $1.10 billion to $1.30 billion in 2026 .",
+   "passages": [
+    {
+     "id": "Q4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Capital expenditures in 2025 primarily included costs incurred in connection with the expansion of our research, preclinical manufacturing, and support facilities at our Tarrytown, New York corporate headquarters, as well as costs associated with the expansion of our manufacturing facilities. We expect to incur capital expenditures of $1.100 billion to $1.300 billion in 2026, including in connection with the continued expansion of our facilities in Tarrytown, New York and developing our property in Saratoga Springs, New York for production support activities and additional manufacturing capacity. We expect continued significant capital expenditures over the next several years related to these expansion projects."
+    }
+   ],
+   "label": "supported",
+   "reason": "Q4 attributes 2025 capex to Tarrytown research and manufacturing expansion and guides $1.100\u2013$1.300 billion for 2026."
+  }
+ ],
+ "cost_usd": 0.048844
+}

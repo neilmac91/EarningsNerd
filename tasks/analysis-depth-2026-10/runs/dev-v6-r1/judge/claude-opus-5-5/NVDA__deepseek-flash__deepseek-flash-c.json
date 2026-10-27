@@ -1,0 +1,106 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "bc2bd395ede64e447172953d9f3352fca1edd2deb86a6daf298a9efb9d5e72c2",
+ "y_sha256": "19b039e05acc51c0528d1798f0e7370f11a77c071fbf5a0b9673c7e34fde1a1c",
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's main balance-sheet claim, that net cash fell from $34.7bn to $2.14bn because of investing outflows, rests on a FY2026 figure that omits short-term investments. Its peer rank and its net-cash watch item inherit the same flaw. B discloses this gap and adds the FY2024 Hopper cause and the FY2026 H20 charge. A has the FY2023 inventory cause, working-capital days and customer concentration. Depth is roughly even, so B's grounding wins."
+   },
+   "cost_usd": 0.123297,
+   "latency_s": 12.374,
+   "backend": "claude_cli",
+   "input_tokens": 14142,
+   "cached_input_tokens": 727,
+   "output_tokens": 792,
+   "reasoning_tokens": 551,
+   "meta": {
+    "duration_api_ms": 7374,
+    "cache_creation_input_tokens": 13413,
+    "list_cost_usd": 0.069645
+   },
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's main balance-sheet claim, that net cash fell from $34.7bn to $2.14bn because of investing outflows, rests on a FY2026 figure that omits short-term investments. Its peer rank and its net-cash watch item inherit the same flaw. B discloses this gap and adds the FY2024 Hopper cause and the FY2026 H20 charge. A has the FY2023 inventory cause, working-capital days and customer concentration. Depth is roughly even, so B's grounding wins.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B goes deeper, with the FY2023 inventory charge, a cost bridge, working capital, other income and customer concentration. But it reports FY2026 net cash collapsing to $2.14bn and blames investing outflows, although the data flag says short-term investments were omitted that year. It also builds a watch item on that number. A discloses the gap, and its causal claims match its passages. A overstates Graphics as 'not a persistent concern'."
+   },
+   "cost_usd": 0.126937,
+   "latency_s": 14.139,
+   "backend": "claude_cli",
+   "input_tokens": 14142,
+   "cached_input_tokens": 727,
+   "output_tokens": 974,
+   "reasoning_tokens": 760,
+   "meta": {
+    "duration_api_ms": 9564,
+    "cache_creation_input_tokens": 13413,
+    "list_cost_usd": 0.073285
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B goes deeper, with the FY2023 inventory charge, a cost bridge, working capital, other income and customer concentration. But it reports FY2026 net cash collapsing to $2.14bn and blames investing outflows, although the data flag says short-term investments were omitted that year. It also builds a watch item on that number. A discloses the gap, and its causal claims match its passages. A overstates Graphics as 'not a persistent concern'.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.250234
+}

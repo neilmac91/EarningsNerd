@@ -1,0 +1,86 @@
+{
+ "ticker": "CVX",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "strong",
+    "rationale": "Draft B explains drivers, margins, cash conversion, balance sheet, and red flags with cited sources, while Draft A mostly restates table values. B's causal claims are supported by quoted passages, and it discloses recast data issues. B is more comprehensive and insightful."
+   },
+   "cost_usd": 0.003601,
+   "latency_s": 2.902,
+   "input_tokens": 7429,
+   "output_tokens": 126,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"B\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"B\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft B explains drivers, margins, cash conversion, balance sheet, and red flags with cited sources, while Draft A mostly restates table values. B's causal claims are supported by quoted passages, and it discloses recast data issues. B is more comprehensive and insightful.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "strong",
+    "rationale": "Draft A explains drivers, inflections, and cash conversion with cited filings, while B mostly restates table values. A's grounding is solid; B's claims are supported but shallow. A covers more dimensions and flags recast data, giving readers actionable thresholds."
+   },
+   "cost_usd": 0.003597,
+   "latency_s": 2.102,
+   "input_tokens": 7429,
+   "output_tokens": 124,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"strong\",\n  \"rationale\": \"Draft A explains drivers, inflections, and cash conversion with cited filings, while B mostly restates table values. A's grounding is solid; B's claims are supported but shallow. A covers more dimensions and flags recast data, giving readers actionable thresholds.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "clarity": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.007198
+}

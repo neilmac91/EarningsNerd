@@ -1,0 +1,116 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "NVDA",
+ "split": "dev",
+ "claims": 8,
+ "output_sha256": "740138d7833e2a9c8b66b3b73227fd388ae75ebc1cb642839c436e9829fc6c43",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2024 step change came from Data Center revenue up 217% on Hopper GPU shipments for LLM training and inference .",
+   "passages": [
+    {
+     "id": "P23",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Data Center revenue for fiscal year 2024 was $47.5 billion, up 217% from fiscal year 2023. In Data Center, we launched AI inference platforms that combine our full-stack inference software with NVIDIA Ada, NVIDIA Hopper and NVIDIA Grace Hopper processors optimized for generative AI, LLMs and other AI workloads. We introduced NVIDIA DGX Cloud and AI Foundations to help businesses create and operate custom large language models and generative AI models. As AV algorithms move to video transformers, and more cars are equipped with cameras, we expect NVIDIA\u2019s automotive data center processing demand to grow significantly. We estimate that in fiscal year 2024, approximately 40% of Data Center revenue was for AI inference. In the fourth quarter of fiscal year 2024, large cloud providers represented more than half of our Data Center revenue, supporting both internal workloads and external customers. We announced NVIDIA Spectrum-X, an accelerated networking platform for AI."
+    },
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year-on-year increase was due to higher Data Center revenue. Compute grew 266% due to higher shipments of the NVIDIA Hopper GPU computing platform for the training and inference of LLMs, recommendation engines and generative AI applications. Networking was up 133% due to higher shipments of InfiniBand."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 states Compute grew 266% due to higher shipments of Hopper GPU for training and inference of LLMs."
+  },
+  {
+   "sentence": "FY2026 growth was again data center compute and networking, with Blackwell the majority of Data Center revenue .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Revenue growth in fiscal year 2026 was driven by data center compute and networking platforms for accelerated computing and AI solutions. Our Blackwell architectures represented the majority of our Data Center revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 states revenue growth driven by data center compute and networking, and Blackwell represented majority of Data Center revenue."
+  },
+  {
+   "sentence": "Data Center networking grew 142% on the NVLink compute fabric ramp for GB200 and GB300 systems .",
+   "passages": [
+    {
+     "id": "P8",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Compute & Networking revenue \u2013 The year over year increase was driven by the major platform shifts \u2013 accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms."
+    }
+   ],
+   "label": "supported",
+   "reason": "P8 states Data Center networking grew 142% driven by introduction and ramp of NVLink compute fabric for GB200 and GB300 systems."
+  },
+  {
+   "sentence": "Compute & Networking operating income absorbed a $4.5 billion H20 excess inventory and purchase obligation charge in Q1 FY2026 .",
+   "passages": [
+    {
+     "id": "P7",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Reportable segment operating income \u2013 The year over year increase in Compute & Networking segment operating income was driven by growth in revenue, partially offset by a $4.5 billion charge associated with H20 excess inventory and purchase obligations in the first quarter of fiscal year 2026. The year over year increase in Graphics segment operating income was driven by the growth in revenue."
+    }
+   ],
+   "label": "supported",
+   "reason": "P7 states Compute & Networking operating income increase partially offset by $4.5 billion H20 charge in Q1 FY2026."
+  },
+  {
+   "sentence": "The effective tax rate rose to 15.1%  on lower relative stock-compensation and research-credit benefits .",
+   "passages": [
+    {
+     "id": "P2",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The effective tax rate increased primarily due to a lower percentage of tax benefits from stock-based compensation, FDDEI, and U.S. federal research tax credit relative to the increase in income before income tax."
+    }
+   ],
+   "label": "supported",
+   "reason": "P2 states effective tax rate increased due to lower percentage of tax benefits from stock-based compensation and research tax credit."
+  },
+  {
+   "sentence": "FY2024 operating cash flow rose on revenue growth, helped by $557 million of customer payments received ahead of invoice due dates .",
+   "passages": [
+    {
+     "id": "P18",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash provided by operating activities increased in fiscal year 2024 compared to fiscal year 2023, due to growth in revenue. Accounts receivable balance in fiscal year 2024 reflected $557 million from customer payments received ahead of the invoice due date."
+    }
+   ],
+   "label": "supported",
+   "reason": "P18 states operating cash flow increased due to revenue growth, and accounts receivable reflected $557 million from customer payments received ahead of invoice due date."
+  },
+  {
+   "sentence": "Investing outflow of $52.2 billion  rose on equity investment purchases and a Groq license agreement .",
+   "passages": [
+    {
+     "id": "P1",
+     "filing": "FY2026 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq."
+    }
+   ],
+   "label": "supported",
+   "reason": "P1 states investing cash outflow increased primarily driven by higher purchases of equity investment securities and Groq license agreement."
+  },
+  {
+   "sentence": "The FY2023 decline reflected $2.17 billion of inventory provisions on excess Ampere Gaming and Data Center supply .",
+   "passages": [
+    {
+     "id": "P38",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Gross margin for fiscal year 2023 declined from a year ago, driven by $2.17 billion of inventory charges largely relating to excess supply of NVIDIA Ampere architecture Gaming and Data Center products as compared to the demand expectations for these products, particularly for the expected demand in China. The inventory charges were comprised of $1.04 billion for inventory on hand and $1.13 billion for inventory purchase obligations in excess of our demand expectations."
+    }
+   ],
+   "label": "supported",
+   "reason": "P38 states gross margin decline driven by $2.17 billion inventory charges relating to excess supply of Ampere Gaming and Data Center products."
+  }
+ ],
+ "cost_usd": 0.001622,
+ "backend": "openai_compat",
+ "input_tokens": 1270,
+ "cached_input_tokens": 0,
+ "output_tokens": 396
+}

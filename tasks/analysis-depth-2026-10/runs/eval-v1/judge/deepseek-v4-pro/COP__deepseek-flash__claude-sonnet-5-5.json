@@ -1,0 +1,86 @@
+{
+ "ticker": "COP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, better-supported analysis, explaining drivers, margins, cash conversion, and balance sheet with precise citations. It flags data issues and offers concrete watch items. Draft B has some unsupported claims and less depth."
+   },
+   "cost_usd": 0.005075,
+   "latency_s": 2.841,
+   "input_tokens": 9565,
+   "output_tokens": 117,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, better-supported analysis, explaining drivers, margins, cash conversion, and balance sheet with precise citations. It flags data issues and offers concrete watch items. Draft B has some unsupported claims and less depth.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A is more grounded and precise, with every causal claim tied to a cited passage and explicit disclosure of data limitations. It offers deeper segment-level analysis and clearer red flags, while Draft B includes unsupported peer comparisons and a confusing segment-sum flag. A's cautious calibration and concrete watch items make it more reliable for self-directed investors."
+   },
+   "cost_usd": 0.005118,
+   "latency_s": 3.059,
+   "input_tokens": 9565,
+   "output_tokens": 139,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A is more grounded and precise, with every causal claim tied to a cited passage and explicit disclosure of data limitations. It offers deeper segment-level analysis and clearer red flags, while Draft B includes unsupported peer comparisons and a confusing segment-sum flag. A's cautious calibration and concrete watch items make it more reliable for self-directed investors.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.010193
+}

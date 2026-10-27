@@ -1,0 +1,610 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "AMD",
+ "split": "holdout",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "Revenue compounded at 26.0% a year from $4.32 billion in FY2016 to $34.6 billion in FY2025 .",
+   "claim": "26.0%",
+   "match": "cited: F231 = Revenue CAGR, FY2016..FY2025, 26.03%",
+   "label": "consistent",
+   "reason": "CAGR 26.0% matches cited 26.03%."
+  },
+  {
+   "sentence": "Revenue compounded at 26.0% a year from $4.32 billion in FY2016 to $34.6 billion in FY2025 .",
+   "claim": "$4.32 billion",
+   "match": "cited: F1 = Revenue, FY2016, $4.32 billion; same value as X1 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2016 revenue $4.32B matches cited."
+  },
+  {
+   "sentence": "Revenue compounded at 26.0% a year from $4.32 billion in FY2016 to $34.6 billion in FY2025 .",
+   "claim": "$34.6 billion",
+   "match": "cited: F10 = Revenue, FY2025, $34.64 billion; same value as X10 = Total revenues as reported",
+   "label": "consistent",
+   "reason": "FY2025 revenue $34.6B matches cited."
+  },
+  {
+   "sentence": "The path was two step changes rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before rebounding 34.3% in FY2025 .",
+   "claim": "68.3%",
+   "match": "cited: D258 = Revenue growth, FY2021, 68.33%",
+   "label": "consistent",
+   "reason": "FY2021 revenue growth 68.3% matches."
+  },
+  {
+   "sentence": "The path was two step changes rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before rebounding 34.3% in FY2025 .",
+   "claim": "43.6%",
+   "match": "cited: D314 = Revenue growth, FY2022, 43.61%",
+   "label": "consistent",
+   "reason": "FY2022 revenue growth 43.6% matches."
+  },
+  {
+   "sentence": "The path was two step changes rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before rebounding 34.3% in FY2025 .",
+   "claim": "3.9%",
+   "match": "cited: D370 = Revenue growth, FY2023, -3.90%",
+   "label": "consistent",
+   "reason": "FY2023 revenue fell 3.9% matches -3.90%."
+  },
+  {
+   "sentence": "The path was two step changes rather than a smooth climb: revenue rose 68.3% in FY2021 and 43.6% in FY2022, then fell 3.9% in FY2023 before rebounding 34.3% in FY2025 .",
+   "claim": "34.3%",
+   "match": "cited: D483 = Revenue growth, FY2025, 34.34%",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 34.3% matches."
+  },
+  {
+   "sentence": "The FY2022 jump included the Xilinx acquisition, which brought Embedded revenue from $246 million in FY2021 to $4.55 billion in FY2022 .",
+   "claim": "$246 million",
+   "match": "cited: S109 = Operating Segments \u2014 Embedded (segment), FY2021, $246.00 million",
+   "label": "consistent",
+   "reason": "Embedded FY2021 revenue $246M matches."
+  },
+  {
+   "sentence": "The FY2022 jump included the Xilinx acquisition, which brought Embedded revenue from $246 million in FY2021 to $4.55 billion in FY2022 .",
+   "claim": "$4.55 billion",
+   "match": "cited: S110 = Operating Segments \u2014 Embedded (segment), FY2022, $4.55 billion",
+   "label": "consistent",
+   "reason": "Embedded FY2022 revenue $4.55B matches."
+  },
+  {
+   "sentence": "FY2023's decline came from a 25% drop in Client revenue on weak PC demand and inventory correction, partly offset by Embedded's full-year Xilinx contribution .",
+   "claim": "25%",
+   "match": "passage P35: P35 = a figure in the FY2023 10-K, Item 7. Management's Discussion and Analysis: \"The decrease in net revenue was primarily due to a 25% decrease in Client segment revenue primarily due to lower processor sales and a 9% decrease in Gaming segment revenue primarily due to lower semi-custom product sales.\"",
+   "label": "consistent",
+   "reason": "Client drop 25% matches passage."
+  },
+  {
+   "sentence": "In FY2025 Data Center contributed 15.7pp of the 34.3% revenue growth and Client and Gaming 19.0pp, while Embedded subtracted 0.4pp .",
+   "claim": "15.7pp",
+   "match": "cited: D694 = Operating Segments \u2014 Datacenter (segment) contribution to revenue growth (pp), FY2025, +15.73pp",
+   "label": "consistent",
+   "reason": "Datacenter contribution 15.7pp matches."
+  },
+  {
+   "sentence": "In FY2025 Data Center contributed 15.7pp of the 34.3% revenue growth and Client and Gaming 19.0pp, while Embedded subtracted 0.4pp .",
+   "claim": "34.3%",
+   "match": "cited: D483 = Revenue growth, FY2025, 34.34%",
+   "label": "consistent",
+   "reason": "Revenue growth 34.3% matches."
+  },
+  {
+   "sentence": "In FY2025 Data Center contributed 15.7pp of the 34.3% revenue growth and Client and Gaming 19.0pp, while Embedded subtracted 0.4pp .",
+   "claim": "19.0pp",
+   "match": "cited: D701 = Operating Segments \u2014 Client And Gaming (segment) contribution to revenue growth (pp), FY2025, +19.01pp",
+   "label": "consistent",
+   "reason": "Client and Gaming contribution 19.0pp matches."
+  },
+  {
+   "sentence": "In FY2025 Data Center contributed 15.7pp of the 34.3% revenue growth and Client and Gaming 19.0pp, while Embedded subtracted 0.4pp .",
+   "claim": "0.4pp",
+   "match": "cited: D731 = Operating Segments \u2014 Embedded (segment) contribution to revenue growth (pp), FY2025, -0.40pp",
+   "label": "consistent",
+   "reason": "Embedded subtracted 0.4pp matches -0.40pp."
+  },
+  {
+   "sentence": "Data Center revenue rose 32% on strong demand for EPYC processors and Instinct GPU accelerators, and Client and Gaming rose 51% on Ryzen processors, semi-custom console SoCs and Radeon GPUs .",
+   "claim": "32%",
+   "match": "passage P15: P15 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Data Center net revenue of $16.6 billion increased by 32% compared to $12.6 billion in 2024, primarily driven by strong demand for our 5th generation AMD EPYC\u2122 processors and AMD Instinct\u2122 MI350 Series GPUs.\"",
+   "label": "consistent",
+   "reason": "Data Center growth 32% matches passage."
+  },
+  {
+   "sentence": "Data Center revenue rose 32% on strong demand for EPYC processors and Instinct GPU accelerators, and Client and Gaming rose 51% on Ryzen processors, semi-custom console SoCs and Radeon GPUs .",
+   "claim": "51%",
+   "match": "passage P15: P15 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Client and Gaming segment net revenue of $14.6 billion in 2025 increased by 51% compared to $9.6 billion in 2024, primarily driven by strong demand for our AMD Ryzen\u2122 processors, semi-custom game consoles SoCs and Radeon\u2122 gaming GPUs.\"",
+   "label": "consistent",
+   "reason": "Client and Gaming growth 51% matches passage."
+  },
+  {
+   "sentence": "Data Center was 48.0% of FY2025 revenue, so the largest segment is also the most concentrated .",
+   "claim": "48.0%",
+   "match": "cited: D692 = Operating Segments \u2014 Datacenter (segment) share of revenue, FY2025, 48.02%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Datacenter share 48.0% matches."
+  },
+  {
+   "sentence": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% .",
+   "claim": "94.4%",
+   "match": "cited: D484 = Operating income growth, FY2025, 94.42%",
+   "label": "consistent",
+   "reason": "Operating income growth 94.4% matches."
+  },
+  {
+   "sentence": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% .",
+   "claim": "34.3%",
+   "match": "cited: D483 = Revenue growth, FY2025, 34.34%",
+   "label": "consistent",
+   "reason": "Revenue growth 34.3% matches."
+  },
+  {
+   "sentence": "Operating income grew 94.4% against revenue growth of 34.3%, an incremental operating margin of 20.3% .",
+   "claim": "20.3%",
+   "match": "cited: D511 = Incremental operating margin (change in operating income / change in revenue), FY2025, 20.26%",
+   "label": "consistent",
+   "reason": "Incremental operating margin 20.3% matches."
+  },
+  {
+   "sentence": "Operating costs grew 10.0pp slower than revenue in FY2025, at 24.3% .",
+   "claim": "10.0pp",
+   "match": "reversed D512 = -10.01pp: D512 = Revenue growth minus operating-cost growth, FY2025, +10.01pp",
+   "label": "consistent",
+   "reason": "Operating costs grew 10.0pp slower matches reversed."
+  },
+  {
+   "sentence": "Operating costs grew 10.0pp slower than revenue in FY2025, at 24.3% .",
+   "claim": "24.3%",
+   "match": "cited: D504 = Operating expenses growth, FY2025, 24.32%",
+   "label": "consistent",
+   "reason": "Operating expenses growth 24.3% matches."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is the window high, above the 44.7% median, and operating margin of 10.7% sits above its 7.2% median but far below the 22.2% FY2021 high .",
+   "claim": "49.5%",
+   "match": "cited: F40 = Gross margin, FY2025, 49.52%",
+   "label": "consistent",
+   "reason": "Gross margin 49.5% matches."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is the window high, above the 44.7% median, and operating margin of 10.7% sits above its 7.2% median but far below the 22.2% FY2021 high .",
+   "claim": "44.7%",
+   "match": "cited: D801 = Gross margin window median, FY2016..FY2025, 44.73%",
+   "label": "consistent",
+   "reason": "Gross margin median 44.7% matches."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is the window high, above the 44.7% median, and operating margin of 10.7% sits above its 7.2% median but far below the 22.2% FY2021 high .",
+   "claim": "10.7%",
+   "match": "cited: F60 = Operating margin, FY2025, 10.66%",
+   "label": "consistent",
+   "reason": "Operating margin 10.7% matches."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is the window high, above the 44.7% median, and operating margin of 10.7% sits above its 7.2% median but far below the 22.2% FY2021 high .",
+   "claim": "7.2%",
+   "match": "cited: D795 = Operating margin window median, FY2016..FY2025, 7.17%",
+   "label": "consistent",
+   "reason": "Operating margin median 7.2% matches."
+  },
+  {
+   "sentence": "Gross margin of 49.5% is the window high, above the 44.7% median, and operating margin of 10.7% sits above its 7.2% median but far below the 22.2% FY2021 high .",
+   "claim": "22.2%",
+   "match": "cited: D794 = Operating margin window high (FY2021), FY2016..FY2025, 22.20%",
+   "label": "consistent",
+   "reason": "Operating margin high 22.2% matches."
+  },
+  {
+   "sentence": "FY2025 gross margin rose 0.2pp as product mix improved, partly offset by about $440 million of MI308 inventory and related charges tied to U.S. export controls .",
+   "claim": "0.2pp",
+   "match": "cited: D498 = Gross margin change, FY2025, +0.17pp; same value as D513 = Operating-margin effect of cost of revenue (pp)",
+   "label": "consistent",
+   "reason": "Gross margin rose 0.2pp matches +0.17pp."
+  },
+  {
+   "sentence": "FY2025 gross margin rose 0.2pp as product mix improved, partly offset by about $440 million of MI308 inventory and related charges tied to U.S. export controls .",
+   "claim": "$440 million",
+   "match": "passage P14: P14 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Gross margin of 50% increased by 1% compared to 49% in 2024, primarily due to product mix partially offset by approximately $440 million of net inventory and related charges associated with the U.S. government export control on AMD Instinct\u2122 MI308 Data Center GPU products.\"",
+   "label": "consistent",
+   "reason": "$440M inventory charges matches passage."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 3.3pp, with cost of revenue adding 0.2pp, R&D 1.7pp and other lines 2.6pp, while SG&A subtracted 1.2pp .",
+   "claim": "3.3pp",
+   "match": "cited: D499 = Operating margin change, FY2025, +3.30pp",
+   "label": "consistent",
+   "reason": "Operating margin rose 3.3pp matches."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 3.3pp, with cost of revenue adding 0.2pp, R&D 1.7pp and other lines 2.6pp, while SG&A subtracted 1.2pp .",
+   "claim": "0.2pp",
+   "match": "cited: D513 = Operating-margin effect of cost of revenue (pp), FY2025, +0.17pp; same value as D498 = Gross margin change",
+   "label": "consistent",
+   "reason": "Cost of revenue added 0.2pp matches."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 3.3pp, with cost of revenue adding 0.2pp, R&D 1.7pp and other lines 2.6pp, while SG&A subtracted 1.2pp .",
+   "claim": "1.7pp",
+   "match": "cited: D514 = Operating-margin effect of R&D (pp), FY2025, +1.68pp",
+   "label": "consistent",
+   "reason": "R&D added 1.7pp matches."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 3.3pp, with cost of revenue adding 0.2pp, R&D 1.7pp and other lines 2.6pp, while SG&A subtracted 1.2pp .",
+   "claim": "2.6pp",
+   "match": "cited: D516 = Operating-margin effect of other lines (residual, pp), FY2025, +2.62pp",
+   "label": "consistent",
+   "reason": "Other lines added 2.6pp matches."
+  },
+  {
+   "sentence": "The FY2025 operating margin rose 3.3pp, with cost of revenue adding 0.2pp, R&D 1.7pp and other lines 2.6pp, while SG&A subtracted 1.2pp .",
+   "claim": "1.2pp",
+   "match": "cited: D515 = Operating-margin effect of SG&A (pp), FY2025, -1.17pp",
+   "label": "consistent",
+   "reason": "SG&A subtracted 1.2pp matches -1.17pp."
+  },
+  {
+   "sentence": "Net margin of 12.5% sat 1.9pp above the 10.7% operating margin, helped by $577 million of other income and a $103 million tax benefit .",
+   "claim": "12.5%",
+   "match": "cited: F80 = Net margin, FY2025, 12.51%",
+   "label": "consistent",
+   "reason": "Net margin 12.5% matches."
+  },
+  {
+   "sentence": "Net margin of 12.5% sat 1.9pp above the 10.7% operating margin, helped by $577 million of other income and a $103 million tax benefit .",
+   "claim": "1.9pp",
+   "match": "cited: D843 = Net margin minus operating margin (pp, same year), FY2025, +1.85pp",
+   "label": "consistent",
+   "reason": "Net margin minus operating margin 1.9pp matches."
+  },
+  {
+   "sentence": "Net margin of 12.5% sat 1.9pp above the 10.7% operating margin, helped by $577 million of other income and a $103 million tax benefit .",
+   "claim": "10.7%",
+   "match": "cited: F60 = Operating margin, FY2025, 10.66%",
+   "label": "consistent",
+   "reason": "Operating margin 10.7% matches."
+  },
+  {
+   "sentence": "Net margin of 12.5% sat 1.9pp above the 10.7% operating margin, helped by $577 million of other income and a $103 million tax benefit .",
+   "claim": "$577 million",
+   "match": "cited: X123 = Other income (expense), FY2025, $577.00 million",
+   "label": "consistent",
+   "reason": "Other income $577M matches."
+  },
+  {
+   "sentence": "Net margin of 12.5% sat 1.9pp above the 10.7% operating margin, helped by $577 million of other income and a $103 million tax benefit .",
+   "claim": "$103 million",
+   "match": "cited: X113 = Income tax expense, FY2025, -$103.00 million",
+   "label": "consistent",
+   "reason": "Tax benefit $103M matches -$103M expense."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "$7.71 billion",
+   "match": "cited: F110 = Operating cash flow, FY2025, $7.71 billion",
+   "label": "consistent",
+   "reason": "Operating cash flow $7.71B matches."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "1.78x",
+   "match": "cited: D470 = Operating cash flow / net income, FY2025, 1.78x; its input F70 = Net income has the same value as X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "OCF/NI 1.78x matches."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "$4.34 billion",
+   "match": "cited: F70 = Net income, FY2025, $4.33 billion; same value as X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "Net income $4.34B matches."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "1.61x",
+   "match": "cited: D833 = Operating cash flow / net income window median, FY2018..FY2025, 1.61x",
+   "label": "consistent",
+   "reason": "OCF/NI median 1.61x matches."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "$6.74 billion",
+   "match": "cited: F130 = Free cash flow, FY2025, $6.74 billion",
+   "label": "consistent",
+   "reason": "Free cash flow $6.74B matches."
+  },
+  {
+   "sentence": "Operating cash flow of $7.71 billion was 1.78x net income of $4.34 billion, above the 1.61x window median, and free cash flow of $6.74 billion was 1.55x net income .",
+   "claim": "1.55x",
+   "match": "cited: D471 = Free cash flow / net income, FY2025, 1.55x; its input F70 = Net income has the same value as X20 = Net income as reported in that year's 10-K",
+   "label": "consistent",
+   "reason": "FCF/NI 1.55x matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow was driven by net income plus $4.6 billion of non-cash adjustments, partly offset by a $2.2 billion inventory build to ramp Data Center products .",
+   "claim": "$4.6 billion",
+   "match": "passage P3: P3 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Net cash provided by operating activities of continuing operations was $6.5\u00a0billion in 2025, primarily due to our net income of $4.3\u00a0billion in 2025, adjusted for non-cash adjustments of $4.6\u00a0billion and net cash outflows of $2.4\u00a0billion from changes in our operating assets and liabilities.\"",
+   "label": "consistent",
+   "reason": "Non-cash adjustments $4.6B matches passage."
+  },
+  {
+   "sentence": "FY2025 operating cash flow was driven by net income plus $4.6 billion of non-cash adjustments, partly offset by a $2.2 billion inventory build to ramp Data Center products .",
+   "claim": "$2.2 billion",
+   "match": "passage P3: P3 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The primary drivers of the changes in operating assets and liabilities included a $2.2\u00a0billion increase in inventory primarily to support the continued ramp of Data Center products in advanced process technology nodes.\"",
+   "label": "consistent",
+   "reason": "Inventory build $2.2B matches passage."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "19.4%",
+   "match": "cited: D467 = Free cash flow margin, FY2025, 19.44%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "FCF margin 19.4% matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "19.6%",
+   "match": "cited: D803 = Free cash flow margin window high (FY2021), FY2016..FY2025, 19.59%",
+   "label": "consistent",
+   "reason": "FCF margin high 19.6% matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "6.5%",
+   "match": "cited: D804 = Free cash flow margin window median, FY2016..FY2025, 6.45%",
+   "label": "consistent",
+   "reason": "FCF margin median 6.5% matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "$974 million",
+   "match": "cited: F120 = Capital expenditures, FY2025, $974.00 million",
+   "label": "consistent",
+   "reason": "Capex $974M matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "2.8%",
+   "match": "cited: D466 = Capex % of revenue, FY2025, 2.81%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Capex % revenue 2.8% matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 19.4% is near the 19.6% window high and above the 6.5% median, while capex of $974 million was 2.8% of revenue and 1.87x D&A .",
+   "claim": "1.87x",
+   "match": "cited: D472 = Capex / D&A, FY2025, 1.87x",
+   "label": "consistent",
+   "reason": "Capex/D&A 1.87x matches."
+  },
+  {
+   "sentence": "Net cash rose to $6.46 billion, or 18.6% of revenue, from $3.41 billion a year earlier, and ranks at the 100th percentile of five semis peers against a -17.3% peer median .",
+   "claim": "$6.46 billion",
+   "match": "cited: D476 = Net cash (cash and investments less debt), FY2025, $6.46 billion",
+   "label": "consistent",
+   "reason": "Net cash $6.46B matches."
+  },
+  {
+   "sentence": "Net cash rose to $6.46 billion, or 18.6% of revenue, from $3.41 billion a year earlier, and ranks at the 100th percentile of five semis peers against a -17.3% peer median .",
+   "claim": "18.6%",
+   "match": "cited: D477 = Net cash % of revenue, FY2025, 18.64%; its input X10 = Total revenues as reported has the same value as F10 = Revenue",
+   "label": "consistent",
+   "reason": "Net cash % revenue 18.6% matches."
+  },
+  {
+   "sentence": "Net cash rose to $6.46 billion, or 18.6% of revenue, from $3.41 billion a year earlier, and ranks at the 100th percentile of five semis peers against a -17.3% peer median .",
+   "claim": "$3.41 billion",
+   "match": "cited: D419 = Net cash (cash and investments less debt), FY2024, $3.41 billion; its input D418 = Total debt has the same value as F219 = Long-term debt, X192 = Long-term debt (noncurrent)",
+   "label": "consistent",
+   "reason": "Prior net cash $3.41B matches."
+  },
+  {
+   "sentence": "Net cash rose to $6.46 billion, or 18.6% of revenue, from $3.41 billion a year earlier, and ranks at the 100th percentile of five semis peers against a -17.3% peer median .",
+   "claim": "100th percentile",
+   "match": "cited: D844 = Net cash % of revenue: percentile vs semis peers (n=5), FY2025, 100.00 (percentile)",
+   "label": "consistent",
+   "reason": "100th percentile matches."
+  },
+  {
+   "sentence": "Net cash rose to $6.46 billion, or 18.6% of revenue, from $3.41 billion a year earlier, and ranks at the 100th percentile of five semis peers against a -17.3% peer median .",
+   "claim": "-17.3%",
+   "match": "cited: D845 = Net cash % of revenue: semis peer median (n=5), FY2025, -17.35%",
+   "label": "consistent",
+   "reason": "Peer median -17.3% matches."
+  },
+  {
+   "sentence": "Total debt rose 138% to $4.10 billion as AMD issued $1.5 billion of notes in March 2025, lifting interest expense to $131 million .",
+   "claim": "138%",
+   "match": "cited: D508 = Total debt growth, FY2025, 138.00%",
+   "label": "consistent",
+   "reason": "Total debt growth 138% matches."
+  },
+  {
+   "sentence": "Total debt rose 138% to $4.10 billion as AMD issued $1.5 billion of notes in March 2025, lifting interest expense to $131 million .",
+   "claim": "$4.10 billion",
+   "match": "cited: D475 = Total debt, FY2025, $4.10 billion; its input X193 = Long-term debt (noncurrent) has the same value as F220 = Long-term debt; its input X177 = Current portion of debt has the same value as X183 = Short-term borrowings; its input X183 = Short-term borrowings has the same value as X177 = Current portion of debt",
+   "label": "consistent",
+   "reason": "Total debt $4.10B matches."
+  },
+  {
+   "sentence": "Total debt rose 138% to $4.10 billion as AMD issued $1.5 billion of notes in March 2025, lifting interest expense to $131 million .",
+   "claim": "$1.5 billion",
+   "match": "passage P6: P6 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"Interest expense of $131 million in 2025 increased by $39 million compared to $92 million in 2024, primarily due to the issuance of $1.5 billion in aggregate principal amount of 4.212% Notes and 4.319% Notes in March 2025.\"",
+   "label": "consistent",
+   "reason": "Notes issued $1.5B matches passage."
+  },
+  {
+   "sentence": "Total debt rose 138% to $4.10 billion as AMD issued $1.5 billion of notes in March 2025, lifting interest expense to $131 million .",
+   "claim": "$131 million",
+   "match": "cited: X93 = Interest expense, FY2025, $131.00 million",
+   "label": "consistent",
+   "reason": "Interest expense $131M matches."
+  },
+  {
+   "sentence": "Buybacks of $1.32 billion were 19.5% of free cash flow, and the diluted share count was flat at -0.1% .",
+   "claim": "$1.32 billion",
+   "match": "cited: D478 = Buybacks plus dividends, FY2025, $1.32 billion; same value as X150 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Buybacks $1.32B matches."
+  },
+  {
+   "sentence": "Buybacks of $1.32 billion were 19.5% of free cash flow, and the diluted share count was flat at -0.1% .",
+   "claim": "19.5%",
+   "match": "cited: D479 = Buybacks plus dividends % of free cash flow, FY2025, 19.54%; its input D478 = Buybacks plus dividends has the same value as X150 = Share repurchases (cash)",
+   "label": "consistent",
+   "reason": "Buybacks % FCF 19.5% matches."
+  },
+  {
+   "sentence": "Buybacks of $1.32 billion were 19.5% of free cash flow, and the diluted share count was flat at -0.1% .",
+   "claim": "-0.1%",
+   "match": "cited: D506 = Diluted share count change, FY2025, -0.06%",
+   "label": "consistent",
+   "reason": "Diluted share count -0.1% matches."
+  },
+  {
+   "sentence": "Revenue fell 3.9% in FY2023, the only decline in the window, on a 25% Client drop and 9% Gaming drop .",
+   "claim": "3.9%",
+   "match": "cited: D370 = Revenue growth, FY2023, -3.90%",
+   "label": "consistent",
+   "reason": "Revenue fell 3.9% matches."
+  },
+  {
+   "sentence": "Revenue fell 3.9% in FY2023, the only decline in the window, on a 25% Client drop and 9% Gaming drop .",
+   "claim": "25%",
+   "match": "passage P35: P35 = a figure in the FY2023 10-K, Item 7. Management's Discussion and Analysis: \"The decrease in net revenue was primarily due to a 25% decrease in Client segment revenue primarily due to lower processor sales and a 9% decrease in Gaming segment revenue primarily due to lower semi-custom product sales.\"",
+   "label": "consistent",
+   "reason": "Client drop 25% matches passage."
+  },
+  {
+   "sentence": "Revenue fell 3.9% in FY2023, the only decline in the window, on a 25% Client drop and 9% Gaming drop .",
+   "claim": "9%",
+   "match": "passage P35: P35 = a figure in the FY2023 10-K, Item 7. Management's Discussion and Analysis: \"The decrease in net revenue was primarily due to a 25% decrease in Client segment revenue primarily due to lower processor sales and a 9% decrease in Gaming segment revenue primarily due to lower semi-custom product sales.\"",
+   "label": "consistent",
+   "reason": "Gaming drop 9% matches passage."
+  },
+  {
+   "sentence": "The decline was cyclical PC and console inventory correction rather than structural, since revenue grew 13.7% and 34.3% in the two following years .",
+   "claim": "13.7%",
+   "match": "cited: D426 = Revenue growth, FY2024, 13.69%",
+   "label": "consistent",
+   "reason": "FY2024 revenue growth 13.7% matches."
+  },
+  {
+   "sentence": "The decline was cyclical PC and console inventory correction rather than structural, since revenue grew 13.7% and 34.3% in the two following years .",
+   "claim": "34.3%",
+   "match": "cited: D483 = Revenue growth, FY2025, 34.34%",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth 34.3% matches."
+  },
+  {
+   "sentence": "Total debt rose 138% in FY2025 to $4.10 billion from $1.72 billion .",
+   "claim": "138%",
+   "match": "growth D475/D418 = 138.00%: D475 = Total debt, FY2025, $4.10 billion | D418 = Total debt, FY2024, $1.72 billion",
+   "label": "consistent",
+   "reason": "Total debt growth 138% matches."
+  },
+  {
+   "sentence": "Total debt rose 138% in FY2025 to $4.10 billion from $1.72 billion .",
+   "claim": "$4.10 billion",
+   "match": "cited: D475 = Total debt, FY2025, $4.10 billion; its input X193 = Long-term debt (noncurrent) has the same value as F220 = Long-term debt; its input X177 = Current portion of debt has the same value as X183 = Short-term borrowings; its input X183 = Short-term borrowings has the same value as X177 = Current portion of debt",
+   "label": "consistent",
+   "reason": "Total debt $4.10B matches."
+  },
+  {
+   "sentence": "Total debt rose 138% in FY2025 to $4.10 billion from $1.72 billion .",
+   "claim": "$1.72 billion",
+   "match": "cited: D418 = Total debt, FY2024, $1.72 billion; same value as F219 = Long-term debt, X192 = Long-term debt (noncurrent)",
+   "label": "consistent",
+   "reason": "Prior total debt $1.72B matches."
+  },
+  {
+   "sentence": "The increase is modest against $10.6 billion of cash and investments, so leverage is not a balance-sheet concern .",
+   "claim": "$10.6 billion",
+   "match": "cited: D474 = Cash and investments, FY2025, $10.55 billion",
+   "label": "consistent",
+   "reason": "Cash and investments $10.6B matches."
+  },
+  {
+   "sentence": "The effective tax rate moved -21.3pp in FY2025 to -2.5%, driven by an $853 million benefit from release of uncertain tax positions .",
+   "claim": "-21.3pp",
+   "match": "pp D469-D412 = -21.32pp: D469 = Effective tax rate, FY2025, -2.47% | D412 = Effective tax rate, FY2024, 18.84%",
+   "label": "consistent",
+   "reason": "ETR change -21.3pp matches."
+  },
+  {
+   "sentence": "The effective tax rate moved -21.3pp in FY2025 to -2.5%, driven by an $853 million benefit from release of uncertain tax positions .",
+   "claim": "-2.5%",
+   "match": "cited: D469 = Effective tax rate, FY2025, -2.47%",
+   "label": "consistent",
+   "reason": "ETR -2.5% matches."
+  },
+  {
+   "sentence": "The effective tax rate moved -21.3pp in FY2025 to -2.5%, driven by an $853 million benefit from release of uncertain tax positions .",
+   "claim": "$853 million",
+   "match": "passage P4: P4 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The decrease in income tax provision in 2025 was primarily driven by an $853 million benefit related to the release of uncertain tax positions pertaining to the reasonable cause relief for dual consolidated losses approved by the Internal Revenue Service (IRS) in April 2025, whereas the income tax provision in 2024 included $373 million tax effect from an intercompany integration transaction.\"",
+   "label": "consistent",
+   "reason": "$853M tax benefit matches passage."
+  },
+  {
+   "sentence": "The benefit is one-time, so FY2025 net margin of 12.5% overstates the recurring tax-adjusted earnings base .",
+   "claim": "12.5%",
+   "match": "cited: F80 = Net margin, FY2025, 12.51%",
+   "label": "consistent",
+   "reason": "Net margin 12.5% matches."
+  },
+  {
+   "sentence": "Whether Data Center revenue growth holds above the FY2025 32.2% rate, or decelerates toward the FY2023 7.5% level, in the FY2026 10-K .",
+   "claim": "32.2%",
+   "match": "cited: D693 = Operating Segments \u2014 Datacenter (segment) growth, FY2025, 32.24%",
+   "label": "consistent",
+   "reason": "Datacenter growth 32.2% matches."
+  },
+  {
+   "sentence": "Whether Data Center revenue growth holds above the FY2025 32.2% rate, or decelerates toward the FY2023 7.5% level, in the FY2026 10-K .",
+   "claim": "7.5%",
+   "match": "cited: D687 = Operating Segments \u2014 Datacenter (segment) growth, FY2023, 7.50%",
+   "label": "consistent",
+   "reason": "Datacenter growth 7.5% matches."
+  },
+  {
+   "sentence": "Whether operating margin holds above the 7.2% window median or falls back toward the FY2023 1.8% trough, in the FY2026 10-K .",
+   "claim": "7.2%",
+   "match": "cited: D795 = Operating margin window median, FY2016..FY2025, 7.17%",
+   "label": "consistent",
+   "reason": "Operating margin median 7.2% matches."
+  },
+  {
+   "sentence": "Whether operating margin holds above the 7.2% window median or falls back toward the FY2023 1.8% trough, in the FY2026 10-K .",
+   "claim": "1.8%",
+   "match": "cited: F58 = Operating margin, FY2023, 1.77%",
+   "label": "consistent",
+   "reason": "Operating margin 1.8% matches."
+  },
+  {
+   "sentence": "Whether free cash flow margin stays near the 19.6% window high or drops toward the 6.5% median as inventory days of 165 unwind, in the FY2026 10-K .",
+   "claim": "19.6%",
+   "match": "cited: D803 = Free cash flow margin window high (FY2021), FY2016..FY2025, 19.59%",
+   "label": "consistent",
+   "reason": "FCF margin high 19.6% matches."
+  },
+  {
+   "sentence": "Whether free cash flow margin stays near the 19.6% window high or drops toward the 6.5% median as inventory days of 165 unwind, in the FY2026 10-K .",
+   "claim": "6.5%",
+   "match": "cited: D804 = Free cash flow margin window median, FY2016..FY2025, 6.45%",
+   "label": "consistent",
+   "reason": "FCF margin median 6.5% matches."
+  },
+  {
+   "sentence": "Whether free cash flow margin stays near the 19.6% window high or drops toward the 6.5% median as inventory days of 165 unwind, in the FY2026 10-K .",
+   "claim": "165",
+   "match": "cited: D481 = Days inventory outstanding (year-end inventory), FY2025, 165.31 days",
+   "label": "consistent",
+   "reason": "Inventory days 165 matches."
+  }
+ ],
+ "output_sha256": "37d5b499e16893a588fdec1724f396623d6ffbc649ee4e03c4bb4b8ea97e67ca",
+ "view": 2,
+ "cost_usd": 0.010092,
+ "backend": "openai_compat",
+ "input_tokens": 8780,
+ "cached_input_tokens": 768,
+ "output_tokens": 2418
+}

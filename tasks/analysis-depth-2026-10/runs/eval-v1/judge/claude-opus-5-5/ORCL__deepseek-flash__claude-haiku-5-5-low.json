@@ -1,0 +1,86 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A credits the tax-rate drop to a $1.5bn stock-compensation benefit, but its cited passage shows higher provision drivers and no such benefit. It also oddly links slower R&D growth to higher costs. Draft B's causal claims (FY2018 tax charge, FY2022 litigation, interest on new notes) match its sources. B explains more historical inflections, labels its analysis, ranks red flags and sets a capex-intensity threshold. A's off-balance-sheet lease flag is a real strength."
+   },
+   "cost_usd": 0.141549,
+   "latency_s": 13.942,
+   "input_tokens": 16156,
+   "output_tokens": 899,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A credits the tax-rate drop to a $1.5bn stock-compensation benefit, but its cited passage shows higher provision drivers and no such benefit. It also oddly links slower R&D growth to higher costs. Draft B's causal claims (FY2018 tax charge, FY2022 litigation, interest on new notes) match its sources. B explains more historical inflections, labels its analysis, ranks red flags and sets a capex-intensity threshold. A's off-balance-sheet lease flag is a real strength.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B goes deeper. It covers segment and geography mix, the Cerner revenue amount, capex/D&A and the $260bn off-balance-sheet lease commitments. But its tax explanation contradicts its own source: the passage says the tax provision increased on unfavourable items, with no $1.5bn stock-based compensation benefit. B also says R&D growth 'slowed' because of higher costs. A says less, but its causal claims match the cited passages and it labels interpretation as analysis."
+   },
+   "cost_usd": 0.143809,
+   "latency_s": 14.594,
+   "input_tokens": 16156,
+   "output_tokens": 1012,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B goes deeper. It covers segment and geography mix, the Cerner revenue amount, capex/D&A and the $260bn off-balance-sheet lease commitments. But its tax explanation contradicts its own source: the passage says the tax provision increased on unfavourable items, with no $1.5bn stock-based compensation benefit. B also says R&D growth 'slowed' because of higher costs. A says less, but its causal claims match the cited passages and it labels interpretation as analysis.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "coverage": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  },
+  "overall": {
+   "order1": "claude-haiku-5-5-low",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": true,
+   "final": "claude-haiku-5-5-low"
+  }
+ },
+ "cost_usd": 0.285358
+}

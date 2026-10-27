@@ -1,0 +1,56 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 3,
+ "output_sha256": "18cb3eefeff05ef89a0bd8bfcf0e3e16da1920bffc88cafb07d814473c3eb1e5",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "That share rose on higher Dupixent profits, while the Bayer share of EYLEA profits fell 8.6% on lower ex-US EYLEA sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    },
+    {
+     "id": "P8",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The decrease in our share of profits for the year ended December\u00a031, 2025, compared to the same period in 2024, was primarily driven by lower profits associated with a decrease in EYLEA sales outside the United States."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 attributes the higher share of profits to Dupixent sales. P8 attributes the lower EYLEA collaboration profit share to lower ex-US EYLEA sales."
+  },
+  {
+   "sentence": "US EYLEA sales fell 42.4% and subtracted 14.2pp, on competitive pressure, compounded bevacizumab and the EYLEA HD transition .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 cites competitive pressures, compounded bevacizumab share loss, and the EYLEA HD transition. It also cites a lower net price, which the sentence omits."
+  },
+  {
+   "sentence": "SG&A fell 8.6% mainly on lower charitable contributions to Good Days, partly offset by about $60 million of fourth-quarter matching donations .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "partial",
+   "reason": "P5 attributes the decrease to lower Good Days contributions and notes about $60M recognized, but never calls it an offset."
+  }
+ ],
+ "cost_usd": 0.028004,
+ "backend": "claude_cli",
+ "input_tokens": 2304,
+ "cached_input_tokens": 0,
+ "output_tokens": 479
+}

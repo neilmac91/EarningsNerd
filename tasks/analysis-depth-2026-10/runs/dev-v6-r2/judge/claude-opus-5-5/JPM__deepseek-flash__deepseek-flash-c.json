@@ -1,0 +1,106 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ff8b5b59cf5b4421f3d9fcd5db8441873ad0e32418f2fc85aaa2698e0c9ef21b",
+ "y_sha256": "1dc4cddad405a8437a30738f5bfff111670c314c116c3b03ca241ff6738ca5e9",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B makes real errors. It says costs grew 1.4pp slower than revenue, when 4.2% expense growth exceeded 2.8% revenue growth. Its efficiency-ratio complement gap is wrong (16.4pp, not 21.2pp), and it pairs a 3-year CAGR with a 10-year range. A has minor stretches: a FY2022 passage cited for FY2023 and an unsupported pandemic deposit cause. It adds the nonaccrual red flag and gives watch items with thresholds. B's Visa-gain context and labelled analysis are its strengths."
+   },
+   "cost_usd": 0.127453,
+   "latency_s": 17.014,
+   "backend": "claude_cli",
+   "input_tokens": 13704,
+   "cached_input_tokens": 727,
+   "output_tokens": 1175,
+   "reasoning_tokens": 910,
+   "meta": {
+    "duration_api_ms": 12144,
+    "cache_creation_input_tokens": 12975,
+    "list_cost_usd": 0.075553
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B makes real errors. It says costs grew 1.4pp slower than revenue, when 4.2% expense growth exceeded 2.8% revenue growth. Its efficiency-ratio complement gap is wrong (16.4pp, not 21.2pp), and it pairs a 3-year CAGR with a 10-year range. A has minor stretches: a FY2022 passage cited for FY2023 and an unsupported pandemic deposit cause. It adds the nonaccrual red flag and gives watch items with thresholds. B's Visa-gain context and labelled analysis are its strengths.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A misreads its own figures. It says costs grew 1.4pp slower than revenue when 4.2% beat 2.8%. Its 21.2pp margin gap is wrong. Operating cash flow was negative in two of the last five years, not three. Draft B's growth figures check out, and it cites the provision drivers, liquidity and nonaccrual loans. It has minor slips: 'negative incremental margin' and 'downgrades and new commitments', which its quoted passage does not state."
+   },
+   "cost_usd": 0.125833,
+   "latency_s": 15.739,
+   "backend": "claude_cli",
+   "input_tokens": 13704,
+   "cached_input_tokens": 727,
+   "output_tokens": 1094,
+   "reasoning_tokens": 862,
+   "meta": {
+    "duration_api_ms": 11068,
+    "cache_creation_input_tokens": 12975,
+    "list_cost_usd": 0.073933
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A misreads its own figures. It says costs grew 1.4pp slower than revenue when 4.2% beat 2.8%. Its 21.2pp margin gap is wrong. Operating cash flow was negative in two of the last five years, not three. Draft B's growth figures check out, and it cites the provision drivers, liquidity and nonaccrual loans. It has minor slips: 'negative incremental margin' and 'downgrades and new commitments', which its quoted passage does not state.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.253286
+}

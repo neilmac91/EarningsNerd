@@ -1,0 +1,106 @@
+{
+ "ticker": "ORCL",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "971fbbdadd7f65b5e785dbf79dd1514085f545ffefd146792476f8d73e700bee",
+ "y_sha256": "3f23c3a9269fb590786c7aaf59adc6a67b0c5a3d36012ea8f483a74a7a85e200",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash-c",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A's net-margin explanation is unsupported. It cites a $1.5bn stock-compensation tax benefit, but the passage instead describes higher tax provisions from the OBBBA remeasurement and mix. A also links lease commitments to rising net debt by inference. A does add depth (FY2022 litigation cause, quantified Cerner contribution, proxy-data disclosure). B stays within its sources, ties the margin drag to restructuring, and labels its judgements as analysis."
+   },
+   "cost_usd": 0.134725,
+   "latency_s": 14.287,
+   "backend": "claude_cli",
+   "input_tokens": 15208,
+   "cached_input_tokens": 727,
+   "output_tokens": 937,
+   "reasoning_tokens": 707,
+   "meta": {
+    "duration_api_ms": 9907,
+    "cache_creation_input_tokens": 14479,
+    "list_cost_usd": 0.076809
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A's net-margin explanation is unsupported. It cites a $1.5bn stock-compensation tax benefit, but the passage instead describes higher tax provisions from the OBBBA remeasurement and mix. A also links lease commitments to rising net debt by inference. A does add depth (FY2022 litigation cause, quantified Cerner contribution, proxy-data disclosure). B stays within its sources, ties the margin drag to restructuring, and labels its judgements as analysis.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B goes deeper: it sizes Cerner, explains the FY2022 margin collapse, gives cloud infrastructure's trajectory and flags the proxy-sourced net income. But its tax explanation cites a $1.5bn stock-compensation benefit its passage never mentions, and that passage describes unfavourable tax items. It also lumps convertible preferred stock into debt. A says less, but its causal claims match its passages and its interpretation is labelled as analysis. Grounding decides."
+   },
+   "cost_usd": 0.139713,
+   "latency_s": 15.463,
+   "backend": "claude_cli",
+   "input_tokens": 15204,
+   "cached_input_tokens": 727,
+   "output_tokens": 1188,
+   "reasoning_tokens": 955,
+   "meta": {
+    "duration_api_ms": 11344,
+    "cache_creation_input_tokens": 14475,
+    "list_cost_usd": 0.081813
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"tie\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B goes deeper: it sizes Cerner, explains the FY2022 margin collapse, gives cloud infrastructure's trajectory and flags the proxy-sourced net income. But its tax explanation cites a $1.5bn stock-compensation benefit its passage never mentions, and that passage describes unfavourable tax items. It also lumps convertible preferred stock into debt. A says less, but its causal claims match its passages and its interpretation is labelled as analysis. Grounding decides.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.274438
+}

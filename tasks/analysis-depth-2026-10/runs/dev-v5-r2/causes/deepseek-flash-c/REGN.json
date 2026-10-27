@@ -1,0 +1,51 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "REGN",
+ "split": "dev",
+ "claims": 3,
+ "output_sha256": "07577c3df989c24ad72ac54fb12c22157cf369bff4b034979037f4d7daaf68c6",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "US EYLEA sales fell 42.4% and subtracted 14.2pp from growth on lower volumes and a lower net selling price .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net product sales of EYLEA decreased in 2025 compared to 2024, due to (i) lower sales volumes as a result of continued competitive pressures (as described below), loss in market share to compounded bevacizumab due to patient affordability constraints, and the continued transition of patients to EYLEA HD, and (ii) a lower net selling price."
+    }
+   ],
+   "label": "supported",
+   "reason": "P10 attributes the EYLEA net product sales decline to lower sales volumes and a lower net selling price."
+  },
+  {
+   "sentence": "The offset was Regeneron's share of Sanofi antibody profits, up 33.6% and worth 9.3pp, driven by higher Dupixent sales .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in our share of profits during the year ended December\u00a031, 2025, compared to 2024, was driven by higher profits primarily associated with an increase in Dupixent sales."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 says the higher share of profits was driven primarily by an increase in Dupixent sales."
+  },
+  {
+   "sentence": "SG&A fell 8.6% mainly on lower charitable contributions to Good Days .",
+   "passages": [
+    {
+     "id": "P5",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general, and administrative expenses decreased in 2025, compared to 2024, primarily due to lower charitable contributions to Good Days, an independent non-profit patient assistance organization with a Retinal Vascular and Neovascular Disease Fund (the \"Fund\"). In July 2025, we launched a matching program for donations made to the Fund and committed to quarterly matching donations through the end of 2025. During the fourth quarter of 2025, we recognized approximately $60\u00a0million in connection with matching donations made to the Fund. We have also recently committed to matching donations for up to a total of $200\u00a0million during 2026."
+    }
+   ],
+   "label": "supported",
+   "reason": "P5 says SG&A decreased primarily due to lower charitable contributions to Good Days."
+  }
+ ],
+ "cost_usd": 0.022996,
+ "backend": "claude_cli",
+ "input_tokens": 2168,
+ "cached_input_tokens": 0,
+ "output_tokens": 283
+}

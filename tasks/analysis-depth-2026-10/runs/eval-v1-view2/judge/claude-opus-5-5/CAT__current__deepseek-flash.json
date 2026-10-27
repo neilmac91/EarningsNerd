@@ -1,0 +1,86 @@
+{
+ "ticker": "CAT",
+ "split": "dev",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B has far more depth: segment drivers, tariff-driven cost pressure, capex intensity, peer context and data-quality flags. But it misreads its own sources. It calls net debt at -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' despite citing a 44.9% rise. It credits a higher tax rate with softening the net-margin decline. A barely goes beyond the table but is fully supported, and the rubric weighs grounding first."
+   },
+   "cost_usd": 0.106685,
+   "latency_s": 16.292,
+   "input_tokens": 11113,
+   "output_tokens": 1173,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B has far more depth: segment drivers, tariff-driven cost pressure, capex intensity, peer context and data-quality flags. But it misreads its own sources. It calls net debt at -38.8% of revenue 'better' than the -35.6% peer median. It says cash 'stayed flat' despite citing a 44.9% rise. It credits a higher tax rate with softening the net-margin decline. A barely goes beyond the table but is fully supported, and the rubric weighs grounding first.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A gives real insight: segment drivers, tariff-driven cost pressure and data caveats. But it misreads figures. It calls -38.8% net cash 'better' than the -35.6% peer median. It says cash 'stayed flat' when it rose 44.9%. It credits a higher tax rate with a smaller net-margin drop, and compares cash flow to net income against a free-cash-flow median. B is shallow and its 'no flags' line is miscalibrated, but every claim is supported. Grounding is weighed first."
+   },
+   "cost_usd": 0.103337,
+   "latency_s": 16.689,
+   "input_tokens": 11117,
+   "output_tokens": 1004,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A gives real insight: segment drivers, tariff-driven cost pressure and data caveats. But it misreads figures. It calls -38.8% net cash 'better' than the -35.6% peer median. It says cash 'stayed flat' when it rose 44.9%. It credits a higher tax rate with a smaller net-margin drop, and compares cash flow to net income against a free-cash-flow median. B is shallow and its 'no flags' line is miscalibrated, but every claim is supported. Grounding is weighed first.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  }
+ },
+ "cost_usd": 0.210022
+}

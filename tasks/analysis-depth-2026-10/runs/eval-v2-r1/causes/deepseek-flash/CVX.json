@@ -1,0 +1,71 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "CVX",
+ "split": "holdout",
+ "claims": 3,
+ "output_sha256": "189c714e56e75c1baf1cc9dfd564a907dbf8b4ed07b7df691765a4b6519363ba",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2022 jump came from higher upstream realizations and downstream margins , and the FY2023 reversal of 16.5% to $197 billion  came from lower upstream realizations and downstream margins .",
+   "passages": [
+    {
+     "id": "P57",
+     "filing": "FY2022 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The increase in income tax expense in 2022 of $8.1 billion is due to the increase in total income before tax for the company of $28.0 billion. The increase in income before taxes for the company is primarily the result of higher upstream realizations and downstream margins."
+    },
+    {
+     "id": "P43",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "International income before tax decreased from $28.7 billion in 2022 to $21.0 billion in 2023. This $7.7 billion decrease in income was primarily driven by lower upstream realizations, partly offset by the absence of a 2022 write-off and impairment charges. The decrease in income primarily drove the $3.2 billion decrease in international income tax expense between year-over-year periods, from $9.6 billion in 2022 to $6.4 billion in 2023."
+    },
+    {
+     "id": "P44",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "U.S. income before tax decreased from $21.0 billion in 2022 to $8.6 billion in 2023. This $12.4 billion decrease in income was primarily driven by lower upstream realizations and downstream margins, charges related to abandonment and decommissioning obligations, and higher impairment charges, partially offset by higher sales volumes. The decrease in income had a direct impact on the company\u2019s U.S. income tax resulting in a decrease to tax expense of $2.7 billion between year-over-year periods, from $4.5 billion in 2022 to $1.8 billion in 2023."
+    }
+   ],
+   "label": "partial",
+   "reason": "Passages attribute these causes to income before tax, not to the revenue line implied by the $197 billion figure."
+  },
+  {
+   "sentence": "The volume side grew, with net oil-equivalent production up 12% on the Hess acquisition and TCO, Permian and Gulf of America growth , but lower prices outweighed it .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Production The company\u2019s worldwide net oil-equivalent production in 2025 was 3.7 million barrels per day, 12 percent higher than in 2024 primarily due to the acquisition of Hess and growth in TCO, the Permian Basin and the Gulf of America, which were partly offset by the impacts of asset sales. About 21 percent of the company\u2019s net oil-equivalent production in 2025 occurred in OPEC+ member countries of Equatorial Guinea, Kazakhstan, Malaysia, Nigeria and the Partitioned Zone between Saudi Arabia and Kuwait."
+    },
+    {
+     "id": "P17",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Sales and other operating revenues decreased in 2025 mainly due to lower crude oil and refined product prices, partially offset by higher crude oil and refined product sales volumes and higher natural gas prices and volumes."
+    }
+   ],
+   "label": "supported",
+   "reason": "P28 gives the production growth causes; P17 says lower prices drove revenue down, partially offset by higher volumes."
+  },
+  {
+   "sentence": "That cost decline came from lower purchased crude oil and product prices and volumes , while SG&A rose 6.0% on the Hess acquisition and professional services .",
+   "passages": [
+    {
+     "id": "P14",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Purchased crude oil and products decreased in 2025 due to lower crude oil and refined product prices and volumes, partially offset by higher natural gas prices and volumes."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating, selling, general and administrative expenses increased compared to last year primarily due to the acquisition of Hess and higher professional service costs, partially offset by lower severance accruals."
+    }
+   ],
+   "label": "supported",
+   "reason": "P14 gives lower prices and volumes for purchased crude; P13 cites the Hess acquisition and professional service costs for SG&A."
+  }
+ ],
+ "cost_usd": 0.030652,
+ "backend": "claude_cli",
+ "input_tokens": 2795,
+ "cached_input_tokens": 0,
+ "output_tokens": 415
+}

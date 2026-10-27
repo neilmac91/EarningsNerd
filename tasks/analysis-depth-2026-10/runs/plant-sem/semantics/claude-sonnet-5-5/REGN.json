@@ -1,0 +1,569 @@
+{
+ "system": "claude-sonnet-5-5",
+ "ticker": "REGN",
+ "split": "dev",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.008965,
+ "items": [
+  {
+   "sentence": "Operating cash flow compounded at 12.8% a year, from $4.86 billion in FY2016 to $14.3 billion in FY2025 .",
+   "claim": "12.8%",
+   "match": "cited: F198 = Revenue CAGR, FY2016..FY2025",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow CAGR, matched to revenue CAGR."
+  },
+  {
+   "sentence": "Operating cash flow compounded at 12.8% a year, from $4.86 billion in FY2016 to $14.3 billion in FY2025 .",
+   "claim": "$4.86 billion",
+   "match": "cited: F1 = Revenue, FY2016",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow, matched to revenue."
+  },
+  {
+   "sentence": "Operating cash flow compounded at 12.8% a year, from $4.86 billion in FY2016 to $14.3 billion in FY2025 .",
+   "claim": "$14.3 billion",
+   "match": "cited: F10 = Revenue, FY2025",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow, matched to revenue."
+  },
+  {
+   "sentence": "FY2021 operating cash flow jumped 89.1% to $16.1 billion, with REGEN-COV adding 66.4pp, driven by a September 2021 agreement to supply drug product to the U.S. government .",
+   "claim": "89.1%",
+   "match": "cited: D241 = Revenue growth, FY2021",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow growth, matched to revenue growth."
+  },
+  {
+   "sentence": "FY2021 operating cash flow jumped 89.1% to $16.1 billion, with REGEN-COV adding 66.4pp, driven by a September 2021 agreement to supply drug product to the U.S. government .",
+   "claim": "$16.1 billion",
+   "match": "cited: F6 = Revenue, FY2021",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow, matched to revenue."
+  },
+  {
+   "sentence": "FY2021 operating cash flow jumped 89.1% to $16.1 billion, with REGEN-COV adding 66.4pp, driven by a September 2021 agreement to supply drug product to the U.S. government .",
+   "claim": "66.4pp",
+   "match": "cited: D582 = REGEN-COV \u2014 US (product) contribution to revenue growth (pp), FY2021",
+   "label": "consistent",
+   "reason": "REGEN-COV contribution to revenue growth matches."
+  },
+  {
+   "sentence": "FY2022 operating cash flow then fell 24.3% to $12.2 billion because REGEN-COV net product sales recognized in 2021 did not recur .",
+   "claim": "24.3%",
+   "match": "cited: D292 = Revenue growth, FY2022",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow decline, matched to revenue growth."
+  },
+  {
+   "sentence": "FY2022 operating cash flow then fell 24.3% to $12.2 billion because REGEN-COV net product sales recognized in 2021 did not recur .",
+   "claim": "$12.2 billion",
+   "match": "cited: F7 = Revenue, FY2022",
+   "label": "mismatch",
+   "reason": "Sentence says operating cash flow, matched to revenue."
+  },
+  {
+   "sentence": "Growth has slowed since: the three-year revenue CAGR to FY2025 is 5.6% while operating income shrank at 8.9% a year .",
+   "claim": "5.6%",
+   "match": "cited: D767 = Revenue 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Revenue 3-year CAGR matches."
+  },
+  {
+   "sentence": "Growth has slowed since: the three-year revenue CAGR to FY2025 is 5.6% while operating income shrank at 8.9% a year .",
+   "claim": "8.9%",
+   "match": "cited: D769 = Operating income 3-year CAGR, FY2022..FY2025",
+   "label": "consistent",
+   "reason": "Operating income 3-year CAGR matches."
+  },
+  {
+   "sentence": "Collaboration revenue reached $7.33 billion in FY2025, 51.1% of revenue, and added 9.0pp to growth .",
+   "claim": "$7.33 billion",
+   "match": "cited: S22 = Collaboration revenue (product), FY2025",
+   "label": "consistent",
+   "reason": "Collaboration revenue matches."
+  },
+  {
+   "sentence": "Collaboration revenue reached $7.33 billion in FY2025, 51.1% of revenue, and added 9.0pp to growth .",
+   "claim": "51.1%",
+   "match": "cited: D521 = Collaboration revenue (product) share of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Collaboration revenue share of revenue matches."
+  },
+  {
+   "sentence": "Collaboration revenue reached $7.33 billion in FY2025, 51.1% of revenue, and added 9.0pp to growth .",
+   "claim": "9.0pp",
+   "match": "cited: D523 = Collaboration revenue (product) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Collaboration revenue contribution to growth matches."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion, driven by higher Dupixent sales .",
+   "claim": "33.6%",
+   "match": "cited: D591 = Regeneron's share of profits \u2014 Share Of Profit Losses, Sanofi Collaboration Agreement Antibody (product) growth, FY2025",
+   "label": "consistent",
+   "reason": "Share of profits growth matches."
+  },
+  {
+   "sentence": "Regeneron's share of Sanofi antibody profits rose 33.6% to $5.24 billion, driven by higher Dupixent sales .",
+   "claim": "$5.24 billion",
+   "match": "cited: S52 = Regeneron's share of profits \u2014 Share Of Profit Losses, Sanofi Collaboration Agreement Antibody (product), FY2025",
+   "label": "consistent",
+   "reason": "Share of profits value matches."
+  },
+  {
+   "sentence": "Net product sales fell 17.3% and subtracted 9.3pp, as U.S. EYLEA sales dropped 42.4% to $2.75 billion on competition, compounded bevacizumab and the shift to EYLEA HD .",
+   "claim": "17.3%",
+   "match": "cited: D506 = Net product sales (product) growth, FY2025",
+   "label": "consistent",
+   "reason": "Net product sales growth matches."
+  },
+  {
+   "sentence": "Net product sales fell 17.3% and subtracted 9.3pp, as U.S. EYLEA sales dropped 42.4% to $2.75 billion on competition, compounded bevacizumab and the shift to EYLEA HD .",
+   "claim": "9.3pp",
+   "match": "cited: D507 = Net product sales (product) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "Net product sales contribution to growth matches."
+  },
+  {
+   "sentence": "Net product sales fell 17.3% and subtracted 9.3pp, as U.S. EYLEA sales dropped 42.4% to $2.75 billion on competition, compounded bevacizumab and the shift to EYLEA HD .",
+   "claim": "42.4%",
+   "match": "cited: D577 = EYLEA \u2014 Eylea Net Product Sales, US (product) growth, FY2025",
+   "label": "consistent",
+   "reason": "EYLEA US growth matches."
+  },
+  {
+   "sentence": "Net product sales fell 17.3% and subtracted 9.3pp, as U.S. EYLEA sales dropped 42.4% to $2.75 billion on competition, compounded bevacizumab and the shift to EYLEA HD .",
+   "claim": "$2.75 billion",
+   "match": "cited: S43 = EYLEA \u2014 Eylea Net Product Sales, US (product), FY2025",
+   "label": "consistent",
+   "reason": "EYLEA US value matches."
+  },
+  {
+   "sentence": "Revenue rose 1.0% in FY2025 but operating costs outgrew it by 4.4pp, so operating income fell 10.3% .",
+   "claim": "1.0%",
+   "match": "cited: D440 = Revenue growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth matches."
+  },
+  {
+   "sentence": "Revenue rose 1.0% in FY2025 but operating costs outgrew it by 4.4pp, so operating income fell 10.3% .",
+   "claim": "4.4pp",
+   "match": "cited: D464 = Revenue growth minus operating-cost growth, FY2025",
+   "label": "consistent",
+   "reason": "Revenue growth minus operating-cost growth matches."
+  },
+  {
+   "sentence": "Revenue rose 1.0% in FY2025 but operating costs outgrew it by 4.4pp, so operating income fell 10.3% .",
+   "claim": "10.3%",
+   "match": "cited: D441 = Operating income growth, FY2025",
+   "label": "consistent",
+   "reason": "Operating income growth matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 8.2% against net income growth of 2.1%, because the diluted share count fell 5.6% .",
+   "claim": "8.2%",
+   "match": "cited: D444 = EPS (diluted) growth, FY2025",
+   "label": "consistent",
+   "reason": "EPS growth matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 8.2% against net income growth of 2.1%, because the diluted share count fell 5.6% .",
+   "claim": "2.1%",
+   "match": "cited: D442 = Net income growth, FY2025",
+   "label": "consistent",
+   "reason": "Net income growth matches."
+  },
+  {
+   "sentence": "Diluted EPS grew 8.2% against net income growth of 2.1%, because the diluted share count fell 5.6% .",
+   "claim": "5.6%",
+   "match": "cited: D459 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share count change matches."
+  },
+  {
+   "sentence": "FY2023 operating margin of 24.9% is the window low, below the 34.6% median and the 55.7% high of FY2021 .",
+   "claim": "34.6%",
+   "match": "cited: D751 = Operating margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window median matches."
+  },
+  {
+   "sentence": "FY2023 operating margin of 24.9% is the window low, below the 34.6% median and the 55.7% high of FY2021 .",
+   "claim": "55.7%",
+   "match": "cited: D750 = Operating margin window high (FY2021), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window high matches."
+  },
+  {
+   "sentence": "Of the 3.2pp FY2023 decline, R&D cost 4.7pp while SG&A recovered 2.0pp .",
+   "claim": "4.7pp",
+   "match": "cited: D465 = Operating-margin effect of R&D (pp), FY2025",
+   "label": "mismatch",
+   "reason": "Sentence says FY2023, matched to FY2025 R&D effect."
+  },
+  {
+   "sentence": "Of the 3.2pp FY2023 decline, R&D cost 4.7pp while SG&A recovered 2.0pp .",
+   "claim": "2.0pp",
+   "match": "cited: D466 = Operating-margin effect of SG&A (pp), FY2025",
+   "label": "mismatch",
+   "reason": "Sentence says FY2023, matched to FY2025 SG&A effect."
+  },
+  {
+   "sentence": "The largest drop was FY2022 at 16.7pp, with SG&A costing 6.0pp on higher headcount and Libtayo commercialization expenses .",
+   "claim": "16.7pp",
+   "match": "cited: D305 = Operating margin change, FY2022",
+   "label": "consistent",
+   "reason": "Operating margin change FY2022 matches."
+  },
+  {
+   "sentence": "The largest drop was FY2022 at 16.7pp, with SG&A costing 6.0pp on higher headcount and Libtayo commercialization expenses .",
+   "claim": "6.0pp",
+   "match": "cited: D319 = Operating-margin effect of SG&A (pp), FY2022",
+   "label": "consistent",
+   "reason": "SG&A effect FY2022 matches."
+  },
+  {
+   "sentence": "Net margin of 31.4% sits 6.5pp above the 24.9% operating margin because other income reached $1.65 billion; the cited passages do not explain it .",
+   "claim": "31.4%",
+   "match": "cited: F50 = Net margin, FY2025",
+   "label": "consistent",
+   "reason": "Net margin FY2025 matches."
+  },
+  {
+   "sentence": "Net margin of 31.4% sits 6.5pp above the 24.9% operating margin because other income reached $1.65 billion; the cited passages do not explain it .",
+   "claim": "6.5pp",
+   "match": "pp F50-F30: F50 = Net margin, FY2025; F30 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Difference between net and operating margin matches."
+  },
+  {
+   "sentence": "Net margin of 31.4% sits 6.5pp above the 24.9% operating margin because other income reached $1.65 billion; the cited passages do not explain it .",
+   "claim": "24.9%",
+   "match": "cited: F30 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Operating margin FY2025 matches."
+  },
+  {
+   "sentence": "Net margin of 31.4% sits 6.5pp above the 24.9% operating margin because other income reached $1.65 billion; the cited passages do not explain it .",
+   "claim": "$1.65 billion",
+   "match": "cited: X117 = Other income (expense), FY2025",
+   "label": "consistent",
+   "reason": "Other income FY2025 matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $4.98 billion was 1.11x net income, while free cash flow of $4.08 billion was 0.91x, against a 0.88x window median .",
+   "claim": "$4.98 billion",
+   "match": "cited: F80 = Operating cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Operating cash flow FY2025 matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $4.98 billion was 1.11x net income, while free cash flow of $4.08 billion was 0.91x, against a 0.88x window median .",
+   "claim": "1.11x",
+   "match": "cited: D428 = Operating cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "Operating cash flow / net income matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $4.98 billion was 1.11x net income, while free cash flow of $4.08 billion was 0.91x, against a 0.88x window median .",
+   "claim": "$4.08 billion",
+   "match": "cited: F100 = Free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow FY2025 matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $4.98 billion was 1.11x net income, while free cash flow of $4.08 billion was 0.91x, against a 0.88x window median .",
+   "claim": "0.91x",
+   "match": "cited: D429 = Free cash flow / net income, FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow / net income matches."
+  },
+  {
+   "sentence": "FY2025 operating cash flow of $4.98 billion was 1.11x net income, while free cash flow of $4.08 billion was 0.91x, against a 0.88x window median .",
+   "claim": "0.88x",
+   "match": "cited: D763 = Free cash flow / net income window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow / net income median matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 28.4% is above the 26.4% window median .",
+   "claim": "28.4%",
+   "match": "cited: D425 = Free cash flow margin, FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow margin matches."
+  },
+  {
+   "sentence": "Free cash flow margin of 28.4% is above the 26.4% window median .",
+   "claim": "26.4%",
+   "match": "cited: D757 = Free cash flow margin window median, FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Free cash flow margin median matches."
+  },
+  {
+   "sentence": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A .",
+   "claim": "18.9%",
+   "match": "cited: D447 = Capital expenditures growth, FY2025",
+   "label": "consistent",
+   "reason": "Capex growth matches."
+  },
+  {
+   "sentence": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A .",
+   "claim": "$898 million",
+   "match": "cited: F90 = Capital expenditures, FY2025",
+   "label": "consistent",
+   "reason": "Capex value matches."
+  },
+  {
+   "sentence": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A .",
+   "claim": "6.3%",
+   "match": "cited: D424 = Capex % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Capex % of revenue matches."
+  },
+  {
+   "sentence": "Capex rose 18.9% to $898 million, 6.3% of revenue and 1.65x D&A .",
+   "claim": "1.65x",
+   "match": "cited: D430 = Capex / D&A, FY2025",
+   "label": "consistent",
+   "reason": "Capex / D&A matches."
+  },
+  {
+   "sentence": "Net cash rose to $16.9 billion from $15.9 billion, 117.7% of revenue, ranking 100th percentile among eight peers whose median is -50.7% .",
+   "claim": "$16.9 billion",
+   "match": "cited: D434 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net cash FY2025 matches."
+  },
+  {
+   "sentence": "Net cash rose to $16.9 billion from $15.9 billion, 117.7% of revenue, ranking 100th percentile among eight peers whose median is -50.7% .",
+   "claim": "$15.9 billion",
+   "match": "cited: D385 = Net cash (cash and investments less debt), FY2024",
+   "label": "consistent",
+   "reason": "Net cash FY2024 matches."
+  },
+  {
+   "sentence": "Net cash rose to $16.9 billion from $15.9 billion, 117.7% of revenue, ranking 100th percentile among eight peers whose median is -50.7% .",
+   "claim": "117.7%",
+   "match": "cited: D435 = Net cash % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "Net cash % of revenue matches."
+  },
+  {
+   "sentence": "Net cash rose to $16.9 billion from $15.9 billion, 117.7% of revenue, ranking 100th percentile among eight peers whose median is -50.7% .",
+   "claim": "100th percentile",
+   "match": "cited: D780 = Net cash % of revenue: percentile vs biopharma peers (n=8), FY2025",
+   "label": "consistent",
+   "reason": "Percentile matches."
+  },
+  {
+   "sentence": "Net cash rose to $16.9 billion from $15.9 billion, 117.7% of revenue, ranking 100th percentile among eight peers whose median is -50.7% .",
+   "claim": "-50.7%",
+   "match": "cited: D781 = Net cash % of revenue: biopharma peer median (n=8), FY2025",
+   "label": "consistent",
+   "reason": "Peer median matches."
+  },
+  {
+   "sentence": "Buybacks of $3.44 billion plus $370 million of dividends took 93.3% of free cash flow, up from 71.0% in FY2024 .",
+   "claim": "$3.44 billion",
+   "match": "cited: X137 = Share repurchases (cash), FY2025",
+   "label": "consistent",
+   "reason": "Share repurchases matches."
+  },
+  {
+   "sentence": "Buybacks of $3.44 billion plus $370 million of dividends took 93.3% of free cash flow, up from 71.0% in FY2024 .",
+   "claim": "$370 million",
+   "match": "cited: X140 = Dividends paid (cash), FY2025",
+   "label": "consistent",
+   "reason": "Dividends paid matches."
+  },
+  {
+   "sentence": "Buybacks of $3.44 billion plus $370 million of dividends took 93.3% of free cash flow, up from 71.0% in FY2024 .",
+   "claim": "93.3%",
+   "match": "cited: D437 = Buybacks plus dividends % of free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends % of FCF matches."
+  },
+  {
+   "sentence": "Buybacks of $3.44 billion plus $370 million of dividends took 93.3% of free cash flow, up from 71.0% in FY2024 .",
+   "claim": "71.0%",
+   "match": "cited: D388 = Buybacks plus dividends % of free cash flow, FY2024",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends % of FCF FY2024 matches."
+  },
+  {
+   "sentence": "The diluted share count fell 5.6% to 108.6 million shares .",
+   "claim": "5.6%",
+   "match": "cited: D459 = Diluted share count change, FY2025",
+   "label": "consistent",
+   "reason": "Diluted share count change matches."
+  },
+  {
+   "sentence": "The diluted share count fell 5.6% to 108.6 million shares .",
+   "claim": "108.6 million shares",
+   "match": "cited: X127 = Diluted weighted-average shares, FY2025",
+   "label": "consistent",
+   "reason": "Diluted weighted-average shares matches."
+  },
+  {
+   "sentence": "Return on average equity of 14.9% ranks in the 25th percentile of eight peers, against a 38.7% median .",
+   "claim": "14.9%",
+   "match": "cited: D439 = Return on average equity, FY2025",
+   "label": "consistent",
+   "reason": "Return on average equity matches."
+  },
+  {
+   "sentence": "Return on average equity of 14.9% ranks in the 25th percentile of eight peers, against a 38.7% median .",
+   "claim": "25th percentile",
+   "match": "cited: D784 = Return on average equity: percentile vs biopharma peers (n=8), FY2025",
+   "label": "consistent",
+   "reason": "Percentile matches."
+  },
+  {
+   "sentence": "Return on average equity of 14.9% ranks in the 25th percentile of eight peers, against a 38.7% median .",
+   "claim": "38.7%",
+   "match": "cited: D785 = Return on average equity: biopharma peer median (n=8), FY2025",
+   "label": "consistent",
+   "reason": "Peer median matches."
+  },
+  {
+   "sentence": "Operating margin fell four straight years, 30.7pp in total, from 55.7% in FY2021 to 24.9% in FY2025, with R&D rising to 40.8% of revenue .",
+   "claim": "30.7pp",
+   "match": "passage R1: R1 = red-flag text: Operating margin fell 4 years in a row, 30.7pp in total.",
+   "label": "consistent",
+   "reason": "Operating margin decline total matches."
+  },
+  {
+   "sentence": "Operating margin fell four straight years, 30.7pp in total, from 55.7% in FY2021 to 24.9% in FY2025, with R&D rising to 40.8% of revenue .",
+   "claim": "55.7%",
+   "match": "cited: F26 = Operating margin, FY2021",
+   "label": "consistent",
+   "reason": "Operating margin FY2021 matches."
+  },
+  {
+   "sentence": "Operating margin fell four straight years, 30.7pp in total, from 55.7% in FY2021 to 24.9% in FY2025, with R&D rising to 40.8% of revenue .",
+   "claim": "24.9%",
+   "match": "cited: F30 = Operating margin, FY2025",
+   "label": "consistent",
+   "reason": "Operating margin FY2025 matches."
+  },
+  {
+   "sentence": "Operating margin fell four straight years, 30.7pp in total, from 55.7% in FY2021 to 24.9% in FY2025, with R&D rising to 40.8% of revenue .",
+   "claim": "40.8%",
+   "match": "cited: D420 = R&D % of revenue, FY2025",
+   "label": "consistent",
+   "reason": "R&D % of revenue matches."
+  },
+  {
+   "sentence": "U.S. EYLEA sales fell 42.4% in FY2025, a 14.2pp drag on revenue growth, on competition, compounded bevacizumab and a lower net price .",
+   "claim": "42.4%",
+   "match": "cited: D577 = EYLEA \u2014 Eylea Net Product Sales, US (product) growth, FY2025",
+   "label": "consistent",
+   "reason": "EYLEA US growth matches."
+  },
+  {
+   "sentence": "U.S. EYLEA sales fell 42.4% in FY2025, a 14.2pp drag on revenue growth, on competition, compounded bevacizumab and a lower net price .",
+   "claim": "14.2pp",
+   "match": "cited: D578 = EYLEA \u2014 Eylea Net Product Sales, US (product) contribution to revenue growth (pp), FY2025",
+   "label": "consistent",
+   "reason": "EYLEA US contribution to growth matches."
+  },
+  {
+   "sentence": "Other income of $1.65 billion, up from $789 million, helped net income grow 2.1% while operating income fell 10.3% .",
+   "claim": "$1.65 billion",
+   "match": "cited: X117 = Other income (expense), FY2025",
+   "label": "consistent",
+   "reason": "Other income FY2025 matches."
+  },
+  {
+   "sentence": "Other income of $1.65 billion, up from $789 million, helped net income grow 2.1% while operating income fell 10.3% .",
+   "claim": "$789 million",
+   "match": "cited: X116 = Other income (expense), FY2024",
+   "label": "consistent",
+   "reason": "Other income FY2024 matches."
+  },
+  {
+   "sentence": "Other income of $1.65 billion, up from $789 million, helped net income grow 2.1% while operating income fell 10.3% .",
+   "claim": "2.1%",
+   "match": "cited: D442 = Net income growth, FY2025",
+   "label": "consistent",
+   "reason": "Net income growth matches."
+  },
+  {
+   "sentence": "Other income of $1.65 billion, up from $789 million, helped net income grow 2.1% while operating income fell 10.3% .",
+   "claim": "10.3%",
+   "match": "cited: D441 = Operating income growth, FY2025",
+   "label": "consistent",
+   "reason": "Operating income growth matches."
+  },
+  {
+   "sentence": "Data check: table revenue for FY2018 and FY2019 is recast ($5,145.6 million and $6,557.6 million versus $6,710.8 million and $7,863.4 million first reported) .",
+   "claim": "$5,145.6 million",
+   "match": "cited: F3 = Revenue, FY2018",
+   "label": "consistent",
+   "reason": "Revenue FY2018 recast matches."
+  },
+  {
+   "sentence": "Data check: table revenue for FY2018 and FY2019 is recast ($5,145.6 million and $6,557.6 million versus $6,710.8 million and $7,863.4 million first reported) .",
+   "claim": "$6,557.6 million",
+   "match": "cited: F4 = Revenue, FY2019",
+   "label": "consistent",
+   "reason": "Revenue FY2019 recast matches."
+  },
+  {
+   "sentence": "Data check: table revenue for FY2018 and FY2019 is recast ($5,145.6 million and $6,557.6 million versus $6,710.8 million and $7,863.4 million first reported) .",
+   "claim": "$6,710.8 million",
+   "match": "cited: X3 = Total revenues as reported, FY2018",
+   "label": "consistent",
+   "reason": "Revenue FY2018 as reported matches."
+  },
+  {
+   "sentence": "Data check: table revenue for FY2018 and FY2019 is recast ($5,145.6 million and $6,557.6 million versus $6,710.8 million and $7,863.4 million first reported) .",
+   "claim": "$7,863.4 million",
+   "match": "cited: X4 = Total revenues as reported, FY2019",
+   "label": "consistent",
+   "reason": "Revenue FY2019 as reported matches."
+  },
+  {
+   "sentence": "FY2018 growth is -12.4% in the table but 14.3% on first-reported figures, so margin and growth comparisons across those years mix presentations .",
+   "claim": "-12.4%",
+   "match": "cited: D92 = Revenue growth, FY2018",
+   "label": "consistent",
+   "reason": "Revenue growth FY2018 recast matches."
+  },
+  {
+   "sentence": "FY2018 growth is -12.4% in the table but 14.3% on first-reported figures, so margin and growth comparisons across those years mix presentations .",
+   "claim": "14.3%",
+   "match": "cited: D771 = Revenue growth, both years as first reported, FY2018",
+   "label": "consistent",
+   "reason": "Revenue growth FY2018 as reported matches."
+  },
+  {
+   "sentence": "Operating margin below the FY2025 window low of 24.9% would confirm continued compression, while a rise above it would reverse the trend, in the FY2026 10-K .",
+   "claim": "24.9%",
+   "match": "cited: D749 = Operating margin window low (FY2025), FY2016..FY2025",
+   "label": "consistent",
+   "reason": "Operating margin window low matches."
+  },
+  {
+   "sentence": "U.S. EYLEA HD plus EYLEA sales below FY2025's $4.38 billion would confirm franchise erosion, and above it would reverse it, in the FY2026 10-K .",
+   "claim": "$4.38 billion",
+   "match": "cited: S46 = ELYEA HD And EYLEA \u2014 US (product), FY2025",
+   "label": "consistent",
+   "reason": "EYLEA HD plus EYLEA US value matches."
+  },
+  {
+   "sentence": "Buybacks plus dividends above 93.3% of free cash flow would show capital return outrunning cash generation and would draw down net cash of $16.9 billion, in the FY2026 10-K .",
+   "claim": "93.3%",
+   "match": "cited: D437 = Buybacks plus dividends % of free cash flow, FY2025",
+   "label": "consistent",
+   "reason": "Buybacks plus dividends % of FCF matches."
+  },
+  {
+   "sentence": "Buybacks plus dividends above 93.3% of free cash flow would show capital return outrunning cash generation and would draw down net cash of $16.9 billion, in the FY2026 10-K .",
+   "claim": "$16.9 billion",
+   "match": "cited: D434 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Net cash matches."
+  }
+ ]
+}

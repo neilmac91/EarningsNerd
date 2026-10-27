@@ -1,0 +1,86 @@
+{
+ "ticker": "RIVN",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "gemma-4-31b",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "tie",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "tie"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides superior analytical depth by detailing the operating margin bridge (specific percentage point contributions from cost of revenue, R&D, and SG&A) and calculating the incremental operating margin to assess operating leverage. It also offers better interpretation of the economic cost of stock-based compensation relative to the operating loss, whereas Draft B mostly reports the figures without explaining their implications for the business model."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 79.398,
+   "input_tokens": 11361,
+   "output_tokens": 1575,
+   "raw": "<thought>The user wants an evaluation of two drafts of a trend analysis for Rivian Automotive, Inc. (RIVN).\nThe analysis covers FY2019 to FY2025.\nThe goal is to provide value to a self-directed investor who already sees the financial table.\n\nFY2019-2025.\nLoss making.\nRevenue grew rapidly then slowed. Gross margin recently turned positive (FY2025). High cash burn, high Capex, significant dilution from stock-based compensation and recent share issuance.\n\n    *   *Depth:* Explains the \"why\" behind numbers.\n        *   Revenue growth: Mentions deliveries (19,412 in FY22, 29,790 in FY23). Explains FY25 slowdown (Software vs Automotive).\n        *   Margins: Gross margin turn (2.7% FY25). Explains bridge (cost of revenue reduction, raw materials, etc.).\n        *   Cash Conversion: Operating burn vs FCF. Mentions SBC as economic cost.\n        *   Balance Sheet: Net cash, current ratio, VW investment.\n        *   Red Flags: Net losses, SBC, burn runway, core product decline, segment overlap.\n        *   What to watch: Specific thresholds for gross margin, op margin, net cash.\n    *   *Grounding:*\n        *   Citations are extensive and map to provided sources.\n        *   Claims like \"incremental operating margin of 264.7%\" are calculated and cited.\n        *   Causal claims (tax credits, etc.) are in the filing passages.\n    *   *Coverage:*\n        *   Arc: Yes.\n        *   Growth drivers: Yes (Software vs Automotive).\n        *   Margin drivers: Yes.\n        *   Cash conversion: Yes.\n        *   Balance sheet: Yes.\n        *   Red flags: Yes.\n        *   Watchlist: Yes.\n    *   *Clarity:* Professional, structured.\n    *   *Calibration:* Fact-based, no hype.\n\n    *   *Depth:*\n        *   Revenue growth: Mentions CAGR and deliveries.\n        *   Margins: Mentions positive gross profit in FY25.\n        *   Cash Conversion: FCF vs Net loss.\n        *   Balance Sheet: Net cash, VW investment.\n        *   Red Flags: Net losses, SBC, runway, automotive decline.\n        *   What to watch: Analysis-based thresholds.\n    *   *Grounding:*\n        *   Citations match sources.\n    *   *Coverage:*\n        *   Arc: Yes.\n        *   Growth drivers: Yes.\n        *   Margin drivers: Yes.\n        *   Cash conversion: Yes.\n        *   Balance sheet: Yes.\n        *   Red flags: Yes.\n        *   Watchlist: Yes.\n    *   *Clarity:* Clear, but slightly more repetitive in some areas (e.g., mention of share issuance in both Balance Sheet and Growth sections).\n    *   *Calibration:* Good.\n\n    *   *Depth:* Draft A goes deeper into the operating margin bridge (specific pp contributions from R&D, SG&A) and the \"economic cost\" of SBC relative to operating loss. Draft A also highlights the concentration risk of the \"New electric vehicles\" product line specifically, whereas B focuses more on the segment. Draft A's \"incremental operating margin\" is a high-value analyst insight.\n    *   *Grounding:* Both are well-grounded.\n    *   *Coverage:* Both are comprehensive. Draft A's \"What to watch\" is slightly more focused on financial ratios, while Draft B adds the R2 delivery date (which is a concrete thing to watch).\n    *   *Clarity:* Draft A is slightly better organized for a professional research report.\n    *   *Calibration:* Both are good.\n\n    *   Draft A explains the *bridge* for margins more effectively (cost of revenue, SG&A, R&D effects in pp).\n    *   Draft A's treatment of SBC (\"cash burn understates the economic cost\") provides better interpretive depth than Draft B's simple listing of SBC as a percentage of revenue.\n    *   Draft A's \"incremental operating margin\" (264.7%) provides a clearer picture of operating leverage (or lack thereof) during the growth phase.\n    *   Draft B includes the R2 delivery date, which is useful, but Draft A's financial depth is superior.\n\n    *   Depth: A (Better breakdown of margin bridge and economic cost of SBC).\n    *   Grounding: Tie.\n    *   Coverage: Tie (Both cover all required bases).\n    *   Clarity: A (Slightly mor"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "tie"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Draft B provides slightly better depth and coverage. It incorporates the current ratio and current liabilities trends from the table, which Draft A ignores. Additionally, Draft B adds valuable analytical layers by calculating the incremental operating margin and highlighting the revenue concentration risk of the 'New electric vehicles' product line, providing the reader with a more comprehensive interpretation of the financial metrics."
+   },
+   "cost_usd": 0.0,
+   "latency_s": 66.327,
+   "input_tokens": 11361,
+   "output_tokens": 1345,
+   "raw": "<thought>The objective is to compare two drafts of a \"trend analysis\" for Rivian Automotive (RIVN) based on a provided metrics table and specific criteria: depth, grounding, coverage, clarity, and calibration.\n\n    *   Revenue: Growth from FY2021 ($55M) to FY2025 ($5.39B).\n    *   Gross Profit: Negative until FY2025 ($144M).\n    *   Operating Income/Net Income: Consistently negative, narrowing recently.\n    *   Cash: Significant decrease from FY2021 peak.\n    *   Debt: Increased in FY2023.\n    *   Capex: Generally high, increasing in FY2025.\n    *   Burn: Free cash flow remains heavily negative.\n\n    *   *Depth:* Explains revenue growth (CAGR, FY2022 jump), operating margin trend, gross profit flip (selling prices, cost per vehicle), segment drivers (Software & Services vs. Automotive), margin bridge (cost of revenue, R&D, SG&A), and cash flow drivers. Good depth.\n    *   *Grounding:* All claims are cited.\n        *   Revenue jump FY2022 due to 19,412 deliveries [7][8] - Matches source.\n        *   Software & Services growth [12][13][14] and drivers [15] - Matches source.\n        *   Automotive decline [16][17][18][19] and drivers (45W credits, regulatory credits) [20] - Matches source.\n        *   Margin bridge figures [27][28][29] - Calculated.\n        *   Cost of revenue decrease drivers [30][31] - Matches source.\n        *   Other expense settlement $186M [32][5][33] - Matches source.\n        *   Capex drivers (Normal Factory) [39][40][41][42] - Matches source.\n        *   Financing (VW shares, Mind Robotics) [49][50] - Matches source.\n    *   *Coverage:* Covers arc, growth drivers, margins, cash conversion, balance sheet, red flags, and \"what to watch.\" Very comprehensive.\n    *   *Clarity:* Clear, structured, professional.\n    *   *Calibration:* Separate analysis from facts. No hype.\n\n    *   *Depth:* Similar to A, but includes some additional details like incremental operating margin, specific product line concentration (New electric vehicles), and current ratio trends.\n    *   *Grounding:* All claims are cited.\n        *   FY2023 revenue drivers [9] - Matches source.\n        *   Software/Automotive impact [14][11][15] - Matches source.\n        *   New electric vehicles concentration [22][23] - Matches calculated figures.\n        *   Incremental operating margin [24][11][25] - Calculated.\n        *   Margin bridge [32][33][34][35][36] - Matches sources.\n        *   Other expense $54M including $186M settlement [37][38][39] - Matches source (Other income/expense was -$54M, settlement was $186M, partially offset by gain).\n        *   Cash burn vs economic cost (SBC) [50][51] - Analysis.\n        *   Current ratio low and liabilities growth [60][61][62][63] - Matches table.\n    *   *Coverage:* Covers arc, growth drivers, margins, cash conversion, balance sheet, red flags, and \"what to watch.\" Includes more detail on balance sheet (current ratio).\n    *   *Clarity:* Clear and professional.\n    *   *Calibration:* Separate analysis from facts.\n\n    *   *Depth:* Draft B provides slightly more depth. It includes the \"incremental operating margin,\" the \"New electric vehicles\" product line concentration, and a more detailed look at the balance sheet (Current Ratio and Current Liabilities). Draft A is very good, but Draft B adds these extra layers of insight.\n    *   *Grounding:* Both are exceptionally well-grounded.\n    *   *Coverage:* Draft B is slightly superior because it addresses the Current Ratio/Liabilities trend, which is present in the table but ignored by Draft A.\n    *   *Clarity:* Both are high quality. Draft B is slightly more dense but equally clear.\n    *   *Calibration:* Both are well-calibrated.\n\n    *   Grounding is the top priority. Both are excellent.\n    *   Depth is second. Draft B provides more insight (incremental margin, product concentration, current ratio).\n    *   Coverage: Draft B covers more of the table's available data (current ratio, liabilities).\n\n    *   Depth: B (incremental margin, product conc"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.0
+}

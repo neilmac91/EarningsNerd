@@ -1,0 +1,485 @@
+{
+ "system": "claude-haiku-5-5",
+ "ticker": "PG",
+ "split": "dev",
+ "auditor": "deepseek-v4-pro",
+ "cost_usd": 0.007279,
+ "items": [
+  {
+   "sentence": "Revenue rose from $65.1 billion in FY2017  to $87.0 billion in FY2026 , a 3.3% CAGR .",
+   "claim": "$65.1 billion",
+   "match": "cited: F1 = Revenue, FY2017",
+   "label": "consistent",
+   "reason": "Sentence states revenue for FY2017 is $65.1B."
+  },
+  {
+   "sentence": "Revenue rose from $65.1 billion in FY2017  to $87.0 billion in FY2026 , a 3.3% CAGR .",
+   "claim": "$87.0 billion",
+   "match": "cited: F10 = Revenue, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue for FY2026 is $87.0B."
+  },
+  {
+   "sentence": "Revenue rose from $65.1 billion in FY2017  to $87.0 billion in FY2026 , a 3.3% CAGR .",
+   "claim": "3.3%",
+   "match": "cited: F201 = Revenue CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue CAGR is 3.3%."
+  },
+  {
+   "sentence": "Operating income compounded faster at 4.1% , while net income managed only 0.5%  and diluted EPS 1.9% .",
+   "claim": "4.1%",
+   "match": "cited: F202 = Operating income CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating income CAGR is 4.1%."
+  },
+  {
+   "sentence": "Operating income compounded faster at 4.1% , while net income managed only 0.5%  and diluted EPS 1.9% .",
+   "claim": "0.5%",
+   "match": "cited: F203 = Net income CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net income CAGR is 0.5%."
+  },
+  {
+   "sentence": "Operating income compounded faster at 4.1% , while net income managed only 0.5%  and diluted EPS 1.9% .",
+   "claim": "1.9%",
+   "match": "cited: F205 = EPS (diluted) CAGR, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states diluted EPS CAGR is 1.9%."
+  },
+  {
+   "sentence": "Operating margin fell to 8.1%  in FY2019 after an $8.35 billion non-cash Shave Care impairment , which the filing ties to currency devaluations and slowing grooming categories .",
+   "claim": "8.1%",
+   "match": "cited: F23 = Operating margin, FY2019",
+   "label": "consistent",
+   "reason": "Sentence states operating margin for FY2019 is 8.1%."
+  },
+  {
+   "sentence": "Operating margin fell to 8.1%  in FY2019 after an $8.35 billion non-cash Shave Care impairment , which the filing ties to currency devaluations and slowing grooming categories .",
+   "claim": "$8.35 billion",
+   "match": "cited: X112 = Asset impairment charges, FY2019",
+   "label": "consistent",
+   "reason": "Sentence states impairment charge is $8.35B."
+  },
+  {
+   "sentence": "Margin rebounded 14.0pp to 22.1% in FY2020  as operating income rose 186.2% , with the prior-year charge lapping .",
+   "claim": "14.0pp",
+   "match": "cited: D160 = Operating margin change, FY2020",
+   "label": "consistent",
+   "reason": "Sentence states margin rebound of 14.0pp."
+  },
+  {
+   "sentence": "Margin rebounded 14.0pp to 22.1% in FY2020  as operating income rose 186.2% , with the prior-year charge lapping .",
+   "claim": "22.1%",
+   "match": "cited: F24 = Operating margin, FY2020",
+   "label": "consistent",
+   "reason": "Sentence states operating margin for FY2020 is 22.1%."
+  },
+  {
+   "sentence": "Margin rebounded 14.0pp to 22.1% in FY2020  as operating income rose 186.2% , with the prior-year charge lapping .",
+   "claim": "186.2%",
+   "match": "cited: D148 = Operating income growth, FY2020",
+   "label": "consistent",
+   "reason": "Sentence states operating income growth is 186.2%."
+  },
+  {
+   "sentence": "Non-US geography added 3.1pp of the 3.3% FY2026 growth , and makes up 52.0% of revenue .",
+   "claim": "3.1pp",
+   "match": "cited: D511 = Operating Segments \u2014 Non-US (geography) contribution to revenue growth (pp), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states non-US contribution to growth is 3.1pp."
+  },
+  {
+   "sentence": "Non-US geography added 3.1pp of the 3.3% FY2026 growth , and makes up 52.0% of revenue .",
+   "claim": "3.3%",
+   "match": "cited: D457 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue growth is 3.3%."
+  },
+  {
+   "sentence": "Non-US geography added 3.1pp of the 3.3% FY2026 growth , and makes up 52.0% of revenue .",
+   "claim": "52.0%",
+   "match": "cited: D509 = Operating Segments \u2014 Non-US (geography) share of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states non-US share of revenue is 52.0%."
+  },
+  {
+   "sentence": "Beauty grew 7.1% , adding 1.3pp , the largest segment contribution; US sales grew only 0.2% .",
+   "claim": "7.1%",
+   "match": "cited: D602 = Operating Segments \u2014 Beauty (segment) growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states Beauty segment growth is 7.1%."
+  },
+  {
+   "sentence": "Beauty grew 7.1% , adding 1.3pp , the largest segment contribution; US sales grew only 0.2% .",
+   "claim": "1.3pp",
+   "match": "cited: D603 = Operating Segments \u2014 Beauty (segment) contribution to revenue growth (pp), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states Beauty contribution to growth is 1.3pp."
+  },
+  {
+   "sentence": "Beauty grew 7.1% , adding 1.3pp , the largest segment contribution; US sales grew only 0.2% .",
+   "claim": "0.2%",
+   "match": "cited: D535 = Operating Segments \u2014 US (geography) growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states US growth is 0.2%."
+  },
+  {
+   "sentence": "Sales growth of 3.3%  reflects favorable foreign exchange and pricing, with unit volume unchanged .",
+   "claim": "3.3%",
+   "match": "cited: D457 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue growth is 3.3%."
+  },
+  {
+   "sentence": "Operating income fell 3.4%  on 3.3% revenue growth , an incremental margin of -25.6% .",
+   "claim": "3.4%",
+   "match": "cited: D458 = Operating income growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating income growth is -3.4%."
+  },
+  {
+   "sentence": "Operating income fell 3.4%  on 3.3% revenue growth , an incremental margin of -25.6% .",
+   "claim": "3.3%",
+   "match": "cited: D457 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue growth is 3.3%."
+  },
+  {
+   "sentence": "Operating income fell 3.4%  on 3.3% revenue growth , an incremental margin of -25.6% .",
+   "claim": "-25.6%",
+   "match": "cited: D481 = Incremental operating margin (change in operating income / change in revenue), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states incremental margin is -25.6%."
+  },
+  {
+   "sentence": "Diluted EPS grew 1.7%  against net income growth of 0.5% , with a 1.3% lower share count helping .",
+   "claim": "1.7%",
+   "match": "cited: D461 = EPS (diluted) growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states diluted EPS growth is 1.7%."
+  },
+  {
+   "sentence": "Diluted EPS grew 1.7%  against net income growth of 0.5% , with a 1.3% lower share count helping .",
+   "claim": "0.5%",
+   "match": "cited: D459 = Net income growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net income growth is 0.5%."
+  },
+  {
+   "sentence": "Diluted EPS grew 1.7%  against net income growth of 0.5% , with a 1.3% lower share count helping .",
+   "claim": "1.3%",
+   "match": "cited: D476 = Diluted share count change, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states share count change is -1.3%."
+  },
+  {
+   "sentence": "Operating margin of 22.7%  is above the 22.1% window median  but below the 24.3% high .",
+   "claim": "22.7%",
+   "match": "cited: F30 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating margin for FY2026 is 22.7%."
+  },
+  {
+   "sentence": "Operating margin of 22.7%  is above the 22.1% window median  but below the 24.3% high .",
+   "claim": "22.1%",
+   "match": "cited: D648 = Operating margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window median is 22.1%."
+  },
+  {
+   "sentence": "Operating margin of 22.7%  is above the 22.1% window median  but below the 24.3% high .",
+   "claim": "24.3%",
+   "match": "cited: D647 = Operating margin window high (FY2025), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window high is 24.3%."
+  },
+  {
+   "sentence": "Cost of revenue took 1.0pp  and SG&A 0.6pp  off operating margin.",
+   "claim": "1.0pp",
+   "match": "cited: D483 = Operating-margin effect of cost of revenue (pp), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states cost of revenue effect is 1.0pp."
+  },
+  {
+   "sentence": "Cost of revenue took 1.0pp  and SG&A 0.6pp  off operating margin.",
+   "claim": "0.6pp",
+   "match": "cited: D485 = Operating-margin effect of SG&A (pp), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states SG&A effect is 0.6pp."
+  },
+  {
+   "sentence": "Operating margin fell 1.6pp  mainly because gross margin dropped on product mix and commodity costs  and marketing spending rose .",
+   "claim": "1.6pp",
+   "match": "cited: D470 = Operating margin change, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating margin change is -1.6pp."
+  },
+  {
+   "sentence": "Net margin of 18.4%  is 4.3pp below operating margin .",
+   "claim": "18.4%",
+   "match": "cited: F50 = Net margin, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net margin is 18.4%."
+  },
+  {
+   "sentence": "Net margin of 18.4%  is 4.3pp below operating margin .",
+   "claim": "4.3pp",
+   "match": "pp F50-F30: F50 = Net margin, FY2026; F30 = Operating margin, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net margin is 4.3pp below operating margin."
+  },
+  {
+   "sentence": "The effective tax rate of 20.8%  rose on lower share-based compensation benefits and unfavorable geographic mix .",
+   "claim": "20.8%",
+   "match": "cited: D443 = Effective tax rate, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states effective tax rate is 20.8%."
+  },
+  {
+   "sentence": "Operating cash flow of $19.6 billion  was 1.22x net income , but free cash flow was only 0.94x .",
+   "claim": "$19.6 billion",
+   "match": "cited: F80 = Operating cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating cash flow is $19.6B."
+  },
+  {
+   "sentence": "Operating cash flow of $19.6 billion  was 1.22x net income , but free cash flow was only 0.94x .",
+   "claim": "1.22x",
+   "match": "cited: D444 = Operating cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states OCF/net income is 1.22x."
+  },
+  {
+   "sentence": "Operating cash flow of $19.6 billion  was 1.22x net income , but free cash flow was only 0.94x .",
+   "claim": "0.94x",
+   "match": "cited: D445 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states FCF/net income is 0.94x."
+  },
+  {
+   "sentence": "Free cash flow of 0.94x net income  sits below the 1.02x window median .",
+   "claim": "0.94x",
+   "match": "cited: D445 = Free cash flow / net income, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states FCF/net income is 0.94x."
+  },
+  {
+   "sentence": "Free cash flow of 0.94x net income  sits below the 1.02x window median .",
+   "claim": "1.02x",
+   "match": "cited: D660 = Free cash flow / net income window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window median is 1.02x."
+  },
+  {
+   "sentence": "Operating cash flow grew 9.8%  on a near-neutral working capital effect, as inventory absorbed cash for safety stock .",
+   "claim": "9.8%",
+   "match": "cited: D462 = Operating cash flow growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states OCF growth is 9.8%."
+  },
+  {
+   "sentence": "Capex reached 5.1% of revenue  and 1.40x D&A , with a $4.62 billion investing outflow .",
+   "claim": "5.1%",
+   "match": "cited: D440 = Capex % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states capex % of revenue is 5.1%."
+  },
+  {
+   "sentence": "Capex reached 5.1% of revenue  and 1.40x D&A , with a $4.62 billion investing outflow .",
+   "claim": "1.40x",
+   "match": "cited: D446 = Capex / D&A, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states capex/D&A is 1.40x."
+  },
+  {
+   "sentence": "Capex reached 5.1% of revenue  and 1.40x D&A , with a $4.62 billion investing outflow .",
+   "claim": "$4.62 billion",
+   "match": "cited: F110 = Investing cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states investing cash flow is -$4.62B."
+  },
+  {
+   "sentence": "Net debt was $24.2 billion , or 27.8% of revenue , ranking at the 33rd percentile among six staples peers .",
+   "claim": "$24.2 billion",
+   "match": "cited: D450 = Net cash (cash and investments less debt), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net debt is $24.2B."
+  },
+  {
+   "sentence": "Net debt was $24.2 billion , or 27.8% of revenue , ranking at the 33rd percentile among six staples peers .",
+   "claim": "27.8%",
+   "match": "cited: D451 = Net cash % of revenue, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states net debt % of revenue is 27.8%."
+  },
+  {
+   "sentence": "Net debt was $24.2 billion , or 27.8% of revenue , ranking at the 33rd percentile among six staples peers .",
+   "claim": "33rd percentile",
+   "match": "cited: D676 = Net cash % of revenue: percentile vs staples peers (n=6), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states percentile is 33rd."
+  },
+  {
+   "sentence": "Net cash rose $730 million , from -$24.9 billion  to -$24.2 billion , as cash rose 4.0%  and total debt fell 1.0% .",
+   "claim": "$730 million",
+   "match": "difference D450-D399: D450 = Net cash (cash and investments less debt), FY2026; D399 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Sentence states net cash increase is $730M."
+  },
+  {
+   "sentence": "Net cash rose $730 million , from -$24.9 billion  to -$24.2 billion , as cash rose 4.0%  and total debt fell 1.0% .",
+   "claim": "-$24.9 billion",
+   "match": "cited: D399 = Net cash (cash and investments less debt), FY2025",
+   "label": "consistent",
+   "reason": "Sentence states prior net cash is -$24.9B."
+  },
+  {
+   "sentence": "Net cash rose $730 million , from -$24.9 billion  to -$24.2 billion , as cash rose 4.0%  and total debt fell 1.0% .",
+   "claim": "-$24.2 billion",
+   "match": "cited: D450 = Net cash (cash and investments less debt), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states current net cash is -$24.2B."
+  },
+  {
+   "sentence": "Net cash rose $730 million , from -$24.9 billion  to -$24.2 billion , as cash rose 4.0%  and total debt fell 1.0% .",
+   "claim": "4.0%",
+   "match": "cited: D466 = Cash & equivalents growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states cash growth is 4.0%."
+  },
+  {
+   "sentence": "Net cash rose $730 million , from -$24.9 billion  to -$24.2 billion , as cash rose 4.0%  and total debt fell 1.0% .",
+   "claim": "1.0%",
+   "match": "cited: D478 = Total debt growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states total debt growth is -1.0%."
+  },
+  {
+   "sentence": "Buybacks and dividends totalled $15.3 billion , 100.7% of free cash flow , up from 86.6% in FY2024 .",
+   "claim": "$15.3 billion",
+   "match": "cited: D452 = Buybacks plus dividends, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states buybacks+dividends is $15.3B."
+  },
+  {
+   "sentence": "Buybacks and dividends totalled $15.3 billion , 100.7% of free cash flow , up from 86.6% in FY2024 .",
+   "claim": "100.7%",
+   "match": "cited: D453 = Buybacks plus dividends % of free cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states payout % of FCF is 100.7%."
+  },
+  {
+   "sentence": "Buybacks and dividends totalled $15.3 billion , 100.7% of free cash flow , up from 86.6% in FY2024 .",
+   "claim": "86.6%",
+   "match": "cited: D350 = Buybacks plus dividends % of free cash flow, FY2024",
+   "label": "consistent",
+   "reason": "Sentence states FY2024 payout % is 86.6%."
+  },
+  {
+   "sentence": "Payouts above free cash flow leave little room for further deleveraging unless cash conversion recovers, with long-term debt down 8.6% .",
+   "claim": "8.6%",
+   "match": "cited: D468 = Long-term debt growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states long-term debt growth is -8.6%."
+  },
+  {
+   "sentence": "Operating income fell 3.4% , the largest drop outside FY2019 , which the filing blames on lower gross margin and higher marketing spending .",
+   "claim": "3.4%",
+   "match": "cited: D458 = Operating income growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states operating income growth is -3.4%."
+  },
+  {
+   "sentence": "Days inventory rose from 52  to 69 , and inventory grew 8.2%  against revenue growth of 3.3% .",
+   "claim": "52",
+   "match": "cited: D21 = Days inventory outstanding (year-end inventory), FY2017",
+   "label": "consistent",
+   "reason": "Sentence states FY2017 days inventory is 52."
+  },
+  {
+   "sentence": "Days inventory rose from 52  to 69 , and inventory grew 8.2%  against revenue growth of 3.3% .",
+   "claim": "69",
+   "match": "cited: D455 = Days inventory outstanding (year-end inventory), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states FY2026 days inventory is 69."
+  },
+  {
+   "sentence": "Days inventory rose from 52  to 69 , and inventory grew 8.2%  against revenue growth of 3.3% .",
+   "claim": "8.2%",
+   "match": "cited: D480 = Inventory growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states inventory growth is 8.2%."
+  },
+  {
+   "sentence": "Days inventory rose from 52  to 69 , and inventory grew 8.2%  against revenue growth of 3.3% .",
+   "claim": "3.3%",
+   "match": "cited: D457 = Revenue growth, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states revenue growth is 3.3%."
+  },
+  {
+   "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+   "claim": "0.68x",
+   "match": "cited: F180 = Current ratio, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states current ratio is 0.68x."
+  },
+  {
+   "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+   "claim": "1.0x",
+   "match": "cited: F180 = Current ratio, FY2026",
+   "label": "mismatch",
+   "reason": "Sentence says below 1.0x, but matched to current ratio 0.68x."
+  },
+  {
+   "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+   "claim": "0.63x",
+   "match": "cited: D661 = Current ratio window low (FY2023), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window low is 0.63x."
+  },
+  {
+   "sentence": "The current ratio of 0.68x  is below 1.0x, but it has stayed between 0.63x  and 0.88x  across the window, so it is structural rather than new.",
+   "claim": "0.88x",
+   "match": "cited: D662 = Current ratio window high (FY2017), FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window high is 0.88x."
+  },
+  {
+   "sentence": "Operating margin staying at or above the 22.1% window median  in the FY2027 10-K would confirm the recovery; a fall below it would reverse it.",
+   "claim": "22.1%",
+   "match": "cited: D648 = Operating margin window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window median is 22.1%."
+  },
+  {
+   "sentence": "Buybacks and dividends falling back toward the FY2024 level of 86.6% of free cash flow  would confirm slowing payouts; a figure above the latest 100.7%  keeps the gap open.",
+   "claim": "86.6%",
+   "match": "cited: D350 = Buybacks plus dividends % of free cash flow, FY2024",
+   "label": "consistent",
+   "reason": "Sentence states FY2024 payout % is 86.6%."
+  },
+  {
+   "sentence": "Buybacks and dividends falling back toward the FY2024 level of 86.6% of free cash flow  would confirm slowing payouts; a figure above the latest 100.7%  keeps the gap open.",
+   "claim": "100.7%",
+   "match": "cited: D453 = Buybacks plus dividends % of free cash flow, FY2026",
+   "label": "consistent",
+   "reason": "Sentence states latest payout % is 100.7%."
+  },
+  {
+   "sentence": "Free cash flow returning to the 1.02x window median of net income  while days inventory fall back from 69  would confirm conversion recovery.",
+   "claim": "1.02x",
+   "match": "cited: D660 = Free cash flow / net income window median, FY2017..FY2026",
+   "label": "consistent",
+   "reason": "Sentence states window median is 1.02x."
+  },
+  {
+   "sentence": "Free cash flow returning to the 1.02x window median of net income  while days inventory fall back from 69  would confirm conversion recovery.",
+   "claim": "69",
+   "match": "cited: D455 = Days inventory outstanding (year-end inventory), FY2026",
+   "label": "consistent",
+   "reason": "Sentence states days inventory is 69."
+  }
+ ]
+}

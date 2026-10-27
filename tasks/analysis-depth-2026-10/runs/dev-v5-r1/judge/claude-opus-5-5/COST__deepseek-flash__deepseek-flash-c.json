@@ -1,0 +1,106 @@
+{
+ "ticker": "COST",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "349c9ca1fe2e176fb99e0bdbe4fa01ff5d7c7dea78b31bd25bbe3f4c774ea6d1",
+ "y_sha256": "eff82e5e4cce37e8b3abb1b8121497cd4b4485f59d987d6cc233d504fcf23c81",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B has more depth: it traces the FY2023-24 slowdown and re-acceleration, the shift from FY2017 net debt, and the history of the capex multiple, and it labels analysis separately. But B misreads a figure (1.71x called 'above' the 1.75x median) and ties capex to warehouses without a source. A's lapses are milder: an uncited tax-wedge claim and a meta line. Both rest the FY2026 cash-flow cause on a truncated passage. Grounding first tips it to A."
+   },
+   "cost_usd": 0.143925,
+   "latency_s": 15.329,
+   "backend": "claude_cli",
+   "input_tokens": 15858,
+   "cached_input_tokens": 727,
+   "output_tokens": 1137,
+   "reasoning_tokens": 898,
+   "meta": {
+    "duration_api_ms": 11557,
+    "cache_creation_input_tokens": 15129,
+    "list_cost_usd": 0.083409
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B has more depth: it traces the FY2023-24 slowdown and re-acceleration, the shift from FY2017 net debt, and the history of the capex multiple, and it labels analysis separately. But B misreads a figure (1.71x called 'above' the 1.75x median) and ties capex to warehouses without a source. A's lapses are milder: an uncited tax-wedge claim and a meta line. Both rest the FY2026 cash-flow cause on a truncated passage. Grounding first tips it to A.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both rest the FY2026 cash-flow cause on a truncated passage that does not state it. A also misreads 1.71x as above the 1.75x median and asserts without citation that filings tie capex to warehouses. B's lapses are smaller: 0.9pp versus a cited 0.8pp, and calling tax the 'main wedge'. B adds gross-margin mix, tax, debt paydown and FCF peer context. A labels its analysis more cleanly; B leaks pipeline language."
+   },
+   "cost_usd": 0.139309,
+   "latency_s": 13.198,
+   "backend": "claude_cli",
+   "input_tokens": 15856,
+   "cached_input_tokens": 727,
+   "output_tokens": 907,
+   "reasoning_tokens": 673,
+   "meta": {
+    "duration_api_ms": 8903,
+    "cache_creation_input_tokens": 15127,
+    "list_cost_usd": 0.078801
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both rest the FY2026 cash-flow cause on a truncated passage that does not state it. A also misreads 1.71x as above the 1.75x median and asserts without citation that filings tie capex to warehouses. B's lapses are smaller: 0.9pp versus a cited 0.8pp, and calling tax the 'main wedge'. B adds gross-margin mix, tax, debt paydown and FCF peer context. A labels its analysis more cleanly; B leaks pipeline language.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.283234
+}

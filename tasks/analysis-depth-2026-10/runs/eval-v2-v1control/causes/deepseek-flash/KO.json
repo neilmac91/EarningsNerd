@@ -1,0 +1,85 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "KO",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "5a77d2286614bac94bf02ebf4c1573a72b4dc10231fb411fd4cd4c019b1af27b",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2017 decline came with refranchising of bottling operations, which cut operating cash flow that year .",
+   "passages": [
+    {
+     "id": "P75",
+     "filing": "FY2017 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities decreased $1,801 million, or 20 percent, in 2017 compared to 2016. This decrease was primarily driven by the refranchising of certain bottling operations, the unfavorable impact of foreign currency exchange rate fluctuations, one less day in the current year, and increased payments related to income taxes and restructuring. Net cash provided by operating activities in 2018 will be impacted by a tax payment of $370 million related to the one-time transition tax resulting from the Tax Reform Act. Refer to the heading \"Operations Review - Net Operating Revenues\" above for additional information on the impact of foreign currency fluctuations. Refer to Note 14 of Notes to Consolidated Financial Statements for additional information on the tax payments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P75 names refranchising of certain bottling operations as a primary driver of the 2017 decrease in operating cash flow."
+  },
+  {
+   "sentence": "FY2025 was the sharpest inflection, with operating income up 37.7% on lower other operating charges after the prior-year fairlife contingent consideration remeasurement .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 says lower other operating charges, tied to the prior-year fairlife contingent consideration remeasurement, mainly drove the 2025 operating income increase."
+  },
+  {
+   "sentence": "Worldwide concentrate sales volume grew 1% in FY2025, with EMEA up 4% and pricing favorable, per the filing .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    },
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "The Company\u2019s EMEA operating segment reported operating income of $4,298\u00a0million and $4,255\u00a0million for the years ended December\u00a031, 2025 and 2024, respectively. The increase in operating income was primarily driven by an increase in concentrate sales volume of 4% and favorable pricing initiatives, partially offset by higher commodity costs, increased marketing spending, higher operating expenses, an unfavorable foreign currency exchange rate impact of 5% and the impact of divestiture activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 states worldwide concentrate volume grew 1% with favorable pricing; P10 states EMEA concentrate volume rose 4%."
+  },
+  {
+   "sentence": "The other-line swing reflects lower other operating charges after the prior-year fairlife remeasurement, while SG&A fell on lower Foundation contributions and incentive expense .",
+   "passages": [
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating income was $13,762 million in 2025, compared to $9,992 million in 2024, an increase of $3,770 million, or 38%. The increases in operating income and operating margin were primarily driven by lower other operating charges, due to the prior year remeasurement of our contingent consideration liability to fair value in conjunction with the fairlife acquisition, concentrate sales volume growth of 1% and favorable pricing initiatives. These items were partially offset by higher commodity costs and an unfavorable foreign currency exchange rate impact."
+    },
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Selling, general and administrative expenses were $14,521 million in 2025, compared to $14,582 million in 2024, a decrease of $61 million. This decrease was primarily due to lower contributions to The Coca-Cola Foundation and lower annual incentive expense, partially offset by higher severance costs in 2025 associated with ongoing initiatives to optimize our organization, higher advertising expenses and an asset impairment charge related to certain prototypes in the prior year. Advertising expenses for 2025 and 2024 were $5.4 billion and $5.1 billion, respectively. Refer to Note\u00a017 of Notes to Consolidated Financial Statements for more information on the impairment charge."
+    }
+   ],
+   "label": "supported",
+   "reason": "P12 attributes the decline to lower other operating charges after the fairlife remeasurement; P13 cites lower Foundation contributions and incentive expense."
+  },
+  {
+   "sentence": "FY2024's collapse to $6.8 billion operating cash flow came from a $6.0 billion IRS tax litigation deposit and refranchising effects .",
+   "passages": [
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities for the years ended December\u00a031, 2024 and 2023 was $6,805\u00a0million and $11,599\u00a0million, respectively, a decrease of $4,794\u00a0million, or 41%. This decrease was primarily driven by the $6.0 billion IRS Tax Litigation Deposit, an unfavorable impact due to foreign currency exchange rate fluctuations, higher other tax payments, increased charitable donations, and the reduced operating cash flows resulting from the refranchising of our bottling operations. The decrease was also impacted by additional annual incentive payments in the current year due to improved business performance in the prior year. These items were partially offset by strong cash operating results, the transfer of surplus international plan assets from pension trusts to general assets of the Company, payments in the prior year resulting from the buildup of inventory to manage potential supply chain disruptions, increased dividend payments from our equity method investees, and $167\u00a0million of the $275\u00a0million milestone payment for fairlife in the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P22 names the $6.0B IRS Tax Litigation Deposit and reduced cash flows from refranchising among the primary drivers of the 2024 decrease."
+  }
+ ],
+ "cost_usd": 0.0389,
+ "backend": "claude_cli",
+ "input_tokens": 3561,
+ "cached_input_tokens": 0,
+ "output_tokens": 521
+}

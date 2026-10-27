@@ -1,0 +1,1363 @@
+{
+ "ticker": "CAT",
+ "arm": "claude-haiku-5-5",
+ "family": "claude",
+ "model": "claude-haiku-5-5",
+ "split": "dev",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "dba0e5bcd50f6e5576300013f6953e4ed521174df7aeb58739b3512c8b885e11",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 69851,
+   "cached_input_tokens": 69017,
+   "output_tokens": 24425,
+   "reasoning_tokens": 22044,
+   "latency_s": 101.76,
+   "cost_usd": 0.013069,
+   "backend": "claude_cli",
+   "model_served": "claude-haiku-5-5",
+   "meta": {
+    "duration_api_ms": 97207,
+    "cache_creation_input_tokens": 832,
+    "list_cost_usd": 0.012986
+   },
+   "problems": [],
+   "raw": "```json\n{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue grew from $38.5 billion in FY2016 to $67.6 billion in FY2025, a 6.4% CAGR, with a cyclical trough in FY2020 when revenue fell 22.4% [F1][F10][F201][D198].\"},\n    {\"type\": \"fact\", \"text\": \"Operating margin rose from 3.0% to 16.5% over the window, and operating income compounded at 28.6% [F21][F30][F202].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2020 fall reflected lower sales volume from weaker end-user demand and changes in dealer inventories [P59], and operating margin dropped 4.5pp [D211].\"},\n    {\"type\": \"cause\", \"text\": \"The FY2023 operating margin rose 6.0pp [D370] on favorable price realization and higher volume, with no repeat of the 2022 Rail goodwill charge [P31].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Power Energy, 47.6% of FY2025 revenue [D757], added 5.2pp to growth [D759], more than the 4.3% total [D463].\"},\n    {\"type\": \"cause\", \"text\": \"Total growth of 4.3% [D463] reflected higher sales volume from end-user equipment demand, partly offset by unfavorable price realization [P13].\"},\n    {\"type\": \"cause\", \"text\": \"Construction Industries sales fell 1.6% [D765] on unfavorable price realization of $1.136 billion, partly offset by higher volume [P8].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS fell 14.7% [D467], less than the 17.7% drop in net income [D465], as diluted shares fell 3.5% [D483] and offset part of the decline.\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating margin of 16.5% [F30] is above its 14.3% window median [D1123] but 3.7pp below the FY2024 high of 20.2% [D476][D1122].\"},\n    {\"type\": \"cause\", \"text\": \"Operating profit fell 14.7% [D464], mainly on unfavorable manufacturing costs of $2.148 billion that the filing ties to higher tariffs [P9].\"},\n    {\"type\": \"fact\", \"text\": \"In the FY2025 margin bridge, cost of revenue took 4.2pp off margin [D490], while R&D and SG&A were roughly neutral [D491][D492].\"},\n    {\"type\": \"comparison\", \"text\": \"Incremental margin was -69.1% [D488], as operating costs grew 9.1% [D481] against revenue growth of 4.3% [D463].\"},\n    {\"type\": \"fact\", \"text\": \"Net margin of 13.1% [F50] trails operating margin by 3.4pp [F30], as the tax rate rose to 24.0% [D449] from 19.7% [D396]; the cited passages do not explain the tax move.\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Free cash flow of $8.9 billion [F100] equalled 1.00x net income [D451], close to the 0.96x window median [D1135].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow was 1.32x net income [D450], and the 13.2% free cash flow margin [D447] sits above its 11.9% window median [D1129].\"},\n    {\"type\": \"cause\", \"text\": \"Capital spending rose 41.9% to $2.82 billion [D470][F90], lifting capex to 1.25x D&A [D452]; the filing cites higher capital expenditures in MP&E investing [P3].\"},\n    {\"type\": \"cause\", \"text\": \"Receivables rose 17.6% [D486] and inventories 7.8% [D487] against 4.3% revenue growth [D463]; the filing says these changes partly offset MP&E's operating cash gain [P4].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Net debt widened to $26.2 billion in FY2025 [D456], from $24.9 billion in FY2024 [D403], or 38.8% of revenue [D457].\"},\n    {\"type\": \"comparison\", \"text\": \"At -38.8% of revenue [D457], net cash sits at the 43rd percentile of seven industrials peers [D1151], against a -35.6% peer median [D1152].\"},\n    {\"type\": \"fact\", \"text\": \"Liquidity is steady, with a current ratio of 1.44x [F180] against a 1.40x window median [D1138] and cash up 44.9% to $10.0 billion [D472][F140].\"},\n    {\"type\": \"comparison\", \"text\": \"Buybacks and dividends of $7.9 billion [D458] absorbed 89.0% of free cash flow [D459], down from 102.9% in FY2024 [D406], while diluted shares fell 3.5% [D483].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"cause\", \"text\": \"Operating profit fell 14.7% [D464], the first material decline since FY2020 [D199], on manufacturing costs and tariffs [P9]; medium severity, one year so far.\"},\n    {\"type\": \"cause\", \"text\": \"Net debt has widened two years running [R1]: total debt rose 14.1% to $36.2 billion [D485][D455], and the filing ties Financial Products' financing inflow to borrowing [P2].\"},\n    {\"type\": \"fact\", \"text\": \"FY2025 net income in the table is proxy-sourced and rounded [F40][R3]; the 10-K figure of $8.88 billion [X20] differs by under 0.06%, so growth rates stand.\"},\n    {\"type\": \"fact\", \"text\": \"Revenue fell 3.4% in FY2024 [D410] but rose 4.3% in FY2025 [D463], so the earlier decline is dropped as a flag.\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"judgement\", \"text\": \"Operating margin: the trend holds while it stays above the 14.3% window median [D1123], from 16.5% [F30]; a fall below 14.3% would reverse it. Filing: FY2026 10-K.\"},\n    {\"type\": \"fact\", \"text\": \"Manufacturing costs: FY2025 absorbed $2.148 billion [P9], and the company guides to higher Power & Energy manufacturing costs in Q1 2026 [P14].\"},\n    {\"type\": \"judgement\", \"text\": \"Buybacks plus dividends above the FY2024 level of 102.9% of free cash flow [D406] would mean debt-funded returns continue, widening net debt beyond $26.2 billion [D456].\"}\n  ]}\n]}\n```"
+  }
+ ],
+ "usage": {
+  "input_tokens": 69851,
+  "cached_input_tokens": 69017,
+  "output_tokens": 24425,
+  "reasoning_tokens": 22044
+ },
+ "latency_s": 101.76,
+ "cost_usd": 0.013069,
+ "generation_ok": true,
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue grew from $38.5 billion in FY2016 to $67.6 billion in FY2025, a 6.4% CAGR, with a cyclical trough in FY2020 when revenue fell 22.4% [F1][F10][F201][D198]."
+     },
+     {
+      "type": "fact",
+      "text": "Operating margin rose from 3.0% to 16.5% over the window, and operating income compounded at 28.6% [F21][F30][F202]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2020 fall reflected lower sales volume from weaker end-user demand and changes in dealer inventories [P59], and operating margin dropped 4.5pp [D211]."
+     },
+     {
+      "type": "cause",
+      "text": "The FY2023 operating margin rose 6.0pp [D370] on favorable price realization and higher volume, with no repeat of the 2022 Rail goodwill charge [P31]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Power Energy, 47.6% of FY2025 revenue [D757], added 5.2pp to growth [D759], more than the 4.3% total [D463]."
+     },
+     {
+      "type": "cause",
+      "text": "Total growth of 4.3% [D463] reflected higher sales volume from end-user equipment demand, partly offset by unfavorable price realization [P13]."
+     },
+     {
+      "type": "cause",
+      "text": "Construction Industries sales fell 1.6% [D765] on unfavorable price realization of $1.136 billion, partly offset by higher volume [P8]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS fell 14.7% [D467], less than the 17.7% drop in net income [D465], as diluted shares fell 3.5% [D483] and offset part of the decline."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating margin of 16.5% [F30] is above its 14.3% window median [D1123] but 3.7pp below the FY2024 high of 20.2% [D476][D1122]."
+     },
+     {
+      "type": "cause",
+      "text": "Operating profit fell 14.7% [D464], mainly on unfavorable manufacturing costs of $2.148 billion that the filing ties to higher tariffs [P9]."
+     },
+     {
+      "type": "fact",
+      "text": "In the FY2025 margin bridge, cost of revenue took 4.2pp off margin [D490], while R&D and SG&A were roughly neutral [D491][D492]."
+     },
+     {
+      "type": "comparison",
+      "text": "Incremental margin was -69.1% [D488], as operating costs grew 9.1% [D481] against revenue growth of 4.3% [D463]."
+     },
+     {
+      "type": "fact",
+      "text": "Net margin of 13.1% [F50] trails operating margin by 3.4pp [F30], as the tax rate rose to 24.0% [D449] from 19.7% [D396]; the cited passages do not explain the tax move."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Free cash flow of $8.9 billion [F100] equalled 1.00x net income [D451], close to the 0.96x window median [D1135]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating cash flow was 1.32x net income [D450], and the 13.2% free cash flow margin [D447] sits above its 11.9% window median [D1129]."
+     },
+     {
+      "type": "cause",
+      "text": "Capital spending rose 41.9% to $2.82 billion [D470][F90], lifting capex to 1.25x D&A [D452]; the filing cites higher capital expenditures in MP&E investing [P3]."
+     },
+     {
+      "type": "cause",
+      "text": "Receivables rose 17.6% [D486] and inventories 7.8% [D487] against 4.3% revenue growth [D463]; the filing says these changes partly offset MP&E's operating cash gain [P4]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Net debt widened to $26.2 billion in FY2025 [D456], from $24.9 billion in FY2024 [D403], or 38.8% of revenue [D457]."
+     },
+     {
+      "type": "comparison",
+      "text": "At -38.8% of revenue [D457], net cash sits at the 43rd percentile of seven industrials peers [D1151], against a -35.6% peer median [D1152]."
+     },
+     {
+      "type": "fact",
+      "text": "Liquidity is steady, with a current ratio of 1.44x [F180] against a 1.40x window median [D1138] and cash up 44.9% to $10.0 billion [D472][F140]."
+     },
+     {
+      "type": "comparison",
+      "text": "Buybacks and dividends of $7.9 billion [D458] absorbed 89.0% of free cash flow [D459], down from 102.9% in FY2024 [D406], while diluted shares fell 3.5% [D483]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "cause",
+      "text": "Operating profit fell 14.7% [D464], the first material decline since FY2020 [D199], on manufacturing costs and tariffs [P9]; medium severity, one year so far."
+     },
+     {
+      "type": "cause",
+      "text": "Net debt has widened two years running [R1]: total debt rose 14.1% to $36.2 billion [D485][D455], and the filing ties Financial Products' financing inflow to borrowing [P2]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2025 net income in the table is proxy-sourced and rounded [F40][R3]; the 10-K figure of $8.88 billion [X20] differs by under 0.06%, so growth rates stand."
+     },
+     {
+      "type": "fact",
+      "text": "Revenue fell 3.4% in FY2024 [D410] but rose 4.3% in FY2025 [D463], so the earlier decline is dropped as a flag."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "judgement",
+      "text": "Operating margin: the trend holds while it stays above the 14.3% window median [D1123], from 16.5% [F30]; a fall below 14.3% would reverse it. Filing: FY2026 10-K."
+     },
+     {
+      "type": "fact",
+      "text": "Manufacturing costs: FY2025 absorbed $2.148 billion [P9], and the company guides to higher Power & Energy manufacturing costs in Q1 2026 [P14]."
+     },
+     {
+      "type": "judgement",
+      "text": "Buybacks plus dividends above the FY2024 level of 102.9% of free cash flow [D406] would mean debt-funded returns continue, widening net debt beyond $26.2 billion [D456]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 622,
+ "gate": {
+  "passed": true,
+  "sentences": 28,
+  "sentence_types": {
+   "fact": 9,
+   "cause": 9,
+   "comparison": 8,
+   "judgement": 2
+  },
+  "claims": 71,
+  "verified": 71,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue grew from $38.5 billion in FY2016 to $67.6 billion in FY2025, a 6.4% CAGR, with a cyclical trough in FY2020 when revenue fell 22.4% [F1][F10][F201][D198].",
+    "type": "fact",
+    "citations": [
+     "F1",
+     "F10",
+     "F201",
+     "D198"
+    ],
+    "claims": [
+     {
+      "claim": "$38.5 billion",
+      "value": 38.5,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F1"
+      ]
+     },
+     {
+      "claim": "$67.6 billion",
+      "value": 67.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F10"
+      ]
+     },
+     {
+      "claim": "6.4%",
+      "value": 6.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F201"
+      ]
+     },
+     {
+      "claim": "22.4%",
+      "value": 22.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D198"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating margin rose from 3.0% to 16.5% over the window, and operating income compounded at 28.6% [F21][F30][F202].",
+    "type": "fact",
+    "citations": [
+     "F21",
+     "F30",
+     "F202"
+    ],
+    "claims": [
+     {
+      "claim": "3.0%",
+      "value": 3.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F21"
+      ]
+     },
+     {
+      "claim": "16.5%",
+      "value": 16.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "28.6%",
+      "value": 28.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F202"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2020 fall reflected lower sales volume from weaker end-user demand and changes in dealer inventories [P59], and operating margin dropped 4.5pp [D211].",
+    "type": "cause",
+    "citations": [
+     "P59",
+     "D211"
+    ],
+    "claims": [
+     {
+      "claim": "4.5pp",
+      "value": 4.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D211"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "The FY2023 operating margin rose 6.0pp [D370] on favorable price realization and higher volume, with no repeat of the 2022 Rail goodwill charge [P31].",
+    "type": "cause",
+    "citations": [
+     "D370",
+     "P31"
+    ],
+    "claims": [
+     {
+      "claim": "6.0pp",
+      "value": 6.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D370"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Power Energy, 47.6% of FY2025 revenue [D757], added 5.2pp to growth [D759], more than the 4.3% total [D463].",
+    "type": "comparison",
+    "citations": [
+     "D757",
+     "D759",
+     "D463"
+    ],
+    "claims": [
+     {
+      "claim": "47.6%",
+      "value": 47.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D757"
+      ]
+     },
+     {
+      "claim": "5.2pp",
+      "value": 5.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D759"
+      ]
+     },
+     {
+      "claim": "4.3%",
+      "value": 4.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D463"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Total growth of 4.3% [D463] reflected higher sales volume from end-user equipment demand, partly offset by unfavorable price realization [P13].",
+    "type": "cause",
+    "citations": [
+     "D463",
+     "P13"
+    ],
+    "claims": [
+     {
+      "claim": "4.3%",
+      "value": 4.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D463"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Construction Industries sales fell 1.6% [D765] on unfavorable price realization of $1.136 billion, partly offset by higher volume [P8].",
+    "type": "cause",
+    "citations": [
+     "D765",
+     "P8"
+    ],
+    "claims": [
+     {
+      "claim": "1.6%",
+      "value": 1.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D765"
+      ]
+     },
+     {
+      "claim": "$1.136 billion",
+      "value": 1.136,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P8",
+      "ids": [
+       "P8"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS fell 14.7% [D467], less than the 17.7% drop in net income [D465], as diluted shares fell 3.5% [D483] and offset part of the decline.",
+    "type": "comparison",
+    "citations": [
+     "D467",
+     "D465",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "14.7%",
+      "value": 14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D467"
+      ]
+     },
+     {
+      "claim": "17.7%",
+      "value": 17.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D465"
+      ]
+     },
+     {
+      "claim": "3.5%",
+      "value": 3.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating margin of 16.5% [F30] is above its 14.3% window median [D1123] but 3.7pp below the FY2024 high of 20.2% [D476][D1122].",
+    "type": "comparison",
+    "citations": [
+     "F30",
+     "D1123",
+     "D476",
+     "D1122"
+    ],
+    "claims": [
+     {
+      "claim": "16.5%",
+      "value": 16.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "14.3%",
+      "value": 14.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1123"
+      ]
+     },
+     {
+      "claim": "3.7pp",
+      "value": 3.7,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F30-D1122",
+      "ids": [
+       "F30",
+       "D1122"
+      ]
+     },
+     {
+      "claim": "20.2%",
+      "value": 20.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1122"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Operating profit fell 14.7% [D464], mainly on unfavorable manufacturing costs of $2.148 billion that the filing ties to higher tariffs [P9].",
+    "type": "cause",
+    "citations": [
+     "D464",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "14.7%",
+      "value": 14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D464"
+      ]
+     },
+     {
+      "claim": "$2.148 billion",
+      "value": 2.148,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "In the FY2025 margin bridge, cost of revenue took 4.2pp off margin [D490], while R&D and SG&A were roughly neutral [D491][D492].",
+    "type": "fact",
+    "citations": [
+     "D490",
+     "D491",
+     "D492"
+    ],
+    "claims": [
+     {
+      "claim": "4.2pp",
+      "value": 4.2,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D490"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Incremental margin was -69.1% [D488], as operating costs grew 9.1% [D481] against revenue growth of 4.3% [D463].",
+    "type": "comparison",
+    "citations": [
+     "D488",
+     "D481",
+     "D463"
+    ],
+    "claims": [
+     {
+      "claim": "-69.1%",
+      "value": -69.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D488"
+      ]
+     },
+     {
+      "claim": "9.1%",
+      "value": 9.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D481"
+      ]
+     },
+     {
+      "claim": "4.3%",
+      "value": 4.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D463"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 13.1% [F50] trails operating margin by 3.4pp [F30], as the tax rate rose to 24.0% [D449] from 19.7% [D396]; the cited passages do not explain the tax move.",
+    "type": "fact",
+    "citations": [
+     "F50",
+     "F30",
+     "D449",
+     "D396"
+    ],
+    "claims": [
+     {
+      "claim": "13.1%",
+      "value": 13.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F50"
+      ]
+     },
+     {
+      "claim": "3.4pp",
+      "value": 3.4,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F50-F30",
+      "ids": [
+       "F50",
+       "F30"
+      ]
+     },
+     {
+      "claim": "24.0%",
+      "value": 24.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D449"
+      ]
+     },
+     {
+      "claim": "19.7%",
+      "value": 19.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D396"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Free cash flow of $8.9 billion [F100] equalled 1.00x net income [D451], close to the 0.96x window median [D1135].",
+    "type": "comparison",
+    "citations": [
+     "F100",
+     "D451",
+     "D1135"
+    ],
+    "claims": [
+     {
+      "claim": "$8.9 billion",
+      "value": 8.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F100"
+      ]
+     },
+     {
+      "claim": "1.00x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D451"
+      ]
+     },
+     {
+      "claim": "0.96x",
+      "value": 0.96,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1135"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow was 1.32x net income [D450], and the 13.2% free cash flow margin [D447] sits above its 11.9% window median [D1129].",
+    "type": "comparison",
+    "citations": [
+     "D450",
+     "D447",
+     "D1129"
+    ],
+    "claims": [
+     {
+      "claim": "1.32x",
+      "value": 1.32,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D450"
+      ]
+     },
+     {
+      "claim": "13.2%",
+      "value": 13.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D447"
+      ]
+     },
+     {
+      "claim": "11.9%",
+      "value": 11.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1129"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capital spending rose 41.9% to $2.82 billion [D470][F90], lifting capex to 1.25x D&A [D452]; the filing cites higher capital expenditures in MP&E investing [P3].",
+    "type": "cause",
+    "citations": [
+     "D470",
+     "F90",
+     "D452",
+     "P3"
+    ],
+    "claims": [
+     {
+      "claim": "41.9%",
+      "value": 41.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D470"
+      ]
+     },
+     {
+      "claim": "$2.82 billion",
+      "value": 2.82,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F90"
+      ]
+     },
+     {
+      "claim": "1.25x",
+      "value": 1.25,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D452"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Receivables rose 17.6% [D486] and inventories 7.8% [D487] against 4.3% revenue growth [D463]; the filing says these changes partly offset MP&E's operating cash gain [P4].",
+    "type": "cause",
+    "citations": [
+     "D486",
+     "D487",
+     "D463",
+     "P4"
+    ],
+    "claims": [
+     {
+      "claim": "17.6%",
+      "value": 17.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D486"
+      ]
+     },
+     {
+      "claim": "7.8%",
+      "value": 7.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D487"
+      ]
+     },
+     {
+      "claim": "4.3%",
+      "value": 4.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D463"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt widened to $26.2 billion in FY2025 [D456], from $24.9 billion in FY2024 [D403], or 38.8% of revenue [D457].",
+    "type": "fact",
+    "citations": [
+     "D456",
+     "D403",
+     "D457"
+    ],
+    "claims": [
+     {
+      "claim": "$26.2 billion",
+      "value": 26.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D456"
+      ]
+     },
+     {
+      "claim": "$24.9 billion",
+      "value": 24.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D403"
+      ]
+     },
+     {
+      "claim": "38.8%",
+      "value": 38.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D457"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "At -38.8% of revenue [D457], net cash sits at the 43rd percentile of seven industrials peers [D1151], against a -35.6% peer median [D1152].",
+    "type": "comparison",
+    "citations": [
+     "D457",
+     "D1151",
+     "D1152"
+    ],
+    "claims": [
+     {
+      "claim": "-38.8%",
+      "value": -38.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D457"
+      ]
+     },
+     {
+      "claim": "43rd percentile",
+      "value": 43.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1151"
+      ]
+     },
+     {
+      "claim": "-35.6%",
+      "value": -35.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1152"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Liquidity is steady, with a current ratio of 1.44x [F180] against a 1.40x window median [D1138] and cash up 44.9% to $10.0 billion [D472][F140].",
+    "type": "fact",
+    "citations": [
+     "F180",
+     "D1138",
+     "D472",
+     "F140"
+    ],
+    "claims": [
+     {
+      "claim": "1.44x",
+      "value": 1.44,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F180"
+      ]
+     },
+     {
+      "claim": "1.40x",
+      "value": 1.4,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1138"
+      ]
+     },
+     {
+      "claim": "44.9%",
+      "value": 44.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D472"
+      ]
+     },
+     {
+      "claim": "$10.0 billion",
+      "value": 10.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F140"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Buybacks and dividends of $7.9 billion [D458] absorbed 89.0% of free cash flow [D459], down from 102.9% in FY2024 [D406], while diluted shares fell 3.5% [D483].",
+    "type": "comparison",
+    "citations": [
+     "D458",
+     "D459",
+     "D406",
+     "D483"
+    ],
+    "claims": [
+     {
+      "claim": "$7.9 billion",
+      "value": 7.9,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D458"
+      ]
+     },
+     {
+      "claim": "89.0%",
+      "value": 89.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D459"
+      ]
+     },
+     {
+      "claim": "102.9%",
+      "value": 102.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     },
+     {
+      "claim": "3.5%",
+      "value": 3.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D483"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Operating profit fell 14.7% [D464], the first material decline since FY2020 [D199], on manufacturing costs and tariffs [P9]; medium severity, one year so far.",
+    "type": "cause",
+    "citations": [
+     "D464",
+     "D199",
+     "P9"
+    ],
+    "claims": [
+     {
+      "claim": "14.7%",
+      "value": 14.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D464"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net debt has widened two years running [R1]: total debt rose 14.1% to $36.2 billion [D485][D455], and the filing ties Financial Products' financing inflow to borrowing [P2].",
+    "type": "cause",
+    "citations": [
+     "R1",
+     "D485",
+     "D455",
+     "P2"
+    ],
+    "claims": [
+     {
+      "claim": "14.1%",
+      "value": 14.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D485"
+      ]
+     },
+     {
+      "claim": "$36.2 billion",
+      "value": 36.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D455"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2025 net income in the table is proxy-sourced and rounded [F40][R3]; the 10-K figure of $8.88 billion [X20] differs by under 0.06%, so growth rates stand.",
+    "type": "fact",
+    "citations": [
+     "F40",
+     "R3",
+     "X20"
+    ],
+    "claims": [
+     {
+      "claim": "$8.88 billion",
+      "value": 8.88,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F40"
+      ]
+     },
+     {
+      "claim": "0.06%",
+      "value": 0.06,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "passage R3",
+      "ids": [
+       "R3"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Revenue fell 3.4% in FY2024 [D410] but rose 4.3% in FY2025 [D463], so the earlier decline is dropped as a flag.",
+    "type": "fact",
+    "citations": [
+     "D410",
+     "D463"
+    ],
+    "claims": [
+     {
+      "claim": "3.4%",
+      "value": 3.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D410"
+      ]
+     },
+     {
+      "claim": "4.3%",
+      "value": 4.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D463"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Operating margin: the trend holds while it stays above the 14.3% window median [D1123], from 16.5% [F30]; a fall below 14.3% would reverse it. Filing: FY2026 10-K.",
+    "type": "judgement",
+    "citations": [
+     "D1123",
+     "F30"
+    ],
+    "claims": [
+     {
+      "claim": "14.3%",
+      "value": 14.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1123"
+      ]
+     },
+     {
+      "claim": "16.5%",
+      "value": 16.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F30"
+      ]
+     },
+     {
+      "claim": "14.3%",
+      "value": 14.3,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D1123"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Manufacturing costs: FY2025 absorbed $2.148 billion [P9], and the company guides to higher Power & Energy manufacturing costs in Q1 2026 [P14].",
+    "type": "fact",
+    "citations": [
+     "P9",
+     "P14"
+    ],
+    "claims": [
+     {
+      "claim": "$2.148 billion",
+      "value": 2.148,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "passage P9",
+      "ids": [
+       "P9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Buybacks plus dividends above the FY2024 level of 102.9% of free cash flow [D406] would mean debt-funded returns continue, widening net debt beyond $26.2 billion [D456].",
+    "type": "judgement",
+    "citations": [
+     "D406",
+     "D456"
+    ],
+    "claims": [
+     {
+      "claim": "102.9%",
+      "value": 102.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D406"
+      ]
+     },
+     {
+      "claim": "$26.2 billion",
+      "value": 26.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D456"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ]
+ }
+}

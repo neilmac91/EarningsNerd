@@ -1,0 +1,106 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "86c02231a6809c46d07f0ecb696d7b81c97f5564645f0320f82fc9f0678b9716",
+ "y_sha256": "773cf46bbbb2bf314c530144770e0157b539697a3270b52bac3cd9d260549e79",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "Both drafts have grounding slips. A says the payout gap was closed 'partly by debt' while long-term debt fell 8.6%, and it omits Argentina from the other-income driver. B's errors are worse: it explains the 0.68x current ratio as cash versus total debt, and says the tax rate 'closes' the net-margin gap. A ties Beauty growth to cited innovation-led volume and sets sensible thresholds. B's watch item pointing toward the impairment-driven 8.1% low is poorly calibrated."
+   },
+   "cost_usd": 0.152589,
+   "latency_s": 17.603,
+   "backend": "claude_cli",
+   "input_tokens": 16121,
+   "cached_input_tokens": 727,
+   "output_tokens": 1465,
+   "reasoning_tokens": 1216,
+   "meta": {
+    "duration_api_ms": 13490,
+    "cache_creation_input_tokens": 15392,
+    "list_cost_usd": 0.091021
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"slight\",\n \"rationale\": \"Both drafts have grounding slips. A says the payout gap was closed 'partly by debt' while long-term debt fell 8.6%, and it omits Argentina from the other-income driver. B's errors are worse: it explains the 0.68x current ratio as cash versus total debt, and says the tax rate 'closes' the net-margin gap. A ties Beauty growth to cited innovation-led volume and sets sensible thresholds. B's watch item pointing toward the impairment-driven 8.1% low is poorly calibrated.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts have one grounding slip. A says cash versus total debt 'leaves' a 0.68x current ratio, a false causal link. B calls 5.1% capex the window's highest intensity, but FY2017 was about 5.2%, and it credits other income to Glad alone. B goes deeper: cited segment drivers, incremental margin, cost-of-revenue share and ROE context. Its watch thresholds are realistic, unlike A's FY2019 8.1% impairment low."
+   },
+   "cost_usd": 0.155245,
+   "latency_s": 18.184,
+   "backend": "claude_cli",
+   "input_tokens": 16123,
+   "cached_input_tokens": 727,
+   "output_tokens": 1597,
+   "reasoning_tokens": 1365,
+   "meta": {
+    "duration_api_ms": 14825,
+    "cache_creation_input_tokens": 15394,
+    "list_cost_usd": 0.093669
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts have one grounding slip. A says cash versus total debt 'leaves' a 0.68x current ratio, a false causal link. B calls 5.1% capex the window's highest intensity, but FY2017 was about 5.2%, and it credits other income to Glad alone. B goes deeper: cited segment drivers, incremental margin, cost-of-revenue share and ROE context. Its watch thresholds are realistic, unlike A's FY2019 8.1% impairment low.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.307834
+}

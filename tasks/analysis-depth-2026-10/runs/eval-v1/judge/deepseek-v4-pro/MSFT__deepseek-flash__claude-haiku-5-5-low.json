@@ -1,0 +1,86 @@
+{
+ "ticker": "MSFT",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A offers deeper causal analysis, more precise segment/product drivers, and explicit red flags with numeric thresholds. Both are well-grounded, but A's coverage of FY2018 net income anomaly and FY2017 restatement adds value. B is solid but less comprehensive."
+   },
+   "cost_usd": 0.004914,
+   "latency_s": 2.789,
+   "input_tokens": 9789,
+   "output_tokens": 126,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A offers deeper causal analysis, more precise segment/product drivers, and explicit red flags with numeric thresholds. Both are well-grounded, but A's coverage of FY2018 net income anomaly and FY2017 restatement adds value. B is solid but less comprehensive.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft B provides deeper causal analysis, including segment-level drivers, margin decomposition, and historical anomalies, with stronger grounding and calibration. Draft A is concise but less insightful. B's coverage is broader, though slightly less clear. Overall, B better serves the reader."
+   },
+   "cost_usd": 0.00491,
+   "latency_s": 3.164,
+   "input_tokens": 9789,
+   "output_tokens": 124,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"B\",\n    \"grounding\": \"A\",\n    \"coverage\": \"B\",\n    \"clarity\": \"B\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"B\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft B provides deeper causal analysis, including segment-level drivers, margin decomposition, and historical anomalies, with stronger grounding and calibration. Draft A is concise but less insightful. B's coverage is broader, though slightly less clear. Overall, B better serves the reader.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.009824
+}

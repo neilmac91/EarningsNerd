@@ -1,0 +1,3008 @@
+{
+ "label": "eval-v2-r1",
+ "systems": [
+  "deepseek-flash",
+  "deepseek-flash-c"
+ ],
+ "splits": {
+  "dev": {
+   "companies": 10,
+   "arms": {
+    "deepseek-flash": {
+     "n": 0,
+     "generated": 0,
+     "pending_repairs": 0,
+     "provider_errors": 0
+    },
+    "deepseek-flash-c": {
+     "n": 0,
+     "generated": 0,
+     "pending_repairs": 0,
+     "provider_errors": 0
+    }
+   },
+   "judge": {
+    "judged_pairs": 0,
+    "incomplete_panels": 0,
+    "unjudged_pairs": 0,
+    "stale_verdicts": 0,
+    "panels": {},
+    "wins": {},
+    "consensus": {},
+    "judged_by": {},
+    "criteria": {},
+    "grounding_and_calibration": {},
+    "by_judge": {},
+    "swap_agreement": {},
+    "between_judges": [
+     null,
+     0
+    ]
+   },
+   "causes": {
+    "causes": {},
+    "causes-by-deepseek-v4-pro": {}
+   },
+   "semantics": {
+    "semantics": {},
+    "semantics-by-deepseek-v4-pro": {}
+   },
+   "measures": {
+    "deepseek-flash": {},
+    "deepseek-flash-c": {}
+   }
+  },
+  "holdout": {
+   "companies": 10,
+   "arms": {
+    "deepseek-flash": {
+     "n": 10,
+     "generated": 10,
+     "pending_repairs": 0,
+     "provider_errors": 0,
+     "first_pass_gate": 2,
+     "final_gate": 9,
+     "first_pass_gate_now": 2,
+     "final_gate_now": 9,
+     "repaired": 8,
+     "claims_mean": 75.4,
+     "first_pass_claims": 754,
+     "first_pass_failed_claims": 10,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 9,
+      "other": 2,
+      "cause_without_passage": 3,
+      "period": 1
+     },
+     "sentence_mix": {
+      "fact": 0.18900343642611683,
+      "comparison": 0.6082474226804123,
+      "cause": 0.19243986254295534,
+      "judgement": 0.010309278350515464
+     },
+     "sentences_mean": 29.1,
+     "causes_mean": 5.6,
+     "passages_cited_mean": 7.3,
+     "words_mean": 625.6,
+     "words_max": 707,
+     "cost_mean": 0.0068243999999999996,
+     "cost_n": 10,
+     "cost_recorded_mean": 0.0068243999999999996,
+     "shared_prefix_tokens": {
+      "d558d371": 1920
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "failed_generations": 0,
+     "failed_generation_cost": 0,
+     "backends": [
+      "openai_compat"
+     ],
+     "input_tokens_mean": 69375,
+     "output_tokens_mean": 2023.9,
+     "latency_p50": 12.276,
+     "latency_p90": 13.7032
+    },
+    "deepseek-flash-c": {
+     "n": 10,
+     "generated": 10,
+     "pending_repairs": 0,
+     "provider_errors": 0,
+     "first_pass_gate": 6,
+     "final_gate": 10,
+     "first_pass_gate_now": 6,
+     "final_gate_now": 10,
+     "repaired": 4,
+     "claims_mean": 67.5,
+     "first_pass_claims": 679,
+     "first_pass_failed_claims": 7,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "no_match": 7
+     },
+     "sentence_mix": {
+      "fact": 0.14814814814814814,
+      "comparison": 0.569023569023569,
+      "cause": 0.1750841750841751,
+      "judgement": 0.10774410774410774
+     },
+     "sentences_mean": 29.7,
+     "causes_mean": 5.2,
+     "passages_cited_mean": 7,
+     "words_mean": 588.9,
+     "words_max": 700,
+     "cost_mean": 0.0065445,
+     "cost_n": 10,
+     "cost_recorded_mean": 0.0065445,
+     "shared_prefix_tokens": {
+      "fc5b808c": 2688
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "failed_generations": 0,
+     "failed_generation_cost": 0,
+     "backends": [
+      "openai_compat"
+     ],
+     "input_tokens_mean": 53668.3,
+     "output_tokens_mean": 1843.2,
+     "latency_p50": 10.1195,
+     "latency_p90": 12.4834
+    }
+   },
+   "judge": {
+    "judged_pairs": 10,
+    "incomplete_panels": 0,
+    "unjudged_pairs": 0,
+    "stale_verdicts": 0,
+    "panels": {
+     "neutral": 10
+    },
+    "wins": {
+     "deepseek-flash|deepseek-flash-c": {
+      "deepseek-flash-c": 4,
+      "deepseek-flash": 3,
+      "tie": 3
+     }
+    },
+    "consensus": {},
+    "judged_by": {
+     "deepseek-flash|deepseek-flash-c": {
+      "claude-opus-5-5": 10
+     }
+    },
+    "criteria": {
+     "deepseek-flash|deepseek-flash-c": {
+      "depth": {
+       "tie": 6,
+       "deepseek-flash": 4
+      },
+      "grounding": {
+       "deepseek-flash-c": 5,
+       "deepseek-flash": 3,
+       "tie": 2
+      },
+      "coverage": {
+       "tie": 7,
+       "deepseek-flash": 3
+      },
+      "clarity": {
+       "tie": 5,
+       "deepseek-flash": 4,
+       "deepseek-flash-c": 1
+      },
+      "calibration": {
+       "deepseek-flash-c": 4,
+       "deepseek-flash": 2,
+       "tie": 4
+      }
+     }
+    },
+    "grounding_and_calibration": {
+     "deepseek-flash|deepseek-flash-c": {
+      "of": 10,
+      "deepseek-flash": 5,
+      "deepseek-flash-c": 7
+     }
+    },
+    "by_judge": {
+     "deepseek-flash|deepseek-flash-c": {
+      "claude-opus-5-5": {
+       "deepseek-flash-c": 4,
+       "deepseek-flash": 3,
+       "tie": 3
+      }
+     }
+    },
+    "swap_agreement": {
+     "claude-opus-5-5": [
+      0.7,
+      10
+     ]
+    },
+    "between_judges": [
+     null,
+     0
+    ]
+   },
+   "causes": {
+    "causes": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 39,
+       "partial": 16,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "left_out": {}
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "supported": 37,
+       "partial": 15
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "left_out": {}
+     }
+    },
+    "causes-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 50,
+       "partial": 5,
+       "unsupported": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "left_out": {}
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "supported": 45,
+       "partial": 5,
+       "unsupported": 2
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "left_out": {}
+     }
+    }
+   },
+   "semantics": {
+    "semantics": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 746,
+       "mismatch": 6,
+       "mismatch_substantive": 3,
+       "mismatch_ambiguous": 3
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash is still 30.5% of revenue , above the peer median of 17.8%  and the 75th percentile of four autos peers .",
+        "reason": "75 is Rivian's own percentile rank, not a peer threshold it sits above."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "ambiguous",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025  and at least 10% in each of the last five years , equal to 20.7% of the operating loss .",
+        "reason": "Bound applied to five years; the evidence is the FY2025 value only."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin fell 0.3pp , with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Attributed to cost of revenue effect; the match is the total operating margin change."
+       },
+       {
+        "ticker": "KO",
+        "kind": "ambiguous",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025 , ranking 0th percentile against a 0.94x peer median  .",
+        "reason": "Bound is applied to FCF/net income, but the match is the percentile rank."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "41.1%",
+        "sentence": "Operating income grew faster than revenue over the window, at a 16.9% CAGR to FY2024 against 6.2% for revenue to FY2025 , but the incremental operating margin turned negative in FY2024 at 41.1% .",
+        "reason": "Incremental margin is +41.10%; sentence says it turned negative"
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "80%",
+        "sentence": "Free cash flow was below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x, against a 1.06x window median .",
+        "reason": "Match bounds FCF/NI relative to the window median, not FCF as a share of net income."
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "consistent": 667,
+       "mismatch": 8,
+       "mismatch_substantive": 5,
+       "mismatch_ambiguous": 3
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$192.0 million",
+        "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $192.0 million is immaterial to the trend .",
+        "reason": "Value is FY2019 share repurchases, not a buyback restatement."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "26.8pp",
+        "sentence": "The 26.8pp operating-margin gain in FY2025 came almost entirely from cost of revenue, helped by fewer vehicles produced and lower raw material and conversion costs .",
+        "reason": "Value is the cost-of-revenue effect, not the total operating-margin gain."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin fell 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Number is total operating margin change, not the cost-of-revenue effect."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.94x",
+        "sentence": "The current ratio was 0.94x, matching the 0.94x window median and above the 0.83x low .",
+        "reason": "Number is called the window median but matched to the FY2025 current ratio."
+       },
+       {
+        "ticker": "AMD",
+        "kind": "ambiguous",
+        "claim": "51%",
+        "sentence": "Client revenue rose 51% on a 31% increase in processor unit shipments and a 15% increase in average selling price, and Gaming rose 51% on higher semi-custom revenue and Radeon GPU demand .",
+        "reason": "The passage's 51% is Client growth; the sentence calls it Gaming growth."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "3.4%",
+        "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+        "reason": "Opex growth was -3.42%; sentence presents it as growth of 3.4%"
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "The sentence bounds the ratio levels; the match is the ratio's growth, -9.40%."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "3.7pp",
+        "sentence": "In FY2025 net margin of 11.0%  sat 2.7pp below FY2024's 13.7% , and the 20.1% effective tax rate  left net margin 3.7pp under the FY2024 operating margin .",
+        "reason": "Value compares FY2024 net and operating margins; sentence implies FY2025 net margin."
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     }
+    },
+    "semantics-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 752
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [],
+      "views": {
+       "2": 10
+      }
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "consistent": 674,
+       "mismatch": 1,
+       "mismatch_substantive": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "3.4%",
+        "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+        "reason": "says grew 3.4% but evidence is -3.42% decline"
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     }
+    }
+   },
+   "measures": {
+    "deepseek-flash": {
+     "analyses": 10,
+     "failed_generations": 0,
+     "pipeline_v2": 10,
+     "awaiting_repair": 0,
+     "provider_errors": 0,
+     "builds": {
+      "v2 \u00b7 prompt d558d371 \u00b7 packs": 10
+     },
+     "pack_sha256": {
+      "AMD": "c2ec7bbed29a",
+      "CVX": "0bb89a04f888",
+      "DE": "b30da38a179d",
+      "DUK": "3355b2ee2747",
+      "KO": "707e4b09ce9c",
+      "ORCL": "a825bc71bd0f",
+      "RIVN": "a129f7dec8f3",
+      "TGT": "2d04346691c7",
+      "USB": "ef563b3d65e3",
+      "VRTX": "0c221e8127cf"
+     },
+     "passes_without_repair": 2,
+     "repairs": {
+      "patch": 8
+     },
+     "repairs_sent_or_owed": 8,
+     "repairs_for_broken_debt_alone": [],
+     "code_fixed_passes": 0,
+     "first_try_scored": 10,
+     "first_try_errors": 13,
+     "first_try_failures": [
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change, not a compounder: revenue sat near $22-23 billion through FY2021, jumped 15.8% in FY2023 to $28.0 billion, and has grown only 1.9% since [D169][D219][D189].",
+       "claim": "$22",
+       "failure": "'$22' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change, not a compounder: revenue sat near $22-23 billion through FY2021, jumped 15.8% in FY2023 to $28.0 billion, and has grown only 1.9% since [D169][D219][D189].",
+       "claim": "23 billion",
+       "failure": "'23 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "TGT",
+       "section": "watch",
+       "sentence": "Capex guidance of about $5 billion for FY2026 [P4] against FY2025's $3.73 billion [F94] would push capex near 4.8% of revenue if sales hold at $104.8 billion [F10], testing the cash conversion trend.",
+       "claim": "4.8%",
+       "failure": "'4.8%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "AMD",
+       "section": "margins",
+       "sentence": "SG&A rose 48.9% on higher go-to-market spending, and R&D rose 25.3% [D503][D502].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "CVX",
+       "section": "arc",
+       "sentence": "The FY2022 jump came from higher upstream realizations and downstream margins [P57], and the FY2023 reversal of 16.5% to $197 billion [F8][D274] came from lower realizations and margins [P43][P44].",
+       "claim": "$197 billion",
+       "failure": "'$197 billion' matches cited but not in the period(s) named (2022)"
+      },
+      {
+       "ticker": "CVX",
+       "section": "drivers",
+       "sentence": "Downstream was the drag: non-U.S. downstream fell 13.1% and U.S. downstream 8.5%, together subtracting 7.9pp [D518][D519][D525][D526].",
+       "claim": "7.9pp",
+       "failure": "'7.9pp' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "CVX",
+       "section": "margins",
+       "sentence": "Below the line, the effective tax rate rose to 36.8% from 35.5% [D345][D303], and interest expense more than doubled to $1.2 billion [X80][X79], pulling net margin down 2.5pp [D369].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "CVX",
+       "section": "cash",
+       "sentence": "Conversion held up because working capital was released, with receivables down 12.8% [D377], while inventory rose 7.0% [D378].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "KO",
+       "section": "margins",
+       "sentence": "Net margin of 27.3% [F70] exceeded operating margin's 28.7% gap only slightly, helped by a 17.9% tax rate [D435] and $1.1 billion of other income [X100].",
+       "claim": "28.7%",
+       "failure": "'28.7%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "KO",
+       "section": "watch",
+       "sentence": "Buybacks plus dividends against free cash flow: a fall back below 100% from 179.9% [D445] would signal the payout is being re-based to cash generation; watch the FY2026 financing cash flow lines.",
+       "claim": "100%",
+       "failure": "'100%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "DE",
+       "section": "margins",
+       "sentence": "Net margin fell 2.7pp in FY2025 to 11.0% [F50][D422], while the effective tax rate eased to 20.1% [D400] and interest expense of $3.2 billion [F82] weighed on the $6.3 billion pretax line [X92].",
+       "claim": "$3.2 billion",
+       "failure": "'$3.2 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "DE",
+       "section": "red_flags",
+       "sentence": "The FY2017 SG&A figure was later restated to $3,098.0 million from $3,066.6 million [X34], a data-quality note that does not change the conclusions here.",
+       "claim": "$3,098.0 million",
+       "failure": "'$3,098.0 million' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "red_flags",
+       "sentence": "Net cash has fallen for two years into net debt, and total debt rose 40% in FY2026 [D320][D367][D414][D413].",
+       "claim": "40%",
+       "failure": "'40%' matches nothing the sentence cites"
+      }
+     ],
+     "first_try_backstops": 2,
+     "first_try_backstop_hits": [
+      {
+       "ticker": "TGT",
+       "section": "balance_sheet",
+       "sentence": "Net debt was $4.30 billion, or 4.1% of revenue [D410][D411], better than the retail peer median of -3.5% net cash and at the 50th percentile of six peers [D613][D612].",
+       "claim": "-3.5%",
+       "kinds": [
+        "R2c"
+       ],
+       "detail": [
+        "'better' but net cash -4.103 [D411] is below -3.488 [D613]"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "balance_sheet",
+       "sentence": "Net debt reached $89.6 billion, or 282.3% of revenue, against a peer median of -228.4%, a 25th-percentile position [D352][D353][D954][D953].",
+       "claim": "-228.4%",
+       "kinds": [
+        "R2a"
+       ],
+       "detail": [
+        "net cash's minus sign printed under 'net debt' [D954]"
+       ]
+      }
+     ],
+     "first_try_as_run": [
+      {
+       "ticker": "VRTX",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "RIVN",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "USB",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "TGT",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "AMD",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "CVX",
+       "basis": "raw_first_pass_gate",
+       "failures": 4
+      },
+      {
+       "ticker": "KO",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "DE",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "DUK",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "ORCL",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      }
+     ],
+     "retyped": [],
+     "verified_claims": 752,
+     "mislabels": 3,
+     "mislabel_claims": 3,
+     "probe_mislabels": 0,
+     "opus_mislabels": 3,
+     "audited_verified_claims": 752,
+     "audited_mislabels": 3,
+     "audited_probe_mislabels": 0,
+     "audited_opus_mislabels": 3,
+     "opus_substantive": 3,
+     "opus_audited": 10,
+     "opus_views": {
+      "2": 10
+     },
+     "opus_other": [
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Stock-based compensation was 13.8% of revenue in FY2025  and at least 10% in each of the last five years , equal to 20.7% of the operating loss .",
+       "claim": "10%",
+       "detail": "Bound applied to five years; the evidence is the FY2025 value only.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The FY2025 margin fell 0.3pp , with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+       "claim": "0.3pp",
+       "detail": "Attributed to cost of revenue effect; the match is the total operating margin change.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "KO",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025 , ranking 0th percentile against a 0.94x peer median  .",
+       "claim": "80%",
+       "detail": "Bound is applied to FCF/net income, but the match is the percentile rank.",
+       "class": "ambiguous"
+      }
+     ],
+     "mislabel_list": [
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Net cash is still 30.5% of revenue , above the peer median of 17.8%  and the 75th percentile of four autos peers .",
+       "claim": "75th percentile",
+       "detail": "75 is Rivian's own percentile rank, not a peer threshold it sits above."
+      },
+      {
+       "ticker": "DE",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Operating income grew faster than revenue over the window, at a 16.9% CAGR to FY2024 against 6.2% for revenue to FY2025 , but the incremental operating margin turned negative in FY2024 at 41.1% .",
+       "claim": "41.1%",
+       "detail": "Incremental margin is +41.10%; sentence says it turned negative"
+      },
+      {
+       "ticker": "ORCL",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow was below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x, against a 1.06x window median .",
+       "claim": "80%",
+       "detail": "Match bounds FCF/NI relative to the window median, not FCF as a share of net income."
+      }
+     ],
+     "U1": [],
+     "unitless_dollars": [],
+     "gap_direction": [],
+     "logic_slips": [
+      {
+       "ticker": "DE",
+       "kind": "logic_direction",
+       "section": "balance_sheet",
+       "sentence": "Net debt was $5.5 billion at FY2025 [D407], down from $35.8 billion in FY2021 [D226], as total debt fell to $13.8 billion [D406] against $8.3 billion of cash [F140].",
+       "claim": "$13.8 billion",
+       "detail": "says it fell; FY2024 was 1.3533e+10"
+      }
+     ],
+     "judgement_outside_watch": [
+      3,
+      261
+     ],
+     "evaluative": [
+      10,
+      177
+     ],
+     "evaluative_list": [
+      {
+       "ticker": "VRTX",
+       "section": "margins",
+       "sentence": "The FY2025 effective tax rate of 14.9% compares with 315.5% in FY2024, when non-deductible Alpine AIPR&D distorted the rate [D433][D390][P5].",
+       "words": [
+        "distorted"
+       ]
+      },
+      {
+       "ticker": "VRTX",
+       "section": "red_flags",
+       "sentence": "The effective tax rate fell 300.7pp to 14.9% in FY2025 from the distorted 315.5% FY2024 level [D433][D390][R2].",
+       "words": [
+        "distorted"
+       ]
+      },
+      {
+       "ticker": "USB",
+       "section": "red_flags",
+       "sentence": "It proved short-lived: revenue rebounded 4.4% in FY2025, so the flag is one period, not a trend [D239].",
+       "words": [
+        "short-lived"
+       ]
+      },
+      {
+       "ticker": "USB",
+       "section": "red_flags",
+       "sentence": "More persistent is the weak capital return, with buybacks at $489 million against $4.5 billion in FY2019 [X85][X79].",
+       "words": [
+        "persistent"
+       ]
+      },
+      {
+       "ticker": "TGT",
+       "section": "red_flags",
+       "sentence": "Revenue has now fallen three years running, from $109.1 billion in FY2022 to $104.8 billion in FY2025 [F7][F8][F9][F10], a persistent top-line erosion [R1].",
+       "words": [
+        "persistent"
+       ]
+      },
+      {
+       "ticker": "TGT",
+       "section": "red_flags",
+       "sentence": "The current ratio sits at 0.94x [F184], below 1.0x and at the window median [D602], leaving little liquidity cushion [R2].",
+       "words": [
+        "cushion"
+       ]
+      },
+      {
+       "ticker": "CVX",
+       "section": "red_flags",
+       "sentence": "Payouts have exceeded free cash flow for three years, at 132.8%, 179.7% and 149.7% [D270][D312][D354][R4], which is only sustainable while the balance sheet absorbs it.",
+       "words": [
+        "sustainable"
+       ]
+      },
+      {
+       "ticker": "KO",
+       "section": "red_flags",
+       "sentence": "Payouts exceeded free cash flow in FY2023, FY2024 and FY2025 [D344][D395][D445], a three-year pattern that leans on the balance sheet [R2].",
+       "words": [
+        "leans on"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "margins",
+       "sentence": "Revenue grew 5.6% against 5.3% operating-cost growth, a thin 0.3pp spread that still lifted margin 0.8pp [D358][D372][D379][D370].",
+       "words": [
+        "thin"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "red_flags",
+       "sentence": "Cash of $245 million covers 0.1 years of the latest $1.7 billion burn, leaving little buffer [F137][D356][F97].",
+       "words": [
+        "buffer"
+       ]
+      }
+     ],
+     "watch_forecasts": [
+      2,
+      30
+     ],
+     "watch_forecast_list": [
+      {
+       "ticker": "TGT",
+       "section": "watch",
+       "sentence": "Capex guidance of about $5 billion for FY2026 [P4] against FY2025's $3.73 billion [F94] would lift capex well above FY2025's 3.6% of revenue [D400] if sales hold at $104.8 billion [F10], testing the cash conversion trend.",
+       "wording": "would lift"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "watch",
+       "sentence": "Whether FY2027 capex falls below the FY2026 $55.7 billion level, which would lift free cash flow margin off the -35.2% low [F94][D405].",
+       "wording": "would lift"
+      }
+     ],
+     "broken_net_cash": {
+      "analyses": 6,
+      "stated_as_fact": 4,
+      "disclosed": 0,
+      "by_check": {
+       "debt_break": [
+        3,
+        6
+       ],
+       "liquidity_break": [
+        1,
+        2
+       ]
+      },
+      "stated_sentences": 9,
+      "peer_sentences": 2,
+      "peer_analyses": 2,
+      "list": [
+       {
+        "ticker": "RIVN",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash is still 30.5% of revenue [D232], above the peer median of 17.8% [D352] and the 75th percentile of four autos peers [D351].",
+          "breaks": [
+           "peer_break"
+          ],
+          "claims": [
+           "'17.8%' rests on D352 (Net cash % of revenue: autos peer median (n=4), FY2025), a version-1 peer rank or median built on a peer's broken year",
+           "'75th percentile' rests on D351 (Net cash % of revenue: percentile vs autos peers (n=4), FY2025), a version-1 peer rank or median built on a peer's broken year"
+          ]
+         }
+        ]
+       },
+       {
+        "ticker": "USB",
+        "state": "silent",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "TGT",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $4.30 billion, or 4.1% of revenue [D410][D411], a larger net debt burden than the retail peer median of -3.5% net cash, though it ranks at the 50th percentile of six peers [D613][D612].",
+          "breaks": [
+           "liquidity_break"
+          ],
+          "claims": [
+           "'$4.30 billion' rests on D410 (Net cash (cash and investments less debt), FY2025), built on a year whose cash and investments are broken",
+           "'4.1%' rests on D411 (Net cash % of revenue, FY2025), built on a year whose cash and investments are broken",
+           "'-3.5%' rests on D613 (Net cash % of revenue: retail peer median (n=6), FY2025), built on a year whose cash and investments are broken",
+           "'50th percentile' rests on D612 (Net cash % of revenue: percentile vs retail peers (n=6), FY2025), built on a year whose cash and investments are broken"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "Cash and investments reached $10.1 billion against $14.4 billion of debt [D408][D409], and the current ratio was 0.94x [F184].",
+          "breaks": [
+           "liquidity_break"
+          ],
+          "claims": [
+           "'$10.1 billion' rests on D408 (Cash and investments, FY2025), built on a year whose cash and investments are broken"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "AMD",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827].",
+          "breaks": [
+           "peer_break"
+          ],
+          "claims": [
+           "'100th percentile' rests on D826 (Net cash % of revenue: percentile vs semis peers (n=6), FY2025), a version-1 peer rank or median built on a peer's broken year",
+           "'-13.9%' rests on D827 (Net cash % of revenue: semis peer median (n=6), FY2025), a version-1 peer rank or median built on a peer's broken year"
+          ]
+         }
+        ]
+       },
+       {
+        "ticker": "CVX",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Chevron ended FY2025 with net cash of $3.96 billion [D351], 2.1% of revenue [D352], after net debt of $156 million in FY2024 [D309].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$3.96 billion' rests on D351 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'2.1%' rests on D352 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'$156 million' rests on D309 (Net cash (cash and investments less debt), FY2024), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "That 2.1% ranks at the 83rd percentile of six energy peers against a -7.7% median [D352][D637][D638], with total debt down 60.5% to $3.3 billion [D350][D376].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'2.1%' rests on D352 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'83rd percentile' rests on D637 (Net cash % of revenue: percentile vs energy peers (n=6), FY2025), built on a debt-break year",
+           "'-7.7%' rests on D638 (Net cash % of revenue: energy peer median (n=6), FY2025), built on a debt-break year",
+           "'60.5%' rests on D376 (Total debt growth, FY2025), built on a debt-break year",
+           "'$3.3 billion' rests on D350 (Total debt, FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "watch",
+          "sentence": "Watch net cash against the FY2025 $3.96 billion [D351]; a return to net debt would reverse the balance-sheet improvement that now ranks at the 83rd peer percentile [D637].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$3.96 billion' rests on D351 (Net cash (cash and investments less debt), FY2025), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "KO",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash of $8.8 billion [D442] equals 18.3% of revenue [D443], in the 100th percentile of six staples peers against a -14.5% peer median [D793][D794].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$8.8 billion' rests on D442 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'18.3%' rests on D443 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'100th percentile' rests on D793 (Net cash % of revenue: percentile vs staples peers (n=6), FY2025), built on a debt-break year",
+           "'-14.5%' rests on D794 (Net cash % of revenue: staples peer median (n=6), FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Total debt rose 31.3% in FY2025 [D470] to $1.5 billion [D441], though from a near-zero base after the prior-year 97.3% decline [D420] [R4].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'31.3%' rests on D470 (Total debt growth, FY2025), built on a debt-break year",
+           "'$1.5 billion' rests on D441 (Total debt, FY2025), built on a debt-break year",
+           "'97.3%' rests on D420 (Total debt growth, FY2024), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "DE",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $5.5 billion at FY2025 [D407], down from $35.8 billion in FY2021 [D226], as total debt fell to $13.8 billion [D406] against $8.3 billion of cash [F140].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$5.5 billion' rests on D407 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'$13.8 billion' rests on D406 (Total debt, FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was 12.1% of revenue [D408], better than the industrials peer median net debt of 38.8% of revenue and at the 100th percentile of seven peers [D1358][D1357].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'12.1%' rests on D408 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'38.8%' rests on D1358 (Net cash % of revenue: industrials peer median (n=7), FY2025), built on a debt-break year",
+           "'100th percentile' rests on D1357 (Net cash % of revenue: percentile vs industrials peers (n=7), FY2025), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "DUK",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "ORCL",
+        "state": "silent",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       }
+      ]
+     },
+     "cause_support": {
+      "audited": 10,
+      "supported": 39,
+      "partial": 16,
+      "unsupported": 1
+     },
+     "causes_per_analysis": 5.6,
+     "form": {
+      "words_mean": 625.6,
+      "words_max": 707,
+      "sentences_mean": 29.1,
+      "sentences_max": 30,
+      "all_sections": 10,
+      "within_target": 8
+     },
+     "cost_mean": 0.0068243999999999996,
+     "cost_n": 10,
+     "latency_p50": 12.276,
+     "latency_p90": 13.7032,
+     "shared_prefix_tokens": {
+      "d558d371": 1920
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "old_gate": {
+      "commit": "b3ed8ef",
+      "first_try": 2,
+      "first_try_of": 10,
+      "final": 7
+     }
+    },
+    "deepseek-flash-c": {
+     "analyses": 10,
+     "failed_generations": 0,
+     "pipeline_v2": 10,
+     "awaiting_repair": 0,
+     "provider_errors": 0,
+     "builds": {
+      "v2 \u00b7 prompt fc5b808c \u00b7 packs-v2": 10
+     },
+     "pack_sha256": {
+      "AMD": "bc2e03aa3e18",
+      "CVX": "ce8f350bdeee",
+      "DE": "6a8e9e2ab579",
+      "DUK": "aecb0bf67b43",
+      "KO": "d8943d3e826f",
+      "ORCL": "fdd0e10f7822",
+      "RIVN": "95ba176cca60",
+      "TGT": "dafb87217335",
+      "USB": "8bb83eeeed7c",
+      "VRTX": "b87ffa3b7d91"
+     },
+     "passes_without_repair": 6,
+     "repairs": {
+      "patch": 4
+     },
+     "repairs_sent_or_owed": 4,
+     "repairs_for_broken_debt_alone": [],
+     "code_fixed_passes": 0,
+     "first_try_scored": 10,
+     "first_try_errors": 7,
+     "first_try_failures": [
+      {
+       "ticker": "VRTX",
+       "section": "red_flags",
+       "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $186.0 million against $192.0 million is immaterial to the trend [X141].",
+       "claim": "$186.0 million",
+       "failure": "'$186.0 million' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change rather than compounding: revenue was $22.7 billion in FY2021 and $28.0 billion in FY2023, a 23.2% jump in two years [D117][D169].",
+       "claim": "23.2%",
+       "failure": "'23.2%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "drivers",
+       "sentence": "Operating costs grew 2.0pp slower than revenue, with noninterest expense down 2.0% [D238].",
+       "claim": "2.0pp",
+       "failure": "'2.0pp' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "balance_sheet",
+       "sentence": "Buybacks plus dividends of $3.7 billion were below the $6.9 billion of FY2019, and buybacks fell to $489 million from $4.5 billion [D218][D65][X85][X79].",
+       "claim": "$6.9 billion",
+       "failure": "'$6.9 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "AMD",
+       "section": "balance_sheet",
+       "sentence": "Total debt rose 138% to $4.10 billion after $1.5 billion of notes were issued in March 2025, while cash and investments more than doubled to $10.6 billion [D475][P6][D474][D507].",
+       "claim": "138%",
+       "failure": "'138%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "balance_sheet",
+       "sentence": "Buybacks plus dividends of $5.9 billion were 8.7% of the -$23.7 billion free cash flow, and the diluted share count rose 1.7% [D416][F104][D438].",
+       "claim": "8.7%",
+       "failure": "'8.7%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "red_flags",
+       "sentence": "Free cash flow ran below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x [D362][D409].",
+       "claim": "80%",
+       "failure": "'80%' matches nothing the sentence cites"
+      }
+     ],
+     "first_try_backstops": 0,
+     "first_try_backstop_hits": [],
+     "first_try_as_run": [
+      {
+       "ticker": "VRTX",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "RIVN",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "USB",
+       "basis": "raw_first_pass_gate",
+       "failures": 3
+      },
+      {
+       "ticker": "TGT",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "AMD",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "CVX",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "KO",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "DE",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "DUK",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "ORCL",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      }
+     ],
+     "retyped": [],
+     "verified_claims": 675,
+     "mislabels": 5,
+     "mislabel_claims": 5,
+     "probe_mislabels": 0,
+     "opus_mislabels": 5,
+     "audited_verified_claims": 675,
+     "audited_mislabels": 5,
+     "audited_probe_mislabels": 0,
+     "audited_opus_mislabels": 5,
+     "opus_substantive": 5,
+     "opus_audited": 10,
+     "opus_views": {
+      "2": 10
+     },
+     "opus_other": [
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The FY2025 margin fell 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+       "claim": "0.3pp",
+       "detail": "Number is total operating margin change, not the cost-of-revenue effect.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The current ratio was 0.94x, matching the 0.94x window median and above the 0.83x low .",
+       "claim": "0.94x",
+       "detail": "Number is called the window median but matched to the FY2025 current ratio.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "AMD",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Client revenue rose 51% on a 31% increase in processor unit shipments and a 15% increase in average selling price, and Gaming rose 51% on higher semi-custom revenue and Radeon GPU demand .",
+       "claim": "51%",
+       "detail": "The passage's 51% is Client growth; the sentence calls it Gaming growth.",
+       "class": "ambiguous"
+      }
+     ],
+     "mislabel_list": [
+      {
+       "ticker": "VRTX",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $192.0 million is immaterial to the trend .",
+       "claim": "$192.0 million",
+       "detail": "Value is FY2019 share repurchases, not a buyback restatement."
+      },
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The 26.8pp operating-margin gain in FY2025 came almost entirely from cost of revenue, helped by fewer vehicles produced and lower raw material and conversion costs .",
+       "claim": "26.8pp",
+       "detail": "Value is the cost-of-revenue effect, not the total operating-margin gain."
+      },
+      {
+       "ticker": "CVX",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+       "claim": "3.4%",
+       "detail": "Opex growth was -3.42%; sentence presents it as growth of 3.4%"
+      },
+      {
+       "ticker": "KO",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+       "claim": "80%",
+       "detail": "The sentence bounds the ratio levels; the match is the ratio's growth, -9.40%."
+      },
+      {
+       "ticker": "DE",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "In FY2025 net margin of 11.0%  sat 2.7pp below FY2024's 13.7% , and the 20.1% effective tax rate  left net margin 3.7pp under the FY2024 operating margin .",
+       "claim": "3.7pp",
+       "detail": "Value compares FY2024 net and operating margins; sentence implies FY2025 net margin."
+      }
+     ],
+     "U1": [],
+     "unitless_dollars": [],
+     "gap_direction": [],
+     "logic_slips": [],
+     "judgement_outside_watch": [
+      32,
+      267
+     ],
+     "evaluative": [
+      0,
+      159
+     ],
+     "evaluative_list": [],
+     "watch_forecasts": [
+      0,
+      30
+     ],
+     "watch_forecast_list": [],
+     "broken_net_cash": {
+      "analyses": 6,
+      "stated_as_fact": 0,
+      "disclosed": 5,
+      "by_check": {
+       "debt_break": [
+        0,
+        6
+       ],
+       "liquidity_break": [
+        0,
+        2
+       ]
+      },
+      "stated_sentences": 0,
+      "peer_sentences": 0,
+      "peer_analyses": 0,
+      "list": [
+       {
+        "ticker": "RIVN",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "USB",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt was last reported at $39.8 billion in FY2022 and is not reported after that year [X172][R2]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Long-term debt is not reported after FY2022, a data break that prevents a debt comparison across the window [R2][X172]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "TGT",
+        "state": "disclosed",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "red_flags",
+          "sentence": "Short-term investments are already inside cash in FY2016-FY2025, so net-cash figures built on them are excluded here [R7][F144][X170]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "That data break limits any net-cash comparison, so the balance-sheet read rests on gross cash and debt instead."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "AMD",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "CVX",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt is not reported after FY2021, so total debt and net cash are omitted for later years [X193]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "KO",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $32.4 billion in FY2023, net cash of -70.7% of revenue, but total debt is not reported after FY2023 so later net cash is omitted [D341][D342][X194]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "DE",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt is not reported after FY2021 [X191], so net cash and its peer rank cannot be computed across the window; the pack's net-cash figures stop at FY2021 [D226]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Long-term debt is missing after FY2021 and current debt missing before FY2020 [R9][R10][X191][X180], so net cash and debt growth are not comparable across the window."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "DUK",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "ORCL",
+        "state": "silent",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       }
+      ]
+     },
+     "cause_support": {
+      "audited": 10,
+      "supported": 37,
+      "partial": 15,
+      "unsupported": 0
+     },
+     "causes_per_analysis": 5.2,
+     "form": {
+      "words_mean": 588.9,
+      "words_max": 700,
+      "sentences_mean": 29.7,
+      "sentences_max": 30,
+      "all_sections": 10,
+      "within_target": 10
+     },
+     "cost_mean": 0.0065445,
+     "cost_n": 10,
+     "latency_p50": 10.1195,
+     "latency_p90": 12.4834,
+     "shared_prefix_tokens": {
+      "fc5b808c": 2688
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "old_gate": {
+      "commit": "b3ed8ef",
+      "first_try": 4,
+      "first_try_of": 10,
+      "final": 7
+     }
+    }
+   }
+  },
+  "all": {
+   "companies": 20,
+   "arms": {
+    "deepseek-flash": {
+     "n": 10,
+     "generated": 10,
+     "pending_repairs": 0,
+     "provider_errors": 0,
+     "first_pass_gate": 2,
+     "final_gate": 9,
+     "first_pass_gate_now": 2,
+     "final_gate_now": 9,
+     "repaired": 8,
+     "claims_mean": 75.4,
+     "first_pass_claims": 754,
+     "first_pass_failed_claims": 10,
+     "final_failed_claims": 1,
+     "failure_classes_first_pass": {
+      "no_match": 9,
+      "other": 2,
+      "cause_without_passage": 3,
+      "period": 1
+     },
+     "sentence_mix": {
+      "fact": 0.18900343642611683,
+      "comparison": 0.6082474226804123,
+      "cause": 0.19243986254295534,
+      "judgement": 0.010309278350515464
+     },
+     "sentences_mean": 29.1,
+     "causes_mean": 5.6,
+     "passages_cited_mean": 7.3,
+     "words_mean": 625.6,
+     "words_max": 707,
+     "cost_mean": 0.0068243999999999996,
+     "cost_n": 10,
+     "cost_recorded_mean": 0.0068243999999999996,
+     "shared_prefix_tokens": {
+      "d558d371": 1920
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "failed_generations": 0,
+     "failed_generation_cost": 0,
+     "backends": [
+      "openai_compat"
+     ],
+     "input_tokens_mean": 69375,
+     "output_tokens_mean": 2023.9,
+     "latency_p50": 12.276,
+     "latency_p90": 13.7032
+    },
+    "deepseek-flash-c": {
+     "n": 10,
+     "generated": 10,
+     "pending_repairs": 0,
+     "provider_errors": 0,
+     "first_pass_gate": 6,
+     "final_gate": 10,
+     "first_pass_gate_now": 6,
+     "final_gate_now": 10,
+     "repaired": 4,
+     "claims_mean": 67.5,
+     "first_pass_claims": 679,
+     "first_pass_failed_claims": 7,
+     "final_failed_claims": 0,
+     "failure_classes_first_pass": {
+      "no_match": 7
+     },
+     "sentence_mix": {
+      "fact": 0.14814814814814814,
+      "comparison": 0.569023569023569,
+      "cause": 0.1750841750841751,
+      "judgement": 0.10774410774410774
+     },
+     "sentences_mean": 29.7,
+     "causes_mean": 5.2,
+     "passages_cited_mean": 7,
+     "words_mean": 588.9,
+     "words_max": 700,
+     "cost_mean": 0.0065445,
+     "cost_n": 10,
+     "cost_recorded_mean": 0.0065445,
+     "shared_prefix_tokens": {
+      "fc5b808c": 2688
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "failed_generations": 0,
+     "failed_generation_cost": 0,
+     "backends": [
+      "openai_compat"
+     ],
+     "input_tokens_mean": 53668.3,
+     "output_tokens_mean": 1843.2,
+     "latency_p50": 10.1195,
+     "latency_p90": 12.4834
+    }
+   },
+   "judge": {
+    "judged_pairs": 10,
+    "incomplete_panels": 0,
+    "unjudged_pairs": 0,
+    "stale_verdicts": 0,
+    "panels": {
+     "neutral": 10
+    },
+    "wins": {
+     "deepseek-flash|deepseek-flash-c": {
+      "deepseek-flash-c": 4,
+      "deepseek-flash": 3,
+      "tie": 3
+     }
+    },
+    "consensus": {},
+    "judged_by": {
+     "deepseek-flash|deepseek-flash-c": {
+      "claude-opus-5-5": 10
+     }
+    },
+    "criteria": {
+     "deepseek-flash|deepseek-flash-c": {
+      "depth": {
+       "tie": 6,
+       "deepseek-flash": 4
+      },
+      "grounding": {
+       "deepseek-flash-c": 5,
+       "deepseek-flash": 3,
+       "tie": 2
+      },
+      "coverage": {
+       "tie": 7,
+       "deepseek-flash": 3
+      },
+      "clarity": {
+       "tie": 5,
+       "deepseek-flash": 4,
+       "deepseek-flash-c": 1
+      },
+      "calibration": {
+       "deepseek-flash-c": 4,
+       "deepseek-flash": 2,
+       "tie": 4
+      }
+     }
+    },
+    "grounding_and_calibration": {
+     "deepseek-flash|deepseek-flash-c": {
+      "of": 10,
+      "deepseek-flash": 5,
+      "deepseek-flash-c": 7
+     }
+    },
+    "by_judge": {
+     "deepseek-flash|deepseek-flash-c": {
+      "claude-opus-5-5": {
+       "deepseek-flash-c": 4,
+       "deepseek-flash": 3,
+       "tie": 3
+      }
+     }
+    },
+    "swap_agreement": {
+     "claude-opus-5-5": [
+      0.7,
+      10
+     ]
+    },
+    "between_judges": [
+     null,
+     0
+    ]
+   },
+   "causes": {
+    "causes": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 39,
+       "partial": 16,
+       "unsupported": 1
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "left_out": {}
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "supported": 37,
+       "partial": 15
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "left_out": {}
+     }
+    },
+    "causes-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "supported": 50,
+       "partial": 5,
+       "unsupported": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "left_out": {}
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "supported": 45,
+       "partial": 5,
+       "unsupported": 2
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "left_out": {}
+     }
+    }
+   },
+   "semantics": {
+    "semantics": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 746,
+       "mismatch": 6,
+       "mismatch_substantive": 3,
+       "mismatch_ambiguous": 3
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "75th percentile",
+        "sentence": "Net cash is still 30.5% of revenue , above the peer median of 17.8%  and the 75th percentile of four autos peers .",
+        "reason": "75 is Rivian's own percentile rank, not a peer threshold it sits above."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "ambiguous",
+        "claim": "10%",
+        "sentence": "Stock-based compensation was 13.8% of revenue in FY2025  and at least 10% in each of the last five years , equal to 20.7% of the operating loss .",
+        "reason": "Bound applied to five years; the evidence is the FY2025 value only."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin fell 0.3pp , with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Attributed to cost of revenue effect; the match is the total operating margin change."
+       },
+       {
+        "ticker": "KO",
+        "kind": "ambiguous",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025 , ranking 0th percentile against a 0.94x peer median  .",
+        "reason": "Bound is applied to FCF/net income, but the match is the percentile rank."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "41.1%",
+        "sentence": "Operating income grew faster than revenue over the window, at a 16.9% CAGR to FY2024 against 6.2% for revenue to FY2025 , but the incremental operating margin turned negative in FY2024 at 41.1% .",
+        "reason": "Incremental margin is +41.10%; sentence says it turned negative"
+       },
+       {
+        "ticker": "ORCL",
+        "kind": "substantive",
+        "claim": "80%",
+        "sentence": "Free cash flow was below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x, against a 1.06x window median .",
+        "reason": "Match bounds FCF/NI relative to the window median, not FCF as a share of net income."
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "consistent": 667,
+       "mismatch": 8,
+       "mismatch_substantive": 5,
+       "mismatch_ambiguous": 3
+      },
+      "auditors": {
+       "claude-opus-5-5": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "VRTX",
+        "kind": "substantive",
+        "claim": "$192.0 million",
+        "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $192.0 million is immaterial to the trend .",
+        "reason": "Value is FY2019 share repurchases, not a buyback restatement."
+       },
+       {
+        "ticker": "RIVN",
+        "kind": "substantive",
+        "claim": "26.8pp",
+        "sentence": "The 26.8pp operating-margin gain in FY2025 came almost entirely from cost of revenue, helped by fewer vehicles produced and lower raw material and conversion costs .",
+        "reason": "Value is the cost-of-revenue effect, not the total operating-margin gain."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.3pp",
+        "sentence": "The FY2025 margin fell 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+        "reason": "Number is total operating margin change, not the cost-of-revenue effect."
+       },
+       {
+        "ticker": "TGT",
+        "kind": "ambiguous",
+        "claim": "0.94x",
+        "sentence": "The current ratio was 0.94x, matching the 0.94x window median and above the 0.83x low .",
+        "reason": "Number is called the window median but matched to the FY2025 current ratio."
+       },
+       {
+        "ticker": "AMD",
+        "kind": "ambiguous",
+        "claim": "51%",
+        "sentence": "Client revenue rose 51% on a 31% increase in processor unit shipments and a 15% increase in average selling price, and Gaming rose 51% on higher semi-custom revenue and Radeon GPU demand .",
+        "reason": "The passage's 51% is Client growth; the sentence calls it Gaming growth."
+       },
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "3.4%",
+        "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+        "reason": "Opex growth was -3.42%; sentence presents it as growth of 3.4%"
+       },
+       {
+        "ticker": "KO",
+        "kind": "substantive",
+        "claim": "80%",
+        "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+        "reason": "The sentence bounds the ratio levels; the match is the ratio's growth, -9.40%."
+       },
+       {
+        "ticker": "DE",
+        "kind": "substantive",
+        "claim": "3.7pp",
+        "sentence": "In FY2025 net margin of 11.0%  sat 2.7pp below FY2024's 13.7% , and the 20.1% effective tax rate  left net margin 3.7pp under the FY2024 operating margin .",
+        "reason": "Value compares FY2024 net and operating margins; sentence implies FY2025 net margin."
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     }
+    },
+    "semantics-by-deepseek-v4-pro": {
+     "deepseek-flash": {
+      "counts": {
+       "consistent": 752
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [],
+      "views": {
+       "2": 10
+      }
+     },
+     "deepseek-flash-c": {
+      "counts": {
+       "consistent": 674,
+       "mismatch": 1,
+       "mismatch_substantive": 1
+      },
+      "auditors": {
+       "deepseek-v4-pro": 10
+      },
+      "analyses": 10,
+      "left_out": {},
+      "flagged": [
+       {
+        "ticker": "CVX",
+        "kind": "substantive",
+        "claim": "3.4%",
+        "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+        "reason": "says grew 3.4% but evidence is -3.42% decline"
+       }
+      ],
+      "views": {
+       "2": 10
+      }
+     }
+    }
+   },
+   "measures": {
+    "deepseek-flash": {
+     "analyses": 10,
+     "failed_generations": 0,
+     "pipeline_v2": 10,
+     "awaiting_repair": 0,
+     "provider_errors": 0,
+     "builds": {
+      "v2 \u00b7 prompt d558d371 \u00b7 packs": 10
+     },
+     "pack_sha256": {
+      "AMD": "c2ec7bbed29a",
+      "CVX": "0bb89a04f888",
+      "DE": "b30da38a179d",
+      "DUK": "3355b2ee2747",
+      "KO": "707e4b09ce9c",
+      "ORCL": "a825bc71bd0f",
+      "RIVN": "a129f7dec8f3",
+      "TGT": "2d04346691c7",
+      "USB": "ef563b3d65e3",
+      "VRTX": "0c221e8127cf"
+     },
+     "passes_without_repair": 2,
+     "repairs": {
+      "patch": 8
+     },
+     "repairs_sent_or_owed": 8,
+     "repairs_for_broken_debt_alone": [],
+     "code_fixed_passes": 0,
+     "first_try_scored": 10,
+     "first_try_errors": 13,
+     "first_try_failures": [
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change, not a compounder: revenue sat near $22-23 billion through FY2021, jumped 15.8% in FY2023 to $28.0 billion, and has grown only 1.9% since [D169][D219][D189].",
+       "claim": "$22",
+       "failure": "'$22' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change, not a compounder: revenue sat near $22-23 billion through FY2021, jumped 15.8% in FY2023 to $28.0 billion, and has grown only 1.9% since [D169][D219][D189].",
+       "claim": "23 billion",
+       "failure": "'23 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "TGT",
+       "section": "watch",
+       "sentence": "Capex guidance of about $5 billion for FY2026 [P4] against FY2025's $3.73 billion [F94] would push capex near 4.8% of revenue if sales hold at $104.8 billion [F10], testing the cash conversion trend.",
+       "claim": "4.8%",
+       "failure": "'4.8%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "AMD",
+       "section": "margins",
+       "sentence": "SG&A rose 48.9% on higher go-to-market spending, and R&D rose 25.3% [D503][D502].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "CVX",
+       "section": "arc",
+       "sentence": "The FY2022 jump came from higher upstream realizations and downstream margins [P57], and the FY2023 reversal of 16.5% to $197 billion [F8][D274] came from lower realizations and margins [P43][P44].",
+       "claim": "$197 billion",
+       "failure": "'$197 billion' matches cited but not in the period(s) named (2022)"
+      },
+      {
+       "ticker": "CVX",
+       "section": "drivers",
+       "sentence": "Downstream was the drag: non-U.S. downstream fell 13.1% and U.S. downstream 8.5%, together subtracting 7.9pp [D518][D519][D525][D526].",
+       "claim": "7.9pp",
+       "failure": "'7.9pp' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "CVX",
+       "section": "margins",
+       "sentence": "Below the line, the effective tax rate rose to 36.8% from 35.5% [D345][D303], and interest expense more than doubled to $1.2 billion [X80][X79], pulling net margin down 2.5pp [D369].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "CVX",
+       "section": "cash",
+       "sentence": "Conversion held up because working capital was released, with receivables down 12.8% [D377], while inventory rose 7.0% [D378].",
+       "claim": "",
+       "failure": "cause sentence cites no filing passage"
+      },
+      {
+       "ticker": "KO",
+       "section": "margins",
+       "sentence": "Net margin of 27.3% [F70] exceeded operating margin's 28.7% gap only slightly, helped by a 17.9% tax rate [D435] and $1.1 billion of other income [X100].",
+       "claim": "28.7%",
+       "failure": "'28.7%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "KO",
+       "section": "watch",
+       "sentence": "Buybacks plus dividends against free cash flow: a fall back below 100% from 179.9% [D445] would signal the payout is being re-based to cash generation; watch the FY2026 financing cash flow lines.",
+       "claim": "100%",
+       "failure": "'100%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "DE",
+       "section": "margins",
+       "sentence": "Net margin fell 2.7pp in FY2025 to 11.0% [F50][D422], while the effective tax rate eased to 20.1% [D400] and interest expense of $3.2 billion [F82] weighed on the $6.3 billion pretax line [X92].",
+       "claim": "$3.2 billion",
+       "failure": "'$3.2 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "DE",
+       "section": "red_flags",
+       "sentence": "The FY2017 SG&A figure was later restated to $3,098.0 million from $3,066.6 million [X34], a data-quality note that does not change the conclusions here.",
+       "claim": "$3,098.0 million",
+       "failure": "'$3,098.0 million' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "red_flags",
+       "sentence": "Net cash has fallen for two years into net debt, and total debt rose 40% in FY2026 [D320][D367][D414][D413].",
+       "claim": "40%",
+       "failure": "'40%' matches nothing the sentence cites"
+      }
+     ],
+     "first_try_backstops": 2,
+     "first_try_backstop_hits": [
+      {
+       "ticker": "TGT",
+       "section": "balance_sheet",
+       "sentence": "Net debt was $4.30 billion, or 4.1% of revenue [D410][D411], better than the retail peer median of -3.5% net cash and at the 50th percentile of six peers [D613][D612].",
+       "claim": "-3.5%",
+       "kinds": [
+        "R2c"
+       ],
+       "detail": [
+        "'better' but net cash -4.103 [D411] is below -3.488 [D613]"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "balance_sheet",
+       "sentence": "Net debt reached $89.6 billion, or 282.3% of revenue, against a peer median of -228.4%, a 25th-percentile position [D352][D353][D954][D953].",
+       "claim": "-228.4%",
+       "kinds": [
+        "R2a"
+       ],
+       "detail": [
+        "net cash's minus sign printed under 'net debt' [D954]"
+       ]
+      }
+     ],
+     "first_try_as_run": [
+      {
+       "ticker": "VRTX",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "RIVN",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "USB",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "TGT",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "AMD",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "CVX",
+       "basis": "raw_first_pass_gate",
+       "failures": 4
+      },
+      {
+       "ticker": "KO",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "DE",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      },
+      {
+       "ticker": "DUK",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "ORCL",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      }
+     ],
+     "retyped": [],
+     "verified_claims": 752,
+     "mislabels": 3,
+     "mislabel_claims": 3,
+     "probe_mislabels": 0,
+     "opus_mislabels": 3,
+     "audited_verified_claims": 752,
+     "audited_mislabels": 3,
+     "audited_probe_mislabels": 0,
+     "audited_opus_mislabels": 3,
+     "opus_substantive": 3,
+     "opus_audited": 10,
+     "opus_views": {
+      "2": 10
+     },
+     "opus_other": [
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Stock-based compensation was 13.8% of revenue in FY2025  and at least 10% in each of the last five years , equal to 20.7% of the operating loss .",
+       "claim": "10%",
+       "detail": "Bound applied to five years; the evidence is the FY2025 value only.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The FY2025 margin fell 0.3pp , with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+       "claim": "0.3pp",
+       "detail": "Attributed to cost of revenue effect; the match is the total operating margin change.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "KO",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025 , ranking 0th percentile against a 0.94x peer median  .",
+       "claim": "80%",
+       "detail": "Bound is applied to FCF/net income, but the match is the percentile rank.",
+       "class": "ambiguous"
+      }
+     ],
+     "mislabel_list": [
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Net cash is still 30.5% of revenue , above the peer median of 17.8%  and the 75th percentile of four autos peers .",
+       "claim": "75th percentile",
+       "detail": "75 is Rivian's own percentile rank, not a peer threshold it sits above."
+      },
+      {
+       "ticker": "DE",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Operating income grew faster than revenue over the window, at a 16.9% CAGR to FY2024 against 6.2% for revenue to FY2025 , but the incremental operating margin turned negative in FY2024 at 41.1% .",
+       "claim": "41.1%",
+       "detail": "Incremental margin is +41.10%; sentence says it turned negative"
+      },
+      {
+       "ticker": "ORCL",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow was below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x, against a 1.06x window median .",
+       "claim": "80%",
+       "detail": "Match bounds FCF/NI relative to the window median, not FCF as a share of net income."
+      }
+     ],
+     "U1": [],
+     "unitless_dollars": [],
+     "gap_direction": [],
+     "logic_slips": [
+      {
+       "ticker": "DE",
+       "kind": "logic_direction",
+       "section": "balance_sheet",
+       "sentence": "Net debt was $5.5 billion at FY2025 [D407], down from $35.8 billion in FY2021 [D226], as total debt fell to $13.8 billion [D406] against $8.3 billion of cash [F140].",
+       "claim": "$13.8 billion",
+       "detail": "says it fell; FY2024 was 1.3533e+10"
+      }
+     ],
+     "judgement_outside_watch": [
+      3,
+      261
+     ],
+     "evaluative": [
+      10,
+      177
+     ],
+     "evaluative_list": [
+      {
+       "ticker": "VRTX",
+       "section": "margins",
+       "sentence": "The FY2025 effective tax rate of 14.9% compares with 315.5% in FY2024, when non-deductible Alpine AIPR&D distorted the rate [D433][D390][P5].",
+       "words": [
+        "distorted"
+       ]
+      },
+      {
+       "ticker": "VRTX",
+       "section": "red_flags",
+       "sentence": "The effective tax rate fell 300.7pp to 14.9% in FY2025 from the distorted 315.5% FY2024 level [D433][D390][R2].",
+       "words": [
+        "distorted"
+       ]
+      },
+      {
+       "ticker": "USB",
+       "section": "red_flags",
+       "sentence": "It proved short-lived: revenue rebounded 4.4% in FY2025, so the flag is one period, not a trend [D239].",
+       "words": [
+        "short-lived"
+       ]
+      },
+      {
+       "ticker": "USB",
+       "section": "red_flags",
+       "sentence": "More persistent is the weak capital return, with buybacks at $489 million against $4.5 billion in FY2019 [X85][X79].",
+       "words": [
+        "persistent"
+       ]
+      },
+      {
+       "ticker": "TGT",
+       "section": "red_flags",
+       "sentence": "Revenue has now fallen three years running, from $109.1 billion in FY2022 to $104.8 billion in FY2025 [F7][F8][F9][F10], a persistent top-line erosion [R1].",
+       "words": [
+        "persistent"
+       ]
+      },
+      {
+       "ticker": "TGT",
+       "section": "red_flags",
+       "sentence": "The current ratio sits at 0.94x [F184], below 1.0x and at the window median [D602], leaving little liquidity cushion [R2].",
+       "words": [
+        "cushion"
+       ]
+      },
+      {
+       "ticker": "CVX",
+       "section": "red_flags",
+       "sentence": "Payouts have exceeded free cash flow for three years, at 132.8%, 179.7% and 149.7% [D270][D312][D354][R4], which is only sustainable while the balance sheet absorbs it.",
+       "words": [
+        "sustainable"
+       ]
+      },
+      {
+       "ticker": "KO",
+       "section": "red_flags",
+       "sentence": "Payouts exceeded free cash flow in FY2023, FY2024 and FY2025 [D344][D395][D445], a three-year pattern that leans on the balance sheet [R2].",
+       "words": [
+        "leans on"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "margins",
+       "sentence": "Revenue grew 5.6% against 5.3% operating-cost growth, a thin 0.3pp spread that still lifted margin 0.8pp [D358][D372][D379][D370].",
+       "words": [
+        "thin"
+       ]
+      },
+      {
+       "ticker": "DUK",
+       "section": "red_flags",
+       "sentence": "Cash of $245 million covers 0.1 years of the latest $1.7 billion burn, leaving little buffer [F137][D356][F97].",
+       "words": [
+        "buffer"
+       ]
+      }
+     ],
+     "watch_forecasts": [
+      2,
+      30
+     ],
+     "watch_forecast_list": [
+      {
+       "ticker": "TGT",
+       "section": "watch",
+       "sentence": "Capex guidance of about $5 billion for FY2026 [P4] against FY2025's $3.73 billion [F94] would lift capex well above FY2025's 3.6% of revenue [D400] if sales hold at $104.8 billion [F10], testing the cash conversion trend.",
+       "wording": "would lift"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "watch",
+       "sentence": "Whether FY2027 capex falls below the FY2026 $55.7 billion level, which would lift free cash flow margin off the -35.2% low [F94][D405].",
+       "wording": "would lift"
+      }
+     ],
+     "broken_net_cash": {
+      "analyses": 6,
+      "stated_as_fact": 4,
+      "disclosed": 0,
+      "by_check": {
+       "debt_break": [
+        3,
+        6
+       ],
+       "liquidity_break": [
+        1,
+        2
+       ]
+      },
+      "stated_sentences": 9,
+      "peer_sentences": 2,
+      "peer_analyses": 2,
+      "list": [
+       {
+        "ticker": "RIVN",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash is still 30.5% of revenue [D232], above the peer median of 17.8% [D352] and the 75th percentile of four autos peers [D351].",
+          "breaks": [
+           "peer_break"
+          ],
+          "claims": [
+           "'17.8%' rests on D352 (Net cash % of revenue: autos peer median (n=4), FY2025), a version-1 peer rank or median built on a peer's broken year",
+           "'75th percentile' rests on D351 (Net cash % of revenue: percentile vs autos peers (n=4), FY2025), a version-1 peer rank or median built on a peer's broken year"
+          ]
+         }
+        ]
+       },
+       {
+        "ticker": "USB",
+        "state": "silent",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "TGT",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $4.30 billion, or 4.1% of revenue [D410][D411], a larger net debt burden than the retail peer median of -3.5% net cash, though it ranks at the 50th percentile of six peers [D613][D612].",
+          "breaks": [
+           "liquidity_break"
+          ],
+          "claims": [
+           "'$4.30 billion' rests on D410 (Net cash (cash and investments less debt), FY2025), built on a year whose cash and investments are broken",
+           "'4.1%' rests on D411 (Net cash % of revenue, FY2025), built on a year whose cash and investments are broken",
+           "'-3.5%' rests on D613 (Net cash % of revenue: retail peer median (n=6), FY2025), built on a year whose cash and investments are broken",
+           "'50th percentile' rests on D612 (Net cash % of revenue: percentile vs retail peers (n=6), FY2025), built on a year whose cash and investments are broken"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "Cash and investments reached $10.1 billion against $14.4 billion of debt [D408][D409], and the current ratio was 0.94x [F184].",
+          "breaks": [
+           "liquidity_break"
+          ],
+          "claims": [
+           "'$10.1 billion' rests on D408 (Cash and investments, FY2025), built on a year whose cash and investments are broken"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "AMD",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash reached $6,456 million, or 18.6% of revenue, the 100th percentile against six semis peers whose median is -13.9% [D476][D477][D826][D827].",
+          "breaks": [
+           "peer_break"
+          ],
+          "claims": [
+           "'100th percentile' rests on D826 (Net cash % of revenue: percentile vs semis peers (n=6), FY2025), a version-1 peer rank or median built on a peer's broken year",
+           "'-13.9%' rests on D827 (Net cash % of revenue: semis peer median (n=6), FY2025), a version-1 peer rank or median built on a peer's broken year"
+          ]
+         }
+        ]
+       },
+       {
+        "ticker": "CVX",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Chevron ended FY2025 with net cash of $3.96 billion [D351], 2.1% of revenue [D352], after net debt of $156 million in FY2024 [D309].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$3.96 billion' rests on D351 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'2.1%' rests on D352 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'$156 million' rests on D309 (Net cash (cash and investments less debt), FY2024), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "That 2.1% ranks at the 83rd percentile of six energy peers against a -7.7% median [D352][D637][D638], with total debt down 60.5% to $3.3 billion [D350][D376].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'2.1%' rests on D352 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'83rd percentile' rests on D637 (Net cash % of revenue: percentile vs energy peers (n=6), FY2025), built on a debt-break year",
+           "'-7.7%' rests on D638 (Net cash % of revenue: energy peer median (n=6), FY2025), built on a debt-break year",
+           "'60.5%' rests on D376 (Total debt growth, FY2025), built on a debt-break year",
+           "'$3.3 billion' rests on D350 (Total debt, FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "watch",
+          "sentence": "Watch net cash against the FY2025 $3.96 billion [D351]; a return to net debt would reverse the balance-sheet improvement that now ranks at the 83rd peer percentile [D637].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$3.96 billion' rests on D351 (Net cash (cash and investments less debt), FY2025), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "KO",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net cash of $8.8 billion [D442] equals 18.3% of revenue [D443], in the 100th percentile of six staples peers against a -14.5% peer median [D793][D794].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$8.8 billion' rests on D442 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'18.3%' rests on D443 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'100th percentile' rests on D793 (Net cash % of revenue: percentile vs staples peers (n=6), FY2025), built on a debt-break year",
+           "'-14.5%' rests on D794 (Net cash % of revenue: staples peer median (n=6), FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Total debt rose 31.3% in FY2025 [D470] to $1.5 billion [D441], though from a near-zero base after the prior-year 97.3% decline [D420] [R4].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'31.3%' rests on D470 (Total debt growth, FY2025), built on a debt-break year",
+           "'$1.5 billion' rests on D441 (Total debt, FY2025), built on a debt-break year",
+           "'97.3%' rests on D420 (Total debt growth, FY2024), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "DE",
+        "state": "stated as fact",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $5.5 billion at FY2025 [D407], down from $35.8 billion in FY2021 [D226], as total debt fell to $13.8 billion [D406] against $8.3 billion of cash [F140].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'$5.5 billion' rests on D407 (Net cash (cash and investments less debt), FY2025), built on a debt-break year",
+           "'$13.8 billion' rests on D406 (Total debt, FY2025), built on a debt-break year"
+          ]
+         },
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was 12.1% of revenue [D408], better than the industrials peer median net debt of 38.8% of revenue and at the 100th percentile of seven peers [D1358][D1357].",
+          "breaks": [
+           "debt_break"
+          ],
+          "claims": [
+           "'12.1%' rests on D408 (Net cash % of revenue, FY2025), built on a debt-break year",
+           "'38.8%' rests on D1358 (Net cash % of revenue: industrials peer median (n=7), FY2025), built on a debt-break year",
+           "'100th percentile' rests on D1357 (Net cash % of revenue: percentile vs industrials peers (n=7), FY2025), built on a debt-break year"
+          ]
+         }
+        ],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "DUK",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "ORCL",
+        "state": "silent",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       }
+      ]
+     },
+     "cause_support": {
+      "audited": 10,
+      "supported": 39,
+      "partial": 16,
+      "unsupported": 1
+     },
+     "causes_per_analysis": 5.6,
+     "form": {
+      "words_mean": 625.6,
+      "words_max": 707,
+      "sentences_mean": 29.1,
+      "sentences_max": 30,
+      "all_sections": 10,
+      "within_target": 8
+     },
+     "cost_mean": 0.0068243999999999996,
+     "cost_n": 10,
+     "latency_p50": 12.276,
+     "latency_p90": 13.7032,
+     "shared_prefix_tokens": {
+      "d558d371": 1920
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "old_gate": {
+      "commit": "b3ed8ef",
+      "first_try": 2,
+      "first_try_of": 10,
+      "final": 7
+     }
+    },
+    "deepseek-flash-c": {
+     "analyses": 10,
+     "failed_generations": 0,
+     "pipeline_v2": 10,
+     "awaiting_repair": 0,
+     "provider_errors": 0,
+     "builds": {
+      "v2 \u00b7 prompt fc5b808c \u00b7 packs-v2": 10
+     },
+     "pack_sha256": {
+      "AMD": "bc2e03aa3e18",
+      "CVX": "ce8f350bdeee",
+      "DE": "6a8e9e2ab579",
+      "DUK": "aecb0bf67b43",
+      "KO": "d8943d3e826f",
+      "ORCL": "fdd0e10f7822",
+      "RIVN": "95ba176cca60",
+      "TGT": "dafb87217335",
+      "USB": "8bb83eeeed7c",
+      "VRTX": "b87ffa3b7d91"
+     },
+     "passes_without_repair": 6,
+     "repairs": {
+      "patch": 4
+     },
+     "repairs_sent_or_owed": 4,
+     "repairs_for_broken_debt_alone": [],
+     "code_fixed_passes": 0,
+     "first_try_scored": 10,
+     "first_try_errors": 7,
+     "first_try_failures": [
+      {
+       "ticker": "VRTX",
+       "section": "red_flags",
+       "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $186.0 million against $192.0 million is immaterial to the trend [X141].",
+       "claim": "$186.0 million",
+       "failure": "'$186.0 million' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "arc",
+       "sentence": "The path was a step change rather than compounding: revenue was $22.7 billion in FY2021 and $28.0 billion in FY2023, a 23.2% jump in two years [D117][D169].",
+       "claim": "23.2%",
+       "failure": "'23.2%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "drivers",
+       "sentence": "Operating costs grew 2.0pp slower than revenue, with noninterest expense down 2.0% [D238].",
+       "claim": "2.0pp",
+       "failure": "'2.0pp' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "USB",
+       "section": "balance_sheet",
+       "sentence": "Buybacks plus dividends of $3.7 billion were below the $6.9 billion of FY2019, and buybacks fell to $489 million from $4.5 billion [D218][D65][X85][X79].",
+       "claim": "$6.9 billion",
+       "failure": "'$6.9 billion' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "AMD",
+       "section": "balance_sheet",
+       "sentence": "Total debt rose 138% to $4.10 billion after $1.5 billion of notes were issued in March 2025, while cash and investments more than doubled to $10.6 billion [D475][P6][D474][D507].",
+       "claim": "138%",
+       "failure": "'138%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "balance_sheet",
+       "sentence": "Buybacks plus dividends of $5.9 billion were 8.7% of the -$23.7 billion free cash flow, and the diluted share count rose 1.7% [D416][F104][D438].",
+       "claim": "8.7%",
+       "failure": "'8.7%' matches nothing the sentence cites"
+      },
+      {
+       "ticker": "ORCL",
+       "section": "red_flags",
+       "sentence": "Free cash flow ran below 80% of net income in FY2025 and FY2026, at -0.03x and -1.39x [D362][D409].",
+       "claim": "80%",
+       "failure": "'80%' matches nothing the sentence cites"
+      }
+     ],
+     "first_try_backstops": 0,
+     "first_try_backstop_hits": [],
+     "first_try_as_run": [
+      {
+       "ticker": "VRTX",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "RIVN",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "USB",
+       "basis": "raw_first_pass_gate",
+       "failures": 3
+      },
+      {
+       "ticker": "TGT",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "AMD",
+       "basis": "raw_first_pass_gate",
+       "failures": 1
+      },
+      {
+       "ticker": "CVX",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "KO",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "DE",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "DUK",
+       "basis": "raw_first_pass_gate",
+       "failures": 0
+      },
+      {
+       "ticker": "ORCL",
+       "basis": "raw_first_pass_gate",
+       "failures": 2
+      }
+     ],
+     "retyped": [],
+     "verified_claims": 675,
+     "mislabels": 5,
+     "mislabel_claims": 5,
+     "probe_mislabels": 0,
+     "opus_mislabels": 5,
+     "audited_verified_claims": 675,
+     "audited_mislabels": 5,
+     "audited_probe_mislabels": 0,
+     "audited_opus_mislabels": 5,
+     "opus_substantive": 5,
+     "opus_audited": 10,
+     "opus_views": {
+      "2": 10
+     },
+     "opus_other": [
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The FY2025 margin fell 0.3pp, with cost of revenue taking 0.3pp and SG&A adding 0.1pp .",
+       "claim": "0.3pp",
+       "detail": "Number is total operating margin change, not the cost-of-revenue effect.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "TGT",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The current ratio was 0.94x, matching the 0.94x window median and above the 0.83x low .",
+       "claim": "0.94x",
+       "detail": "Number is called the window median but matched to the FY2025 current ratio.",
+       "class": "ambiguous"
+      },
+      {
+       "ticker": "AMD",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Client revenue rose 51% on a 31% increase in processor unit shipments and a 15% increase in average selling price, and Gaming rose 51% on higher semi-custom revenue and Radeon GPU demand .",
+       "claim": "51%",
+       "detail": "The passage's 51% is Client growth; the sentence calls it Gaming growth.",
+       "class": "ambiguous"
+      }
+     ],
+     "mislabel_list": [
+      {
+       "ticker": "VRTX",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The tax swing is a base effect, not a red flag, and the FY2019 buyback restatement of $192.0 million is immaterial to the trend .",
+       "claim": "$192.0 million",
+       "detail": "Value is FY2019 share repurchases, not a buyback restatement."
+      },
+      {
+       "ticker": "RIVN",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "The 26.8pp operating-margin gain in FY2025 came almost entirely from cost of revenue, helped by fewer vehicles produced and lower raw material and conversion costs .",
+       "claim": "26.8pp",
+       "detail": "Value is the cost-of-revenue effect, not the total operating-margin gain."
+      },
+      {
+       "ticker": "CVX",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Operating costs grew 1.2pp faster than revenue in FY2025, at 3.4% .",
+       "claim": "3.4%",
+       "detail": "Opex growth was -3.42%; sentence presents it as growth of 3.4%"
+      },
+      {
+       "ticker": "KO",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "Free cash flow ran below 80% of net income in FY2024 and FY2025, at 0.45x and 0.40x .",
+       "claim": "80%",
+       "detail": "The sentence bounds the ratio levels; the match is the ratio's growth, -9.40%."
+      },
+      {
+       "ticker": "DE",
+       "source": "claude-opus-5-5 (view 2)",
+       "sentence": "In FY2025 net margin of 11.0%  sat 2.7pp below FY2024's 13.7% , and the 20.1% effective tax rate  left net margin 3.7pp under the FY2024 operating margin .",
+       "claim": "3.7pp",
+       "detail": "Value compares FY2024 net and operating margins; sentence implies FY2025 net margin."
+      }
+     ],
+     "U1": [],
+     "unitless_dollars": [],
+     "gap_direction": [],
+     "logic_slips": [],
+     "judgement_outside_watch": [
+      32,
+      267
+     ],
+     "evaluative": [
+      0,
+      159
+     ],
+     "evaluative_list": [],
+     "watch_forecasts": [
+      0,
+      30
+     ],
+     "watch_forecast_list": [],
+     "broken_net_cash": {
+      "analyses": 6,
+      "stated_as_fact": 0,
+      "disclosed": 5,
+      "by_check": {
+       "debt_break": [
+        0,
+        6
+       ],
+       "liquidity_break": [
+        0,
+        2
+       ]
+      },
+      "stated_sentences": 0,
+      "peer_sentences": 0,
+      "peer_analyses": 0,
+      "list": [
+       {
+        "ticker": "RIVN",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "USB",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt was last reported at $39.8 billion in FY2022 and is not reported after that year [X172][R2]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Long-term debt is not reported after FY2022, a data break that prevents a debt comparison across the window [R2][X172]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "TGT",
+        "state": "disclosed",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "red_flags",
+          "sentence": "Short-term investments are already inside cash in FY2016-FY2025, so net-cash figures built on them are excluded here [R7][F144][X170]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "That data break limits any net-cash comparison, so the balance-sheet read rests on gross cash and debt instead."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "AMD",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "CVX",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt is not reported after FY2021, so total debt and net cash are omitted for later years [X193]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "KO",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Net debt was $32.4 billion in FY2023, net cash of -70.7% of revenue, but total debt is not reported after FY2023 so later net cash is omitted [D341][D342][X194]."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "DE",
+        "state": "disclosed",
+        "checks": [
+         "debt_break"
+        ],
+        "stated": [],
+        "disclosed": [
+         {
+          "section": "balance_sheet",
+          "sentence": "Long-term debt is not reported after FY2021 [X191], so net cash and its peer rank cannot be computed across the window; the pack's net-cash figures stop at FY2021 [D226]."
+         },
+         {
+          "section": "red_flags",
+          "sentence": "Long-term debt is missing after FY2021 and current debt missing before FY2020 [R9][R10][X191][X180], so net cash and debt growth are not comparable across the window."
+         }
+        ],
+        "peer": []
+       },
+       {
+        "ticker": "DUK",
+        "state": null,
+        "checks": [],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       },
+       {
+        "ticker": "ORCL",
+        "state": "silent",
+        "checks": [
+         "debt_break",
+         "liquidity_break"
+        ],
+        "stated": [],
+        "disclosed": [],
+        "peer": []
+       }
+      ]
+     },
+     "cause_support": {
+      "audited": 10,
+      "supported": 37,
+      "partial": 15,
+      "unsupported": 0
+     },
+     "causes_per_analysis": 5.2,
+     "form": {
+      "words_mean": 588.9,
+      "words_max": 700,
+      "sentences_mean": 29.7,
+      "sentences_max": 30,
+      "all_sections": 10,
+      "within_target": 10
+     },
+     "cost_mean": 0.0065445,
+     "cost_n": 10,
+     "latency_p50": 10.1195,
+     "latency_p90": 12.4834,
+     "shared_prefix_tokens": {
+      "fc5b808c": 2688
+     },
+     "warm_first_attempts": [
+      0,
+      10
+     ],
+     "old_gate": {
+      "commit": "b3ed8ef",
+      "first_try": 4,
+      "first_try_of": 10,
+      "final": 7
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "PG",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "A",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts overreach. A claims US growth 'for most of the window' from three years of data and calls FY2026 capex the 'window high' without proof. It also presents 'typical of the business model' as fact and applies a segment gross-margin passage company-wide. B's inventory 'safety stock' cause sits beyond the truncated passage, and it says 22.7% is 'below the 8.1% low'. B still adds peer margin, incremental margin, US mix shift and inventory days, and labels analysis and gaps."
+   },
+   "cost_usd": 0.146949,
+   "latency_s": 16.126,
+   "input_tokens": 16071,
+   "output_tokens": 1203,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"A\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts overreach. A claims US growth 'for most of the window' from three years of data and calls FY2026 capex the 'window high' without proof. It also presents 'typical of the business model' as fact and applies a segment gross-margin passage company-wide. B's inventory 'safety stock' cause sits beyond the truncated passage, and it says 22.7% is 'below the 8.1% low'. B still adds peer margin, incremental margin, US mix shift and inventory days, and labels analysis and gaps.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both drafts cite $919m from payables and 'tougher competition', which their truncated passages don't show; A also gives an unsupported inventory cause. B has more errors: it compares OCF/NI to the FCF/NI median, applies a segment gross-margin passage company-wide, and calls capex 'highest capital intensity' (FY2018 capex/revenue was higher). B offers richer drivers (US contribution history, Beauty, COVID), but A discloses the capex gap and labels its judgements."
+   },
+   "cost_usd": 0.143597,
+   "latency_s": 13.809,
+   "input_tokens": 16067,
+   "output_tokens": 1037,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"tie\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite $919m from payables and 'tougher competition', which their truncated passages don't show; A also gives an unsupported inventory cause. B has more errors: it compares OCF/NI to the FCF/NI median, applies a segment gross-margin passage company-wide, and calls capex 'highest capital intensity' (FY2018 capex/revenue was higher). B offers richer drivers (US contribution history, Beauty, COVID), but A discloses the capex gap and labels its judgements.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.290546
+}

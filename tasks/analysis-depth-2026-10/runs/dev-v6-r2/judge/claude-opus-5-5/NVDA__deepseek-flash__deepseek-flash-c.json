@@ -1,0 +1,106 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "ff22f96fca372d54a53bd975b5e10d56ab135a943be7fc678ea3909b32e9bf36",
+ "y_sha256": "0a0ebc172f6df3bc1397e7c59d4385fae0169d1f592439b20770eef8500370dc",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Draft A's net-cash collapse, its peer rank and its watch threshold all rest on FY2026 figures that omit short-term investments. Draft B flags that gap, and A's thesis falls with it. A has more depth: mix shift, working capital, other-income cause and customer concentration. But A also claims profit 'outran' revenue while citing slower growth. B misstates 60.4% as above the 62.4% high, but its errors are smaller and its analysis is labelled."
+   },
+   "cost_usd": 0.138377,
+   "latency_s": 13.361,
+   "backend": "claude_cli",
+   "input_tokens": 15882,
+   "cached_input_tokens": 727,
+   "output_tokens": 850,
+   "reasoning_tokens": 624,
+   "meta": {
+    "duration_api_ms": 9183,
+    "cache_creation_input_tokens": 15153,
+    "list_cost_usd": 0.077765
+   },
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Draft A's net-cash collapse, its peer rank and its watch threshold all rest on FY2026 figures that omit short-term investments. Draft B flags that gap, and A's thesis falls with it. A has more depth: mix shift, working capital, other-income cause and customer concentration. But A also claims profit 'outran' revenue while citing slower growth. B misstates 60.4% as above the 62.4% high, but its errors are smaller and its analysis is labelled.\"}",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "slight",
+    "rationale": "B is richer, adding the Gaming-to-Data Center mix shift, the H20 charge, working capital, customer concentration and Intel gains. But it reads the unreported FY2026 short-term investments as a collapse in net cash to $2.1bn, then builds a peer rank and a watch item on that artifact. A discloses the data gap correctly. A has its own errors: margin 'above' the window high, and a muddled net-margin sentence. These are less consequential."
+   },
+   "cost_usd": 0.140297,
+   "latency_s": 14.77,
+   "backend": "claude_cli",
+   "input_tokens": 15882,
+   "cached_input_tokens": 727,
+   "output_tokens": 946,
+   "reasoning_tokens": 724,
+   "meta": {
+    "duration_api_ms": 10181,
+    "cache_creation_input_tokens": 15153,
+    "list_cost_usd": 0.079685
+   },
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"slight\", \"rationale\": \"B is richer, adding the Gaming-to-Data Center mix shift, the H20 charge, working capital, customer concentration and Intel gains. But it reads the unreported FY2026 short-term investments as a collapse in net cash to $2.1bn, then builds a peer rank and a watch item on that artifact. A discloses the data gap correctly. A has its own errors: margin 'above' the window high, and a muddled net-margin sentence. These are less consequential.\"}",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.278674
+}

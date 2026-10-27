@@ -1,0 +1,86 @@
+{
+ "ticker": "REGN",
+ "split": "dev",
+ "x": "claude-sonnet-5-5",
+ "y": "claude-haiku-5-5-low",
+ "judge": "deepseek-v4-pro",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A offers deeper, better-supported analysis: it explains FY2025 growth drivers, margin compression, cash conversion, and flags data recasts. Draft B has some unsupported claims (e.g., R&D rise unexplained, other income unexplained) and less coverage. A's grounding is stronger."
+   },
+   "cost_usd": 0.002999,
+   "latency_s": 2.265,
+   "input_tokens": 10957,
+   "output_tokens": 131,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A offers deeper, better-supported analysis: it explains FY2025 growth drivers, margin compression, cash conversion, and flags data recasts. Draft B has some unsupported claims (e.g., R&D rise unexplained, other income unexplained) and less coverage. A's grounding is stronger.\"\n}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "A",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Draft A provides deeper, better-supported analysis: it explains drivers with precise contributions, flags unsupported claims, and offers concrete thresholds. Draft B adds useful context but includes unsupported causal claims and less rigorous sourcing. A's grounding and depth outweigh B's extra coverage."
+   },
+   "cost_usd": 0.003396,
+   "latency_s": 3.157,
+   "input_tokens": 10957,
+   "output_tokens": 125,
+   "raw": "{\n  \"criteria\": {\n    \"depth\": \"A\",\n    \"grounding\": \"A\",\n    \"coverage\": \"A\",\n    \"clarity\": \"A\",\n    \"calibration\": \"A\"\n  },\n  \"overall\": \"A\",\n  \"strength\": \"clear\",\n  \"rationale\": \"Draft A provides deeper, better-supported analysis: it explains drivers with precise contributions, flags unsupported claims, and offers concrete thresholds. Draft B adds useful context but includes unsupported causal claims and less rigorous sourcing. A's grounding and depth outweigh B's extra coverage.\"\n}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-haiku-5-5-low",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.006395
+}

@@ -1,0 +1,86 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A only restates table values, and its 'no trend flags' line ignores the FY2024 loss. B explains the TRIKAFTA launch, the $4.6B Alpine AIPR&D charge, product concentration, ALYFTREK, SG&A guidance, inventory build, peer context and numeric watch thresholds. B has minor grounding slips: 63.2% mislabelled as buybacks-only, and an unsupported 'FY2019 buyback recast' remark. These are small against its well-cited causal analysis, and its interpretations are labelled."
+   },
+   "cost_usd": 0.096997,
+   "latency_s": 11.669,
+   "input_tokens": 10917,
+   "output_tokens": 767,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"A only restates table values, and its 'no trend flags' line ignores the FY2024 loss. B explains the TRIKAFTA launch, the $4.6B Alpine AIPR&D charge, product concentration, ALYFTREK, SG&A guidance, inventory build, peer context and numeric watch thresholds. B has minor grounding slips: 63.2% mislabelled as buybacks-only, and an unsupported 'FY2019 buyback recast' remark. These are small against its well-cited causal analysis, and its interpretations are labelled.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B is fully supported but only restates table values. It also says 'no trend flags' despite the FY2024 operating loss and negative free cash flow. A is mostly well grounded: product mix, the Alpine charge, royalty-rate and SG&A causes, and peer context. Its lapses are minor: the residual attributed to the Alpine charge non-repeat, the uncited buyback-recast remark and 'benign' stated as fact. A's depth, coverage and labelled analysis outweigh B's thin accuracy."
+   },
+   "cost_usd": 0.099433,
+   "latency_s": 13.163,
+   "input_tokens": 10919,
+   "output_tokens": 888,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B is fully supported but only restates table values. It also says 'no trend flags' despite the FY2024 operating loss and negative free cash flow. A is mostly well grounded: product mix, the Alpine charge, royalty-rate and SG&A causes, and peer context. Its lapses are minor: the residual attributed to the Alpine charge non-repeat, the uncited buyback-recast remark and 'benign' stated as fact. A's depth, coverage and labelled analysis outweigh B's thin accuracy.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.19643
+}

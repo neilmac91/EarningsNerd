@@ -1,0 +1,86 @@
+{
+ "ticker": "VRTX",
+ "split": "holdout",
+ "x": "current",
+ "y": "deepseek-flash",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "A is fully sourced but only restates table values, and its \"no trend flags\" ignores the FY2024 loss and negative FCF. B explains drivers well: TRIKAFTA's launch, the Alpine AIPR&D charge, ALYFTREK and the tax distortion. Its slips are real: 'no debt' cites FY2016 debt, the working-capital passage is misread as cash, 'several years' of inventory growth is unsupported, and 'held' at 13.8% is loose. B still serves readers far better."
+   },
+   "cost_usd": 0.090241,
+   "latency_s": 16.375,
+   "input_tokens": 10080,
+   "output_tokens": 764,
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"A is fully sourced but only restates table values, and its \\\"no trend flags\\\" ignores the FY2024 loss and negative FCF. B explains drivers well: TRIKAFTA's launch, the Alpine AIPR&D charge, ALYFTREK and the tax distortion. Its slips are real: 'no debt' cites FY2016 debt, the working-capital passage is misread as cash, 'several years' of inventory growth is unsupported, and 'held' at 13.8% is loose. B still serves readers far better.\"}\n```"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A explains the TRIKAFTA step-up, the Alpine AIPR&D loss, the tax distortion, ALYFTREK's contribution and inventory build, with peer context. It has grounding slips: it cites FY2016 debt for 'no debt' and labels buybacks-plus-dividends as buybacks. It also misreads the $6.0B working-capital passage and claims 'several years' of inventory growth without support. B is accurate but only restates table values and says 'no flags' despite the FY2024 loss."
+   },
+   "cost_usd": 0.088913,
+   "latency_s": 12.934,
+   "input_tokens": 10079,
+   "output_tokens": 698,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A explains the TRIKAFTA step-up, the Alpine AIPR&D loss, the tax distortion, ALYFTREK's contribution and inventory build, with peer context. It has grounding slips: it cites FY2016 debt for 'no debt' and labels buybacks-plus-dividends as buybacks. It also misreads the $6.0B working-capital passage and claims 'several years' of inventory growth without support. B is accurate but only restates table values and says 'no flags' despite the FY2024 loss.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "clarity": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "calibration": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  },
+  "overall": {
+   "order1": "deepseek-flash",
+   "order2": "deepseek-flash",
+   "agreed": true,
+   "final": "deepseek-flash"
+  }
+ },
+ "cost_usd": 0.179154
+}

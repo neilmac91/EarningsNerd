@@ -1,0 +1,86 @@
+{
+ "ticker": "NVDA",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts explain the FY2023 trough and the Data Center ramp well. A presents the net cash collapse as fact, though its cash-and-investments figure equals cash alone. It also asserts unsupported causes: product-mix cost pressure and a 'cyclical' Graphics decline. B flags that net cash figure and the share-split EPS distortion, labels its analysis, and admits where the filings give no cause. B adds the FY2024 margin bridge and a peer cash-conversion comparison."
+   },
+   "cost_usd": 0.142585,
+   "latency_s": 13.434,
+   "input_tokens": 16188,
+   "output_tokens": 938,
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Both drafts explain the FY2023 trough and the Data Center ramp well. A presents the net cash collapse as fact, though its cash-and-investments figure equals cash alone. It also asserts unsupported causes: product-mix cost pressure and a 'cyclical' Graphics decline. B flags that net cash figure and the share-split EPS distortion, labels its analysis, and admits where the filings give no cause. B adds the FY2024 margin bridge and a peer cash-conversion comparison.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B adds useful depth: the H20 charge, Data Center share history, China's pp contributions and stock-based compensation. But it treats the $2.1bn net cash and the 75.5% cash-and-investments drop as fact, when these are likely data artifacts. It cites no FY2024 passage for FY2024 drivers and attributes future margin pressure to unsourced product mix. A flags the net cash and EPS data problems, labels its interpretations, and keeps its claims supported."
+   },
+   "cost_usd": 0.147129,
+   "latency_s": 15.614,
+   "input_tokens": 16186,
+   "output_tokens": 1166,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"B adds useful depth: the H20 charge, Data Center share history, China's pp contributions and stock-based compensation. But it treats the $2.1bn net cash and the 75.5% cash-and-investments drop as fact, when these are likely data artifacts. It cites no FY2024 passage for FY2024 drivers and attributes future margin pressure to unsourced product mix. A flags the net cash and EPS data problems, labels its interpretations, and keeps its claims supported.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "tie",
+   "agreed": true,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.289714
+}

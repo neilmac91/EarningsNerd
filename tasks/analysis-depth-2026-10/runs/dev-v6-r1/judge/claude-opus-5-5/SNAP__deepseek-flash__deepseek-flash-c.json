@@ -1,0 +1,106 @@
+{
+ "ticker": "SNAP",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "deepseek-flash-c",
+ "judge": "claude-opus-5-5",
+ "x_sha256": "a58eb321cc2731b60352a0f16f736ca79125ead83d7eaca4c2bd1021ddaf8d03",
+ "y_sha256": "854af63581fa707adeb39e56b129e0b5de59bb48278012d2b5d740d0a3a2ad15",
+ "result": {
+  "depth": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "coverage": {
+   "order1": "deepseek-flash-c",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  },
+  "overall": {
+   "order1": "deepseek-flash-c",
+   "order2": "deepseek-flash-c",
+   "agreed": true,
+   "final": "deepseek-flash-c"
+  }
+ },
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts claim other revenue grew on subscriptions without support and assert capex causes from a truncated passage. A has two further grounding problems: it attributes the FY2022 operating-loss widening using a passage about Adjusted EBITDA, and it says the margin gain came 'mostly from R&D' when other lines contributed most. B adds deeper points: the product-mix shift, SBC as a share of operating cash flow and of the operating loss, total debt and liquidity."
+   },
+   "cost_usd": 0.16194,
+   "latency_s": 15.745,
+   "backend": "claude_cli",
+   "input_tokens": 17006,
+   "cached_input_tokens": 0,
+   "output_tokens": 1295,
+   "reasoning_tokens": 1061,
+   "meta": {
+    "duration_api_ms": 11777,
+    "cache_creation_input_tokens": 17004,
+    "list_cost_usd": 0.093924
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"},\n \"overall\": \"B\", \"strength\": \"clear\",\n \"rationale\": \"Both drafts claim other revenue grew on subscriptions without support and assert capex causes from a truncated passage. A has two further grounding problems: it attributes the FY2022 operating-loss widening using a passage about Adjusted EBITDA, and it says the margin gain came 'mostly from R&D' when other lines contributed most. B adds deeper points: the product-mix shift, SBC as a share of operating cash flow and of the operating loss, total debt and liquidity.\"}\n```",
+   "position": 1
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "Both drafts wrongly attribute other-revenue growth to subscriptions, a cause absent from the truncated passage. B adds more grounding errors: it applies the FY2022 Adjusted EBITDA explanation to the operating loss, says the margin gain came 'mostly from R&D' when other lines were largest, and assumes the note repurchases were funded by the new notes. B's geography split and FY2022 inflection add depth. A's SBC-to-cash and revenue-mix analysis offsets this, with analysis labelled more carefully."
+   },
+   "cost_usd": 0.162009,
+   "latency_s": 18.226,
+   "backend": "claude_cli",
+   "input_tokens": 17006,
+   "cached_input_tokens": 727,
+   "output_tokens": 1582,
+   "reasoning_tokens": 1323,
+   "meta": {
+    "duration_api_ms": 14459,
+    "cache_creation_input_tokens": 16277,
+    "list_cost_usd": 0.096901
+   },
+   "raw": "```json\n{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"B\", \"calibration\": \"A\"},\n \"overall\": \"A\", \"strength\": \"clear\",\n \"rationale\": \"Both drafts wrongly attribute other-revenue growth to subscriptions, a cause absent from the truncated passage. B adds more grounding errors: it applies the FY2022 Adjusted EBITDA explanation to the operating loss, says the margin gain came 'mostly from R&D' when other lines were largest, and assumes the note repurchases were funded by the new notes. B's geography split and FY2022 inflection add depth. A's SBC-to-cash and revenue-mix analysis offsets this, with analysis labelled more carefully.\"}\n```",
+   "position": 2
+  }
+ ],
+ "cost_usd": 0.323949
+}

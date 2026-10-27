@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "current",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "B",
+     "clarity": "B",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "A is fully sourced but does little more than restate the table. It also misreads bank cash flow and wrongly reports no red flags. B adds real interpretation: segments, efficiency ratio, peers, capital return and a disclosed data gap. However, B attributes moves to a $734m FDIC assessment its quoted passages never mention. Its NIM thresholds (2.70%/2.72%) cite a truncated passage, and its efficiency ratio (67.4%) differs from the filing's 66.7% without explanation."
+   },
+   "cost_usd": 0.101521,
+   "latency_s": 14.708,
+   "input_tokens": 10485,
+   "output_tokens": 1166,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"B\", \"clarity\": \"B\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"A is fully sourced but does little more than restate the table. It also misreads bank cash flow and wrongly reports no red flags. B adds real interpretation: segments, efficiency ratio, peers, capital return and a disclosed data gap. However, B attributes moves to a $734m FDIC assessment its quoted passages never mention. Its NIM thresholds (2.70%/2.72%) cite a truncated passage, and its efficiency ratio (67.4%) differs from the filing's 66.7% without explanation.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "A",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "A has real grounding lapses. Its FDIC special assessment cause (cited to [12] and [30]) and the NIM figures (cited to [63]) are absent from the quoted passages. It also does not reconcile its efficiency ratios with the filing's 66.7%/61.4%. B is accurate but only restates the table and wrongly claims there is no margin data and no red flags. A's segment, cost, credit, peer and capital analysis is mostly well sourced and far more useful."
+   },
+   "cost_usd": 0.097617,
+   "latency_s": 14.093,
+   "input_tokens": 10487,
+   "output_tokens": 970,
+   "raw": "{\"criteria\": {\"depth\": \"A\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"A has real grounding lapses. Its FDIC special assessment cause (cited to [12] and [30]) and the NIM figures (cited to [63]) are absent from the quoted passages. It also does not reconcile its efficiency ratios with the filing's 66.7%/61.4%. B is accurate but only restates the table and wrongly claims there is no margin data and no red flags. A's segment, cost, credit, peer and capital analysis is mostly well sourced and far more useful.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "grounding": {
+   "order1": "current",
+   "order2": "current",
+   "agreed": true,
+   "final": "current"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.199138
+}

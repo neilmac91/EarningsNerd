@@ -24,6 +24,7 @@ import pytest
 
 from app.services.analysis_export_metadata import period_label
 from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
+from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
 
 # The closing note as main's PDF printed it before the CSV shared it, whitespace collapsed (D-046):
@@ -545,6 +546,75 @@ class TestFiledFigure:
         block = summary_sections._metrics_block([{"metric": "Revenue", "current_period": "$9.89B",
                                                   "commentary": "Volumes rose.", "commentary_withheld": "figure_replaced"}])
         assert block.rows[0][-1] == "Volumes rose."
+
+
+class TestRisksParity:
+    """The exports print the Risks the summary page shows: each projects the stored row once, from the filing's own
+    text, as `_summary_raw_container` reads it (provenance_service.enrich_summary_provenance, export_raw_summary;
+    E180). Each row holds two risks the filing has. One reaches the floor only by its padding, its words one
+    character under it, and the page and both exports withhold it alike; they all show the other."""
+
+    SHORT, LONG = "Supply chain risk rose.", "Our business depends on a limited number of suppliers."
+    RISKS = [{"summary": "Supply", "supporting_evidence": SHORT.replace(" ", "  ")},
+             {"summary": "Suppliers", "supporting_evidence": LONG}]
+    NOTICE = "1 source-verified filing excerpt. 1 item withheld"
+
+    def _served(self, service, **stored):
+        """The page route's body for a stored row, then the raw summary the exports render, the CSV's rows and the
+        PDF's HTML."""
+        from fastapi.testclient import TestClient
+        from sqlalchemy.orm import joinedload
+
+        from app.database import SessionLocal, engine
+        from app.models import Base, Filing, FilingContentCache, Summary
+        from main import app
+        from tests.support.summary_stream_harness import seed_company_filing
+
+        Base.metadata.create_all(bind=engine)
+        filing_id = seed_company_filing()
+        with SessionLocal() as db:
+            db.add(FilingContentCache(filing_id=filing_id, critical_excerpt=f"{self.SHORT}\n{self.LONG}"))
+            db.add(Summary(filing_id=filing_id, business_overview="# Summary\n\nStored analysis.", **stored))
+            db.commit()
+        with TestClient(app) as client:
+            body = client.get(f"/api/summaries/filing/{filing_id}").json()
+        with SessionLocal() as db:
+            summary = db.query(Summary).filter(Summary.filing_id == filing_id).one()
+            filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).one()
+            return (body, export_raw_summary(summary, filing), _csv_rows(service.generate_csv(summary, filing)),
+                    service.generate_pdf_html(summary, filing))
+
+    def test_the_page_route_serves_the_risks_the_exports_print(self, service):
+        # A row stored before generation projected Risks (#981) keeps the model's evidence, in its sections and in
+        # their legacy `structured` copy, which carries the schema version too (summary_finalize). A second
+        # projection would recount the copy's withheld risk as none.
+        body, exported, csv_rows, html = self._served(service, raw_summary={
+            "schema_version": 2, "sections": {"risks": self.RISKS},
+            "structured": {"schema_version": 2, "sections": {"risks": self.RISKS}}})
+
+        assert body["raw_summary"] == exported
+        assert body["raw_summary"]["structured"]["sections"][RISK_PROJECTION_KEY]["withheld_count"] == 1
+        [shown] = [section for section in body["rendered_sections"] if section.get("role") == "risks"]
+        notice, table = shown["blocks"]
+        assert notice["text"].startswith(self.NOTICE)
+        assert table["rows"] == [["1", "Filing excerpt", self.LONG]]
+        assert [notice["text"]] in csv_rows and table["rows"][0] in csv_rows
+        assert not any(self.SHORT in cell for row in csv_rows for cell in row)
+        assert notice["text"] in html and self.LONG in html and self.SHORT not in html
+
+    def test_a_row_with_only_the_legacy_column_counts_its_risks_as_the_exports_do(self, service):
+        # A row with no sections keeps its risks in the `risk_factors` column, which the page reads through
+        # `_summary_raw_container` as the exports do: the page's tally of excerpts (verificationTally.ts, from
+        # raw_summary) counts what the CSV prints.
+        body, exported, csv_rows, html = self._served(service, raw_summary={"sections": {}}, risk_factors=self.RISKS)
+
+        assert body["raw_summary"] == exported
+        counts = body["raw_summary"]["sections"][RISK_PROJECTION_KEY]
+        assert (counts["verified_count"], counts["withheld_count"]) == (1, 1)
+        assert any(row and row[0].startswith(self.NOTICE) for row in csv_rows)
+        assert ["1", "Filing excerpt", self.LONG] in csv_rows
+        assert not any(self.SHORT in cell for row in csv_rows for cell in row)
+        assert self.NOTICE in html and self.LONG in html and self.SHORT not in html
 
 
 class TestRenderSections:

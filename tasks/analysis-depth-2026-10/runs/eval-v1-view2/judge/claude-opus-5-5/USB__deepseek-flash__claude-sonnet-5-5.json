@@ -1,0 +1,86 @@
+{
+ "ticker": "USB",
+ "split": "holdout",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "tie",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts cite a $734m FDIC special assessment, and an FDIC drop-out in FY2025, that their quoted passages never mention. B also cites NIM figures (2.70%/2.72%) the truncated passage lacks, while A states 'cyclical not structural' as fact. B goes deeper, with supported causes for the FY2021 earnings rebound, FY2022 NII and FY2025 provision, plus the decade-long share count and multi-year segment decline. B also labels its analysis and discloses the long-term debt data gap."
+   },
+   "cost_usd": 0.135381,
+   "latency_s": 14.73,
+   "input_tokens": 14775,
+   "output_tokens": 1143,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"tie\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts cite a $734m FDIC special assessment, and an FDIC drop-out in FY2025, that their quoted passages never mention. B also cites NIM figures (2.70%/2.72%) the truncated passage lacks, while A states 'cyclical not structural' as fact. B goes deeper, with supported causes for the FY2021 earnings rebound, FY2022 NII and FY2025 provision, plus the decade-long share count and multi-year segment decline. B also labels its analysis and discloses the long-term debt data gap.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "tie",
+     "grounding": "B",
+     "coverage": "A",
+     "clarity": "B",
+     "calibration": "A"
+    },
+    "overall": "B",
+    "strength": "slight",
+    "rationale": "Both drafts attribute a $734m FDIC special assessment to passages that never mention it. A also cites net interest margins of 2.70% and 2.72% from a passage truncated before any margin figure. B's FY2023\u201325 revenue arc is tied to quoted causes, and it adds a peer efficiency comparison and the dividend/buyback split. A has better segment red flags, a stated data gap and labelled analysis. B's 'cyclical rather than structural' is less calibrated."
+   },
+   "cost_usd": 0.136029,
+   "latency_s": 16.123,
+   "input_tokens": 14776,
+   "output_tokens": 1175,
+   "raw": "{\"criteria\": {\"depth\": \"tie\", \"grounding\": \"B\", \"coverage\": \"A\", \"clarity\": \"B\", \"calibration\": \"A\"}, \"overall\": \"B\", \"strength\": \"slight\", \"rationale\": \"Both drafts attribute a $734m FDIC special assessment to passages that never mention it. A also cites net interest margins of 2.70% and 2.72% from a passage truncated before any margin figure. B's FY2023\u201325 revenue arc is tied to quoted causes, and it adds a peer efficiency comparison and the dividend/buyback split. A has better segment red flags, a stated data gap and labelled analysis. B's 'cyclical rather than structural' is less calibrated.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  }
+ },
+ "cost_usd": 0.27141
+}

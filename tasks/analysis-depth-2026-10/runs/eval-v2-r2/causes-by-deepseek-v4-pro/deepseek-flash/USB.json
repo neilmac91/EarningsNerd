@@ -1,0 +1,80 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "USB",
+ "split": "holdout",
+ "claims": 5,
+ "output_sha256": "3f5c98ef0472c2986ff761ee37d7a58d57b38126e905b059a7c641ce432a8b76",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "The FY2023 jump reflected an 18.1% increase in net interest income and a 12.3% increase in noninterest income, the former due to higher rates on earning assets and the MUB acquisition .",
+   "passages": [
+    {
+     "id": "P33",
+     "filing": "FY2023 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Total net revenue for 2023 was $3.8 billion (15.8 percent) higher than 2022, reflecting an 18.1 percent increase in net interest income and a 12.3 percent increase in noninterest income. The increase in net interest income from the prior year was primarily due to higher interest rates on earning assets and the MUB acquisition, partially offset by the impact of deposit mix and pricing. The increase in noninterest income reflected higher commercial products revenue, payment services revenue, trust and investment management fees and other noninterest income, partially offset by losses on investment securities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net interest income increase was primarily due to higher rates and MUB acquisition."
+  },
+  {
+   "sentence": "FY2024 reversed 2.4%  as net interest income fell 6.4% on higher rates pressuring deposit mix and pricing , before FY2025 recovered 4.4%  on loan growth and lower deposit rates .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2024 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Total net revenue for 2024 was $689 million (2.4 percent) lower than 2023, reflecting a 6.4 percent decrease in net interest income and a 4.0 percent increase in noninterest income. The decrease in net interest income from the prior year was primarily due to the impact of higher interest rates on deposit mix and pricing, partially offset by modest growth in earning assets and improved asset mix. The increase in noninterest income was driven by higher fee revenue across most categories, partially offset by lower service charges and lower other noninterest income."
+    },
+    {
+     "id": "P16",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Total net revenue for 2025 was $1.2 billion (4.4 percent) higher than 2024, reflecting a 2.2 percent increase in net interest income and a 7.6 percent increase in noninterest income. The increase in net interest income from the prior year was primarily due to loan growth, fixed asset repricing and lower rates paid on interest-bearing deposits. The increase in noninterest income was driven by higher revenue across most categories."
+    }
+   ],
+   "label": "supported",
+   "reason": "FY2024 decrease due to higher rates on deposit mix/pricing; FY2025 increase due to loan growth and lower deposit rates."
+  },
+  {
+   "sentence": "That decline came from a 4.9% fall in segment net interest income on deposit mix changes and second-quarter loan sales .",
+   "passages": [
+    {
+     "id": "P6",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue decreased $358 million (3.9 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, decreased $377 million (4.9 percent) in 2025, compared with 2024, primarily due to changes in deposit mix, along with the impact of loan sales in the second quarter of 2025. Noninterest income increased $19 million (1.2 percent) in 2025, compared with 2024, primarily due to higher mortgage banking revenue driven by gain on sale activity."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states 4.9% decrease in net interest income primarily due to deposit mix changes and loan sales."
+  },
+  {
+   "sentence": "Payment Services net revenue rose 5.4% on higher loan balances and lower funding costs, with noninterest income up on merchant processing and card volume .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Net revenue increased $381 million (5.4 percent) in 2025, compared with 2024. Net interest income, on a taxable-equivalent basis, increased $217 million (7.7 percent) in 2025, compared with 2024, primarily due to higher average loan balances, higher loan fees and lower funding costs. Noninterest income increased $164 million (3.9 percent) in 2025, compared with 2024, driven by higher merchant processing services and card revenue mainly due to higher sales volume."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states net interest income increase due to higher loan balances and lower funding costs; noninterest income up on merchant processing and card volume."
+  },
+  {
+   "sentence": "Noninterest expense fell 2.0% in FY2025  on prior-year merger and FDIC special assessment charges, lower compensation and higher technology spend .",
+   "passages": [
+    {
+     "id": "P10",
+     "filing": "FY2025 10-K Exhibit 13 (Annual Report): Management's Discussion and Analysis",
+     "text": "Noninterest Expense Noninterest expense in 2025 was $16.8 billion, compared with $17.2 billion in 2024. The $351 million (2.0 percent) decrease in noninterest expense in 2025, compared to 2024, reflected the impact of merger and integration charges in the prior year, lower compensation and employee benefits expense and other noninterest expense, partially offset by higher technology and communications expense and marketing and business development expense. Compensation and employee benefits expense decreased primarily due to cost savings from operational efficiencies, partially offset by merit increases. Other noninterest expense decreased primarily due to the impact in the prior year of the FDIC special assessment. Technology and communications expense increased primarily due to investments in infrastructure and technology development. Marketing and business development expense increased primarily due to increased initiatives in 2025."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage states decrease due to prior-year merger charges, FDIC special assessment, lower compensation, partially offset by higher technology spend."
+  }
+ ],
+ "cost_usd": 0.001319,
+ "backend": "openai_compat",
+ "input_tokens": 1261,
+ "cached_input_tokens": 0,
+ "output_tokens": 246
+}

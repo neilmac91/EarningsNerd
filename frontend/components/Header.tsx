@@ -15,7 +15,7 @@ import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
+import { accountLabels, DEFAULT_ACCESS_MODE, type AccessMode } from '@/features/marketing/lib/access'
 import { usePublicAccess } from '@/features/marketing/components/PublicAccessProvider'
 
 const NAV_LINKS = [
@@ -260,7 +260,10 @@ export default function Header({
             nothing in it is painted, focused or read) and the live controls, set at the cell's right edge. The cell is
             as wide as a guest's set whatever the auth check shows, in any font and either access mode, so the nav
             keeps its place as the check settles: it moved 109px for a guest and 35px for a reader at 1152px (E175,
-            chief design on #1558, comment 6377073723). A reader's toggle, bell and avatar stay together at the right,
+            chief design on #1558, comment 6377073723). The copy's account link holds, in one cell, every label the live
+            one can print in this mode (accountLabels: the mode's own and the live example's), so the nav keeps its
+            place as registration readiness lands too: in invite mode it moved 4.5px at 1152px as "See a live example"
+            became "Request an invite" (E220). A reader's toggle, bell and avatar stay together at the right,
             the spare width between them and the nav, and the live set's right edge is the bar's, so the menus anchored
             there (right-0) open on the screen (E160). min-h-10, the md button's height, holds the bar at one height
             whatever the check shows: the 36px placeholder and a signed-in reader's 36px avatar sit centred in the
@@ -272,7 +275,13 @@ export default function Header({
             </span>
             <span className={buttonVariants({ variant: 'ghost', size: 'md' })}>Log in</span>
             <span className={buttonVariants({ variant: 'primary', size: 'md' })}>
-              {account.cta}
+              <span className="grid">
+                {accountLabels(accessMode).map((label) => (
+                  <span key={label} className="col-start-1 row-start-1">
+                    {label}
+                  </span>
+                ))}
+              </span>
               <ArrowRightIcon className="h-3.5 w-3.5" />
             </span>
           </span>

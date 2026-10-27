@@ -1,0 +1,86 @@
+{
+ "ticker": "JPM",
+ "split": "dev",
+ "x": "deepseek-flash",
+ "y": "claude-sonnet-5-5",
+ "judge": "claude-opus-5-5",
+ "orders": [
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "B",
+     "coverage": "B",
+     "clarity": "tie",
+     "calibration": "B"
+    },
+    "overall": "B",
+    "strength": "clear",
+    "rationale": "Both drafts apply segment provision passages firmwide. B also misstates the drivers of criticized exposure. A has more unsupported claims: 'funded from deep liquidity', a 'deteriorating credit trend' when criticized share actually fell, and 'limited cushion'. B discloses that the NII step-up is explained only for Corporate and labels its analysis. It adds the Visa-gain base effect, the FY2020\u201321 provision swing and the cash drawdown cause. Its watch thresholds are more realistic."
+   },
+   "cost_usd": 0.135081,
+   "latency_s": 17.114,
+   "input_tokens": 14270,
+   "output_tokens": 1330,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"B\", \"coverage\": \"B\", \"clarity\": \"tie\", \"calibration\": \"B\"}, \"overall\": \"B\", \"strength\": \"clear\", \"rationale\": \"Both drafts apply segment provision passages firmwide. B also misstates the drivers of criticized exposure. A has more unsupported claims: 'funded from deep liquidity', a 'deteriorating credit trend' when criticized share actually fell, and 'limited cushion'. B discloses that the NII step-up is explained only for Corporate and labels its analysis. It adds the Visa-gain base effect, the FY2020\u201321 provision swing and the cash drawdown cause. Its watch thresholds are more realistic.\"}"
+  },
+  {
+   "verdict": {
+    "criteria": {
+     "depth": "B",
+     "grounding": "A",
+     "coverage": "tie",
+     "clarity": "A",
+     "calibration": "A"
+    },
+    "overall": "A",
+    "strength": "clear",
+    "rationale": "B has more depth: the FY2023 step change, geographic mix and loan-to-deposit trend since FY2021. But its grounding is weaker. It explains the firmwide provision with a $2.6bn segment passage and asserts 'deep liquidity base' funding and 'limited cushion' without support. A misstates the cause of the criticized-exposure rise but otherwise stays sourced, labels its analysis, and sets sharper watch thresholds."
+   },
+   "cost_usd": 0.126125,
+   "latency_s": 12.853,
+   "input_tokens": 14268,
+   "output_tokens": 883,
+   "raw": "{\"criteria\": {\"depth\": \"B\", \"grounding\": \"A\", \"coverage\": \"tie\", \"clarity\": \"A\", \"calibration\": \"A\"}, \"overall\": \"A\", \"strength\": \"clear\", \"rationale\": \"B has more depth: the FY2023 step change, geographic mix and loan-to-deposit trend since FY2021. But its grounding is weaker. It explains the firmwide provision with a $2.6bn segment passage and asserts 'deep liquidity base' funding and 'limited cushion' without support. A misstates the cause of the criticized-exposure rise but otherwise stays sourced, labels its analysis, and sets sharper watch thresholds.\"}"
+  }
+ ],
+ "result": {
+  "depth": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "deepseek-flash",
+   "agreed": false,
+   "final": "tie"
+  },
+  "grounding": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "coverage": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "tie",
+   "agreed": false,
+   "final": "tie"
+  },
+  "clarity": {
+   "order1": "tie",
+   "order2": "claude-sonnet-5-5",
+   "agreed": false,
+   "final": "tie"
+  },
+  "calibration": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  },
+  "overall": {
+   "order1": "claude-sonnet-5-5",
+   "order2": "claude-sonnet-5-5",
+   "agreed": true,
+   "final": "claude-sonnet-5-5"
+  }
+ },
+ "cost_usd": 0.261206
+}

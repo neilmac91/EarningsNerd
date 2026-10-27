@@ -1,0 +1,63 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 4,
+ "output_sha256": "2ec76b08504011bb27169e445805fcb0da6a9ccc9758dc72ccfa56c1506e5469",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "The FY2025 net interest income increase came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "P28 names Markets NII, Card revolving balances and wholesale deposits as drivers, largely offset by deposit margin compression."
+  },
+  {
+   "sentence": "Noninterest expense rose 4% to $95.6 billion on higher compensation, brokerage and distribution fees, auto lease depreciation and technology and marketing spend, partly offset by FDIC special assessment releases .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "P26 cites compensation, brokerage and distribution fees, auto lease depreciation, technology and marketing, partly offset by FDIC accrual releases."
+  },
+  {
+   "sentence": "The FY2025 outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income and higher trading liabilities .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "P21 states cash used came from trading assets, securities borrowed, loan originations and other assets, offset by net income and trading liabilities."
+  },
+  {
+   "sentence": "Loans grew $121.1 billion, driven by CIB Markets and AWM securities-based lending on higher client demand .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "As of December\u00a031, 2025, loans increased by $121.1\u00a0billion, predominantly driven by higher loans in CIB, primarily in Markets, and higher securities-based lending in AWM, both associated with higher client demand. Lending-related commitments increased by $64.5\u00a0billion, predominantly driven by higher commitments in CIB, including held-for-sale commitments."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes loan growth to CIB Markets and AWM securities-based lending, both tied to higher client demand."
+  }
+ ],
+ "cost_usd": 0.026816,
+ "backend": "claude_cli",
+ "input_tokens": 2508,
+ "cached_input_tokens": 0,
+ "output_tokens": 338
+}

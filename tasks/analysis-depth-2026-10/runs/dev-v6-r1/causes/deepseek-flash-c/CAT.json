@@ -1,0 +1,90 @@
+{
+ "system": "deepseek-flash-c",
+ "ticker": "CAT",
+ "split": "dev",
+ "claims": 5,
+ "output_sha256": "1a76081715666b14dcbdbf74eec8fe43f43936379bd69e1c8bb1ffc9a39978d6",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "FY2020 reversed that with a 22.4% decline to $41.7 billion , as lower end-user demand and dealer inventory reductions cut sales across all regions and the three primary segments .",
+   "passages": [
+    {
+     "id": "P59",
+     "filing": "FY2020 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Our sales and revenues for 2020 were $41.748 billion, a decrease of $12.052 billion, or 22 percent, compared with $53.800 billion in 2019. The decline was due to lower sales volume driven by lower end-user demand for equipment and services and the impact from changes in dealer inventories across the three primary segments. Sales were lower across all regions and in the three primary segments. Profit per share was $5.46 in 2020, compared with profit per share of $10.74 in 2019. Profit was $2.998 billion in 2020, compared with $6.093 billion in 2019. The decrease was primarily due to lower sales volume, unfavorable price realization, lower profit from Financial Products and higher restructuring costs, partially offset by lower selling, general and administrative (SG&A) and research and development (R&D) expenses and favorable manufacturing costs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P59 attributes the decline to lower end-user demand and dealer inventory changes, with lower sales across all regions and the three primary segments."
+  },
+  {
+   "sentence": "The recovery peaked in FY2023 at $67.1 billion , up 12.8% , on favorable price realization and higher sales volume , before FY2024 fell 3.4% on lower equipment sales to end users .",
+   "passages": [
+    {
+     "id": "P32",
+     "filing": "FY2023 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2023 were $67.060 billion, an increase of $7.633 billion, or 13 percent, compared with $59.427 billion in 2022. The increase was primarily due to favorable price realization and higher sales volume. The increase in sales volume was driven by higher sales of equipment to end users, partially offset by the impact from changes in dealer inventories. Dealer inventory increased about $2.4 billion during 2022, compared to an increase of about $2.1 billion during 2023."
+    },
+    {
+     "id": "P22",
+     "filing": "FY2024 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2024 were $64.809 billion, a decrease of $2.251 billion, or 3 percent, compared with $67.060 billion for 2023. The decrease reflected lower sales volume, partially offset by favorable price realization. Lower sales volume was primarily driven by lower sales of equipment to end users. Profit per share was $22.05 in 2024, compared with profit per share of $20.12 in 2023. Profit was $10.792 billion in 2024, compared with $10.335 billion in 2023. The profit impact of lower sales volume was more than offset by favorable price realization and the absence of the impact of the divestiture of the company's Longwall business in 2023."
+    }
+   ],
+   "label": "supported",
+   "reason": "P32 cites favorable price realization and higher volume for FY2023. P22 cites lower end-user equipment sales for FY2024."
+  },
+  {
+   "sentence": "The FY2025 increase was primarily higher sales volume of $3.389 billion, partly offset by unfavorable price realization of $817 million , with North America up 6% on higher equipment sales to end users .",
+   "passages": [
+    {
+     "id": "P13",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Total sales and revenues for 2025 were $67.589 billion, an increase of $2.780 billion, or 4 percent, compared with $64.809 billion in 2024. The increase was primarily driven by higher sales volume of $3.389 billion, partially offset by unfavorable price realization of $817 million. The increase in sales volume was mainly driven by higher sales of equipment to end users."
+    },
+    {
+     "id": "P12",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "North America sales increased 6 percent due to higher sales volume, partially offset by unfavorable price realization. The increase in sales volume was mainly driven by higher sales of equipment to end users."
+    }
+   ],
+   "label": "supported",
+   "reason": "P13 states the volume gain and the price offset. P12 says North America rose 6% on higher end-user equipment sales."
+  },
+  {
+   "sentence": "The 3.7pp operating-margin decline in FY2025  came mostly from cost of revenue, a -4.2pp effect , as unfavorable manufacturing costs of $2.148 billion largely reflected higher tariffs .",
+   "passages": [
+    {
+     "id": "P9",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Operating profit was $11.151 billion in 2025, a decrease of $1.921 billion, or 15 percent, compared with $13.072 billion in 2024. The decrease was primarily due to unfavorable manufacturing costs of $2.148 billion and unfavorable price realization of $817 million, partially offset by the profit impact of higher sales volume of $1.218 billion. Unfavorable manufacturing costs largely reflected the impact of higher tariffs."
+    }
+   ],
+   "label": "supported",
+   "reason": "P9 names unfavorable manufacturing costs of $2.148 billion, largely from higher tariffs, as the primary cause of the operating profit decrease."
+  },
+  {
+   "sentence": "Machinery, Power & Energy operating cash flow rose to $12.278 billion from $11.437 billion , primarily on lower working capital requirements and lower cash taxes paid .",
+   "passages": [
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $12.278 billion in 2025, compared with $11.437 billion in 2024. The increase was primarily due to lower working capital requirements and lower cash taxes paid. These were partially offset by lower profit before taxes, adjusted for non-cash items. Within working capital, changes in customer advances, accounts payable, and accrued wages, salaries, and employee benefits favorably impacted cash flow, partially offset by changes in inventories and  receivables."
+    },
+    {
+     "id": "P4",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "Net cash provided by operating activities was $12.278 billion in 2025, compared with $11.437 billion in 2024. The increase was primarily due to lower working capital requirements and lower cash taxes paid. These were partially offset by lower profit before taxes, adjusted for non-cash items. Within working capital, changes in customer advances, accounts payable, and accrued wages, salaries, and employee benefits favorably impacted cash flow, partially offset by changes in inventories and  receivables."
+    }
+   ],
+   "label": "supported",
+   "reason": "P4 attributes the operating cash flow increase primarily to lower working capital requirements and lower cash taxes paid."
+  }
+ ],
+ "cost_usd": 0.038368,
+ "backend": "claude_cli",
+ "input_tokens": 3527,
+ "cached_input_tokens": 0,
+ "output_tokens": 508
+}

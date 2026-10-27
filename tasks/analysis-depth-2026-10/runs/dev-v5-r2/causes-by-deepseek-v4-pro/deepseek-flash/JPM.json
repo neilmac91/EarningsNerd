@@ -1,0 +1,51 @@
+{
+ "system": "deepseek-flash",
+ "ticker": "JPM",
+ "split": "dev",
+ "claims": 3,
+ "output_sha256": "5962da3de33aa305069d882d8942c73f92a88ea8b08f559fc383a633e93bc0ae",
+ "auditor": "deepseek-v4-pro",
+ "items": [
+  {
+   "sentence": "FY2025 net interest income growth came from higher Markets net interest income, higher Card Services revolving balances and higher wholesale deposit balances, largely offset by deposit margin compression .",
+   "passages": [
+    {
+     "id": "P28",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2013Net interest income (\u201cNII\u201d) of $95.4 billion, up 3%, driven by higher Markets net interest income, higher revolving balances in Card Services, higher wholesale deposit balances, and the impact of investment securities activity. These factors were largely offset by deposit margin compression and the impact of lower rates. NII excluding Markets was $92.6 billion, flat when compared with the prior year."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers and offset."
+  },
+  {
+   "sentence": "Noninterest expense rose 4.2% to $95.6 billion, driven by higher compensation, brokerage and distribution fees, auto lease depreciation, technology and marketing .",
+   "passages": [
+    {
+     "id": "P26",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense, including higher revenue-related compensation and growth in the number of employees. The increase in expense was also driven by higher brokerage expense and distribution fees, higher auto lease depreciation, and continued investments in technology and marketing, as well as higher occupancy expense. These factors were partially offset by FDIC special assessment accrual releases of $763 million compared with an increase of $725 million in the prior year, as well as the absence of a $1.0 billion contribution of Visa shares to the JPMorgan Chase Foundation recorded in the second quarter of 2024."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers."
+  },
+  {
+   "sentence": "The outflow came from higher trading assets, higher securities borrowed, net loan originations and higher other assets, partly offset by net income .",
+   "passages": [
+    {
+     "id": "P21",
+     "filing": "FY2025 10-K Item 7. Management's Discussion and Analysis",
+     "text": "\u2022In 2025, cash used resulted from higher trading assets, higher securities borrowed, net originations and purchases of loans held-for-sale, higher other assets and higher accrued interest and accounts receivable, partially offset by net income excluding non-cash adjustments, and higher trading liabilities."
+    }
+   ],
+   "label": "supported",
+   "reason": "Passage lists same drivers and offset."
+  }
+ ],
+ "cost_usd": 0.000609,
+ "backend": "openai_compat",
+ "input_tokens": 623,
+ "cached_input_tokens": 0,
+ "output_tokens": 100
+}

@@ -6895,6 +6895,46 @@ Full local and hosted verification plus independent exact-head review precede re
   paid steps started (two failing a second after their paid step started) and eight balance readouts on GitHub.
   Chief defect 35 (a mask that a cut ran ahead of); no classifier denial or hook refusal of the chief's commands
   in the window. Closure 204.
+- 2026-10-26 (record 54, `runtime/control/DECISIONS-54.md`): PR #1571 (record 53) merged `d8ee73ec` by the
+  chief's own squash (forty-ninth deploy-skip proof: its main run succeeded and its deploy job skipped every
+  deploy step); before it, its fact-check, its reviewer's one pass and the chief's one ready mark, whose own
+  Codex review completed with no finding. Four minutes after the merge the session stopped on the account's
+  weekly usage limit, for about 55 hours. Closure 205 registers record 53's survey, fact-check and reviewer and
+  pre-registers this record's survey and fact-check and record 55's reviewer. A read-only survey of the window
+  before the record was written. Ninety-one main merges, thirty-four of them backend deploys, healthy, one
+  applying a migration; no job cut off at the browser tests' limit; production not read live. No CODE RED
+  spend; no ledger event; 102 runs by other writers whose paid steps started, 76 balance readouts and fourteen
+  Ops runs on GitHub. No chief defect, classifier denial or hook refusal of the chief's commands in the window.
+  Closure 205.
+- 2026-10-27 (record 55, `runtime/control/DECISIONS-55.md`): PR #1672 (record 54) merged `d4c4fb81` by the
+  chief's own squash on the founder's word (fiftieth deploy-skip proof: its main run succeeded and its deploy
+  job skipped every deploy step); before it, its fact-check, a merge of main, its reviewer's two passes and the
+  chief's one ready mark, whose own Codex review completed with no finding; the merge held twice for other
+  writers' backend deploys. Closure 206 registers record 54's survey, fact-check and reviewer and pre-registers
+  this record's survey and fact-check and record 56's reviewer. A read-only survey of the window before the
+  record was written. Fifteen main merges, six of them backend deploys, healthy, none applying a migration; no
+  job cut off at its time limit; production not read live. No CODE RED spend; no ledger event; 24 runs by other
+  writers whose paid steps started and five balance readouts on GitHub. Chief defect 36, a mask that a cut ran
+  ahead of; no classifier denial or hook refusal of the chief's commands in the window. Closure 206.
+- 2026-10-27 (record 56, `runtime/control/DECISIONS-56.md`): PR #1685 (record 55) merged `26666e2a` by the
+  chief's own squash (fifty-first deploy-skip proof: its main run succeeded and its deploy job skipped every
+  deploy step); before it, its fact-check, its reviewer's two passes and the chief's one ready mark, whose own
+  Codex review completed with no finding. Closure 207 registers record 55's survey, fact-check and reviewer and
+  pre-registers this record's survey and fact-check and record 57's reviewer. A read-only survey of the window
+  before the record was written. Two main merges, one of them a backend deploy, healthy, applying no
+  migration; no job cut off at its time limit; production not read live. No CODE RED spend; no ledger event;
+  two runs by another writer whose paid steps started and two balance readouts on GitHub. No chief defect;
+  one hook refusal of the chief's commands in the window and, after the stamp, a safety classifier's stop of
+  one of its responses. Closure 207.
+- 2026-10-27 (record 57, `runtime/control/DECISIONS-57.md`): PR #1687 (record 56) merged `db6c64f8` by the
+  chief's own squash (fifty-second deploy-skip proof: its main run succeeded and its deploy job skipped every
+  deploy step); before it, its fact-check, its reviewer's two passes and the chief's one ready mark, whose own
+  Codex review completed with no finding. Closure 208 registers record 56's survey, fact-check and reviewer and
+  pre-registers this record's survey and fact-check and record 58's reviewer. A read-only survey of the window
+  before the record was written. Three main merges, none of them a backend deploy; no job cut off at its time
+  limit; production not read live. No CODE RED spend; no ledger event; no paid step run by any writer on
+  GitHub. No chief defect known, the lapses counted from the chief's notes and its own commands; one hook
+  refusal of the chief's commands in the window. Closure 208.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and

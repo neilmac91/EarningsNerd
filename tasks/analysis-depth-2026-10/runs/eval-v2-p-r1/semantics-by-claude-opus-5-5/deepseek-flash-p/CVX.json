@@ -1,0 +1,449 @@
+{
+ "system": "deepseek-flash-p",
+ "ticker": "CVX",
+ "split": "holdout",
+ "auditor": "claude-opus-5-5",
+ "items": [
+  {
+   "sentence": "Revenue compounded at 5.4% a year from FY2016 to FY2025, but the path was a commodity cycle rather than a trend .",
+   "claim": "5.4%",
+   "match": "cited: F177 = Revenue CAGR, FY2016..FY2025, 5.44%",
+   "label": "consistent",
+   "reason": "Revenue CAGR FY2016-FY2025 of 5.44%, rounded to 5.4%."
+  },
+  {
+   "sentence": "Revenue fell 32.5% in FY2020 to $94.5 billion, then rose 64.7% in FY2021 and 51.5% in FY2022 to $236 billion .",
+   "claim": "32.5%",
+   "match": "cited: D153 = Revenue growth, FY2020, -32.46%; same value as D436 = Oil and Gas (product) growth",
+   "label": "consistent",
+   "reason": "FY2020 revenue growth of -32.46%, stated as a fall."
+  },
+  {
+   "sentence": "Revenue fell 32.5% in FY2020 to $94.5 billion, then rose 64.7% in FY2021 and 51.5% in FY2022 to $236 billion .",
+   "claim": "$94.5 billion",
+   "match": "cited: F5 = Revenue, FY2020, $94.47 billion; same value as S22 = Oil and Gas (product)",
+   "label": "consistent",
+   "reason": "FY2020 revenue of $94.47 billion."
+  },
+  {
+   "sentence": "Revenue fell 32.5% in FY2020 to $94.5 billion, then rose 64.7% in FY2021 and 51.5% in FY2022 to $236 billion .",
+   "claim": "64.7%",
+   "match": "cited: D192 = Revenue growth, FY2021, 64.71%; same value as D439 = Oil and Gas (product) growth",
+   "label": "consistent",
+   "reason": "FY2021 revenue growth of 64.71%, stated as a rise."
+  },
+  {
+   "sentence": "Revenue fell 32.5% in FY2020 to $94.5 billion, then rose 64.7% in FY2021 and 51.5% in FY2022 to $236 billion .",
+   "claim": "51.5%",
+   "match": "cited: D232 = Revenue growth, FY2022, 51.48%; same value as D442 = Oil and Gas (product) growth",
+   "label": "consistent",
+   "reason": "FY2022 revenue growth of 51.48%, stated as a rise."
+  },
+  {
+   "sentence": "Revenue fell 32.5% in FY2020 to $94.5 billion, then rose 64.7% in FY2021 and 51.5% in FY2022 to $236 billion .",
+   "claim": "$236 billion",
+   "match": "cited: F7 = Revenue, FY2022, $235.72 billion; same value as S24 = Oil and Gas (product)",
+   "label": "consistent",
+   "reason": "FY2022 revenue of $235.72 billion, rounded to $236 billion."
+  },
+  {
+   "sentence": "Since then revenue has fallen three straight years, down 16.5% in FY2023 and 4.6% in FY2025 to $184 billion .",
+   "claim": "16.5%",
+   "match": "cited: D274 = Revenue growth, FY2023, -16.46%",
+   "label": "consistent",
+   "reason": "FY2023 revenue growth of -16.46%, stated as down."
+  },
+  {
+   "sentence": "Since then revenue has fallen three straight years, down 16.5% in FY2023 and 4.6% in FY2025 to $184 billion .",
+   "claim": "4.6%",
+   "match": "cited: D358 = Revenue growth, FY2025, -4.64%",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth of -4.64%, stated as down."
+  },
+  {
+   "sentence": "Since then revenue has fallen three straight years, down 16.5% in FY2023 and 4.6% in FY2025 to $184 billion .",
+   "claim": "$184 billion",
+   "match": "cited: F10 = Revenue, FY2025, $184.43 billion",
+   "label": "consistent",
+   "reason": "FY2025 revenue of $184.43 billion."
+  },
+  {
+   "sentence": "Chevron U.S.A. Inc. supplied 75.1% of FY2025 revenue and subtracted 3.9pp from growth .",
+   "claim": "75.1%",
+   "match": "cited: D402 = Chevron U.S.A. Inc. (other) share of revenue, FY2025, 75.15%",
+   "label": "consistent",
+   "reason": "Chevron U.S.A. Inc. share of FY2025 revenue."
+  },
+  {
+   "sentence": "Chevron U.S.A. Inc. supplied 75.1% of FY2025 revenue and subtracted 3.9pp from growth .",
+   "claim": "3.9pp",
+   "match": "cited: D404 = Chevron U.S.A. Inc. (other) contribution to revenue growth (pp), FY2025, -3.88pp",
+   "label": "consistent",
+   "reason": "Growth contribution of -3.88pp, stated as subtracted."
+  },
+  {
+   "sentence": "Tengizchevroil was the offset, growing 16.5% and adding 1.5pp on an 11.6% revenue share .",
+   "claim": "16.5%",
+   "match": "cited: D419 = Tengizchevroil LLP (other) growth, FY2025, 16.50%",
+   "label": "consistent",
+   "reason": "Tengizchevroil FY2025 growth of 16.50%."
+  },
+  {
+   "sentence": "Tengizchevroil was the offset, growing 16.5% and adding 1.5pp on an 11.6% revenue share .",
+   "claim": "1.5pp",
+   "match": "cited: D420 = Tengizchevroil LLP (other) contribution to revenue growth (pp), FY2025, +1.54pp",
+   "label": "consistent",
+   "reason": "Tengizchevroil contribution of +1.54pp, stated as adding."
+  },
+  {
+   "sentence": "Tengizchevroil was the offset, growing 16.5% and adding 1.5pp on an 11.6% revenue share .",
+   "claim": "11.6%",
+   "match": "cited: D418 = Tengizchevroil LLP (other) share of revenue, FY2025, 11.63%",
+   "label": "consistent",
+   "reason": "Tengizchevroil FY2025 revenue share of 11.63%."
+  },
+  {
+   "sentence": "U.S. upstream revenue rose 34.0% on the Hess acquisition and Permian and Gulf of America growth .",
+   "claim": "34.0%",
+   "match": "cited: D553 = Operating Segments \u2014 US, Upstream (segment) growth, FY2025, 34.05%",
+   "label": "consistent",
+   "reason": "US Upstream segment FY2025 growth of 34.05%."
+  },
+  {
+   "sentence": "Net income fell 30.5% against a 4.6% revenue decline, so operating costs did not flex with the top line .",
+   "claim": "30.5%",
+   "match": "cited: D359 = Net income growth, FY2025, -30.51%",
+   "label": "consistent",
+   "reason": "FY2025 net income growth of -30.51%, stated as a fall."
+  },
+  {
+   "sentence": "Net income fell 30.5% against a 4.6% revenue decline, so operating costs did not flex with the top line .",
+   "claim": "4.6%",
+   "match": "cited: D358 = Revenue growth, FY2025, -4.64%",
+   "label": "consistent",
+   "reason": "FY2025 revenue growth of -4.64%, stated as a decline."
+  },
+  {
+   "sentence": "Diluted EPS fell 31.8%, slightly worse than net income as the diluted share count rose 2.1% .",
+   "claim": "31.8%",
+   "match": "cited: D361 = EPS (diluted) growth, FY2025, -31.79%",
+   "label": "consistent",
+   "reason": "FY2025 diluted EPS growth of -31.79%, stated as a fall."
+  },
+  {
+   "sentence": "Diluted EPS fell 31.8%, slightly worse than net income as the diluted share count rose 2.1% .",
+   "claim": "2.1%",
+   "match": "cited: D374 = Diluted share count change, FY2025, 2.15%",
+   "label": "consistent",
+   "reason": "FY2025 diluted share count change of +2.15%, stated as a rise."
+  },
+  {
+   "sentence": "Net margin was 6.7% in FY2025, below the 7.9% window median and far under the 15.1% FY2022 high .",
+   "claim": "6.7%",
+   "match": "cited: F30 = Net margin, FY2025, 6.67%",
+   "label": "consistent",
+   "reason": "FY2025 net margin of 6.67%."
+  },
+  {
+   "sentence": "Net margin was 6.7% in FY2025, below the 7.9% window median and far under the 15.1% FY2022 high .",
+   "claim": "7.9%",
+   "match": "cited: D613 = Net margin window median, FY2016..FY2025, 7.91%",
+   "label": "consistent",
+   "reason": "Net margin window median of 7.91%."
+  },
+  {
+   "sentence": "Net margin was 6.7% in FY2025, below the 7.9% window median and far under the 15.1% FY2022 high .",
+   "claim": "15.1%",
+   "match": "cited: D612 = Net margin window high (FY2022), FY2016..FY2025, 15.06%",
+   "label": "consistent",
+   "reason": "Net margin window high of 15.06%, in FY2022."
+  },
+  {
+   "sentence": "Cost of revenue fell to 57.2% of revenue from 58.8%, while SG&A rose to 2.7% from 2.4% .",
+   "claim": "57.2%",
+   "match": "cited: D338 = Cost of revenue % of revenue, FY2025, 57.25%",
+   "label": "consistent",
+   "reason": "FY2025 cost of revenue at 57.25% of revenue."
+  },
+  {
+   "sentence": "Cost of revenue fell to 57.2% of revenue from 58.8%, while SG&A rose to 2.7% from 2.4% .",
+   "claim": "58.8%",
+   "match": "cited: D296 = Cost of revenue % of revenue, FY2024, 58.78%",
+   "label": "consistent",
+   "reason": "FY2024 cost of revenue at 58.78% of revenue."
+  },
+  {
+   "sentence": "Cost of revenue fell to 57.2% of revenue from 58.8%, while SG&A rose to 2.7% from 2.4% .",
+   "claim": "2.7%",
+   "match": "cited: D340 = SG&A % of revenue, FY2025, 2.71%",
+   "label": "consistent",
+   "reason": "FY2025 SG&A at 2.71% of revenue."
+  },
+  {
+   "sentence": "Cost of revenue fell to 57.2% of revenue from 58.8%, while SG&A rose to 2.7% from 2.4% .",
+   "claim": "2.4%",
+   "match": "cited: D298 = SG&A % of revenue, FY2024, 2.38%",
+   "label": "consistent",
+   "reason": "FY2024 SG&A at 2.38% of revenue."
+  },
+  {
+   "sentence": "SG&A rose 6.0% on the Hess acquisition and higher professional service costs .",
+   "claim": "6.0%",
+   "match": "cited: D372 = SG&A growth, FY2025, 6.04%",
+   "label": "consistent",
+   "reason": "FY2025 SG&A growth of 6.04%, stated as a rise."
+  },
+  {
+   "sentence": "Depreciation, depletion and amortization rose to 10.7% of revenue on higher production and higher rates .",
+   "claim": "10.7%",
+   "match": "cited: D341 = D&A % of revenue, FY2025, 10.65%",
+   "label": "consistent",
+   "reason": "FY2025 D&A at 10.65% of revenue."
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.8% from 35.5%, widening the gap between operating and net margin .",
+   "claim": "36.8%",
+   "match": "cited: D345 = Effective tax rate, FY2025, 36.76%",
+   "label": "consistent",
+   "reason": "FY2025 effective tax rate of 36.76%."
+  },
+  {
+   "sentence": "The effective tax rate rose to 36.8% from 35.5%, widening the gap between operating and net margin .",
+   "claim": "35.5%",
+   "match": "cited: D303 = Effective tax rate, FY2024, 35.47%",
+   "label": "consistent",
+   "reason": "FY2024 effective tax rate of 35.47%."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8% to $33.9 billion, 2.76x net income and above the 1.97x window median .",
+   "claim": "7.8%",
+   "match": "cited: D362 = Operating cash flow growth, FY2025, 7.77%",
+   "label": "consistent",
+   "reason": "FY2025 operating cash flow growth of 7.77%."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8% to $33.9 billion, 2.76x net income and above the 1.97x window median .",
+   "claim": "$33.9 billion",
+   "match": "cited: F60 = Operating cash flow, FY2025, $33.94 billion",
+   "label": "consistent",
+   "reason": "FY2025 operating cash flow of $33.94 billion."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8% to $33.9 billion, 2.76x net income and above the 1.97x window median .",
+   "claim": "2.76x",
+   "match": "cited: D346 = Operating cash flow / net income, FY2025, 2.76x",
+   "label": "consistent",
+   "reason": "FY2025 operating cash flow to net income of 2.76x."
+  },
+  {
+   "sentence": "Operating cash flow rose 7.8% to $33.9 billion, 2.76x net income and above the 1.97x window median .",
+   "claim": "1.97x",
+   "match": "cited: D644 = Operating cash flow / net income window median, FY2017..FY2025, 1.97x",
+   "label": "consistent",
+   "reason": "Operating cash flow to net income window median of 1.97x."
+  },
+  {
+   "sentence": "Free cash flow was $16.6 billion, an 8.8% margin against a 8.9% window median .",
+   "claim": "$16.6 billion",
+   "match": "cited: F80 = Free cash flow, FY2025, $16.59 billion",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow of $16.59 billion."
+  },
+  {
+   "sentence": "Free cash flow was $16.6 billion, an 8.8% margin against a 8.9% window median .",
+   "claim": "8.8%",
+   "match": "cited: D343 = Free cash flow margin, FY2025, 8.78%",
+   "label": "consistent",
+   "reason": "FY2025 free cash flow margin of 8.78%."
+  },
+  {
+   "sentence": "Free cash flow was $16.6 billion, an 8.8% margin against a 8.9% window median .",
+   "claim": "8.9%",
+   "match": "cited: D616 = Free cash flow margin window median, FY2016..FY2025, 8.89%",
+   "label": "consistent",
+   "reason": "Free cash flow margin window median of 8.89%."
+  },
+  {
+   "sentence": "Capex of $17.3 billion was 9.2% of revenue and 0.86x D&A .",
+   "claim": "$17.3 billion",
+   "match": "cited: F70 = Capital expenditures, FY2025, $17.35 billion",
+   "label": "consistent",
+   "reason": "FY2025 capex of $17.35 billion, rounded to $17.3 billion."
+  },
+  {
+   "sentence": "Capex of $17.3 billion was 9.2% of revenue and 0.86x D&A .",
+   "claim": "9.2%",
+   "match": "cited: D342 = Capex % of revenue, FY2025, 9.18%",
+   "label": "consistent",
+   "reason": "FY2025 capex at 9.18% of revenue."
+  },
+  {
+   "sentence": "Capex of $17.3 billion was 9.2% of revenue and 0.86x D&A .",
+   "claim": "0.86x",
+   "match": "cited: D348 = Capex / D&A, FY2025, 0.86x",
+   "label": "consistent",
+   "reason": "FY2025 capex to D&A of 0.86x."
+  },
+  {
+   "sentence": "Cash and investments were $7.3 billion at FY2025, down 11.8% .",
+   "claim": "$7.3 billion",
+   "match": "cited: D349 = Cash and investments, FY2025, $7.29 billion; same value as F120 = Cash & equivalents",
+   "label": "consistent",
+   "reason": "FY2025 cash and investments of $7.29 billion."
+  },
+  {
+   "sentence": "Cash and investments were $7.3 billion at FY2025, down 11.8% .",
+   "claim": "11.8%",
+   "match": "cited: D375 = Cash and investments growth, FY2025, -11.83%; same value as D366 = Cash & equivalents growth",
+   "label": "consistent",
+   "reason": "Cash and investments growth of -11.83%, stated as down."
+  },
+  {
+   "sentence": "Total assets jumped 26.1% to $324 billion and equity 22.4% to $186 billion, consistent with the Hess acquisition .",
+   "claim": "26.1%",
+   "match": "cited: D365 = Total assets growth, FY2025, 26.11%",
+   "label": "consistent",
+   "reason": "FY2025 total assets growth of 26.11%."
+  },
+  {
+   "sentence": "Total assets jumped 26.1% to $324 billion and equity 22.4% to $186 billion, consistent with the Hess acquisition .",
+   "claim": "$324 billion",
+   "match": "cited: F110 = Total assets, FY2025, $324.01 billion",
+   "label": "consistent",
+   "reason": "FY2025 total assets of $324.01 billion."
+  },
+  {
+   "sentence": "Total assets jumped 26.1% to $324 billion and equity 22.4% to $186 billion, consistent with the Hess acquisition .",
+   "claim": "22.4%",
+   "match": "cited: D367 = Shareholders' equity growth, FY2025, 22.41%",
+   "label": "consistent",
+   "reason": "FY2025 shareholders' equity growth of 22.41%."
+  },
+  {
+   "sentence": "Total assets jumped 26.1% to $324 billion and equity 22.4% to $186 billion, consistent with the Hess acquisition .",
+   "claim": "$186 billion",
+   "match": "cited: F176 = Shareholders' equity, FY2025, $186.45 billion",
+   "label": "consistent",
+   "reason": "FY2025 shareholders' equity of $186.45 billion."
+  },
+  {
+   "sentence": "Return on average equity was 7.3%, in the 17th percentile of six energy peers against a 14.9% median .",
+   "claim": "7.3%",
+   "match": "cited: D357 = Return on average equity, FY2025, 7.26%",
+   "label": "consistent",
+   "reason": "FY2025 return on average equity of 7.26%."
+  },
+  {
+   "sentence": "Return on average equity was 7.3%, in the 17th percentile of six energy peers against a 14.9% median .",
+   "claim": "17th percentile",
+   "match": "cited: D641 = Return on average equity: percentile vs energy peers (n=6), FY2025, 16.67 (percentile)",
+   "label": "consistent",
+   "reason": "16.67 percentile against six energy peers, rounded to 17th."
+  },
+  {
+   "sentence": "Return on average equity was 7.3%, in the 17th percentile of six energy peers against a 14.9% median .",
+   "claim": "14.9%",
+   "match": "cited: D642 = Return on average equity: energy peer median (n=6), FY2025, 14.94%",
+   "label": "consistent",
+   "reason": "Energy peer median return on equity of 14.94%."
+  },
+  {
+   "sentence": "Buybacks and dividends of $24.8 billion were 149.7% of free cash flow, funded partly by $11.4 billion of debt issued .",
+   "claim": "$24.8 billion",
+   "match": "cited: D353 = Buybacks plus dividends, FY2025, $24.83 billion",
+   "label": "consistent",
+   "reason": "FY2025 buybacks plus dividends of $24.83 billion."
+  },
+  {
+   "sentence": "Buybacks and dividends of $24.8 billion were 149.7% of free cash flow, funded partly by $11.4 billion of debt issued .",
+   "claim": "149.7%",
+   "match": "cited: D354 = Buybacks plus dividends % of free cash flow, FY2025, 149.65%",
+   "label": "consistent",
+   "reason": "FY2025 buybacks plus dividends at 149.65% of free cash flow."
+  },
+  {
+   "sentence": "Buybacks and dividends of $24.8 billion were 149.7% of free cash flow, funded partly by $11.4 billion of debt issued .",
+   "claim": "$11.4 billion",
+   "match": "cited: X157 = Debt issued, FY2025, $11.40 billion",
+   "label": "consistent",
+   "reason": "FY2025 debt issued of $11.40 billion."
+  },
+  {
+   "sentence": "Revenue has fallen three years running, from $197 billion in FY2023 to $184 billion in FY2025 .",
+   "claim": "$197 billion",
+   "match": "cited: F8 = Revenue, FY2023, $196.91 billion",
+   "label": "consistent",
+   "reason": "FY2023 revenue of $196.91 billion."
+  },
+  {
+   "sentence": "Revenue has fallen three years running, from $197 billion in FY2023 to $184 billion in FY2025 .",
+   "claim": "$184 billion",
+   "match": "cited: F10 = Revenue, FY2025, $184.43 billion",
+   "label": "consistent",
+   "reason": "FY2025 revenue of $184.43 billion."
+  },
+  {
+   "sentence": "Payouts exceeded free cash flow in each of those years, at 132.8%, 179.7% and 149.7% .",
+   "claim": "132.8%",
+   "match": "cited: D270 = Buybacks plus dividends % of free cash flow, FY2023, 132.84%",
+   "label": "consistent",
+   "reason": "FY2023 payouts at 132.84% of free cash flow."
+  },
+  {
+   "sentence": "Payouts exceeded free cash flow in each of those years, at 132.8%, 179.7% and 149.7% .",
+   "claim": "179.7%",
+   "match": "cited: D312 = Buybacks plus dividends % of free cash flow, FY2024, 179.67%",
+   "label": "consistent",
+   "reason": "FY2024 payouts at 179.67% of free cash flow."
+  },
+  {
+   "sentence": "Payouts exceeded free cash flow in each of those years, at 132.8%, 179.7% and 149.7% .",
+   "claim": "149.7%",
+   "match": "cited: D354 = Buybacks plus dividends % of free cash flow, FY2025, 149.65%",
+   "label": "consistent",
+   "reason": "FY2025 payouts at 149.65% of free cash flow."
+  },
+  {
+   "sentence": "If FY2026 revenue falls below the FY2025 level of $184 billion, the three-year decline extends .",
+   "claim": "$184 billion",
+   "match": "cited: F10 = Revenue, FY2025, $184.43 billion",
+   "label": "consistent",
+   "reason": "FY2025 revenue level of $184.43 billion."
+  },
+  {
+   "sentence": "Free cash flow margin below its 8.9% window median would keep payouts above free cash flow .",
+   "claim": "8.9%",
+   "match": "cited: D616 = Free cash flow margin window median, FY2016..FY2025, 8.89%",
+   "label": "consistent",
+   "reason": "Bound applied to the free cash flow margin window median of 8.89%."
+  },
+  {
+   "sentence": "Organic capex guided at $18-19 billion for 2026 exceeds FY2025's $17.3 billion, which would pressure free cash flow .",
+   "claim": "$18",
+   "match": "passage P4: P4 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The company estimates that 2026 organic capex will range from $18 to $19 billion.\"",
+   "label": "consistent",
+   "reason": "Passage gives 2026 organic capex low end of $18 billion."
+  },
+  {
+   "sentence": "Organic capex guided at $18-19 billion for 2026 exceeds FY2025's $17.3 billion, which would pressure free cash flow .",
+   "claim": "19 billion",
+   "match": "passage P4: P4 = a figure in the FY2025 10-K, Item 7. Management's Discussion and Analysis: \"The company estimates that 2026 organic capex will range from $18 to $19 billion.\"",
+   "label": "consistent",
+   "reason": "Passage gives 2026 organic capex high end of $19 billion."
+  },
+  {
+   "sentence": "Organic capex guided at $18-19 billion for 2026 exceeds FY2025's $17.3 billion, which would pressure free cash flow .",
+   "claim": "$17.3 billion",
+   "match": "cited: F70 = Capital expenditures, FY2025, $17.35 billion",
+   "label": "consistent",
+   "reason": "FY2025 capex of $17.35 billion."
+  }
+ ],
+ "output_sha256": "64b30c373d0400d9eeef13cab3a94d6fcb0198bac7cf4834b6bc76b55927793b",
+ "view": 2,
+ "cost_usd": 0.119935,
+ "backend": "claude_cli",
+ "input_tokens": 8504,
+ "cached_input_tokens": 1014,
+ "output_tokens": 2991
+}

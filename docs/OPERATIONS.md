@@ -596,7 +596,18 @@ it (Markdown escapes dropped, HTML entities decoded) and lists each reference; a
 body re-runs the check, and a commit message is reworded on the branch. Until the edit's run reports, the
 previous result stands on the head, as for drafts below, so merge only after it passes. It also fails a
 pull request that lists 250 commits, the most GitHub's commits endpoint returns, because later commit
-messages would go unread. A squash message typed at merge is outside every pull-request check. It passes
+messages would go unread. Draft or not and override or not, it fails too while the pull request changes a
+file whose path holds, as whole segments, a path that an open row of the base branch's `tasks/todo.md`
+leaves to its next change, until its title, body or a commit message names each such row (E218). The path
+is one the row's owner, the parenthetical after its id and disposition, names in backticks in a segment
+that names a next change ("next writer of `routers/auth.py`", "the next PR that changes `x.py`"); the
+failure lists each row and the files it owns, and an edit of the body that names each row, carried or
+answered, re-runs it (`lessons/ops-read-the-rows-a-change-owns-before-you-make-it.md`). The rows are read
+as the check runs, so a row that lands on the base after a pull request's last run holds it from its next
+run (a push, an edit or a re-run); until then the earlier result stands. GitHub lists at most 3,000 of a
+pull request's files, and at that cap every open row that leaves a path counts until the title, body or a
+commit message names it.
+A squash message typed at merge is outside every pull-request check. It passes
 only when the trusted Codex summary's machine state names that full head, reports **Completed**,
 and has `has_unresolved_findings` exactly false, with the required review-cycle evidence; or when
 the pull request body carries a line `Review override: <reason>` (ten or more characters). The
