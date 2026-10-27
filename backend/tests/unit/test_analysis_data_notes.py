@@ -90,36 +90,47 @@ def test_the_marking_rule_and_summary_words_match_the_shared_fixture():
 
 
 # A page action, which no export or PNG can honour. A verb only a screen answers fails in any form ("Click for the source
-# filing", "Clicked on, it opens", "Hover for its inputs", "Drag to zoom"), as does a part only the page has (a tooltip, a
-# button, a cursor). A verb a filing also uses (tap, press, select, choose, drag) fails as an imperative opening a
-# sentence or clause ("Press for details", "Choose from the list"), as a gerund ("Selecting shows the filing"), as a
-# participle set off by a comma ("Selected, it opens the filing") and in its base form aimed at something ("Tap it",
-# "select from the list"). Its other forms pass, since a filing uses them otherwise: "the earnings press release",
-# "selected financial data", "the company selected a different fiscal year end", "the company chose", "tapped its credit
-# facility", "a drag on margins". Out of reach, so planted as passing: a third-person form ("Taps open the filing"),
-# which a sentence describing our own process also takes ("Selects the most recent filing's value").
+# filing", "Clicked on, it opens", "Hover for its inputs", "Drag to zoom", "Mouse over for details"), as does a part only
+# the page has (a tooltip, a button, a cursor, a dialog, a popover, a link, a panel but "a panel of directors"). A verb a
+# filing also uses (tap, press, select, choose, drag, open, pick, expand, follow) fails as an imperative opening a
+# sentence or clause ("Press for details", "Open it to see both filings", "Follow the link"), as a participle set off by
+# a comma ("Selected, it opens the filing") and in its base form aimed at something ("Tap it", "Expand the row");
+# tap, press, select, choose, drag and pick fail as a gerund too ("Selecting shows the filing"). Their other forms pass,
+# since a filing uses them otherwise: "the earnings press release", "selected financial data", "the company selected a
+# different fiscal year end", "chose", "tapped its credit facility", "a drag on margins", "the open market", "open
+# positions", "the opening balance", "the following period", "expand operations", "linked to LIBOR". Out of reach, so
+# planted as passing: a third-person form ("Taps open the filing"), which a sentence describing our own process also
+# takes ("Selects the most recent filing's value"), and a verb not listed here.
 PAGE_ACTIONS = re.compile(
     r"\b(?:click(?:s|ed|ing)?|hover(?:s|ed|ing)?|scroll(?:s|ed|ing)?|swip(?:e|es|ed|ing)|toggl(?:e|es|ed|ing)"
-    r"|zoom(?:s|ed|ing)?|tooltips?|buttons?|cursors?)\b"
-    r"|(?:^|[.;:!?(]\s*)(?:(?:tap|press(?!\s+releases?\b)|select|choose|drag)\b|(?:tapped|pressed|selected|chosen|dragged)\s*,)"
-    r"|\b(?:tapp|press|select|choos|dragg)ing\b"
+    r"|zoom(?:s|ed|ing)?|mouse(?:s|d)?\s*over|mousing\s+over|tooltips?|buttons?|cursors?|dialogs?|popovers?|links?"
+    r"|panels?(?!\s+of\b))\b"
+    r"|(?:^|[.;:!?(]\s*)(?:(?:tap|press(?!\s+releases?\b)|select|choose|drag|open(?!\s+(?:market|positions?)\b)|pick"
+    r"|expand|follow)\b|(?:tapped|pressed|selected|chosen|dragged|opened|picked|expanded)\s*,)"
+    r"|\b(?:tapp|press|select|choos|dragg|pick)ing\b"
     r"|\b(?:tap|press|select|choose)\s+(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|for|from|through)\b"
+    r"|\b(?:open|pick|expand)\s+(?:it|them|one|any|this|that|these|those|here|for"
+    r"|the\s+(?:row|note|notes|figure|table|chart|detail|details|list))\b"
+    r"|\bfollow\s+(?:it|them|this|that|here)\b"
     r"|\bdrag\s+(?:it|them|one|any|the|this|that|these|those|here|across|over\s+(?:it|them|the\s+chart))\b",
     re.IGNORECASE,
 )
 # How a missing figure is drawn differs by surface: a dash in the table, the PDF's tables and the page's and PNG's bar
 # charts; a break in a line chart; an empty cell and an empty chart slot in the workbook; "Unavailable" in the PDF's
-# Sources & methods. So words never say it: not the dash or the em dash, not a cell or a slot, and not "shown", "drawn",
-# "printed", "displayed", "rendered", "plotted", "appears" or "left" before a glyph, a blank, a gap or a break, with "as",
-# a quote or a place between ("Shown in the table as a blank cell", "Shown as 'N/A'"). "Never shown as zero" and "shown
-# as stored" say what the value is, and pass, as does a range's en dash. A subjectless "left blank" fails even where it
-# means the filing ("Left blank in the filing"), since it reads as our drawing; the filing's own blank takes its subject
-# ("The filing left it blank"), and passes.
+# Sources & methods. So words never say it: not the dash or the em dash, not a cell or a slot, and no form of show, draw,
+# print, display, render, plot or appear, nor "left", before a glyph, a blank, a gap or a break, with "as", an article,
+# a quote or a place between ("Shown in the table as a blank cell", "Shows as a gap", "Drew a gap in the line", "Shown as
+# 'N/A'"). "Never shown as zero", "shown as stored" and "we show the most recent filing's value" say what the value is,
+# and pass, as does a range's en dash. A subjectless "left blank" fails even where it means the filing ("Left blank in
+# the filing"), since it reads as our drawing; the filing's own blank takes its subject ("The filing left it blank"), and
+# passes. Out of reach, so planted as passing: a drawing said with no verb ("Blank in the table, never zero.").
+_DRAWN = (r"(?:show(?:s|n|ed|ing)?|draw(?:s|n|ing)?|drew|print(?:s|ed|ing)?|display(?:s|ed|ing)?|render(?:s|ed|ing)?"
+          r"|plot(?:s|ted|ting)?|appear(?:s|ed|ing)?|left)")
 DRAWING = re.compile(
     r"\bdash(?:es)?\b|\u2014|\b(?:cell|slot)s?\b"
-    r"|\b(?:shown|drawn|printed|displayed|rendered|plotted|appears?|left)\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?"
-    r"(?:as\s+)?(?:an?\s+)?[\"'\u2018\u201c]?(?:hyphen|blank|empty|gap|break|n/a|space)\b"
-    r"|\b(?:shown|drawn|printed|displayed|rendered|plotted|appears?)\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?as\s+"
+    rf"|\b{_DRAWN}\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?"
+    r"(?:as\s+)?(?:an?\s+|the\s+)?[\"'\u2018\u201c]?(?:hyphen|blank|empty|gap|break|n/a|space)\b"
+    rf"|\b{_DRAWN.replace('|left', '')}\s+(?:in\s+(?:the|a|an|each)\s+\w+\s+)?as\s+"
     r"[\"'\u2018\u201c]?[\u2013-]",
     re.IGNORECASE,
 )
@@ -163,12 +174,20 @@ def _surface_problems(words: str) -> list[str]:
     "Choose from the list.", "Clicked on, it opens the filing.", "Selecting shows the filing.", "Drag to zoom.",
     "Clicks open the filing.", "Selected, it opens the filing.", "Drag it to compare.", "Then select the row.",
     "See the tooltip.", "Review the filing, or press here.", "Press release aside, select it.", "Drag the slider.",
+    # Round 5: open, pick, expand, follow, mouse over, and the page's dialog, link and panel.
+    "Open it to see both filings.", "Pick one to see both filings.", "Open the dialog to compare.",
+    "See the dialog for both filings.", "Expand the row for both filings.", "Follow the link to the filing.",
+    "Mouse over for details.", "See the panel for the inputs.", "Opened, it shows both filings.",
     # Drawing.
     "Shown as a dash.", "Shown as \u2014, never as zero.", "Not in our data, shown as a blank cell, never as zero.",
     "Not in our data, left empty, never zero.", "Drawn as a gap in the line.", "Shown as a hyphen.",
     "Left blank, never zero.", "Left blank in the filing.", "Shown empty.", "Shown as n/a.", "Shown as \u2013.",
     "Drawn as a break in the line.", "Shown in the table as a blank cell.", "Shown as 'N/A'.", "Appears as a gap.",
     "Plotted as a gap.", "The cell is empty.",
+    # Round 5: each drawing verb's other forms.
+    "Shows as a gap.", "Shows as blank, never zero.", "Displays as a blank.", "Prints as a blank in the PDF.",
+    "Draws as a break in the line.", "Drew a gap in the line.", "Renders as empty.", "Showing as a gap, never zero.",
+    "Show as blank.", "Appeared as a gap.", "Plots as a gap.", "Showed as \u2013.", "Shows the gap in the line.",
     # One figure or set.
     "Filings report different values for this figure.", "Different values for that figure.",
     "Those figures differ from the filing.", "The figure\u2019s period ends on a different date.",
@@ -199,8 +218,11 @@ def test_the_surface_words_check_fails_what_it_names(words):
     "A reported quarterly earnings-per-share figure is unavailable.", "We show the most recent filing\u2019s value.",
     "Not in our data. Never shown as zero.", "Calculated before 10 October 2026. Shown as stored, with its inputs not linked.",
     "the filings report different values (the most recent shown)",
-    # Out of reach: a third-person form, which our own process takes too.
-    "Taps open the filing.", "Selects the most recent filing\u2019s value.",
+    "Bought on the open market.", "The company\u2019s open positions were closed.", "Approved by a panel of directors.",
+    "Interest is linked to LIBOR.", "The company plans to expand operations.", "Restated in the following year.",
+    "Never shown as zero.", "Shows the same period in each filing.", "Picked up in a later filing.",
+    # Out of reach: a third-person form, which our own process takes too, and a drawing said with no verb.
+    "Taps open the filing.", "Selects the most recent filing\u2019s value.", "Blank in the table, never zero.",
 ])
 def test_the_surface_words_check_passes_ordinary_words(words):
     assert _surface_problems(words) == []
