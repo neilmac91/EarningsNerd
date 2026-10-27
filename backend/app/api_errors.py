@@ -20,6 +20,7 @@ class CodedHTTPException(HTTPException):
     """An ``HTTPException`` at ``code``'s registered status, answered as ``{"detail": detail, "code": code}``."""
 
     def __init__(self, code: ErrorCode, detail: str, headers: Optional[dict[str, str]] = None) -> None:
+        code = ErrorCode(code)  # a plain string would pass the lookup and fail the handler's `.value`
         super().__init__(status_code=REGISTERED_STATUS[code], detail=detail, headers=headers)
         self.code = code
 

@@ -49,7 +49,11 @@ def sse_error(message: str, code: ErrorCode, **fields: Any) -> dict[str, Any]:
     """A stream's error event with ``code`` beside its unchanged keys: ``{"type": "error", "message": ...}``.
 
     Raises ``ValueError`` for a code outside ``STREAM_CODES``, which the client ignores on a stream, so the producer's
-    own test of that branch fails instead of shipping a code nothing reads."""
+    own test of that branch fails instead of shipping a code nothing reads, and for ``fields`` that would replace the
+    event's own keys."""
+    code = ErrorCode(code)  # a plain string would pass the membership check and fail at `.value`
     if code not in STREAM_CODES:
         raise ValueError(f"{code.value} is not a stream code")
+    if fields.keys() & {"type", "message", "code"}:
+        raise ValueError("fields may not replace an error event's own keys")
     return {"type": "error", "message": message, "code": code.value, **fields}

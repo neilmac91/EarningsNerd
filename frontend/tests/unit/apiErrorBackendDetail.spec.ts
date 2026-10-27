@@ -91,6 +91,18 @@ describe('ApiError.code', () => {
     expect(err.isRetryable).toBe(status >= 500)
   })
 
+  it("never honours a key that reaches ERROR_CODES only through Object's prototype", () => {
+    // A polluted prototype member shaped like a registered code must still read as no code.
+    const proto = Object.prototype as Record<string, unknown>
+    proto.polluted_code = { status: 403, stream: true }
+    try {
+      expect(parseErrorCode('polluted_code', 403)).toBeUndefined()
+      expect(parseErrorCode('polluted_code', 'stream')).toBeUndefined()
+    } finally {
+      delete proto.polluted_code
+    }
+  })
+
   it('honours a stream code only on a stream, and an HTTP-only code never there', () => {
     expect(parseErrorCode('free_allowance_exhausted', 'stream')).toBe('free_allowance_exhausted')
     expect(parseErrorCode('pro_fair_use_limit', 'stream')).toBe('pro_fair_use_limit')

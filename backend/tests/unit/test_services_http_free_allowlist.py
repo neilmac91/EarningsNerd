@@ -12,7 +12,8 @@ An AST walk over ``app/services/**/*.py`` collects every ``fastapi``/``starlette
 compares the importing files against a checked-in allow-list. A new importer fails with file:line;
 an allow-listed file that stops importing fails too, so the list cannot go stale.
 ``fastapi.concurrency`` is exempt everywhere: ``run_in_threadpool`` offloads blocking work and
-carries no HTTP meaning.
+carries no HTTP meaning. ``app.api_errors`` counts as the HTTP layer (E31): it holds ``CodedHTTPException``,
+so a service imports the HTTP-free ``app.error_codes`` instead.
 """
 import ast
 from pathlib import Path
@@ -31,6 +32,7 @@ ALLOWED_HTTP_IMPORTERS: dict[str, str] = {
 
 _HTTP_ROOTS = {"fastapi", "starlette"}
 _EXEMPT_MODULES = {"fastapi.concurrency"}
+_HTTP_APP_MODULES = {"app.api_errors"}
 
 
 def _http_imports(path: Path) -> list[tuple[int, str]]:
@@ -39,11 +41,13 @@ def _http_imports(path: Path) -> list[tuple[int, str]]:
         if isinstance(node, ast.Import):
             modules = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-            modules = [node.module]
+            # `from app import api_errors` names the module as an imported name.
+            named = (f"{node.module}.{alias.name}" for alias in node.names)
+            modules = [node.module, *(module for module in named if module in _HTTP_APP_MODULES)]
         else:
             continue
         for module in modules:
-            if module.split(".")[0] in _HTTP_ROOTS and module not in _EXEMPT_MODULES:
+            if (module.split(".")[0] in _HTTP_ROOTS and module not in _EXEMPT_MODULES) or module in _HTTP_APP_MODULES:
                 hits.append((node.lineno, module))
     return hits
 
