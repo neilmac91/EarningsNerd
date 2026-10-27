@@ -2413,8 +2413,8 @@ ground, with `text-tertiary-dark` (`#9CA3AF`, 7.4:1 on navy) its dark twin (§2)
 read stays secondary (`#D1D5DB` in dark), including the point-of-use AI disclaimer
 (`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
-rendered ground, in the light theme; the dark twin's floor is held by
-`tests/unit/figureSurfaceInks.spec.ts` (4.5:1 or more on the dark panel and page).
+rendered ground, tints included, in both themes (the dark twin since E202 (1));
+`tests/unit/figureSurfaceInks.spec.ts` also holds the dark twin to 4.5:1 or more on the bare dark panel and page.
 
 **Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
 SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
