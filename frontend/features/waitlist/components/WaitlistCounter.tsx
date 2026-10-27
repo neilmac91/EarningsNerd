@@ -52,8 +52,11 @@ export default function WaitlistCounter({ className }: { className?: string }) {
           PILL_LABEL
         ) : (
           <>
-            {/* The count is a number: neutral ink inside the sage pill (the Separate Signals Rule). */}
-            Join <span data-waitlist-count className="tnum font-data text-text-primary-light dark:text-text-primary-dark">{count}+</span> others on the waitlist
+            {/* The count is a number: neutral ink inside the sage pill (the Separate Signals Rule). The counted label is
+                as short as the opening one, so the count landing never grows the pill's line: "others on the
+                waitlist" wrapped under 200% text where "Join the waitlist" did not, and the status above the form
+                grew 34px (E225, chief design on #1699; legal-readiness.spec.ts holds it). */}
+            Join <span data-waitlist-count className="tnum font-data text-text-primary-light dark:text-text-primary-dark">{count}+</span> others
           </>
         )}
       </span>

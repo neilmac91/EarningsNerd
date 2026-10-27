@@ -2416,12 +2416,13 @@ moved 2px up from 320 to 460px and 18px down from 470 to 1440px, and under 200% 
 The cell keeps the taller of the two: the pill sits in the line's room where the line is taller (2px, or 6 to 86px
 under 200% text), and the line, or a closed or unconfirmed one, in the pill's where the pill is (18px, or 34px). The
 held pill is static, so the counter's stats load only once readiness answers open. A closed or unconfirmed answer
-joins the cell when shown and can still grow it. A count of 25 or more lengthens the pill's label ("Join 1,234+ others
-on the waitlist"), which under 200% text wraps where "Join the waitlist" does not, so the cell still grows 34px as the
-count lands at the sampled widths 360, 480 to 560 and 1040 to 1160px (E225). Gates:
-`tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre as readiness answers open, at 390
-and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the
-cell through checking, open, closed and unconfirmed answers).
+joins the cell when shown and can still grow it. A count of 25 or more takes a label no longer than the opening one,
+"Join 1,234+ others" (E225, chief design on #1699): "Join 1,234+ others on the waitlist" wrapped under 200% text
+where "Join the waitlist" did not, and the cell grew 34px as the count landed at 360, 480 to 560 and 1040 to 1160px,
+and at 1200px with 12,345+. Gates: `tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre
+as readiness answers open, at 390 and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text; the form's
+place as a count lands, at 360, 480, 520, 560, 1040, 1100, 1160 and 1200px under 200% text and at 390 and 1440px)
+and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers).
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
