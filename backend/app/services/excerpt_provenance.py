@@ -18,8 +18,10 @@ re-deriving them. Fields:
 - ``excerpt_sha256``, ``excerpt_chars``: the exact returned string.
 - ``document_sha256``, ``sections_sha256``: the document text and the section mapping the builder was given, hashed as
   the Copilot evaluation's preparation artifacts hash them (UTF-8 text; JSON with sorted keys), for a caller that asks
-  (``hash_inputs``: the builder asks when a caller takes the record, so the summary pipeline's own log, off a hot
-  path, carries ``None``); also ``None`` when not supplied, and for a cached excerpt, whose build inputs are unknown.
+  (``hash_inputs``: the builder asks when a caller takes the record; the summary pipeline's own log carries ``None``,
+  which keeps the whole-document hash off its hot path); also ``None`` when not supplied, and for a cached excerpt,
+  whose build inputs are unknown. A reader compares ``sections_sha256`` only where it is set: ``None`` means not
+  supplied, where the Copilot preparation still writes and hashes ``null`` or ``{}``.
 - ``supplied_sections``: each canonical section supplied, with its length; ``missing_sections``: the canonical
   sections (``NATIVE_SECTION_KEYS``) supplied blank or not at all, or ``None`` for a cached excerpt, whose sections
   are unknown. The native assembler also skips a section under 200 characters, which the section parser never
