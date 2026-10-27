@@ -922,7 +922,7 @@ export function sharedVerbsOf(reading: Reading, index: number, also?: RegExp): n
 
 /** A verb's form, as a verb group coordinated with it sets it: -ing, a past form (a participle too), a third person's
     -s, or the base. */
-function formOf(token: Token | undefined): 'ing' | 'past' | 'third' | 'base' {
+export function formOf(token: Token | undefined): 'ing' | 'past' | 'third' | 'base' {
   const word = lower(token)
   if (/ing$/.test(word)) return 'ing'
   if (PAST_FORMS.has(word) || /ed$/.test(word)) return 'past'

@@ -21,6 +21,7 @@ import {
   conjunctsOf,
   distributesNegation,
   ellipsisAt,
+  formOf,
   gerundsAt,
   governingGroup,
   knowsVerb,
@@ -364,13 +365,14 @@ import {
  *    every session": BUT_AFFIRMS). Main's timed and untimed readings read the same denial, so "Logging out does not end
  *    every session within 30 minutes" passes, and every promise they refuse in main's spec is refused here too. Since
  *    E162's stage 4b each clause is read alone as well (clauseByClause, through tests/unit/clauseReader.ts): a clause
- *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on, a clause of time, cause or contrast
- *    and a clause after "that", without the relative clauses, participles and asides on its subject, so a negation
- *    outside a clause or nested in its subject denies nothing there ("Logging out does not take long before it ends
- *    every session.", "Logging out of a device you do not own ends every session within 30 minutes." and "Nobody doubts
- *    that logging out ends every session." fail), while "until", "if", "as long as", "or", "nor" and a verb that
- *    asserts the clause after "that" still govern it ("Nothing guarantees that logging out ends every session."
- *    passes). The page is read on every run, whatever
+ *    with a subject of its own, a predicate "and", "but", "so" or "yet" carries on (not one that shares a negated
+ *    auxiliary: "does not clear cookies and revoke ..."), a clause of time, cause or contrast and a clause after "that",
+ *    without the relative clauses, participles and asides on its subject, so a negation outside a clause or nested in
+ *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
+ *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
+ *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
+ *    still govern it ("Nothing guarantees that logging out ends every session." passes). The page is read on every
+ *    run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -2088,24 +2090,33 @@ const HAPPENS = /^(?:because|although|though|whereas|while|when|whenever|once|si
 /** The word before "that" in a purpose or a supposition ("so that", "provided that"), whose clause the sentence does not
     say (E162 stage 4b). */
 const SUPPOSES = /^(?:so|provided|providing|assuming|supposing|order)$/i
+/** The verbs of doubt and dispute the lexicon lacks, which take a clause after "that" (E162 stage 4b; the routine lens
+    on #1683): the reader reads one as a noun with a relative clause after it, inside its subject ("No one doubts that
+    logging out ends every session."), so a "that" after one opens a clause wherever it stands. */
+const TAKES_A_CLAUSE = /^(?:doubts?|doubted|disputes?|disputed|questions?|questioned|contests?|contested|challenges?|challenged)$/i
+/** An auxiliary or a modal, a negated one fused or contracted too ("cannot", "doesn't"), which governs each verb "and"
+    carries on in its verb's form (E162 stage 4b; Codex on #1683). */
+const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|may|might|must|shall|should|will|would|cannot|[a-z]+n['’]t)$/i
 /** A sentence read whole and clause by clause (E162 stage 4b; #1456's Not in this PR): the session-end readings read
     the sentence as before, and each clause in it alone too, so a negation in another clause, or nested in a clause's
     subject, denies nothing in a clause read alone. Read alone are: a clause with a subject of its own, opened at the
     sentence's start, after a semicolon or a colon, or by "and", "but", "so", "yet" or a comma (a gerund the reader
     carries a predicate on to counts: "..., and logging out of a device you do not own ends ..."); a predicate those
     words but the comma carry on, where main's reach stops too ("Logging out does not clear cookies and revokes your
-    session tokens."; a comma may close an aside inside one verb group: "does not, as a rule, end"); a clause of time,
-    cause or contrast (HAPPENS, or after "as soon as"); and a clause after "that", wherever it stands, after a verb the
-    lexicon lacks too ("Passwords are hashed, and nobody doubts that logging out ends every session."), but not within
-    two words of a verb that asserts it, which a denial governs (ASSERTS, as the consent family reads it: "Nothing
-    guarantees that logging out ends every session." and "Nobody can promise you that ..." pass, while "Nobody doubts
-    that ..." asserts it; undenied, the sentence says the clause itself), nor in a purpose or a supposition (SUPPOSES),
-    nor inside a clause's subject, where "that" opens a relative clause. "Or" and "nor" say neither clause ("Neither
-    logging out nor a password change ends every session."). Each runs from its subject to the end of the clause the
-    reader reads it in, without the spans its subject nests (subjectAt). So "Logging out does not take long before it
-    ends every session.", "Logging out of a device you do not own ends every session within 30 minutes." and "Nobody
-    doubts that logging out ends every session." fail, as main refuses them, while a denial on a clause's own verb,
-    subject or object reads as before. The readings only gain texts, so nothing main refuses passes. */
+    session tokens."; a comma may close an aside inside one verb group: "does not, as a rule, end"), unless it shares
+    the negation before it ("does not clear cookies and revoke ...": shares); a clause of time, cause or contrast
+    (HAPPENS, or after "as soon as"); and a clause after "that", wherever it stands, after a verb the lexicon lacks too
+    ("Passwords are hashed, and nobody doubts that logging out ends every session."), but not within two words of a verb
+    that asserts it, which a denial governs (ASSERTS, as the consent family reads it: "Nothing guarantees that logging
+    out ends every session." and "Nobody can promise you that ..." pass, while "Nobody doubts that ..." asserts it;
+    undenied, the sentence says the clause itself), nor in a purpose or a supposition (SUPPOSES), nor inside a clause's
+    subject, where "that" opens a relative clause, but after a verb of doubt the reader takes in (TAKES_A_CLAUSE: "No
+    one doubts that ..."). "Or" and "nor" say neither clause ("Neither logging out nor a password change ends every
+    session."). Each runs from its subject to the end of the clause the reader reads it in, without the spans its
+    subject nests (subjectAt). So "Logging out does not take long before it ends every session.", "Logging out of a
+    device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
+    session." fail, as main refuses them, while a denial on a clause's own verb, subject or object reads as before. The
+    readings only gain texts, so nothing main refuses passes. */
 const clauseByClause = (sentence: string): string[] => {
   const reading = readSentence(sentence)
   const { tokens, clauses } = reading
@@ -2114,10 +2125,27 @@ const clauseByClause = (sentence: string): string[] => {
     const subject = subjectAt(tokens, at)
     return !!subject && subject.end < to && startsVerbGroup(tokens, subject.end)
   }
+  // Where a clause's predicate starts, after its subject as a clause read alone reads it (subjectAt: past a gerund's
+  // object, where the reader takes the verb group into the subject).
+  const predicateOf = (c: Clause) => (c.carried || !c.subject ? c.predicate : (subjectAt(tokens, c.subject.start)?.end ?? c.predicate))
+  // Whether a predicate "and" carries on shares the negation of the verb group before it: it opens at its verb, in the
+  // form of the negated verb, which an auxiliary or a modal in that group governs ("Logging out does not clear cookies
+  // and revoke your session tokens."; "never clears cookies and revokes" says its second verb in its own right, as the
+  // consent family reads "and": distributesNegation).
+  const shares = (i: number) => {
+    const own = verbGroupAt(tokens, clauses[i].predicate)
+    if (!clauses[i].carried || clauses[i].joinedBy !== 'and' || own.verb !== clauses[i].predicate) return false
+    for (let j = i - 1; j >= 0; j--) {
+      const group = verbGroupAt(tokens, predicateOf(clauses[j]))
+      if (group.negated) return formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
+      if (!clauses[j].carried || clauses[j].joinedBy !== 'and' || group.verb !== clauses[j].predicate) return false
+    }
+    return false
+  }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
     const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, clause.end))
-    const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ','))
+    const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ',') && !shares(i))
     if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), clause.end))
   })
   const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
@@ -2125,7 +2153,8 @@ const clauseByClause = (sentence: string): string[] => {
     const opens = HAPPENS.test(token.lower) || (token.lower === 'as' && tokens[k - 1]?.lower === 'soon' && tokens[k - 2]?.lower === 'as')
     const that = token.lower === 'that' && ![tokens[k - 1], tokens[k - 2]].some((t) => ASSERTS.test(t?.text ?? '')) && !SUPPOSES.test(tokens[k - 1]?.text ?? '')
     const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
-    if ((opens || that) && !inASubject(k) && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
+    const inside = inASubject(k) && !(that && TAKES_A_CLAUSE.test(tokens[k - 1]?.text ?? ''))
+    if ((opens || that) && !inside && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
   })
   return [...texts].filter(Boolean)
 }
@@ -4136,10 +4165,13 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Our new password policy is documented and every session you do not close ends within 30 minutes.</li>', true],
       ['<li>Nobody doubts that changing your password ends every session.</li>', true],
       ['<li>Passwords are hashed, and nobody doubts that logging out ends every session.</li>', true],
+      ['<li>No one doubts that logging out ends every session.</li>', true],
       ['<li>No setup is needed, logging out of a device you do not own ends every session.</li>', true],
       ['<li>Resetting any password you do not use ends every session.</li>', true],
       ['<li>Resetting your password on a device you do not own ends every session.</li>', true],
       ['<li>Logging out does not clear cookies and revokes your session tokens.</li>', true],
+      // ... and a finite verb "and" carries on after "never", in its own right, as the consent family reads "and".
+      ['<li>Logging out never clears cookies and revokes your session tokens.</li>', true],
       // ... while what governs a clause from outside still denies it: "until" bounds a wait, "after" in a subject is its
       // preposition, "as long as" and "provided that" suppose their clause, a verb that asserts the clause after "that"
       // governs it (ASSERTS), "or" and "nor" say neither clause, and a participle after "once" or a clause the reader
@@ -4151,6 +4183,10 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Nobody can promise you that logging out ends every session.</li>', false],
       ['<li>Nothing is stored provided that logging out ends every session.</li>', false],
       ['<li>Nothing changes once logged out of every device.</li>', false],
+      // A verb "and" carries on in the form of a negated verb an auxiliary or a modal governs shares its negation (Codex on
+      // #1683).
+      ['<li>Logging out does not clear cookies and revoke your session tokens.</li>', false],
+      ['<li>Changing your password cannot clear cookies and revoke your session tokens.</li>', false],
       ['<li>Neither logging out nor a password change ends every session.</li>', false],
       ['<li>Logging out ends no session, nor does a password change end every session.</li>', false],
       ['<li>No password reset or password change ends every session.</li>', false],
