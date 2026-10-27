@@ -2068,27 +2068,29 @@ const AFTER_A_UNIT = /^(?:later|earlier|ago)$/i
     weekend does not cover"), on one right after its determiner ("a feed the weekend does not cover"), or with a subject
     that is no phrase of time, a time word only modifying it or a plural unit heading it ("a feed you do not own", "a
     device the night shift does not own", "a meeting the minutes do not record": Codex and the routine lens on
-    e03913eb, 78fcbd93 and 767a60d1). Such a span runs to its first verb group, which is its clause's own: where that
-    group starts, or null. Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
+    e03913eb, 78fcbd93 and 767a60d1). Such a span runs to the first verb group after the phrase of time, which is its
+    clause's own, and nests what that phrase nests, an agent's relative clause or its own ("a second time by a client
+    you do not own", "a second time that you did not send": the routine lens on c6060a93): where that group starts and
+    those spans, or null. Out of reach: a noun in -ed after a word the reader reads as a premodifier, another noun or
     "one", with a relative clause whose subject is a phrase of time, reads as a participle ("a news feed the weekend
     does not cover", "one feed the weekend does not cover"), and a participle right after a determiner keeps the
     misreading, as on main ("Those presented a second time do not by themselves ..."). */
-const participleAt = (tokens: Token[], phrase: NounPhrase): number | null => {
+const participleAt = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } | null => {
   const first = phrase.postmodifiers[0]
   const time = first ? nounPhraseAt(tokens, first.start) : null
   const unit = time && (AFTER_A_UNIT.test(time.head.text) ? time.premodifiers.at(-1) : time.head)
-  if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !unit || !UNIT_OF_TIME.test(unit.text)) return null
-  for (let k = first.start; k < first.end; k++) if (startsVerbGroup(tokens, k)) return k
+  if (!phrase.premodifiers.length || !/^[a-z]+ed$/.test(phrase.head.lower) || !first || !time || !unit || !UNIT_OF_TIME.test(unit.text)) return null
+  for (let k = time.end; k < first.end; k++) if (startsVerbGroup(tokens, k)) return { end: k, nests: readOf(tokens, time).nests }
   return null
 }
 /** Where a noun phrase ends, as a clause read alone reads it, and the spans it nests (E162 stage 4b): the relative
     clauses, participles and asides after its head, and after the head of a phrase a preposition after it takes ("you
     do not own" in "Logging out of a device you do not own"), which restrict it and deny nothing of its clause's verb.
     Since stage 4c a phrase of time the reader reads as a relative clause ends the phrase at its clause's verb group,
-    and the phrase a preposition takes it in (participleAt), and is no span the phrase nests. */
+    and the phrase a preposition takes it in (participleAt), and nests only what the phrase of time nests. */
 const readOf = (tokens: Token[], phrase: NounPhrase): { end: number; nests: Array<[number, number]> } => {
-  const verbGroup = participleAt(tokens, phrase)
-  if (verbGroup !== null) return { end: verbGroup, nests: [] }
+  const participle = participleAt(tokens, phrase)
+  if (participle) return participle
   const nests: Array<[number, number]> = []
   for (const m of phrase.postmodifiers) {
     if (m.kind !== 'preposition') nests.push([m.start, m.end])
@@ -4291,6 +4293,12 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out of a session replayed a second time does not by itself end every session.</li>', false],
       ['<li>Nothing remains once a logout on a session replayed a second time ends every session.</li>', true],
       ['<li>Logging out of a device presented by a client you do not own ends every session.</li>', true],
+      // A phrase of time with an agent's relative clause or its own: the clause's verb group comes after it, and what it
+      // nests is cut, as a noun's relative clause is (the routine lens on c6060a93), however far on that group stands.
+      ['<li>A refresh token presented a second time by a client you do not own signs everyone out.</li>', true],
+      ['<li>A refresh token replayed a second time that you did not send signs everyone out.</li>', true],
+      ['<li>Logging out of a session presented a second time by a client you do not own ends every session.</li>', true],
+      ['<li>A refresh token presented a second time today does not by itself sign you out of every device.</li>', false],
       // A noun's own relative clause keeps its reading: on a noun not in -ed or right after its determiner, or with a
       // subject that is no phrase of time, though a time word may modify it or a plural unit head it (Codex and the
       // routine lens on e03913eb, 78fcbd93 and 767a60d1).
