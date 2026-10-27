@@ -12,12 +12,16 @@
    An inline <svg> stays only where it draws something no glyph is: a chart, the
    two-tone spinner, or a mark that is someone's own (the brand's logo, Google's
    and Apple's sign-in marks). The scan reads each file's TypeScript AST (comments
-   and strings never count) and counts every JSX <svg> element and every
-   createElement('svg'). Each listed file is pinned, with its reason, to its count:
-   a new inline <svg>, an extra one in a listed file and a stale entry all fail.
+   and strings never count; a .js file is read as JSX, as Next allows) and counts
+   every JSX <svg> element, a member tag that renders one (<motion.svg>), every
+   createElement('svg') and every createElementNS(…, 'svg'). Each listed file is
+   pinned, with its reason, to its count: a new inline <svg>, an extra one in a
+   listed file and a stale entry all fail.
 
-   Limits: markup in a string (dangerouslySetInnerHTML, a data: URL) and an SVG
-   file imported as a component are not read; review reads them.
+   Limits: markup in a string (dangerouslySetInnerHTML, a data: URL), an SVG file
+   imported as a component, createElement under another name (const h =
+   React.createElement) and the compiled JSX runtime's calls (_jsx('svg')), which no
+   source here writes, are not read; review reads them.
 ============================================================================= */
 
 import fs from 'node:fs'
@@ -46,17 +50,18 @@ function countInlineSvg(source: string, fileName: string): number {
     source,
     ts.ScriptTarget.Latest,
     true,
-    fileName.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    fileName.endsWith('.tsx') ? ts.ScriptKind.TSX : /\.jsx?$/.test(fileName) ? ts.ScriptKind.JSX : ts.ScriptKind.TS,
   )
   let count = 0
+  const isSvg = (arg: ts.Expression | undefined) => arg !== undefined && ts.isStringLiteralLike(arg) && arg.text === 'svg'
   const visit = (node: ts.Node): void => {
-    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(sourceFile) === 'svg') {
+    if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && /(?:^|\.)svg$/.test(node.tagName.getText(sourceFile))) {
       count += 1
     } else if (ts.isCallExpression(node)) {
       const callee = node.expression
       const method = ts.isPropertyAccessExpression(callee) ? callee.name.text : ts.isIdentifier(callee) ? callee.text : ''
-      const [first] = node.arguments
-      if (method === 'createElement' && first && ts.isStringLiteralLike(first) && first.text === 'svg') count += 1
+      const [first, second] = node.arguments
+      if ((method === 'createElement' && isSvg(first)) || (method === 'createElementNS' && isSvg(second))) count += 1
     }
     ts.forEachChild(node, visit)
   }
@@ -94,6 +99,13 @@ describe('a glyph comes from lib/icons; an inline <svg> is a chart, a spinner or
     expect(count('const a = <svg><svg /></svg>')).toBe(2)
     expect(count("const a = createElement('svg', { viewBox: '0 0 24 24' })")).toBe(1)
     expect(count("const a = React.createElement('svg', null)")).toBe(1)
+    expect(count("const a = document.createElementNS('http://www.w3.org/2000/svg', 'svg')")).toBe(1)
+    expect(count('const a = <motion.svg viewBox="0 0 24 24" />')).toBe(1)
+    // A .js module is read as JSX, as Next compiles it.
+    expect(countInlineSvg('export const a = () => <svg><path d="M5 12h14" /></svg>', 'mark.js')).toBe(1)
+    expect(countInlineSvg('export const a = () => <svg />', 'mark.jsx')).toBe(1)
+    // An SVG element made inside a <svg> by createElementNS is not one.
+    expect(count("const a = document.createElementNS('http://www.w3.org/2000/svg', 'style')")).toBe(0)
     // A Phosphor glyph, a component named for its icon, a comment and a string are not inline SVG.
     expect(count("import { InfoIcon } from '@/lib/icons'\nconst a = <InfoIcon className=\"h-4 w-4\" />")).toBe(0)
     expect(count('const a = <SvgMark />')).toBe(0)
