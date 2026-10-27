@@ -95,9 +95,9 @@ an exemption cannot outlive its code. READS_ONLY names each function that reads,
 writes none, held exact: each entry still mentions `reasons` and the reader finds no reason in it.
 
 What escapes. The gate is not complete, and seven review rounds each found a form it missed. A code the reader misses
-passes where no value `_drive` gathers holds it (a code the reader finds with no words fails the first test). What
-does so, by class, each class stated as the edge of what the gate reads, so a form not yet seen falls in one (the
-first three planted among the reader's gaps and the fifth among the run's, the others by construction,
+can pass only where no value `_drive` gathers holds it (a code the reader finds with no words fails the first test),
+and only in one of these classes, each stated as the edge of what the gate reads, so a form not yet seen falls in one
+(the first three planted among the reader's gaps and the fifth among the run's, the others by construction,
 review-checked):
 - a write the reader misses, on a line no driver runs that the run does not name (it names each site, binding call
   and collected literal's line, and each line that mentions `reasons` or a name tied to it, as above): a helper's

@@ -50,15 +50,16 @@ knew.
   written reason beside any line truly left to the reader alone.
 - Keep the reader's header modest and true. Name what it follows and what it is known to miss, plant each
   miss with a literal it would collect if it reached the form, and say that a form on neither list is
-  unknown. List what escapes by class, not as a closed list, and plant an example of each class the gate
-  can hold. Here a code the reader misses passes where no value the run gathers holds it, by six classes: a
-  write the reader misses, on a line no driver runs that the run does not name (a helper's parameter, a
-  function's return, a closure's variable); a key built at run time; what a module's top level or a class
-  body writes, read but not required, or holds as a key; a function exempt or read-only by a wrong reason,
-  or any line named undriven; a value no driver evaluates in a write a driver runs, or on a line one runs (an
-  arm of a conditional, `or` or `and`, a comprehension's or generator's element over an iterable no driver
-  fills, `reasons.extend(change.code for change in changes)`, or a write after a one-line `if`), since the
-  run holds lines, not the values in them; and a value a driver writes where the run does not gather it.
+  unknown. List what escapes by class, not as a closed list, and plant an example of each class the gate can
+  hold. Here a code the reader misses can pass only where no value the run gathers holds it, and only in one
+  of six classes: a write the reader misses, on a line no driver runs that the run does not name (a helper's
+  parameter, a function's return, a closure's variable); a key built at run time; what a module's top level
+  or a class body writes, read but not required, or holds as a key; a function exempt or read-only by a
+  wrong reason, or any line named undriven; a value no driver evaluates in a write a driver runs, or on a
+  line one runs (an arm of a conditional, `or` or `and`, a comprehension's or generator's element over an
+  iterable no driver fills, `reasons.extend(change.code for change in changes)`, or a write after a one-line
+  `if`), since the run holds lines, not the values in them; and a value a driver writes where the run does
+  not gather it.
 - State each class as the edge of what the mechanism reads (the lines it names, the values it gathers),
   not as the forms found so far, and start from what an escape needs (here, a code the reader misses that no
   gathered value holds), so a form not yet seen falls inside a class by construction and the docs stay true
