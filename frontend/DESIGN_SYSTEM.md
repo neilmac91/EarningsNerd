@@ -949,8 +949,9 @@ Analysis KPI     <KpiStrip> — a definition list whose columns follow its wides
                  a letter in a note mark's (DataNoteMark's NOTE_MARK), measure the advances as the
                  browser paints them, again as fonts load or the text size changes: 0.6em (0.9rem a
                  glyph) until they have, 14px a glyph at 24px where a browser snaps glyphs to whole
-                 pixels, as headless Chrome does under full font hinting (CI's). A glyph Geist Mono
-                 lacks (₩, ₫, U+202F) counts 1.25em, wider than any face found to draw one. So 320px
+                 pixels, as headless Chrome does under full font hinting (CI's). fmtCurrency prints a
+                 currency whose sign Geist Mono lacks by its code (₩, ₫ and the narrow space in "F CFA";
+                 E203), and a glyph the face lacks counts 1.25em, wider than any face found to draw one. So 320px
                  keeps two cards for every dollar value the fixtures carry, and a code-prefixed one
                  that two cards cannot hold ("CHF 22.8B" at 320px, 129.6px at 0.6em, or "CA$968.0M"
                  with a letter at 360px, 138.2px) takes one card, not the card's edge; under 200% text
@@ -2653,6 +2654,9 @@ follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carrie
 Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
 category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
+A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
+paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
+KRW, VND and XOF by code, E203) outgrew the fixed 70px it had.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
