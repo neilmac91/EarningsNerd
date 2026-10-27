@@ -1,8 +1,10 @@
 """Bounded observations about an excerpt; never a completeness certificate.
 
 The record is the excerpt source contract (E80-C1, schema_version 2). Its producer is the one excerpt builder,
-``summary_generation_service.get_or_cache_excerpt``, which logs it ("Excerpt provenance: ...") and hands it to an
-``on_provenance`` callback; an evaluation harness reads the producer's fields rather than re-deriving them. Fields:
+``summary_generation_service.get_or_cache_excerpt``, which logs at most one per call ("Excerpt provenance: ...") and
+hands that one to an ``on_provenance`` callback; a call that returns early (no text and no sections, no filing)
+records none, which a reader treats as no excerpt. An evaluation harness reads the producer's fields rather than
+re-deriving them. Fields:
 
 - ``accession``, ``filing_type``: the filing the excerpt was built for.
 - ``source``: ``edgartools`` (native sections), ``regex_fallback``, or ``legacy_cached_excerpt`` (a stored excerpt,
@@ -15,11 +17,13 @@ The record is the excerpt source contract (E80-C1, schema_version 2). Its produc
   none). ``None`` for a native or cached excerpt.
 - ``excerpt_sha256``, ``excerpt_chars``: the exact returned string.
 - ``document_sha256``, ``sections_sha256``: the document text and the section mapping the builder was given, hashed as
-  the Copilot evaluation's preparation artifacts hash them (UTF-8 text; JSON with sorted keys), or ``None`` when not
-  supplied or for a cached excerpt, whose build inputs are unknown.
+  the Copilot evaluation's preparation artifacts hash them (UTF-8 text; JSON with sorted keys), for a caller that asks
+  (``hash_inputs``: the builder asks when a caller takes the record, so the summary pipeline's own log, off a hot
+  path, carries ``None``); also ``None`` when not supplied, and for a cached excerpt, whose build inputs are unknown.
 - ``supplied_sections``: each canonical section supplied, with its length; ``missing_sections``: the canonical
   sections (``NATIVE_SECTION_KEYS``) supplied blank or not at all, or ``None`` for a cached excerpt, whose sections
-  are unknown.
+  are unknown. The native assembler also skips a section under 200 characters, which the section parser never
+  returns (``edgar/xbrl_sections.py``), so the two agree on real inputs.
 - ``coverage_status``: ``unknown`` for a cached excerpt, else ``observed_partial``; no record certifies completeness.
 """
 
@@ -48,6 +52,7 @@ def excerpt_provenance(
     filing_type: Optional[str] = None,
     fallback_reason: Optional[str] = None,
     document_text: Optional[str] = None,
+    hash_inputs: bool = False,
 ) -> dict[str, Any]:
     """Hash the exact returned string and count only supplied canonical sections.
 
@@ -55,8 +60,6 @@ def excerpt_provenance(
     No source text, topic inference, truncation guess, or fetch belongs here.
     """
     cached = source == "legacy_cached_excerpt"
-    if fallback_reason is not None and fallback_reason not in FALLBACK_REASONS:
-        raise ValueError(f"unknown excerpt fallback reason: {fallback_reason}")
     if cached:
         outcome = "cached"
     elif not excerpt:
@@ -83,9 +86,10 @@ def excerpt_provenance(
         "coverage_status": "unknown" if cached else "observed_partial",
         "excerpt_sha256": _sha256(excerpt),
         "excerpt_chars": len(excerpt),
-        "document_sha256": _sha256(document_text) if document_text and not cached else None,
+        "document_sha256": _sha256(document_text) if hash_inputs and document_text and not cached else None,
         "sections_sha256": (
-            _sha256(json.dumps(dict(sections), sort_keys=True, default=str)) if sections and not cached else None
+            _sha256(json.dumps(dict(sections), sort_keys=True, default=str))
+            if hash_inputs and sections and not cached else None
         ),
         "supplied_sections": observed,
         "missing_sections": None if cached else [key for key in NATIVE_SECTION_KEYS if key not in supplied],

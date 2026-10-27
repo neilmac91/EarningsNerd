@@ -511,6 +511,7 @@ def get_or_cache_excerpt(
             excerpt, accession=accession,
             source=source, sections=sections,
             filing_type=filing_type_key, fallback_reason=fallback_reason, document_text=filing_text,
+            hash_inputs=on_provenance is not None,
         )
         logger.info("Excerpt provenance: %s", json.dumps(metadata, sort_keys=True))
         if on_provenance is not None:
