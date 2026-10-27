@@ -68,14 +68,19 @@ The run. An emitter module is one where the reader finds a reason, a site (forms
 parameter. In each, every line that writes a reason (a site, a binding call, the line that runs each literal it
 collects: its own, or the first line of a display of constants, which CPython folds into one constant loaded there) and
 every line that mentions `reasons` must run: `reasons` as a name, an attribute, a keyword or a string, or a local name
-the function binds from an expression with a mention in it, to a fixpoint (so after `flags = reasons` or
-`bucket = provenance.setdefault("reasons", [])`, each line that uses `flags` or `bucket`). `_drive` runs those modules, traced with `sys.settrace`, and
+tied to the list in its function, to a fixpoint, each way. Forward, a name the function assigns from an expression with
+a mention in it (after `flags = reasons` or `bucket = provenance.setdefault("reasons", [])`, each line that uses `flags`
+or `bucket`); back, a name held by a site's value or by what a tied name is assigned (after `"reasons": codes` or
+`reasons.extend(extra)`, then `codes = sorted(pending)`, each line that uses `codes`, `extra` or `pending`). The
+assignments read are =, an annotation, +=, :=, a for, with or comprehension target, and an append, extend, insert, add
+or update on a name; a value holds a name as itself, a display's element or starred item, an arm of a conditional, `or`
+or `and`, a `+` or `|` operand, a wrapper's argument (`sorted(pending)`) or a comprehension's element. `_drive` runs
+those modules, traced with `sys.settrace`, and
 `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds` fails when (a) an emitter
 writes a code with no words; (b) such a line runs in no driver, unless UNDRIVEN names it by function and text with why
 none can (and an entry that names no unreached line, or more than one, fails); or (c) a driver writes a code the
-reader did not find in
-those modules, so a form the reader cannot follow fails wherever a driver reaches it. A module's own top level runs on
-import, before the trace, so its lines are read but not required.
+reader did not find in those modules, so a form the reader cannot follow fails wherever a driver reaches it. A module's
+own top level runs on import, before the trace, so its lines are read but not required.
 
 The guard. `test_every_function_that_mentions_reasons_is_driven_exempt_or_reads_only` holds every function under `app/`
 that mentions `reasons` outside the emitter modules to EXEMPT or READS_ONLY. Some modules keep lists named `reasons`
@@ -84,17 +89,20 @@ checks. EXEMPT names each such site by file and function, and an exempt site mus
 an exemption cannot outlive its code. READS_ONLY names each function that reads, counts, prints or logs reasons and
 writes none, held exact: each entry still mentions `reasons` and the reader finds no reason in it.
 
-What escapes. The gate is not complete, and five review rounds each found a form it missed. What it is known to pass,
-by class (the first three planted among the reader's gaps, the other two shown by this PR's mutation proofs):
-- a write whose key or receiver the reader cannot trace to `reasons`, on a line no driver runs: through a helper's
-  parameter (`_tag(provenance["reasons"], code)`, the helper writing `codes.append(code)`) or a function's return
-  (`reasons.extend(_extra(kind))`);
+What escapes. The gate is not complete, and six review rounds each found a form it missed. What it is known to pass,
+by class, each class stated as the edge of what the gate reads, so a form not yet seen falls in one (the first three
+planted among the reader's gaps, the other two by construction, review-checked):
+- a write the reader misses, on a line no driver runs, through an attribute or a name its function neither assigns
+  from an expression naming `reasons` nor stores into one, as the run reads both (the assignments and the positions a
+  value holds a name in, above): a helper's parameter (`_tag(provenance["reasons"], code)`, the helper writing
+  `codes.append(code)`), a function's return (`reasons.extend(_extra(kind))`), a closure's variable, an attribute
+  (`holder.codes.append(code)`, then `provenance["reasons"] = holder.codes`);
 - a key built at run time (`provenance["rea" + "sons"]`);
 - a key held in a module's constant (`KEY = "reasons"`), since a module's top level is read but not required;
 - an EXEMPT, READS_ONLY or UNDRIVEN entry whose stated reason is wrong (review-checked);
 - an unworded arm on a line a driver runs (`reasons.append("period_mismatch" if late else f"period_{kind}")`), since
   (b) holds lines rather than arms; (c) catches it once a driver takes that arm.
-Any of these on a line a driver does run still fails (a) or (c).
+Any of these that a driver runs (for the last, the arm taken) still fails (a) or (c).
 """
 from __future__ import annotations
 
@@ -712,20 +720,72 @@ def _app_sources() -> dict[str, str]:
 
 
 def _mention(node: ast.AST, aliases: set[str]) -> bool:
-    """Whether a node names the list: `reasons` as a name, an attribute, a keyword or a string, or a name bound to it."""
+    """Whether a node names the list: `reasons` as a name, an attribute, a keyword or a string, or a name tied to it."""
     return ((isinstance(node, ast.Name) and (node.id == "reasons" or node.id in aliases))
             or (isinstance(node, ast.Attribute) and node.attr == "reasons")
             or (isinstance(node, ast.Constant) and node.value == "reasons")
             or (isinstance(node, ast.keyword) and node.arg == "reasons"))
 
 
+def _held(expr: ast.AST) -> set[str]:
+    """The names a value holds where the reader reads one: the value itself, a display's element or starred item, an
+    arm of a conditional, `or` or `and`, a `+` or `|` operand, a wrapper's argument and a comprehension's element."""
+    if isinstance(expr, ast.Name):
+        return {expr.id}
+    if isinstance(expr, (ast.List, ast.Tuple, ast.Set)):
+        return set().union(*(_held(elt) for elt in expr.elts))
+    if isinstance(expr, ast.Starred):
+        return _held(expr.value)
+    if isinstance(expr, ast.IfExp):
+        return _held(expr.body) | _held(expr.orelse)
+    if isinstance(expr, ast.BoolOp):
+        return set().union(*(_held(value) for value in expr.values))
+    if isinstance(expr, ast.BinOp) and isinstance(expr.op, (ast.Add, ast.BitOr)):
+        return _held(expr.left) | _held(expr.right)
+    if isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name) and expr.func.id in WRAPPERS and expr.args:
+        return _held(expr.args[0])
+    if isinstance(expr, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
+        return _held(expr.elt)
+    return set()
+
+
+def _assignments(node: ast.AST) -> list[tuple[set[str], ast.expr]]:
+    """The names a node assigns, with the value they take: an assignment (plain, annotated, augmented or a walrus), a
+    for, with or comprehension target, and an append, extend, insert, add or update on a name (its argument, as
+    _assigned reads it). A target gives a name, or each name a tuple or list unpacks into; a subscript or attribute
+    target (`updates[row_id] = state`) gives none."""
+    def names(target: ast.expr) -> set[str]:
+        if isinstance(target, ast.Name):
+            return {target.id}
+        if isinstance(target, (ast.Tuple, ast.List, ast.Starred)):
+            return {name.id for name in ast.walk(target)
+                    if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)}
+        return set()
+
+    if isinstance(node, ast.Assign):
+        return [(names(target), node.value) for target in node.targets]
+    if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) and node.value is not None:
+        return [(names(node.target), node.value)]
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+        return [(names(node.target), node.iter)]
+    if isinstance(node, ast.withitem) and node.optional_vars is not None:
+        return [(names(node.optional_vars), node.context_expr)]
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in LIST_METHODS
+            and isinstance(node.func.value, ast.Name) and node.args):
+        return [({node.func.value.id}, node.args[-1] if node.func.attr == "insert" else node.args[0])]
+    return []
+
+
 def _mentions(sources: dict[str, str]) -> dict[tuple[str, str], set[int | None]]:
     """Each (file, function) whose body mentions `reasons` ("<module>" for a module or class body) and the lines that run
     each mention (_folded; None at module level). A mention is `reasons` as a name, an attribute, a keyword or a string,
-    or a local name bound, in the same function, from an expression with a mention in it, to a fixpoint: so after
-    `flags = reasons` or `bucket = provenance.setdefault("reasons", [])`, each line that uses `flags` or `bucket` is one.
-    A write through a name the function did not bind from such an expression (a helper's parameter, a function's return,
-    a key built at run time or held in a module's constant) names no line here."""
+    or a local name tied to the list in the same function, to a fixpoint, each way: a name assigned from an expression
+    with a mention in it (after `flags = reasons` or `bucket = provenance.setdefault("reasons", [])`, each line that
+    uses `flags` or `bucket` is one), and a name held (_held) by a site's value or by what a tied name is assigned
+    (after `"reasons": codes` or `reasons.extend(extra)`, each line that uses `codes` or `extra`), the assignments read
+    by _assignments. A write through an attribute, or through a name its function neither assigns from such an
+    expression nor stores into one (a helper's parameter, a function's return, a closure's variable), names no line
+    here, nor does a key built at run time or held in a module's constant."""
     found: dict[tuple[str, str], set[int | None]] = {}
     for path, source in sources.items():
         tree = ast.parse(source)
@@ -741,22 +801,18 @@ def _mentions(sources: dict[str, str]) -> dict[tuple[str, str], set[int | None]]
         for function, nodes in owned.items():
             aliases: set[str] = set()
             if function is not None:
-                bindings = [(targets, node.value) for node in nodes
-                            for targets in ([node.targets] if isinstance(node, ast.Assign) else [[node.target]]
-                                            if isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) else [])
-                            if node.value is not None]
+                bindings = [binding for node in nodes for binding in _assignments(node)]
+                # What a site writes into the list: `codes` in `"reasons": codes`, `extra` in `reasons.extend(extra)`.
+                aliases = set().union(*(_held(value) for node in nodes for value in _sites(node)))
                 while True:
-                    # The names a binding gives: a name, or each name a tuple or list target unpacks into. A subscript
-                    # or attribute target (`updates[row_id] = state`) binds no name.
-                    bound = {name.id for targets, value in bindings
-                             if any(_mention(item, aliases) for item in ast.walk(value))
-                             for target in targets
-                             for name in ([target] if isinstance(target, ast.Name) else ast.walk(target)
-                                          if isinstance(target, (ast.Tuple, ast.List, ast.Starred)) else [])
-                             if isinstance(name, ast.Name) and isinstance(name.ctx, ast.Store)}
-                    if bound <= aliases:
+                    # Forward, a name assigned from a mention holds the list; back, what a tied name is assigned goes
+                    # into it.
+                    tied = {name for names, value in bindings
+                            if any(_mention(item, aliases) for item in ast.walk(value)) for name in names}
+                    tied |= {name for names, value in bindings if names & aliases for name in _held(value)}
+                    if tied <= aliases:
                         break
-                    aliases |= bound
+                    aliases |= tied
             name = function.name if function is not None else "<module>"
             for node in nodes:
                 if _mention(node, aliases):
@@ -1002,9 +1058,11 @@ def test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_
     skipped = EXEMPT.keys() | READS_ONLY.keys()
     named = {(path, function, line) for (path, function), numbers in [*lines.items(), *_mentions(sources).items()]
              if path in emitters and (path, function) not in skipped for line in numbers if line is not None}
-    # Each emitter module has lines the reader names (sites, binding calls, literals), so a reader that stopped naming
-    # them fails here, not only in the planted test.
-    assert {path for (path, function), numbers in lines.items() if numbers and (path, function) not in skipped} == emitters
+    # Each module where the reader finds a reason, a site or a binding call in a function has lines it names there
+    # (sites, binding calls, literals), so a reader that stopped naming them fails here, not only in the planted test. A
+    # module whose only site is at its top level, read but not required, has none.
+    assert {path for (path, function), numbers in lines.items() if numbers and (path, function) not in skipped} == {
+        path for path, function in {*found, *lines} if function != "<module>" and (path, function) not in skipped}
     emitted, executed = _executed(lambda: _drive(monkeypatch), emitters)
     assert sorted(emitted - set(REASONS)) == [], "an emitter writes a reason with no words in data_notes.REASONS"
     unreached: dict[tuple[str, str, str], list[int]] = {}
@@ -1042,6 +1100,8 @@ FLAGS = ("planted_loop_over_module_attribute",)
 TABLE = (("planted_tuple_loop_over_module_attribute", "Words, never a reason."),)
 ''',
     "app/planted/forms.py": '''
+from contextlib import nullcontext
+
 import app.planted.codes as aliased_module
 from app.planted import codes
 from app.planted.codes import ALIASED as RENAMED, IMPORTED
@@ -1297,6 +1357,38 @@ def escapes(provenance, kind):
     provenance[KEY] = ["planted_gap_constant_key"]
     return provenance
 
+def untied(provenance, holder):
+    codes = provenance["reasons"]
+    def closed():
+        codes.append("planted_gap_closure_variable")
+    holder.codes.append("planted_gap_attribute_receiver")
+    provenance["reasons"] = holder.codes
+    return closed
+
+def tied(provenance, kind):
+    codes = []
+    codes.append(f"planted_tied_site_value_{kind}")
+    extra = []
+    extra.append(f"planted_tied_folded_in_{kind}")
+    reasons = list(provenance.get("reasons", []))
+    reasons.extend(extra)
+    pending = []
+    pending.append(f"planted_tied_assigned_into_{kind}")
+    chained = sorted(pending)
+    more = []
+    more.append(f"planted_tied_extended_into_{kind}")
+    listed = []
+    listed.extend(more)
+    kept = []
+    kept.append(f"planted_tied_comprehension_element_{kind}")
+    for looped in (reasons,):
+        looped.append(f"planted_tied_for_target_{kind}")
+    with nullcontext(reasons) as entered:
+        entered.append(f"planted_tied_with_target_{kind}")
+    [gathered.append(f"planted_tied_comprehension_target_{kind}") for gathered in (reasons,)]
+    shown = [*codes, *(chained if kind else listed)] + (listed or [code for code in kept])
+    return {**provenance, "reasons": shown}, reasons
+
 def starred(state, *codes, **named):
     return {**state, "reasons": [*codes, named["reason"]]}
 
@@ -1386,18 +1478,28 @@ def test_the_reader_finds_each_form_and_names_its_gaps():
     assert lines[(forms, "outer")] == {at('code = "planted_closure"')}
     assert lines[(forms, "inner")] == {at('return {**state, "reasons": [code]}')}
     assert lines[(forms, "folded")] == {at("reasons = ["), at('return {**state, "reasons": reasons, "folded": True}')}
-    # The runtime half's mentions: a name bound to the list makes each line that uses it one, so a write through it is a
-    # line a driver must run; a helper's parameter does not (the header's first escape).
+    # The runtime half's mentions: a name tied to the list makes each line that uses it one, so a write through it is a
+    # line a driver must run. Forward, a name assigned from a mention (an assignment, a for, with or comprehension
+    # target); back, a name a site's value holds, or what a tied name is assigned holds (by an assignment, an extend,
+    # in each position a value holds a name in: a display's starred item, an arm, an operand, a wrapper's argument, a
+    # comprehension's element). A helper's parameter, a closure's variable and an attribute are not (the header's first
+    # escape).
     mentioned = _mentions(PLANTED)
     assert {at('flags.append("planted_gap_list_alias")'), at('bucket.append("planted_gap_setdefault_alias")')} <= (
         mentioned[(forms, "escapes")])
-    assert (forms, "_tag") not in mentioned
+    assert {at(f'{name}.append(f"planted_tied_{form}_{{kind}}")') for name, form in (
+        ("codes", "site_value"), ("extra", "folded_in"), ("pending", "assigned_into"), ("more", "extended_into"),
+        ("kept", "comprehension_element"), ("looped", "for_target"), ("entered", "with_target"),
+    )} | {at('[gathered.append(f"planted_tied_comprehension_target_{kind}") for gathered in (reasons,)]')} <= (
+        mentioned[(forms, "tied")])
+    assert (forms, "_tag") not in mentioned and (forms, "closed") not in mentioned
+    assert at('holder.codes.append("planted_gap_attribute_receiver")') not in mentioned[(forms, "untied")]
     # The documented gaps, each planted above with a literal the reader would collect if it reached the form: a key a
     # call reads, a receiver other than a name or a reasons target, a string built at run time (an f-string, a .format,
     # a join), a class's attribute, a dict built by a comprehension or by dict(), a .get(), a loop over a function's
     # return, a starred target, a name alias, a lambda, a getattr callee, a module function through an object,
     # arguments spread at a call, a class-body default, a function's return, *args and **kwargs, an element at an
-    # index past a starred item, a name bound to the list, a setdefault's result, a helper's parameter, a key built at
-    # run time and a key held in a module's constant.
+    # index past a starred item, a name bound to the list, a setdefault's result, a helper's parameter, a closure's
+    # variable, an attribute receiver, a key built at run time and a key held in a module's constant.
     assert not codes & {"planted_key_read", "planted_gap", "join"}
     assert {code for code in codes if code.startswith("planted_gap")} == set()

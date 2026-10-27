@@ -4,18 +4,19 @@ Date: 2026-10-26   Area: test, backend
 
 **Context**: `backend/tests/unit/test_data_note_reasons_have_words.py` (PR #1659) holds that every reason
 code the backend writes has words. It began as an AST reader that follows a string into a `reasons` list.
-Each of five review rounds found dataflow forms it missed: a method's `self` offset, a loop target, a tuple
+Each of six review rounds found dataflow forms it missed: a method's `self` offset, a loop target, a tuple
 unpacking and an imported constant in the first; a parameter its own function rebinds (lost by the first
 fix), a list filled by `append` under another name and a parameter's default in the second; a tuple loop
 target over a table (`for code, limit in CHECKS:`) in the third; and in the fourth, that table filled by
 `append` (bound as the row, not as a list of rows), a nested index, a table's starred rows, `reversed()` and
 a bare call bound to another module's function of the same name; in the fifth, a name bound to the list on a
-line a driver ran, written through in a branch none did. Each fix widened the reader by the forms a
-review had named. The second round added a runtime check, but it compared codes, not branches, and drove
-only four of the five emitter modules, behind a comment that called the fifth undrivable. The third held it
-by line, but nothing tested the line naming (dropping it passed every test), and a write the reader could
-not see named no line, so it escaped both halves: an alias, a setdefault, or any write in a module with no
-site the reader knew.
+line a driver ran, written through in a branch none did; in the sixth, the reverse (a list filled under
+another name in such a branch, then stored as the reasons or folded into them) and a loop or `with` target
+bound to the list. Each fix widened the reader by the forms a review had named. The second round added a
+runtime check, but it compared codes, not branches, and drove only four of the five emitter modules, behind
+a comment that called the fifth undrivable. The third held it by line, but nothing tested the line naming
+(dropping it passed every test), and a write the reader could not see named no line, so it escaped both
+halves: an alias, a setdefault, or any write in a module with no site the reader knew.
 
 **Rule**:
 - Expect the reader to be incomplete. Python's dataflow has no end of forms, so a reader that gains one
@@ -23,10 +24,11 @@ site the reader knew.
   the thing the rule is about, and every line there that writes it (each site, each call that binds a
   parameter that flows to one, each literal it collects).
 - Name every line in those modules that mentions the thing at all (here any name, attribute, keyword or
-  string `reasons`, and any local name bound from an expression that mentions it, to a fixpoint), not only
-  the writes the reader recognises: a write in a form it misses usually names the list somewhere in its
-  function. Hold every other mention in the codebase to a named list of exempt and read-only functions,
-  held exact, so a new module that writes in a missed form usually fails too.
+  string `reasons`, and any local name tied to it, to a fixpoint, each way: assigned from an expression that
+  mentions it, or held by a site's value or by what a tied name is assigned), not only the writes the reader
+  recognises: a write in a form it misses usually names the list somewhere in its function. Hold every other
+  mention in the codebase to a named list of exempt and read-only functions, held exact, so a new module
+  that writes in a missed form usually fails too.
 - Then run what it names. Drive every one of those modules through its writing branches, traced
   (`sys.settrace` works on 3.11 to 3.13; restore any tracer already set), and fail on three things:
   - a value written that breaks the rule (here, a code with no words);
@@ -44,17 +46,21 @@ site the reader knew.
 - Keep the reader's header modest and true. Name what it follows and what it is known to miss, plant each
   miss with a literal it would collect if it reached the form, and say that a form on neither list is
   unknown. List what escapes by class, not as a closed list, and plant an example of each class the reader
-  can hold: here a write whose key or receiver it cannot trace to `reasons` on a line no driver runs (a
-  helper's parameter, a function's return), a key built at run time or held in a module's constant, a wrong
-  exempt, read-only or undriven entry, and, since the run holds lines and not arms, an unworded arm on a
-  line a driver runs.
+  can hold: here a write the reader misses, on a line no driver runs, through an attribute or a name its
+  function neither assigns from an expression naming `reasons` nor stores into one, as the run reads both
+  (a helper's parameter, a function's return, a closure's variable), a key built at run time or held in a
+  module's constant, a wrong exempt, read-only or undriven entry, and, since the run holds lines and not
+  arms, an unworded arm on a line a driver runs.
+- State each class as the edge of what the mechanism reads (the assignments it follows, the positions it
+  reads a value in), not as the forms found so far, so a form not yet seen falls inside a class by
+  construction and the docs stay true as the code grows.
 - Stop when the remaining escapes are classes no cheap rule closes. Five rounds of "one more form" is the
   sign: close the realistic ones, state the rest, and move on.
 - Still take each form a review names from the language's whole family, not the one form named (see
   `test-gates-must-be-as-wide-as-their-rule.md`); the run is the backstop, not a licence for a narrow
   reader.
 
-**Evidence**: PR #1659's review rounds 1 to 5 (2026-10-25 to 27) and their fix commits;
+**Evidence**: PR #1659's review rounds 1 to 6 (2026-10-25 to 27) and their fix commits;
 `backend/tests/unit/test_data_note_reasons_have_words.py` (`read_reasons`, `_drive`, `_executed` and
 `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds`). Its mutation
 proofs: a reconcile branch that writes a worded code the reader misses fails (c), a new branch the drivers
@@ -63,4 +69,6 @@ passes; in round 4, an alias or a setdefault in an undriven branch, an f-string 
 backfill and a new module that writes one fail (b) or the guard, and dropping the reader's line naming fails
 the planted test; in round 5, the same alias or setdefault bound on a driven line and written through in an
 undriven branch fails (b), while a helper's parameter written in an undriven branch passes, as the header
-says.
+says; in round 6, a list filled with an f-string in an undriven branch and then stored as the reasons
+(`"reasons": codes`, `reasons=codes`) or folded into them (`reasons.extend(extra)`), and a write through
+a `for` or `with` target bound to the list, each fail (b).

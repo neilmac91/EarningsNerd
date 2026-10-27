@@ -1049,12 +1049,14 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
                  app/ fails a reason the backend writes with no words; the forms it is known to miss are
                  named in its docstring and planted in its self-test, and any other form is unknown, so the
-                 reader also names every reason-writing line, and every line that mentions reasons, in
-                 each module where it finds a reason or a site, and a traced run of those modules
+                 reader also names every reason-writing line, and every line that mentions reasons or a
+                 local name tied to them either way (assigned from them, or stored into them), in each
+                 module where it finds a reason or a site, and a traced run of those modules
                  (quarterly_fact_repair and filing_lineage_repair on in-memory SQLite) fails on a code
                  written with no words, on a named line no driver executes, and on a code a driver writes
                  that the reader did not find; every other function that mentions reasons is named
-                 exempt or read-only; what still passes is listed by class in its docstring),
+                 exempt or read-only; what still passes is listed by class in its docstring, each class
+                 stated as the edge of what the gate reads),
                  tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
