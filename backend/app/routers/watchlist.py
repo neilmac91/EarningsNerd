@@ -8,7 +8,7 @@ import jwt
 from app.database import get_db
 from app.models import User, Filing, Summary
 from app.routers.auth import get_current_user
-from app.services.summary_generation_service import progress_as_dict
+from app.services.summary_generation_service import progress_as_dict, progress_read_status
 from app.services.summary_placeholders import is_stored_summary_ready
 from app.config import settings
 from app.services import filing_list_service, legal_readiness_service, watchlist_service
@@ -310,17 +310,10 @@ async def get_watchlist_insights(
                         else:
                             summary_status = "placeholder"
                             needs_regeneration = True
-                    elif progress_snapshot:
-                        stage = progress_snapshot.get("stage", "generating")
-                        if stage == "error":
-                            summary_status = "error"
-                            needs_regeneration = True
-                        else:
-                            summary_status = f"generating:{stage}"
-                            needs_regeneration = False
                     else:
-                        summary_status = "missing"
-                        needs_regeneration = True
+                        # A stalled or ended run is no summary being written (E43), as the dashboard feed reads it.
+                        summary_status, progress_snapshot = progress_read_status(progress_row)
+                        needs_regeneration = not summary_status.startswith("generating:")
 
                     filing_snapshot = WatchlistFilingSnapshot(
                         id=latest_filing.id,

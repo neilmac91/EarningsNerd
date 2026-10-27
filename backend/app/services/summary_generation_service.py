@@ -732,3 +732,26 @@ def progress_poll_answer(db: Session, filing_id: int) -> Dict[str, Any]:
     if progress is None:
         return {"stage": "pending", "elapsedSeconds": 0}
     return progress_as_dict(progress)
+
+
+def progress_read_status(
+    progress: Optional[SummaryGenerationProgress],
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """What a read-only surface (the watchlist insights, the dashboard feed) reports for a filing with no stored
+    summary, from the progress row the caller loaded: its ``summary_status`` and the progress snapshot sent beside it
+    (E43). It writes nothing; only the progress poll marks a stalled row (``progress_poll_answer``).
+
+    A fresh run in a stage short of the end is ``generating:<stage>``, with its snapshot. A failed run is ``error``,
+    and so is a run ``progress_is_stalled`` calls orphaned, whose snapshot reads as the poll's answer once it has
+    marked the row: stage ``error``, error ``STALLED_ERROR``. No row is ``missing``, and so is a ``completed`` or
+    ``partial`` row with no summary beside it, with no snapshot: its run has ended, none is writing a summary, and
+    none failed."""
+    if progress is None:
+        return "missing", None
+    if progress.stage == "error":
+        return "error", progress_as_dict(progress)
+    if progress_is_stalled(progress):
+        return "error", {**progress_as_dict(progress), "stage": "error", "error": STALLED_ERROR}
+    if progress.stage in TERMINAL_STAGES:
+        return "missing", None
+    return f"generating:{progress.stage}", progress_as_dict(progress)
