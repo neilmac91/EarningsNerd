@@ -167,7 +167,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
     ownsEscape: true,
   })
 
-  // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
+  // Figure chips (the server's fact payload, isXbrlCitation) read as hard data, distinct from passage chips:
   // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
   // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px). The
   // in-text marker is 12px, never smaller than the provenance chip (tests/unit/dataXsAllowlist.spec.ts).

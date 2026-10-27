@@ -117,8 +117,8 @@ describe('CopilotMessage citation chips', () => {
 
   it('renders a chip for a lowercase / spaced marker ([f 1]) matched against a legacy "F1" citation id', () => {
     // Defensive: the frontend matcher still tolerates an "F#"-shaped id/marker (case + whitespace
-    // insensitive) even though the backend no longer emits one, so an older cached/replayed
-    // payload still renders correctly.
+    // insensitive) even though the backend no longer emits one, so such a marker still finds its chip.
+    // The id alone never makes a figure (E179): with no fact payload this one renders as a passage.
     const factCitation: CopilotCitation = {
       n: 'F1',
       excerpt: 'Revenue = $391.04B USD (FY2024)',

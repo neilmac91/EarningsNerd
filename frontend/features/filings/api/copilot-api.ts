@@ -8,7 +8,8 @@ const STREAM_TIMEOUT_MS = 120000
 // --- Types (mirror the P1 backend contract) ---
 
 export interface CopilotCitation {
-  // Numeric for filing-text excerpts ([1], [2]); an "F#" string for tool-provided XBRL figures ([F1]).
+  // The server numbers every citation, figure or passage, in one sequence ([1], [2]); an "F#" string ([F1]) is a
+  // legacy id the marker matcher still tolerates, and never makes a citation a figure (isXbrlCitation).
   n: number | string
   excerpt: string
   section_ref: string | null
@@ -29,7 +30,8 @@ export interface CopilotCitation {
 // filing-text excerpt. These read as hard data (figures, not prose), so the UI renders them as dense data
 // rows and the viewer finds them by text, never as a located passage. The kind comes from the server's
 // payload alone (`fact` or `calculated`, set by parseCompletion): a model can label an excerpt "XBRL · …" or
-// write an "F#" marker, but cannot give it a concept (E179). Every Copilot consumer reads the kind here.
+// write an "F#" marker, but cannot give it a concept (E179). Every Copilot consumer under features/filings reads
+// the kind here; the landing demo (features/marketing/components/AskFilingDemo.tsx) applies the same rule inline.
 export const isXbrlCitation = (c: CopilotCitation): boolean => c.fact === true || c.calculated === true
 
 // The raw XBRL tag (e.g. "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax") from an
@@ -134,9 +136,10 @@ const parseCompletion = (data: Record<string, unknown>): CopilotCompletion | nul
     if (markers.has(marker) || !referenced.has(marker)) return null
     markers.add(marker)
     const normalizedN = typeof n === 'string' ? n.replace(/\s/g, '') : n as number
-    // A tool fact carries its concept; a computed one also names its kind (value_kind), and any kind reads as computed.
+    // A tool fact carries its concept; a computed one also names its kind (value_kind). Any kind present, well formed
+    // or not, reads as computed, the weaker claim: only a concept with no kind at all reads "Matches filing" (E179).
     const toolFact = typeof concept === 'string' && concept.trim() !== ''
-    const calculated = toolFact && typeof value_kind === 'string' && value_kind.trim() !== ''
+    const calculated = toolFact && value_kind !== undefined && value_kind !== null
     citations.push({
       n: normalizedN, excerpt, section_ref, verified, fragment_url,
       ...(calculated ? { calculated: true as const } : toolFact ? { fact: true as const } : {}),

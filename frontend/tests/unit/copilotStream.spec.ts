@@ -159,6 +159,30 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
       citations: [labelled, { ...figure, fact: true }, { ...growth, calculated: true }] })
   })
 
+  it.each([
+    // No concept the server could have sent: admitted as a passage, never as a figure.
+    { payload: { concept: 5 }, kind: {} },
+    { payload: { concept: '' }, kind: {} },
+    { payload: { concept: '  ' }, kind: {} },
+    { payload: { concept: null }, kind: {} },
+    { payload: { concept: {} }, kind: {} },
+    { payload: { value_kind: 'yoy_growth' }, kind: {} },
+    // A concept with any kind but none reads as calculated, the weaker claim, never "Matches filing" (E179).
+    { payload: { concept: 'Revenue', value_kind: 1 }, kind: { calculated: true } },
+    { payload: { concept: 'Revenue', value_kind: {} }, kind: { calculated: true } },
+    { payload: { concept: 'Revenue', value_kind: null }, kind: { fact: true } },
+  ])('admits the kind of $payload as $kind, from the payload alone', async ({ payload, kind }) => {
+    const source = { n: 1, excerpt: 'Revenue = $10M', section_ref: 'XBRL · Revenue', verified: true, fragment_url: null }
+    const wire = stream()
+    global.fetch = async () => wire.response
+    const h = handlers()
+    const task = askFilingStream(1, 'q', [], h)
+    const answer = 'Revenue [1].'
+    wire.send(sse({ type: 'complete', ...completion, answer, grounded: 1, citations: [{ ...source, ...payload }] }))
+    await task
+    expect(h.onComplete).toHaveBeenCalledExactlyOnceWith({ ...completion, answer, grounded: 1, citations: [{ ...source, ...kind }] })
+  })
+
   it.each(['complete', 'error'])('uses the first terminal %s and ignores later frames in the same chunk', async (first) => {
     const wire = stream()
     global.fetch = async () => wire.response
