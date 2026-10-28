@@ -316,7 +316,8 @@ export function logoutAllInTurn(): Promise<void> {
     (error: unknown) => {
       // A loss confirmed meanwhile (a refused refresh) gets the flag back too, and the next 401 spends one refused
       // refresh on it. A check of the session generation would also keep the flag down after a loss this request's own
-      // fence makes up: a 401 that could not renew while it ran counts as one (client.ts).
+      // fence makes up: the 401 of a request sent before it began, which cannot renew while it runs, counts as one
+      // (client.ts).
       if (sessionWasActive && isExplicitSessionGenerationCurrent(run.generation)) markSessionActive()
       throw error
     },
