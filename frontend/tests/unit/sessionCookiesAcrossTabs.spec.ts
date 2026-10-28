@@ -143,6 +143,8 @@ interface Browser {
   locks: FakeLockManager
   /** The current password a password change carries is wrong: the API answers 400 and changes nothing. */
   wrongPassword?: boolean
+  /** Called as a read reaches the API, before it answers: a case's hold on that moment. */
+  onRead?: (tab: TabName, url: string) => void
 }
 /** One tab: its own module graph of the client, the auth API and the session, its refresh stub, and the answers the
  * case holds for it, each next refresh's and each next login's or logout's in order (none held answers at once, a post
@@ -280,6 +282,7 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
       return ok(config, { ok: true })
     }
     shared.events.push(`${name} reads ${url} as ${session ?? 'no session'}`)
+    shared.onRead?.(name, url)
     if (!shared.cookies.fresh) throw unauthorized(config, 'Token expired')
     return ok(config, { reader: shared.cookies.session })
   }
@@ -845,6 +848,22 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     renewal.resolve()
     // The client does not replay a read across an account transition, so the read's own 401 is the change's answer.
     expect(await outcome).toMatchObject({ status: 401 })
+    expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("says why in its own words when a login accepted in its tab fences the renewal's read as that read answers", async () => {
+    let reads = 0
+    browser.onRead = (tab, url) => {
+      // The renewal's read, replayed after its refresh, answers once a login has been accepted in tab B.
+      if (tab !== 'B' || url !== '/api/auth/me' || ++reads !== 2) return
+      tabB.session.markSessionActive()
+      tabB.session.advanceSessionGeneration('explicit')
+    }
+    expect(await tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error))
+      .toMatchObject({ name: 'AbortError', message: 'Your session changed before your password was saved, so it was not changed.' })
+    expect(reads).toBe(2)
     expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
     expect(browser.server.X.cut).toBeUndefined()
     expect(browser.locks.idle()).toBe(true)
