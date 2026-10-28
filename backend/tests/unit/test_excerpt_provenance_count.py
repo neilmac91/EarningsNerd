@@ -75,6 +75,8 @@ class FakeLogging:
         if body is None:
             return (self.bucket, None) if self.bucket else (None, "http_403")
         if body["pageSize"] == 1:
+            # The probe reads the app's own streams, never the audit logs _Required keeps for 400 days.
+            assert 'logName:("run.googleapis.com%2Fstdout" OR "run.googleapis.com%2Fstderr")' in body["filter"]
             answer = self.probe.pop(0) if self.probe else {}
         else:
             first = re.search(r'timestamp>="([^"]+)"', body["filter"]).group(1)[:10]
@@ -145,10 +147,14 @@ def test_counts_each_class_window_reason_and_form_and_names_none(count):
     window = report["e28_window"]
     assert window["accessions"]["regex_fallback"] == 2 and window["accessions"]["edgartools"] == 1
     assert window["accessions"]["unavailable"] == 1
-    # The window's reasons and forms come from the window's lines alone: the 20 October line is outside it.
-    assert window["accessions_by_fallback_reason"] == {"regex_fallback": {"sections_not_supplied": 1},
-                                                      "unavailable": {"sections_not_supplied": 1}}
-    assert window["schema_two_accessions_by_form"] == {"regex_fallback": {"10-Q": 1}, "unavailable": {"other": 1}}
+    # The window's reasons and forms come from the window's lines alone: the 20 October line is outside it, and
+    # counts over the whole read.
+    assert window["schema_two"] == {
+        "by_fallback_reason": {"regex_fallback": {"sections_not_supplied": 1}, "unavailable": {"sections_not_supplied": 1}},
+        "by_form": {"regex_fallback": {"10-Q": 1}, "unavailable": {"other": 1}}}
+    assert report["schema_two"] == {
+        "by_fallback_reason": {"regex_fallback": {"sections_not_supplied": 2}, "unavailable": {"sections_not_supplied": 1}},
+        "by_form": {"regex_fallback": {"10-K": 1, "10-Q": 1}, "unavailable": {"other": 1}}}
     # The onset's bound is the last native line inside the window, to its minute: not the one at the deploy mark.
     assert report["last_native_line_in_e28_window"] == "2026-10-05T07:41Z"
     assert report["accessions_by_era"]["regex_fallback"] == {"before": 0, "onset": 1, "window": 2, "after": 1}
@@ -170,13 +176,27 @@ def test_each_size_cap_firing_joins_its_own_run_and_nothing_else(count):
         # Exactly the cap is not over it; a skip line no fetch explains stays unjoined.
         *fetch_lines(43, NATIVE, 16_000_000, "2026-10-21T01:00:00Z"),
         cap_line(18_000_000, "20-F", "2026-10-21T02:00:00Z"),
+        # Two accessions fetched at one length: the skip line cannot say whose, so it stays unjoined.
+        *fetch_lines(44, REGEX, 19_000_000, "2026-10-22T00:00:00Z"),
+        *fetch_lines(45, BOTH, 19_000_000, "2026-10-22T00:00:00Z"),
+        cap_line(19_000_000, "10-Q", "2026-10-22T00:00:01Z"),
+        # A fetch whose run logged no start line names no accession: its skip line stays unjoined too.
+        {"timestamp": "2026-10-23T00:00:00Z",
+         "jsonPayload": {"message": "[stream:46] SEC fetch completed. Text length: 21000000"}},
+        cap_line(21_000_000, "10-K/A", "2026-10-23T00:00:01Z"),
+        # One fetch of a length named, another of the same length not: whose run the skip line is stays unknown.
+        *fetch_lines(47, "0000950170-26-000777", 22_000_000, "2026-10-24T00:00:00Z"),
+        {"timestamp": "2026-10-24T00:00:00Z",
+         "jsonPayload": {"message": "[stream:48] SEC fetch completed. Text length: 22000000"}},
+        cap_line(22_000_000, "10-Q", "2026-10-24T00:00:01Z"),
     ]
     report = count.tally([day("2026-10-08T00:00:00", entries)], START, END)
     assert report["size_cap"] == {"cap_merged": "2026-10-16T17:50:25Z",
-                                  "over_cap_fetches": {"before_cap_merged": 1, "after_cap_merged": 2},
-                                  "size_cap_fallbacks": {"10-K": 1, "20-F": 1},
-                                  "size_cap_fallback_accessions": 1, "size_cap_fallbacks_unjoined": 1}
-    assert report["days"][0]["over_size_cap_fetches"] == 3
+                                  "over_cap_accessions_by_era": {"before": 0, "onset": 0, "window": 1, "after": 5},
+                                  "over_cap_accessions_since_cap_merged": 5, "over_cap_fetches_unnamed": 2,
+                                  "size_cap_fallbacks": {"10-K": 1, "10-K/A": 1, "10-Q": 2, "20-F": 1},
+                                  "size_cap_fallback_accessions": 1, "size_cap_fallbacks_unjoined": 4}
+    assert report["days"][0]["over_size_cap_fetches"] == 8
 
 
 def test_a_cut_day_leaves_fetches_without_provenance_unknown(count):
@@ -191,8 +211,13 @@ def test_the_window_says_whether_the_read_held_it_whole(count):
     assert count.tally(whole, START, END)["e28_window"]["covered"] is True
     late = datetime(2026, 10, 6, tzinfo=timezone.utc)
     assert count.tally(whole[2:], late, END)["e28_window"]["covered"] is False
-    whole[5]["state"] = "partial"
-    assert count.tally(whole, START, END)["e28_window"]["covered"] is False
+    early_end = datetime(2026, 10, 15, tzinfo=timezone.utc)
+    assert count.tally(whole[:-2], START, early_end)["e28_window"]["covered"] is False
+    # The onset's day and the deploy's day are the window's too.
+    for index in (0, 5, len(whole) - 1):
+        cut = [dict(d) for d in whole]
+        cut[index]["state"] = "partial"
+        assert count.tally(cut, START, END)["e28_window"]["covered"] is False, index
 
 
 def test_the_later_of_the_buckets_boundary_and_the_oldest_entry_dates_what_is_gone(count):
@@ -306,6 +331,35 @@ def test_the_client_keeps_closed_classes_and_paces_its_requests(count, monkeypat
                        (None, "transport_or_decode_error")]
     assert "principal" not in json.dumps(answers)
     assert len(slept) == 4 and all(0 < wait <= 5.0 for wait in slept)
+
+
+def test_a_malformed_answer_is_a_closed_class_never_a_crash(count, monkeypatch):
+    # A bad status line, a body cut short and runaway nesting each raise past urllib's own errors; the run must
+    # still write its receipt, so each is a closed class.
+    import socketserver
+
+    raw = {"/status": b"GARBAGE\r\n\r\n",
+           "/short": b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n{\"entries\"",
+           "/deep": b"HTTP/1.1 200 OK\r\nContent-Length: 200000\r\n\r\n" + b"[" * 100000 + b"]" * 100000}
+
+    class Raw(socketserver.StreamRequestHandler):
+        def handle(self):
+            path = self.rfile.readline().split()[1].decode()
+            while self.rfile.readline() not in (b"\r\n", b""):
+                pass
+            self.wfile.write(raw[path])
+
+    server = socketserver.TCPServer(("127.0.0.1", 0), Raw)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setattr(count.time, "sleep", lambda _seconds: None)
+    try:
+        client = count.Logging("token", pace=0)
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        answers = [client.call(base + path) for path in raw]
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert answers == [(None, "transport_or_decode_error")] * 3
 
 
 def test_the_project_and_the_window_are_checked_before_any_read(count):

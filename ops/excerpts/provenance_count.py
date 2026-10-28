@@ -8,31 +8,35 @@ form. The summary stream's `[stream:<filing id>] Starting SEC fetch for URL: <ur
 fetched and its `SEC fetch completed. Text length: N` line the document's length. Since #1347 the section parse
 logs `Section parse skipped: N-char <form> document is over the size cap` when the cap
 (edgar/xbrl_sections.py `_MAX_SECTION_HTML_CHARS`) fires: the parse reads that same fetched text and runs only
-for a filing with no stored excerpt, so each such line is one size-cap fallback, joined to its run's accession
-by the length its fetch line logged.
+for a filing with no stored excerpt (or a forced rebuild), so each such line is one size-cap fallback, joined to
+its run's accession by the length its fetch line logged (a length two accessions share stays unjoined).
 
 For each UTC day of the window this reads those lines from Cloud Logging (the API service, the task worker and
 the Cloud Run jobs) and counts:
 - per day: lines and distinct accessions by class (a source, `unavailable`, `other`, or `unreadable`), fetches,
   fetches over the size cap, and size-cap fallbacks by form;
 - over E28 (b)'s window (from the last native eval report to #1350's deploy) and over the whole read: distinct
-  accessions by class, regex and unavailable ones by schema 2's fallback_reason, and schema-2 lines by form;
-  `covered` says whether the read held the whole window;
+  accessions by class, and, from schema-2 lines only, regex and unavailable ones by fallback_reason and every
+  class by form (an amendment apart from its form; anything but 10-K, 10-Q and 20-F as `other`); `covered` says
+  whether the read held the whole window;
 - the last native line inside E28 (b)'s window, rounded down to its minute: native sections stopped after it,
   so it bounds the onset CI could not. A regex line bounds nothing: a 6-K, a thin native assembly, a parse
   timeout or the size cap falls back on any day;
-- the size cap: fetches over it before and after #1347's merge (E28 (a)'s "what the cap changes"), size-cap
+- the size cap: distinct accessions fetched over it by era and since #1347's merge (E28 (a): the count over the
+  eras native sections worked, before the onset and after #1350's deploy, sizes what the cap changes), size-cap
   fallbacks (the skip lines) by form, and the distinct accessions they join to;
 - the accessions fetched with no provenance line, only when no day was cut (else null).
 
 Retention fails closed. The `_Default` bucket's `retentionDays`, where the identity may read it, and a bounded
-probe for the oldest entry the scope still holds each date what is gone, and the later of the two wins (a
+probe for the oldest stdout or stderr entry the scope still holds (the streams the lines are written to, never
+the audit logs `_Required` keeps for 400 days) each date what is gone, and the later of the two wins (a
 retention raised after lines expired keeps them gone). An empty probe (`{}`) means nothing is held. A day wholly
 before that date reads `expired_or_absent`, the day it falls in `partly_expired_or_absent`; an oldest entry
 within an hour of the window's start is a quiet start, not expiry. When the probe cannot say, every day up to
 and including the first day that holds a line reads `retention_unverified`, never `complete` with 0. A day whose
 pages ran out reads `partial`, one that could not be read `unavailable` with a closed class; a read that runs out
-of its time budget marks the days it did not reach `unavailable` (`time_budget`).
+of its time budget (25 minutes, inside the 30 the Ops step allows) marks the days it did not reach `unavailable`
+(`time_budget`).
 
 The receipt holds counts and minute-rounded timestamps only: no accession, filing id, URL, message text or
 principal. It is written to --output; stdout says where. Standard library only (the Ops runner's python3);
@@ -45,6 +49,7 @@ Local usage:
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import re
@@ -66,10 +71,12 @@ MAX_RESPONSE = 32 * 1024 * 1024
 PROBE_PAGES = 5  # a slow search may answer a page with a token alone
 QUIET_START = timedelta(hours=1)  # an oldest entry this soon after the window opens is no expiry
 PACE_SECONDS = 1.1  # Logging allows 60 entries.list requests a minute per project
-BUDGET_SECONDS = 25 * 60  # inside the Ops step's 30 minutes, so the receipt is always written
+BUDGET_SECONDS = 25 * 60  # inside the 30 minutes the Ops step allows, so the receipt is always written
 SIZE_CAP = 16_000_000  # edgar/xbrl_sections.py _MAX_SECTION_HTML_CHARS since #1347
 CAP_MERGED = "2026-10-16T17:50:25Z"  # #1347 (a9738b38); its deploy followed, unrecorded
 CAP_FORMS = ("10-K", "10-Q", "20-F")  # the forms the section parse reads
+APP_STREAMS = 'logName:("run.googleapis.com%2Fstdout" OR "run.googleapis.com%2Fstderr")'
+_KEY = re.compile(r"[a-z_]{1,40}")
 # The builder eras (tasks/todo.md E28; tasks/review-evidence/e28-native-sections-2026-10-15/README.md): the last
 # native eval report, the first all-regex one, #1350's deploy. E28 (b)'s window runs from the first to the last.
 MARKS = (
@@ -112,7 +119,7 @@ class Logging:
             return (payload, None) if isinstance(payload, dict) else (None, "invalid_response")
         except HTTPError as exc:
             return None, f"http_{exc.code}"
-        except (URLError, TimeoutError, OSError, ValueError):
+        except (URLError, TimeoutError, OSError, ValueError, http.client.HTTPException, RecursionError):
             return None, "transport_or_decode_error"
 
 
@@ -214,19 +221,43 @@ def _class(record: dict) -> str:
     return source if source in SOURCES else "other"
 
 
+def _form(value) -> str | None:
+    """A schema-2 filing_type as its key: a read form or its amendment as given, anything else `other`."""
+    if not isinstance(value, str):
+        return None
+    form = value.strip().upper()
+    return form if form in (*CAP_FORMS, *(f"{base}/A" for base in CAP_FORMS)) else "other"
+
+
+def _schema_two(sink: dict, name: str, record: dict, accession: str) -> None:
+    """Add a schema-2 line's reason (regex and unavailable lines) and form to ``sink``; keys are closed shapes."""
+    reason = record.get("fallback_reason")
+    if name in ("regex_fallback", "unavailable") and isinstance(reason, str):
+        key = reason if _KEY.fullmatch(reason) else "other"
+        sink.setdefault("by_fallback_reason", {}).setdefault(name, {}).setdefault(key, set()).add(accession)
+    form = _form(record.get("filing_type"))
+    if form:
+        sink.setdefault("by_form", {}).setdefault(name, {}).setdefault(form, set()).add(accession)
+
+
+def _counted(sink: dict) -> dict:
+    return {kind: {name: {key: len(found) for key, found in sorted(keys.items())} for name, keys in sorted(by.items())}
+            for kind, by in sorted(sink.items())}
+
+
 def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
     """Counts from each day's entries; the entries, accessions and filing ids never leave this function."""
     onset, deployed, cap_merged = _instant(MARKS[1][1]), _instant(MARKS[3][1]), _instant(CAP_MERGED)
     eras = {name: {era_name: set() for era_name, _ in MARKS} for name in CLASSES}
     in_window = {name: set() for name in CLASSES}
     whole = {name: set() for name in CLASSES}
-    reasons: dict[str, dict[str, set]] = {}
-    forms: dict[str, dict[str, set]] = {}
+    window_schema_two: dict = {}
+    whole_schema_two: dict = {}
     filing_accession: dict[str, str] = {}
     length_filings: dict[int, set] = {}
     capped_lengths: list[int] = []
     capped_by_form: dict[str, int] = {}
-    over_cap = {"before_cap_merged": 0, "after_cap_merged": 0}
+    over_cap_fetches: list[tuple[str, datetime]] = []
     fetched: set[str] = set()
     last_native = None
     report_days = []
@@ -249,11 +280,11 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
                 length_filings.setdefault(length, set()).add(done.group(1))
                 if length > SIZE_CAP:
                     counts["over_size_cap_fetches"] += 1
-                    over_cap["after_cap_merged" if moment >= cap_merged else "before_cap_merged"] += 1
+                    over_cap_fetches.append((done.group(1), moment))
                 continue
             capped = CAPPED.search(text)
             if capped:
-                form = capped.group(2) if capped.group(2) in CAP_FORMS else "other"
+                form = _form(capped.group(2)) or "other"
                 counts["size_cap_fallbacks"][form] = counts["size_cap_fallbacks"].get(form, 0) + 1
                 capped_by_form[form] = capped_by_form.get(form, 0) + 1
                 capped_lengths.append(int(capped.group(1).replace(",", "")))
@@ -270,14 +301,10 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
             per_class.setdefault(name, set()).add(accession)
             eras[name][era(moment)].add(accession)
             whole[name].add(accession)
+            _schema_two(whole_schema_two, name, record, accession)
             if onset <= moment < deployed:
                 in_window[name].add(accession)
-                reason = record.get("fallback_reason")
-                if name in ("regex_fallback", "unavailable") and isinstance(reason, str):
-                    reasons.setdefault(name, {}).setdefault(reason, set()).add(accession)
-                form = record.get("filing_type")
-                if isinstance(form, str):
-                    forms.setdefault(name, {}).setdefault(form if form in CAP_FORMS else "other", set()).add(accession)
+                _schema_two(window_schema_two, name, record, accession)
                 if name == "edgartools" and (last_native is None or moment > last_native):
                     last_native = moment
         counts["accessions"] = {name: len(found) for name, found in sorted(per_class.items())}
@@ -288,10 +315,23 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
     for length in capped_lengths:
         filings = length_filings.get(length, set())
         named = {filing_accession[filing] for filing in filings if filing in filing_accession}
-        if len(named) == 1:
+        if len(named) == 1 and len(named) == len({filing_accession.get(filing) for filing in filings}):
             joined |= named
         else:
             unjoined += 1
+    # E28 (a): the filings fetched over the cap, by era, and since the cap's merge; a fetch whose run named no
+    # accession is counted apart.
+    over_cap_by_era = {era_name: set() for era_name, _ in MARKS}
+    since_cap: set = set()
+    over_cap_unnamed = 0
+    for filing, moment in over_cap_fetches:
+        accession = filing_accession.get(filing)
+        if accession is None:
+            over_cap_unnamed += 1
+            continue
+        over_cap_by_era[era(moment)].add(accession)
+        if moment >= cap_merged:
+            since_cap.add(accession)
     logged = set().union(*whole.values())
     cut = any(day["state"] in ("partial", "unavailable") for day in days_read)
     window_days = [day for day in days_read if day["start"] < deployed and day["start"] + timedelta(days=1) > onset]
@@ -300,18 +340,17 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
         "days": report_days,
         "e28_window": {"from": MARKS[1][1], "to": MARKS[3][1], "covered": covered,
                        "accessions": {name: len(found) for name, found in in_window.items()},
-                       "accessions_by_fallback_reason": {
-                           name: {reason: len(found) for reason, found in sorted(by_reason.items())}
-                           for name, by_reason in sorted(reasons.items())},
-                       "schema_two_accessions_by_form": {
-                           name: {form: len(found) for form, found in sorted(by_form.items())}
-                           for name, by_form in sorted(forms.items())}},
+                       "schema_two": _counted(window_schema_two)},
         "accessions": {name: len(found) for name, found in whole.items()},
+        "schema_two": _counted(whole_schema_two),
         "accessions_by_era": {name: {era_name: len(found) for era_name, found in by_era.items()}
                               for name, by_era in eras.items()},
         "accessions_native_and_regex": len(whole["edgartools"] & whole["regex_fallback"]),
         "last_native_line_in_e28_window": _minute(last_native),
-        "size_cap": {"cap_merged": CAP_MERGED, "over_cap_fetches": over_cap,
+        "size_cap": {"cap_merged": CAP_MERGED,
+                     "over_cap_accessions_by_era": {era_name: len(found) for era_name, found in over_cap_by_era.items()},
+                     "over_cap_accessions_since_cap_merged": len(since_cap),
+                     "over_cap_fetches_unnamed": over_cap_unnamed,
                      "size_cap_fallbacks": dict(sorted(capped_by_form.items())),
                      "size_cap_fallback_accessions": len(joined), "size_cap_fallbacks_unjoined": unjoined},
         "accessions_fetched_without_provenance": None if cut else len(fetched - logged),
@@ -331,7 +370,7 @@ def oldest_retained(api, project: str, start: datetime) -> dict:
     """The oldest entry the scope still holds at or after ``start``. An answer with no entries and no token holds
     none; a slow search may answer with a token alone, followed a bounded number of times."""
     body = {"resourceNames": [f"projects/{project}"], "pageSize": 1, "orderBy": "timestamp asc",
-            "filter": f'timestamp>="{_stamp(start)}" AND {scope_filter()}'}
+            "filter": f'timestamp>="{_stamp(start)}" AND {scope_filter()} AND {APP_STREAMS}'}
     for _page in range(PROBE_PAGES):
         data, error = api.call(ENTRIES, body)
         if error:
