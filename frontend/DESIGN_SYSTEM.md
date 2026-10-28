@@ -344,14 +344,20 @@ filings index's header and rows, the admin lists' rows). Each takes the cap from
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
-threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give way by
-their own rule, §7), and a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+threshold stays as it is (a Notice's `px-4` on a page, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give
+way by their own rule, §7), and a page's gutter is no surface. A Notice is a frame wherever it is written (its recipe draws
+a full border and a radius at `px-4`), so inside a dialog's body its own `px-4` is at the threshold, and its className
+caps it with `px-cap-4`, which the stylesheet emits after Notice's own (E229): the day dialog's holiday line broke
+"Thanksgiving" inside the word at 390px under 200% text until it did, and the verify-email dialog's two failures take it
+too. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
 conditions as one render and a ternary's arms as one or the other (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`
 is a frame at `p-6`), failing closed where it cannot correlate two conditions, never reads a form field (input, textarea, select) as a frame, since its padding reserves room
-for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+for a glyph, reads a Notice's className as a frame's and fails a Notice inside a dialog's body whose className does not cap
+Notice's own `px-4` in every render (`px-cap-N`, or a cap on each side; `p-cap-4` does not, since the stylesheet emits `p`
+before `px`), and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
 stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility
