@@ -12,7 +12,7 @@ export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Try again in a mo
 /** What "Log out of all devices" tells the reader when the Log out it waited for logged this device out (E157): no
  * session is left here to end the others with, so they log in and press it again. */
 export const LOGGED_OUT_FIRST_MESSAGE =
-  "You were already logged out here, so we couldn't log out your other devices. Log in, then choose Log out of all devices again."
+  "You were already logged out here, so we couldn't log out your other devices. Log in, then choose “Log out of all devices” again."
 
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
 export class LoggedOutFirst extends Error {
