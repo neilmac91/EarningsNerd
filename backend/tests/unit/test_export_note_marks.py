@@ -37,9 +37,9 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    that test holds.
 8. The PDF's grid prints whole on one landscape page with the lines above it and its summary under it (WeasyPrint), at
    the sizes reports print: the page's own e2e run, annual and quarterly, at 20 and 22 metrics, with no marked note,
-   one, two, or a letter on every row. A longer grid's summary line stays on the grid's last page: at the row count
-   where, without the rule,
-   it would start the next page, the last row moves with it; the sentence above the grid shares the grid's first page.
+   one, two, or a letter on every row, each row as tall as an unlettered run's. A longer grid's summary line stays on
+   the grid's last page: at the row count where, without the rule, it would start the next page, the last row moves
+   with it; the sentence above the grid shares the grid's first page.
 """
 from __future__ import annotations
 
@@ -743,9 +743,9 @@ LAYOUT_RUNS = [*((mode, rows, state) for mode in ("quarterly", "annual") for row
 @pytest.mark.parametrize(("mode", "rows", "state"), LAYOUT_RUNS, ids=["-".join(map(str, run)) for run in LAYOUT_RUNS])
 def test_a_full_grid_prints_whole_on_one_page_with_its_summary(mode, rows, state):
     """§5's finding (the key on another page from its table) at the sizes reports print: the page's own run, annual and
-    quarterly, at 20 and 22 metrics, with no marked note, one, two, or a letter on every row (each lettered row keeps the
-    others' height). The sentence above the grid, its first and last rows and the summary under it share one landscape
-    page."""
+    quarterly, at 20 and 22 metrics, with no marked note, one, two, or a letter on every row. The sentence above the
+    grid, its first and last rows and the summary under it share one landscape page, and every row is as tall as a row
+    of the same run with no letter (the legacy run), so a letter on every row cannot hide a taller pitch."""
     weasyprint = _weasyprint()
     analysis = _layout_run(state, mode, rows)
     series = analysis.dataset_json["series"]
@@ -757,6 +757,12 @@ def test_a_full_grid_prints_whole_on_one_page_with_its_summary(mode, rows, state
     document = _render_pdf(weasyprint, html)
     pages = _pages(document, series[-1]["label"], first_row=series[0]["label"])
     assert len(pages) == 4 and len(set(pages.values())) == 1, pages
-    heights = {round(box.border_height(), 1) for page in document.pages for box in page._page_box.descendants()
-               if box.element is not None and box.element.tag == "tr" and box.element[0].tag == "td"}
-    assert len(heights) == 1, f"a lettered row stands taller than the rest: {sorted(heights)}"
+    unlettered = _render_pdf(weasyprint, _metrics_section(
+        ExportService().generate_analysis_pdf_html(_layout_run("legacy", mode, rows), COMPANY)))
+    assert _row_heights(document) == _row_heights(unlettered), "a lettered row stands taller than an unlettered one"
+
+
+def _row_heights(document) -> set[float]:
+    """The heights of a rendered grid's body rows (a header row's cells are th)."""
+    return {round(box.border_height(), 1) for page in document.pages for box in page._page_box.descendants()
+            if box.element is not None and box.element.tag == "tr" and box.element[0].tag == "td"}

@@ -567,8 +567,8 @@ class ExportService:
                        ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
                        ".metrics-landscape td { padding-top: 1.5px; padding-bottom: 1.5px; line-height: 1.25; } "
                        ".metrics-landscape th { padding-top: 3px; padding-bottom: 3px; } "
-                       # A raised letter keeps to its row's line, as the page's mark takes zero line-height: with the
-                       # line's own height a lettered row grew 14% taller than the rest.
+                       # A raised letter keeps to its line, in the grid's rows and the summary line under them, as the
+                       # page's mark takes zero line-height: with a line of its own a lettered row stood 14% taller.
                        ".metrics-landscape sup.data-note { line-height: 0; } "
                        ".metrics-landscape h2 { margin: 0 0 4px; } "
                        ".metrics-landscape .fine-print { margin-bottom: 4px; line-height: 1.4; } "
