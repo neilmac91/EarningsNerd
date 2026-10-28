@@ -37,7 +37,8 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    that test holds.
 8. The PDF's grid prints whole on one landscape page with the lines above it and its summary under it (WeasyPrint), at
    the sizes reports print: the page's own e2e run, annual and quarterly, at 20 and 22 metrics, with no marked note,
-   one, or two. A longer grid's summary line stays on the grid's last page: at the row count where, without the rule,
+   one, two, or a letter on every row. A longer grid's summary line stays on the grid's last page: at the row count
+   where, without the rule,
    it would start the next page, the last row moves with it; the sentence above the grid shares the grid's first page.
 """
 from __future__ import annotations
@@ -688,9 +689,10 @@ def _layout_run(state: str, mode: str, rows: int) -> SimpleNamespace:
     variant's replacements applied as analysisLayoutApi.ts applies them. An annual copy keys the last ten quarters
     FY2016 to FY2025, the length of REGN's annual run; 22 rows add Gross profit and Gross margin, as many filers carry
     (22 is the most an operating company's run holds). "two notes" is the discrepancy run with a second marked note,
-    on Net income's last two periods, so the summary names two."""
+    on Net income's last two periods, so the summary names two; "every row" letters each metric's latest figure, as a
+    latest quarter not yet matched to its filing does (fact_provenance.py marks each such fact source_check_needed)."""
     fixture = deepcopy(LAYOUT["legacy"])
-    for replacement in LAYOUT["variants"][state.removesuffix(" two notes")] if state != "legacy" else []:
+    for replacement in LAYOUT["variants"][state.removesuffix(" two notes")] if state not in ("legacy", "every row") else []:
         *path, key = replacement["path"]
         parent = fixture
         for step in path:
@@ -708,6 +710,11 @@ def _layout_run(state: str, mode: str, rows: int) -> SimpleNamespace:
                                  "fiscal_period": "FY", "derived": False}
                                 for point in series["points"] if point["period"] in years]
         dataset.update(mode="annual", period_key="FY2016..FY2025")
+    if state == "every row":
+        for series in dataset["series"]:
+            point = series["points"][-1]
+            point["provenance"] = {**(point.get("provenance") or {}), "validation": "needs_review",
+                                   "reasons": ["source_check_needed"]}
     if state.endswith(" two notes"):
         net_income = next(series for series in dataset["series"] if series["concept"] == "net_income")
         for point in net_income["points"][-2:]:
@@ -729,19 +736,27 @@ def _layout_run(state: str, mode: str, rows: int) -> SimpleNamespace:
 
 
 LAYOUT_RUNS = [*((mode, rows, state) for mode in ("quarterly", "annual") for rows in (20, 22)
-                 for state in ("legacy", "discrepancy")), ("quarterly", 22, "discrepancy two notes")]
+                 for state in ("legacy", "discrepancy")), ("quarterly", 22, "discrepancy two notes"),
+               ("quarterly", 22, "every row"), ("annual", 22, "every row")]
 
 
 @pytest.mark.parametrize(("mode", "rows", "state"), LAYOUT_RUNS, ids=["-".join(map(str, run)) for run in LAYOUT_RUNS])
 def test_a_full_grid_prints_whole_on_one_page_with_its_summary(mode, rows, state):
     """§5's finding (the key on another page from its table) at the sizes reports print: the page's own run, annual and
-    quarterly, at 20 and 22 metrics, with no marked note, one, or two. The sentence above the grid, its first and last
-    rows and the summary under it share one landscape page."""
+    quarterly, at 20 and 22 metrics, with no marked note, one, two, or a letter on every row (each lettered row keeps the
+    others' height). The sentence above the grid, its first and last rows and the summary under it share one landscape
+    page."""
     weasyprint = _weasyprint()
     analysis = _layout_run(state, mode, rows)
     series = analysis.dataset_json["series"]
     html = _metrics_section(ExportService().generate_analysis_pdf_html(analysis, COMPANY))
     if state != "legacy":
         assert len(set(PDF_MARK.findall(html))) == (2 if state.endswith("two notes") else 1), "its marked notes"
-    pages = _pages(_render_pdf(weasyprint, html), series[-1]["label"], first_row=series[0]["label"])
+    if state == "every row":
+        assert len(re.findall(r"<tr><td>[^<]*</td>(?:(?!</tr>).)*<sup", html)) == rows, "a letter on every row"
+    document = _render_pdf(weasyprint, html)
+    pages = _pages(document, series[-1]["label"], first_row=series[0]["label"])
     assert len(pages) == 4 and len(set(pages.values())) == 1, pages
+    heights = {round(box.border_height(), 1) for page in document.pages for box in page._page_box.descendants()
+               if box.element is not None and box.element.tag == "tr" and box.element[0].tag == "td"}
+    assert len(heights) == 1, f"a lettered row stands taller than the rest: {sorted(heights)}"
