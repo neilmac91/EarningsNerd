@@ -1,4 +1,4 @@
-import { fmtCurrency, fmtPercent, fmtShares, ordinal, sentenceCase } from '@/lib/format'
+import { compactCurrencyCountUp, dataFaceDraws, fmtCurrency, fmtPercent, fmtShares, ordinal, sentenceCase } from '@/lib/format'
 
 describe('numeric formatters', () => {
   it('formats currency values compactly by default', () => {
@@ -7,6 +7,22 @@ describe('numeric formatters', () => {
 
   it('formats currency with explicit digits and standard notation', () => {
     expect(fmtCurrency('42.5', { digits: 2, compact: false })).toBe('$42.50')
+  })
+
+  it('prints a currency by its code where the data face lacks its sign, as the trend charts do (E203)', () => {
+    // Geist Mono draws neither ₩ nor ₫, nor the narrow no-break space in XOF's "F CFA".
+    expect([fmtCurrency(300.9e12, { currency: 'KRW' }), fmtCurrency(30e12, { currency: 'VND' }), fmtCurrency(2e9, { currency: 'XOF' })])
+      .toEqual(['KRW\u00a0300.9T', 'VND\u00a030.0T', 'XOF\u00a02.0B'])
+    expect(fmtCurrency(-1234.5, { currency: 'KRW', compact: false })).toBe('-KRW\u00a01,234.5')
+    expect(compactCurrencyCountUp(22.8e12, 'KRW')(11.4e12)).toBe('KRW\u00a011.4T')
+    // A sign the face draws stays a sign.
+    expect([fmtCurrency(1e9, { currency: 'EUR' }), fmtCurrency(1e9, { currency: 'INR' }), fmtCurrency(1e9, { currency: 'JPY' })])
+      .toEqual(['€1.0B', '₹1.0B', '¥1.0B'])
+    // Over the ISO 4217 list, every glyph fmtCurrency prints, compact or not, either sign, is one the data face draws.
+    const printed = Intl.supportedValuesOf('currency').flatMap((currency) => [1234.5, -1234.5, 0.5, 2.4e12].flatMap((value) =>
+      [true, false].flatMap((compact) => [...fmtCurrency(value, { currency, compact })])))
+    expect([...new Set(printed)].filter((glyph) => !dataFaceDraws(glyph))).toEqual([])
+    expect(printed, 'the list is the one Intl prints from').toEqual(expect.arrayContaining(['€', '£', '¥', '₹', '₪', '₱', '\u00a0']))
   })
 
   it('formats percentages with sign handling', () => {

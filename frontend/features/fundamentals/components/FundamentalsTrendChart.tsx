@@ -188,7 +188,9 @@ export default function FundamentalsTrendChart({
               <XAxis dataKey="year" {...xAxisProps(dark)} />
               <YAxis
                 {...yAxisProps(dark)}
-                width={70 /* currency tick labels outgrow the factory's 44px */}
+                // The widest tick label sets the width (Recharts measures it before paint): a currency printed by
+                // its code ("CHF 800.0B", "KRW 800.0T", E203) outgrew the fixed 70px this axis had.
+                width="auto"
                 tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
               />
               <Tooltip
