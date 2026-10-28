@@ -30,13 +30,16 @@ the Cloud Run jobs) and counts:
 
 Each line is counted only from the logger that writes it (summary_generation_service for provenance,
 summary_pipeline for the fetch lines, edgar.xbrl_service for the cap), its message starting with the line's own
-words: a request another logger records (a search query, say) may hold the same words and is never counted.
+words: a request another logger records (a search query, say) may hold the same words and is never counted. The
+API service and the task worker write JSON (logging_service, `logger` and `message`); the Cloud Run jobs set
+logging up with basicConfig, so a job's line is Python's default `LEVEL:logger:message` text, read from a job
+alone.
 
 Retention fails closed. The `_Default` bucket's `retentionDays`, where the identity may read it, and a bounded
 probe for the oldest stdout or stderr entry the scope still holds (the streams the lines are written to, never
 the audit logs `_Required` keeps for 400 days) each date what is gone, and the later of the two wins (a
 retention raised after lines expired keeps them gone). An empty probe (`{}`) means nothing is held, unless the
-readable bucket says the window is (then the days are read and left unverified). A day wholly before that date
+readable bucket dates what it keeps (then those days are read and left unverified). A day wholly before that date
 reads `expired_or_absent`, the day it falls in `partly_expired_or_absent`; an oldest entry
 within an hour of the window's start is a quiet start, not expiry. When the probe cannot say, every day up to
 and including the first day that holds a line reads `retention_unverified`, never `complete` with 0. A day whose
@@ -102,7 +105,9 @@ LOGGERS = {
     "fetch": "app.services.summary_pipeline",
     "cap": "app.services.edgar.xbrl_service",
 }
-_FORMATTED = re.compile(r"\[[^\]]*\] \w+ +\[[^\]]*\] ([\w.]+) - (.*)", re.DOTALL)  # logging_service's text format
+# The Cloud Run jobs (pregenerate, the stale-summary drain) set logging up with basicConfig, so their lines reach
+# stderr in Python's default format; the API service and the task worker write JSON (logging_service).
+_BASIC = re.compile(r"(?:DEBUG|INFO|WARNING|ERROR|CRITICAL):([\w.]+):(.*)", re.DOTALL)
 FORM_KEYS = (*CAP_FORMS, "10-K/A", "10-Q/A", "20-F/A", "6-K")
 SOURCES = ("edgartools", "regex_fallback", "legacy_cached_excerpt")
 CLASSES = (*SOURCES, "unavailable", "other", "unreadable")
@@ -155,22 +160,21 @@ def _stamp(moment: datetime) -> str:
 
 
 def parse_timestamp(text) -> datetime | None:
-    """A log entry's RFC 3339 timestamp (nanoseconds and offsets included) as an aware datetime, or None."""
+    """A log entry's RFC 3339 timestamp (nanoseconds and offsets included) as an aware datetime, or None for one
+    that does not read as a moment (an impossible date, offset or year at the calendar's edge)."""
     match = _TIMESTAMP.fullmatch(text) if isinstance(text, str) else None
     if not match:
         return None
     whole, fraction, zone = match.groups()
     try:
         moment = datetime.strptime(whole, "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
+        if fraction:
+            moment = moment.replace(microsecond=int(fraction[:6].ljust(6, "0")))
+        offset = timedelta(0) if zone == "Z" else timedelta(hours=int(zone[1:3]), minutes=int(zone[4:6])) * (
+            1 if zone[0] == "+" else -1)
+        return moment.replace(tzinfo=timezone(offset)).astimezone(timezone.utc)
+    except (ValueError, OverflowError):
         return None
-    if zone != "Z" and (int(zone[1:3]) > 23 or int(zone[4:6]) > 59):
-        return None
-    if fraction:
-        moment = moment.replace(microsecond=int(fraction[:6].ljust(6, "0")))
-    offset = timedelta(0) if zone == "Z" else timedelta(hours=int(zone[1:3]), minutes=int(zone[4:6])) * (
-        1 if zone[0] == "+" else -1)
-    return moment.replace(tzinfo=timezone(offset)).astimezone(timezone.utc)
 
 
 def _minute(moment: datetime | None) -> str | None:
@@ -208,13 +212,17 @@ def day_filter(start: datetime, end: datetime) -> str:
 
 
 def logged(entry: dict) -> tuple[str, str]:
-    """The logger and message of an entry: production's JSON (``logger``, ``message``) or the text format."""
+    """The logger and message of an entry: the JSON the API service and the task worker write (``logger``,
+    ``message``), or, from a Cloud Run job alone, Python's default text format; anything else neither."""
     payload = entry.get("jsonPayload")
     if isinstance(payload, dict):
         logger, text = payload.get("logger"), payload.get("message")
         return (logger, text) if isinstance(logger, str) and isinstance(text, str) else ("", "")
+    resource = entry.get("resource")
     text = entry.get("textPayload")
-    match = _FORMATTED.match(text) if isinstance(text, str) else None
+    if not (isinstance(resource, dict) and resource.get("type") == "cloud_run_job" and isinstance(text, str)):
+        return "", ""
+    match = _BASIC.match(text)
     return (match.group(1), match.group(2)) if match else ("", "")
 
 
@@ -465,11 +473,10 @@ def collect(api, project: str, start: str, end: str, now: datetime | None = None
     if probe["state"] == "complete" and probe["timestamp"] and probe["timestamp"] - slices[0][0] > QUIET_START:
         floors.append(probe["timestamp"])
     floor = max(floors) if floors else None
-    # An empty probe means nothing is kept, unless the bucket says the window is: then the probe's own filter is
-    # in doubt, and the days are read and left unverified rather than called gone.
+    # An empty probe means nothing is kept, unless the bucket dates what it keeps: then the probe's own filter is in
+    # doubt, and the days the bucket keeps are read and left unverified rather than called gone.
     empty = probe["state"] == "complete" and probe["timestamp"] is None
-    retained_by_bucket = floor is None or floor < slices[0][0]
-    nothing_kept = empty and not (bucket["days"] and retained_by_bucket)
+    nothing_kept = empty and not bucket["days"]
     verified = probe["state"] == "complete" and not empty
     seen_a_line = False
     days_read = []

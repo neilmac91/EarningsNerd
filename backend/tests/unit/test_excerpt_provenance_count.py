@@ -42,11 +42,20 @@ FETCH_LOGGER = "app.services.summary_pipeline"
 CAP_LOGGER = "app.services.edgar.xbrl_service"
 
 
-def line(logger, text, stamp, *, json_payload=True):
-    # Production's JSON shape (logging_service.StructuredLogFormatter), or its text format.
+def line(logger, text, stamp, *, json_payload=True, resource="cloud_run_revision"):
+    # Formatted as production formats it: the API service and the task worker through logging_service's JSON
+    # formatter, a Cloud Run job through basicConfig's default text format (Cloud Run parses a JSON line into
+    # jsonPayload and keeps a text line as textPayload).
+    import logging
+
+    from app.services.logging_service import StructuredLogFormatter
+
+    record = logging.getLogger(logger).makeRecord(logger, logging.INFO, __file__, 0, text, None, None)
     if json_payload:
-        return {"timestamp": stamp, "jsonPayload": {"logger": logger, "message": text, "level": "INFO"}}
-    return {"timestamp": stamp, "textPayload": f"[{stamp}] INFO     [-] {logger} - {text}"}
+        return {"timestamp": stamp, "resource": {"type": resource},
+                "jsonPayload": json.loads(StructuredLogFormatter().format(record))}
+    return {"timestamp": stamp, "resource": {"type": "cloud_run_job" if resource == "cloud_run_revision" else resource},
+            "textPayload": logging.Formatter(logging.BASIC_FORMAT).format(record)}
 
 
 def provenance_line(source, accession, stamp, *, json_payload=True, **schema_two):
@@ -222,16 +231,26 @@ def test_only_each_lines_own_logger_counts_and_hostile_text_stays_closed(count):
         provenance_line("regex_fallback", BOTH, "2026-10-10T00:00:00Z", outcome="fallback",
                         fallback_reason="native_excerpt_thin", filing_type="S-1"),
         {**line(PROVENANCE_LOGGER, "x", "z"), "timestamp": "2026-02-30T00:00:00Z"},  # an impossible date: no crash
+        # A job's text from another logger, a text line from the service (it writes JSON), JSON naming no logger,
+        # and a start line from another logger, which must feed no fetch or join.
+        line("app.routers.companies", spoof, "2026-10-10T00:00:00Z", json_payload=False),
+        {**line(PROVENANCE_LOGGER, spoof, "2026-10-10T00:00:00Z", json_payload=False),
+         "resource": {"type": "cloud_run_revision"}},
+        {"timestamp": "2026-10-10T00:00:00Z", "resource": {"type": "cloud_run_revision"}, "jsonPayload": {"message": spoof}},
+        line("app.routers.companies", "[stream:7] Starting SEC fetch for URL: https://www.sec.gov/Archives/edgar/data/"
+             f"1/{CAPPED.replace('-', '')}/d.htm", "2026-10-10T00:00:00Z"),
     ]
     report = count.tally([day("2026-10-10T00:00:00", entries)], START, END)
     [only] = report["days"]
     assert only["lines"] == {"regex_fallback": 2, "unreadable": 1}
-    assert (only["fetches"], only["unmatched"], only["size_cap_fallbacks"]) == (0, 6, {})
+    assert (only["fetches"], only["unmatched"], only["size_cap_fallbacks"]) == (0, 10, {})
+    assert report["accessions_fetched_without_provenance"] == 0
     assert report["accessions"]["regex_fallback"] == 2
     assert report["schema_two"] == {"by_fallback_reason": {"regex_fallback": {"native_excerpt_thin": 1, "other": 1}},
                                     "by_form": {"regex_fallback": {"10-K": 1, "other": 1}}}
     assert "script" not in json.dumps(report)
-    for text in ("2026-02-30T00:00:00Z", "2026-10-04T09:29:00+99:00", "2026-13-01T00:00:00Z"):
+    for text in ("2026-02-30T00:00:00Z", "2026-10-04T09:29:00+99:00", "2026-13-01T00:00:00Z",
+                 "0001-01-01T00:00:00+05:00", "9999-12-31T23:59:59-05:00"):
         assert count.parse_timestamp(text) is None
 
 
@@ -255,6 +274,14 @@ def test_the_cap_counts_filings_once_by_era_and_the_native_ones_e28_a_sizes(coun
     assert size_cap["native_over_cap_accessions_by_era"] == {"before": 1, "onset": 0, "window": 0, "after": 1}
     assert size_cap["native_over_cap_accessions_outside_403"] == 2
     assert size_cap["over_cap_accessions_since_cap_merged"] == 1
+    # Built natively over the cap before the onset and again after the deploy: one accession, counted once; and a
+    # native build in one era never makes another era's over-cap fetch native.
+    entries += [*fetch_lines(55, NATIVE, 18_000_000, "2026-10-17T00:00:00Z"),
+                provenance_line("edgartools", NATIVE, "2026-10-17T00:00:01Z"),
+                *fetch_lines(56, REGEX, 18_500_000, "2026-10-01T05:00:00Z")]
+    size_cap = count.tally([day("2026-10-01T00:00:00", entries)], START, END)["size_cap"]
+    assert size_cap["native_over_cap_accessions_by_era"] == {"before": 1, "onset": 0, "window": 0, "after": 2}
+    assert size_cap["native_over_cap_accessions_outside_403"] == 2
 
 
 def test_a_cut_day_leaves_fetches_without_provenance_unknown(count):
@@ -306,6 +333,11 @@ def test_an_empty_probe_means_nothing_is_kept_unless_the_bucket_says_otherwise(c
     report = count.collect(api, "earnings-nerd", "2026-10-04T00:00:00Z", "2026-10-06T00:00:00Z", now=NOW)
     assert {d["state"] for d in report["days"]} == {"retention_unverified"}
     assert sum("Excerpt provenance" in call for call in api.calls) == 2
+    # A bucket that keeps part of the window: what it no longer keeps is gone, the rest read and unverified.
+    api = FakeLogging(bucket={"retentionDays": 30}, probe=({},))
+    report = count.collect(api, "earnings-nerd", "2026-09-27T00:00:00Z", "2026-09-30T00:00:00Z", now=NOW)
+    assert states(report) == [("2026-09-27", "expired_or_absent"), ("2026-09-28", "partly_expired_or_absent"),
+                              ("2026-09-29", "retention_unverified")]
 
 
 def test_a_slow_or_failed_probe_leaves_every_day_to_the_first_line_unverified(count):
