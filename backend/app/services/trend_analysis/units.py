@@ -9,10 +9,8 @@ from typing import Any, Optional, TypeVar, Union
 
 Row = TypeVar("Row")
 
-INCOMPATIBLE_UNITS_MESSAGE = (
-    "Some of this company's figures for these periods don't share one currency or unit, so they can't be compared. "
-    "Analysis isn't available for this range."
-)
+# One sentence, as the page's other dataset refusals print in the error Notice's title (chief design on #1719).
+INCOMPATIBLE_UNITS_MESSAGE = "Figures in the selected period range mix currencies or units, so they can't be compared."
 
 
 class IncompatibleUnitsError(ValueError):
