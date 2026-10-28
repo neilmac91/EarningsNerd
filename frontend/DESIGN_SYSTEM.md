@@ -1328,11 +1328,19 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  (the waitlist page below lg) its title and description stay at the start with its glyph and
                  its action row, and a caller needs none of its own (WaitlistForm's two text-left went with E120; gate:
                  tests/unit/waitlistSuccessCard.spec.tsx, the two Notices of the form in that column).
+                 A surface of another shape that states what a Notice states takes the Notice's tint by import,
+                 noticeTint(variant) (components/ui/Notice.tsx), never a copy of its classes: the Copilot's error
+                 bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
+                 E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
+                 statusTintResidue.spec.ts's TINT_BORROWED).
                  GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
                  tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
                  draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
                  on the dropdown's own opaque panel, so the page does not show through its tint (the company
-                 search's failure, E196 (4)).
+                 search's failure, E196 (4)). That panel takes the Notice's 12px (`rounded-lg`), not the dropdown's
+                 16px (`rounded-xl`): it has no padding or border of its own, so its edge is the Notice's, and under
+                 a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
+                 results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
@@ -2225,7 +2233,7 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
                  is that status region already, so the sentence is announced when it lands. The error tint
-                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
+                 (Notice's, by noticeTint) and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.

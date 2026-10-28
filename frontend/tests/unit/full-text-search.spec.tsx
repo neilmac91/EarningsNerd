@@ -290,8 +290,8 @@ describe('FullTextSearch controls and errors', () => {
   })
 
   // At 200% text on a phone the Retry beside the message ran past the alert and the screen (Codex on #1380: 472px at
-  // 390px, 848px with a long token). The fix is the Notice's layout, which this pins; tests/e2e/reflow-200.spec.ts
-  // measures it in the browser at 200% text, beside the homepage alert's twin.
+  // 390px, 848px with a long token). The fix is the Notice's layout, which the alert has been since E196 (3) and this
+  // pins; tests/e2e/reflow-200.spec.ts measures it in the browser at 200% text, beside the homepage alert's twin.
   it("stacks the Retry under the message, in the message's column, and breaks a long token in the message", async () => {
     vi.mocked(searchFullText).mockRejectedValueOnce(fromBackend(502, 'SEC full-text search failed: EFTS_UPSTREAM_TIMEOUT_EXCEEDED'))
     renderSearch()
@@ -299,14 +299,14 @@ describe('FullTextSearch controls and errors', () => {
     const alert = await screen.findByRole('alert')
     const message = within(alert).getByText(/EFTS_UPSTREAM_TIMEOUT_EXCEEDED/)
     const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
-    expect(alert).toHaveClass('flex', 'items-start')
+    expect(alert).toHaveClass('flex', 'flex-wrap', 'items-start')
     expect(alert.className).not.toMatch(/\b(justify-between|items-center)\b/)
     expect(message).toHaveClass('break-words')
-    // The message's column holds the message, then the Retry's own row.
+    // The text column holds the title, the message, then the Retry's own row.
     const column = message.parentElement as HTMLElement
-    expect(column).toHaveClass('min-w-0', 'flex-1')
-    expect([...column.children]).toEqual([message, row])
-    expect(row.className).toBe('mt-2.5 flex')
+    expect(column).toHaveClass('min-w-0', 'flex-[1_1_9rem]')
+    expect([...column.children]).toEqual([within(alert).getByText('Search did not load'), message, row])
+    expect(row).toHaveClass('mt-2.5', 'flex')
     expect(row.children).toHaveLength(1)
   })
 
@@ -319,7 +319,9 @@ describe('FullTextSearch controls and errors', () => {
     vi.mocked(searchFullText).mockRejectedValueOnce(error)
     renderSearch()
     search('going concern')
-    expect(await screen.findByRole('alert')).toHaveTextContent('Search did not load. Try again in a minute.')
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Search did not load')).toBeInTheDocument()
+    expect(within(alert).getByText('Try again in a minute.')).toBeInTheDocument()
   })
 
   // lib/api/client's own fallbacks and axios's text fill `detail` when the body carried none: they are
@@ -337,7 +339,8 @@ describe('FullTextSearch controls and errors', () => {
     renderSearch()
     search('going concern')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Search did not load. Try again in a minute.')
+    expect(within(alert).getByText('Search did not load')).toBeInTheDocument()
+    expect(within(alert).getByText('Try again in a minute.')).toBeInTheDocument()
     expect(alert).not.toHaveTextContent(clientText)
   })
 
@@ -350,8 +353,10 @@ describe('FullTextSearch controls and errors', () => {
     search('going concern')
     const alert = await screen.findByRole('alert')
     const message = within(alert).getByText('SEC full-text search is temporarily unavailable.')
-    expect(message.parentElement).toHaveClass('min-w-0', 'flex-1')
-    expect(alert.querySelector('svg')).toHaveClass('flex-none', 'h-4', 'w-4')
+    expect(message.parentElement).toHaveClass('min-w-0', 'flex-[1_1_9rem]')
+    const glyph = alert.querySelector('svg')
+    expect(glyph?.parentElement).toHaveClass('flex-none')
+    expect(glyph).toHaveClass('h-[18px]', 'w-[18px]')
     const row = within(alert).getByRole('button', { name: 'Try again' }).parentElement as HTMLElement
     expect(message.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(message.parentElement?.contains(row)).toBe(true)
@@ -362,8 +367,9 @@ describe('FullTextSearch controls and errors', () => {
     renderSearch()
     search('going concern')
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('SEC full-text search is temporarily unavailable.')
-    expect(alert).not.toHaveTextContent('Search did not load')
+    // The message is the detail itself, under the alert's title, and the surface's own advice is not shown.
+    expect(within(alert).getByText('SEC full-text search is temporarily unavailable.')).toBeInTheDocument()
+    expect(alert).not.toHaveTextContent('Try again in a minute')
   })
 
   it("after a search with results, a failed one's Retry stays up, busy and focused, with no old hits, until it lands", async () => {

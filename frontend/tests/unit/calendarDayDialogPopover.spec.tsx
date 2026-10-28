@@ -2,7 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
+import { DayDetailDialog } from '@/features/calendar/components/DayDetailDialog'
 import type { CalendarEvent } from '@/features/calendar/api/calendar-api'
+import type { EarningsAlertsApi } from '@/features/calendar/hooks/useCalendar'
 import type { SignupConfig } from '@/lib/serverApi'
 
 /**
@@ -87,6 +89,21 @@ describe('the day dialog says the order it shows', () => {
     // reporting before the open (T6X) shows above a more followed one reporting after the close (T1X).
     expect(text.indexOf('T6X')).toBeGreaterThan(-1)
     expect(text.indexOf('T6X')).toBeLessThan(text.indexOf('T1X'))
+  })
+})
+
+// On a market holiday the dialog's body is one info Notice. A frame inside a dialog's body takes the inset capped from
+// step 4 (E120, DESIGN_SYSTEM.md §4), since the dialog's own inset already halves the measure: with Notice's px-4 the
+// title's column was 172px at 390px under 200% text, and "Thanksgiving" (173.7px) broke inside the word (chief design
+// on #1735).
+describe('the day dialog on a market holiday', () => {
+  const alerts: EarningsAlertsApi = { identityPending: false, isOn: () => false, isPending: () => false, toggle: () => {}, blocked: null, clearBlocked: () => {} }
+  it("says the market is closed in an info Notice that takes a dialog body's capped inset", () => {
+    render(<DayDetailDialog iso="2026-11-26" events={[]} alerts={alerts} signedIn={false} onClose={() => {}} />)
+    const notice = screen.getByRole('status')
+    expect(within(notice).getByText('Market closed for Thanksgiving Day')).toBeInTheDocument()
+    expect(within(notice).getByText('No earnings are scheduled.')).toBeInTheDocument()
+    expect(notice.className.split(/\s+/)).toEqual(expect.arrayContaining(['px-cap-4']))
   })
 })
 
