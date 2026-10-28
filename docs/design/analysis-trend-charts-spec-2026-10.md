@@ -402,14 +402,16 @@ says so; everything else follows the spec.
     footnotes) can still swap once on a cold cache, now between two monospace faces.
   - ₩ (KRW) and ₫ (VND) are in no Geist Mono subset, so the engine prints their codes ("KRW 120,000T"), as it does a
     code-like symbol (E203); so does XOF, whose "F CFA" holds a narrow no-break space no face draws. `moneyPrefix`
-    prints a symbol only where the face draws every glyph past ASCII in it (`DATA_FACE_SIGNS` in `scale.ts`, read by
-    hand from the faces' cmaps in a 2026-10-25 build; next/font fetches the faces at build). `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that
-    list, and the wait's sample test holds it to the sample, so a sign the face lacks paints in no plot (G2).
-  - Outside the spec renderer, `lib/format.ts`'s `fmtCurrency` still prints ₩ and ₫ in the data face, so in the
-    fallback, on four surfaces: the KPI strip, the source dialog's figure (`font-figure`, which falls through to Geist
-    Mono), What changed's figures, and the Recharts charts that remain (`Chart.tsx`: filing fundamentals and peers). The metrics table prints bare figures.
-    A code is wider than the sign, so the fix waits on the KPI strip's narrow cards (E197) and checks each surface's
-    width (E203; chief design on #1652).
+    prints a symbol only where the face draws every glyph in it (`lib/format.ts`'s `DATA_FACE_GLYPHS`, one list with
+    the KPI strip's, which `analysis-layout.spec.ts` measures in the built face; next/font fetches the faces at build).
+    `chart-engine.spec.ts` holds every prefix over the ISO 4217 list to that list, and the wait's sample test holds it
+    to the sample, so a sign the face lacks paints in no plot (G2).
+  - Outside the spec renderer, `fmtCurrency` prints the same codes (E203; chief design on #1652), so the KPI strip,
+    the source dialog's figure (`font-figure`, which falls through to Geist Mono), What changed's figures and the
+    Recharts charts that remain (`Chart.tsx`: filing fundamentals and peers) paint no sign in the fallback;
+    `formatters.spec.ts` holds it over the ISO 4217 list. The metrics table prints bare figures. A code is wider than
+    the sign: the KPI strip takes its columns from its widest value (E197), and the fundamentals chart's value axis
+    takes its labels' width (`width="auto"`), where a fixed 70px cut "KRW 800.0T", and "CHF 800.0B" before E203.
 - **What this spec supersedes.** Since the renderer replaced the Recharts charts (report §10, step 7; E195), this spec
   replaces three rules of `docs/design/analysis-data-notes-redesign-2026-10.md` §4.7 for the four trend charts. Note
   letters move off the plot into the notes band (§3.3), and since E194 only a note that questions the number letters,

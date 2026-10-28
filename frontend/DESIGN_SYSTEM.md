@@ -962,8 +962,9 @@ Analysis KPI     <KpiStrip> — a definition list whose columns follow its wides
                  a letter in a note mark's (DataNoteMark's NOTE_MARK), measure the advances as the
                  browser paints them, again as fonts load or the text size changes: 0.6em (0.9rem a
                  glyph) until they have, 14px a glyph at 24px where a browser snaps glyphs to whole
-                 pixels, as headless Chrome does under full font hinting (CI's). A glyph Geist Mono
-                 lacks (₩, ₫, U+202F) counts 1.25em, wider than any face found to draw one. So 320px
+                 pixels, as headless Chrome does under full font hinting (CI's). fmtCurrency prints a
+                 currency whose sign Geist Mono lacks by its code (₩, ₫ and the narrow space in "F CFA";
+                 E203), and a glyph the face lacks counts 1.25em, wider than any face found to draw one. So 320px
                  keeps two cards for every dollar value the fixtures carry, and a code-prefixed one
                  that two cards cannot hold ("CHF 22.8B" at 320px, 129.6px at 0.6em, or "CA$968.0M"
                  with a letter at 360px, 138.2px) takes one card, not the card's edge; under 200% text
@@ -2429,12 +2430,15 @@ moved 2px up from 320 to 460px and 18px down from 470 to 1440px, and under 200% 
 The cell keeps the taller of the two: the pill sits in the line's room where the line is taller (2px, or 6 to 86px
 under 200% text), and the line, or a closed or unconfirmed one, in the pill's where the pill is (18px, or 34px). The
 held pill is static, so the counter's stats load only once readiness answers open. A closed or unconfirmed answer
-joins the cell when shown and can still grow it. A count of 25 or more lengthens the pill's label ("Join 1,234+ others
-on the waitlist"), which under 200% text wraps where "Join the waitlist" does not, so the cell still grows 34px as the
-count lands at the sampled widths 360, 480 to 560 and 1040 to 1160px (E225). Gates:
-`tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre as readiness answers open, at 390
-and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the
-cell through checking, open, closed and unconfirmed answers).
+joins the cell when shown and can still grow it. A count of 25 or more takes a label short enough that the cell keeps
+its height, "Join 1,234+ others" (E225, chief design on #1699): "Join 1,234+ others on the waitlist" wrapped under
+200% text where "Join the waitlist" did not, and the cell grew 34px as the count landed at 360, 480 to 560 and 1040
+to 1160px, and at 1200px with 12,345+. The new label is still a character longer than the opening one and takes a
+line more at about 330 to 390px under 200% text; there the checking line is taller still, so the cell holds (chief
+design on #1709). Gates: `tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre
+as readiness answers open, at 390 and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text; the form's
+place as a count lands, at 360, 480, 520, 560, 1040, 1100, 1160 and 1200px under 200% text and at 390 and 1440px)
+and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers).
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
@@ -2666,6 +2670,9 @@ follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carrie
 Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
 category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
+A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
+paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
+KRW, VND and XOF by code, E203) outgrew the fixed 70px it had.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a

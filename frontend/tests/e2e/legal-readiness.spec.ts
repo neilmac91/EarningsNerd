@@ -50,6 +50,8 @@ async function harness(page: Page, baseURL: string, theme: 'light' | 'dark' = 'l
   const origin = new URL(baseURL).origin
   const state = {
     respond: async (): Promise<Answer> => answer(CLOSED),
+    /** The waitlist's count: under the counter's floor (25) by default, so its pill names the list. */
+    signups: async (): Promise<number> => 0,
     authenticated: false,
     betaMember: false,
     readinessRequests: 0,
@@ -131,7 +133,7 @@ async function harness(page: Page, baseURL: string, theme: 'light' | 'dark' = 'l
         return route.fulfill({ headers: cors, json: { mode: 'public', beta_promo_enabled: false } })
       }
       if (url.pathname === '/api/waitlist/stats') {
-        return route.fulfill({ headers: cors, json: { total_signups: 0 } })
+        return route.fulfill({ headers: cors, json: { total_signups: await state.signups() } })
       }
       return route.fulfill({ status: 404, headers: cors, json: { detail: 'No synthetic fixture' } })
     }
@@ -344,6 +346,51 @@ test.describe('Public collection readiness', () => {
       const after = await form.boundingBox()
       expect(Math.abs(after!.y - before!.y), `the form at ${before!.y}px while readiness checked and ${after!.y}px once it answered open`).toBeLessThanOrEqual(1)
       expect(await centred(), "the counter's pill sits central in its cell").toBeLessThanOrEqual(1)
+      expect(await page.evaluate(() => window.scrollY)).toBe(0)
+      expect(state.mutations).toEqual([])
+      await cdp.detach()
+    })
+  }
+
+  // A count of 25 or more lands after the pill shows, and its counted label is short enough that the form keeps its
+  // place (E225, chief design on #1699). "Join 1,234+ others on the waitlist" wrapped under 200% text where "Join the
+  // waitlist" did not, and in CI's fonts the status grew 34px as the count landed at 360px, 480 to 560px and 1040 to
+  // 1160px, and at 1200px with 12,345+. At the default size the two labels always took the same lines. "Join 1,234+
+  // others" still takes a line more than "Join the waitlist" at about 330 to 390px under 200% text, where the checking
+  // line in the status's cell is taller still: the 360px case holds that band (chief design on #1709).
+  for (const { width, textSize, signups, shown } of [
+    { width: 360, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 480, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 520, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 560, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 1040, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 1100, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 1160, textSize: 32, signups: 1234, shown: '1,234+' },
+    { width: 1200, textSize: 32, signups: 12345, shown: '12,345+' },
+    { width: 390, textSize: 16, signups: 1234, shown: '1,234+' },
+    { width: 1440, textSize: 16, signups: 12345, shown: '12,345+' },
+  ]) {
+    test(`the waitlist keeps its form in place as a count of ${shown} lands at ${width}px and ${textSize}px text`, async ({ page, baseURL }) => {
+      const state = await harness(page, baseURL!)
+      await page.setViewportSize({ width, height: 900 })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: textSize, fixed: textSize === 32 ? 26 : 13 } })
+      const count = deferred<number>()
+      state.signups = () => count.promise
+      state.respond = async () => answer(READY)
+      await page.goto('/waitlist')
+      const form = page.locator('#waitlist')
+      const status = form.locator('xpath=preceding-sibling::div[1]')
+      await expect(page.getByLabel('Email address', { exact: true })).toBeVisible()
+      await expect(status.getByText('Join the waitlist', { exact: true })).toBeVisible()
+      await page.evaluate(() => document.fonts.ready)
+      const before = await form.boundingBox()
+      count.resolve(signups)
+      await expect(status.locator('[data-waitlist-count]')).toHaveText(shown)
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))))
+      const after = await form.boundingBox()
+      expect(Math.abs(after!.y - before!.y), `the form at ${before!.y}px under "Join the waitlist" and ${after!.y}px once ${shown} landed`).toBeLessThanOrEqual(1)
       expect(await page.evaluate(() => window.scrollY)).toBe(0)
       expect(state.mutations).toEqual([])
       await cdp.detach()
