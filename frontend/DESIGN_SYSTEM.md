@@ -395,9 +395,15 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  never resizes the button or moves what sits beside it. Each row wraps, its label based at its
                  longest word, so where the button is narrower than the spinner beside that word the spinner
                  goes above the label, and the room is never wider than that word with the padding.
-                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
-                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
-                 it shows).
+                 RetryButton's "Trying again…" reserves a longer label. /delete-account's destructive button
+                 passes its shorter "Deleting…" for the row alone (E231): under 200% text its trash icon keeps
+                 its own 32px, beside the label where the label's longest word fits there and above it on the
+                 narrowest phones, where the plain row squeezed it to 14 to 16px beside the label and the
+                 button ran past its card. Nothing extra is reserved, so the button
+                 still narrows to "Deleting…" while it deletes, as it did before
+                 (tests/unit/button-wrap.spec.tsx holds the cell and the rows; busyControlsStayFocusable.spec.ts
+                 holds RetryButton to reserving the busy text it shows; tests/e2e/delete-account-button.spec.ts
+                 holds the delete button inside its card).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -1389,21 +1395,26 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
-Activity line    <ActivityLine role?>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
                  Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
                  has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
-                 that show only words (the dashboard's "Checking your plan…" among them) take no dot. The words are
-                 in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static under reduced
-                 motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line height are both
-                 1.25rem), so it keeps to the first line when the words wrap, and the words wrap under their own
-                 start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320 to 390px under
-                 200% text, the analysis page's history fetch two on a phone and four or five under 200% text. The
-                 live region is the caller's: role="status" where the line is its own (the history fetch), none where
-                 a container already is one (the Copilot's reading card, the region the plan card's sentence lands
-                 in). Gate: tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list
-                 outside ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a
-                 template, an array literal joined into one string or a class attribute's parts included, wherever
-                 the list is bound; its stated gaps are planted.
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot: the dot marks a
+                 run the reader waits on that nothing else in view shows. The words are in the secondary ink; the dot
+                 is brand-strong in both themes, aria-hidden and static under reduced motion. The dot sits in a box
+                 as tall as the line's text-sm line (h-5 and the line height are both 1.25rem), so it keeps to the
+                 first line when the words wrap, and the words wrap under their own start: the Copilot's "Reading the
+                 filing…" takes two lines in the phone sheet at 320 to 390px under 200% text, the analysis page's
+                 history fetch two on a phone and four or five under 200% text. The line takes no role (the type
+                 refuses one). A status region announces text added to it, never text it was created with. On the
+                 analysis page the coverage region exists before the history fetch's words arrive (it is mounted
+                 until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
+                 card is created with "Reading the filing…" in it, so that line is not announced; the card is a
+                 status region for the plan card's sentence, which replaces the line in the same element. A caller
+                 whose words must be heard mounts its region first (review-checked). Gate:
+                 tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
+                 ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
+                 array literal joined into one string or a class attribute's parts included, wherever the list is
+                 bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -2565,7 +2576,9 @@ anywhere by design (a 358px column; in 326px "Indemnification", 330px, left its 
 and /terms' "EarningsNerd", "Subscriptions,", "MERCHANTABILITY," and "Indemnification", three of them by 1
 to 5px; at 360px "Indemnification" alone.
 Before E131, at 320px under 200% text /security reached 348px on its headings' "Authentication" and
-"Infrastructure" and /terms 362px on "Indemnification". The auth shell's lockup yields to
+"Infrastructure" and /terms 362px on "Indemnification". /delete-account's `<main>` takes the same gutter,
+its query container in the route's layout, so the signed-in card keeps room for its destructive button
+(E231). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
