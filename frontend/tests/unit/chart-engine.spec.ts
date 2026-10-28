@@ -17,9 +17,9 @@ import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { captionBacking, columnOf, gutterCover, gutterCuts, gutterOverlayWidth, LABELLED_MAX_SLOT, layoutChart, MIN_SLOT, minChartWidth, noteGlyphs, OFF_GLYPH, OFF_ROW, slotAt, STRIP_LABEL_X, textWidth, VALUES_DONT_FIT, type ChartLayout } from '@/features/analysis/lib/charts/layout'
 import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartView } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
-import { compactMoney, DATA_FACE_SIGNS, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
+import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
-import { currencySymbol } from '@/lib/format'
+import { currencySymbol, dataFaceDraws } from '@/lib/format'
 import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
 // The fixture's datasets and MIXED_NOTES, which meets every kind of note a band can (chartPlan.ts).
@@ -599,9 +599,9 @@ describe('amounts carry their filer’s currency, never a default dollar sign', 
     expect([moneyPrefix('KRW'), moneyPrefix('VND'), moneyPrefix('INR'), moneyPrefix('ILS'), moneyPrefix('PHP')]).toEqual(['KRW ', 'VND ', '₹', '₪', '₱'])
     // XOF's "F CFA" holds a narrow no-break space (U+202F), which no Geist Mono face draws, so it prints its code too.
     expect(moneyPrefix('XOF')).toBe('XOF ')
-    // Over the ISO 4217 list, every glyph past ASCII that a prefix prints is a sign the data face draws (G2).
+    // Over the ISO 4217 list, every glyph that a prefix prints is one the data face draws (G2).
     const printed = Intl.supportedValuesOf('currency').flatMap((code) => [...moneyPrefix(code)])
-    expect([...new Set(printed)].filter((glyph) => glyph > '\u007f' && !DATA_FACE_SIGNS.includes(glyph))).toEqual([])
+    expect([...new Set(printed)].filter((glyph) => !dataFaceDraws(glyph))).toEqual([])
     expect(printed, 'the list is the one Intl prints from').toEqual(expect.arrayContaining(['₹', '₪', '₱', '€', '£', '¥']))
   })
 
