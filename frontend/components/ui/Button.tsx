@@ -20,7 +20,10 @@
    Loading is NOT the disabled look — it keeps the resting fill, shows a
    spinner, sets aria-busy, and refuses activation until the work settles.
    reserveLoadingText keeps a longer loading label's room at rest, so the
-   swap never resizes the button (RetryButton's "Trying again…").
+   swap never resizes the button (RetryButton's "Trying again…"). Its cell
+   also lays the content out in a wrapping row, where a leading icon goes
+   above a label it cannot sit beside, at its own size; /delete-account
+   passes its shorter "Deleting…" for that row alone (E231).
 ============================================================================= */
 
 import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode } from 'react'
@@ -205,7 +208,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
       "Trying again…"): the content is laid out in one cell over an invisible, aria-hidden copy of the loading
       state (the spinner's box and this label), so the larger of the two sizes the button in every state and
       neither the spinner nor the label swap resizes it or moves what is around it. What shows still follows
-      `loading` and `loadingText`. */
+      `loading` and `loadingText`. Each row wraps, its label based at its longest word, so where that word cannot
+      sit beside a leading icon the icon goes above the label at its own size, not squeezed beside it. A caller
+      whose loading label is no longer than the resting one passes it for that row alone (/delete-account's
+      "Deleting…", E231): nothing extra is reserved, and the button sizes to what shows in each state. */
   reserveLoadingText?: string
   leftIcon?: ReactNode
   rightIcon?: ReactNode

@@ -114,7 +114,7 @@ export default function DeleteAccountPage() {
           />
           {/* reserveLoadingText lays the label out in Button's wrapping row (E231): where the label's longest word
               cannot sit beside the trash icon, a phone under 200% text, the icon goes above the label at its own 32px,
-              not squeezed beside it, and the button keeps its resting size while it says "Deleting…". */}
+              not squeezed beside it. "Deleting…" is shorter than the label, so nothing extra is reserved. */}
           <Button
             variant="destructive"
             onClick={() => deleteMutation.mutate()}
