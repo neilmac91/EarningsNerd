@@ -395,7 +395,8 @@ export default function AnalysisPageClient() {
               </div>
             ) : coverage?.syncing ? (
               // The history fetch is activity, never a Notice: the Ask answer's line (DESIGN_SYSTEM.md §4 › Inline
-              // notice), its one sage pulse dot held to the first line when the words wrap.
+              // notice), its one sage pulse dot held to the first line when the words wrap, in a box as tall as
+              // text-sm's line (h-5 and the line height are both 1.25rem, so they grow together under enlarged text).
               !coverageFailure.failed && (
                 <p role="status" className="flex items-start gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   <span aria-hidden="true" className="flex h-5 flex-none items-center">
