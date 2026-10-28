@@ -1,4 +1,4 @@
-import api, { ApiError, refreshSettled, withoutRefreshBeside } from '@/lib/api/client'
+import api, { ApiError, withSessionCookiesExclusive, withoutRefreshBeside } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
@@ -39,9 +39,11 @@ export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?
 }
 
 /**
- * The password login. Its answer sets the new session's cookies, so no silent refresh runs beside it (E29 (4),
- * client.ts's withoutRefreshBeside): the one in flight answers first, or is cancelled at LOGIN_REFRESH_WAIT_MS, and a
- * refresh a 401 asks for meanwhile waits for the login's answer. Another tab's refresh is out of this tab's reach.
+ * The password login. Its answer sets the new session's cookies, so no silent refresh of any tab runs beside it
+ * (E29 (4), client.ts's withoutRefreshBeside): this tab's refresh in flight answers first, or is cancelled at
+ * LOGIN_REFRESH_WAIT_MS, then every other tab's answers within what is left of it, under the session cookies' lock, and
+ * a refresh a 401 asks for meanwhile, in any tab, waits for the login's answer. At the limit it posts without the lock:
+ * another tab's refresh still unanswered, which cannot be cancelled from here, can answer after it.
  */
 export const login = async (email: string, password: string, turnstileToken?: string) => {
   const generation = getExplicitSessionGeneration()
@@ -118,22 +120,26 @@ export const unlinkProvider = async (provider: string) => {
   return response.data
 }
 
-// How long a logout waits, at most, for a silent refresh in flight to answer before it posts.
-export const LOGOUT_REFRESH_WAIT_MS = 10_000
-// How long a login waits, at most, for a silent refresh in flight to answer before it posts (E29 (4)), as a logout does.
-export const LOGIN_REFRESH_WAIT_MS = 10_000
-
 /**
- * Before a logout posts: start no new silent refresh, and let the one in flight answer first. A refresh's answer sets
- * the session cookies, and one that lands after the logout's answer sets them again, the access token among them,
- * which nothing revokes: this tab would stay signed in until it expires (E133).
+ * How long a logout waits, at most, for the silent refreshes in flight to answer before it posts: this tab's, then
+ * every other tab's within what is left. Before a logout posts: start no new silent refresh, and let every tab's
+ * refresh in flight answer first. A refresh's answer sets the session cookies, and one that lands after the logout's
+ * answer sets them again, the access token among them, which nothing revokes: the browser would stay signed in until it
+ * expires (E133).
  *
  * Each logout calls `beginLogout` first: until its `endLogout`, the session reads as inactive in this tab, so no 401
- * starts a refresh (every refresh path needs the flag) and a /me a refresh replays cannot mark it active again.
- * `refreshSettled` then waits for the refresh in flight, and cancels it at the limit. What this leaves open: a
- * refresh another tab started can still set the cookies again, since nothing here reaches another tab's requests.
+ * starts a refresh (every refresh path needs the flag) and a /me a refresh replays cannot mark it active again. Its
+ * post then goes through client.ts's `withSessionCookiesExclusive`: this tab's refresh in flight answers, or is
+ * cancelled at the limit (`refreshSettled`), then every other tab's answers under the session cookies' lock, and every
+ * tab's next refresh waits for the logout's answer. The check that no login was accepted meanwhile runs in the post's
+ * send, after both waits, so it shares a turn with the post. What this leaves open: another tab's refresh still
+ * unanswered at the limit, which cannot be cancelled from here, can still set the cookies again after the logout's
+ * answer, and so can any refresh of another tab where the browser has no lock manager.
  */
-const settleRefreshBeforeLogout = () => refreshSettled(LOGOUT_REFRESH_WAIT_MS)
+export const LOGOUT_REFRESH_WAIT_MS = 10_000
+// How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout
+// does.
+export const LOGIN_REFRESH_WAIT_MS = 10_000
 
 /** A logout of every session refused because another login was accepted while it waited (see logoutAllSessions). */
 export class LogoutAllSuperseded extends Error {
@@ -148,13 +154,15 @@ export class LogoutAllSuperseded extends Error {
 export const logoutAllSessions = async () => {
   const generation = beginLogout()
   try {
-    await settleRefreshBeforeLogout()
-    // A login accepted while this waited holds the tab's cookies now, and the server ends every session of the account
-    // its request carries: posting would log that account out everywhere and leave the reader's other devices signed
-    // in. So it refuses, distinctly from success, and its caller neither clears nor navigates. A passive loss of the
-    // session meanwhile is no such transition: it still posts.
-    if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
-    const response = await api.post('/api/auth/logout-all')
+    const response = await withSessionCookiesExclusive(LOGOUT_REFRESH_WAIT_MS, async () => {
+      // A login accepted while this waited holds the tab's cookies now, and the server ends every session of the
+      // account its request carries: posting would log that account out everywhere and leave the reader's other
+      // devices signed in. So it refuses, distinctly from success, and its caller neither clears nor navigates. A
+      // passive loss of the session meanwhile is no such transition: it still posts. The check runs after both waits,
+      // in the post's turn.
+      if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
+      return api.post('/api/auth/logout-all')
+    })
     return response.data
   } finally {
     if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
@@ -165,12 +173,14 @@ export const logoutAllSessions = async () => {
 export const logout = async () => {
   const generation = beginLogout()
   try {
-    await settleRefreshBeforeLogout()
-    // A login accepted while this waited is the account this tab now shows, and the logout's request could sign it
-    // out. A passive loss of the session meanwhile is no such transition: the logout still posts.
-    if (!isExplicitSessionGenerationCurrent(generation)) return undefined
-    const response = await api.post('/api/auth/logout')
-    return response.data
+    const response = await withSessionCookiesExclusive(LOGOUT_REFRESH_WAIT_MS, async () => {
+      // A login accepted while this waited is the account this tab now shows, and the logout's request could sign it
+      // out. A passive loss of the session meanwhile is no such transition: the logout still posts. The check runs
+      // after both waits, in the post's turn.
+      if (!isExplicitSessionGenerationCurrent(generation)) return undefined
+      return api.post('/api/auth/logout')
+    })
+    return response?.data
   } finally {
     // Always drop the session flag, even if the server call fails, so a logged-out client
     // stops attempting silent refreshes.
