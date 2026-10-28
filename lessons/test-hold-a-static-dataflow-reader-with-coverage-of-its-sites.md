@@ -38,8 +38,9 @@ knew.
   (`sys.settrace` works on 3.11 to 3.13; restore any tracer already set), and fail on three things:
   - a value written that breaks the rule (here, a code with no words);
   - a named line that no driver executes, so a new branch fails by line until someone drives it;
-  - a value a driver writes that the reader did not find in those modules, so a form the reader cannot
-    follow fails wherever a run reaches it.
+  - a value a driver writes that the reader did not find in those modules, so a code whose form the reader
+    cannot follow fails wherever a run writes that code (the codes the drivers' inputs produce, not every
+    code an expression can).
 - Test the naming itself: assert the lines the reader names on a planted module (a site, a binding call, a
   literal on a line apart from its site), and that each emitter module has lines to run. Name the line that
   runs, not the line a literal sits on: CPython folds a display of constants into one constant loaded at its
@@ -48,22 +49,24 @@ knew.
   names no unreached line or more than one, so a shifted line number or a repeated line cannot excuse another.
 - Drive a module behind a database on an in-memory SQLite engine before calling it undrivable. Keep a
   written reason beside any line truly left to the reader alone.
-- Keep the reader's header modest and true. Name what it follows and what it is known to miss, plant each
-  miss with a literal it would collect if it reached the form, and say that a form on neither list is
-  unknown. List what escapes by class, not as a closed list, and plant an example of each class the gate can
-  hold. Here a code the reader misses can pass only where no value the run gathers holds it, and only in one
-  of six classes: a write the reader misses, on a line no driver runs that the run does not name (a helper's
-  parameter, a function's return, a closure's variable); a key built at run time; what a module's top level
-  or a class body writes, read but not required, or holds as a key; a function exempt or read-only by a
-  wrong reason, or any line named undriven; a value no driver evaluates in a write a driver runs, or on a
-  line one runs (an arm of a conditional, `or` or `and`, a comprehension's or generator's element over an
-  iterable no driver fills, `reasons.extend(change.code for change in changes)`, or a write after a one-line
-  `if`), since the run holds lines, not the values in them; and a value a driver writes where the run does
-  not gather it.
+- Keep the reader's header modest and true. Name what it follows and what it is known to miss, plant each miss
+  with a literal it would collect if it reached the form, and say that a form on neither list is unknown. List
+  what escapes by class, not as a closed list, and plant an example of each class the gate can hold. Here a
+  code the reader misses can pass only where no value the run gathers holds it, and seven classes are known to
+  let it: a write the reader misses, on a line no driver runs that the run does not name (a helper's
+  parameter, a function's return, a closure's variable); a key built at run time; what a module's top level or
+  a class body writes, read but not required, or holds as a key; a function exempt or read-only by a wrong
+  reason, or any line named undriven; a value no driver evaluates in a write a driver runs, or on a line one
+  runs (an arm of a conditional, `or` or `and`, a comprehension's or generator's element over an iterable no
+  driver fills, `reasons.extend(change.code for change in changes)`, or a write after a one-line `if`), since
+  the run holds lines, not the values in them; a value a driver writes where the run does not gather it; and a
+  code built at run time on a line a driver runs, where every driver's input gives a code the reader finds,
+  since the run holds the codes its inputs produce.
 - State each class as the edge of what the mechanism reads (the lines it names, the values it gathers),
   not as the forms found so far, and start from what an escape needs (here, a code the reader misses that no
-  gathered value holds), so a form not yet seen falls inside a class by construction and the docs stay true
-  as the code grows.
+  gathered value holds). Do not claim the classes are complete: three review rounds each falsified a
+  "falls in a class by construction" claim with a form outside every class (a generator's element, a code
+  built at run time that every driven input resolves to a found one). Say they are the ways known so far.
 - Stop when the remaining escapes are classes no cheap rule closes. Five rounds of "one more form" is the
   sign: close the realistic ones, state the rest, and move on.
 - Still take each form a review names from the language's whole family, not the one form named (see

@@ -83,9 +83,9 @@ name it in UNDRIVEN. `_drive` runs those modules, traced with `sys.settrace`, an
 from them, and `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds` fails when
 (a) a code `_drive` gathers has no words; (b) such a line runs in no driver, unless UNDRIVEN names it by function and
 text with why none can (and an entry that names no unreached line, or more than one, fails); or (c) a code `_drive`
-gathers is one the reader did not find in those modules, so a form the reader cannot follow fails wherever a driver
-writes it where `_drive` gathers it. A module's own top level runs on import, before the trace, so its lines are read
-but not required.
+gathers is one the reader did not find in those modules, so a code whose form the reader cannot follow fails wherever
+a driver writes that code where `_drive` gathers it: (c) holds the codes the drivers' inputs produce, not every code an
+expression can. A module's own top level runs on import, before the trace, so its lines are read but not required.
 
 The guard. `test_every_function_that_mentions_reasons_is_driven_exempt_or_reads_only` holds every function under `app/`
 that mentions `reasons` outside the emitter modules to EXEMPT or READS_ONLY. Some modules keep lists named `reasons`
@@ -94,11 +94,11 @@ checks. EXEMPT names each such site by file and function, and an exempt site mus
 an exemption cannot outlive its code. READS_ONLY names each function that reads, counts, prints or logs reasons and
 writes none, held exact: each entry still mentions `reasons` and the reader finds no reason in it.
 
-What escapes. The gate is not complete, and seven review rounds each found a form it missed. A code the reader misses
-can pass only where no value `_drive` gathers holds it (a code the reader finds with no words fails the first test),
-and only in one of these classes, each stated as the edge of what the gate reads, so a form not yet seen falls in one
-(the first three planted among the reader's gaps and the fifth among the run's, the others by construction,
-review-checked):
+What escapes. The gate is not complete, and eight review rounds each found a form it missed. A code the reader misses
+can pass only where no value `_drive` gathers holds it (a code the reader finds with no words fails the first test).
+These are the ways known to let it, each stated as the edge of what the gate reads rather than as one form (the first
+three planted among the reader's gaps and the fifth among the run's, the others review-checked); a way not yet found
+may exist:
 - a write the reader misses, on a line no driver runs that the run does not name (it names each site, binding call
   and collected literal's line, and each line that mentions `reasons` or a name tied to it, as above): a helper's
   parameter (`_tag(provenance["reasons"], code)`, the helper writing `codes.append(code)`), a function's
@@ -116,7 +116,10 @@ review-checked):
   since (b) holds lines, not the values in them; (a) and (c) catch it once a driver writes it where `_drive` gathers it;
 - a value a driver writes where `_drive` does not gather it (it reads the reasons of the facts, rows and notes its
   docstring names and drops the rest, such as `_calendar_relabels`' inserts and `reconcile_facts`' rejected facts),
-  since (a) and (c) read only what `_drive` returns.
+  since (a) and (c) read only what `_drive` returns;
+- a code built at run time (an f-string, a `.format`, a join, a value read from data) on a line a driver runs, where
+  every driver's input gives a code the reader finds (`reasons.append(f"{kind}_mismatch")` with every driven `kind` a
+  found one), since (c) holds the codes the drivers' inputs produce, not every code the expression can.
 Any of these whose value a driver writes where `_drive` gathers it still fails (a) or (c).
 """
 from __future__ import annotations
@@ -1074,13 +1077,14 @@ def _executed(run, paths: set[str]) -> tuple[object, set[tuple[str, int]]]:
 def test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds(monkeypatch):
     """The runtime half of this gate, held by line rather than by code. In each emitter module the reader names every
     reason-writing line (a site, a call that binds a reason parameter, a literal's running line) and every line that
-    mentions `reasons`; _drive runs them, traced. The test fails when (a) a code _drive gathers has no words, (b) a named
-    line runs in no driver and UNDRIVEN does not say why, so a line that names the list is never left undriven without a
-    stated reason, or (c) a code _drive gathers is one the reader did not find in those modules, a form the reader
-    cannot follow caught wherever a driver writes it where _drive gathers it. A value no driver evaluates in a write a
-    driver runs, or on a line one runs (an arm of a conditional, `or` or `and`, a comprehension's or generator's element
-    over an iterable no driver fills, a write after a one-line `if`), is outside (b), which holds lines, not the values
-    in them; a value _drive does not gather is outside (a) and (c)."""
+    mentions `reasons`; _drive runs them, traced. The test fails when (a) a code _drive gathers has no words, (b) a
+    named line runs in no driver and UNDRIVEN does not say why, so a line that names the list is never left undriven
+    without a stated reason, or (c) a code _drive gathers is one the reader did not find in those modules, so a code
+    whose form the reader cannot follow is caught wherever a driver writes that code where _drive gathers it. A value no
+    driver evaluates in a write a driver runs, or on a line one runs (an arm of a conditional, `or` or `and`, a
+    comprehension's or generator's element over an iterable no driver fills, a write after a one-line `if`), is outside
+    (b), which holds lines, not the values in them; a value _drive does not gather is outside (a) and (c), and so is a
+    code built at run time that no driver's input gives, since (c) holds the codes the drivers' inputs produce."""
     sources = _app_sources()
     found, lines = read_reasons(sources)
     emitters = _emitter_modules(found, lines)
