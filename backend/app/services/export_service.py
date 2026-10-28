@@ -555,6 +555,9 @@ class ExportService:
             subject=f"{company.ticker or ''} · {mode} · {period_label(analysis.period_key)}",
             # The data notes are fine print in the secondary ink (data-notes-fine-print); a letter takes the note ink
             # (note-light is the tertiary ink's value), and the summary line stays on the grid's last page (D-061).
+            # A full grid (20 or 22 metrics) prints whole on its landscape page with the lines above it and the summary
+            # under it: its rows take a pitch of about 14.5pt where the shell's report tables take 20.7pt, and the table
+            # keeps the shell's space below it (test_a_table_leaves_room_before_the_block_after_it).
             extra_css=("ol.sources, .data-notes, .methods { font-size: 8.5pt; } "
                        f".fine-print {{ color: {PALETTE['ink_secondary']}; font-size: 8.5pt; }} "
                        f".data-notes-summary {{ break-before: avoid; }} .data-notes-summary strong {{ color: {PALETTE['ink']}; }} "
@@ -562,6 +565,10 @@ class ExportService:
                        ".note-letter { display: inline-block; width: 1.5em; margin-left: -1.5em; } "
                        ".methods li { margin-bottom: 4px; } .operands { margin-top: 2px; } "
                        ".metrics-landscape td.num { white-space: nowrap; padding-left: 4px; padding-right: 4px; } "
+                       ".metrics-landscape td { padding-top: 1.5px; padding-bottom: 1.5px; line-height: 1.25; } "
+                       ".metrics-landscape th { padding-top: 3px; padding-bottom: 3px; } "
+                       ".metrics-landscape h2 { margin: 0 0 4px; } "
+                       ".metrics-landscape .fine-print { margin-bottom: 4px; line-height: 1.4; } "
                        f".data-note {{ margin-left: 2px; color: {PALETTE['ink_tertiary']}; }} "
                        ".snapshot { overflow-wrap: anywhere; }"),
         )

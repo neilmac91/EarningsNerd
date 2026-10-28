@@ -202,7 +202,10 @@ class TestOverviewSheet:
     def test_conventions_are_stated(self, workbook):
         texts = self._texts(workbook)
         assert any("true Excel percentages" in t for t in texts)
-        assert any("Computed Q4" in t or "computed Q4" in t for t in texts)  # † legend (derived present)
+        # Which figures carry a comment is the closing line's to say, once: a calculation, computed Q4 included, whose
+        # comment names it ("Calculated figure." or "Computed Q4.").
+        assert sum("a figure with a data note or a calculation carries a comment" in t for t in texts) == 1
+        assert "Calculation method is separate from whether the source checks passed." in texts  # derived present
 
     def test_brand_mark_png_is_embedded(self, workbook_bytes):
         # openpyxl does not read images back — the zip container is the proof.

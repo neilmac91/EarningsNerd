@@ -496,9 +496,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   marked note's places and words and counting the gaps, the figures with no check recorded and the
   calculated figures, "No figures need review" never beside a record-only note, and no dagger after a
   figure. The PDF names the calculated metrics above its grid and sets the fine print under it, with a
-  bold "Data notes" lead and no heading, its summary line on the grid's last page; the workbook prints a
-  marked figure's letter through its number format ('#,##0" a"'), so the cell stays a number, names a
-  letter in a comment only where it marks and keys its letters on the Metrics header row. A window reads
+  bold "Data notes" lead and no heading, a full grid printing whole on one page with its summary line;
+  the workbook prints a marked figure's letter through its number format ('#,##0" a"'), so the cell stays
+  a number and its column widens to hold it, names a letter in a comment only where it marks and keys its
+  letters under the Metrics grid. A window reads
   "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by

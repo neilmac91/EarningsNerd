@@ -18,7 +18,7 @@ Conventions (also stated on the Overview sheet, where users see them):
   back down on write; growth ratios arrive as fractions and are written as-is.
 - Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis). Every data note is a Comment
   too, the workbook's evidence dialog; a note that questions the number also sets its letter after the figure through
-  the number format (``#,##0" a"``), so the cell stays a number, and the Metrics header row ends in their key (D-061).
+  the number format (``#,##0" a"``), so the cell stays a number, and their key sits under the Metrics grid (D-061).
 - Sources & methods carries the output values, calculation operands and source links, plus
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 - Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
@@ -50,7 +50,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, SHEETS_WITH_CELLS, WORKBOOK_CLOSING, SummaryClause, calculated_sentence,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence,
     count_label, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index,
     operand_records, period_label, point_method, point_notes,
 )
@@ -73,8 +73,6 @@ _INK_FONT = Font(color=PALETTE["ink"].lstrip("#"))
 _LABEL_FONT = Font(bold=True, color=PALETTE["ink"].lstrip("#"))
 _FOOTNOTE_FONT = Font(color=PALETTE["ink_tertiary"].lstrip("#"), size=9)
 _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
-# The Metrics header row's key column, in characters: a key of two marked notes wraps to about four lines.
-_KEY_WIDTH = 44
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
 
 # The three line panels from TrendCharts.tsx (the bar panel is built separately — its top-line
@@ -146,6 +144,15 @@ def _marked_format(number_format: str, note: dict[str, Any] | None) -> str:
     return f'{number_format}" {note["letter"]}"'
 
 
+def _figure_length(cell: Any) -> int:
+    """The characters a whole-unit figure prints in its format, with the letter a marked note adds ("60,801,000,000 a"):
+    the one format the grid sets that grows with the figure. Any other cell prints a few characters."""
+    if not isinstance(cell.value, (int, float)) or not cell.number_format.startswith("#,##0"):
+        return 0
+    decimals, _, letter = cell.number_format.removeprefix("#,##0").partition('"')
+    return len(f"{cell.value:,.{max(len(decimals) - 1, 0)}f}") + len(letter.rstrip('"'))
+
+
 def _write_point(
     ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool,
     note: dict[str, Any] | None = None,
@@ -215,7 +222,8 @@ def _summary_words(clause: SummaryClause) -> str:
 def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetime, envelope: dict) -> None:
     ws.sheet_properties.tabColor = _TAB_COLOR
     ws.sheet_view.showGridLines = False
-    ws.column_dimensions["A"].width = 14
+    # Wide enough for the longest fact label ("Source data as of", bold), which ran into its value at 14 characters.
+    ws.column_dimensions["A"].width = 18
     ws.column_dimensions["B"].width = 100
 
     if _MARK_PNG.exists():
@@ -259,10 +267,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     if sentence := calculated_sentence(dataset):
         notes.append(sentence)
     if _has_derived(dataset):
-        notes.append(
-            f"{SHEETS_WITH_CELLS}, calculated figures, computed Q4 included, carry comments. Calculation method is "
-            "separate from whether the source checks passed."
-        )
+        # Which figures carry a comment is the closing line's to say (WORKBOOK_CLOSING), once.
+        notes.append("Calculation method is separate from whether the source checks passed.")
     # The data notes as the page's fine print: the summary line, every note (marked ones first, a letter only where it
     # marks) and the closing line.
     notes.append("Data notes")
@@ -296,8 +302,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
 
 
 def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelope: dict) -> None:
-    """The full grid: one row per series, one typed column per period (+ annual window figures), and on its header row
-    the key to the letters it prints."""
+    """The full grid: one row per series, one typed column per period (+ annual window figures), and under it the key
+    to the letters it prints."""
     ws.sheet_properties.tabColor = _TAB_COLOR
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
     series_list = dataset.get("series", [])
@@ -354,28 +360,35 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
                 if notes:
                     growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
-    # The fine print on the header row (coherence §2.4): one cell past the grid keys the letters it prints, in the
-    # footnote font with no fill or border, so the header row's repeat on every printed page carries it. A note marked
-    # only on a growth figure the grid does not show (a YoY or QoQ) stays out of it: the Overview holds the whole fine
-    # print. A grid that prints no letter prints no key.
-    marked = [clause for clause in fine_print_summary(envelope) if clause.note and clause.note["key"] in shown]
-    if marked:
-        key = " · ".join(["Data notes", *map(_summary_words, marked)])
-        key_cell = _write_text(ws, 1, len(headers) + 1, key)
-        key_cell.font = _FOOTNOTE_FONT
-        key_cell.alignment = Alignment(wrap_text=True, vertical="top", indent=1)  # clear of the last header
-        ws.column_dimensions[get_column_letter(len(headers) + 1)].width = _KEY_WIDTH
-        ws.row_dimensions[1].height = 12 * (len(key) // (_KEY_WIDTH + 8) + 1)
-
     ws.freeze_panes = "B2"
     ws.column_dimensions["A"].width = 24
     ws.column_dimensions["B"].width = 22
     ws.column_dimensions["C"].width = 11
-    for offset in range(len(periods)):
-        ws.column_dimensions[get_column_letter(4 + offset)].width = 14
+    for column in range(4, 4 + len(periods)):
+        # A period column holds its longest figure, a letter after it included: a figure prints in about one character
+        # less than its length, its commas being narrower than its digits (measured in LibreOffice, whose Carlito shares
+        # Calibri's metrics), and a column narrower than that prints "###" in its place. Never less than 14.
+        longest = max((_figure_length(ws.cell(row, column)) for row in range(2, len(series_list) + 2)), default=0)
+        ws.column_dimensions[get_column_letter(column)].width = max(14, longest - 1)
     if has_window:
         ws.column_dimensions[get_column_letter(4 + len(periods))].width = 14
         ws.column_dimensions[get_column_letter(5 + len(periods))].width = 17
+
+    # The fine print under the grid (coherence §2.4), as the PDF's summary sits under its table: after one blank row, a
+    # cell merged across the grid's columns keys the letters it prints, wrapped, in the footnote font with no fill or
+    # border. Under the grid rather than beside it, the key leaves the sheet as wide as its grid, so the grid prints at
+    # the size it prints with no key. A note marked only on a growth figure the grid does not show (a YoY or QoQ) stays
+    # out of it: the Overview holds the whole fine print. A grid that prints no letter prints no key.
+    marked = [clause for clause in fine_print_summary(envelope) if clause.note and clause.note["key"] in shown]
+    if marked:
+        key = " · ".join(["Data notes", *map(_summary_words, marked)])
+        row = len(series_list) + 3
+        key_cell = _write_text(ws, row, 1, key)
+        key_cell.font = _FOOTNOTE_FONT
+        key_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(headers))
+        width = sum(ws.column_dimensions[get_column_letter(column)].width for column in range(1, len(headers) + 1))
+        ws.row_dimensions[row].height = 12 * (len(key) // int(width) + 1)
 
 
 def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> None:

@@ -533,7 +533,8 @@ There is almost nothing to key, so there is no key beside every mark:
 - **Fine print.** Its summary line names each marked letter with its places and words. Its open
   detail lists every note.
 - **Exports.** The PDF puts the same line under its table, on the same page. The workbook puts it
-  on the Metrics header row.
+  under the Metrics grid (planned for its header row; WP3-B moved it under the grid, where it leaves
+  the printed grid its size).
 
 ### 2.5 Per-surface rules
 
@@ -545,7 +546,7 @@ There is almost nothing to key, so there is no key beside every mark:
 | Narrative and sources | A citation chip carries a letter only for a marked note. In the source list, "Calculated figure" and "Calculated from recorded inputs" become "calculated from filed figures" and "calculated before we kept its inputs". "Sources identify filed figures or calculated figures (marked †)" becomes "Sources identify filed and calculated figures". Raw precision belongs to the analysis plan (§7). |
 | Data notes | One line of fine print under the table (§3). |
 | PDF | No dagger after each value (`export_service.py:349`). As on the page, the calculated sentence sits above the table and the fine print under it, on the same page. Letters for marked notes only, with the page's reason sentences. |
-| Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The fine print goes on the Metrics header row. |
+| Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The key to the grid's letters goes under the Metrics grid (planned for its header row; see §2.4). |
 | Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The footer names marked letters only. |
 
 ### 2.6 Reconciling with the sibling plans
@@ -1096,15 +1097,19 @@ The PDF's key-on-another-page miss becomes fine print under the table, on the sa
   the reader to select a value, "Sources & methods gives each figure's full precision, with any recorded formula
   and inputs for a calculated figure."; a
   quarterly run adds the page's legend and its Q4 header †. Under the grid: the summary line with a bold
-  "Data notes" lead (no heading, so the outline loses its "Data notes" entry), kept on the grid's last page
-  (`break-before: avoid`), every note in the detail and a closing line naming Sources & methods. A citation's
+  "Data notes" lead (no heading, so the outline loses its "Data notes" entry), on the grid's page: the grid's
+  rows take a tighter pitch, so a full grid of 20 or 22 metrics prints whole on one page with the lines above it
+  and the summary line, and a longer grid's summary stays on its last page (`break-before: avoid`). Then every
+  note in the detail and a closing line naming Sources & methods. A citation's
   own notes list under Narrative sources ("Data notes for narrative sources").
 - **Workbook.** A marked figure's letter is set by its number format (`#,##0" a"`, `0.0%" a"`, `0.00"x a"`,
   `0.0" pp a"`, and `@" a"` for "n/m"), so the cell stays a number; a chart's value axis carries the figures' own
   format, unlinked, since LibreOffice set a linked axis's letter on every tick. Every note stays a comment,
   naming its letter only where it marks. The Overview prints the fine print ("N not in our data, left blank"),
-  and the Metrics header row ends, one cell past the grid, in the key to the letters its grid prints: a note
-  marked only on a YoY or QoQ figure, which the grid does not show, stays out of the key.
+  and the Metrics grid has under it, after a blank row and merged across its columns, the key to the letters it
+  prints, so the printed grid keeps the size it prints at with no key: a note marked only on a YoY or QoQ figure,
+  which the grid does not show, stays out of the key. A period column widens to hold its longest figure, a letter
+  included, where 14 characters printed "60,801,000,000 a" as "###".
 - `backend/tests/unit/test_export_note_marks.py` is the rule-12 gate's export half: over every case of the shared
   notes fixture, each export draws exactly its marked letters. It also reads the page's own words from
   `DataNotes.tsx` (the summary's count clauses, places and detail forms), `metrics-table.spec.tsx` (the calculated

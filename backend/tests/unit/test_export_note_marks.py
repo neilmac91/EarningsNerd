@@ -27,15 +27,18 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    whose note marks nothing keeps General; a chart's value axis keeps the figures' own format, unlinked, so no tick
    prints a letter. A quarterly PDF's Q4 header takes the page's † where a fourth quarter's flow figure is calculated,
    with its legend, and no figure takes one.
-6. The Metrics header row ends in the key to the letters the grid prints, exactly when it prints one: a note marked only
-   on a window figure (a CAGR or a percentage-point change) names its clause there, and a note marked only on a YoY or
-   QoQ figure, which the grid does not show, stays out of it.
+6. The Metrics grid has the key to the letters it prints under it, after one blank row, merged across the grid's
+   columns, exactly when it prints one, and nothing beside it: a note marked only on a window figure (a CAGR or a
+   percentage-point change) names its clause there, and a note marked only on a YoY or QoQ figure, which the grid does
+   not show, stays out of it.
 7. Every line of the fine print both files print holds the reason words' surface rules (test_analysis_data_notes.py): no
    page action, no drawing, no single figure, no semicolon. The gap words alone say how each file draws a gap, which is
    their job; the detail's entries list places and counts with "; " and their messages are the reason words, which
    that test holds.
-8. The PDF's summary line stays on the grid's last page (WeasyPrint): at the row count where, without the rule, it
-   would start the next page, the last row moves with it; the sentence above the grid shares the grid's first page.
+8. The PDF's grid prints whole on one landscape page with the lines above it and its summary under it (WeasyPrint), at
+   the sizes reports print: the page's own e2e run, annual and quarterly, at 20 and 22 metrics, with no marked note,
+   one, or two. A longer grid's summary line stays on the grid's last page: at the row count where, without the rule,
+   it would start the next page, the last row moves with it; the sentence above the grid shares the grid's first page.
 """
 from __future__ import annotations
 
@@ -51,6 +54,7 @@ from types import SimpleNamespace
 
 import pytest
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
 
 from app.services.analysis_export_metadata import (
     AUTOMATED_CHECKS, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, SUMMARY_PLACES, WORKBOOK_CLOSING,
@@ -460,32 +464,48 @@ def test_an_n_m_whose_note_marks_nothing_keeps_general():
         assert top["C4"].comment.text.startswith("Data note: "), provenance
 
 
-def test_the_metrics_header_row_keys_the_letters_its_grid_prints():
+def _metrics_key(sheet, series_count: int):
+    """The key cell under a Metrics grid of `series_count` rows, after one blank row, or None. Nothing else prints past
+    the grid's columns or under its rows."""
+    grid_columns = sum(1 for cell in sheet[1] if cell.value)
+    beside = [cell.coordinate for row in sheet.iter_rows() for cell in row[grid_columns:] if cell.value is not None]
+    under = [cell for row in sheet.iter_rows(min_row=series_count + 2) for cell in row if cell.value is not None]
+    assert beside == [], f"a cell beside the grid: {beside}"
+    if not under:
+        return None
+    assert [cell.coordinate for cell in under] == [f"A{series_count + 3}"], [cell.coordinate for cell in under]
+    key = under[0]
+    assert f"A{key.row}:{get_column_letter(grid_columns)}{key.row}" in sheet.merged_cells, "merged across the grid"
+    return key
+
+
+def test_the_metrics_key_under_the_grid_keys_the_letters_it_prints():
     from tests.unit.test_excel_export import _dataset
 
+    count = len(_dataset()["series"])
     plain = load_workbook(io.BytesIO(build_analysis_workbook(_dataset())))["Metrics"]
-    assert [cell.value for cell in plain[1]][-1] == "Window"  # no marked note: no key
+    assert _metrics_key(plain, count) is None  # no marked note: no key
     dataset = _dataset()
     dataset["series"][0]["points"][0]["provenance"] = {"method": "reported", "validation": "needs_review",
                                                        "reasons": ["source_check_needed"]}
     metrics = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]
-    headers = [cell.value for cell in metrics[1]]
-    key = metrics.cell(1, headers.index("Window") + 2)
+    key = _metrics_key(metrics, count)
     assert key.value == "Data notes · a Revenue FY2022: not yet matched to the filing"
     assert key.fill.fill_type is None and key.border.bottom.style is None and key.alignment.wrap_text
     assert str(key.font.color.rgb).endswith("636A77") and key.font.size == 9  # the footnote font
     assert metrics.freeze_panes == "B2" and metrics["A1"].value == "Metric"
+    assert [cell.value for cell in metrics[1]][-1] == "Window"  # the header row ends with the grid
     # A note marked only on a growth figure the grid does not show (a YoY) stays out of the key, and alone prints none;
     # the Overview's summary names it.
     margin = dataset["series"][1]
     margin["points"][2].update(yoy=4.3, yoy_provenance={"method": "calculated", "validation": "needs_review",
                                                         "reasons": ["calculation_mismatch"]})
     book = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))
-    assert book["Metrics"].cell(1, headers.index("Window") + 2).value == key.value
+    assert _metrics_key(book["Metrics"], count).value == key.value
     assert any("b Net margin YoY FY2024: not confirmed" in str(row[0]) for row in book["Overview"].iter_rows(values_only=True))
     dataset["series"][0]["points"][0].pop("provenance")
     alone = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]
-    assert [cell.value for cell in alone[1]][-1] == "Window"
+    assert _metrics_key(alone, count) is None
     # A note marked only on a window figure, which the grid's window column shows, names its clause in the key.
     conflict = {"method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"]}
     for series, field, clause in ((0, "cagr_provenance", "a Revenue CAGR FY2022–FY2024"),
@@ -493,8 +513,34 @@ def test_the_metrics_header_row_keys_the_letters_its_grid_prints():
         window = _dataset()
         window["series"][series][field] = conflict
         sheet = load_workbook(io.BytesIO(build_analysis_workbook(window)))["Metrics"]
-        assert sheet.cell(1, headers.index("Window") + 2).value == (
+        assert _metrics_key(sheet, count).value == (
             f"Data notes · {clause}: the filings report different values (the most recent shown)"), field
+
+
+@pytest.mark.parametrize("mode", ["quarterly", "annual"])
+def test_every_figure_in_the_metrics_grid_fits_its_column(mode):
+    """A marked figure's letter lengthens what it prints ("60,801,000,000 a", 16 characters), and a column narrower than
+    a figure prints "###" in its place, in Excel and in LibreOffice. LibreOffice prints a whole-unit figure whole in a
+    column one character narrower than its length (its commas are narrower than its digits; Carlito shares Calibri's
+    metrics), and not in a narrower one. On the page's own run at 22 metrics, with two marked notes, each period
+    column is at least that wide for every figure in it, and a column of shorter figures keeps 14."""
+    dataset = _layout_run("discrepancy two notes", mode, 22).dataset_json
+    sheet = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]
+    widths, lettered = [], []
+    for column in range(4, 4 + len(dataset["periods"])):
+        width = sheet.column_dimensions[get_column_letter(column)].width
+        widths.append(width)
+        for row in range(2, 2 + len(dataset["series"])):
+            cell = sheet.cell(row, column)
+            if not isinstance(cell.value, (int, float)) or not cell.number_format.startswith("#,##0"):
+                continue
+            letter = FORMAT.fullmatch(cell.number_format)["letter"]
+            shown = f"{cell.value:,.{2 if cell.number_format.startswith('#,##0.00') else 0}f}" + (f" {letter}" if letter else "")
+            assert width >= len(shown) - 1, (cell.coordinate, shown, width)
+            if letter and len(shown) > 15:
+                lettered.append(shown)
+    assert lettered, "the run holds a lettered figure too long for a column of 14"
+    assert min(widths) == 14
 
 
 # ---- The exports' own words ----------------------------------------------------------------------------------------
@@ -584,7 +630,7 @@ def _render_pdf(weasyprint, html: str):
     return weasyprint.HTML(string=html).render()
 
 
-def _pages(document, last_row: str) -> dict[str, int]:
+def _pages(document, last_row: str, first_row: str = "Metric 0") -> dict[str, int]:
     """The page each block starts on: the sentence above the grid, the grid's first and last rows and the summary."""
     found: dict[str, int] = {}
     for number, page in enumerate(document.pages):
@@ -593,7 +639,7 @@ def _pages(document, last_row: str) -> dict[str, int]:
             if element is None:
                 continue
             text, classes = "".join(element.itertext()), element.get("class") or ""
-            if element.tag == "tr" and text.startswith("Metric 0"):
+            if element.tag == "tr" and text.startswith(first_row):
                 found.setdefault("first row", number)
             if element.tag == "tr" and text.startswith(last_row):
                 found.setdefault("last row", number)
@@ -604,16 +650,24 @@ def _pages(document, last_row: str) -> dict[str, int]:
     return found
 
 
-def test_the_summary_line_stays_on_the_grids_last_page():
+def _weasyprint():
     try:  # a missing package, or missing system libraries, which WeasyPrint raises as OSError on import
         import weasyprint
     except (ImportError, OSError) as exc:
         pytest.skip(f"WeasyPrint unavailable: {exc}")
+    return weasyprint
+
+
+def _metrics_section(html: str) -> str:
+    """The metrics section alone: the layout under test, without laying out the rest of the report."""
+    return re.sub(r'(<section class="metrics-landscape">.*?</section>).*(</body>)', r"\1\2", html, count=1, flags=re.S)
+
+
+def test_the_summary_line_stays_on_the_grids_last_page():
+    weasyprint = _weasyprint()
     rule = ".data-notes-summary { break-before: avoid; } "
     for count in range(8, 60):
-        html = ExportService().generate_analysis_pdf_html(_rows(count), COMPANY)
-        # The metrics section alone: the layout under test, without laying out the rest of the report.
-        html = re.sub(r'(<section class="metrics-landscape">.*?</section>).*(</body>)', r"\1\2", html, count=1, flags=re.S)
+        html = _metrics_section(ExportService().generate_analysis_pdf_html(_rows(count), COMPANY))
         # Without the rule as written here, the summary never parts from the grid (the rule spelt another way keeps
         # it there, and the loop fails), or the rule is gone, and the layout below fails at the boundary.
         without = _pages(_render_pdf(weasyprint, html.replace(rule, "")), f"Metric {count - 1}")
@@ -624,3 +678,70 @@ def test_the_summary_line_stays_on_the_grids_last_page():
     pages = _pages(_render_pdf(weasyprint, html), f"Metric {count - 1}")
     assert pages["summary"] == pages["last row"], (count, pages)
     assert pages["sentence"] == pages["first row"], (count, pages)
+
+
+LAYOUT = json.loads((FRONTEND / "tests" / "e2e" / "fixtures" / "analysis-layout.json").read_text())
+
+
+def _layout_run(state: str, mode: str, rows: int) -> SimpleNamespace:
+    """The page's e2e run at its real size: analysis-layout.json's META, Q3 2023 to Q2 2026 with 20 metrics, and its
+    variant's replacements applied as analysisLayoutApi.ts applies them. An annual copy keys the last ten quarters
+    FY2016 to FY2025, the length of REGN's annual run; 22 rows add Gross profit and Gross margin, as many filers carry
+    (22 is the most an operating company's run holds). "two notes" is the discrepancy run with a second marked note,
+    on Net income's last two periods, so the summary names two."""
+    fixture = deepcopy(LAYOUT["legacy"])
+    for replacement in LAYOUT["variants"][state.removesuffix(" two notes")] if state != "legacy" else []:
+        *path, key = replacement["path"]
+        parent = fixture
+        for step in path:
+            parent = parent[step]
+        if replacement.get("remove"):
+            del parent[key]
+        else:
+            parent[key] = deepcopy(replacement["value"])
+    dataset = fixture["dataset"]
+    if mode == "annual":
+        years = {period["key"]: 2016 + index for index, period in enumerate(dataset["periods"][-10:])}
+        dataset["periods"] = [{"key": f"FY{year}", "fiscal_year": year, "fiscal_period": "FY"} for year in years.values()]
+        for series in dataset["series"]:
+            series["points"] = [{**point, "period": f"FY{years[point['period']]}", "fiscal_year": years[point["period"]],
+                                 "fiscal_period": "FY", "derived": False}
+                                for point in series["points"] if point["period"] in years]
+        dataset.update(mode="annual", period_key="FY2016..FY2025")
+    if state.endswith(" two notes"):
+        net_income = next(series for series in dataset["series"] if series["concept"] == "net_income")
+        for point in net_income["points"][-2:]:
+            point["provenance"] = {**point["provenance"], "validation": "needs_review", "reasons": ["calculation_mismatch"]}
+    if rows == 22:
+        by_concept = {series["concept"]: series for series in dataset["series"]}
+        extra = []
+        for source, concept, label in (("revenue", "gross_profit", "Gross profit"),
+                                       ("operating_margin", "gross_margin", "Gross margin")):
+            series = deepcopy(by_concept[source])
+            series.update(concept=concept, label=label)
+            for point in series["points"]:
+                point["concept"] = concept
+            extra.append(series)
+        dataset["series"][1:1] = extra
+    assert len(dataset["series"]) == rows
+    return SimpleNamespace(mode=dataset["mode"], period_key=dataset["period_key"], dataset_json=dataset, narrative_md="",
+                           citations_json=[])
+
+
+LAYOUT_RUNS = [*((mode, rows, state) for mode in ("quarterly", "annual") for rows in (20, 22)
+                 for state in ("legacy", "discrepancy")), ("quarterly", 22, "discrepancy two notes")]
+
+
+@pytest.mark.parametrize(("mode", "rows", "state"), LAYOUT_RUNS, ids=["-".join(map(str, run)) for run in LAYOUT_RUNS])
+def test_a_full_grid_prints_whole_on_one_page_with_its_summary(mode, rows, state):
+    """§5's finding (the key on another page from its table) at the sizes reports print: the page's own run, annual and
+    quarterly, at 20 and 22 metrics, with no marked note, one, or two. The sentence above the grid, its first and last
+    rows and the summary under it share one landscape page."""
+    weasyprint = _weasyprint()
+    analysis = _layout_run(state, mode, rows)
+    series = analysis.dataset_json["series"]
+    html = _metrics_section(ExportService().generate_analysis_pdf_html(analysis, COMPANY))
+    if state != "legacy":
+        assert len(set(PDF_MARK.findall(html))) == (2 if state.endswith("two notes") else 1), "its marked notes"
+    pages = _pages(_render_pdf(weasyprint, html), series[-1]["label"], first_row=series[0]["label"])
+    assert len(pages) == 4 and len(set(pages.values())) == 1, pages

@@ -14,9 +14,9 @@ that reach every fixed line the four export modules write, and fails on:
    section headings (its narrative carries none here, so every <h2> is the builder's), the CSV's title
    row, and the workbook's title, sheet names, header rows and fact labels. A proper noun passes (the
    company's name, "Multi-Period Analysis", "EarningsNerd", "YoY") and so does any word with no
-   lowercase letter (SEC, UTC, 10-K, FY2024). The Metrics header row ends in the key to the letters the grid
-   prints (D-061), one cell past the grid with no header fill, which names metrics by their labels: there, and
-   only there, the run's metric labels stand as proper nouns;
+   lowercase letter (SEC, UTC, 10-K, FY2024). The Metrics grid has the key to the letters it prints under it
+   (D-061), the one cell after the grid's blank row, which names metrics by their labels: there, and only
+   there, the run's metric labels stand as proper nouns;
 5. EDGAR, in any case and inside a word too ("SEC_EDGAR", "EDGARs"), anywhere they print outside an
    address: the exports name their source SEC.gov, as the sign-in page and the filing page do ("Original on
    SEC.gov · {url}", the filing page's words for its link to the primary document, with the address that
@@ -167,7 +167,7 @@ def _quarterly_analysis():
 
 
 def _dataset():
-    """The workbook fixture with a note that questions a figure, so the Metrics header row prints its key."""
+    """The workbook fixture with a note that questions a figure, so the Metrics grid prints its key."""
     dataset = workbook_fixtures._dataset()
     dataset["series"][0]["points"][0]["provenance"] = {"method": "reported", "validation": "needs_review",
                                                        "reasons": ["source_conflict"]}
@@ -179,18 +179,17 @@ def _workbook():
 
 
 def metrics_header_and_key(sheet, labels: list[str]) -> tuple[list[str], str | None]:
-    """The Metrics header row's cells, and its key with each metric label read as a proper noun. The key is exactly the
-    cell one column past the last header, without the header fill; every other cell of the row reads as a header. None
-    when the grid prints no letter."""
-    row = [cell for cell in sheet[1] if cell.value]
-    past = max((cell.column for cell in row if cell.fill.fill_type is not None), default=0) + 1
-    key_cell = next((cell for cell in row if cell.column == past and cell.fill.fill_type is None), None)
-    if key_cell is None:
-        return [cell.value for cell in row], None
+    """The Metrics header row's cells, every one read as a header, and the key with each metric label read as a proper
+    noun. The key is exactly the cell in column A after the grid's rows and one blank row (one row per label); None when
+    the grid prints no letter."""
+    key_cell = sheet.cell(len(labels) + 3, 1)
+    header = [cell.value for cell in sheet[1] if cell.value]
+    if key_cell.value is None:
+        return header, None
     key = key_cell.value
     for label in sorted(labels, key=len, reverse=True):
         key = key.replace(label, " NAME ")
-    return [cell.value for cell in row if cell is not key_cell], key
+    return header, key
 
 
 def _workbook_texts(data: bytes) -> list[str]:
@@ -252,7 +251,7 @@ def test_the_headings_the_exports_own_are_in_sentence_case():
     book = _workbook()
     overview = book["Overview"]
     metrics_header, key = metrics_header_and_key(book["Metrics"], [series["label"] for series in _dataset()["series"]])
-    assert key is not None, "the fixture's grid prints a letter, so its header row ends in the key"
+    assert key is not None, "the fixture's grid prints a letter, so the key sits under it"
     headings = {
         "filing PDF title": [filing_pdf.headings[0]],
         "analysis PDF headings": analysis_pdf.headings,
@@ -293,24 +292,24 @@ def test_the_readers_flag_the_forms_this_pr_fixed():
     sheet = Workbook().active
     for column, text in enumerate(["Metric", "Window Growth"], start=1):
         sheet.cell(1, column, text).fill = PatternFill("solid", start_color="F4F3EE")
-    assert metrics_header_and_key(sheet, ["Revenue"]) == (["Metric", "Window Growth"], None)
-    sheet.cell(1, 3, "Data notes · a Free cash flow FY2024: not yet matched to the filing")
+    sheet.cell(2, 1, "Free cash flow")
+    assert metrics_header_and_key(sheet, ["Free cash flow"]) == (["Metric", "Window Growth"], None)
+    sheet.cell(4, 1, "Data notes · a Free cash flow FY2024: not yet matched to the filing")
     header, key = metrics_header_and_key(sheet, ["Free cash flow"])
     assert not_sentence_case(header[1]) == "Growth" and not_sentence_case(key) is None
-    # Only that cell: an unfilled cell further along reads as a header, its capitals failing.
-    sheet.cell(1, 5, "Data Notes · a Free cash flow")
+    # Only that cell: one past the header row reads as a header, its capitals failing.
+    sheet.cell(1, 3, "Data Notes · a Free cash flow")
     assert metrics_header_and_key(sheet, ["Free cash flow"]) == (["Metric", "Window Growth", "Data Notes · a Free cash flow"], key)
-    sheet.cell(1, 5).value = None
-    # And with no cell one past the headers, an unfilled cell after a gap is no key: it reads as a header.
-    gapped = Workbook().active
-    for column, text in enumerate(["Metric", "Window Growth"], start=1):
-        gapped.cell(1, column, text).fill = PatternFill("solid", start_color="F4F3EE")
-    gapped.cell(1, 4, "Data Notes · a Free cash flow")
-    assert metrics_header_and_key(gapped, ["Free cash flow"]) == (
-        ["Metric", "Window Growth", "Data Notes · a Free cash flow"], None)
+    sheet.cell(1, 3).value = None
+    # And a cell in the grid's blank row is no key.
+    blank_row = Workbook().active
+    blank_row.cell(1, 1, "Metric").fill = PatternFill("solid", start_color="F4F3EE")
+    blank_row.cell(2, 1, "Free cash flow")
+    blank_row.cell(3, 1, "Data notes · a Free cash flow FY2024: not yet matched to the filing")
+    assert metrics_header_and_key(blank_row, ["Free cash flow"]) == (["Metric"], None)
     for broken, word in (("Data Notes · a Free cash flow FY2024: not yet matched", "Notes"),
                          ("Data notes · a Free cash flow FY2024: Not yet matched", "Not")):
-        sheet.cell(1, 3, broken)
+        sheet.cell(4, 1, broken)
         assert not_sentence_case(metrics_header_and_key(sheet, ["Free cash flow"])[1]) == word
     runs = read_html("<style>@page { @bottom-left { content: \"A — B\"; } }</style><h1>X · Y summary</h1><td>—</td>")
     assert runs.runs == ["A — B", "X · Y summary", EM_DASH] and runs.headings == ["X · Y summary"]

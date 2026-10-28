@@ -622,11 +622,12 @@ name the marked letters and state a gap in words (§4.7, E195). The PDF and Exce
 exports follow D-061 as the page does. The PDF prints a figure with no dagger and a raised letter only where its note
 questions the number, in the grid, the appendix, the citations and the narrative; a gap is `—` alone; the sentence above
 the grid names the calculated metrics, and the fine print sits under the grid (a bold "Data notes" lead, no heading),
-its summary line on the grid's last page, with a citation's own notes under Narrative sources. The workbook's letter
+a full grid printing whole on one page with its summary line, with a citation's own notes under Narrative sources. The
+workbook's letter
 is `#,##0" a"`, not `#,##0" (a)"`, on marked figures only, "n/m" taking it from the format's text section; every note
 stays a cell comment, naming its letter only where it marks; the cover sheet prints the page's fine print and the
-Metrics header row keys the letters its grid prints. The Note column (17) names a marked note's letter and an unmarked
-note's words.
+Metrics grid has the key to the letters it prints under it. The Note column (17) names a marked note's letter and
+an unmarked note's words.
 
 Period headers in Excel read "Q2 2026" (the straight form; a typed filter cannot match a typographic
 apostrophe) and the data columns keep the period keys the API uses. The PDF's compact money formatter
