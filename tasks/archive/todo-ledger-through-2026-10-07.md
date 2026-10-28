@@ -6967,9 +6967,9 @@ Full local and hosted verification plus independent exact-head review precede re
   them backend deploys: #1681's and #1697's health steps read the backend healthy, and #1703's failed with
   HTTP 500 after its revisions had taken all traffic, another writer reading the service healthy minutes
   later; no job cut off at its time limit; the advisory pip-audit step exited 1 in all twelve main runs;
-  production not read live. No CODE RED spend; no ledger event; four paid steps by other writers. No chief
-  defect known, the lapses counted from the chief's notes and its own commands; no hook refusal of the
-  chief's commands in the window. Closure 211.
+  production not read live. No CODE RED spend; no ledger event; four paid steps by other writers on GitHub.
+  No chief defect known, the lapses counted from the chief's notes and its own commands; no hook refusal of
+  the chief's commands in the window. Closure 211.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
