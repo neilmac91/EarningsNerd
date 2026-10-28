@@ -2653,8 +2653,8 @@ Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue�
 alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
 labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
 (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`, color
-with `directionTone()`/`directionTextTone()` from `ui/Chart.tsx`. Chart chrome (grid, axis, labels,
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme`
+carries the gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid, axis, labels,
 crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
 chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark`
@@ -2664,8 +2664,8 @@ follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carrie
 `chartTheme` ink to the tailwind token it copies, per theme. The chart export's secondary ink
 (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`.
-Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
-category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
+Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
+left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
 paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
@@ -2739,13 +2739,13 @@ Never invert or neutralize by hardcoding concept names in the frontend — consu
 ## 11. Motion — tokens only
 
 Four durations + two curves, defined ONCE (`globals.css` `:root`; JS mirror `lib/motion.ts` for
-Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.**
+timers and rAF loops, which need numbers). **No raw ms or bezier strings anywhere else.**
 
 | Token | Value | Use |
 |-------|-------|-----|
 | `--duration-fast` / `duration-fast` | 150ms | hover + color feedback |
 | `--duration-base` / `duration-base` | 200ms | crossfades, theme switch, skeleton→content — also the bare `transition-*` default |
-| `--duration-slow` / `duration-slow` | 600ms | entrances, draw-ins, count-up |
+| `--duration-slow` / `duration-slow` | 600ms | entrances, count-up |
 | `--duration-ambient` / `duration-ambient` | 1800ms | ambient loops + attention decay: shimmer, pulse, citation-flash |
 | `--ease-standard` | cubic-bezier(0.4, 0, 0.2, 1) | everything |
 | `--ease-pop` | cubic-bezier(0.34, 1.56, 0.64, 1) | the success check-pop ONLY |
@@ -2774,12 +2774,13 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
-  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  value, the Recharts bars draw without their grow-in (`isAnimationActive`'s default, `'auto'`, reads the
+  preference), `scroll-behavior` is `auto`. Gates: the
   `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
   for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
   motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
-  skeleton→content, sparkline draw-in, check-pop.
+  skeleton→content, check-pop.
 
 ## 12. Definition-of-done for any theme/token change
 

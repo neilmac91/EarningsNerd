@@ -29,14 +29,13 @@ export { GuidanceCard, type GuidanceCardProps, type GuidanceCardVariant } from '
 export { MarkedCopy, EnRef } from './MarkedCopy'
 // The marked copy's measure (its margin gives way below it), outside the 'use client' module for server components.
 export { markedBlockInsetClass, markedRowInsetClass } from './markedCopyLayout'
+// The chart kit: its tokens (the series, CHART_FONT, chartTheme) serve every chart, the analysis engine's too;
+// the prop factories and ChartTooltip serve the Recharts charts (filing fundamentals, peers). E195 removed what
+// nothing called.
 export {
-  // v2.1: Direction is now the app's vocabulary ('up' | 'down' | 'flat' —
-  // interchangeable with lib/financialTone.ts); direction() removed (derive
-  // with the app's directionOf). Sparkline renamed → TrendSparkline (the app
-  // owns components/charts/Sparkline.tsx with different props).
-  CHART_SERIES, CHART_FONT, seriesColor, chartTheme, directionTone, directionTextTone,
-  gridProps, xAxisProps, yAxisProps, crosshairProps, barCursorProps, zeroLineProps, refLineProps, lineProps,
-  AxisSeriesTag, ChartTooltip, TrendSparkline,
-  type ChartTheme, type Direction, type ChartTooltipProps, type TrendSparklineProps,
+  CHART_SERIES, CHART_FONT, seriesColor, chartTheme,
+  gridProps, xAxisProps, yAxisProps, barCursorProps,
+  ChartTooltip,
+  type ChartTheme, type ChartTooltipProps,
 } from './Chart'
 export { cx } from './cx'
