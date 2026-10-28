@@ -31,7 +31,10 @@ its check if nothing stops it, while the first's writes are uncommitted:
 - two password logins of one account: the second waits for the first's commit, and both mint;
 - two unlinks of one account, one per provider on an account with no password or one provider twice, and
   an unlink while a first password is set: the unlink counts what committed before it (E121), so the
-  account keeps a sign-in method, the double unlink finds no link, and the new password counts.
+  account keeps a sign-in method, the double unlink finds no link, and the new password counts;
+- two first sign-ins of one OAuth identity, and two invited sign-ups with one invite: no lock serializes them,
+  so the unique email and the invite's guarded redemption decide, and the second is refused with nothing of
+  its own committed (E121).
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -61,6 +64,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
+from app.config import settings
 from app.database import Base, SessionLocal
 from app.models import OAuthAccount, OAuthState, RefreshToken, User
 from app.routers import auth as auth_module
@@ -586,6 +590,95 @@ def test_an_unlink_that_waits_out_an_account_deletion_finds_no_link(postgres_eng
     assert (_kind(deletion), _result(unlink), live, released, _links(postgres_engine)) == (
         "NoneType", "ProviderNotLinkedError", 0, "blocked", [],
     )
+
+
+def _oauth_sign_in(db: Session, subject: str, email: str, invite_hash: Optional[str] = None):
+    """A Google callback's sign-in unit as far as its commit: the resolve, then the mint."""
+    user, _linked, _created = oauth_account_service.resolve_google_user(
+        db, subject=subject, email=email, email_verified=True, full_name=None,
+        invite_code_hash=invite_hash, agreement=accept_current_agreement(),
+    )
+    return oauth_account_service.mint_oauth_refresh_token(db, user, user_agent=None, ip=None)
+
+
+def _second_sign_in_while_the_first_holds(engine, first: tuple, second: tuple) -> tuple[object, bool]:
+    """Resolve ``first`` (subject, email, invite hash) in one session, run ``second``'s whole sign-in in another
+    thread until PostgreSQL shows it waiting on a lock, then mint and commit ``first``. Returns what ``second``
+    returned or raised, and whether it waited."""
+    outcome: list[object] = []
+    second_pid: list[int] = []
+
+    def run_second() -> None:
+        with _session(engine) as db:
+            second_pid.append(db.execute(text("SELECT pg_backend_pid()")).scalar())
+            try:
+                outcome.append(_oauth_sign_in(db, *second))
+            except Exception as exc:  # noqa: BLE001 - the outcome under test may be a refusal
+                outcome.append(exc)
+
+    with _session(engine) as db:
+        user, _linked, _created = oauth_account_service.resolve_google_user(
+            db, subject=first[0], email=first[1], email_verified=True, full_name=None,
+            invite_code_hash=first[2], agreement=accept_current_agreement(),
+        )
+        db.flush()  # the first's account insert and any redemption, uncommitted, as its mint's flush makes them
+        thread = threading.Thread(target=run_second)
+        thread.start()
+        deadline, waited = time.monotonic() + HANG_GUARD_S, False
+        while not waited and time.monotonic() < deadline and thread.is_alive():
+            if second_pid:
+                with engine.connect() as probe:
+                    waited = probe.execute(
+                        text("SELECT wait_event_type FROM pg_stat_activity WHERE pid = :pid"), {"pid": second_pid[0]},
+                    ).scalar() == "Lock"
+            time.sleep(0.01)
+        oauth_account_service.mint_oauth_refresh_token(db, user, user_agent=None, ip=None)
+    thread.join(HANG_GUARD_S)
+    assert not thread.is_alive(), "the second sign-in outlasted the hang guard"
+    return outcome[0], waited
+
+
+def _accounts_links_tokens(engine) -> tuple[int, int, int]:
+    with _session(engine) as db:
+        return db.query(User).count(), db.query(OAuthAccount).count(), db.query(RefreshToken).count()
+
+
+def test_two_first_sign_ins_of_one_identity_create_one_account(postgres_engine, collection_ready, monkeypatch):
+    """Two callbacks for one new Google identity, from two browsers. No lock serializes them, in the thread pool on
+    one instance or across instances (E121): the second's account insert waits on the first's uncommitted row
+    under the unique email, then fails, and the resolve refuses it as the lost create race, so the route redirects
+    to its conflict page with nothing of its own committed: one account, one link, one session."""
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    email = f"twice-{uuid.uuid4().hex}@example.com"
+    second, waited = _second_sign_in_while_the_first_holds(
+        postgres_engine, ("google-subject", email, None), ("google-subject", email, None),
+    )
+    assert isinstance(second, oauth_account_service.OAuthSignInRefused)
+    assert (second.lost_create_race, second.error_code, waited) == (True, "google_account_conflict", True)
+    assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
+
+
+def test_two_invited_sign_ups_with_one_invite_redeem_it_once(postgres_engine, collection_ready, monkeypatch):
+    """Two new identities signing up under invite_only with one invite: the second's guarded redemption waits on
+    the first's uncommitted one, then matches no unused invite, and the resolve refuses it (``invite_required``).
+    One account, one link, one session, the invite redeemed once."""
+    from app.models.invite import InviteCode
+    from app.services import invite_service
+
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "invite_only")
+    with _session(postgres_engine) as db:
+        _row, raw, _link = invite_service.mint_invite(db, created_by=None)
+    invite_hash = invite_service.hash_invite_token(raw)
+    second, waited = _second_sign_in_while_the_first_holds(
+        postgres_engine,
+        ("google-first", f"first-{uuid.uuid4().hex}@example.com", invite_hash),
+        ("google-second", f"second-{uuid.uuid4().hex}@example.com", invite_hash),
+    )
+    assert isinstance(second, oauth_account_service.OAuthSignInRefused)
+    assert (second.error_code, waited) == ("invite_required", True)
+    assert _accounts_links_tokens(postgres_engine) == (1, 1, 1)
+    with _session(postgres_engine) as db:
+        assert db.query(InviteCode).filter(InviteCode.used_at.isnot(None)).count() == 1
 
 
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])

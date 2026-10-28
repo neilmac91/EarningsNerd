@@ -1499,12 +1499,14 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
 # The OAuth callbacks' cases: what the nine accounts are before their callbacks, and what each sign-in writes. A
 # sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
 # attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
-# new account with an unverified email (its state carries signup assent, so the email decides).
+# new account with an unverified email (its state carries signup assent, so the email decides); a lost race is a
+# sign-up whose mint meets another sign-in's committed row, and rolls its own account back.
 _CALLBACK_AUDITS = {
     "signin": ["oauth_login"],
     "signup": ["register", "oauth_login"],
     "link": ["oauth_login", "oauth_linked"],
     "refused": [],
+    "lost_race": [],
 }
 
 
@@ -1518,8 +1520,12 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
     loop the base resolved, committed and audited there, and the session cookies refreshed the user the mint's
     commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
     slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
-    carries the session of its own account; a refusal carries none and writes no account, link or row."""
+    carries the session of its own account; a refusal or a lost race carries none and writes no account, link or
+    row, the lost race's rollback leaving nothing for the release."""
     from types import SimpleNamespace
+
+    import jwt
+    from sqlalchemy.exc import IntegrityError
 
     from app.config import settings
     from app.database import Base
@@ -1550,7 +1556,7 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
             if case == "signin":
                 db.add_all([OAuthAccount(user_id=account.id, provider=provider, provider_account_id=subject)
                             for account, subject in zip(accounts, subjects)])
-        agreement = accept_current_agreement() if case in ("signup", "refused") else None
+        agreement = accept_current_agreement() if case in ("signup", "refused", "lost_race") else None
         for i in range(9):
             oauth_account_service.store_oauth_state(db, f"state-{i}", f"nonce-{i}", None, agreement)
         db.commit()
@@ -1636,6 +1642,12 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
     monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
     monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
     monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
+    if case == "lost_race":
+        def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
+            db.flush()  # the new account's insert, as the token's flush would make it
+            raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
+
+        monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
 
     async def send(i: int) -> httpx.Response:
@@ -1660,12 +1672,14 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
         assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
         assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
         assert engine.pool.checkedout() == 0
-        # The state's unit commits and leaves nothing open; the sign-in unit's release ends its transaction; the
-        # finalizer finds nothing.
-        assert [request.open_at_close for request in request_sessions] == [[True, False]] * 9
+        # The state's unit commits and leaves nothing open; the sign-in unit's release ends its transaction, or finds
+        # none after the lost race's rollback; the finalizer finds nothing.
+        closes = [False, False] if case == "lost_race" else [True, False]
+        assert [request.open_at_close for request in request_sessions] == [closes] * 9
         assert [response.status_code for response in responses] == [302] * 9
-        refused = case == "refused"
-        landing = f"{settings.FRONTEND_URL}/login?error=email_unverified" if refused else settings.FRONTEND_URL
+        refused = case in ("refused", "lost_race")
+        error = "email_unverified" if case == "refused" else f"{provider}_account_conflict"
+        landing = f"{settings.FRONTEND_URL}/login?error={error}" if refused else settings.FRONTEND_URL
         assert [response.headers["location"] for response in responses] == [landing] * 9
         assert sorted(sent) == ([] if case != "link" else sorted(
             (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
@@ -1686,8 +1700,115 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
                 live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
                 for response in responses
             ] == [account_ids[email] for email in emails]
-            assert all(response.cookies.get(settings.COOKIE_NAME) for response in responses)
+            # And its access cookie names its own account.
+            assert [
+                jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})["sub"]
+                for response in responses
+            ] == emails
             assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
+    monkeypatch, tmp_path, collection_ready, caplog,
+):
+    """A Google sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
+    timeout, the database gone. The account, its link and its session have committed, so the callback must still
+    answer with that session; only its best-effort audit rows are missing. The session cookies take the address
+    the unit read before the commit: reading it from the user that commit expired was a statement after it, and
+    its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121)."""
+    from types import SimpleNamespace
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'callback-after-commit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        oauth_account_service.store_oauth_state(db, "state-0", "nonce-0", None, accept_current_agreement())
+        db.commit()
+
+    # Once a commit follows the refresh token's insert, every statement fails.
+    minted, failing = threading.Event(), threading.Event()
+
+    def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if failing.is_set():
+            raise OperationalError(statement, {}, Exception("the server went away"))
+        if statement.startswith("INSERT INTO refresh_tokens"):
+            minted.set()
+
+    def committed(_conn: Any) -> None:
+        if minted.is_set():
+            failing.set()
+
+    event.listen(engine, "before_cursor_execute", watch)
+    event.listen(engine, "commit", committed)
+
+    class TokenResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": "token-0"}
+
+    class GoogleClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, *_args: Any, **_kwargs: Any) -> TokenResponse:
+            return TokenResponse()
+
+    async def verify_google(_token: str) -> dict:
+        return {"sub": "google-subject-0", "email": "after-commit@example.com", "email_verified": True, "name": None}
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            cookies={auth._OAUTH_STATE_COOKIE: "state-0"},
+        ) as client:
+            response = await client.get("/api/auth/google/callback", params={"code": "code-0", "state": "state-0"},
+                                        follow_redirects=False)
+        assert failing.is_set()
+        assert response.status_code == 302 and response.headers["location"] == settings.FRONTEND_URL
+        assert response.cookies.get(settings.COOKIE_NAME)
+        assert engine.pool.checkedout() == 0
+        event.remove(engine, "before_cursor_execute", watch)
+        with sessions() as db:
+            [user] = db.query(User).all()
+            assert user.email == "after-commit@example.com"
+            assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
+                ("google", "google-subject-0")]
+            [token] = db.query(RefreshToken).all()
+            assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
+            # The audit writes failed and were swallowed; the sign-in stands without them.
+            assert db.query(AuditLog).count() == 0
+            assert db.query(OAuthState).count() == 0
     finally:
         engine.dispose()
 
@@ -4646,7 +4767,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # dropped it. No hand-off left on main is such a strict over-count.
 # The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` was not one either: it read
 # ``user.email``, which the mint's commit expired, so it refreshed the user through the request session,
-# on the loop, until E121 put it in each callback's sign-in unit. A logged or type-checked session (``logger.info("%s", db)``,
+# on the loop, until E121 put it in each callback's sign-in unit with the address read before that commit.
+# A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
 # method handed to a dispatcher by keyword, a comprehension's variable named like the session
@@ -4684,8 +4806,9 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # - a session the route opens itself from ``SessionLocal`` (it does not wait on the dependency's
 #   finalizer);
 # - an ORM instance's lazy load, or its refresh once a commit has expired it (the generate stream's
-#   force branch, E104, has its own case above, and the OAuth callbacks' ``issue_session`` counts as
-#   the hand-off it is).
+#   force branch, E104, has its own case above; the OAuth callbacks' ``issue_session`` read the user
+#   their mint's commit expired until E121 had it take the address read before that commit, in a unit
+#   their burst case holds off the loop).
 #
 # ``test_walk_sees_each_form`` scores the walk on planted forms, the gaps and strict forms among them,
 # so a regression in the walk fails there instead of passing every router vacuously.

@@ -350,6 +350,11 @@ def mint_oauth_refresh_token(
 
     A concurrent first sign-in for the same identity loses here with ``IntegrityError`` (the token's
     flush or the commit): the session is rolled back and :class:`OAuthAccountConflictError` raised.
+    No lock serializes two callbacks for one identity: they interleave in their routes' thread-pool units
+    on one instance, as they always could across the API's instances (E121). The unique ``users.email``
+    and ``uq_oauth_provider_account`` and the invite's guarded redemption decide, and the loser is refused
+    by the resolve (``lost_create_race``, ``invite_required``) or loses here, with nothing of its own
+    committed (``tests/integration/test_refresh_rotation_transactions.py``).
     """
     try:
         return refresh_token_service.mint_refresh_token(db, user, user_agent=user_agent, ip=ip)

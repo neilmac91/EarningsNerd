@@ -362,6 +362,7 @@ def issue_session(
     *,
     refresh_token: Optional[str] = None,
     commit: bool = True,
+    email: Optional[str] = None,
 ) -> str:
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
@@ -372,9 +373,11 @@ def issue_session(
     ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
     endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
     concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
-    (body responses echo it).
+    (body responses echo it). Pass ``email=`` when the caller read the address before a commit that
+    expired ``user``, as the OAuth callbacks do before their mint's: the access token then reads nothing
+    after that commit, so no failure there can turn a committed sign-in into an error (E121).
     """
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": email if email is not None else user.email})
     _set_auth_cookie(response, access_token)
     if refresh_token is None:
         refresh_token = refresh_token_service.mint_refresh_token(
@@ -551,7 +554,7 @@ class _SignedIn:
     linked_existing: bool
 
 
-async def _send_oauth_linked_email_safe(user: User | _SignedIn, provider: str) -> None:
+async def _send_oauth_linked_email_safe(user: _SignedIn, provider: str) -> None:
     """Notify a user that a social identity was linked to their existing account.
 
     Best-effort: a federated identity attaching to a pre-existing account is exactly the event
@@ -1223,13 +1226,13 @@ async def google_callback(
                 invite_code_hash=invite_code_hash,
                 agreement=agreement,
             )
-            # Read before the mint's commit expires the user.
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
             user_id, signed_in = user.id, _SignedIn(user.email, user.full_name, linked_existing)
             # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
             refresh_token = oauth_account_service.mint_oauth_refresh_token(
                 db, user, user_agent=user_agent, ip=client_ip
             )
-            issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False)
+            issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
             if created:
                 # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
                 # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
@@ -1396,13 +1399,13 @@ async def apple_callback(
                 invite_code_hash=invite_code_hash,
                 agreement=agreement,
             )
-            # Read before the mint's commit expires the user.
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
             user_id, signed_in = user_obj.id, _SignedIn(user_obj.email, user_obj.full_name, linked_existing)
             # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
             refresh_token = oauth_account_service.mint_oauth_refresh_token(
                 db, user_obj, user_agent=user_agent, ip=client_ip
             )
-            issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False)
+            issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
             if created:
                 # As for Google: the sign-up's register row, after the sign-in committed (D-054).
                 audit_service.log_register(db, user_id, signed_in.email, ip_address=hashed_ip)
