@@ -233,7 +233,8 @@ def last(rules: list[tuple[str, list[tuple[str, str]]]], name: str) -> dict[str,
 
 
 def stylesheet(html: str) -> str:
-    return "".join(re.findall(r"<style\b[^>]*>(.*?)</style>", html, re.DOTALL))
+    """Every <style> block, in any case: WeasyPrint's HTML parser applies a <STYLE> as it does a <style>."""
+    return "".join(re.findall(r"<style\b[^>]*>(.*?)</style>", html, re.DOTALL | re.IGNORECASE))
 
 
 def elements(html: str) -> list:

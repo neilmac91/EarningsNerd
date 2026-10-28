@@ -1462,8 +1462,9 @@ class TestBrandedShell:
 
         planted = ('<style media="print">td { Overflow-Wrap: ANYWHERE; } p { color: inherit }</style>'
                    "<style>table.excerpts { .snapshot { overflow-wrap: anywhere } } @media print { th { word-break: break-all } }"
-                   " .x { word-wrap: anywhere } .y { word-break: normal; overflow-wrap: break-word }</style>")
-        assert breaks_anywhere(planted) == ["td", "table.excerpts .snapshot", "th", ".x"]
+                   " .x { word-wrap: anywhere } .y { word-break: normal; overflow-wrap: break-word }</style>"
+                   "<STYLE>li { word-break: break-all }</STYLE>")
+        assert breaks_anywhere(planted) == ["td", "table.excerpts .snapshot", "th", ".x", "li"]
         found = {name: breaks_anywhere(html)
                  for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html()))}
         assert found == {"summary": [], "analysis": [".snapshot"]}
