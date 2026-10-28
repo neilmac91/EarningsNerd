@@ -1208,9 +1208,30 @@ const statusLineInCard = (heading: Locator) =>
     return { text: (line.textContent ?? '').replace(/\s+/g, ' ').trim(), card: px(c), line: px(box), outside }
   })
 
+/** The lines the generating card's first step paints its form code on, read through the step's text runs: one, since
+    the code is one nowrap run, as the live-status line's is (E230). At 390px under 200% text the step broke "10-" over
+    "K from SEC.gov" before; a code the runs no longer hold whole reads as no line. */
+const formCodeLines = (heading: Locator) =>
+  heading.evaluate((h2) => {
+    const card = h2.closest('.rounded-xl')!
+    const row = [...card.querySelectorAll('li')].find((li) => (li.textContent ?? '').startsWith('Fetching the'))
+    if (!row) return { text: null, lines: 0 }
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.textContent ?? '').indexOf('10-K')
+      if (at < 0) continue
+      const range = document.createRange()
+      range.setStart(node, at)
+      range.setEnd(node, at + '10-K'.length)
+      return { text: row.textContent, lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size }
+    }
+    return { text: row.textContent, lines: 0 }
+  })
+
 /** The generating card at 320px at the default text size and at 390px under 200% text: the page does not scroll
-    sideways, and the live-status line lies inside the card. The header row wraps and the percent moves beneath the
-    heading where the two do not fit (StreamingSummaryDisplay.spec.tsx pins the classes); this reads the painted boxes. */
+    sideways, the live-status line lies inside the card, and the first step paints its form code on one line. The header
+    row wraps and the percent moves beneath the heading where the two do not fit (StreamingSummaryDisplay.spec.tsx pins
+    the classes); this reads the painted boxes. */
 for (const state of [
   { width: 320, height: 640, doubled: false },
   { width: 390, height: 844, doubled: true },
@@ -1218,7 +1239,7 @@ for (const state of [
   const at = `${state.width}px${state.doubled ? ' and 200% text' : ' at the default text size'}`
   test.describe(`a ${state.width}px phone${state.doubled ? ' at 200% text' : ''}, a summary in flight`, () => {
     test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
-    test(`filing (/filing/3) keeps the generating card's status line inside the card and does not scroll sideways at ${at}`, async ({ page, baseURL }) => {
+    test(`filing (/filing/3) keeps the generating card's status line inside the card, its first step's form code on one line, and does not scroll sideways at ${at}`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -1240,6 +1261,8 @@ for (const state of [
       const line = await statusLineInCard(heading)
       expect(line.text, `${at}: the card is at its first stage`).toBe('10-K · Opening the filing…')
       expect(line.outside, `${at}: the status line (${line.line}) lies inside the card (${line.card})`).toEqual([])
+      const code = await formCodeLines(heading)
+      expect(code.lines, `${at}: the first step ("${code.text}") paints its form code, 10-K, on one line`).toBe(1)
       const widths = await measure(page)
       expect(widths.scrollWidth, `/filing/3 with a summary in flight at ${at}: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
     })
