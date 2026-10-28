@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui'
+import { Button, Skeleton, cx } from '@/components/ui'
+import { useContentIn } from '@/hooks/useContentIn'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
@@ -58,6 +59,7 @@ function PrivateScreenshot({ attachment, number, readerId, generation, loadAttac
   })
   const failure = useRetainedFailure(media, key)
   const unavailable = attachment.availability !== 'available' || [403, 404, 410].includes(getErrorStatus(media.error) ?? 0)
+  const enterClass = useContentIn(!unavailable && !failure.failed && !objectUrl)
   useEffect(() => {
     if (!media.data || unavailable || !ownsMedia()) return
     const url = URL.createObjectURL(media.data)
@@ -86,10 +88,20 @@ function PrivateScreenshot({ attachment, number, readerId, generation, loadAttac
         <>
           {/* Authenticated blob only. Next's public image cache must not receive private feedback. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={objectUrl} alt={`Screenshot ${number}`} width={attachment.width} height={attachment.height} className="h-auto max-h-[24rem] w-full rounded-lg object-contain" />
-          <Button variant="secondary" wrap onClick={handleDownload} aria-label={`Download screenshot ${number}`}>Download screenshot</Button>
+          <img src={objectUrl} alt={`Screenshot ${number}`} width={attachment.width} height={attachment.height} className={cx('h-auto max-h-[24rem] w-full rounded-lg object-contain', enterClass)} />
+          <Button variant="secondary" wrap onClick={handleDownload} aria-label={`Download screenshot ${number}`} className={enterClass}>Download screenshot</Button>
         </>
-      ) : <p role="status" className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Loading screenshot…</p>}
+      ) : (
+        // While the image loads, bones hold the image's and its Download button's places: the image's takes the img's
+        // width, ratio, cap and radius below (its size is known), the button's its one-line height and radius, so the
+        // block keeps its height when they arrive (a label that wraps under enlarged text adds its second line) and
+        // they crossfade in (enterClass). Raw bones are aria-hidden, so the wrapper is the status region.
+        <div role="status" aria-label={`Loading screenshot ${number}`} className="space-y-2">
+          <Skeleton className="max-h-[24rem] w-full rounded-lg" style={{ aspectRatio: `${attachment.width} / ${attachment.height}` }} />
+          <Skeleton className="h-10 w-48 max-w-full rounded-lg" />
+          <span className="sr-only">Loading screenshot…</span>
+        </div>
+      )}
     </div>
   )
 }
