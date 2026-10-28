@@ -347,7 +347,7 @@ module.exports = {
         DEFAULT: 'var(--duration-base)',
         fast: 'var(--duration-fast)', // 150ms — hover + color feedback
         base: 'var(--duration-base)', // 200ms — crossfades, theme, skeleton→content
-        slow: 'var(--duration-slow)', // 600ms — entrances, draw-ins, count-up
+        slow: 'var(--duration-slow)', // 600ms — entrances, count-up
         ambient: 'var(--duration-ambient)', // 1800ms — loops + attention decay
       },
       transitionTimingFunction: {
