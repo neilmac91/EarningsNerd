@@ -319,11 +319,13 @@ blockquote.located {{
 /* The table of the filing's own words (the Risks excerpts: #, label, excerpt) sets its columns, so a long token
    (a URL) breaks inside its cell. An auto table sizes a column to its longest word and ran such a token over the
    page's edge, and `overflow-wrap: anywhere`, which would shrink that word, cost WeasyPrint about half a minute
-   on a 4,000-character excerpt. */
+   on a 4,000-character excerpt. The number's column holds two digits; its number and label sit on the excerpt's
+   first line, as the page's metrics table sets a figure on its row label's first line (`verticalAlign="top"`):
+   a cell's default middle dropped them halfway down a long excerpt. */
 table.excerpts {{ table-layout: fixed; }}
-table.excerpts th:first-child {{ width: 5%; }}
+table.excerpts th:first-child {{ width: 1.5em; }}
 table.excerpts th:nth-child(2) {{ width: 13%; }}
-table.excerpts td {{ overflow-wrap: break-word; }}
+table.excerpts td {{ overflow-wrap: break-word; vertical-align: baseline; }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
 /* A nested list takes the disc too, as the app's lists do at every level (WeasyPrint's default is the circle). */
 ul ul {{ list-style-type: disc; }}

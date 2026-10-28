@@ -26,6 +26,7 @@ holds, so `numeric_columns` never classes it.
 holds every PDF rule that sets `anywhere` or `break-all` to `.snapshot`, reading the stylesheets as
 `test_export_palette_parity.py` does (nested rules, @media, every `<style>`); `TestLocatedRisks::test_the_rendered_pdf_sets_the_device_and_keeps_every_excerpt_on_the_page`
 lays out a page-spanning excerpt and a 240-character URL and holds every text box inside the page's content
-edge and its columns to 5% and 13%; `test_a_figure_only_excerpt_wraps_as_prose` holds the excerpt column
+edge, its columns to two digits (1.5em) and 13%, and each row's number and label on its excerpt's first
+line (`vertical-align: baseline`); `test_a_figure_only_excerpt_wraps_as_prose` holds the excerpt column
 off `num`. Timings from a scratch benchmark on the session host (4 CPUs), not CI; #1758's review measured
 `break-all` at 8.3 s against `anywhere`'s 7.2 s on a 2,089-character cell.

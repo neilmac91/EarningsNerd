@@ -846,11 +846,25 @@ class TestLocatedRisks:
                         text.text for text in box.descendants() if isinstance(text, boxes.TextBox))
 
         assert past_edge == []
-        # The excerpts table's set columns: "#" and the label take 5% and 13% of its width, the excerpt the rest.
-        [table, *_] = [box for box in document.pages[0]._page_box.descendants()
-                       if isinstance(box, boxes.TableBox) and box.element.get("class") == "excerpts"]
-        heads = [box for box in table.descendants() if isinstance(box, boxes.TableCellBox) and box.element_tag == "th"]
-        assert [round(head.width / table.width, 3) for head in heads[:2]] == [0.05, 0.13]
+        # The excerpts table's set columns: "#" holds two digits (1.5em of its header) and the label 13% of the width.
+        tables = [box for page in document.pages for box in page._page_box.descendants()
+                  if isinstance(box, boxes.TableBox) and box.element.get("class") == "excerpts"]
+        heads = [box for box in tables[0].descendants() if isinstance(box, boxes.TableCellBox) and box.element_tag == "th"]
+        assert round(heads[0].width, 2) == round(1.5 * heads[0].style["font_size"], 2)
+        assert round(heads[1].width / tables[0].width, 3) == 0.13
+        # Each row's number and label sit on its excerpt's first line, on every page the table reaches; a row that
+        # runs on to the next page starts there with a line in each cell, and its continuation leaves the two empty.
+        def first_baseline(cell):
+            return next((line.position_y + line.baseline for line in cell.descendants()
+                         if isinstance(line, boxes.LineBox)), None)
+
+        starts = []
+        for table in tables:
+            for row in (row for group in table.children if group.element_tag == "tbody" for row in group.children):
+                lines = [first_baseline(cell) for cell in row.children]
+                if None not in lines:
+                    starts.append(max(lines) - min(lines))
+        assert len(starts) == len(spans) and max(starts) < 0.5, starts
         assert len(texts) == len(spans) and fragments > len(spans), "the long excerpt runs over a page break"
         assert sorted(re.sub(r"\s+", "", "".join(parts)) for parts in texts.values()) == sorted(
             re.sub(r"\s+", "", span) for span in spans)
