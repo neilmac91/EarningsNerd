@@ -1,16 +1,23 @@
--- Detection: the stored summary excerpts by the builder that wrote them (E28 (a)/(b), read-only, counts only).
+-- The stored summary excerpts by the builder that wrote them (E28 (a)/(b), read-only, counts only). Its own Ops
+-- step runs it (with ops/excerpts/provenance_count.py), not detection-sql: it reads filing_content_cache, which
+-- that loop's stated read scope does not name, and a failure here must not cut off the loop's other snapshots.
 -- No column records an excerpt's source: the `Excerpt provenance` log line is its only record
 -- (summary_generation_service.get_or_cache_excerpt). The two builders write different openings, unchanged
 -- since 2026-09-13 (d91dbdde) and through the October window, so a stored excerpt's first bytes name its
 -- builder (ai/extraction.py):
 --   regex_targeted   the regex path's sections: "\n\n" and 50 "=" glued to the first section's label
---                    (extract_critical_sections' `combined`; recovered windows may follow it).
+--                    (extract_critical_sections' `combined`, since bf56144f 2026-06-14; recovered windows may
+--                    follow it).
 --   regex_recovered  the regex path's windows alone: "RISK & NARRATIVE CONTEXT (recovered from filing):"
---                    or "FINANCIAL & MD&A CONTEXT (recovered from filing):" first.
+--                    or "FINANCIAL & MD&A CONTEXT (recovered from filing):" first (also since bf56144f).
 --   native           a section the fetched document's parse supplied: one of _SECTION_LAYOUT's labels and
---                    ":" and a newline first (assemble_excerpt_from_sections); never a separator first.
+--                    ":" and a newline first (assemble_excerpt_from_sections), on a row created since the
+--                    native assembler (2714c4df, 2026-06-15); never a separator first.
+--   label_before_native  the same opening on a row created before 2026-06-15: the regex path wrote those
+--                    labels first with no separator until cdea7751 (2026-01-25), and a native excerpt may since
+--                    have been written onto the row. Unverified.
 --   unclassified     anything else: the regex path's last resort (the cleaned document's first 120,000
---                    characters), or an excerpt an older builder wrote. Its source is Unverified.
+--                    characters), or an older builder's. Unverified.
 --   none             no excerpt stored (null or empty).
 -- An opening names the builder, never why a native parse was not used (a 403 before 2026-10-16 04:10Z, a
 -- parse timeout, a size cap since #1347, the flag): that cause is Unverified here, and only the provenance
@@ -30,7 +37,9 @@
 -- (each excerpt's first 64 characters, which PostgreSQL may detoast whole to take), filings once and again
 -- per row through ix_filings_company_type_date, summaries per row through uq_summaries_filing_id. Output:
 -- counts by form, builder and bucket; no accession, ticker, id or text.
--- The openings are pinned to the builders by backend/tests/unit/test_excerpt_source_cohort_sql.py.
+-- The openings, the CASE's arms, the marks and the output columns are pinned by
+-- backend/tests/unit/test_excerpt_source_cohort_sql.py; nothing runs this file in CI (its rehearsal is on a local
+-- PostgreSQL, recorded in its PR).
 -- Retire: the session that closes E28 (b) deletes this file and its test in that records PR.
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL statement_timeout = '120s';
@@ -46,6 +55,8 @@ SELECT current_setting('transaction_read_only') AS read_only,
 \echo '   then each builder by last write, then each builder (form, created or last_written read all).'
 \echo '   Buckets: before (< 10-04 09:29Z), onset (to 10-07 19:06Z), window (to 10-16 04:10Z), after.'
 \echo '   One row per filing and one filing per accession, so excerpts = accessions: a check, not a dedupe.'
+\echo '   label_before_native and unclassified are Unverified: their builder is not named by their bytes, and no'
+\echo '   builder names why it fell back (a 403, a parse timeout, the size cap, the flag): that cause is Unverified.'
 WITH marks AS (
     SELECT timestamptz '2026-10-04 09:29:00+00' AS last_native_report,
            timestamptz '2026-10-07 19:06:00+00' AS first_regex_report,
@@ -75,7 +86,8 @@ openings AS (
                    'ITEM 18 - FINANCIAL STATEMENTS:' || E'\n%',
                    'ITEM 5 - OPERATING AND FINANCIAL REVIEW AND PROSPECTS:' || E'\n%',
                    'ITEM 3.D - RISK FACTORS:' || E'\n%'
-               ]) THEN 'native'
+               ]) THEN CASE WHEN c.created_at >= timestamptz '2026-06-15 00:00:00+00' THEN 'native'
+                            ELSE 'label_before_native' END
                ELSE 'unclassified'
            END AS builder
     FROM filing_content_cache c
