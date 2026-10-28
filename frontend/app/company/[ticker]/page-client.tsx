@@ -11,6 +11,7 @@ import { isSummaryReady } from '@/features/summaries/lib/summaryPlaceholder'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ApiError } from '@/lib/api/client'
+import { assertSessionGeneration, getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 import { ArrowRightIcon, CircleNotchIcon, FileTextIcon, StarIcon } from '@/lib/icons'
 import { Button, buttonVariants, cx, GuidanceCard } from '@/components/ui'
 import { toast } from 'sonner'
@@ -147,9 +148,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
       await removeFromWatchlist(tickerToToggle)
       return { action: 'removed' as const, ticker: tickerToToggle }
     },
-    // Optimistic toggle: flip the star instantly, then reconcile with the server.
+    // Optimistic toggle: flip the star instantly, then reconcile with the server. The press belongs to the
+    // account it was made under (E29): an answer that lands after the session generation moved on (a logout,
+    // another login, a lost session) neither rolls the next account's watchlist back to this one's nor tells
+    // its reader about this one's star, as useWordingReview's labels do. A logout that fails moves the
+    // generation too while this account stays signed in, so a press in flight across it lands without its toast
+    // or analytics event; its list then reads the server's rows again. The wait for cancelQueries settles within
+    // the press today; should it ever span a transition, the assert ends the press before it is sent or written
+    // as the next account's.
     onMutate: async ({ ticker: tickerToToggle, shouldAdd }) => {
+      const generation = getSessionGeneration()
       await queryClient.cancelQueries({ queryKey: queryKeys.watchlist() })
+      assertSessionGeneration(generation)
       const previous = queryClient.getQueryData<WatchlistItem[]>(queryKeys.watchlist())
       queryClient.setQueryData<WatchlistItem[]>(queryKeys.watchlist(), (old) => {
         const list = old ?? []
@@ -167,16 +177,18 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
         }
         return list.filter((w) => w.company.ticker !== tickerToToggle)
       })
-      return { previous }
+      return { previous, generation }
     },
     onError: (_error, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       // Roll back to the pre-click snapshot and explain why the star didn't stick.
-      if (context?.previous !== undefined) {
+      if (context.previous !== undefined) {
         queryClient.setQueryData(queryKeys.watchlist(), context.previous)
       }
       toast.error("Couldn't update your watchlist. Please try again.")
     },
-    onSuccess: (result) => {
+    onSuccess: (result, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       if (result.action === 'added') {
         analytics.watchlistAdded(result.ticker)
         toast.success(`${company?.ticker ?? result.ticker} added to your watchlist`)
@@ -187,7 +199,8 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     },
     // Always refetch so the temporary optimistic row is replaced by the canonical server row. The
     // watchlist-derived insights, dashboard feed, and calendar go stale on a toggle too, so refresh
-    // them here (invalidating an unmounted query is harmless).
+    // them here (invalidating an unmounted query is harmless, and after an account change it only has the next
+    // account's lists read their own rows again).
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })

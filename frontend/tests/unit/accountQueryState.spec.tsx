@@ -427,14 +427,15 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe('account query ownership structural gate', () => {
+  const accountOwned = [
+    'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
+    'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
+    'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
+  ]
+
   it('every query family is classified, and an account change removes exactly the account-owned ones', () => {
     // A new family in lib/queryKeys.ts fails here until it is placed. An account-owned one joins
     // ACCOUNT_QUERY_FAMILIES (features/auth/lib/accountQueryState.ts), which logout and login remove.
-    const accountOwned = [
-      'subscription', 'usage', 'wordingReview', 'whatChanged', 'savedSummaries', 'savedSummaryStatus', 'watchlist',
-      'watchlistInsights', 'earningsAlertTickers', 'dashboardFeed', 'dashboardCalendar', 'notifications',
-      'notificationPreferences', 'authConnections', 'adminInvites', 'adminFeedback', 'feedback',
-    ]
     const identity = ['currentUser'] // the reset publishes null for it
     const shared = [
       'registrationConfig', 'turnstileScript', 'insiders', 'peers', 'calendar', 'fullTextSearch', 'filingFundamentals',
@@ -509,6 +510,68 @@ describe('account query ownership structural gate', () => {
     // current user null and its restore, watchlist x2, notification x2, saved summaries x1 (Delete prunes its row),
     // wording review x3 (the label applied as it is pressed, its rollback, the server's state).
     expect(allWrites).toHaveLength(10)
+  })
+
+  it('every write into an account-owned family checks the session generation first, with no await after the check (E29)', () => {
+    // The reset removes the account families before the next account reads them, so a write that lands after it (a
+    // mutation's answer, or code after an await) would start that account's snapshot with this one's data. Each write
+    // is fenced in the function that makes it: an isSessionGenerationCurrent check (the write returns early when it
+    // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
+    // transition; an await in the write's receiver or arguments, or a `for await` loop, is one too. That the check's result guards
+    // the write is review-checked, and the gate reads source order, not control flow: a loop that awaits after its write,
+    // before its next turn, is outside its reach. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and
+    // the mark-seen case above.
+    const fences = ['isSessionGenerationCurrent', 'assertSessionGeneration']
+    // Writes left unfenced, each at its count, so a second write beside an exempt one is not exempt by accident.
+    const exempt: Record<string, number> = {
+      // The saved-summary Delete: its updater returns nothing once the reset has removed the family, and otherwise keeps
+      // every row but the one it deleted, by that row's own id, so it cannot carry one account's rows into another's.
+      'app/dashboard/page.tsx:savedSummaries': 1,
+    }
+    const unfenced: string[] = []
+    const exemptions: Record<string, number> = {}
+    const waits = (inner: ts.Node) => ts.isAwaitExpression(inner) || (ts.isForOfStatement(inner) && inner.awaitModifier !== undefined)
+    /** An await in `inner` outside any function nested in it. */
+    const holdsWait = (inner: ts.Node): boolean =>
+      !ts.isFunctionLike(inner) && (waits(inner) || ts.forEachChild(inner, holdsWait) === true)
+    for (const file of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((dir) => sourceFiles(path.join(frontend, dir)))) {
+      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+      const relative = path.relative(frontend, file)
+      function visit(node: ts.Node) {
+        if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+          && ['setQueryData', 'setQueriesData'].includes(node.expression.name.text)) {
+          const key = node.arguments[0]?.getText(source) ?? ''
+          const family = /^queryKeys\.(\w+)/.exec(key)?.[1]
+          const site = `${relative}:${family}`
+          if (family && accountOwned.includes(family) && site in exempt) exemptions[site] = (exemptions[site] ?? 0) + 1
+          else if (family && accountOwned.includes(family)) {
+            // The function that makes the write; a function nested in it (the updater) runs inside the write.
+            let owner: ts.Node | undefined = node.parent
+            while (owner && !ts.isFunctionLike(owner)) owner = owner.parent
+            const write = node.getStart(source)
+            let fence = -1
+            let wait = -1
+            const scan = (inner: ts.Node): void => {
+              if (inner.getStart(source) >= write || (inner !== owner && ts.isFunctionLike(inner))) return
+              if (waits(inner)) wait = Math.max(wait, inner.getStart(source))
+              if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && fences.includes(inner.expression.text)) {
+                fence = Math.max(fence, inner.getStart(source))
+              }
+              ts.forEachChild(inner, scan)
+            }
+            if (owner) scan(owner)
+            // The write's receiver and arguments are evaluated before it, so an await among them comes after any fence ahead of it.
+            if (fence < 0 || wait > fence || [node.expression.expression, ...node.arguments].some(holdsWait)) {
+              unfenced.push(`${relative}:${source.getLineAndCharacterOfPosition(write).line + 1} ${key}`)
+            }
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(unfenced).toEqual([])
+    expect(exemptions).toEqual(exempt)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
