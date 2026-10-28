@@ -229,6 +229,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // Expired trial rows can retain their Stripe status after the API resolves them to Free.
   const isTrialing = Boolean(subscription?.is_pro) && subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
+  // The billing switch is for an account that can still buy, so a paid or trialing subscription hides it. Until the
+  // subscription read answers, the identity read names the plan: a Pro identity hides it from the start, so a Pro
+  // account's plans hold still as the read answers (E227). The identity's is_pro mirrors the users row, so where a
+  // lagging webhook leaves it at odds with the subscription, the switch takes the read's answer when it lands.
+  const showBillingSwitch = subscriptionResolved ? !isPaidPro && !isTrialing : !currentUser?.is_pro
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
   // Reframe the Pro card around their $0 total with no card.
@@ -411,10 +416,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
           {/* Billing Toggle — free users only. A card-trial user already holds a subscription
               (their buy CTA is disabled as current-plan), so the toggle would only move a
-              button they can't press. The row wraps where it cannot fit (a 320px phone at 200%
+              button they can't press. Until the subscription read answers, a Pro identity hides it
+              (showBillingSwitch, E227). The row wraps where it cannot fit (a 320px phone at 200%
               text), the yearly label on a centred line of its own; on one line it pushed
               "Monthly" past the screen's left edge. */}
-          {!isPaidPro && !isTrialing && (
+          {showBillingSwitch && (
             <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-white' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
