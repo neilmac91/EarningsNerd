@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   robots: { index: false },
 }
 
+// The page's query container: its <main> narrows its gutter below 13em of this wrapper's text size (E231).
 export default function DeleteAccountLayout({ children }: { children: React.ReactNode }) {
-  return children
+  return <div className="[container-type:inline-size]">{children}</div>
 }

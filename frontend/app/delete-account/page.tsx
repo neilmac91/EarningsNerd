@@ -46,7 +46,10 @@ export default function DeleteAccountPage() {
   const canDelete = confirmText.trim().toLowerCase() === CONFIRM_PHRASE
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
+    // The gutter gives way under enlarged text as the legal pages' does (lib/legalPageLayout.ts): narrower than 13em of
+    // the layout's query container, a phone under 200% text, it is px-2, 16px a side where px-4 doubled to 32px, so the
+    // signed-in card keeps room for its destructive button (E231).
+    <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8 [@container(max-width:13em)]:px-2">
       <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">Delete your account</h1>
       <p className="mt-3 text-text-secondary-light dark:text-text-secondary-dark">
         This permanently deletes your EarningsNerd account and its associated application records.
@@ -109,12 +112,16 @@ export default function DeleteAccountPage() {
             autoComplete="off"
             className="mt-3 text-sm"
           />
+          {/* reserveLoadingText lays the label out in Button's wrapping row (E231): where the label's longest word
+              cannot sit beside the trash icon, a phone under 200% text, the icon goes above the label at its own 32px,
+              not squeezed beside it, and the button keeps its resting size while it says "Deleting…". */}
           <Button
             variant="destructive"
             onClick={() => deleteMutation.mutate()}
             disabled={!canDelete}
             loading={deleteMutation.isPending}
             loadingText="Deleting…"
+            reserveLoadingText="Deleting…"
             leftIcon={<TrashIcon className="h-4 w-4" />}
             className="mt-4"
           >
