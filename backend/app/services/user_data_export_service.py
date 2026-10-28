@@ -3,11 +3,12 @@
 Read-only: the caller logs the export, writes the ``data_exported`` audit row and builds the
 download response, so a failure here leaves nothing behind.
 
-Every timestamp in the payload is one representation (F19): the instant in UTC, ISO 8601 with a ``Z``
-suffix and its microseconds when it has any (``2026-07-06T10:52:35.123456Z``), or ``null`` where the
+Every timestamp column the export reads is written one way (F19): the instant in UTC, ISO 8601 with a
+``Z`` suffix and its microseconds when it has any (``2026-07-06T10:52:35.123456Z``), or ``null`` where the
 column holds none. ``_utc`` makes it from whatever the database hands back: SQLite reads a value naive,
-PostgreSQL reads an aware column in the session's time zone, and a legacy column that a later model
-change made aware can still be naive in an older database; a naive value is UTC, as every writer stores it.
+PostgreSQL reads an aware column in the session's time zone, and a naive value is taken as UTC, as every
+writer stores it, should any column read naive. Stored JSON (a section review's ``labels`` and frozen
+``receipt``) is exported as written, its dates in the format they were frozen in.
 """
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
