@@ -116,7 +116,6 @@ const NOT_MESSAGES: Record<string, string> = {
   'lib/api/client.ts includes ECONNREFUSED': "axios's own error code, not the backend's",
   'lib/api/client.ts includes timeout': "axios's own error message, not the backend's",
   'features/summaries/hooks/useSummaryGeneration.ts includes timeout': "axios's own error message (\"timeout of …ms exceeded\"), not the backend's: the test lib/api/client.ts makes",
-  'features/analysis/components/DataNotes.tsx search : |\\. ': "no word is matched: the data notes' summary line cuts a note's message at its first clause, \": \" or \". \", and shows a message with neither whole; nothing is routed on it (D-061)",
 }
 
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
