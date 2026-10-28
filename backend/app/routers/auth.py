@@ -1450,8 +1450,11 @@ async def logout(
             _clear_auth_cookie(incomplete)
             _clear_refresh_cookie(incomplete)
             return incomplete
-        # The revoke committed and a step after it raised (the audit write, the release): the session ended, so this
-        # is a logout that succeeded and answers as one. The audit row is whatever that step left.
+        # The revoke committed and something after it raised: the session ended, so this is a logout that succeeded
+        # and answers as one. Neither step after the commit lets its own failure out: create_audit_log catches it,
+        # logs it, rolls back and returns None, and the release logs a failed close. So this is reached only if that
+        # rollback itself raises, or when a step is made to raise, as test_logout_failure_clears_cookies.py makes
+        # each in turn; the audit row is whatever that step left.
         logger.exception("Logout ended the session, but a step after the revoke's commit failed")
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)

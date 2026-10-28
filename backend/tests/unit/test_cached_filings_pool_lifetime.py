@@ -1252,6 +1252,83 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
         engine.dispose()
 
 
+@pytest.mark.asyncio
+async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The change's second unit releases its session after the mint's commit. A close that fails there must be
+    logged, not raised: the new password, the revocation of every other session and this device's new token
+    have committed, so a 500 would sign the reader out everywhere, this device included, and a retry with the
+    password they had would be refused as wrong. No transaction is open after that commit, so no dropped
+    connection can fail this close as one fails the refresh's above; the second close raises instead, once its
+    own close has run, and the route answers with the new session's cookie."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'change-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    at_close: list[bool] = []
+
+    class FailingSecondClose(Session):
+        """Records, at each close, whether the session held a transaction; the second close, the change
+        unit's release after the mint's commit, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 2:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingSecondClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (current, "the stored hash"))
+    monkeypatch.setattr(auth, "get_password_hash", lambda plain: f"the hash of {plain}")
+    token = auth.create_access_token({"sub": "failed-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.post(
+                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+            )
+        assert response.status_code == 200 and response.json() == {"message": "Password updated."}
+        # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.
+        assert at_close == [True, False, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            stored = db.query(User.hashed_password).scalar()
+            original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
+        assert stored == f"the hash of {new}"
+        assert original.revoked_at is not None and replacement.revoked_at is None
+        assert refresh_token_service._hash_token(
+            response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
 _WATCHLIST_STATUS = {
     "add_missing": 404, "add_duplicate": 400, "remove_missing": 404, "remove_unwatched": 404,
     "enable_capped": 403, "enable_unresolvable": 404,

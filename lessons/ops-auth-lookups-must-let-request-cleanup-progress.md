@@ -48,8 +48,8 @@ and returns the checked-out connection. For the Copilot, `stream_chat_with_tools
 `backend/app/services/copilot_service.py` awaits `_resolve_answer`, whose claim repair calls
 `run_tool`, the same way. `backend/tests/unit/test_copilot_pool_progress.py` drives the real
 answer path through both lookups against a one-slot QueuePool, with a holder that needs only the
-loop and a holder shaped like a password change that needs the (one-thread) default executor. Running
-the lookups through `asyncio.to_thread` instead fails the change-shaped cases. The companyfacts sync's first
+loop and a holder shaped like a register that validates an invite, which needs the (one-thread) default
+executor. Running the lookups through `asyncio.to_thread` instead fails the cases with that holder. The companyfacts sync's first
 off-loop draft (E129, 2026-10-19) ran its units through `asyncio.to_thread`, the shape this lesson had
 already ruled out, and passed its own tests: `backend/tests/unit/test_companyfacts_sync_off_the_loop.py`
 now holds the sync to its own threads and runs it against a one-slot pool whose holder needs the

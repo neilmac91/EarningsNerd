@@ -401,10 +401,13 @@ def test_reset_password_rejects_unknown_and_expired_links(client, mail):
 @pytest.mark.requires_db
 def test_a_reset_whose_account_was_deleted_while_it_hashed_is_refused(client, mail, monkeypatch):
     """The reset reads its link's account, releases its session, hashes, then reads the account again by its
-    id (E121): an account deleted meanwhile answers the link's 400, as a read after the deletion would, and
-    nothing is written. When the route kept the account it read, its commit matched no row and raised."""
+    id under its lock (E121): an account deleted meanwhile answers the link's 400, as a read after the deletion
+    would, with no cookie, and the account stays deleted with its session. When the route kept the account it
+    read, its commit matched no row and raised."""
     email, _ = _register(client, mail)
     user_id = _user(email).id
+    assert _login(client, email).status_code == 200  # a live session, which the deletion takes with it
+    client.cookies.clear()
     client.post("/api/auth/forgot-password", json={"email": email})
     token = _token(mail.reset, "reset_link")
     real_hash = auth_module.get_password_hash
@@ -419,8 +422,10 @@ def test_a_reset_whose_account_was_deleted_while_it_hashed_is_refused(client, ma
     monkeypatch.setattr(auth_module, "get_password_hash", hash_then_delete)
     resp = client.post("/api/auth/reset-password", json={"token": token, "new_password": NEW_PASSWORD})
     assert resp.status_code == 400 and resp.json() == {"detail": "Invalid or expired reset link."}
+    assert _cookies(resp) == []
     with SessionLocal() as db:
-        assert db.query(User).filter(User.email == email).first() is None
+        assert db.query(User).filter(User.email == email).count() == 0
+        assert db.query(RefreshToken).filter(RefreshToken.user_id == user_id).count() == 0
 
 
 # ── reverse trial on verification ─────────────────────────────────────────────
