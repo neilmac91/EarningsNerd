@@ -39,13 +39,14 @@ export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?
 }
 
 /**
- * The password login. Its answer sets the new session's cookies, so no silent refresh of any tab runs beside it
- * (E29 (4), client.ts's withoutRefreshBeside): this tab's refresh in flight answers first, or is cancelled at
+ * The password login. Its answer sets the new session's cookies, so no silent refresh of any tab runs beside it (E29
+ * (4), client.ts's withoutRefreshBeside): this tab's refresh in flight answers first, or is cancelled at
  * LOGIN_REFRESH_WAIT_MS, then the refreshes queued for the session cookies' lock before the login's request, in any
  * tab, within what is left of it; a refresh a 401 asks for in this tab meanwhile, or in another tab after the login's
  * request, waits for the login's answer. The login holds the lock shared, so a logout in another tab posts beside it,
- * as on main. At the limit it posts without the lock: a refresh another tab has in flight, which cannot be cancelled
- * from here, can answer after it, and any refresh still waiting for the lock may go out beside it.
+ * as on main, unless a refresh is queued between them (requests are granted in order). At the limit it posts without
+ * the lock: a refresh another tab has in flight, which cannot be cancelled from here, can answer after it, and any
+ * refresh still waiting for the lock may go out beside it.
  */
 export const login = async (email: string, password: string, turnstileToken?: string) => {
   const generation = getExplicitSessionGeneration()
@@ -124,22 +125,27 @@ export const unlinkProvider = async (provider: string) => {
 
 /**
  * How long a logout waits, at most, for the silent refreshes in flight to answer before it posts: this tab's, then the
- * ones queued for the session cookies' lock before its request, in any tab, within what is left. Before a logout
- * posts: start no new silent refresh, and let every refresh already on its way answer first. A refresh's answer sets
- * the session cookies, and one that lands after the logout's answer sets them again, the access token among them,
- * which nothing revokes: the browser would stay signed in until it expires (E133).
+ * ones queued for the session cookies' lock before its request, in any tab, within what is left. Before a logout posts:
+ * start no new silent refresh, and let every refresh already on its way answer first. A refresh's answer sets the
+ * session cookies, and one that lands after the logout's answer sets them again, the access token among them, which
+ * nothing revokes: the browser would stay signed in until it expires (E133).
  *
  * Each logout calls `beginLogout` first: until its `endLogout`, the session reads as inactive in this tab, so no 401
  * starts a refresh (every refresh path needs the flag) and a /me a refresh replays cannot mark it active again. Its
  * post then goes through client.ts's `withSessionCookiesForPost`: this tab's refresh in flight answers, or is cancelled
- * at the limit (`refreshSettled`), then the refreshes queued before its request answer under the session cookies'
- * lock, one at a time, and those any tab asks for after its request wait for its answer. It holds the lock shared, so
- * it waits for no other tab's login or logout, as on main. The check that no login was accepted in this tab meanwhile
- * runs in the post's send, after both waits, so it shares a turn with the post. What this leaves open: at the limit, a
- * refresh another tab has in flight, which cannot be cancelled from here, can set the cookies again after the logout's
- * answer, and any refresh still waiting for the lock may go out beside it; a refresh another tab asks for while a login
- * in a third is out, queued between that login and this logout, makes the logout wait for the login, and post with its
- * cookies; and where the browser has no lock manager, any other tab's refresh can set them again.
+ * at the limit (`refreshSettled`), then the refreshes queued before its request answer under the session cookies' lock,
+ * one at a time, and those any tab asks for after its request wait for its answer. It holds the lock shared, so it
+ * waits for no other tab's login or logout, as on main, unless a refresh is queued between them (requests are granted
+ * in order). The check that no login was accepted in this tab meanwhile runs in the post's send, after both waits, so
+ * it shares a turn with the post. What this leaves open: at the limit, a refresh another tab has in flight, which
+ * cannot be cancelled from here, can set the cookies again after the logout's answer, and any refresh still waiting for
+ * the lock may go out beside it. A refresh queued between another tab's login and this logout makes the logout wait for
+ * that login, then post with its cookies: given a login, a refresh asked for while it is out, and a logout pressed
+ * after that refresh, all within one post's time. Two tabs are enough: this tab's own refresh, asked for by a 401 while
+ * the other tab's login is out, queues behind that login, and this logout's refreshSettled waits on it. A refresh that
+ * waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; and where the browser has no lock manager,
+ * or refuses the lock, the logout posts once this tab's refresh has settled, as before, and any other tab's refresh can
+ * set the cookies again after its answer.
  */
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 // How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout

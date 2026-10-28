@@ -144,9 +144,10 @@ let loginInFlight: Promise<void> | null = null
 // queued after it waits for it, so refreshes go out one at a time, each with the cookies the one before it set. A
 // password login, a logout and a logout of every session hold it shared around their post (withSessionCookiesForPost):
 // each waits for the refreshes queued before it and holds back those queued after it, but posts in two tabs do not wait
-// for each other, as on main, where they race as the reader's own actions. A browser with no lock manager (an older
-// browser, a non-secure context; jsdom) runs each tab alone, as before. Locks are per origin: tabs of two origins under
-// the cookie domain (the apex and www) share the cookies but no lock, as they share no session marker either.
+// for each other, as on main, where they race as the reader's own actions, unless a refresh is queued between them
+// (requests are granted in order). A browser with no lock manager (an older browser, a non-secure context; jsdom) runs
+// each tab alone, as before. Locks are per origin: tabs of two origins under the cookie domain (the apex and www) share
+// the cookies but no lock, as they share no session marker either.
 const SESSION_COOKIES_LOCK = 'earningsnerd-session-cookies'
 const sessionCookieLocks = (): LockManager | undefined =>
   (typeof navigator === 'undefined' ? undefined : navigator.locks)
@@ -156,9 +157,13 @@ const sessionCookieLocks = (): LockManager | undefined =>
  * login's or a logout's post queued ahead of it can keep it waiting. Such a post may first wait its own budget for the
  * refreshes before it (LOGIN_REFRESH_WAIT_MS and LOGOUT_REFRESH_WAIT_MS in features/auth/api/auth-api.ts, 10 s each),
  * then hold the lock for its whole request, which `api` times out at REQUEST_TIMEOUT_MS (30 s): 40 s in all, which
- * sessionCookiesAcrossTabs.spec.ts holds against both. A shorter bound would send a refresh beside a slow post, the
- * race the lock closes; with none, one hung refresh in another tab (the refresh has no timeout of its own,
- * lib/api/refresh.ts) would stall every tab's for good.
+ * sessionCookiesAcrossTabs.spec.ts holds against both. It is exactly their sum, with no slack: at the extreme a refresh
+ * queued behind such a post gives up a task before that post's own timeout fires, which is harmless, since the post is
+ * timing out. It covers the posts as their call sites make them, each with its wait constant and `api`'s timeout: a
+ * call site that passed a longer limit, or gave one request a longer timeout, would fall outside it, which the constants'
+ * check does not see (planted as gaps in loginWaitsForRefresh.spec.ts). A shorter bound would send a refresh beside a
+ * slow post, the race the lock closes; with none, one hung refresh in another tab (the refresh has no timeout of its
+ * own, lib/api/refresh.ts) would stall every tab's for good.
  */
 export const REFRESH_LOCK_WAIT_MS = 10_000 + REQUEST_TIMEOUT_MS
 
@@ -259,19 +264,20 @@ export function refreshSettled(limitMs: number): Promise<void> {
  * is cancelled at `limitMs` (refreshSettled); then `send` runs holding the session cookies' lock shared, so it waits
  * for the refreshes queued for the lock before its own request, in any tab, one at a time, a refresh another tab asks
  * for while this tab's own settles among them, and those asked for after its request wait for its answer (bounded by
- * REQUEST_TIMEOUT_MS), then go out with whatever cookies are current. Shared, it waits for no other post: a login in
- * one tab and a logout in another post side by side, as on main. The lock wait gets what is left of `limitMs`, not a
- * second one, and at the limit `send` runs without the lock. What this leaves open: at the limit, a refresh another tab
- * has in flight, which cannot be cancelled from here, can answer after `send`'s answer and set the cookies it was sent
- * with, and any refresh still waiting for the lock, queued before this request or after it, may go out beside it. Posts
- * in two tabs wait for each other only through a refresh queued between them, since requests are granted in order:
- * given a login, a refresh asked for while it is out, and a logout pressed after that refresh, all within one post's
- * time, the logout posts after the login has answered, with its cookies. A refresh that waited past
- * REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; and where the browser has no lock manager, or refuses
- * the lock, `send` runs once this tab's refresh has settled, as before, and any other tab's refresh can answer after
- * it. A check that must share a turn with the request (a logout's explicit generation) goes in `send`, after both
- * waits. `send` must be a request whose own 401 starts no refresh (NO_REFRESH_PATHS): a refresh asked for under the
- * hold would wait for the lock its own caller holds.
+ * REQUEST_TIMEOUT_MS), then go out with whatever cookies are current. Shared, it waits for no other post unless a
+ * refresh is queued between them (requests are granted in order, below): a login in one tab and a logout in another
+ * post side by side, as on main. The lock wait gets what is left of `limitMs`, not a second one, and at the limit
+ * `send` runs without the lock. What this leaves open: at the limit, a refresh another tab has in flight, which cannot
+ * be cancelled from here, can answer after `send`'s answer and set the cookies it was sent with, and any refresh still
+ * waiting for the lock, queued before this request or after it, may go out beside it. Posts in two tabs wait for each
+ * other only through a refresh queued between them, since requests are granted in order: given a login, a refresh asked
+ * for while it is out (the logout's own tab's among them, which its refreshSettled waits on), and a logout pressed
+ * after that refresh, all within one post's time, the logout posts after the login has answered, with its cookies. A
+ * refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; and where the browser has no
+ * lock manager, or refuses the lock, `send` runs once this tab's refresh has settled, as before, and any other tab's
+ * refresh can answer after it. A check that must share a turn with the request (a logout's explicit generation) goes in
+ * `send`, after both waits. `send` must be a request whose own 401 starts no refresh (NO_REFRESH_PATHS): a refresh
+ * asked for under the hold would wait for the lock its own caller holds.
  */
 export function withSessionCookiesForPost<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
   const locks = sessionCookieLocks()
@@ -311,7 +317,9 @@ export function withSessionCookiesForPost<T>(limitMs: number, send: () => Promis
  * it asked for would wait on the login it belongs to, which would never answer, and every later refresh with it. One
  * login at a time (the login form's busy guard): a later login that answers first clears the gate while an earlier one
  * is still out. What this leaves open is withSessionCookiesForPost's: at the limit, another tab's refresh, in flight or
- * still waiting for the lock, and a logout another tab presses behind a refresh queued while the login is out.
+ * still waiting for the lock; a logout another tab presses behind a refresh queued while the login is out; a refresh
+ * that waited past REFRESH_LOCK_WAIT_MS; and, where the browser has no lock manager or refuses the lock, any other
+ * tab's refresh.
  */
 export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
   const sent = withSessionCookiesForPost(limitMs, send)

@@ -8,23 +8,24 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * the login's (the browser is that account while the tab shows the new one), one that answers after another tab's
  * logout signs the browser in again, and two refreshes sent at once carry the one refresh cookie, so the second
  * presents the token the first rotated away and meets the replay sweep, which ends every session of the account (E96).
- * Each silent refresh holds the session cookies' Web Lock exclusive, and a login, a logout and a logout of every session
- * hold it shared around their post (lib/api/client.ts), requests granted in the order made: refreshes go out one at a
- * time, a post waits for the refreshes queued before it, within the one wait it already had, and the refreshes queued
- * after it wait for its answer, then go out with the cookies then current, while posts in two tabs do not wait for each
- * other, as on main. At its limit a post goes out without the lock, and a refresh still unanswered can answer after it:
- * no tab can cancel another's. A refresh waits at most REFRESH_LOCK_WAIT_MS, as long as a post ahead of it can keep it
- * waiting, and goes out without the lock when the browser refuses it.
+ * Each silent refresh holds the session cookies' Web Lock exclusive, and a login, a logout and a logout of every
+ * session hold it shared around their post (lib/api/client.ts), requests granted in the order made: refreshes go out
+ * one at a time, a post waits for the refreshes queued before it, within the one wait it already had, and the refreshes
+ * queued after it wait for its answer, then go out with the cookies then current, while posts in two tabs do not wait
+ * for each other, as on main, unless a refresh is queued between them (requests are granted in order). At its limit a
+ * post goes out without the lock, and a refresh still unanswered can answer after it: no tab can cancel another's. A
+ * refresh waits at most REFRESH_LOCK_WAIT_MS, as long as a post ahead of it can keep it waiting, and goes out without
+ * the lock when the browser refuses it.
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
  * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
- * (FakeLockManager), localStorage (the session marker) and the session cookies, modelled for two
- * accounts as loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a
- * refresh's answer sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears
- * them. The API answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay
- * that ends every session of its account, and anything else is refused; a logout revokes its session's live token,
- * whichever of its tokens it carries. X is the account signed in before; its access token has expired. jsdom has no
- * lock manager of its own, so every other spec runs each tab alone, as an older browser does.
+ * (FakeLockManager), localStorage (the session marker) and the session cookies, modelled for two accounts as
+ * loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a refresh's answer
+ * sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears them. The API
+ * answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay that ends
+ * every session of its account, and anything else is refused; a logout revokes its session's live token, whichever of
+ * its tokens it carries. X is the account signed in before; its access token has expired. jsdom has no lock manager of
+ * its own, so every other spec runs each tab alone, as an older browser does.
  */
 
 type LockMode = 'shared' | 'exclusive'
@@ -34,16 +35,16 @@ interface Waiting { mode: LockMode; grant: () => void }
 
 /**
  * A LockManager with the Web Locks semantics the client relies on, for each name: requests are granted in the order
- * they are made, a shared one while no exclusive lock is held, an exclusive one while no lock is held, and none ahead of
- * a request queued before it, so a later shared request waits behind a waiting exclusive one and exclusive ones are
+ * they are made, a shared one while no exclusive lock is held, an exclusive one while no lock is held, and none ahead
+ * of a request queued before it, so a later shared request waits behind a waiting exclusive one and exclusive ones are
  * granted one at a time. The callback runs once granted, never in the request's own turn, and the lock is held until
  * what it returns settles; the request's promise settles with that outcome only once the lock is released. A request
  * whose signal aborts while it waits leaves the queue and rejects with the signal's reason, its callback never run; one
  * made with an aborted signal rejects at once. It refuses, before granting anything, what a browser refuses: a name
  * that starts with '-', steal with ifAvailable or a shared mode, and a signal with steal or ifAvailable
  * (NotSupportedError), and every request while `refusing` is set, as a browser answers an origin whose site data is
- * blocked (SecurityError). ifAvailable calls back with no lock when it cannot be granted at once; steal is not modelled.
- * A browser grants a lock in a later task, here a microtask: nothing in the client relies on how soon.
+ * blocked (SecurityError). ifAvailable calls back with no lock when it cannot be granted at once; steal is not
+ * modelled. A browser grants a lock in a later task, here a microtask: nothing in the client relies on how soon.
  */
 class FakeLockManager {
   refusing: DOMException | undefined
@@ -606,6 +607,30 @@ describe.each([
     loginAnswer.resolve('took')
     await Promise.all([signingIn, loggingOut])
     expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("posts with the cookies of another tab's login when its own tab's refresh, queued behind that login, held it back (the gap the code states)", async () => {
+    const loginAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+    await settle()
+    // Tab A still shows X, whose access token has expired: a read's 401 asks for a refresh, which queues behind the login.
+    const reading = tabA.client.default.get('/api/watchlist/').catch((error: unknown) => error)
+    await settle()
+    // The reader presses Log out in tab A before the login answers: its refreshSettled waits on that refresh.
+    const loggingOut = tabA.auth[method]()
+    await settle()
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', 'A reads /api/watchlist/ as X'])
+
+    loginAnswer.resolve('took')
+    await Promise.all([signingIn, loggingOut, reading])
+    // The refresh goes out after the login's answer, with its cookies, and the logout after the refresh, with them too:
+    // Y's session ends, two tabs being enough.
+    expect(browser.events.filter((event) => !event.includes(' reads '))).toEqual([
+      'B posts /api/auth/login as X', "B's /api/auth/login answered", "A's refresh sent with Y", "A's refresh answered for Y",
+      `A posts ${path} as Y`, `A's ${path} answered`,
+    ])
+    expect(browser.server.Y.revoked).toBe(true)
   })
 })
 

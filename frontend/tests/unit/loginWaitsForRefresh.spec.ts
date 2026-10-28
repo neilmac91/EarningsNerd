@@ -382,9 +382,10 @@ describe('a refresh asked for while a login is under way', () => {
  * of refreshAccessToken are read too (its name resolves to the declaration there, not to an import), so a keep-alive
  * inside it that calls refreshAccessToken is refused. Out of its reach (planted as gaps): a path or a hold's name
  * assembled at run time; a send that returns a call of an async local helper which posts without returning the post;
- * another request one of the four sends makes before its own; a hold whose own body takes no lock; and, inside
- * refreshAccessToken itself, a second post of its own path (a timer it sets there), which reads as the one path where
- * it stands.
+ * another request one of the four sends makes before its own; a call site that passes its own limit, or a request given
+ * its own timeout, which the refresh's bound does not allow for (sessionCookiesAcrossTabs.spec.ts's constants check
+ * covers the constants, not the calls); a hold whose own body takes no lock; and, inside refreshAccessToken itself, a
+ * second post of its own path (a timer it sets there), which reads as the one path where it stands.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/
@@ -753,6 +754,10 @@ const HOLD_FORMS: { form: string; source: string; file: string; sites: string[];
   { form: 'its name as a string key', file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => client['withSessionCookiesForPost'](1, async () => undefined)\n`, sites: [`string ${POST_HOLD} in go`], flag: true },
   { form: 'declared again in another module', file: 'features/fixture.ts', source: 'export function withSessionCookiesForRefresh() { return undefined }\n', sites: [`declaration of ${REFRESH_HOLD}`], flag: true },
   // Out of its reach.
+  { form: 'a call site passing its own limit, longer than the refresh\'s bound allows for', file: AUTH_API, source: `${API}${POST_IMPORT}export const logoutAllSessions = async () => withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => api.post('/api/auth/logout-all'))\n`
+    + "export const logout = async () => withSessionCookiesForPost(60_000, async () => api.post('/api/auth/logout'))\n", sites: HOLD_SITES[AUTH_API], flag: false, gap: true },
+  { form: 'one request given its own timeout, longer than the refresh\'s bound allows for', file: AUTH_API, source: `${API}${POST_IMPORT}export const logoutAllSessions = async () => withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => api.post('/api/auth/logout-all', undefined, { timeout: 120_000 }))\n`
+    + "export const logout = async () => withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => api.post('/api/auth/logout'))\n", sites: HOLD_SITES[AUTH_API], flag: false, gap: true },
   { form: "the hold's name assembled at run time", file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => (client as unknown as Record<string, (ms: number, send: () => Promise<void>) => unknown>)['withSessionCookies' + 'ForPost'](1, async () => undefined)\n`, sites: [], flag: false, gap: true },
 ]
 
