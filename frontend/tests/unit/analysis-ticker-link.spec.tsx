@@ -184,6 +184,35 @@ describe('/analysis?ticker= preselects a resolved company and never runs', () =>
     expect(screen.queryByRole('button', { name: 'Run analysis' })).not.toBeInTheDocument()
   })
 
+  it('shows a first-touch history fetch as activity, the words in the ink beside one sage pulse dot, until the periods land', async () => {
+    let synced = false
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url === '/api/companies/AAPL') return { data: COMPANIES.AAPL }
+      if (url === '/api/analysis/AAPL/coverage') {
+        return { data: synced ? coverageFor('AAPL') : { ...coverageFor('AAPL'), syncing: true, annual: [], quarterly: [] } }
+      }
+      throw Object.assign(new Error('Not found'), { status: 404 })
+    })
+    const { client } = mount('?ticker=AAPL', undefined, false)
+    const words = await screen.findByText("Fetching AAPL's full SEC reporting history. The first load takes a few seconds.")
+    // A status line in the secondary ink (the census in statusTintResidue.spec.ts keeps it from being an info
+    // Notice), with the Ask answer's one pulse dot, sage in both themes and hidden from assistive tech.
+    const line = words.closest('[role="status"]') as HTMLElement
+    expect(line).toHaveClass('text-text-secondary-light', 'dark:text-text-secondary-dark')
+    const dots = line.querySelectorAll('.animate-pulse')
+    expect(dots).toHaveLength(1)
+    expect(dots[0]).toHaveClass('bg-brand-strong', 'dark:bg-brand-strong-dark')
+    expect(dots[0].closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(screen.queryByRole('button', { name: 'Run analysis' })).not.toBeInTheDocument()
+    // The poll's next read lands the periods: the line gives way to the picker.
+    synced = true
+    await act(async () => { await client.invalidateQueries({ queryKey: queryKeys.analysisCoverage('AAPL') }) })
+    expect(await screen.findByRole('button', { name: 'Run analysis' })).toBeInTheDocument()
+    expect(screen.queryByText(/full SEC reporting history/)).not.toBeInTheDocument()
+    expect(post).not.toHaveBeenCalled()
+    expect(global.fetch).not.toHaveBeenCalled()
+  })
+
   it('recovers coverage in place without losing retry focus or starting a paid run', async () => {
     const user = userEvent.setup()
     mount('?ticker=AAPL', undefined, false)

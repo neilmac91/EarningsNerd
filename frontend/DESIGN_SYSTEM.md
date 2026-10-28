@@ -1314,8 +1314,9 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  progress indicator in sage with its words in the ink, as the generating card's live-status
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
-                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Ask answer); one
-                 remains, AnalysisPageClient's history fetch (E196). Gate: tests/unit/statusTintResidue.spec.ts
+                 2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
+                 analysis page's history fetch, whose pulse dot keeps to its first line when the words wrap
+                 (an info Notice until E196 (2)). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info

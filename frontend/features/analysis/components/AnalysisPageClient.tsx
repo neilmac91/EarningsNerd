@@ -394,11 +394,18 @@ export default function AnalysisPageClient() {
                 <span className="sr-only">Loading…</span>
               </div>
             ) : coverage?.syncing ? (
-              !coverageFailure.failed &&
-              <Notice
-                variant="info"
-                title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-              />
+              // The history fetch is activity, never a Notice: the Ask answer's line (DESIGN_SYSTEM.md §4 › Inline
+              // notice), its one sage pulse dot held to the first line when the words wrap.
+              !coverageFailure.failed && (
+                <p role="status" className="flex items-start gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  <span aria-hidden="true" className="flex h-5 flex-none items-center">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
+                  </span>
+                </p>
+              )
             ) : unsupported ? (
               <Notice
                 variant="info"

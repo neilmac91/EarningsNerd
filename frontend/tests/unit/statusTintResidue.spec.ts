@@ -227,11 +227,11 @@ const INFO_NOTICES: Record<string, number> = {
   'app/pricing/page.tsx': 2, // "You returned from checkout": a result; "New subscriptions are currently unavailable": a mode
   'features/legal/components/CollectionGate.tsx': 1, // collection unavailable: a mode
   'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
-  'features/analysis/components/AnalysisPageClient.tsx': 4, // an unsupported filer (a state); the signed-out guidance, the Pro upsell and the history fetch (activity) wait on E196 (2)
+  'features/analysis/components/AnalysisPageClient.tsx': 3, // an unsupported filer (a state); the signed-out guidance and the Pro upsell wait on E196 (2)
   'features/auth/components/RegisterForm.tsx': 1, // the private-beta guidance waits on E196 (2)
   'features/calendar/components/DayDetailDialog.tsx': 1, // "Market closed for {holiday}": a state of the day (E196 (3))
 }
-const INFO_NOTICES_MAX = { files: 7, uses: 12 }
+const INFO_NOTICES_MAX = { files: 7, uses: 11 }
 
 /** Notice's tint lent by noticeTint(variant) outside components/ui, per file and variant at its count: a surface of
     another shape that states what a Notice states (DESIGN_SYSTEM.md §4 › Inline notice). A new borrower is added here
