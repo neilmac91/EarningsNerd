@@ -16,7 +16,7 @@ One rule, three parts in this one module:
   and a failing write included, which hold none while they hash or wait for the breached-password
   check; the connections list and unlink, their refusals and a failing unlink included, but for an
   unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
-  OAuth starts, which save their state there), each
+  OAuth starts, which save their state in the thread pool), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1484,7 +1484,9 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
         urls = [response.headers["location"] if method == "GET" else response.json()["url"] for response in responses]
         assert all(url.startswith(consent) for url in urls)
         states = [parse_qs(urlparse(url).query)["state"][0] for url in urls]
-        assert all(response.cookies.get(cookie) for response in responses)
+        # Each answer's cookie binds its own state: Google's carries it, Apple's its HMAC.
+        bind = auth._apple_state_cookie_value if cookie == "apple_oauth_state" else str
+        assert [response.cookies.get(cookie) for response in responses] == [bind(state) for state in states]
         with sessions() as db:
             assert sorted(row.state for row in db.query(OAuthState)) == sorted(states)
         assert len(set(states)) == 9
@@ -4443,8 +4445,8 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # and ``_start_apple``, which put the state write in the thread pool themselves (since #1547), until
 # E121 had each start hand its session to ``run_in_threadpool`` itself.
 # ``admin_account_service.create_free_account``, a refusal, took the session until E171's invite slice
-# dropped it.
-# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one: it reads
+# dropped it. No hand-off left on main is such a strict over-count.
+# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one either: it reads
 # ``user.email``, which the mint's commit expired, so it refreshes the user through the request
 # session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a

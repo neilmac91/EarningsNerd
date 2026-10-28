@@ -363,8 +363,8 @@ routes) or, since 2026-10-24, the session handed there to any call but a thread 
 dashboard feed's unit composed on the loop, a route no burst lists, it fails while main's file
 passed), a `with` it enters there, or a call there of a nested unit whose body, read by the same
 rules, uses it. Its ceilings hold the routes that still use their session on the loop at
-their counts (the rest of the auth router, E121, since E171's last route left on 2026-10-25; four of those
-hand-offs, the header's strict ones, use no connection on the loop), so none can add one in a
+their counts (the rest of the auth router, E121, since E171's last route left on 2026-10-25; every count
+left is real on-loop work since E121's OAuth starts family removed the four strict hand-offs), so none can add one in a
 form the ratchet counts and a new route starts at 0. Neither half
 sees a form the ratchet's header puts out of its reach (a session inside a container, a lambda called
 where it is written) where the burst does not list the route, or a background task's own session worked on the loop

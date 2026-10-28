@@ -1058,11 +1058,12 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-def _google_consent(request: Request) -> tuple[str, str]:
-    """Rate limit, then mint a state and build Google's consent URL for it. Returns ``(url, state)``.
-    The route saves the state (``oauth_account_service.save_google_state``, with the invite's hash
-    when the invite is live) in the thread pool before it answers, then sets the state cookie: it
-    hands its session to the thread pool itself, and to nothing on the event loop (E121)."""
+def _google_authorize_url(request: Request) -> tuple[str, str]:
+    """Answer 503 when Google is not configured, rate limit, then mint a state and build Google's
+    consent URL for it. Returns ``(url, state)``. The route saves the state
+    (``oauth_account_service.save_google_state``, with the invite's hash when the invite is live) in
+    the thread pool before it answers, then sets the state cookie: it hands its session to the thread
+    pool itself, and to nothing on the event loop (E121)."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Google is not available.")
     enforce_rate_limit(
@@ -1096,7 +1097,7 @@ async def google_login(request: Request, db: Session = Depends(get_db)):
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
     token never appears in a request URL (request logs record query strings).
     """
-    url, state = _google_consent(request)
+    url, state = _google_authorize_url(request)
     # Plain login consumes its state too, but needs no signup evidence for an existing account.
     await run_in_threadpool(oauth_account_service.save_google_state, db, state, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
@@ -1115,7 +1116,7 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state = _google_consent(request)
+    url, state = _google_authorize_url(request)
     # Signup assent and any live invite are bound to this single-use state.
     await run_in_threadpool(oauth_account_service.save_google_state, db, state, body.invite, agreement)
     response = JSONResponse({"url": url})
@@ -1227,12 +1228,12 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-def _apple_consent(request: Request) -> tuple[str, str, str]:
-    """Rate limit, then mint a state and a nonce and build Apple's consent URL for them. Returns
-    ``(url, state, raw_nonce)``. The route saves the nonce row (``oauth_account_service.save_apple_state``,
-    with the invite's hash when the invite is live) in the thread pool, committed before it returns the
-    URL and sets the browser-binding cookie: it hands its session to the thread pool itself, and to
-    nothing on the event loop (E121)."""
+def _apple_authorize_url(request: Request) -> tuple[str, str, str]:
+    """Answer 503 when Apple is not configured, rate limit, then mint a state and a nonce and build
+    Apple's consent URL for them. Returns ``(url, state, raw_nonce)``. The route saves the nonce row
+    (``oauth_account_service.save_apple_state``, with the invite's hash when the invite is live) in the
+    thread pool, committed before it returns the URL and sets the browser-binding cookie: it hands its
+    session to the thread pool itself, and to nothing on the event loop (E121)."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Apple is not available.")
     enforce_rate_limit(
@@ -1272,7 +1273,7 @@ def _set_apple_state_cookie(response: Response, state: str) -> None:
 async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
-    url, state, raw_nonce = _apple_consent(request)
+    url, state, raw_nonce = _apple_authorize_url(request)
     await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
@@ -1286,7 +1287,7 @@ async def apple_start(body: OAuthStartRequest, request: Request, db: Session = D
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state, raw_nonce = _apple_consent(request)
+    url, state, raw_nonce = _apple_authorize_url(request)
     await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
