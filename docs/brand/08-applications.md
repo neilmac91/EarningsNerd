@@ -670,15 +670,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
-  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
-  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  error is an error Notice titled "Search did not load", its message the backend's own detail, or the
+  surface's advice ("Try again in a minute.") when the body carried none, a bodiless 503 or 413
+  included (E196 (3)). The description no
   longer promises every filing, and the title is in sentence case. At 200% text a row's company
   name wraps under its ticker in the primary ink (in both themes), each date and form code stays
   whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
   its value and its middot, is one run, so a line breaks between facts, and inside one only when it
-  alone is wider than the line; the error alert's
+  alone is wider than the line; the error Notice's
   glyph keeps its size, its message takes its column's whole width and breaks a long token, and
-  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
+  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the Notice
   (`full-text-search.spec.tsx`). The two date fields take the Input primitive's 14px text and shrink to their
   row: in the forms plugin's 1rem, with the blank room Chrome keeps in a date field for a six-digit year, each was
   312px in a 256px row at 320px under 200% text and the page scrolled to 344px (E81,

@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
  * account) and nothing else, and the primitives under components/ui (Notice, Badge, GuidanceCard, Input's error
  * tone) own them. A hand-rolled tint outside that folder is residue, and a Notice says which state it is at every
  * call site: Notice.variant has had no default since 2026-10-24, when the generating card's whimsy line was found
- * sitting in the blue `info` Notice it had kept for three months. Two gates, one file:
+ * sitting in the blue `info` Notice it had kept for three months. Three gates, one file:
  *
  *  1. STATUS TINT CENSUS. Every .ts/.tsx source under app, components, features, hooks and lib except components/ui
  *     is read through the TypeScript AST (a .css file is not read: app/globals.css holds no status tint and @apply is
@@ -39,6 +39,15 @@ import { describe, expect, it } from 'vitest'
  *     at the element or inside the literal) fail: a variable spread is unknowable, so it fails rather than being
  *     skipped, even beside a written variant. tsc requires the prop; this catches the spread and dynamic forms it
  *     cannot. Not read: a Notice reached through another module's re-export.
+ *
+ *  3. NOTICE TINT LENT BY NAME. Notice lends its tint to a surface of another shape that states what a Notice states
+ *     through noticeTint(variant) (components/ui/Notice.tsx): the Copilot's error bubble keeps the thread's tail in
+ *     the error tint. The call holds no tint class, so the census cannot see it. Every call under app, components,
+ *     features, hooks and lib but components/ui, read under the helper's name, a named-import alias, a namespace
+ *     import's member and a same-file const alias, writes its variant as one string literal and is listed in
+ *     TINT_BORROWED, per file and variant, at its count. A variable variant, a reference that is not a call (the
+ *     helper passed on or stored as a value, re-exported included) and an unlisted call fail. Not read: the helper
+ *     reached through another module's re-export.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -47,6 +56,8 @@ const TINT_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 const PRIMITIVES = 'components/ui/'
 const NOTICE_DIRS = ['app', 'components', 'features']
 const COMPONENT = 'Notice'
+/** Notice's tint, lent by name to a surface of another shape (components/ui/Notice.tsx). */
+const TINT_HELPER = 'noticeTint'
 const STATUS_TINT = /(?<![\w-])(?:bg|border(?:-[trblxyse])?|ring(?:-offset)?|from|to|via|divide|outline|shadow)-(?:info|success|warning|error)-(?:light|dark|text|emphasis)\b/g
 
 const RESIDUE: Record<string, number> = {
@@ -103,16 +114,16 @@ export function statusTintUses(source: string, fileName: string): number {
   return uses
 }
 
-/** The names a source renders the component under: its own, a named-import alias, a namespace import's member and
-    a same-file const alias of any of those, followed until no new alias appears (noticeTitlesAreOnePhrase.spec.ts). */
-function componentNames(sf: ts.SourceFile): Set<string> {
-  const names = new Set([COMPONENT])
+/** The names a source reads a component or helper under: its own, a named-import alias, a namespace import's member
+    and a same-file const alias of any of those, followed until no new alias appears (noticeTitlesAreOnePhrase.spec.ts). */
+function componentNames(sf: ts.SourceFile, component = COMPONENT): Set<string> {
+  const names = new Set([component])
   for (const statement of sf.statements) {
     const bindings = ts.isImportDeclaration(statement) ? statement.importClause?.namedBindings : undefined
     if (bindings && ts.isNamedImports(bindings)) {
-      for (const element of bindings.elements) if ((element.propertyName ?? element.name).text === COMPONENT) names.add(element.name.text)
+      for (const element of bindings.elements) if ((element.propertyName ?? element.name).text === component) names.add(element.name.text)
     }
-    if (bindings && ts.isNamespaceImport(bindings)) names.add(`${bindings.name.text}.${COMPONENT}`)
+    if (bindings && ts.isNamespaceImport(bindings)) names.add(`${bindings.name.text}.${component}`)
   }
   const aliases: Array<[string, string]> = []
   const collect = (node: ts.Node): void => {
@@ -182,6 +193,37 @@ export function noticeVariants(source: string, fileName: string): { notices: num
   return { notices, info, unwritten }
 }
 
+/** Every call of Notice's tint helper in one source, counted by its variant (`calls`), and each call whose variant is
+    not one string literal, or a reference to the helper that is not a call (passed on or stored as a value), as
+    `file:line why` (`unwritten`). An import, and a same-file const alias's own declaration, are not uses. */
+export function noticeTintCalls(source: string, fileName: string): { calls: Record<string, number>; unwritten: string[] } {
+  const sf = parse(source, fileName)
+  const names = componentNames(sf, TINT_HELPER)
+  const calls: Record<string, number> = {}
+  const unwritten: string[] = []
+  const at = (node: ts.Node) => `${fileName}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) return
+    if (ts.isCallExpression(node) && names.has(node.expression.getText(sf))) {
+      const [variant, ...rest] = node.arguments
+      if (variant !== undefined && ts.isStringLiteralLike(variant) && rest.length === 0) calls[variant.text] = (calls[variant.text] ?? 0) + 1
+      else unwritten.push(`${at(node)} ${node.expression.getText(sf)}(…) variant is not one string literal`)
+      node.arguments.forEach(visit)
+      return
+    }
+    if ((ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) && names.has(node.getText(sf))) {
+      const parent = node.parent
+      if (!(ts.isVariableDeclaration(parent) && (parent.name === node || parent.initializer === node))) {
+        unwritten.push(`${at(node)} ${node.getText(sf)} is read as a value, not called`)
+      }
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return { calls, unwritten }
+}
+
 /** The `info` Notices on 2026-10-24, per file at their count: each a state (a result, a limit, a mode) or an item
     that retires it. A new info Notice is added here on purpose, reviewed for state against activity (DESIGN_SYSTEM.md
     §4 › Inline notice: a run in progress is never a Notice), and the table only shrinks. */
@@ -195,6 +237,14 @@ const INFO_NOTICES: Record<string, number> = {
   'features/calendar/components/DayDetailDialog.tsx': 1, // "Market closed for {holiday}": a state of the day (E196 (3))
 }
 const INFO_NOTICES_MAX = { files: 7, uses: 12 }
+
+/** Notice's tint lent by noticeTint(variant) outside components/ui, per file and variant at its count: a surface of
+    another shape that states what a Notice states (DESIGN_SYSTEM.md §4 › Inline notice). A new borrower is added here
+    on purpose, with the state it shows, and moves TINT_BORROWED_MAX with it. */
+const TINT_BORROWED: Record<string, Record<string, number>> = {
+  'features/filings/components/copilot/CopilotMessage.tsx': { error: 1 }, // the error bubble: the answer card's shape, with the thread's tail (E196 (3))
+}
+const TINT_BORROWED_MAX = { files: 1, calls: 1 }
 
 describe('status tints are a census (DESIGN_SYSTEM.md §4 › Inline notice, §12)', () => {
   const uses = new Map<string, number>()
@@ -277,6 +327,31 @@ describe('every Notice writes its variant', () => {
   })
 })
 
+describe("Notice's tint is lent by name, to listed borrowers", () => {
+  it('every noticeTint call outside components/ui writes its variant and is listed, at its count', () => {
+    const found: Record<string, Record<string, number>> = {}
+    const unwritten: string[] = []
+    for (const file of TINT_DIRS.flatMap((dir) => walk(path.join(ROOT, dir)))) {
+      const r = rel(file)
+      if (r.startsWith(PRIMITIVES)) continue
+      const result = noticeTintCalls(readFileSync(file, 'utf8'), r)
+      unwritten.push(...result.unwritten)
+      if (Object.keys(result.calls).length > 0) found[r] = result.calls
+    }
+    expect(unwritten, "call noticeTint with its variant written, noticeTint('error'), and never pass the helper on as a value").toEqual([])
+    expect(
+      found,
+      "Notice's tint is lent on purpose: list a new borrower in TINT_BORROWED with the state it shows, or take <Notice> itself (DESIGN_SYSTEM.md §4 › Inline notice)",
+    ).toEqual(TINT_BORROWED)
+    // Equality, not a ceiling (lessons/test-allowlist-caps-are-equalities.md).
+    expect(Object.keys(TINT_BORROWED).length, 'TINT_BORROWED changed its files: move TINT_BORROWED_MAX.files with it in the same commit').toBe(TINT_BORROWED_MAX.files)
+    expect(
+      Object.values(TINT_BORROWED).flatMap((byVariant) => Object.values(byVariant)).reduce((sum, n) => sum + n, 0),
+      'TINT_BORROWED changed its calls: move TINT_BORROWED_MAX.calls with it in the same commit',
+    ).toBe(TINT_BORROWED_MAX.calls)
+  })
+})
+
 describe('the scans catch what they are for (a self-check on fixed sources)', () => {
   it('counts a tint in a string, a JSX attribute, a template chunk and a conditional arm, and nothing else', () => {
     const tinted = [
@@ -334,6 +409,30 @@ describe('the scans catch what they are for (a self-check on fixed sources)', ()
         'probe.tsx:12 <Notice> variant is not a string literal',
         'probe.tsx:13 <Notice> variant is not a string literal',
         'probe.tsx:14 <Notice> variant is not a string literal',
+      ],
+    })
+  })
+
+  it('reads noticeTint under every alias and fails a variant not written and the helper read as a value', () => {
+    const fixture = [
+      "import { noticeTint as tint } from '@/components/ui'; import * as UI from '@/components/ui/Notice'",
+      'const t = UI.noticeTint',
+      "const a = cx('rounded-xl border', noticeTint('error'))",
+      'const b = <div className={tint(`info`)} />',
+      "const c = t('error')",
+      'const d = noticeTint(kind)',
+      'const e = [noticeTint][0]',
+      "const f = noticeTint('error', 'x')",
+      'const g = UI.Notice',
+    ].join('\n')
+    // a, b and c are read under the helper's name, a named-import alias and a const alias of a namespace member; d,
+    // e and f fail; g is Notice itself, not the helper.
+    expect(noticeTintCalls(fixture, 'probe.tsx')).toEqual({
+      calls: { error: 2, info: 1 },
+      unwritten: [
+        'probe.tsx:6 noticeTint(…) variant is not one string literal',
+        'probe.tsx:7 noticeTint is read as a value, not called',
+        'probe.tsx:8 noticeTint(…) variant is not one string literal',
       ],
     })
   })

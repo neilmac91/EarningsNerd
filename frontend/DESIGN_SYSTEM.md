@@ -1327,7 +1327,8 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  A surface of another shape that states what a Notice states takes the Notice's tint by import,
                  noticeTint(variant) (components/ui/Notice.tsx), never a copy of its classes: the Copilot's error
                  bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
-                 E196 (3); gate: statusTintResidue.spec.ts, where a tint written outside components/ui fails).
+                 E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
+                 statusTintResidue.spec.ts's TINT_BORROWED).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
