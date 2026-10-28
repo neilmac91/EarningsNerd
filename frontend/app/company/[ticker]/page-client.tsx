@@ -152,10 +152,10 @@ export default function CompanyPageClient({ initialCompany, initialFilings }: Co
     // account it was made under (E29): an answer that lands after the session generation moved on (a logout,
     // another login, a lost session) neither rolls the next account's watchlist back to this one's nor tells
     // its reader about this one's star, as useWordingReview's labels do. A logout that fails moves the
-    // generation too while this account stays signed in, so a press in flight across it lands without its toast;
-    // its list then reads the server's rows again. The wait for cancelQueries settles within the press today;
-    // should it ever span a transition, the assert ends the press before it is sent or written as the next
-    // account's.
+    // generation too while this account stays signed in, so a press in flight across it lands without its toast
+    // or analytics event; its list then reads the server's rows again. The wait for cancelQueries settles within
+    // the press today; should it ever span a transition, the assert ends the press before it is sent or written
+    // as the next account's.
     onMutate: async ({ ticker: tickerToToggle, shouldAdd }) => {
       const generation = getSessionGeneration()
       await queryClient.cancelQueries({ queryKey: queryKeys.watchlist() })

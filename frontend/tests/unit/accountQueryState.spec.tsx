@@ -517,7 +517,7 @@ describe('account query ownership structural gate', () => {
     // mutation's answer, or code after an await) would start that account's snapshot with this one's data. Each write
     // is fenced in the function that makes it: an isSessionGenerationCurrent check (the write returns early when it
     // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
-    // transition; an await in the write's own arguments, or a `for await` loop, is one too. That the check's result guards
+    // transition; an await in the write's receiver or arguments, or a `for await` loop, is one too. That the check's result guards
     // the write is review-checked, and the gate reads source order, not control flow: a loop that awaits after its write,
     // before its next turn, is outside its reach. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and
     // the mark-seen case above.
@@ -560,8 +560,8 @@ describe('account query ownership structural gate', () => {
               ts.forEachChild(inner, scan)
             }
             if (owner) scan(owner)
-            // The write's own arguments are evaluated before it, so an await among them comes after any fence ahead of it.
-            if (fence < 0 || wait > fence || node.arguments.some(holdsWait)) {
+            // The write's receiver and arguments are evaluated before it, so an await among them comes after any fence ahead of it.
+            if (fence < 0 || wait > fence || [node.expression.expression, ...node.arguments].some(holdsWait)) {
               unfenced.push(`${relative}:${source.getLineAndCharacterOfPosition(write).line + 1} ${key}`)
             }
           }
