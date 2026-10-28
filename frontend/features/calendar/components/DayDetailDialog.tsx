@@ -84,7 +84,10 @@ export function DayDetailDialog({
       </header>
       <div className="max-h-[min(60vh,560px)] overflow-y-auto px-3 pb-3 pt-1">
         {holiday && (
-          <Notice variant="info" title={`Market closed for ${holiday}`} description="No earnings are scheduled." className="mx-2 mt-2.5" />
+          // A frame in the dialog's body takes the inset capped from step 4 (E120, DESIGN_SYSTEM.md §4), over Notice's
+          // px-4: the dialog's own inset already halves the measure, and under 200% text a holiday's name broke inside
+          // the word ("Thanksgivin" over "g Day").
+          <Notice variant="info" title={`Market closed for ${holiday}`} description="No earnings are scheduled." className="mx-2 mt-2.5 px-cap-4" />
         )}
         {lanes.map((lane) => (
           <div key={lane.key}>
