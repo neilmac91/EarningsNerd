@@ -92,12 +92,21 @@ function PrivateScreenshot({ attachment, number, readerId, generation, loadAttac
           <Button variant="secondary" wrap onClick={handleDownload} aria-label={`Download screenshot ${number}`} className={enterClass}>Download screenshot</Button>
         </>
       ) : (
-        // While the image loads, bones hold the image's and its Download button's places: the image's takes the img's
-        // width, ratio, cap and radius below (its size is known), the button's its one-line height and radius, so the
-        // block keeps its height when they arrive (a label that wraps under enlarged text adds its second line) and
-        // they crossfade in (enterClass). Raw bones are aria-hidden, so the wrapper is the status region.
+        // While the image loads, bones hold the image's and its Download button's places: the image's takes the picture
+        // the img draws below (its size is known): the attachment's width to height, as wide as the img's full width
+        // allows under the 24rem cap and centred, as object-contain draws a picture narrower than its box (the cap is
+        // written three times, in the img's class and the bone's class and width, and they move together). The
+        // button's takes its one-line height and radius, so the block keeps its height when they arrive (a label that
+        // wraps under enlarged text adds its second line) and they crossfade in (enterClass). Raw bones are
+        // aria-hidden, so the wrapper is the status region.
         <div role="status" aria-label={`Loading screenshot ${number}`} className="space-y-2">
-          <Skeleton className="max-h-[24rem] w-full rounded-lg" style={{ aspectRatio: `${attachment.width} / ${attachment.height}` }} />
+          <Skeleton
+            className="mx-auto max-h-[24rem] rounded-lg"
+            style={{
+              aspectRatio: `${attachment.width} / ${attachment.height}`,
+              width: `min(100%, calc(24rem * ${attachment.width} / ${attachment.height}))`,
+            }}
+          />
           <Skeleton className="h-10 w-48 max-w-full rounded-lg" />
           <span className="sr-only">Loading screenshot…</span>
         </div>
