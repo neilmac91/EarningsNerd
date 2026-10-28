@@ -19,7 +19,7 @@ from app.services.billing_serving_prices import serving_pro_prices
 from app.services.subscription_webhook_service import process_stripe_event, SubscriptionEventBusy
 from app.services.stripe_subscription_reader import SubscriptionReconciliationUnavailable
 from app.services.stripe_threads import run_on_stripe_threads
-from app.services.entitlements import get_entitlements, get_plan, is_pro_user
+from app.services.entitlements import get_entitlements, get_plan, is_pro_user, subscription_awaits_payment
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
@@ -201,6 +201,7 @@ class _CheckoutAccount:
     email: str
     email_verified: bool
     entitled: bool
+    awaits_payment: bool
     is_beta: bool
     stripe_customer_id: Optional[str]
 
@@ -217,6 +218,7 @@ def _read_checkout_account(db: Session, current_user: User) -> _CheckoutAccount:
             email=current_user.email,
             email_verified=verified,
             entitled=verified and is_pro_user(current_user),
+            awaits_payment=verified and subscription_awaits_payment(current_user),
             is_beta=bool(getattr(current_user, "is_beta", False)),
             stripe_customer_id=current_user.stripe_customer_id,
         )
@@ -271,6 +273,10 @@ async def create_checkout_session(
             status_code=500,
             detail="Checkout is not available right now."
         )
+    if account.awaits_payment and account.stripe_customer_id:
+        # A past_due or unpaid subscription is still open at Stripe: paying its invoice in the billing
+        # portal restores Pro, where a second checkout would bill the account twice (E98).
+        return {"url": await _billing_portal_url(account.stripe_customer_id)}
     resolved_price_id = _resolve_price_id(price_id)
     if not resolved_price_id:
         raise HTTPException(
@@ -386,6 +392,27 @@ async def create_checkout_session(
             detail="Nothing was charged. Try again in a moment."
         ) from None
 
+
+async def _billing_portal_url(customer_id: str) -> str:
+    """A billing portal session's URL for the customer, made on the Stripe threads (E170); a Stripe
+    failure answers the portal's fixed 400 detail (E18). Checkout's recovery path (E98) and the portal
+    route share it."""
+    try:
+        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
+        portal_session = await run_on_stripe_threads(
+            stripe.billing_portal.Session.create,
+            customer=customer_id,
+            return_url=f"{frontend_url}/dashboard",
+        )
+        return portal_session.url
+    except stripe.error.StripeError as e:
+        _log_stripe_failure("Billing portal", e)
+        raise HTTPException(
+            status_code=400,
+            detail="The billing portal could not open. Try again in a moment."
+        ) from None
+
+
 @router.post("/create-portal-session")
 async def create_portal_session(
     current_user: User = Depends(get_current_user),
@@ -408,21 +435,7 @@ async def create_portal_session(
             detail="No subscription found"
         )
 
-    try:
-        frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
-        portal_session = await run_on_stripe_threads(
-            stripe.billing_portal.Session.create,
-            customer=customer_id,
-            return_url=f"{frontend_url}/dashboard",
-        )
-
-        return {"url": portal_session.url}
-    except stripe.error.StripeError as e:
-        _log_stripe_failure("Billing portal", e)
-        raise HTTPException(
-            status_code=400,
-            detail="The billing portal could not open. Try again in a moment."
-        ) from None
+    return {"url": await _billing_portal_url(customer_id)}
 
 @router.post("/webhook")
 async def stripe_webhook(

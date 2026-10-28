@@ -1,12 +1,14 @@
 """Worker-owned Stripe transactions, serialized on each existing account's User row.
 
-This prevents overlapping deliveries from racing the per-user subscription row. Current-ID
-created/updated events read current Stripe state; cross-ID ordering and cross-user bindings remain
-separate. No ORM objects escape the worker, and best-effort analytics run after commit and session closure.
+This prevents overlapping deliveries from racing the per-user subscription row. Once an account has a
+binding, its created/updated events read current Stripe state: the bound ID's own, and for another
+subscription both, ranked by Stripe's state (E98). Cross-user bindings remain separate. No ORM objects
+escape the worker, and best-effort analytics run after commit and session closure.
 """
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.exc import DBAPIError
@@ -18,6 +20,7 @@ from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
 from app.services.stripe_subscription_reader import (
     SubscriptionReconciliationUnavailable, retrieve_invoice_snapshot, retrieve_subscription_snapshot,
 )
+from app.utils.datetimes import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -60,19 +63,44 @@ def _lock_event_owner(
     return user
 
 
-def _reconcile_current_subscription(db: Session, event_type: str, obj: dict, user: Optional[User]) -> dict:
-    """Refresh only an already-bound ID; initial/replacement and signed deletion paths stay intact."""
+def _reconcile_current_subscription(
+    db: Session, event_type: str, obj: dict, user: Optional[User],
+) -> tuple[dict, Optional[dict]]:
+    """Once the account has a binding, replace a created/updated event's payload with Stripe's state.
+
+    The bound ID's own event reads it. Another subscription's event reads the bound one, against the
+    account's customer, then its own, against the bound one's customer, and returns both, so the upsert
+    decides the binding by Stripe's state (``subscription_sync.outranks_binding``), never the payload's
+    (E98). Both reads finish before any write; a failed or malformed read raises, so the event retries
+    unrecorded. Initial, checkout and deletion events stay as delivered.
+    """
     if user is None or event_type not in ("customer.subscription.created", "customer.subscription.updated"):
-        return obj
+        return obj, None
     sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
     current_id = (sub.stripe_subscription_id if sub else None) or user.stripe_subscription_id
-    if not current_id or obj.get("id") != current_id:
-        return obj
+    candidate_id = obj.get("id")
+    if not current_id or not candidate_id:
+        return obj, None
     customer_id = (sub.stripe_customer_id if sub else None) or user.stripe_customer_id
-    return retrieve_subscription_snapshot(current_id, customer_id)
+    if candidate_id == current_id:
+        return retrieve_subscription_snapshot(current_id, customer_id), None
+    bound = retrieve_subscription_snapshot(current_id, customer_id, require_created=True)
+    return retrieve_subscription_snapshot(candidate_id, bound["customer"], require_created=True), bound
 
 
-def _apply_event(db: Session, event_type: str, obj: dict, user: Optional[User]) -> list[tuple]:
+def _future_trial_end(value: object) -> bool:
+    """A trial_end that is a whole-second timestamp still ahead; an absent, past or malformed one is not."""
+    if type(value) is not int:
+        return False
+    try:
+        return datetime.fromtimestamp(value, tz=timezone.utc) > utcnow()
+    except (OverflowError, OSError, ValueError):
+        return False
+
+
+def _apply_event(
+    db: Session, event_type: str, obj: dict, user: Optional[User], bound: Optional[dict] = None,
+) -> list[tuple]:
     """Apply to the locked owner; return primitive analytics payloads for after the commit."""
     analytics = []
     if event_type == "checkout.session.completed" and user is not None:
@@ -86,9 +114,11 @@ def _apply_event(db: Session, event_type: str, obj: dict, user: Optional[User]) 
                 "stripe_subscription_id": obj.get("subscription"),
             }))
     elif event_type in ("customer.subscription.created", "customer.subscription.updated") and user is not None:
-        applied = subscription_sync.apply_subscription_upsert(db, obj, user=user)
-        # An ignored upsert (another subscription's non-entitling state) records no trial start.
-        if applied and event_type == "customer.subscription.created" and obj.get("status") == "trialing":
+        applied = subscription_sync.apply_subscription_upsert(db, obj, user=user, bound=bound)
+        # An ignored upsert (another subscription's non-entitling state) records no trial start, and
+        # neither does a trial whose end is absent, past or not a timestamp (E98).
+        if (applied and event_type == "customer.subscription.created" and obj.get("status") == "trialing"
+                and _future_trial_end(obj.get("trial_end"))):
             analytics.append((str(user.id), EVENT_TRIAL_STARTED, {
                 "source": "stripe", "trial_end": obj.get("trial_end"),
             }))
@@ -129,8 +159,8 @@ def process_stripe_event(event: dict) -> dict:
             signal = billing_revenue_service.record_payment(db, payment, user)
             analytics = [signal] if signal else []
         else:
-            obj = _reconcile_current_subscription(db, event_type, obj, user)
-            analytics = _apply_event(db, event_type, obj, user)
+            obj, bound = _reconcile_current_subscription(db, event_type, obj, user)
+            analytics = _apply_event(db, event_type, obj, user, bound)
         subscription_sync.mark_event_processed(db, event_id, event_type)
         db.commit()
     except DBAPIError as exc:
