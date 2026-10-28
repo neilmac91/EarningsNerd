@@ -1,4 +1,4 @@
-# Break a PDF table's long words in set columns, never with `overflow-wrap: anywhere`
+# Break a PDF table's long words in set columns, never with `overflow-wrap: anywhere` or `word-break: break-all`
 
 Date: 2026-10-28   Area: arch
 
@@ -11,15 +11,21 @@ text out a character to a line. Without it, a token wider than the page (a 260-c
 column and ran the excerpt about 1,100 px past the page's edge, on main as well; `overflow-wrap:
 break-word` alone does not help, because it leaves min-content alone.
 
-**Rule**: In a WeasyPrint PDF, give a table that can hold a long token set columns (`table-layout: fixed`,
-widths on its header cells) and `overflow-wrap: break-word` on its cells, as `table.excerpts` in
-`backend/app/services/pdf_branding.py` does. Never set `overflow-wrap: anywhere` on anything a table, a
-flex container or another intrinsically sized box measures; the analysis meta line's `.snapshot`, a short
-id in normal flow, is the one rule that keeps it. A cell that must not wrap (`td.num`'s `nowrap`) holds
-figures only: the excerpt column is prose whatever it holds, so `numeric_columns` never classes it.
+**Rule**: In a WeasyPrint PDF, never let a word break at any character (`overflow-wrap: anywhere`, or
+`word-break: break-all`, which WeasyPrint 70 reads the same way and applies off a line's start too) in
+anything a table, a flex container or another intrinsically sized box measures; the analysis meta line's
+`.snapshot`, a short id in normal flow, is the one rule that keeps it. To break a long token in a table,
+give the table set columns (`table-layout: fixed`, widths on its header cells) and `overflow-wrap:
+break-word` on its cells, as `table.excerpts` in `backend/app/services/pdf_branding.py` does for the Risks
+excerpts. The summary's other tables (segments, footnotes, disclosures, the metrics takeaway) still lay
+out auto, so a token wider than the page in them still runs past its edge: open, reported on #1758. A
+cell that must not wrap (`td.num`'s `nowrap`) holds figures only: the excerpt column is prose whatever it
+holds, so `numeric_columns` never classes it.
 
 **Evidence**: `backend/tests/unit/test_export_service.py::TestBrandedShell::test_no_pdf_breaks_a_word_anywhere_a_column_is_measured`
-holds every PDF rule that sets `anywhere` to `.snapshot`; `TestLocatedRisks::test_the_rendered_pdf_sets_the_device_and_keeps_every_excerpt_on_the_page`
+holds every PDF rule that sets `anywhere` or `break-all` to `.snapshot`, reading the stylesheets as
+`test_export_palette_parity.py` does (nested rules, @media, every `<style>`); `TestLocatedRisks::test_the_rendered_pdf_sets_the_device_and_keeps_every_excerpt_on_the_page`
 lays out a page-spanning excerpt and a 240-character URL and holds every text box inside the page's content
-edge; `test_a_figure_only_excerpt_wraps_as_prose` holds the excerpt column off `num`. Timings from a
-scratch benchmark on the session host (4 CPUs), not CI.
+edge and its columns to 5% and 13%; `test_a_figure_only_excerpt_wraps_as_prose` holds the excerpt column
+off `num`. Timings from a scratch benchmark on the session host (4 CPUs), not CI; #1758's review measured
+`break-all` at 8.3 s against `anywhere`'s 7.2 s on a 2,089-character cell.

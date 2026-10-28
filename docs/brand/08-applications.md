@@ -504,8 +504,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by
   `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
-  (no colour function, colour keyword or indirection), the grounds to the page and the masthead's
-  tint, every text colour to 4.5:1 on each, sage to the wordmark's "Nerd", every rule that can
+  (no colour function, colour keyword or indirection), the grounds to the page and the one tint of
+  the masthead and the marked block, every text colour to 4.5:1 on each, sage to the wordmark's
+  "Nerd", every rule that can
   style a PDF link to the ink with an underline, and the italic to an italic face (the family
   declares one, each face's file is the style it is declared as, and every font a rendered PDF
   embeds for italic text is an italic program) and every font a rendered PDF embeds to a vendored face's

@@ -104,10 +104,13 @@ def _clean(value: Any) -> str:
 
 
 def _cell(row: dict, key: str, alias: str) -> str:
-    """``row[key]``, else ``row[alias]``, as one clean cell. A figure of 0 is a value: read as ``a or b``, it fell
-    through to the alias and the cell printed blank, where the exports now print a missing figure's dash (E13)."""
-    value = row.get(key)
-    return _clean(value if value or type(value) in (int, float) else row.get(alias))
+    """``row[key] or row[alias]``, as the Change cell and the figure check read a row, as one clean cell; but a figure of
+    0 with no alias behind it is a value. Read as ``a or b`` alone it printed blank, where the exports now print a missing
+    figure's dash (E13)."""
+    value = row.get(key) or row.get(alias)
+    if not value and type(row.get(key)) in (int, float):
+        value = row.get(key)
+    return _clean(value)
 
 
 def _str_list(value: Any) -> List[str]:

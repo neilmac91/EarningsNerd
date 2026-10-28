@@ -24,7 +24,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.analysis_export_metadata import period_label
-from app.services.export_service import MISSING_FIGURE, SUMMARY_CLOSING_NOTE, ExportService
+from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
 from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
 
@@ -599,11 +599,14 @@ class TestMissingPrior:
 
     def test_a_figure_of_zero_is_a_figure(self):
         # Read as `a or b`, a prior or current of 0 fell through to the camelCase alias and the cell printed blank.
+        # An alias behind a zero still wins, as the Change cell and the figure check read the row (`a or b`), so a row
+        # never prints a prior its own change was not computed from.
         block = summary_sections._metrics_block([
             {"metric": "Zero", "current_period": 0, "prior_period": 0.0},
             {"metric": "Alias", "current_period": "", "currentPeriod": "$1.0B", "prior_period": None, "priorPeriod": 0},
+            {"metric": "Both", "current_period": "$5.0B", "prior_period": 0, "priorPeriod": "$4.0B"},
         ])
-        assert [row[1:3] for row in block.rows] == [["0", "0.0"], ["$1.0B", "0"]]
+        assert [row[1:4] for row in block.rows] == [["0", "0.0", "—"], ["$1.0B", "0", "—"], ["$5.0B", "$4.0B", "+25.0%"]]
 
     def test_no_prior_is_found_for_a_row_without_one(self, service, monkeypatch):
         # The filing's XBRL holds the prior year, but the row stated none: the exports print the dash, not the filed
@@ -627,6 +630,8 @@ class TestMissingPrior:
     def test_the_dash_is_the_pages_token(self):
         # MissingValue draws the token the page shows for a value it does not have, and metricValue reads the token alone
         # as missing (a degraded summary writes it), so the exports print the page's mark, never a second one.
+        from app.services.export_service import MISSING_FIGURE
+
         frontend = Path(__file__).resolve().parents[3] / "frontend"
         drawn = re.findall(r'<span aria-hidden="true">([^<]*)</span>',
                            (frontend / "components/ui/MissingValue.tsx").read_text())
@@ -816,10 +821,8 @@ class TestLocatedRisks:
         spans = [self.PUNCTUATION, *(f"Risk passage {n} says customers may leave if competitors cut prices."
                                      for n in range(8)), long_span, url_span]
         html = service.generate_pdf_html(*self._summary(spans))
-        try:
-            document = weasyprint.HTML(string=html).render()
-        except Exception as exc:  # missing system libs in odd envs: not what this test reads
-            pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+        # No skip on a render error: this layout is the only check of several of the device's properties.
+        document = weasyprint.HTML(string=html).render()
 
         texts, fragments, past_edge = {}, 0, []
         for number, page in enumerate(document.pages, 1):
@@ -843,6 +846,11 @@ class TestLocatedRisks:
                         text.text for text in box.descendants() if isinstance(text, boxes.TextBox))
 
         assert past_edge == []
+        # The excerpts table's set columns: "#" and the label take 5% and 13% of its width, the excerpt the rest.
+        [table, *_] = [box for box in document.pages[0]._page_box.descendants()
+                       if isinstance(box, boxes.TableBox) and box.element.get("class") == "excerpts"]
+        heads = [box for box in table.descendants() if isinstance(box, boxes.TableCellBox) and box.element_tag == "th"]
+        assert [round(head.width / table.width, 3) for head in heads[:2]] == [0.05, 0.13]
         assert len(texts) == len(spans) and fragments > len(spans), "the long excerpt runs over a page break"
         assert sorted(re.sub(r"\s+", "", "".join(parts)) for parts in texts.values()) == sorted(
             re.sub(r"\s+", "", span) for span in spans)
@@ -1437,19 +1445,27 @@ class TestBrandedShell:
         assert sum(where.startswith("summary") for where in gaps) >= 2 and any(where.startswith("analysis") for where in gaps), gaps
 
     def test_no_pdf_breaks_a_word_anywhere_a_column_is_measured(self, service):
-        """WeasyPrint sizes an auto table's column by its cells' min-content, and under `overflow-wrap: anywhere` it
-        measures that a character to a line: a 4,000-character risk excerpt took half a minute to lay out. A long
-        token breaks in a table with set columns instead (pdf_branding's table.excerpts;
-        lessons/arch-break-a-pdf-tables-long-words-in-set-columns.md). The one rule that keeps it is the analysis
-        meta line's snapshot id, a short token in normal flow that no column measures. A style attribute is
-        test_export_palette_parity's to refuse."""
-        anywhere = re.compile(r"([^{}]*)\{[^{}]*?(?:overflow-wrap|word-wrap)\s*:\s*anywhere", re.IGNORECASE)
-        planted = "td {\n  Overflow-Wrap :anywhere; } p { color: inherit } .x{word-wrap: anywhere}"
-        assert [selector.strip() for selector in anywhere.findall(planted)] == ["td", ".x"]
-        found = {}
-        for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html())):
-            styles = re.sub(r"/\*.*?\*/", "", "".join(re.findall(r"<style>(.*?)</style>", html, re.S)), flags=re.S)
-            found[name] = [selector.strip() for selector in anywhere.findall(styles)]
+        """WeasyPrint sizes an auto table's column by its cells' min-content, and where a rule lets it break a word at any
+        character (`overflow-wrap: anywhere`, or `word-break: break-all`, which WeasyPrint 70 reads the same way and which
+        skips its line-start guard) it measures that a character to a line: a 4,000-character risk excerpt took half a
+        minute to lay out, and longer under break-all. A long token breaks in a table with set columns instead
+        (pdf_branding's table.excerpts; lessons/arch-break-a-pdf-tables-long-words-in-set-columns.md). The one rule that
+        keeps it is the analysis meta line's snapshot id, a short token in normal flow that no column measures. The rules
+        are read as WeasyPrint reads them, through test_export_palette_parity's reader (every `<style>`, a nested rule
+        under its full selector, @media and @supports); a style attribute is that gate's to refuse."""
+        from tests.unit.test_export_palette_parity import css_rules, stylesheet
+
+        def breaks_anywhere(html: str) -> list[str]:
+            return [name for name, block in css_rules(stylesheet(html)) for prop, value in block
+                    if (prop in ("overflow-wrap", "word-wrap") and value.lower() == "anywhere")
+                    or (prop == "word-break" and value.lower() == "break-all")]
+
+        planted = ('<style media="print">td { Overflow-Wrap: ANYWHERE; } p { color: inherit }</style>'
+                   "<style>table.excerpts { .snapshot { overflow-wrap: anywhere } } @media print { th { word-break: break-all } }"
+                   " .x { word-wrap: anywhere } .y { word-break: normal; overflow-wrap: break-word }</style>")
+        assert breaks_anywhere(planted) == ["td", "table.excerpts .snapshot", "th", ".x"]
+        found = {name: breaks_anywhere(html)
+                 for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html()))}
         assert found == {"summary": [], "analysis": [".snapshot"]}
 
     @pytest.mark.asyncio
