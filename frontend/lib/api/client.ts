@@ -127,20 +127,32 @@ export function isRefreshableRequest(url?: string): boolean {
 let refreshPromise: Promise<void> | null = null
 let refreshGeneration: number | null = null
 let refreshAbort: AbortController | null = null
+// The password login under way in this tab (withoutRefreshBeside, E29 (4)): settles once its request has answered,
+// whatever the answer, and is null when no login is under way.
+let loginInFlight: Promise<void> | null = null
+
+/** After a wait that a refresh may not run beside: the caller's account still, and still a session, or no refresh. */
+function refreshAfterWaiting(generation: number): Promise<void> {
+  assertSessionGeneration(generation)
+  // A logout, or a lost session, cleared the flag meanwhile: a refresh started now would set the cookies the
+  // logout's answer clears (E133). Callers treat this like the generation abort above.
+  if (!hasActiveSession()) throw new DOMException('The session ended while the refresh was pending', 'AbortError')
+  return ensureRefreshed()
+}
 
 export function ensureRefreshed(): Promise<void> {
   const generation = getSessionGeneration()
   // Wait out an earlier account's refresh, without interpreting its result as this account's
   // result or starting concurrent rotating-cookie refreshes. This does not control Set-Cookie.
   if (refreshPromise && refreshGeneration !== generation) {
-    return refreshPromise.catch(() => undefined).then(() => {
-      assertSessionGeneration(generation)
-      // A logout, or a lost session, cleared the flag meanwhile: a refresh started now would set the cookies the
-      // logout's answer clears (E133). Callers treat this like the generation abort above.
-      if (!hasActiveSession()) throw new DOMException('The session ended while the refresh was pending', 'AbortError')
-      return ensureRefreshed()
-    })
+    return refreshPromise.catch(() => undefined).then(() => refreshAfterWaiting(generation))
   }
+  // A login under way: a refresh sent now carries the previous session's cookies, and one that answers after the login
+  // sets them over the new login's, which no generation fence stops (E29 (4)). It waits for the login's answer, then
+  // goes out with whatever cookies are current: after a login that failed, the previous session's, which it renews;
+  // after one that took, the new session's (one extra rotation), for the gate clears before login() resumes, so it
+  // wakes before app/login/page.tsx accepts the login, and the generation that acceptance moves fences its replay.
+  if (!refreshPromise && loginInFlight) return loginInFlight.then(() => refreshAfterWaiting(generation))
   if (!refreshPromise) {
     const abort = new AbortController()
     refreshGeneration = generation
@@ -159,7 +171,8 @@ export function ensureRefreshed(): Promise<void> {
  * its outcome, or, when `limitMs` passes first, once it is cancelled. A logout waits on it before it posts: the
  * refresh's answer sets the session cookies, and one that lands after the logout's answer sets them again, the access
  * token among them, which keeps the tab signed in until that token expires (E133). A refresh still in flight at the
- * limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the logout either.
+ * limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the logout either. A
+ * login waits on it too (withoutRefreshBeside).
  */
 export function refreshSettled(limitMs: number): Promise<void> {
   const inFlight = refreshPromise
@@ -172,6 +185,31 @@ export function refreshSettled(limitMs: number): Promise<void> {
       if (outcome === 'limit') abort?.abort()
     })
     .finally(() => clearTimeout(timer))
+}
+
+/**
+ * Sends the password login with no silent refresh beside it (E29 (4)). A refresh's answer sets the session cookies,
+ * and one sent with the previous session's cookies that answers after the login's sets them over the new login's: the
+ * browser is signed in as the previous account while the tab shows the new one. The generation fences stop its replay
+ * and its cache writes, not its cookies. So the refresh in flight answers first, or is cancelled at `limitMs`, as
+ * before a logout (refreshSettled), and from this call until the login's request has answered, a refresh a 401 asks
+ * for waits (ensureRefreshed): sent after that answer, it carries whatever cookies are current. The login sets the
+ * gate before it waits on anything, and clears it only while it is still its own. Unlike a logout (beginLogout), the
+ * session reads as active meanwhile, so a failed login's concurrent 401s renew the previous session rather than lose
+ * it. The cancel at the limit is E96's one-tab case, as it is before a logout: the server may already have rotated the
+ * refresh it drops, and if the login then fails, the browser keeps the token rotated away, which its next refresh
+ * replays. `send` must be a request whose own 401 starts no refresh (NO_REFRESH_PATHS holds /api/auth/login): a
+ * refresh it asked for would wait on the login it belongs to, which would never answer, and every later refresh with
+ * it. One login at a time (the login form's busy guard): a later login that answers first clears the gate while an
+ * earlier one is still out. What this leaves open: a refresh another tab started is out of this tab's reach; that half
+ * needs the tabs to tell each other of a login.
+ */
+export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
+  const sent = refreshSettled(limitMs).then(send)
+  const clear = () => { if (loginInFlight === answered) loginInFlight = null }
+  const answered: Promise<void> = sent.then(clear, clear)
+  loginInFlight = answered
+  return sent
 }
 
 /**
