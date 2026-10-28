@@ -114,22 +114,40 @@ describe('a mutation answer that lands after the account changed (E29)', () => {
     },
   ]
 
+  /** The first account, whose list holds MSFT, presses the star on AAPL's page; the add waits on `answer`. */
+  async function pressStar() {
+    api.getCompany.mockResolvedValue(company)
+    api.getCompanyFilings.mockResolvedValue(filings)
+    api.getSummary.mockResolvedValue(null)
+    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
+    const before = [watchlistItem(2, 'MSFT')]
+    api.getWatchlist.mockResolvedValue(before)
+    const answer = deferred<WatchlistItem>()
+    api.addToWatchlist.mockReturnValue(answer.promise)
+    const view = renderWithClient(<CompanyPageClient initialCompany={company} initialFilings={filings} />)
+    const star = await screen.findByRole('button', { name: 'Add to watchlist' })
+    await waitFor(() => expect(api.getWatchlist).toHaveBeenCalledTimes(1))
+    fireEvent.click(star)
+    await waitFor(() => expect(api.addToWatchlist).toHaveBeenCalledWith('AAPL'))
+    return { ...view, answer, before }
+  }
+
+  /** The first account turns 10-Q alerts on; the save waits on `saved`. */
+  async function pressPreference() {
+    api.getNotificationPreferences.mockResolvedValue(preferences())
+    const saved = deferred<NotificationPreferences>()
+    api.updateNotificationPreferences.mockReturnValue(saved.promise)
+    const view = renderWithClient(<NotificationPreferencesForm />)
+    fireEvent.click(await screen.findByRole('switch', { name: 'Quarterly reports (10-Q)' }))
+    // TanStack passes the mutation function its context as a second argument.
+    await waitFor(() => expect(api.updateNotificationPreferences.mock.calls[0]?.[0]).toEqual({ notify_10q: true }))
+    return { ...view, saved }
+  }
+
   it.each(['fails', 'succeeds'] as const)(
     "a watchlist star that %s after another account signs in leaves that account's watchlist alone and tells its reader nothing",
     async (outcome) => {
-      api.getCompany.mockResolvedValue(company)
-      api.getCompanyFilings.mockResolvedValue(filings)
-      api.getSummary.mockResolvedValue(null)
-      api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
-      api.getWatchlist.mockResolvedValue([watchlistItem(2, 'MSFT')])
-      const answer = deferred<WatchlistItem>()
-      api.addToWatchlist.mockReturnValue(answer.promise)
-      const { client, unmount } = renderWithClient(<CompanyPageClient initialCompany={company} initialFilings={filings} />)
-
-      const star = await screen.findByRole('button', { name: 'Add to watchlist' })
-      await waitFor(() => expect(api.getWatchlist).toHaveBeenCalledTimes(1))
-      fireEvent.click(star)
-      await waitFor(() => expect(api.addToWatchlist).toHaveBeenCalledWith('AAPL'))
+      const { client, unmount, answer } = await pressStar()
 
       // The first account leaves the page and logs out; the next signs in and reads its own list.
       unmount()
@@ -149,14 +167,7 @@ describe('a mutation answer that lands after the account changed (E29)', () => {
   )
 
   it("an alert preferences save that answers after another account signs in leaves that account's preferences alone", async () => {
-    api.getNotificationPreferences.mockResolvedValue(preferences())
-    const saved = deferred<NotificationPreferences>()
-    api.updateNotificationPreferences.mockReturnValue(saved.promise)
-    const { client, unmount } = renderWithClient(<NotificationPreferencesForm />)
-
-    fireEvent.click(await screen.findByRole('switch', { name: 'Quarterly reports (10-Q)' }))
-    // TanStack passes the mutation function its context as a second argument.
-    await waitFor(() => expect(api.updateNotificationPreferences.mock.calls[0]?.[0]).toEqual({ notify_10q: true }))
+    const { client, unmount, saved } = await pressPreference()
 
     unmount()
     resetAccountQueries(client)
@@ -169,37 +180,30 @@ describe('a mutation answer that lands after the account changed (E29)', () => {
     expect(client.getQueryData(queryKeys.notificationPreferences())).toEqual(next)
   })
 
-  it('in-account answers still land: the star rolls back on a failure, and a saved change shows the server\'s preferences', async () => {
-    api.getCompany.mockResolvedValue(company)
-    api.getCompanyFilings.mockResolvedValue(filings)
-    api.getSummary.mockResolvedValue(null)
-    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
-    const before = [watchlistItem(2, 'MSFT')]
-    api.getWatchlist.mockResolvedValue(before)
-    const answer = deferred<WatchlistItem>()
-    api.addToWatchlist.mockReturnValue(answer.promise)
-    const page = renderWithClient(<CompanyPageClient initialCompany={company} initialFilings={filings} />)
-    const star = await screen.findByRole('button', { name: 'Add to watchlist' })
-    await waitFor(() => expect(api.getWatchlist).toHaveBeenCalledTimes(1))
-    fireEvent.click(star)
-    await waitFor(() => expect(api.addToWatchlist).toHaveBeenCalledWith('AAPL'))
-    await waitFor(() => expect(page.client.getQueryData<WatchlistItem[]>(queryKeys.watchlist())).toHaveLength(2))
+  // In the same account the answers still land, so a fence that drops every answer fails here.
+  it('in the same account, a star that fails still rolls back and says so', async () => {
+    const { client, answer, before } = await pressStar()
+    await waitFor(() => expect(client.getQueryData<WatchlistItem[]>(queryKeys.watchlist())).toHaveLength(2))
     api.getWatchlist.mockReturnValue(new Promise(() => {})) // the settle's refetch never answers, so the rollback shows
     await act(async () => answer.reject(new Error('Network Error')))
     await settle()
-    expect(page.client.getQueryData(queryKeys.watchlist())).toEqual(before)
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual(before)
     expect(toast.error).toHaveBeenCalledWith("Couldn't update your watchlist. Please try again.")
-    page.unmount()
+  })
 
-    api.getNotificationPreferences.mockResolvedValue(preferences())
-    const saved = deferred<NotificationPreferences>()
-    api.updateNotificationPreferences.mockReturnValue(saved.promise)
-    const form = renderWithClient(<NotificationPreferencesForm />)
-    fireEvent.click(await screen.findByRole('switch', { name: 'Quarterly reports (10-Q)' }))
-    await waitFor(() => expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1))
+  it('in the same account, a star that succeeds still says so and records it', async () => {
+    const { answer } = await pressStar()
+    await act(async () => answer.resolve(watchlistItem(4, 'AAPL')))
+    await settle()
+    expect(toast.success).toHaveBeenCalledWith('AAPL added to your watchlist')
+    expect(analytics.watchlistAdded).toHaveBeenCalledWith('AAPL')
+  })
+
+  it("in the same account, a saved change shows the server's preferences", async () => {
+    const { client, saved } = await pressPreference()
     const effective = preferences({ notify_10q: true, digest: 'weekly' })
     await act(async () => saved.resolve(effective))
     await settle()
-    expect(form.client.getQueryData(queryKeys.notificationPreferences())).toEqual(effective)
+    expect(client.getQueryData(queryKeys.notificationPreferences())).toEqual(effective)
   })
 })

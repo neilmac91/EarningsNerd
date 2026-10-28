@@ -517,16 +517,23 @@ describe('account query ownership structural gate', () => {
     // mutation's answer, or code after an await) would start that account's snapshot with this one's data. Each write
     // is fenced in the function that makes it: an isSessionGenerationCurrent check (the write returns early when it
     // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
-    // transition. That the check's result guards the write is review-checked. The late answers themselves:
-    // tests/unit/lateMutationAnswers.spec.tsx and the mark-seen case above.
+    // transition; an await in the write's own arguments, or a `for await` loop, is one too. That the check's result guards
+    // the write is review-checked, and the gate reads source order, not control flow: a loop that awaits after its write,
+    // before its next turn, is outside its reach. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and
+    // the mark-seen case above.
     const fences = ['isSessionGenerationCurrent', 'assertSessionGeneration']
-    const exempt: Record<string, string> = {
-      // Its updater returns nothing once the reset has removed the family, and otherwise keeps every row but the one it
-      // deleted, by that row's own id: it cannot carry one account's rows into another's.
-      'app/dashboard/page.tsx:savedSummaries': 'the saved-summary Delete prunes its own row',
+    // Writes left unfenced, each at its count, so a second write beside an exempt one is not exempt by accident.
+    const exempt: Record<string, number> = {
+      // The saved-summary Delete: its updater returns nothing once the reset has removed the family, and otherwise keeps
+      // every row but the one it deleted, by that row's own id, so it cannot carry one account's rows into another's.
+      'app/dashboard/page.tsx:savedSummaries': 1,
     }
     const unfenced: string[] = []
-    const exemptions = new Set<string>()
+    const exemptions: Record<string, number> = {}
+    const waits = (inner: ts.Node) => ts.isAwaitExpression(inner) || (ts.isForOfStatement(inner) && inner.awaitModifier !== undefined)
+    /** An await in `inner` outside any function nested in it. */
+    const holdsWait = (inner: ts.Node): boolean =>
+      !ts.isFunctionLike(inner) && (waits(inner) || ts.forEachChild(inner, holdsWait) === true)
     for (const file of ['app', 'components', 'features', 'hooks', 'lib'].flatMap((dir) => sourceFiles(path.join(frontend, dir)))) {
       const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
       const relative = path.relative(frontend, file)
@@ -536,7 +543,7 @@ describe('account query ownership structural gate', () => {
           const key = node.arguments[0]?.getText(source) ?? ''
           const family = /^queryKeys\.(\w+)/.exec(key)?.[1]
           const site = `${relative}:${family}`
-          if (family && accountOwned.includes(family) && site in exempt) exemptions.add(site)
+          if (family && accountOwned.includes(family) && site in exempt) exemptions[site] = (exemptions[site] ?? 0) + 1
           else if (family && accountOwned.includes(family)) {
             // The function that makes the write; a function nested in it (the updater) runs inside the write.
             let owner: ts.Node | undefined = node.parent
@@ -546,14 +553,15 @@ describe('account query ownership structural gate', () => {
             let wait = -1
             const scan = (inner: ts.Node): void => {
               if (inner.getStart(source) >= write || (inner !== owner && ts.isFunctionLike(inner))) return
-              if (ts.isAwaitExpression(inner)) wait = Math.max(wait, inner.getStart(source))
+              if (waits(inner)) wait = Math.max(wait, inner.getStart(source))
               if (ts.isCallExpression(inner) && ts.isIdentifier(inner.expression) && fences.includes(inner.expression.text)) {
                 fence = Math.max(fence, inner.getStart(source))
               }
               ts.forEachChild(inner, scan)
             }
             if (owner) scan(owner)
-            if (fence < 0 || wait > fence) {
+            // The write's own arguments are evaluated before it, so an await among them comes after any fence ahead of it.
+            if (fence < 0 || wait > fence || node.arguments.some(holdsWait)) {
               unfenced.push(`${relative}:${source.getLineAndCharacterOfPosition(write).line + 1} ${key}`)
             }
           }
@@ -563,7 +571,7 @@ describe('account query ownership structural gate', () => {
       visit(source)
     }
     expect(unfenced).toEqual([])
-    expect([...exemptions].sort()).toEqual(Object.keys(exempt).sort())
+    expect(exemptions).toEqual(exempt)
   })
 
   it('all subscription/usage reads carry identity and an enabled condition, never a family prefix', () => {
