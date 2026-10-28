@@ -18,7 +18,8 @@ One rule, three parts in this one module:
   unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
   OAuth starts, which save their state in the thread pool; the two OAuth callbacks, a sign-in, a sign-up,
   a link to an existing account, a refusal and a lost race each, which hold no connection while they wait
-  for the provider or send the linked-account notice), each
+  for the provider or send the linked-account notice; and the password login, the refresh and each OAuth
+  callback still answer with their committed session when every statement after its commit fails), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1843,7 +1844,7 @@ async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_c
     account; only the login's best-effort audit row is missing. The access token takes the stored address the
     service read before its commit. Read from the user that commit expired, it was a statement after the commit,
     and its failure answered 500: a login that had committed, or a rotation whose new token the client never got,
-    so its next refresh replayed the one rotated away and signed every device out (E121)."""
+    so its next refresh replayed the one rotated away and met the replay sweep (E121)."""
     import jwt
 
     from app.config import settings
@@ -1905,6 +1906,7 @@ async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_c
         assert response.status_code == 200, response.text
         access = jwt.decode(response.json()["access_token"], options={"verify_signature": False})
         assert access["sub"] == "after-commit@example.com"
+        assert response.cookies[settings.COOKIE_NAME] == response.json()["access_token"]
         assert engine.pool.checkedout() == 0
         event.remove(engine, "before_cursor_execute", watch)
         with sessions() as db:
@@ -1918,16 +1920,30 @@ async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_c
         engine.dispose()
 
 
+def test_issue_session_refuses_a_minted_refresh_token_without_its_address():
+    """The rule the post-commit cases above hold each caller to, for every future one: a caller that minted its
+    own refresh token has committed, so it passes the address it read before that commit (E121). Without one,
+    ``issue_session`` would read the user that commit expired, a statement after it, and raises instead."""
+    from types import SimpleNamespace
+
+    from fastapi import Response
+
+    from app.routers import auth
+
+    with pytest.raises(TypeError, match="needs email="):
+        auth.issue_session(None, SimpleNamespace(email="unread@example.com"), Response(), None, refresh_token="minted")
+
+
 @pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
-    whose rollback fails there (a connection that dropped after the unit's last statement) must not
-    turn the response into a 500: the old token is already rotated away, so a reader who never
-    receives the new cookie refreshes with the old one next, and the replay sweep ends that token's
-    chain, signing that browser out. The first close drops the real DBAPI connection before it runs, so its rollback
-    fails as a dropped connection's does. SQLAlchemy reads that as a disconnect: it invalidates the
-    connection and returns its slot, the session lets go of its transaction, the release logs the
-    failure, and the route answers with the rotated cookie."""
+    that fails there must not turn the response into a 500: the old token is already rotated away, so
+    a reader who never receives the new cookie refreshes with the old one next and meets the replay
+    sweep, which ends that token's chain, signing that browser out. Since E121 the unit reads nothing
+    after the rotation's commit (the access token takes the address read before it), so no transaction
+    or slot is open at the release, and no dropped connection can fail its rollback. The first close,
+    the unit's release, raises once it has run, as the password change's case below does; the release
+    logs the failure, and the route answers with the rotated cookie."""
     from app.config import settings
     from app.models import AuditLog, RefreshToken, User
     from app.services import refresh_token_service
@@ -1952,17 +1968,17 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
 
     at_close: list[tuple[bool, int]] = []
 
-    class DroppedCloseSession(Session):
+    class FailingFirstClose(Session):
         """Records, at each close, whether the session held a transaction and how many slots were out.
-        The first close drops its DBAPI connection first, as a server that went away would."""
+        The first close, the unit's release, raises once it has closed."""
 
         def close(self) -> None:
             at_close.append((self.in_transaction(), engine.pool.checkedout()))
-            if len(at_close) == 1 and self.in_transaction():
-                self.connection().connection.dbapi_connection.close()
             super().close()
+            if len(at_close) == 1:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
 
-    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedCloseSession))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingFirstClose))
     monkeypatch.setattr(app, "dependency_overrides", {})
     try:
         async with httpx.AsyncClient(
@@ -1972,12 +1988,11 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
                 "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}={raw_token}"},
             )
         assert response.status_code == 200 and response.json()["token_type"] == "bearer"
-        # The unit's close held the user read's transaction and one slot; by the finalizer's close
-        # the dropped connection had been invalidated and its slot returned.
-        assert at_close == [(True, 1), (False, 0)]
+        # The rotation's commit was the unit's last statement: nothing open at either close.
+        assert at_close == [(False, 0), (False, 0)]
         [logged] = [record for record in caplog.records
                     if "Releasing the request session failed" in record.getMessage()]
-        assert logged.exc_info[1].connection_invalidated
+        assert isinstance(logged.exc_info[1], OperationalError)
         assert engine.pool.checkedout() == 0
         with sessions() as db:
             original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()

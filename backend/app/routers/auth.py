@@ -373,10 +373,14 @@ def issue_session(
     ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
     endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
     concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
-    (body responses echo it). Pass ``email=`` when the caller read the address before a commit that
-    expired ``user``, as the password login, ``/refresh`` and the OAuth callbacks do: the access token then
-    reads nothing after that commit, so no failure there can turn a committed sign-in into an error (E121).
+    (body responses echo it). A caller that passes ``refresh_token=`` has committed, which expired
+    ``user``, so it must pass ``email=`` too, the address it read before that commit (the password login,
+    ``/refresh`` and the OAuth callbacks do): the access token then reads nothing after the commit, so no
+    failure there can turn a committed sign-in into an error (E121). Without it this raises ``TypeError``,
+    which every route test of such a caller then fails on.
     """
+    if refresh_token is not None and email is None:
+        raise TypeError("issue_session(refresh_token=...) needs email=, the address read before the commit")
     access_token = create_access_token(data={"sub": email if email is not None else user.email})
     _set_auth_cookie(response, access_token)
     if refresh_token is None:

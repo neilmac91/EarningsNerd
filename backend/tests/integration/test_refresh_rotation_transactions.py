@@ -445,7 +445,7 @@ def _kind(outcome: object) -> str:
 
 
 def _result(outcome: object) -> object:
-    """An exception by its type's name, a refresh's (user, cookie) as "rotated", any other value as is."""
+    """An exception by its type's name, a refresh's tuple as "rotated", any other value as is."""
     if isinstance(outcome, BaseException):
         return _kind(outcome)
     return "rotated" if isinstance(outcome, tuple) else outcome
