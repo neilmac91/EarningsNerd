@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
+import { isConfirmedGuest } from '@/features/auth/lib/confirmedGuest'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, CheckCircleIcon, DownloadSimpleIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
@@ -37,6 +38,15 @@ export default function SettingsPage() {
   // when they mount over the failed, data-less user (retryOnMount) turned this page back into the
   // spinner, which unmounted them, and the next failure mounted them again: an unbounded /me loop.
   const userFailure = useRetainedFailure(userQuery, queryKeys.currentUser())
+
+  // The account sections wait for a reader, as the dashboard's do (E29): a confirmed guest, a session lost on this
+  // page or a /me that answered no user, leaves for /login, and the page renders none of the sections meanwhile, so a
+  // lost session cannot have Connected accounts and Filing alerts read again and show load errors. A read that failed
+  // cannot tell (isConfirmedGuest), so it keeps the page and each section's own error, as before.
+  const guest = isConfirmedGuest(userQuery)
+  useEffect(() => {
+    if (guest) router.push('/login')
+  }, [guest, router])
 
   const exportMutation = useMutation({
     mutationFn: exportUserData,
@@ -135,6 +145,10 @@ export default function SettingsPage() {
         </main>
       </div>
     )
+  }
+
+  if (!user && !userFailure.failed) {
+    return null
   }
 
   return (

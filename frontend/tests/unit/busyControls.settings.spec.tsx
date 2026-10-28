@@ -11,6 +11,7 @@ import ConnectedAccounts from '@/features/settings/components/ConnectedAccounts'
 import BillingPanel from '@/features/settings/components/BillingPanel'
 import NotificationPreferencesForm from '@/features/settings/components/NotificationPreferencesForm'
 import SettingsPage from '@/app/dashboard/settings/page'
+import { resetAccountQueries } from '@/features/auth/lib/accountQueryState'
 import { queryKeys } from '@/lib/queryKeys'
 
 /**
@@ -577,6 +578,39 @@ describe('SettingsPage over a failed account check', () => {
     expect(api.getCurrentUserSafe.mock.calls.length).toBeLessThanOrEqual(2)
     expect(screen.getByRole('heading', { name: 'Account settings' })).toBeInTheDocument()
     expect(await screen.findByText('Failed to load billing information')).toBeInTheDocument()
+  })
+})
+
+// E29 (2): the account sections wait for a reader, as the dashboard's do.
+describe('SettingsPage when the session is lost', () => {
+  it('sends the confirmed guest to /login, and Connected accounts and Filing alerts do not read again to show load errors', async () => {
+    router.push.mockClear() // another case's logout may have pushed /login already
+    api.getCurrentUserSafe.mockResolvedValue(user('Ada'))
+    api.getSubscriptionStatus.mockResolvedValue({
+      is_pro: true, stripe_customer_id: 'cus_123', stripe_subscription_id: null, subscription_status: 'active',
+      plan: 'pro', status: 'active', trial_end: null, current_period_end: '2027-06-18T00:00:00Z', cancel_at_period_end: false,
+    })
+    api.getUsage.mockResolvedValue({ summaries_used: 0, summaries_limit: null, is_pro: true, month: '2026-10' })
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockResolvedValue({
+      notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
+      channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
+    })
+    const { client } = renderWithClient(<SettingsPage />)
+    expect(await screen.findByRole('switch', { name: 'Annual reports (10-K)' })).toBeInTheDocument()
+    await waitFor(() => expect(api.getConnections).toHaveBeenCalledTimes(1))
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+
+    // The session lapses: the API refuses what the sections would read now, and the reset settles the reader on null.
+    api.getConnections.mockRejectedValue(new Error('Not authenticated'))
+    api.getNotificationPreferences.mockRejectedValue(new Error('Not authenticated'))
+    act(() => resetAccountQueries(client, undefined, 'session-loss'))
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith('/login'))
+    await settle()
+    expect(api.getConnections).toHaveBeenCalledTimes(1)
+    expect(api.getNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('Failed to load connected accounts.')).not.toBeInTheDocument()
+    expect(screen.queryByText("Couldn't load your alert preferences. Please refresh.")).not.toBeInTheDocument()
   })
 })
 
