@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { addressFit, atItsAt } from './fixtures/readerAddress'
 
 /**
  * EmailVerificationModal's "Resend link" keeps keyboard focus through its own success and failure
@@ -174,3 +175,40 @@ test('a quick second tap on Resend after a failure stays on Resend at phone widt
   await expect(dialog).toBeVisible()
   expect(requests.resend).toBe(2)
 })
+
+/** The intro sets the reader's address in a sentence. Under 200% text "unverified@example.com" (321.7px) is longer
+ *  than the line, and it ran 23, 44, 71 and 106px past its paragraph at 414, 390, 360 and 320px, the dialog's body
+ *  scrolling sideways (chief design on #1745). It breaks after its @ before anywhere else (AddressText, chief design on
+ *  #1750), "unverified@" over "example.com" under 200% text, where `break-words` alone ended it on a fragment
+ *  ("unverified@example.co" over "m"), and inside a part only where the part is longer than the line: at the default
+ *  size it stays whole on its own line, where `break-all` split it at 320px. Each painted box of the address lies
+ *  inside the paragraph and the screen, and nothing in the dialog or the page scrolls sideways
+ *  (fixtures/readerAddress.ts; the pages that set the address are in reader-address.spec.ts). */
+for (const [width, doubled] of [
+  [390, true],
+  [360, true],
+  [320, true],
+  [320, false],
+] as const) {
+  const at = `${width}px${doubled ? ' under 200% text' : ' at the default size'}`
+  test(`the prompt keeps the reader's address inside its paragraph, and its body from scrolling sideways, at ${at}`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 844 })
+    if (doubled) {
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+    }
+    const { dialog } = await openPrompt(page, baseURL!, 'light', SENT)
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), `${at}: the text setting took`).toBe(doubled ? '32px' : '16px')
+    await page.evaluate(() => document.fonts.ready)
+    const fit = await addressFit(dialog, EMAIL)
+    expect(fit.found, `${at}: the intro names the reader's address`).toBe(true)
+    expect(fit.past, `${at}: the address lies inside its paragraph`).toEqual([])
+    expect(fit.offscreen, `${at}: the address lies inside the screen`).toEqual([])
+    expect(fit.scrolls, `${at}: nothing in the dialog scrolls sideways`).toEqual([])
+    expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
+    // Under 200% text it breaks after its @, each part whole; at the default size it fits a line and stays whole, where
+    // break-all split it at 320px.
+    if (doubled) expect(fit.pieces, `${at}: the address breaks after its @`).toEqual(atItsAt(EMAIL)[1])
+    else expect(fit.pieces, `${at}: the address is one run on one line`).toEqual([EMAIL])
+  })
+}
