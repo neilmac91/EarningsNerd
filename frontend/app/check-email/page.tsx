@@ -65,8 +65,8 @@ function CheckEmailContent() {
             We send verification links to
           </p>
           {/* An address has no break opportunity, so at 200% text a long one overflows the column. It breaks
-              after its @ (AddressText), and break-words breaks a part only where it is longer than the line
-              (the column is a block of definite width), so it never ends on a fragment (E232). */}
+              after its @ (AddressText), and break-words breaks inside a part only where the part is longer than
+              the line (the column is a block of definite width), so it ends on a fragment only there (E232). */}
           <p className="mt-1 break-words text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
             <AddressText address={email} />
           </p>

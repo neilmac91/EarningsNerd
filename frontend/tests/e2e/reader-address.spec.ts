@@ -78,6 +78,10 @@ const PAGES = [
       await page.goto('/dashboard/settings')
       await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
       await expect(page.locator('p', { hasText: EMAIL }).first()).toBeVisible()
+      // The password form mounts with the card and shows its bones until the connections read answers. Under 200%
+      // text they run past a phone's screen (E233), so the case reads the page once that read has answered, whatever
+      // its timing (chief design on #1764).
+      await expect(page.getByRole('status', { name: 'Loading password form' })).toHaveCount(0)
     },
   },
 ]

@@ -46,8 +46,8 @@ export default function ProfileForm() {
       <div className="space-y-4">
         <div>
           <label className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Email</label>
-          {/* The address breaks after its @ (AddressText), and break-words breaks a part only where it is longer than
-              the line, so under 200% text it never ends on a fragment (E232). */}
+          {/* The address breaks after its @ (AddressText), and break-words breaks inside a part only where the part is
+              longer than the line, so under 200% text it ends on a fragment only there (E232). */}
           <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">
             {user?.email != null ? <AddressText address={user.email} /> : <MissingValue />}
           </p>
