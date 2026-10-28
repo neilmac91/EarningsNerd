@@ -75,7 +75,8 @@ const getBaseUrl = () => {
   return process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://api.earningsnerd.io'
 }
 
-// How long any request through `api` may take, a login's and a logout's post among them (REFRESH_LOCK_WAIT_MS).
+// How long any request through `api` may take, the posts the session cookies' lock holds among them
+// (REFRESH_LOCK_WAIT_MS).
 export const REQUEST_TIMEOUT_MS = 30_000
 
 // Create axios instance with baseURL
@@ -250,20 +251,34 @@ export function ensureRefreshed(): Promise<void> {
  * refresh's answer sets the session cookies, and one that lands after the logout's answer sets them again, the access
  * token among them, which keeps the tab signed in until that token expires (E133). A refresh still in flight at the
  * limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the logout either; one
- * still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it too. Both then
- * wait for the refreshes queued for the lock before their own request (withSessionCookiesForPost).
+ * still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it too, and so does a
+ * password change, which leaves the refresh be at the limit (`atLimit` 'leave'): a refresh cancelled after the API
+ * rotated its token leaves the browser holding the token rotated away, which the change's own renewal would then
+ * present, and the replay sweep would end every session of the account (E96). It settles 'limit' when the limit came
+ * first, else 'settled'. All of them then wait for the refreshes queued for the lock before their own request
+ * (withSessionCookiesForPost).
  */
-export function refreshSettled(limitMs: number): Promise<void> {
+export function refreshSettled(limitMs: number, atLimit: 'cancel' | 'leave' = 'cancel'): Promise<'settled' | 'limit'> {
   const inFlight = refreshPromise
   const abort = refreshAbort
-  if (!inFlight) return Promise.resolve()
+  if (!inFlight) return Promise.resolve('settled')
   let timer: ReturnType<typeof setTimeout> | undefined
   const limit = new Promise<'limit'>((resolve) => { timer = setTimeout(() => resolve('limit'), limitMs) })
-  return Promise.race([inFlight.then(() => 'answered' as const, () => 'answered' as const), limit])
+  return Promise.race([inFlight.then(() => 'settled' as const, () => 'settled' as const), limit])
     .then((outcome) => {
-      if (outcome === 'limit') abort?.abort()
+      if (outcome === 'limit' && atLimit === 'cancel') abort?.abort()
+      return outcome
     })
     .finally(() => clearTimeout(timer))
+}
+
+/** A post that refuses at its limit (withSessionCookiesForPost's `atLimit` 'refuse') sent nothing: a silent refresh,
+ * in this tab or another, was still unanswered. */
+export class SessionStillRenewing extends Error {
+  constructor() {
+    super('Your session is still renewing. Try again in a moment.')
+    this.name = 'SessionStillRenewing'
+  }
 }
 
 /**
@@ -285,20 +300,40 @@ export function refreshSettled(limitMs: number): Promise<void> {
  * browser has no lock manager, or refuses the lock, `send` runs once this tab's refresh has settled, as before, and any
  * other tab's refresh can answer after it. A check that must share a turn with the request (a logout's explicit
  * generation) goes in `send`, after both waits. `send` must be a request whose own 401 starts no refresh
- * (NO_REFRESH_PATHS): a refresh asked for under the hold would wait for the lock its own caller holds.
+ * (NO_REFRESH_PATHS): a refresh asked for under the hold would wait for the lock its own caller holds. With `atLimit`
+ * 'refuse' (the password change), at the limit it sends nothing and rejects with SessionStillRenewing: it neither
+ * cancels this tab's refresh still unanswered (refreshSettled's 'leave') nor sends without the lock, so the limit's
+ * gaps above are not its own. A lock the browser refuses, or no lock manager, still sends, once this tab's refresh has
+ * settled.
  */
-export function withSessionCookiesForPost<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
+export function withSessionCookiesForPost<T>(
+  limitMs: number,
+  send: () => Promise<T>,
+  atLimit: 'send' | 'refuse' = 'send',
+): Promise<T> {
+  const refuse = atLimit === 'refuse'
   const locks = sessionCookieLocks()
-  if (!locks) return refreshSettled(limitMs).then(send)
+  if (!locks) {
+    return refreshSettled(limitMs, refuse ? 'leave' : 'cancel').then((outcome) => {
+      if (refuse && outcome === 'limit') throw new SessionStillRenewing()
+      return send()
+    })
+  }
   const wait = new AbortController()
   const limit = setTimeout(() => wait.abort(), limitMs)
-  return refreshSettled(limitMs).then(() => {
+  return refreshSettled(limitMs, refuse ? 'leave' : 'cancel').then((outcome) => {
+    if (refuse && outcome === 'limit') {
+      clearTimeout(limit)
+      throw new SessionStillRenewing()
+    }
     let sent: Promise<T> | undefined
-    // Once the hold has ended: the request made under it, or, never granted the lock (the wait ran out, or the browser
-    // refused it), the request without it.
+    // Once the hold has ended: the request made under it, or, never granted the lock, the request without it when the
+    // browser refused it, and when the wait ran out, unless this post refuses at its limit.
     const afterTheHold = () => {
       clearTimeout(limit)
-      return sent ?? send()
+      if (sent) return sent
+      if (refuse && wait.signal.aborted) throw new SessionStillRenewing()
+      return send()
     }
     return locks.request(SESSION_COOKIES_LOCK, { mode: 'shared', signal: wait.signal }, () => {
       clearTimeout(limit)
@@ -350,8 +385,10 @@ export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>)
  * `limitMs`, or once `signal` aborts, without the lock, and at once where the browser has no lock manager or refuses
  * the lock. What it leaves open: a refresh still unanswered at the limit, one that waited past REFRESH_LOCK_WAIT_MS
  * and went out without the lock, and, with no lock manager or a refused lock, any refresh, can answer after the read.
- * Never wait on it in a hold's send: a refresh queued behind that hold would keep it waiting, until the limit, for the
- * lock its own caller holds.
+ * A caller's own limit counts this wait: the failed logout's read of /me (SESSION_READ_LIMIT_MS in
+ * features/auth/lib/accountQueryState.ts) settles 'unknown' when a refresh ahead of it, in any tab, is still unanswered
+ * at that limit, having sent nothing, where main sent /me at once. Never wait on it in a hold's send: a refresh queued
+ * behind that hold would keep it waiting, until the limit, for the lock its own caller holds.
  */
 export function sessionCookiesSettled(limitMs: number, signal?: AbortSignal): Promise<void> {
   const locks = sessionCookieLocks()

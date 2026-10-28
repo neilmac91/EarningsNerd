@@ -16,8 +16,9 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * post goes out without the lock, and a refresh still unanswered can answer after it: no tab can cancel another's. A
  * refresh waits at most REFRESH_LOCK_WAIT_MS, as long as a post ahead of it can keep it waiting, and goes out without
  * the lock when the browser refuses it. A password change, whose answer revokes the account's refresh token and gives
- * the browser a new one, posts under the same hold, its lapsed access token renewed after it; and an OAuth sign-in,
- * a navigation no lock can hold, sets the new session's cookies outside it, so the identity read waits instead for the
+ * the browser a new one, posts under the same hold, its lapsed access token renewed after it, and at its limit refuses
+ * (SessionStillRenewing) rather than cancel its own tab's refresh or post beside one; and an OAuth sign-in, a
+ * navigation no lock can hold, sets the new session's cookies outside it, so the identity read waits instead for the
  * refreshes queued before it (E29).
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
@@ -140,6 +141,8 @@ interface Browser {
   server: Record<Account, ServerSession>
   events: string[]
   locks: FakeLockManager
+  /** The current password a password change carries is wrong: the API answers 400 and changes nothing. */
+  wrongPassword?: boolean
 }
 /** One tab: its own module graph of the client, the auth API and the session, its refresh stub, and the answers the
  * case holds for it, each next refresh's and each next login's or logout's in order (none held answers at once, a post
@@ -170,6 +173,9 @@ function hold<T = void>(fallback?: T) {
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 const ok = (config: InternalAxiosRequestConfig, data: unknown) => ({ data, status: 200, statusText: 'OK', headers: {}, config })
+const badRequest = (config: InternalAxiosRequestConfig, detail: string) => Object.assign(new Error('Request failed with status code 400'), {
+  config, isAxiosError: true, response: { status: 400, statusText: 'Bad Request', data: { detail }, headers: {}, config },
+})
 const unauthorized = (config: InternalAxiosRequestConfig, detail: string) => Object.assign(new Error('Request failed with status code 401'), {
   config, isAxiosError: true, response: { status: 401, statusText: 'Unauthorized', data: { detail }, headers: {}, config },
 })
@@ -242,9 +248,15 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
           shared.events.push(`${name}'s ${url} refused: its access token has expired`)
           throw unauthorized(config, 'You are not logged in.')
         }
+        if (shared.wrongPassword) {
+          shared.events.push(`${name}'s ${url} refused: its current password is wrong`)
+          throw badRequest(config, 'Current password is incorrect.')
+        }
+        // The new token is live whatever happened to the session before (a logout, a sweep).
         const account = shared.server[session]
         account.cut = [...(account.cut ?? []), account.tip]
         account.tip += 1
+        account.revoked = false
         const minted = account.tip
         await (tab.postAnswers.shift() ?? 'took')
         shared.cookies = { session, token: minted, fresh: true }
@@ -822,7 +834,7 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     expect(browser.locks.idle()).toBe(true)
   })
 
-  it('posts nothing more for a login accepted in its tab while the identity read renewed it', async () => {
+  it('posts nothing more for a login accepted in its tab while the identity read renewed it: the read is not replayed', async () => {
     const renewal = hold()
     tabB.refreshAnswers.push(renewal.promise)
     const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
@@ -831,8 +843,90 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     tabB.session.markSessionActive()
     tabB.session.advanceSessionGeneration('explicit')
     renewal.resolve()
-    expect(await outcome).toBeInstanceOf(Error)
+    // The client does not replay a read across an account transition, so the read's own 401 is the change's answer.
+    expect(await outcome).toMatchObject({ status: 401 })
     expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("posts nothing more for a login accepted in its tab while its second post waited for the lock, and says why", async () => {
+    // The first post answers 401. Tab A asks for a refresh while the renewal's is out, so A's goes out next and holds the
+    // lock when the second post asks for it.
+    const renewal = hold()
+    tabB.refreshAnswers.push(renewal.promise)
+    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await settle()
+    expect(browser.events.at(-1)).toBe("B's refresh sent with X")
+    const aAnswer = hold()
+    tabA.refreshAnswers.push(aAnswer.promise)
+    const aRefreshing = tabA.client.ensureRefreshed()
+    await settle()
+    renewal.resolve()
+    await settle()
+    expect(browser.events.filter((event) => event === 'B reads /api/auth/me as X')).toHaveLength(2)
+    expect(browser.events).toContain("A's refresh sent with X")
+    tabB.session.markSessionActive()
+    tabB.session.advanceSessionGeneration('explicit')
+    aAnswer.resolve()
+    await aRefreshing
+    expect(await outcome).toMatchObject({ name: 'AbortError', message: 'Your session changed before your password was saved, so it was not changed.' })
+    expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("refuses at its limit while its own tab's refresh is unanswered, neither cancelling it nor posting: that refresh lands, and nothing presents the token it rotated away (E96)", async () => {
+    fakeTimers()
+    const answer = hold()
+    tabB.refreshAnswers.push(answer.promise)
+    const refreshing = tabB.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
+    expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+    expect(browser.events).toEqual(["B's refresh sent with X"])
+
+    answer.resolve()
+    await refreshing
+    expect(browser.events).toEqual(["B's refresh sent with X", "B's refresh answered for X"])
+    expect(browser.server.X).toEqual({ tip: 2, revoked: false, swept: false })
+    expect(browser.cookies).toEqual({ session: 'X', token: 2, fresh: true })
+    expect(vi.getTimerCount()).toBe(0)
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("refuses at its limit while another tab's refresh still holds the lock, and posts nothing beside it", async () => {
+    fakeTimers()
+    browser.cookies.fresh = true
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
+    expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+
+    answer.resolve()
+    await refreshing
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X"])
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(vi.getTimerCount()).toBe(0)
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('posts at once without the lock when the browser refuses it, as the other posts do', async () => {
+    browser.cookies.fresh = true
+    browser.locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
+    expect(await tabB.auth.changePassword('old-password', 'new-password')).toEqual({ message: 'Password updated.' })
+    expect(browser.events).toEqual(['B posts /api/auth/change-password as X', "B's /api/auth/change-password answered"])
+  })
+
+  it('posts once for a wrong current password and renews nothing: only a 401 is renewed', async () => {
+    browser.cookies.fresh = true
+    browser.wrongPassword = true
+    expect(await tabB.auth.changePassword('wrong-password', 'new-password').catch((error: unknown) => error)).toMatchObject({ status: 400 })
+    expect(browser.events).toEqual(['B posts /api/auth/change-password as X', "B's /api/auth/change-password refused: its current password is wrong"])
     expect(browser.server.X.cut).toBeUndefined()
     expect(browser.locks.idle()).toBe(true)
   })
@@ -868,11 +962,14 @@ describe("the identity read after an OAuth sign-in, which no lock can hold, and 
     const refreshing = tabA.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
     signInByNavigation()
-    const reading = tabB.auth.getCurrentUser()
+    let settled = false
+    const reading = tabB.auth.getCurrentUser().finally(() => { settled = true })
     await vi.advanceTimersByTimeAsync(tabB.auth.IDENTITY_READ_REFRESH_WAIT_MS - 1)
     expect(browser.events.filter((event) => event.startsWith('B '))).toEqual([])
+    expect(settled).toBe(false)
 
     await vi.advanceTimersByTimeAsync(1)
+    expect(settled).toBe(true)
     expect(await reading).toEqual({ reader: 'Y' })
     stalled.resolve()
     await refreshing
@@ -915,11 +1012,22 @@ describe("the identity read after an OAuth sign-in, which no lock can hold, and 
     tabA.postAnswers.push(loginAnswer.promise)
     const signingIn = tabA.auth.login(EMAIL, PASSWORD)
     await settle()
-    expect(await tabB.auth.getCurrentUser()).toEqual({ reader: 'X' })
+    const reading = tabB.auth.getCurrentUser()
+    await settle()
+    expect(browser.events).toEqual(['A posts /api/auth/login as X', 'B reads /api/auth/me as X'])
+    expect(await reading).toEqual({ reader: 'X' })
 
     loginAnswer.resolve('took')
     await signingIn
-    expect(browser.events).toEqual(['A posts /api/auth/login as X', 'B reads /api/auth/me as X', "A's /api/auth/login answered"])
+    expect(browser.events.at(-1)).toBe("A's /api/auth/login answered")
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('reads nothing on a signal already aborted, and waits for nothing', async () => {
+    const abort = new AbortController()
+    abort.abort()
+    expect(await tabB.auth.getCurrentUser({ signal: abort.signal }).then(() => 'read', () => 'refused')).toBe('refused')
+    expect(browser.events).toEqual([])
     expect(browser.locks.idle()).toBe(true)
   })
 })
@@ -953,9 +1061,27 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     expect(browser.events).toEqual([
       "A's refresh sent with X", 'B posts /api/auth/change-password as X', "B's /api/auth/change-password answered", "A's refresh answered for X",
     ])
-    // The browser holds the token the change revoked, which its next refresh presents and the API refuses.
+    // The browser holds the token the change revoked: its next refresh presents it, and the API refuses it, with no sweep.
     expect(browser.cookies).toEqual({ session: 'X', token: 2, fresh: true })
-    expect(browser.server.X.cut).toEqual([2])
+    await tabA.client.ensureRefreshed().catch(() => undefined)
+    expect(browser.events.slice(-2)).toEqual(["A's refresh sent with X", "A's refresh refused"])
+    expect(browser.server.X).toMatchObject({ tip: 3, cut: [2], swept: false })
+  })
+
+  it("a password change refuses at its limit while its own tab's refresh is unanswered, and posts nothing", async () => {
+    withoutLocks()
+    fakeTimers()
+    const stalled = hold()
+    tabB.refreshAnswers.push(stalled.promise)
+    const refreshing = tabB.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
+    expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
+    stalled.resolve()
+    await refreshing
+    expect(browser.events).toEqual(["B's refresh sent with X", "B's refresh answered for X"])
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it("reads the identity at once, so a refresh another tab sent before an OAuth sign-in can set the previous cookies after the read", async () => {

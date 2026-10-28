@@ -374,7 +374,9 @@ describe('a refresh asked for while a login is under way', () => {
  * refreshAccessToken posts to /api/auth/refresh, is imported or exported anywhere only by lib/api/client.ts, by that one
  * name, whose one use of it is that call, and no other literal names that path; client.ts's NO_REFRESH_PATHS, a list of
  * paths and not a request, is pinned for the login's, the logout's, the password change's and the refresh's paths to its
- * one site. What the holds and the wait themselves do (the lock and its two modes, the waits and their bounds, the post
+ * one site. The identity read's path, /api/auth/me, is named by a literal only in getCurrentUser (ME_SITES), so every
+ * /me read waits for the refreshes before it, as a tab landing from an OAuth sign-in needs; that the wait is awaited
+ * before the read is the specs' to hold (planted as a gap). What the holds and the wait themselves do (the lock and its two modes, the waits and their bounds, the post
  * at its limit, the password change's renewal after its hold) is sessionCookiesAcrossTabs.spec.ts's to hold. What it
  * reads: every tracked
  * file under frontend/ (`git ls-files`) of each JS and TS extension, in every directory but tests/, in one walk per
@@ -386,7 +388,7 @@ describe('a refresh asked for while a login is under way', () => {
  * of refreshAccessToken are read too (its name resolves to the declaration there, not to an import), so a keep-alive
  * inside it that calls refreshAccessToken is refused. Out of its reach (planted as gaps): a path or a hold's name
  * assembled at run time; a send that returns a call of an async local helper which posts without returning the post;
- * another request one of the four sends makes before its own (getCurrentUser's among them, whose wait would keep it
+ * another request one of the five sends makes before its own (getCurrentUser's among them, whose wait would keep it
  * waiting under the hold, until its limit, for the lock its own caller holds; a call of the wait itself there is
  * refused); a call site that passes its own limit, or a request given
  * its own timeout, which the refresh's bound does not allow for (sessionCookiesAcrossTabs.spec.ts's constants check
@@ -422,6 +424,9 @@ const REFRESH_SITES: Record<string, string[]> = {
   'lib/api/refresh.ts': ['path in refreshAccessToken'],
 }
 const HOLD_NAMES: string[] = [REFRESH_HOLD, POST_HOLD, SETTLED]
+// The identity read's path, and where a literal may name it: anywhere else is a /me read that skips the wait.
+const ME_PATH = /\/api\/auth\/me(?![\w-])/
+const ME_SITES: Record<string, string[]> = { [AUTH_API]: ['path in getCurrentUser'] }
 // The lock's calls, all of them: any other use of a hold's name, anywhere, is another request that could run under the
 // lock, or a hold that could be taken around one, and any other use of the wait's is a wait that could stand in a send.
 const HOLD_SITES: Record<string, string[]> = {
@@ -476,6 +481,8 @@ interface Reading {
   loginSend: string[]
   /** Each use of a hold's name, but its declaration in the client and an import that keeps the name, sorted. */
   holds: string[]
+  /** Where each literal naming /api/auth/me stands, sorted. */
+  me: string[]
 }
 
 /** One walk over a module for both ends of the hold. */
@@ -536,6 +543,7 @@ function read(source: string, file: string): Reading {
     refresh: [],
     loginSend: [],
     holds: [],
+    me: [],
   }
   const refreshModule = (specifier: ts.Node | undefined): boolean =>
     !!specifier && ts.isStringLiteralLike(specifier) && moduleOf(specifier.text, file) === REFRESH_MODULE
@@ -551,6 +559,7 @@ function read(source: string, file: string): Reading {
       else placement.outside.push(sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1)
     }
     if (texts.some((text) => REFRESH_PATH.test(text))) found.refresh.push(`path in ${holder(node)}`)
+    if (texts.some((text) => ME_PATH.test(text))) found.me.push(`path in ${holder(node)}`)
     if (ts.isImportDeclaration(node) && refreshModule(node.moduleSpecifier)) found.refresh.push(`import ${clause(node.importClause?.getText(sf))} from ${REFRESH_MODULE}`)
     if (ts.isExportDeclaration(node) && refreshModule(node.moduleSpecifier)) found.refresh.push(`export ${clause(node.exportClause?.getText(sf))} from ${REFRESH_MODULE}`)
     if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) && refreshModule(node.moduleReference.expression)) {
@@ -596,6 +605,7 @@ function read(source: string, file: string): Reading {
   found.refresh.sort()
   found.loginSend.sort()
   found.holds.sort()
+  found.me.sort()
   return found
 }
 
@@ -788,6 +798,21 @@ const HOLD_FORMS: { form: string; source: string; file: string; sites: string[];
   { form: "the hold's name assembled at run time", file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => (client as unknown as Record<string, (ms: number, send: () => Promise<void>) => unknown>)['withSessionCookies' + 'ForPost'](1, async () => undefined)\n`, sites: [], flag: false, gap: true },
 ]
 
+// Where a literal names the identity read's path.
+const ME_FORMS: { form: string; source: string; file: string; sites: string[]; flag: boolean; gap?: true }[] = [
+  { form: 'the identity read in getCurrentUser, after its wait', file: AUTH_API, source: `${API}import { sessionCookiesSettled } from '@/lib/api/client'\nexport const getCurrentUser = async () => {\n  await sessionCookiesSettled(1)\n  return api.get('/api/auth/me')\n}\n`, sites: ['path in getCurrentUser'], flag: false },
+  // A /me read that skips the wait.
+  { form: 'a second reader of /me in the auth API', file: AUTH_API, source: `${API}export const getCurrentUser = async () => api.get('/api/auth/me')\nexport const whoAmI = () => api.get('/api/auth/me')\n`, sites: ['path in getCurrentUser', 'path in whoAmI'], flag: true },
+  { form: 'a reader in another module', file: 'features/fixture.ts', source: `${API}export const peek = () => api.get('/api/auth/me')\n`, sites: ['path in peek'], flag: true },
+  { form: 'a template with a base before the path', file: 'lib/serverApi.ts', source: 'export const me = (base: string) => fetch(`${base}/api/auth/me`)\n', sites: ['path in me'], flag: true },
+  { form: 'the path in a const outside getCurrentUser', file: AUTH_API, source: `${API}const ME = '/api/auth/me'\nexport const getCurrentUser = async () => api.get(ME)\n`, sites: ['path in ME'], flag: true },
+  // Look-alikes, which pass.
+  { form: 'a longer path that starts with it', file: 'features/fixture.ts', source: `${API}export const settings = () => api.get('/api/auth/me-settings')\n`, sites: [], flag: false },
+  // Out of its reach.
+  { form: 'the wait not awaited before the read', file: AUTH_API, source: `${API}import { sessionCookiesSettled } from '@/lib/api/client'\nexport const getCurrentUser = async () => {\n  void sessionCookiesSettled(1)\n  return api.get('/api/auth/me')\n}\n`, sites: ['path in getCurrentUser'], flag: false, gap: true },
+  { form: 'the path assembled at run time', file: 'features/fixture.ts', source: `${API}export const peek = () => api.get('/api/auth/' + 'me')\n`, sites: [], flag: false, gap: true },
+]
+
 type Counts = { outside: number; inside: number; exempt: number }
 const NONE: Counts = { outside: 0, inside: 0, exempt: 0 }
 const countsOf = (reading: Reading): Record<HeldPost, Counts> => Object.fromEntries(HELD.map((post) =>
@@ -820,6 +845,12 @@ describe("both ends of the hold stay in the client: each post in its helper's se
       return { form, expected: { sites: [...sites].sort(), flag }, got: { sites: got, flag: flagged } }
     })
     expect(holdScores.filter(({ expected, got }) => JSON.stringify(expected) !== JSON.stringify(got))).toEqual([])
+    const meScores = ME_FORMS.map(({ form, source, file, sites, flag }) => {
+      const got = read(source, file).me
+      const flagged = JSON.stringify(got) !== JSON.stringify([...(ME_SITES[file] ?? [])].sort())
+      return { form, expected: { sites: [...sites].sort(), flag }, got: { sites: got, flag: flagged } }
+    })
+    expect(meScores.filter(({ expected, got }) => JSON.stringify(expected) !== JSON.stringify(got))).toEqual([])
   })
 
   it("finds no other in the tree, and reads each post's own send, the login's hand-off and the refresh's sites where they are", () => {
@@ -840,6 +871,8 @@ describe("both ends of the hold stay in the client: each post in its helper's se
       .toEqual(Object.fromEntries(Object.entries(REFRESH_SITES).map(([file, sites]) => [file, [...sites].sort()])))
     expect(Object.fromEntries(readings.filter(({ holds }) => holds.length > 0).map(({ file, holds }) => [file, holds])))
       .toEqual(Object.fromEntries(Object.entries(HOLD_SITES).map(([file, sites]) => [file, [...sites].sort()])))
+    expect(Object.fromEntries(readings.filter(({ me }) => me.length > 0).map(({ file, me }) => [file, me])))
+      .toEqual(Object.fromEntries(Object.entries(ME_SITES).map(([file, sites]) => [file, [...sites].sort()])))
   })
 
   it("holds under the posts' hold only posts whose own 401 asks for no refresh, which would wait for the lock its caller holds", () => {
