@@ -120,7 +120,7 @@ PAGE_ACTIONS = re.compile(
     r"|\b(?:see|use|follow|open|click|tap|select|visit)\s+(?:the|this|that|its|a|each)\s+(?:[\w'\u2019-]+\s+){0,2}"
     r"links?\b"
     r"|(?:^|[.;:!?(]\s*)(?:(?:tap|press(?!\s+releases?\b)|select|choose|drag|open(?!\s+(?:market|positions?)\b)|pick"
-    r"|expand|follow)\b(?!-)|(?:tapped|pressed|selected|chosen|dragged|opened|picked|expanded)\s*,)"
+    r"|expand|follow)\b(?!-)|(?:tapped|pressed|selected|chosen|dragged|opened|picked|expanded|followed)\s*,)"
     r"|\b(?:tapp|press|select|choos|dragg|pick)ing\b"
     r"|\b(?:tap|press|select|choose)\s+(?:it|them|one|any|a|an|the|this|that|these|those|here|on|over|for|from|through)\b"
     r"|\b(?:open|pick|expand)\s+(?:it|them|one|any|this|that|these|those|here|for"
@@ -203,7 +203,8 @@ def _surface_problems(words: str) -> list[str]:
     "Click on the figure.", "Scroll down to the table.",
     "Click for the source filing.", "Tap for details.", "Hover for its inputs.", "Press for details.",
     "Choose from the list.", "Clicked on, it opens the filing.", "Selecting shows the filing.", "Drag to zoom.",
-    "Clicks open the filing.", "Selected, it opens the filing.", "Drag it to compare.", "Then select the row.",
+    "Clicks open the filing.", "Selected, it opens the filing.", "Followed, it opens the filing.",
+    "Drag it to compare.", "Then select the row.",
     "See the tooltip.", "Review the filing, or press here.", "Press release aside, select it.", "Drag the slider.",
     # Round 5: open, pick, expand, follow, mouse over, and the page's dialog, link and panel.
     "Open it to see both filings.", "Pick one to see both filings.", "Open the dialog to compare.",
@@ -277,7 +278,9 @@ def test_the_surface_words_check_fails_what_it_names(words):
     "Follow-on offering proceeds are excluded.", "Revenue is restated (follow-on filings included).",
     "Press-release figures differ from the filing.",
     # Round 7: a place that holds no drawing, the filing's own break after its subject, a link no verb aims at, and WP5's
-    # planned words (coherence.md section 1.6) with their page-only words and semicolons left out.
+    # planned words (coherence.md section 1.6 and section 3's table) with their page-only words and semicolons left out,
+    # and with "this figure" dropped from the sign sentence, since a note's words name no one figure (DEICTIC).
+    "Followed by a later filing\u2019s restatement.",
     "Shown in aggregate as a single line.", "The annual report shows a break in the series.",
     "Matched to the source link.", "Matched via the source link.",
     "First reported as $6.7B in its own annual report (10-K, filed \u2026). A later filing (filed \u2026) reports $5.1B, "

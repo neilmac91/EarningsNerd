@@ -9,22 +9,19 @@
  * 0.6em stands until the strip has measured. tests/unit/kpi-strip-layout.spec.tsx derives these from the Tailwind
  * tokens and the classes that draw them.
  */
+import { dataFaceDraws } from '@/lib/format'
+
 const FIGURE_EM = 1.5
 const MARK_EM = 0.6875
 export const KPI_FIGURE_ADVANCE = 0.6 * FIGURE_EM
 export const KPI_MARK_ADVANCE = 0.6 * MARK_EM
 export const KPI_MARK_GAP = 0.125
-/** The glyphs past ASCII a value prints that Geist Mono draws at its one advance: the no-break space Intl puts after a
- *  code, and the currency signs en-US formats print for every ISO 4217 code that Geist Mono has. Any
- *  other glyph prints in another face (₩ and ₫, E203; the narrow no-break space in "F CFA", which Chromium draws as a
- *  0.3em space) and counts 1.25em, wider than any face found to draw one: DejaVu Sans Bold's ₩ is 1.103em and Inter
- *  Black's 1.112em, ₫ peaks at 0.696em. tests/e2e/analysis-layout.spec.ts measures each in Geist Mono itself. */
-export const KPI_FACE_GLYPHS = '\u00a0€£¥₹₪₱'
-/** The glyphs a value can print that Geist Mono lacks: the e2e's control, none of which may take the face's advance. */
-export const KPI_MISSING_GLYPHS = '\u202f₩₫'
-
-/** A value's glyphs on one line: its figure's and its mark's (a note letter) that the face draws, and the rest in rem:
- *  those the face lacks at 1.25em each, and the 2px before the mark. */
+/** A value's glyphs on one line: its figure's and its mark's (a note letter) that the face draws (lib/format's
+ *  dataFaceDraws: ASCII and DATA_FACE_GLYPHS, which tests/e2e/analysis-layout.spec.ts measures in Geist Mono itself),
+ *  and the rest in rem: those the face lacks at 1.25em each, and the 2px before the mark. fmtCurrency prints a code
+ *  where the face lacks a currency's sign (E203), so a value reaches the 1.25em only by another path; that is wider
+ *  than any face found to draw one: DejaVu Sans Bold's ₩ is 1.103em and Inter Black's 1.112em, ₫ peaks at 0.696em,
+ *  and Chromium draws the narrow no-break space in "F CFA" as a 0.3em space. */
 export interface KpiGlyphs {
   figure: number
   mark: number
@@ -33,9 +30,8 @@ export interface KpiGlyphs {
 
 /** A glyph the face lacks, in ems of its own text. */
 const MISSING_EM = 1.25
-const own = (glyph: string) => (glyph >= ' ' && glyph <= '~') || KPI_FACE_GLYPHS.includes(glyph)
 const tally = (text: string, em: number) => [...text].reduce(
-  ([drawn, rest], glyph) => (own(glyph) ? [drawn + 1, rest] : [drawn, rest + em]), [0, 0])
+  ([drawn, rest], glyph) => (dataFaceDraws(glyph) ? [drawn + 1, rest] : [drawn, rest + em]), [0, 0])
 
 export function kpiValueGlyphs(text: string, letter?: string | null): KpiGlyphs {
   const marks = letter ? [letter] : []

@@ -33,5 +33,6 @@ also runs at the sweep's worst phone width under 200% text (`frontend/tests/e2e/
 
 **Evidence.** #1686: `2b123383` recorded "40px under 200% text" (`frontend/DESIGN_SYSTEM.md` §7 and
 `PublicAccessLine.tsx`), and its verification lens found the model's figures; `afd3046c` records the measured range
-in CI's fonts and adds the 320px case, and `3b7b384a` names the fonts in §7. E223 in `tasks/todo.md` records the
-compact bar.
+in CI's fonts and adds the 320px case, and `3b7b384a` names the fonts in §7. E223 then held the compact bar's
+label (`frontend/components/Header.tsx`), and the readiness case runs at the sweep's two widths, 370 and 450px under
+200% text.

@@ -22,8 +22,9 @@ import { describe, expect, it } from 'vitest'
  *     system sanctions (§9), and a token inside another (`shadow-ring-error-dark`, the focus ring the primitives own)
  *     is not read. The gain/loss tones (lib/financialTone.ts) and the brand's tints are not status. RESIDUE lists what
  *     the census found on 2026-10-24, per file at its count, with the surface and the open item that retires it
- *     (tasks/todo.md E196: its clause (1) the pricing usage box, (2) the guidance and warning containers, (3) and (4) the
- *     error and other clones of Notice and Badge); a line under "a status tint on a state, no item" is held at its count until a
+ *     (tasks/todo.md E196: its clause (2) the guidance and warning containers, (3) and (4) the error and other clones of
+ *     Notice and Badge; its clause (1), the pricing usage box, took the shared UsageMeter on 2026-10-27, and the
+ *     dashboard's meter with it); a line under "a status tint on a state, no item" is held at its count until a
  *     primitive takes the surface. Shrink-only: a fixed surface fails until its count is lowered, a new tint fails,
  *     and the totals equal RESIDUE_MAX, lowered in the same commit as each shrink
  *     (lessons/test-allowlist-caps-are-equalities.md).
@@ -48,10 +49,8 @@ const COMPONENT = 'Notice'
 const STATUS_TINT = /(?<![\w-])(?:bg|border(?:-[trblxyse])?|ring(?:-offset)?|from|to|via|divide|outline|shadow)-(?:info|success|warning|error)-(?:light|dark|text|emphasis)\b/g
 
 const RESIDUE: Record<string, number> = {
-  // E196 (1): the pricing usage box, an info tint with a blue usage meter (the dashboard meter below is its sanctioned twin).
-  'app/pricing/page.tsx': 8,
   // E196 (2): hand-rolled warning containers, which wait on a `warning` Notice variant.
-  'app/dashboard/page.tsx': 10, // the usage banner's warning tint; also the meter's warning/error fills at its thresholds and the delete button's hover tint
+  'app/dashboard/page.tsx': 6, // the usage banner's warning tint; also the delete button's hover tint (the meter is UsageMeter's)
   'components/Header.tsx': 4, // the phone menu's verify-email row
   'features/admin/components/ShareInvite.tsx': 4, // the invite-sharing warning well
   'features/auth/components/UserMenu.tsx': 6, // the unverified dot and the verify-email row
@@ -75,7 +74,7 @@ const RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/FilingViewer.tsx': 4, // the viewer's warning strip
 }
 /** Equal to the table, never above it: lower both with the table in the same commit. */
-const RESIDUE_MAX = { files: 21, uses: 89 }
+const RESIDUE_MAX = { files: 20, uses: 77 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
