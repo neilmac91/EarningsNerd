@@ -14,7 +14,8 @@ One rule, three parts in this one module:
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes; the password reset and change, their refusals
   and a failing write included, which hold none while they hash or wait for the breached-password
-  check), each watchlist route and its refusals, each analysis route
+  check; the connections list and unlink, their refusals and a failing unlink included), each
+  watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
@@ -1177,6 +1178,145 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
             assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
             assert stored == [("the stored hash", False, False)] * 9
             assert (revoked, minted) == ([False] * 9, [])
+    finally:
+        engine.dispose()
+
+
+# The connections routes' closes, as above. The auth lookup's read runs on into the route's one unit, whose release
+# ends it; a provider the route does not know is refused before any unit, and the finalizer ends the read, in the
+# thread pool, with nothing awaited in between. An unlink's last statement is its audit row's refresh.
+_CONNECTION_CLOSES = {
+    "list": [True, False],
+    "unlink": [True, False],
+    "unlink_not_linked": [True, False],
+    "unlink_last_method": [True, False],
+    "unlink_unknown": [True],
+    "unlink_fails": [True, False],
+}
+_CONNECTION_ANSWERS = {
+    "unlink": (200, {"status": "success", "unlinked": "google"}),
+    "unlink_not_linked": (404, {"detail": "That provider is not linked to your account."}),
+    "unlink_last_method": (
+        400, {"detail": "You can't remove your only sign-in method. Set a password first, then unlink."},
+    ),
+    "unlink_unknown": (400, {"detail": "Unknown provider."}),
+    "unlink_fails": (500, None),
+}
+_CONNECTION_PROVIDERS = {"unlink_not_linked": "apple", "unlink_unknown": "myspace"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CONNECTION_CLOSES))
+async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(monkeypatch, tmp_path, case):
+    """The connections list reads the account's links in one thread-pool unit, and an unlink deletes its link and
+    writes its oauth_unlinked audit row in one, each released before the route returns. Nine requests on four slots
+    make no checkout, statement or release on the loop and leave nothing for the finalizer, their refusals and a
+    failing unlink included. On the loop the list read there, and the unlink deleted, committed and audited there,
+    then read the user its commit had expired, to name it in the audit row (E121). An unlink removes each account's
+    link and writes its row; a refusal or a failed unlink leaves every link as it was and writes none."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'connections.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"connections-{i}@example.com" for i in range(9)]
+    password = None if case == "unlink_last_method" else "the stored hash"
+    with sessions() as db:
+        accounts = [User(email=email, is_active=True, hashed_password=password) for email in emails]
+        db.add_all(accounts)
+        db.flush()
+        db.add_all([
+            OAuthAccount(user_id=account.id, provider="google", provider_account_id=f"google-sub-{i}",
+                         provider_email=f"google-{i}@example.com")
+            for i, account in enumerate(accounts)
+        ])
+        db.commit()
+        account_ids = [account.id for account in accounts]
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    if case == "unlink_fails":
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unlink failed after its first query")
+
+        monkeypatch.setattr(oauth_account_service, "unlink_oauth_provider", fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            if case == "list":
+                return await client.get("/api/auth/connections")
+            return await client.delete(f"/api/auth/connections/{_CONNECTION_PROVIDERS.get(case, 'google')}")
+
+    try:
+        responses = await asyncio.gather(*[send(i) for i in range(9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_CONNECTION_CLOSES[case]] * 9
+        if case == "list":
+            assert [response.status_code for response in responses] == [200] * 9
+            assert [
+                (body["has_password"], [(p["provider"], p["provider_email"], type(p["linked_at"])) for p in body["providers"]])
+                for body in (response.json() for response in responses)
+            ] == [(True, [("google", f"google-{i}@example.com", str)]) for i in range(9)]
+        else:
+            status, payload = _CONNECTION_ANSWERS[case]
+            assert [response.status_code for response in responses] == [status] * 9
+            if payload is not None:
+                assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            links = [(link.user_id, link.provider) for link in db.query(OAuthAccount).order_by(OAuthAccount.user_id)]
+            audits = [(row.action, row.user_id, row.user_email, row.details)
+                      for row in db.query(AuditLog).order_by(AuditLog.id)]
+        if case == "unlink":
+            assert links == []
+            assert sorted(audits, key=lambda row: row[2]) == [
+                ("oauth_unlinked", str(account_id), email, {"provider": "google"})
+                for account_id, email in zip(account_ids, emails)
+            ]
+        else:
+            assert links == [(account_id, "google") for account_id in account_ids]
+            assert audits == []
     finally:
         engine.dispose()
 
@@ -4200,11 +4340,7 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 
     ("app/routers/auth.py", "google_start"): 1,
 
-    ("app/routers/auth.py", "list_connections"): 1,
-
     ("app/routers/auth.py", "register"): 5,
-
-    ("app/routers/auth.py", "unlink_connection"): 2,
 
     ("app/routers/auth.py", "verify_email"): 3,
 }
