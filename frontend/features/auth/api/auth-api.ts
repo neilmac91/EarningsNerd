@@ -1,4 +1,4 @@
-import api, { ApiError, withSessionCookiesForPost, withoutRefreshBeside } from '@/lib/api/client'
+import api, { ApiError, sessionCookiesSettled, withSessionCookiesForPost, withoutRefreshBeside } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
@@ -71,8 +71,14 @@ export interface CurrentUser {
   email_verified: boolean
 }
 
+// How long the identity read waits, at most, for the silent refreshes queued before it, in any tab, to answer (E29).
+export const IDENTITY_READ_REFRESH_WAIT_MS = 10_000
+
 export const getCurrentUser = async (options?: { signal?: AbortSignal }): Promise<CurrentUser> => {
   const generation = getSessionGeneration()
+  // A refresh another tab sent with the previous session's cookies can answer after an OAuth sign-in's navigation has
+  // set the new session's (E29): read once it has, so this tab shows the account the browser then holds.
+  await sessionCookiesSettled(IDENTITY_READ_REFRESH_WAIT_MS, options?.signal)
   const response = await api.get('/api/auth/me', { signal: options?.signal })
   assertSessionGeneration(generation)
   options?.signal?.throwIfAborted()
@@ -231,13 +237,68 @@ export const updateProfile = async (fullName: string | null) => {
   return response.data
 }
 
+// How long a password change waits, at most, for the silent refreshes before it to answer (E29), as a logout does.
+export const PASSWORD_CHANGE_REFRESH_WAIT_MS = 10_000
+
+// Why a password change posted nothing: a login or a logout accepted in this tab since it was asked for changed the
+// session the tab shows.
+const sessionChangedMeanwhile = () =>
+  new DOMException('Your session changed before your password was saved, so it was not changed.', 'AbortError')
+
+// The password change's post, holding the session cookies' lock shared and refusing at its limit (client.ts's
+// withSessionCookiesForPost). A login or a logout accepted in this tab while it waited changed the account the tab
+// shows, so it posts only while the explicit generation it was asked under is current, in the post's own turn, after
+// both waits, as a logout does.
+function postPasswordChange(currentPassword: string | null, newPassword: string, generation: number) {
+  return withSessionCookiesForPost(PASSWORD_CHANGE_REFRESH_WAIT_MS, async () => {
+    if (!isExplicitSessionGenerationCurrent(generation)) throw sessionChangedMeanwhile()
+    // current_password is omitted for OAuth-only users setting a password for the first time.
+    return api.post('/api/auth/change-password', {
+      current_password: currentPassword || undefined,
+      new_password: newPassword,
+    })
+  }, 'refuse')
+}
+
+/**
+ * Sets or changes the password. Its answer revokes every session of the account and gives this browser a new refresh
+ * token, so a refresh sent before it with the token it revokes, in any tab, that answered after it would set that token
+ * over the new one, and the browser's next refresh would be refused, signing the reader out (E29). So it posts as a
+ * logout does, holding the session cookies' lock shared: this tab's refresh in flight answers first, then the refreshes
+ * queued for the lock before its request, in any tab, while those asked for after it wait for its answer and go out
+ * with the new token. Unlike a logout, at PASSWORD_CHANGE_REFRESH_WAIT_MS it posts nothing and rejects with client.ts's
+ * SessionStillRenewing. It does not cancel this tab's refresh: one cancelled after the API rotated its token leaves the
+ * browser holding the token rotated away, which the renewal below would present, and the replay sweep would end every
+ * session of the account (E96). Nor does it post beside a refresh still unanswered. The route needs the access token,
+ * but a refresh asked for under the hold would wait for the lock its own post holds, so the path is in client.ts's
+ * NO_REFRESH_PATHS: a 401 (the access token lapsed) is renewed after the hold, by the identity read, whose own 401
+ * refreshes and confirms a lost session as any read's does, and the post goes out once more through the hold. Neither
+ * post goes out once a login or a logout has been accepted in this tab since the change was asked for. What this leaves
+ * open: a refresh that waited past REFRESH_LOCK_WAIT_MS goes out beside whatever holds the lock; where the browser has
+ * no lock manager or refuses the lock, any other tab's refresh, and this tab's own asked for while the post is out, can
+ * answer after it; a Log out pressed in this tab while the post is out posts beside it, as on main, and their answers
+ * can land in either order; the post can wait behind a refresh queued after another tab's login, then post with that
+ * login's cookies, as a logout can (withSessionCookiesForPost); and it changes the password of the account the browser
+ * holds, which the renewal's read does not compare with the account the tab shows, so a tab left stale by another tab's
+ * sign-in changes that account's (E29 (6)). And the refusal's cost: a refresh that never answers (the refresh has no
+ * timeout of its own, lib/api/refresh.ts) keeps every tab's change refusing, for as long as it hangs, where a login or
+ * a logout posts at its limit.
+ */
 export const changePassword = async (currentPassword: string | null, newPassword: string) => {
-  // current_password is omitted for OAuth-only users setting a password for the first time.
-  const response = await api.post('/api/auth/change-password', {
-    current_password: currentPassword || undefined,
-    new_password: newPassword,
-  })
-  return response.data
+  const generation = getExplicitSessionGeneration()
+  try {
+    return (await postPasswordChange(currentPassword, newPassword, generation)).data
+  } catch (error: unknown) {
+    if (getErrorStatus(error) !== 401) throw error
+  }
+  try {
+    await getCurrentUser()
+  } catch (error: unknown) {
+    // A login or a logout accepted in this tab during the renewal fences its read (getCurrentUser's generation check).
+    if (error instanceof DOMException && error.name === 'AbortError') throw sessionChangedMeanwhile()
+    throw error
+  }
+  return (await postPasswordChange(currentPassword, newPassword, generation)).data
 }
 
 export const verifyEmail = async (token: string) => {
