@@ -392,6 +392,61 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryCache().findAll({ queryKey: queryKeys.wordingReview.all() })).toHaveLength(0)
   })
 
+  it("a /me naming another reader than this tab showed drops the previous reader's snapshots, and no render pairs the new reader with them (E29 (3))", async () => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    api.defaults.adapter = async (config) => response(config, makeUser(1))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+    const owned = [queryKeys.watchlist(), queryKeys.notifications(), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(7)]
+    for (const key of owned) client.setQueryData(key, { owner: 1 })
+    client.setQueryData(queryKeys.company('AAPL'), { shared: true })
+    const seen: string[] = []
+    function Pair() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: list } = useQuery({ queryKey: queryKeys.watchlist(), queryFn: () => new Promise<never>(() => {}), enabled: false })
+      seen.push(`${user?.id ?? null}:${(list as { owner?: number } | undefined)?.owner ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Pair /></QueryClientProvider>)
+    const before = getSessionGeneration()
+    // Another tab signed in as the second account; this tab's next /me (the Header's focus read) names it.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    // TanStack tells the observers on a later tick: wait for the render that shows the new reader alone, then check
+    // that none before it paired the new reader with the previous one's list.
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:1')
+    expect(seen).not.toContain('2:1')
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
+    expect(client.getQueryData(queryKeys.company('AAPL'))).toEqual({ shared: true })
+    // One move, so the first reader's answers still in flight write nothing (E29 (1)).
+    expect(getSessionGeneration()).toBe(before + 1)
+  })
+
+  it('a read of the same reader again, and a reset between two readers, drop nothing more (E29 (3))', async () => {
+    const client = newClient()
+    disposers.push(subscribeAccountQueryReset(client))
+    api.defaults.adapter = async (config) => response(config, makeUser(1))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+    client.setQueryData(queryKeys.watchlist(), { owner: 1 })
+    // The same reader read again (the Header's focus read): its snapshots stay.
+    const start = getSessionGeneration()
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 1 })
+    expect(getSessionGeneration()).toBe(start)
+    // A login in this tab resets between the two readers, publishing null: the reset is the one move, and the new
+    // reader's own snapshots stay when its /me lands.
+    acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    expect(getSessionGeneration()).toBe(start + 1)
+    client.setQueryData(queryKeys.watchlist(), { owner: 2 })
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
   it('an account change removes every account-owned snapshot and keeps the shared ones', async () => {
     const client = newClient()
     // One entry in each account-owned family; most keys name no reader, so the next account would read them.

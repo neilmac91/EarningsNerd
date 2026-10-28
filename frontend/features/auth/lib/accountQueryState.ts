@@ -1,4 +1,4 @@
-import type { QueryClient, QueryState } from '@tanstack/react-query'
+import { hashKey, type QueryClient, type QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
 import { ApiError, cancelRefresh } from '@/lib/api/client'
@@ -55,10 +55,37 @@ export function resetAccountQueries(
   for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
 }
 
+/** A sign-in in another tab reaches this one only through /me (the Header reads it again on focus), and resets
+ * nothing: a read that names another reader than the one this tab last showed, with no reset between them, finds the
+ * account families still holding the previous reader's snapshots (E29 (3)). They go, as a reset's do, and the session
+ * generation moves on, so the previous reader's answers still in flight write nothing (E29 (1)); the new reader's
+ * identity stays. A reset in this tab (a logout, a login, a lost session) publishes null between two readers, and a
+ * failed logout puts back the reader it found, so neither counts. The cache calls this inside the update, before any
+ * observer hears of it, so no render shows the new reader beside the previous one's snapshots. */
+function watchReader(queryClient: QueryClient): () => void {
+  const identity = hashKey(queryKeys.currentUser())
+  const readerOf = (data: unknown) => (data as CurrentUser | null | undefined)?.id ?? null
+  let reader = readerOf(queryClient.getQueryData(queryKeys.currentUser()))
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.action.type !== 'success' || event.query.queryHash !== identity) return
+    const previous = reader
+    reader = readerOf(event.query.state.data)
+    if (previous === null || reader === null || previous === reader) return
+    advanceSessionGeneration('session-loss')
+    for (const queryKey of ACCOUNT_QUERY_FAMILIES) void queryClient.cancelQueries({ queryKey })
+    for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
+  })
+}
+
 export function subscribeAccountQueryReset(queryClient: QueryClient): () => void {
-  return subscribeSessionLoss((generation) => {
+  const stopLossReset = subscribeSessionLoss((generation) => {
     if (isSessionGenerationCurrent(generation)) resetAccountQueries(queryClient, generation, 'session-loss')
   })
+  const stopReaderWatch = watchReader(queryClient)
+  return () => {
+    stopLossReset()
+    stopReaderWatch()
+  }
 }
 
 /** What /me says of this browser's session after a logout request that failed: no user, the user, or nothing. */
