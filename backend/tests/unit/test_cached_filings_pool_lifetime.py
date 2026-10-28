@@ -1644,7 +1644,7 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
     monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
     if case == "lost_race":
         def lose_at_the_mint(db: Session, *_args: Any, **_kwargs: Any) -> str:
-            db.flush()  # the new account's insert, as the token's flush would make it
+            db.flush()  # the staged link and assent rows, as the token's flush would send them
             raise IntegrityError("INSERT INTO refresh_tokens", {}, Exception("another sign-in committed first"))
 
         monkeypatch.setattr(refresh_token_service, "mint_refresh_token", lose_at_the_mint)
@@ -1711,15 +1711,18 @@ async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["google", "apple"])
 async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_commit_fails(
-    monkeypatch, tmp_path, collection_ready, caplog,
+    monkeypatch, tmp_path, collection_ready, provider,
 ):
-    """A Google sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
+    """A sign-up whose every statement after the mint's commit fails: the dropped connection, the pool
     timeout, the database gone. The account, its link and its session have committed, so the callback must still
     answer with that session; only its best-effort audit rows are missing. The session cookies take the address
     the unit read before the commit: reading it from the user that commit expired was a statement after it, and
     its failure answered 500 for a committed sign-in, the refresh token minted and never delivered (E121)."""
     from types import SimpleNamespace
+
+    import jwt
 
     from app.config import settings
     from app.database import Base
@@ -1779,31 +1782,48 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
         async def post(self, *_args: Any, **_kwargs: Any) -> TokenResponse:
             return TokenResponse()
 
+    claims = {"sub": f"{provider}-subject-0", "email": "after-commit@example.com", "name": None,
+              "email_verified": True if provider == "google" else "true"}
+
     async def verify_google(_token: str) -> dict:
-        return {"sub": "google-subject-0", "email": "after-commit@example.com", "email_verified": True, "name": None}
+        return claims
+
+    async def verify_apple(_token: str, raw_nonce: str) -> dict:
+        assert raw_nonce == "nonce-0"
+        return claims
 
     monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
     monkeypatch.setattr(app, "dependency_overrides", {})
     monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
     monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
     monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    if provider == "google":
+        cookies = {auth._OAUTH_STATE_COOKIE: "state-0"}
+    else:
+        cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value("state-0")}
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
-            cookies={auth._OAUTH_STATE_COOKIE: "state-0"},
+            cookies=cookies,
         ) as client:
-            response = await client.get("/api/auth/google/callback", params={"code": "code-0", "state": "state-0"},
-                                        follow_redirects=False)
+            if provider == "google":
+                response = await client.get("/api/auth/google/callback",
+                                            params={"code": "code-0", "state": "state-0"}, follow_redirects=False)
+            else:
+                response = await client.post("/api/auth/apple/callback",
+                                             data={"state": "state-0", "id_token": "token-0"}, follow_redirects=False)
         assert failing.is_set()
         assert response.status_code == 302 and response.headers["location"] == settings.FRONTEND_URL
-        assert response.cookies.get(settings.COOKIE_NAME)
+        access = jwt.decode(response.cookies[settings.COOKIE_NAME], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
         assert engine.pool.checkedout() == 0
         event.remove(engine, "before_cursor_execute", watch)
         with sessions() as db:
             [user] = db.query(User).all()
             assert user.email == "after-commit@example.com"
             assert [(link.provider, link.provider_account_id) for link in db.query(OAuthAccount)] == [
-                ("google", "google-subject-0")]
+                (provider, f"{provider}-subject-0")]
             [token] = db.query(RefreshToken).all()
             assert refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]) == token.token_hash
             # The audit writes failed and were swallowed; the sign-in stands without them.
