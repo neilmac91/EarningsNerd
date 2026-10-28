@@ -41,8 +41,10 @@ letter order takes a new version: `test_analysis_data_notes.py` pins each versio
 already-open browser tab. Nor does a data notes version: a tab that loaded its report under the old
 version still decodes it, but refuses the first narrative it streams after the backend moves (a new
 report prefix, EVIDENCE_RECOVERY) until Run analysis reloads the report; `data-notes.spec.ts` holds
-both halves (2026-10-26). Keep the code-owned operand tail in its existing wire grammar until
-those clients no longer depend on it; compact the reading prose and structured operand values
+both halves (2026-10-26). A tab whose bundle cannot read the new version refuses the reloaded
+report too, so a version move lands its reader first, in a pull request of its own
+(`arch-a-data-notes-version-lands-its-reader-first.md`, 2026-10-28). Keep the code-owned operand
+tail in its existing wire grammar until those clients no longer depend on it; compact the reading prose and structured operand values
 separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
 `analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
 unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
