@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
+import AddressText from '@/features/auth/components/AddressText'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button, primaryUnavailableClass } from '@/components/ui/Button'
 import { cx } from '@/components/ui/cx'
@@ -45,7 +46,11 @@ export default function ProfileForm() {
       <div className="space-y-4">
         <div>
           <label className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Email</label>
-          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">{user?.email ?? <MissingValue />}</p>
+          {/* The address breaks after its @ (AddressText), and break-words breaks a part only where it is longer than
+              the line, so under 200% text it never ends on a fragment (E232). */}
+          <p className="break-words text-text-primary-light dark:text-text-primary-dark font-medium">
+            {user?.email != null ? <AddressText address={user.email} /> : <MissingValue />}
+          </p>
         </div>
 
         <div>

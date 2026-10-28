@@ -2,19 +2,22 @@ import { test, expect, type Page } from '@playwright/test'
 import { addressFit, atItsAt } from './fixtures/readerAddress'
 
 /**
- * The pages that set the reader's own address in a sentence keep it inside its paragraph (the verify-email dialog's
- * intro, chief design's note on #1745, is in email-verification-resend.spec.ts). An address has no break opportunity,
- * so under 200% text "unverified@example.com" is longer than the line: /delete-account's "Logged in as" ran it 37, 59,
- * 85 and 120px past its paragraph at 414, 390, 360 and 320px, the page scrolling sideways from 390px, and
- * /forgot-password's sent line 4, 28, 58 and 98px, the page scrolling sideways from 360px. Each breaks after its @
- * before anywhere else (AddressText, chief design on #1750), "unverified@" over "example.com" under 200% text, and
- * inside a part only where the part is longer than the line (`break-words`, as /check-email's address does). At 320px
- * at the default size the address stays whole or breaks after its @, never inside a part. Each painted box of the
- * address lies inside its paragraph and the screen, and nothing in <main> or the page scrolls sideways
- * (/delete-account's destructive button, below the address, fits its card since E231: delete-account-button.spec.ts).
+ * The pages that set the reader's own address keep it inside its paragraph (the verify-email dialog's intro, chief
+ * design's note on #1745, is in email-verification-resend.spec.ts). An address has no break opportunity, so under 200%
+ * text "unverified@example.com" is longer than the line: /delete-account's "Logged in as" ran it 37, 59, 85 and 120px
+ * past its paragraph at 414, 390, 360 and 320px, the page scrolling sideways from 390px, and /forgot-password's sent
+ * line 4, 28, 58 and 98px, the page scrolling sideways from 360px. Each breaks after its @ before anywhere else
+ * (AddressText, chief design on #1750), "unverified@" over "example.com" under 200% text, and inside a part only where
+ * the part is longer than the line (`break-words`). /check-email and the settings page's Profile card set it alone in a
+ * paragraph with `break-words` only, so under 200% text it stayed inside the column but ended on a fragment,
+ * "unverified@example.co" over "m" to "unverified@ex" over "ample.com"; they take AddressText too (E232). At 320px at
+ * the default size the address stays whole or breaks after its @, never inside a part. Each painted box of the address
+ * lies inside its paragraph and the screen, and nothing in <main> or the page scrolls sideways (/delete-account's
+ * destructive button, below the address, fits its card since E231: delete-account-button.spec.ts).
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser, and
- * /delete-account's reader is signed in by the middleware's presence cookie and the session read.
+ * the signed-in reader of /delete-account and the settings page is signed in by the middleware's presence cookie and
+ * the session read.
  */
 
 const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
@@ -58,6 +61,23 @@ const PAGES = [
       await page.getByLabel('Email').fill(EMAIL)
       await page.getByRole('button', { name: 'Send reset link' }).click()
       await expect(page.getByRole('heading', { level: 1, name: 'Check your email' })).toBeVisible()
+    },
+  },
+  {
+    name: "/check-email's address",
+    open: async (page: Page, baseURL: string) => {
+      await answer(page, baseURL, false)
+      await page.goto(`/check-email?email=${encodeURIComponent(EMAIL)}`)
+      await expect(page.getByRole('heading', { level: 1, name: 'Check your inbox' })).toBeVisible()
+    },
+  },
+  {
+    name: "the settings page's Profile card, signed in,",
+    open: async (page: Page, baseURL: string) => {
+      await answer(page, baseURL, true)
+      await page.goto('/dashboard/settings')
+      await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible()
+      await expect(page.locator('p', { hasText: EMAIL }).first()).toBeVisible()
     },
   },
 ]

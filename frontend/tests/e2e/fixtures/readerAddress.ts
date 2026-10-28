@@ -12,7 +12,9 @@ export const atItsAt = (address: string) => [[address], [address.slice(0, addres
 
 export const addressFit = (scope: Locator, email: string): Promise<AddressFit> =>
   scope.evaluate((root, address): AddressFit => {
-    const holder = [...root.querySelectorAll('span, strong')].find((el) => el.textContent === address)
+    // The address's own element: a span or strong in a sentence, or a paragraph that holds it alone (/check-email,
+    // the settings page's Profile card). A paragraph that sets it in a sentence holds more text, so never matches.
+    const holder = [...root.querySelectorAll('span, strong, p')].find((el) => el.textContent === address)
     if (!holder) return { found: false, past: [], offscreen: [], pieces: [], scrolls: [], page: null }
     const paragraph = holder.closest('p')!.getBoundingClientRect()
     const doc = document.documentElement

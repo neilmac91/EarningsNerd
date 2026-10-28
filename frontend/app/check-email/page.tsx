@@ -6,6 +6,7 @@ import { resendVerification } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
+import AddressText from '@/features/auth/components/AddressText'
 import AuthShell from '@/features/auth/components/AuthShell'
 import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Notice } from '@/components/ui'
@@ -63,10 +64,11 @@ function CheckEmailContent() {
           <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
             We send verification links to
           </p>
-          {/* An address has no break opportunity, so at 200% text a long one overflows the column;
-              break-words lets it break at the edge (the column is a block of definite width). */}
+          {/* An address has no break opportunity, so at 200% text a long one overflows the column. It breaks
+              after its @ (AddressText), and break-words breaks a part only where it is longer than the line
+              (the column is a block of definite width), so it never ends on a fragment (E232). */}
           <p className="mt-1 break-words text-center text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-            {email}
+            <AddressText address={email} />
           </p>
           <p className="mt-4 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Open the newest one to verify your email address. Each link expires 24 hours after we send it.
