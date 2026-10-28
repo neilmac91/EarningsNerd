@@ -1,6 +1,6 @@
-import api, { ApiError, withSessionCookiesExclusive, withoutRefreshBeside } from '@/lib/api/client'
+import api, { ApiError, withSessionCookiesForPost, withoutRefreshBeside } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
-import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout, getLoginStamp, isLoginStampCurrent } from '@/lib/api/session'
+import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
 
 // Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
@@ -43,10 +43,9 @@ export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?
  * (E29 (4), client.ts's withoutRefreshBeside): this tab's refresh in flight answers first, or is cancelled at
  * LOGIN_REFRESH_WAIT_MS, then the refreshes queued for the session cookies' lock before the login's request, in any
  * tab, within what is left of it; a refresh a 401 asks for in this tab meanwhile, or in another tab after the login's
- * request, waits for the login's answer. A login that took stamps itself, still under the lock, for a logout another
- * tab started to read (session.ts's stampLogin). At the limit it posts without the lock: another tab's refresh still
- * unanswered, which cannot be cancelled from here, can answer after it, and the refreshes queued behind it go out
- * beside it.
+ * request, waits for the login's answer. The login holds the lock shared, so a logout in another tab posts beside it,
+ * as on main. At the limit it posts without the lock: a refresh another tab has in flight, which cannot be cancelled
+ * from here, can answer after it, and any refresh still waiting for the lock may go out beside it.
  */
 export const login = async (email: string, password: string, turnstileToken?: string) => {
   const generation = getExplicitSessionGeneration()
@@ -132,15 +131,15 @@ export const unlinkProvider = async (provider: string) => {
  *
  * Each logout calls `beginLogout` first: until its `endLogout`, the session reads as inactive in this tab, so no 401
  * starts a refresh (every refresh path needs the flag) and a /me a refresh replays cannot mark it active again. Its
- * post then goes through client.ts's `withSessionCookiesExclusive`: this tab's refresh in flight answers, or is
- * cancelled at the limit (`refreshSettled`), then the refreshes queued before its request answer under the session
- * cookies' lock, one at a time, and those any tab asks for after its request wait for its answer. The check that no
- * login was accepted meanwhile, in this tab (the explicit generation) or, having taken, in another (the login stamp,
- * read as the logout starts: session.ts's stampLogin), runs in the post's send, after both waits, so it shares a turn
- * with the post: the cookies are that login's, and a logout posted with them would end its session. What this leaves
- * open: at the limit, another tab's refresh still unanswered, which cannot be cancelled from here, can set the cookies
- * again after the logout's answer, and the refreshes queued behind the logout's request go out beside it; where the
- * browser has no lock manager, any other tab's refresh can set them again.
+ * post then goes through client.ts's `withSessionCookiesForPost`: this tab's refresh in flight answers, or is cancelled
+ * at the limit (`refreshSettled`), then the refreshes queued before its request answer under the session cookies'
+ * lock, one at a time, and those any tab asks for after its request wait for its answer. It holds the lock shared, so
+ * it waits for no other tab's login or logout, as on main. The check that no login was accepted in this tab meanwhile
+ * runs in the post's send, after both waits, so it shares a turn with the post. What this leaves open: at the limit, a
+ * refresh another tab has in flight, which cannot be cancelled from here, can set the cookies again after the logout's
+ * answer, and any refresh still waiting for the lock may go out beside it; a refresh another tab asks for while a login
+ * in a third is out, queued between that login and this logout, makes the logout wait for the login, and post with its
+ * cookies; and where the browser has no lock manager, any other tab's refresh can set them again.
  */
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
 // How long a login waits, at most, for the silent refreshes in flight to answer before it posts (E29 (4)), as a logout
@@ -159,47 +158,38 @@ export class LogoutAllSuperseded extends Error {
  * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). */
 export const logoutAllSessions = async () => {
   const generation = beginLogout()
-  const stamp = getLoginStamp()
-  // The session it started for: no login accepted in this tab since, and none that took in another
-  // (LOGOUT_REFRESH_WAIT_MS).
-  const stillItsOwn = () => isExplicitSessionGenerationCurrent(generation) && isLoginStampCurrent(stamp)
   try {
-    const response = await withSessionCookiesExclusive(LOGOUT_REFRESH_WAIT_MS, async () => {
-      // A login accepted while this waited, in this tab or, having taken, in another, holds the browser's cookies now,
-      // and the server ends every session of the account its request carries: posting would log that account out
-      // everywhere and leave the reader's other devices signed in. So it refuses, distinctly from success, and its
-      // caller neither clears nor navigates. A passive loss of the session meanwhile is no such transition: it still
-      // posts. The check runs after both waits, in the post's turn.
-      if (!stillItsOwn()) throw new LogoutAllSuperseded()
+    const response = await withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => {
+      // A login accepted while this waited holds the tab's cookies now, and the server ends every session of the
+      // account its request carries: posting would log that account out everywhere and leave the reader's other
+      // devices signed in. So it refuses, distinctly from success, and its caller neither clears nor navigates. A
+      // passive loss of the session meanwhile is no such transition: it still posts. The check runs after both waits,
+      // in the post's turn.
+      if (!isExplicitSessionGenerationCurrent(generation)) throw new LogoutAllSuperseded()
       return api.post('/api/auth/logout-all')
     })
     return response.data
   } finally {
-    // The session flag is that login's, once one has taken.
-    if (stillItsOwn()) clearSessionActive()
+    if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
     endLogout(generation)
   }
 }
 
 export const logout = async () => {
   const generation = beginLogout()
-  const stamp = getLoginStamp()
-  // The session it started for: no login accepted in this tab since, and none that took in another
-  // (LOGOUT_REFRESH_WAIT_MS).
-  const stillItsOwn = () => isExplicitSessionGenerationCurrent(generation) && isLoginStampCurrent(stamp)
   try {
-    const response = await withSessionCookiesExclusive(LOGOUT_REFRESH_WAIT_MS, async () => {
-      // A login accepted while this waited is the account this tab now shows, or, one that took in another tab, the
-      // account the browser's cookies hold, and the logout's request could sign it out. A passive loss of the session
-      // meanwhile is no such transition: the logout still posts. The check runs after both waits, in the post's turn.
-      if (!stillItsOwn()) return undefined
+    const response = await withSessionCookiesForPost(LOGOUT_REFRESH_WAIT_MS, async () => {
+      // A login accepted while this waited is the account this tab now shows, and the logout's request could sign it
+      // out. A passive loss of the session meanwhile is no such transition: the logout still posts. The check runs
+      // after both waits, in the post's turn.
+      if (!isExplicitSessionGenerationCurrent(generation)) return undefined
       return api.post('/api/auth/logout')
     })
     return response?.data
   } finally {
     // Always drop the session flag, even if the server call fails, so a logged-out client
-    // stops attempting silent refreshes: unless a login has taken since, whose flag it is.
-    if (stillItsOwn()) clearSessionActive()
+    // stops attempting silent refreshes.
+    if (isExplicitSessionGenerationCurrent(generation)) clearSessionActive()
     endLogout(generation)
   }
 }

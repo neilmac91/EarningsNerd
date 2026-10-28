@@ -8,17 +8,17 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * the login's (the browser is that account while the tab shows the new one), one that answers after another tab's
  * logout signs the browser in again, and two refreshes sent at once carry the one refresh cookie, so the second
  * presents the token the first rotated away and meets the replay sweep, which ends every session of the account (E96).
- * Every silent refresh, and a login, a logout and a logout of every session around their post, hold the session
- * cookies' Web Lock (lib/api/client.ts), granted one at a time in the order asked for: a post waits for the refreshes
- * queued before it, within the one wait it already had, and the refreshes queued after it wait for its answer, then go
- * out with the cookies then current. At its limit a post goes out without the lock, and a refresh still unanswered can
- * answer after it: no tab can cancel another's. A refresh waits at most REFRESH_LOCK_WAIT_MS, and goes out without the
- * lock when the browser refuses it. A logout that waited behind another tab's login that took posts nothing: the login
- * stamps itself (lib/api/session.ts), and the logout's cookies are no longer its own.
+ * Each silent refresh holds the session cookies' Web Lock exclusive, and a login, a logout and a logout of every session
+ * hold it shared around their post (lib/api/client.ts), requests granted in the order made: refreshes go out one at a
+ * time, a post waits for the refreshes queued before it, within the one wait it already had, and the refreshes queued
+ * after it wait for its answer, then go out with the cookies then current, while posts in two tabs do not wait for each
+ * other, as on main. At its limit a post goes out without the lock, and a refresh still unanswered can answer after it:
+ * no tab can cancel another's. A refresh waits at most REFRESH_LOCK_WAIT_MS, as long as a post ahead of it can keep it
+ * waiting, and goes out without the lock when the browser refuses it.
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
  * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
- * (FakeLockManager), localStorage (the session marker and the login stamp) and the session cookies, modelled for two
+ * (FakeLockManager), localStorage (the session marker) and the session cookies, modelled for two
  * accounts as loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a
  * refresh's answer sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears
  * them. The API answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay
@@ -356,6 +356,64 @@ describe("silent refreshes across tabs: one at a time (E96's two-tab trigger)", 
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('holds a refresh asked for while posts are out in two tabs until both have answered, then sends it alone with the cookies then current', async () => {
+    const tabC = await openTab('C', browser)
+    const loginAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+    const logoutAnswer = hold<Outcome>('took')
+    tabA.postAnswers.push(logoutAnswer.promise)
+    const loggingOut = tabA.auth.logout()
+    await settle()
+    const refreshing = tabC.client.ensureRefreshed()
+    await settle()
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', 'A posts /api/auth/logout as X'])
+
+    logoutAnswer.resolve('took')
+    await loggingOut
+    await settle()
+    // The logout has answered, the login has not: the refresh still waits.
+    expect(tabC.refresh).not.toHaveBeenCalled()
+    loginAnswer.resolve('took')
+    await Promise.all([signingIn, refreshing])
+    expect(browser.events).toEqual([
+      'B posts /api/auth/login as X', 'A posts /api/auth/logout as X', "A's /api/auth/logout answered",
+      "B's /api/auth/login answered", "C's refresh sent with Y", "C's refresh answered for Y",
+    ])
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("bounds a refresh's wait by the longest a post ahead of it can keep it waiting: the post's own wait, then its whole request", () => {
+    const { REFRESH_LOCK_WAIT_MS, REQUEST_TIMEOUT_MS } = tabA.client
+    // The client's own request timeout is the one `api` sends with.
+    expect(tabA.client.default.defaults.timeout).toBe(REQUEST_TIMEOUT_MS)
+    expect(REFRESH_LOCK_WAIT_MS).toBeGreaterThanOrEqual(Math.max(tabA.auth.LOGIN_REFRESH_WAIT_MS, tabA.auth.LOGOUT_REFRESH_WAIT_MS) + REQUEST_TIMEOUT_MS)
+  })
+
+  it('keeps a refresh queued behind a post that waited most of its budget and then held the lock for most of its request waiting until it answers', async () => {
+    const tabC = await openTab('C', browser)
+    fakeTimers()
+    // Tab A's refresh holds the lock for 9 s, tab B's login waits for it (within its 10 s), then holds the lock until
+    // its answer at 38 s, under the client's 30 s request timeout.
+    tabA.refreshAnswers.push(new Promise((resolve) => setTimeout(resolve, 9_000)))
+    const refreshingA = tabA.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    tabB.postAnswers.push(new Promise((resolve) => setTimeout(() => resolve('took'), 38_000)))
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+    await vi.advanceTimersByTimeAsync(1_000)
+    // Tab C asks for a refresh 1 s in: it is queued behind the login's request, and so waits for the login too.
+    const refreshingC = tabC.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(9_000)
+    await refreshingA
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X", 'B posts /api/auth/login as X'])
+    // Past what a 30 s bound would have allowed it: still waiting, so it does not go out beside the login.
+    await vi.advanceTimersByTimeAsync(27_500)
+    expect(tabC.refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(500)
+    await Promise.all([signingIn, refreshingC])
+    expect(browser.events.slice(3)).toEqual(["B's /api/auth/login answered", "C's refresh sent with Y", "C's refresh answered for Y"])
+  })
+
   it('sends a refresh still waiting for the lock at REFRESH_LOCK_WAIT_MS without it, which then meets the replay sweep: the trigger the bound leaves (E96)', async () => {
     fakeTimers()
     // Tab A's refresh holds the lock and never answers: its request had no timeout of its own.
@@ -464,12 +522,11 @@ describe("a password login in one tab and another tab's silent refresh (E29 (4))
     expect(browser.locks.idle()).toBe(true)
   })
 
-  it('posts a login refused under the lock once, and stamps nothing', async () => {
+  it('posts a login refused under the lock once', async () => {
     tabB.postAnswers.push(Promise.resolve<Outcome>('refused'))
     expect(await tabB.auth.login(EMAIL, PASSWORD).catch((error: unknown) => error)).toMatchObject({ status: 401 })
     await settle()
     expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login refused"])
-    expect(tabA.session.getLoginStamp()).toBeNull()
     expect(browser.locks.idle()).toBe(true)
   })
 })
@@ -533,37 +590,22 @@ describe.each([
     expect(browser.locks.idle()).toBe(true)
   })
 
-  it("posts nothing when another tab's login took while it waited for the lock: the cookies are that login's, and so is the session flag", async () => {
+  it("posts beside another tab's login, neither waiting for the other: posts hold the lock shared", async () => {
     const loginAnswer = hold<Outcome>('took')
     tabB.postAnswers.push(loginAnswer.promise)
     const signingIn = tabB.auth.login(EMAIL, PASSWORD)
     await settle()
-    // Tab A, still showing X, logs out behind tab B's login.
-    const outcome = tabA.auth[method]().catch((error: unknown) => error)
-    await settle()
-    loginAnswer.resolve('took')
-    await signingIn
-    if (method === 'logoutAllSessions') expect(await outcome).toBeInstanceOf(tabA.auth.LogoutAllSuperseded)
-    else expect(await outcome).toBeUndefined()
-    await settle()
-    expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered"])
-    expect(browser.cookies).toMatchObject({ session: 'Y', fresh: true })
-    expect(browser.server.Y).toEqual({ tip: 1, revoked: false, swept: false })
-    expect(tabB.session.hasActiveSession()).toBe(true)
-  })
-
-  it("posts when another tab's login failed while it waited: the cookies are still its own", async () => {
-    const loginAnswer = hold<Outcome>('took')
-    tabB.postAnswers.push(loginAnswer.promise)
-    const signingIn = tabB.auth.login(EMAIL, PASSWORD).catch((error: unknown) => error)
-    await settle()
+    const postAnswer = hold<Outcome>('took')
+    tabA.postAnswers.push(postAnswer.promise)
     const loggingOut = tabA.auth[method]()
     await settle()
-    loginAnswer.resolve('refused')
-    expect(await signingIn).toMatchObject({ status: 401 })
-    await loggingOut
-    expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login refused", `A posts ${path} as X`, `A's ${path} answered`])
-    expect(browser.cookies).toMatchObject({ session: null, fresh: false })
+    // Both are out at once, each with the cookies of its moment: the reader's own two actions race, as on main.
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', `A posts ${path} as X`])
+
+    postAnswer.resolve('took')
+    loginAnswer.resolve('took')
+    await Promise.all([signingIn, loggingOut])
+    expect(browser.locks.idle()).toBe(true)
   })
 })
 
@@ -687,25 +729,3 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
   })
 })
 
-describe('with no localStorage (site data blocked)', () => {
-  it.each([
-    ['a logout', 'logout', '/api/auth/logout'],
-    ['a logout of every session', 'logoutAllSessions', '/api/auth/logout-all'],
-  ] as const)("%s behind another tab's login that took posts as before: no stamp to read", async (_, method, path) => {
-    const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError') }
-    const spies = (['getItem', 'setItem', 'removeItem'] as const).map((name) => vi.spyOn(Storage.prototype, name).mockImplementation(blocked))
-    try {
-      const loginAnswer = hold<Outcome>('took')
-      tabB.postAnswers.push(loginAnswer.promise)
-      const signingIn = tabB.auth.login(EMAIL, PASSWORD)
-      await settle()
-      const loggingOut = tabA.auth[method]()
-      await settle()
-      loginAnswer.resolve('took')
-      await Promise.all([signingIn, loggingOut])
-      expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered", `A posts ${path} as Y`, `A's ${path} answered`])
-    } finally {
-      for (const spy of spies) spy.mockRestore()
-    }
-  })
-})

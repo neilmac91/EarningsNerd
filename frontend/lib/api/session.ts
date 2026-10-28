@@ -49,40 +49,6 @@ export function hasActiveSession(): boolean {
   return inMemorySessionActive
 }
 
-// A stamp of the last password login that took in any tab of this browser (E29 (4)): a value each one changes, kept
-// beside the marker in the storage every tab of this origin reads. The session cookies belong to the browser, not the
-// tab, so a logout that waited for the session cookies' lock behind another tab's login would post with that login's
-// cookies and end its account's session: a logout reads the stamp as it starts, before any wait, and posts nothing once
-// it has changed, as for a login accepted in its own tab. Only the password login writes it, once its request has
-// answered with success and while it still holds the lock (lib/api/client.ts's withoutRefreshBeside); a failed login
-// changes no cookies, and an OAuth sign-in's are set by a navigation, which writes none (E29). With no storage there
-// is no stamp, and a logout posts as it did before. A tab reads another's write once the browser has passed it on.
-const LOGIN_STAMP_KEY = 'en_session_login'
-
-/** A password login took: stamp it for every tab's logout to read. */
-export function stampLogin(): void {
-  try {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(LOGIN_STAMP_KEY, `${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}`)
-    }
-  } catch {
-    // localStorage unavailable: no stamp, and no logout reads one.
-  }
-}
-
-/** The login stamp as this tab reads it now: null when none was written, or with no storage. */
-export function getLoginStamp(): string | null {
-  try {
-    if (typeof window !== 'undefined') return window.localStorage.getItem(LOGIN_STAMP_KEY)
-  } catch {
-    // localStorage unavailable: no stamp.
-  }
-  return null
-}
-
-/** Whether no password login has taken, in any tab, since `stamp` was read. */
-export const isLoginStampCurrent = (stamp: string | null): boolean => getLoginStamp() === stamp
-
 // JS request ownership only; cookies and /me remain the authentication source. This fences
 // late in-tab responses, not concurrent Set-Cookie responses or changes in another tab.
 let sessionGeneration = 0
