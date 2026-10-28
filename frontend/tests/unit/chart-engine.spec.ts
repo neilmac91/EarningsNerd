@@ -19,6 +19,7 @@ import { buildChartModel, CHART_IDS, type ChartId, type ChartModel, type ChartVi
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { compactMoney, fixed, moneyFormat, moneyPrefix, MINUS, niceAxis, percentFormat, tooltipMoney } from '@/features/analysis/lib/charts/scale'
 import { groupDataNotes, noteMarksFigure, resolveDataNotes } from '@/features/analysis/lib/dataNotes'
+import { reasonText } from '@/features/analysis/lib/provenance'
 import { currencySymbol, dataFaceDraws } from '@/lib/format'
 import { MIXED_NOTES, questioned, withMixedNotes } from './chartPlan'
 
@@ -336,13 +337,15 @@ describe('the cases the step-1 data required', () => {
 
   it('MIXED_NOTES, the sweeps’ own dataset: only a questioned value or comparison letters, an n/m one included (D-061)', () => {
     const ds = dataset(MIXED_NOTES)
+    // Data notes version 2: the notes that mark a figure take the first letters, so the record-only one follows them.
     expect(resolveDataNotes(ds).notes.map((note) => [note.letter, note.kind, noteMarksFigure(note)]), 'every kind a band can meet')
-      .toEqual([['a', 'review', true], ['b', 'review', false], ['c', 'review', true], ['d', 'unknown', false], ['e', 'unavailable', false]])
+      .toEqual([['a', 'review', true], ['b', 'review', true], ['c', 'review', false], ['d', 'unknown', false], ['e', 'unavailable', false]])
     const band = (chart: ChartId) => Object.fromEntries(Object.entries(buildChartModel(chart, ds).notesBand ?? {}).map(([period, glyphs]) => [period, glyphs.map((glyph) => glyph.text)]))
-    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['c'] })
+    expect(band('topline'), 'a questioned comparison, on a number and on an n/m').toEqual({ FY2024: ['a'], FY2025: ['b'] })
+    // A footnote's words are its reason's, from the one map the shared notes fixture holds equal to the backend's.
     expect(buildChartModel('topline', ds).footnotes.slice(0, 2)).toEqual([
-      { mark: 'a', text: 'Revenue YoY FY2024: Available sources disagree on this figure.' },
-      { mark: 'c', text: 'Revenue YoY FY2025: The source inputs cover incompatible reporting periods.' },
+      { mark: 'a', text: `Revenue YoY FY2024: ${reasonText('source_conflict')}` },
+      { mark: 'b', text: `Revenue YoY FY2025: ${reasonText('period_mismatch')}` },
     ])
     expect(band('margins'), 'operating margin’s questioned flags; net margin’s record-only ones letter nothing').toEqual({ FY2023: ['a'], FY2024: ['a'], FY2025: ['a'] })
     expect(band('cash'), 'free cash flow’s unrecorded checks letter nothing').toEqual({})

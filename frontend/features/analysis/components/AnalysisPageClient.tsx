@@ -10,7 +10,7 @@ import { getCompany } from '@/features/companies/api/companies-api'
 import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
+import { ActivityLine, Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { ApiError } from '@/lib/api/client'
@@ -398,18 +398,11 @@ export default function AnalysisPageClient() {
                 <span className="sr-only">Loading…</span>
               </div>
             ) : coverage?.syncing ? (
-              // The history fetch is activity, never a Notice: the Ask answer's line (DESIGN_SYSTEM.md §4 › Inline
-              // notice), its one sage pulse dot held to the first line when the words wrap, in a box as tall as
-              // text-sm's line (h-5 and the line height are both 1.25rem, so they grow together under enlarged text).
+              // The history fetch is activity, never a Notice (DESIGN_SYSTEM.md §4 › Inline notice): its own live region.
               !coverageFailure.failed && (
-                <p role="status" className="flex items-start gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  <span aria-hidden="true" className="flex h-5 flex-none items-center">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
-                  </span>
-                  <span className="min-w-0 break-words">
-                    {`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-                  </span>
-                </p>
+                <ActivityLine role="status">
+                  {`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
+                </ActivityLine>
               )
             ) : unsupported ? (
               <Notice

@@ -3,7 +3,7 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Button, countControlClass, cx, noticeTint } from '@/components/ui'
+import { ActivityLine, Button, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
@@ -456,11 +456,9 @@ export default function CopilotMessage({
     <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
-        // background tool activity is deliberately not surfaced to the user.
-        <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <span aria-hidden="true" className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
-          Reading the filing…
-        </p>
+        // background tool activity is deliberately not surfaced to the user. The card is the live region, so the
+        // line takes no role of its own.
+        <ActivityLine>Reading the filing…</ActivityLine>
       ) : (
         <>
           <div>
