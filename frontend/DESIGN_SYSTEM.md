@@ -708,7 +708,9 @@ Usage meter      <UsageMeter used limit label className>  (components/ui, E196):
                  (E228). A mark left by a session that lapsed without a logout moves a guest's plans up once: the
                  identity read clears the flag. A logout clears the flag but not the recorded plan, so another
                  account that signs in on the same browser gets the last account's plan on its first load there,
-                 and its plans move once as the identity answers; the page then records its own plan. Under 200%
+                 and its plans move once as the identity answers; the page then records its own plan. A Pro
+                 reader's first visit, with no plan recorded yet, paints under a Free mark, and its plans move up
+                 once. Under 200%
                  text the count line sits at its wrap edge at
                  about 290 to 350px and 518 to 580px, where a count whose figures are narrower or wider than the
                  copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on #1715.
