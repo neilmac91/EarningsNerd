@@ -16,7 +16,7 @@ import { refreshAccessToken } from '@/lib/api/refresh'
 import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import { LOGIN_REFRESH_WAIT_MS, login, logout } from '@/features/auth/api/auth-api'
 import { acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
-import { clearSessionActive, getExplicitSessionGeneration, hasActiveSession, markSessionActive, subscribeSessionLoss } from '@/lib/api/session'
+import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, hasActiveSession, markSessionActive, subscribeSessionLoss } from '@/lib/api/session'
 
 /**
  * E29 (4): a silent refresh's answer sets the session cookies, and one sent with the previous session's cookies that
@@ -255,6 +255,21 @@ describe('a refresh asked for while a login is under way', () => {
     expect(events).toEqual(['post /api/auth/login', 'get /api/watchlist/ as A', 'post /api/auth/logout', 'login failed', 'logout answered'])
   })
 
+  it('sends nothing once the account has changed under it, for a refresh held behind a login', async () => {
+    const { loginAnswer, signingIn, reading } = await readingWhileTheLoginIsOut()
+    // Another tab signed in as the second account (the browser's cookies are its own now), and its sign-in reaches this
+    // tab through /me while the refresh is held, moving the session generation (accountQueryState's watchReader): the
+    // held 401 belongs to the account the tab showed before.
+    cookies = { session: 'B', fresh: true }
+    advanceSessionGeneration('session-loss')
+    loginAnswer.resolve('failed')
+    await expect(signingIn).rejects.toMatchObject({ status: 401 })
+    // The held refresh finds another generation: sent now, it would renew the account the tab no longer shows.
+    expect(await reading).toMatchObject({ name: 'ApiError', status: 401 })
+    expect(refreshMock).not.toHaveBeenCalled()
+    expect(events).toEqual(['post /api/auth/login', 'get /api/watchlist/ as A', 'login failed'])
+  })
+
   it('sends nothing as the previous account, and brings it nothing, after a login that took and was accepted', async () => {
     const lost = vi.fn()
     const unsubscribe = subscribeSessionLoss(lost)
@@ -349,7 +364,11 @@ describe('a refresh asked for while a login is under way', () => {
  * of each JS and TS extension, in every directory but tests/, in one walk per file. Refused though the rule may hold:
  * the path held in a const, the helper renamed on import or read off a namespace, a send declared apart, a send that
  * awaits the post and returns its answer, and any import of the refresh module but client.ts's, a type-only one
- * included. Out of its reach (planted as gaps): a path assembled at run time.
+ * included. lib/api/refresh.ts's own uses of refreshAccessToken are read too (its name resolves to the declaration
+ * there, not to an import), so a keep-alive inside it that calls refreshAccessToken is refused. Out of its reach
+ * (planted as gaps): a path assembled at run time; a send that returns a call of an async local helper which posts
+ * without returning the post; and, inside refreshAccessToken itself, a second post of its own path (a timer it sets
+ * there), which reads as the one path where it stands.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/
@@ -367,7 +386,7 @@ const scriptKind = (file: string): ts.ScriptKind =>
   file.endsWith('.tsx') ? ts.ScriptKind.TSX : file.endsWith('.jsx') ? ts.ScriptKind.JSX : /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS
 /** The module a specifier names from `file`, `@/` and relative alike, without its script extension. */
 const moduleOf = (specifier: string, file: string): string | undefined =>
-  (specifier.startsWith('@/') ? specifier.slice(2) : specifier.startsWith('.') ? path.posix.join(path.posix.dirname(file), specifier) : undefined)
+  (specifier.startsWith('@/') ? path.posix.normalize(specifier.slice(2)) : specifier.startsWith('.') ? path.posix.join(path.posix.dirname(file), specifier) : undefined)
     ?.replace(SOURCE, '')
 /** A value without the wrappers it passes through unchanged here: parentheses, `await`, `as`, `satisfies` and `!`. */
 const unwrap = (node: ts.Expression): ts.Expression =>
@@ -459,6 +478,15 @@ function read(source: string, file: string): Reading {
       const called = ts.isCallExpression(node.parent) && node.parent.expression === node
       found.refresh.push(`${called ? 'call of' : 'reference to'} ${node.text} in ${holder(node)}`)
     }
+    // In the module that declares it, every use of refreshAccessToken but its declaration's own name: there the name
+    // resolves to the declaration, not to an import, so the rule above does not see it, and a keep-alive there would
+    // skip the hold, the shared refresh and a logout's wait.
+    if (file === `${REFRESH_MODULE}.ts` && ts.isIdentifier(node) && node.text === 'refreshAccessToken' &&
+      !((ts.isFunctionDeclaration(node.parent) || ts.isVariableDeclaration(node.parent)) && node.parent.name === node) &&
+      !((ts.isPropertyAccessExpression(node.parent) || ts.isPropertyAssignment(node.parent)) && node.parent.name === node)) {
+      const called = ts.isCallExpression(node.parent) && node.parent.expression === node
+      found.refresh.push(`${called ? 'call of' : 'reference to'} refreshAccessToken in ${holder(node)}`)
+    }
     ts.forEachChild(node, visit)
   }
   visit(sf)
@@ -500,6 +528,7 @@ const LOGIN_FORMS: { form: string; source: string; file?: string; outside: numbe
   // Out of its reach.
   { form: 'the path assembled at run time', source: `${API}export const login = () => api.post('/api/auth/' + 'login', {})`, outside: 0, inside: 0, gap: true },
   { form: 'the last segment substituted into a template', source: `${API}export const login = () => api.post(\`/api/auth/\${'login'}\`, {})`, outside: 0, inside: 0, gap: true },
+  { form: 'the post behind a local helper that does not return it', source: `${API}${HELPER}const fire = async (url: string) => { void api.post(url, {}) }\nexport const login = () => withoutRefreshBeside(10, () => fire('/api/auth/login'))`, outside: 0, inside: 1, gap: true },
 ]
 
 // A client with the refresh's sanctioned sites, and a body for each form.
@@ -507,6 +536,9 @@ const client = (body: string, head = "import { refreshAccessToken } from './refr
   `${head}const NO_REFRESH_PATHS = ['/api/auth/refresh', '/api/auth/login']\n${body}`
 const ENSURE = 'export function ensureRefreshed() { return refreshAccessToken(getApiUrl()) }\n'
 const KEEP_ALIVE = 'features/session/keepAlive.ts'
+const REFRESH_TS = "import axios from 'axios'\n"
+  + 'export async function refreshAccessToken(baseUrl: string, signal?: AbortSignal): Promise<void> {\n'
+  + '  await axios.post(`${baseUrl}/api/auth/refresh`, {}, { withCredentials: true, signal })\n}\n'
 const REFRESH_FORMS: { form: string; source: string; file: string; sites: string[]; flag: boolean; gap?: true }[] = [
   { form: 'the client: one call, in ensureRefreshed', file: CLIENT, source: client(ENSURE), sites: REFRESH_SITES[CLIENT], flag: false },
   { form: 'refresh.ts posting to its path', file: 'lib/api/refresh.ts', source: "import axios from 'axios'\nexport async function refreshAccessToken(baseUrl: string) { await axios.post(`${baseUrl}/api/auth/refresh`, {}) }", sites: REFRESH_SITES['lib/api/refresh.ts'], flag: false },
@@ -532,8 +564,15 @@ const REFRESH_FORMS: { form: string; source: string; file: string; sites: string
   { form: 'another module named refresh', file: KEEP_ALIVE, source: "import { refresh } from '@/features/filings/api/refresh'\nexport const go = () => refresh()", sites: [], flag: false },
   { form: 'a local of the same name, not the import', file: KEEP_ALIVE, source: 'const refreshAccessToken = () => undefined\nexport const go = () => refreshAccessToken()', sites: [], flag: false },
   { form: 'the path in a comment', file: KEEP_ALIVE, source: '// a refresh posts to /api/auth/refresh\nexport const x = 1', sites: [], flag: false },
+  { form: 'refresh.ts as it stands, its own path and nothing else', file: 'lib/api/refresh.ts', source: REFRESH_TS, sites: ['path in refreshAccessToken'], flag: false },
+  { form: 'a keep-alive inside refresh.ts itself', file: 'lib/api/refresh.ts', source: `${REFRESH_TS}if (typeof window !== 'undefined') setInterval(() => void refreshAccessToken(''), 25 * 60_000)\n`, sites: ['call of refreshAccessToken in module', 'path in refreshAccessToken'], flag: true },
+  { form: 'imported by an @/ path with a ./ segment', file: KEEP_ALIVE, source: "import { refreshAccessToken } from '@/lib/api/./refresh'\nexport const keepAlive = () => refreshAccessToken('')", sites: ['call of refreshAccessToken in keepAlive', 'import { refreshAccessToken } from lib/api/refresh'], flag: true },
   // Out of its reach.
   { form: 'the path assembled at run time', file: KEEP_ALIVE, source: "export const keepAlive = () => fetch('/api/auth/' + 'refresh', { method: 'POST' })", sites: [], flag: false, gap: true },
+  { form: 'a timer inside refreshAccessToken posting its own path again', file: 'lib/api/refresh.ts', source: "import axios from 'axios'\n"
+    + 'export async function refreshAccessToken(baseUrl: string): Promise<void> {\n  const url = `${baseUrl}/api/auth/refresh`\n'
+    + '  setInterval(() => void axios.post(url, {}, { withCredentials: true }), 25 * 60_000)\n  await axios.post(url, {}, { withCredentials: true })\n}\n',
+    sites: ['path in refreshAccessToken'], flag: false, gap: true },
 ]
 
 describe('both ends of the hold stay in the client: the login through withoutRefreshBeside, the refresh in ensureRefreshed', () => {
