@@ -6,7 +6,10 @@ import { test, expect, type Page } from '@playwright/test'
  * The box mounted only when the usage read answered, after the identity read, and pushed the plan cards down by its
  * height and margin: in CI's fonts 130 to 138px from 320 to 1440px, and 266 and 273px at 320 and 390px under 200% text
  * (chief design's measurement on #1700). The held card takes the plan the identity read names, a Free account's box
- * with its meter and a Pro account's without, so the first plan's heading keeps its place as the count lands.
+ * with its meter and a Pro account's without, so the first plan's heading keeps its place as the count lands. Under
+ * 200% text the count line sits at its wrap edge at about 290 to 350px and 518 to 580px, where a count whose figures
+ * are narrower or wider than the copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on
+ * #1715; the cases below hold at their widths.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser with
  * page.route, the usage read held until the case answers it, and the middleware's session gate is satisfied by its

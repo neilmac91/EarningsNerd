@@ -692,7 +692,10 @@ Usage meter      <UsageMeter used limit label className>  (components/ui, E196):
                  holds its place (E226): the card and its label show, still copies of the count line and, for a
                  Free account, the meter keep their lines (`invisible`, hidden from assistive technology, the
                  card `aria-busy`), and the answered card is keyed apart, so the meter mounts at its value. A
-                 guest and a failed read hold nothing. Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
+                 guest and a failed read hold nothing. Under 200% text the count line sits at its wrap edge at
+                 about 290 to 350px and 518 to 580px, where a count whose figures are narrower or wider than the
+                 copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on #1715.
+                 Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
                  clamp, the naming), tests/unit/PricingPage.spec.tsx (the usage box and its hold),
                  tests/e2e/pricing-usage-hold.spec.ts (the plans' place as the count lands) and
                  tests/unit/statusTintResidue.spec.ts (a hand-drawn meter's warning and error fills are residue

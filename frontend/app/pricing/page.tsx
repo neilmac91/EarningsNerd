@@ -442,8 +442,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             states the account's own numbers, so it lifts as a card and takes no status tint (E196). While a signed-in
             reader's usage read is in flight the card holds its place at the plan the identity read names (E226): its
             label shows, and a still copy of the count line and, for a Free account, of the meter keeps their lines,
-            so the plans below stay put as the count lands. The two cards are keyed apart, so the meter mounts at its
-            value rather than running up from empty. */}
+            so the plans below stay put as the count lands. Under 200% text, at the count line's wrap edges (about 290 to
+            350px and 518 to 580px), a count whose figures are narrower or wider than the copy's "0" takes a line fewer
+            or more (chief design on #1715). The two cards are keyed apart, so the meter mounts at its value rather than
+            running up from empty. */}
         {usageHeld ? (
           <Card key="usage-held" aria-busy="true" className="mx-auto mb-8 max-w-2xl p-cap-5">
             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Current usage</p>
