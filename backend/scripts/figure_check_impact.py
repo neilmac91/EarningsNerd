@@ -22,12 +22,13 @@ setting. Nothing is written and no model is called: every statement the session 
 SELECT (anything else raises before it reaches the database), on PostgreSQL its transaction is also READ
 ONLY, and the session is rolled back at the end. A summary counts whole or not at all: one that cannot be
 read adds nothing but its ``unreadable`` count.
-The script exits 1 when any summary in the cohort was unreadable or missing, so a partial count is
-never read as a whole one.
+The script exits 1 when any summary in the cohort was unreadable, or when an id ``--summary-ids`` names
+is missing, so a partial count is never read as a whole one; a range's absent ids (deleted or never made)
+are its ordinary gaps, reported as ``missing`` with ``range`` true and no failure.
 
 The cohort is explicit and bounded: ``--summary-ids`` (comma- or space-separated), or ``--from-id`` with
-``--to-id`` spanning at most ``MAX_COHORT`` ids. A live count is run only through the approved read-only
-operations path (Agent E), never against production from a laptop.
+``--to-id`` spanning at most ``MAX_COHORT`` ids, never both. A live count is run only through the approved
+read-only operations path (Agent E), never against production from a laptop.
 
 Local usage:
   python scripts/figure_check_impact.py --summary-ids 101,102,103
@@ -137,8 +138,6 @@ def _count_summary(block: dict, filing: Any, standardized: Any) -> tuple[Counter
     """One summary's transitions, swapped fields and withheld takeaways; raises on what it cannot read."""
     from app.services import provenance_service as prov
 
-    if not isinstance(standardized, dict):
-        raise ValueError("standardized XBRL is not a mapping")
     transitions: Counter = Counter()
     swapped: Counter = Counter()
     withheld = 0
@@ -161,8 +160,9 @@ def _count_summary(block: dict, filing: Any, standardized: Any) -> tuple[Counter
     return transitions, swapped, withheld
 
 
-def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
-    """Aggregate counts for the cohort; reads only, through ``session``."""
+def count_impact(session: Any, summary_ids: Iterable[int], *, id_range: bool = False) -> dict[str, Any]:
+    """Aggregate counts for the cohort; reads only, through ``session``. ``id_range`` says the ids span a range,
+    whose absent ids are gaps rather than missing names."""
     from sqlalchemy.orm import joinedload
 
     from app.models import Summary
@@ -203,7 +203,7 @@ def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
             rows_counted += sum(row_transitions.values())
             summaries_counted += 1
     return {
-        "cohort": {"requested": len(wanted), "found": found, "missing": len(wanted) - found},
+        "cohort": {"requested": len(wanted), "found": found, "missing": len(wanted) - found, "range": id_range},
         "summaries_counted": summaries_counted,
         "rows_counted": rows_counted,
         "transitions": {f"{old}->{new}": n for (old, new), n in sorted(transitions.items())},
@@ -215,7 +215,8 @@ def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
 
 
 def parse_cohort(args: argparse.Namespace) -> list[int]:
-    """The explicit, bounded cohort the arguments name; raises ValueError otherwise."""
+    """The explicit, bounded cohort the arguments name; raises ValueError otherwise. A range is the one
+    ``--from-id``/``--to-id`` name when ``--summary-ids`` is absent."""
     if args.summary_ids and (args.from_id is not None or args.to_id is not None):
         raise ValueError("name one cohort: --summary-ids, or --from-id with --to-id, not both")
     if args.summary_ids:
@@ -247,12 +248,13 @@ def main(argv: Optional[list[str]] = None) -> int:
     session = SessionLocal()
     try:
         guard_read_only(session)
-        report = count_impact(session, cohort)
+        report = count_impact(session, cohort, id_range=not args.summary_ids)
     finally:
         session.rollback()
         session.close()
     print(json.dumps(report, sort_keys=True))
-    return 1 if report["unreadable"] or report["cohort"]["missing"] else 0
+    named_but_missing = report["cohort"]["missing"] and not report["cohort"]["range"]
+    return 1 if report["unreadable"] or named_but_missing else 0
 
 
 if __name__ == "__main__":

@@ -52,69 +52,83 @@ def _tables():
     yield
 
 
+# A schema-2 summary's row, read from raw_summary's results_that_matter as the page reads it: its current figure
+# matches, its prior ($383.3B against the filed $391.0B) is replaced.
+SCHEMA_TWO_ROWS = [{"metric": "Total net sales", "current_period": "$416.2B", "prior_period": "$383.3B"}]
+
+
 @pytest.fixture()
 def cohort(monkeypatch):
-    """Five stored summaries: one to count, one with no table, one whose filing has no XBRL, one whose XBRL does
-    not read, and one whose fourth row does not read after three that do. Yields their ids by role; deletes every
-    row it made."""
+    """Six stored summaries: one to count, one with no table, one whose filing has no XBRL, one whose XBRL does not
+    read, one whose fourth row does not read after three that do, and a schema-2 one read from its sections (its
+    compatibility column holds another table). Yields their ids by role; deletes every row it made, whatever fails."""
     from app.database import SessionLocal
     from app.models import Company, Filing, Summary
     from app.services.edgar.compat import xbrl_service
 
     suffix = uuid.uuid4().hex[:8]
     db = SessionLocal()
-    company = Company(cik=f"fci{suffix}", ticker=f"F{suffix[:4].upper()}", name=f"Impact {suffix}")
-    db.add(company)
-    db.commit()
-    company_id = company.id
-
-    def filing(label, xbrl):
-        row = Filing(company_id=company_id, accession_number=f"{suffix}-{label}", filing_type="10-K",
-                     filing_date=datetime(2025, 10, 31, tzinfo=timezone.utc), xbrl_data=xbrl,
-                     document_url=f"https://sec.example/{suffix}-{label}/doc.htm", sec_url=f"https://sec.example/{suffix}-{label}/")
-        db.add(row)
-        db.commit()
-        return row
-
-    counted, no_table, no_xbrl, unreadable, partial = (
-        filing("counted", {"revenue": [1]}), filing("no-table", {"revenue": [1]}),
-        filing("no-xbrl", None), filing("unreadable", {"broken": True}), filing("partial", {"partial": True}),
-    )
-    # The partial summary's operating income is filed as no finite number: its first rows read, its fourth cannot.
-    partial_rows = [ROWS[0], ROWS[1], ROWS[3], ROWS[2]]
-    summaries = {
-        "counted": Summary(filing_id=counted.id, business_overview="Overview.", financial_highlights={"table": ROWS}),
-        "no_table": Summary(filing_id=no_table.id, business_overview="Overview.", financial_highlights=None),
-        "no_xbrl": Summary(filing_id=no_xbrl.id, business_overview="Overview.", financial_highlights={"table": ROWS}),
-        "unreadable": Summary(filing_id=unreadable.id, business_overview="Overview.", financial_highlights={"table": ROWS}),
-        "partial": Summary(filing_id=partial.id, business_overview="Overview.",
-                           financial_highlights={"table": partial_rows}),
-    }
-    db.add_all(summaries.values())
-    db.commit()
-    ids = {role: summary.id for role, summary in summaries.items()}
-    filing_ids = [counted.id, no_table.id, no_xbrl.id, unreadable.id, partial.id]
-
-    def standardize(xbrl):
-        if xbrl.get("broken"):
-            raise ValueError("unreadable XBRL")
-        if xbrl.get("partial"):
-            operating = STANDARDIZED["operating_income"]
-            return {**STANDARDIZED, "operating_income": {**operating, "current": {**operating["current"],
-                                                                                   "value": float("inf")}}}
-        return STANDARDIZED
-
-    monkeypatch.setattr(xbrl_service, "extract_standardized_metrics", standardize)
-    db.close()
+    company_id = None
     try:
+        company = Company(cik=f"fci{suffix}", ticker=f"F{suffix[:4].upper()}", name=f"Impact {suffix}")
+        db.add(company)
+        db.commit()
+        company_id = company.id
+
+        def filing(label, xbrl):
+            row = Filing(company_id=company_id, accession_number=f"{suffix}-{label}", filing_type="10-K",
+                         filing_date=datetime(2025, 10, 31, tzinfo=timezone.utc), xbrl_data=xbrl,
+                         document_url=f"https://sec.example/{suffix}-{label}/doc.htm",
+                         sec_url=f"https://sec.example/{suffix}-{label}/")
+            db.add(row)
+            db.commit()
+            return row
+
+        counted, no_table, no_xbrl, unreadable, partial, schema_two = (
+            filing("counted", {"revenue": [1]}), filing("no-table", {"revenue": [1]}),
+            filing("no-xbrl", None), filing("unreadable", {"broken": True}), filing("partial", {"partial": True}),
+            filing("schema-two", {"revenue": [1]}),
+        )
+        # The partial summary's operating income is filed as no finite number: its first rows read, its fourth cannot.
+        partial_rows = [ROWS[0], ROWS[1], ROWS[3], ROWS[2]]
+        summaries = {
+            "counted": Summary(filing_id=counted.id, business_overview="Overview.", financial_highlights={"table": ROWS}),
+            "no_table": Summary(filing_id=no_table.id, business_overview="Overview.", financial_highlights=None),
+            "no_xbrl": Summary(filing_id=no_xbrl.id, business_overview="Overview.", financial_highlights={"table": ROWS}),
+            "unreadable": Summary(filing_id=unreadable.id, business_overview="Overview.",
+                                  financial_highlights={"table": ROWS}),
+            "partial": Summary(filing_id=partial.id, business_overview="Overview.",
+                               financial_highlights={"table": partial_rows}),
+            "schema_two": Summary(filing_id=schema_two.id, business_overview="Overview.",
+                                  financial_highlights={"table": [ROWS[3]]},
+                                  raw_summary={"schema_version": 2, "sections": {
+                                      "results_that_matter": {"table": SCHEMA_TWO_ROWS}}}),
+        }
+        db.add_all(summaries.values())
+        db.commit()
+        ids = {role: summary.id for role, summary in summaries.items()}
+
+        def standardize(xbrl):
+            if xbrl.get("broken"):
+                raise ValueError("unreadable XBRL")
+            if xbrl.get("partial"):
+                operating = STANDARDIZED["operating_income"]
+                return {**STANDARDIZED, "operating_income": {**operating, "current": {**operating["current"],
+                                                                                       "value": float("inf")}}}
+            return STANDARDIZED
+
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics", standardize)
+        db.close()
         yield ids
     finally:
-        db = SessionLocal()
-        db.query(Summary).filter(Summary.filing_id.in_(filing_ids)).delete(synchronize_session=False)
-        db.query(Filing).filter(Filing.id.in_(filing_ids)).delete(synchronize_session=False)
-        db.query(Company).filter(Company.id == company_id).delete(synchronize_session=False)
-        db.commit()
         db.close()
+        if company_id is not None:
+            with SessionLocal() as cleanup:
+                filing_ids = [row.id for row in cleanup.query(Filing.id).filter(Filing.company_id == company_id)]
+                cleanup.query(Summary).filter(Summary.filing_id.in_(filing_ids)).delete(synchronize_session=False)
+                cleanup.query(Filing).filter(Filing.id.in_(filing_ids)).delete(synchronize_session=False)
+                cleanup.query(Company).filter(Company.id == company_id).delete(synchronize_session=False)
+                cleanup.commit()
 
 
 @pytest.fixture()
@@ -142,14 +156,15 @@ def test_counts_each_transition_swap_withheld_takeaway_and_sample_it_could_not_r
     finally:
         session.rollback()
         session.close()
-    # The partial summary adds its unreadable count alone, none of the three rows it read before the fourth.
+    # The partial summary adds its unreadable count alone, none of the three rows it read before the fourth; the
+    # schema-2 summary is read from its sections (its replaced prior), never from its compatibility column.
     assert report == {
-        "cohort": {"requested": 6, "found": 5, "missing": 1},
-        "summaries_counted": 1,
-        "rows_counted": 4,
-        "transitions": {"matched->matched": 1, "matched->replaced": 1, "unchecked->unchecked": 1,
+        "cohort": {"requested": 7, "found": 6, "missing": 1, "range": False},
+        "summaries_counted": 2,
+        "rows_counted": 5,
+        "transitions": {"matched->matched": 1, "matched->replaced": 2, "unchecked->unchecked": 1,
                         "unmatched->replaced": 1},
-        "swapped_fields": {"current_period": 2},
+        "swapped_fields": {"current_period": 2, "prior_period": 1},
         "withheld_takeaways": 1,
         "unavailable": {"no_filing_xbrl": 1, "no_highlights_table": 1},
         "unreadable": 2,
@@ -181,7 +196,7 @@ def test_the_guarded_session_refuses_a_write_and_leaves_others_alone(cohort):
         session.rollback()
         impact.guard_read_only(session)
         session.add(Company(cik=f"w{uuid.uuid4().hex[:8]}", ticker="WRITE", name="Write"))
-        with pytest.raises(RuntimeError, match="read-only"):
+        with pytest.raises(RuntimeError, match="refused a flush"):
             session.flush()
         session.rollback()
         impact.guard_read_only(session)
@@ -215,8 +230,28 @@ def test_a_no_total_banks_revenue_row_is_dropped_by_both_checks():
 def test_main_exits_non_zero_on_a_partial_count_and_zero_on_a_whole_one(cohort, no_model, capsys):
     assert impact.main(["--summary-ids", f"{cohort['counted']},{cohort['unreadable']}"]) == 1
     assert json.loads(capsys.readouterr().out)["unreadable"] == 1
+    # An id the list names that is not there is a partial count too.
+    assert impact.main(["--summary-ids", str(cohort["counted"]), str(10**9)]) == 1
+    assert json.loads(capsys.readouterr().out)["cohort"]["missing"] == 1
     assert impact.main(["--summary-ids", str(cohort["counted"]), str(cohort["no_table"])]) == 0
     assert json.loads(capsys.readouterr().out)["summaries_counted"] == 1
+
+
+def test_a_ranges_absent_ids_are_reported_and_fail_nothing(cohort, no_model, capsys):
+    # A range's absent ids are its gaps (summaries deleted or never made), reported, not failed; an unreadable
+    # summary in a range still fails it.
+    top = max(cohort.values())
+    assert impact.main(["--from-id", str(top + 1), "--to-id", str(top + 3)]) == 0
+    assert json.loads(capsys.readouterr().out)["cohort"] == {"requested": 3, "found": 0, "missing": 3, "range": True}
+    assert impact.main(["--from-id", str(cohort["unreadable"]), "--to-id", str(cohort["unreadable"])]) == 1
+    assert json.loads(capsys.readouterr().out)["unreadable"] == 1
+
+
+def test_a_cohort_of_exactly_the_bound_is_accepted():
+    import argparse
+
+    args = argparse.Namespace(summary_ids=None, from_id=1, to_id=impact.MAX_COHORT)
+    assert len(impact.parse_cohort(args)) == impact.MAX_COHORT
 
 
 @pytest.mark.parametrize("argv", [
@@ -225,6 +260,7 @@ def test_main_exits_non_zero_on_a_partial_count_and_zero_on_a_whole_one(cohort, 
     ["--from-id", "9", "--to-id", "3"],
     ["--from-id", "1", "--to-id", str(impact.MAX_COHORT + 1)],
     ["--summary-ids", "1", "--from-id", "1", "--to-id", "2"],
+    ["--summary-ids", ","],
 ])
 def test_the_cohort_is_explicit_and_bounded(argv):
     with pytest.raises(SystemExit) as exit_:

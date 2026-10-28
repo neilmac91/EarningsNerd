@@ -553,8 +553,8 @@ class TestFigureCheck:
         (THIS_FILING, EARLIER_FILING, False),
         # This filing's own comparative, as its companyfacts entries record it: the match stands.
         (THIS_FILING, THIS_FILING, True),
-        # A fact that records no filing (a series stored before E184) is read as before: an accession on one side
-        # alone neither proves nor refuses the other's source, for a filing that records none either.
+        # A fact that records no filing (XBRL extracted before the extractor recorded one) is read as before: an
+        # accession on one side alone neither proves nor refuses the other's source, for a filing that records none.
         (None, EARLIER_FILING, True),
         (THIS_FILING, None, True),
         (None, None, True),
