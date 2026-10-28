@@ -924,9 +924,19 @@ async def reset_password(
     payload: ResetPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    """Set a new password using the single-use token from the reset email."""
+    """Set a new password using the single-use token from the reset email.
+
+    Two units in the thread pool, the token's account read and the reset, each released before what follows
+    it, so the breached-password check and bcrypt hold no pooled connection and no statement or lock wait runs
+    on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    def find_account() -> int:
+        try:
+            return auth_account_service.find_password_reset_user(db, payload.token).id
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user = auth_account_service.find_password_reset_user(db, payload.token)
+        user_id = await run_in_threadpool(find_account)
     except auth_account_service.AccountTokenInvalidError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.") from None
     except auth_account_service.AccountTokenExpiredError:
@@ -939,9 +949,21 @@ async def reset_password(
         )
 
     hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
-    # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
-    # and revokes every session (account recovery evicts an attacker), in one commit.
-    auth_account_service.complete_password_reset(db, user, hashed_password)
+
+    def reset() -> None:
+        # Sets the password, burns the token, confirms the email (the user proved control of the inbox)
+        # and revokes every session (account recovery evicts an attacker), in one commit, under the
+        # account's users row lock (its revocation takes it before any token write).
+        try:
+            auth_account_service.complete_password_reset_by_id(db, user_id, hashed_password)
+        finally:
+            filing_list_service.release_request_session(db)
+
+    try:
+        await run_in_threadpool(reset)
+    except auth_account_service.AccountTokenInvalidError:
+        # The account was deleted while this request hashed; nothing was written.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired reset link.") from None
     return {"message": "Password updated. You can now log in with your new password."}
 
 
@@ -960,7 +982,15 @@ async def change_password(
       email/password sign-in alongside their Google/Apple logins.
 
     Applies the same strength + breached-password (HIBP) checks as registration/reset.
+
+    Two units in the thread pool around the waits (E121): the auth lookup's read is released first, so no
+    pooled connection is out while bcrypt checks the current password, the breached-password check runs or
+    bcrypt hashes the new one; the change and this device's new session are then one unit, released before
+    the route returns (lessons/ops-release-cached-filing-reads-before-yield.md).
     """
+    # The release detaches the user without expiring it: the id, email and hash the lookup loaded stay
+    # readable with no query, here and in the unit below.
+    await run_in_threadpool(filing_list_service.release_request_session, db)
     # Keyed per-user so a logged-in attacker can't brute-force the current password.
     enforce_rate_limit(
         request,
@@ -984,19 +1014,29 @@ async def change_password(
         )
 
     new_password_hash = await asyncio.to_thread(get_password_hash, payload.new_password)
-    # A password change must evict every existing session (a stolen/old refresh token must not
-    # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
-    # moments later when their short-lived access token expires. No intermediate commit:
-    # stage_password_change only stages the new hash and the revocation, and the single commit
-    # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
-    # them with the new token, so a failure there rolls the whole change back (no
-    # password-changed-but-500 inconsistency) and saves a commit round-trip.
-    if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+
+    def change() -> bool:
+        # A password change must evict every existing session (a stolen/old refresh token must not
+        # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
+        # moments later when their short-lived access token expires. No intermediate commit:
+        # stage_password_change only stages the new hash and the revocation, and the single commit
+        # inside issue_session (refresh_token_service.mint_refresh_token, default commit=True) commits
+        # them with the new token, so a failure there rolls the whole change back (no
+        # password-changed-but-500 inconsistency) and saves a commit round-trip. Nothing after that
+        # commit raises: the refresh cookie is set, and the release logs a failure instead.
+        try:
+            if not auth_account_service.stage_password_change(db, current_user, new_password_hash, verified_hash):
+                return False
+            issue_session(db, current_user, response, request)
+            return True
+        finally:
+            filing_list_service.release_request_session(db)
+
+    if not await run_in_threadpool(change):
         # A reset or another change committed while this request hashed (E121).
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
         )
-    issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 
 

@@ -4,8 +4,8 @@ Characterization of the auth flows no other test drives end to end.
 Written against the router before its ORM work moved into app/services/ (the router-ORM ratchet,
 tests/unit/test_router_orm_ceilings_allowlist.py), and every test here passed on that pre-move
 router as well as after the move, so it proved the refactor preserved behaviour. The password
-login's one commit and the refusals of a login or change whose account changed while it hashed
-(E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
+login's one commit, the refusals of a login or change whose account changed while it hashed and of a
+reset whose account was deleted while it hashed (E121), the logout rows that name the user whose refresh token a logout revoked (E137), and the
 register row a Google or Apple sign-in writes when it creates the account (D-054) pin deliberate
 changes made since, and fail on the code before them; the rows of signed-in logouts that revoke
 nothing, which E137 kept, the audit rows of the other sign-ins and of a password sign-up, and a
@@ -14,7 +14,8 @@ first sign-in whose session mint fails are pinned beside them:
   - email verification: verify, single use, unknown and expired links, resend (opaque; a resend
     supersedes the earlier link; a verified account gets no mail)
   - password reset: forgot-password is opaque and mails only password accounts; reset sets the
-    password, confirms the email and evicts every session; unknown and expired links
+    password, confirms the email and evicts every session; unknown and expired links, and an account
+    deleted while the reset hashed
   - the reverse trial granted on verification: the grant and its event, a failed grant that still
     verifies, and a user who is already Pro
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
@@ -395,6 +396,31 @@ def test_reset_password_rejects_unknown_and_expired_links(client, mail):
     assert expired.json() == {"detail": "Reset link has expired. Request a new one."}
     assert _user(email).email_verified is False
     assert _login(client, email).status_code == 200  # the old password still works
+
+
+@pytest.mark.requires_db
+def test_a_reset_whose_account_was_deleted_while_it_hashed_is_refused(client, mail, monkeypatch):
+    """The reset reads its link's account, releases its session, hashes, then reads the account again by its
+    id (E121): an account deleted meanwhile answers the link's 400, as a read after the deletion would, and
+    nothing is written. When the route kept the account it read, its commit matched no row and raised."""
+    email, _ = _register(client, mail)
+    user_id = _user(email).id
+    client.post("/api/auth/forgot-password", json={"email": email})
+    token = _token(mail.reset, "reset_link")
+    real_hash = auth_module.get_password_hash
+
+    def hash_then_delete(password: str) -> str:
+        hashed = real_hash(password)
+        with SessionLocal() as db:  # the account's deletion commits while the reset hashes
+            db.delete(db.get(User, user_id))
+            db.commit()
+        return hashed
+
+    monkeypatch.setattr(auth_module, "get_password_hash", hash_then_delete)
+    resp = client.post("/api/auth/reset-password", json={"token": token, "new_password": NEW_PASSWORD})
+    assert resp.status_code == 400 and resp.json() == {"detail": "Invalid or expired reset link."}
+    with SessionLocal() as db:
+        assert db.query(User).filter(User.email == email).first() is None
 
 
 # ── reverse trial on verification ─────────────────────────────────────────────
