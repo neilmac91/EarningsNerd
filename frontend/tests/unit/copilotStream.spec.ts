@@ -170,7 +170,10 @@ describe('askFilingStream completion-only publication and lifecycle', () => {
     // A concept with any kind but none reads as calculated, the weaker claim, never "Matches filing" (E179).
     { payload: { concept: 'Revenue', value_kind: 1 }, kind: { calculated: true } },
     { payload: { concept: 'Revenue', value_kind: {} }, kind: { calculated: true } },
+    { payload: { concept: 'Revenue', value_kind: '' }, kind: { calculated: true } },
+    // Only a concept with no kind at all, sent as null or not sent, reads as filed.
     { payload: { concept: 'Revenue', value_kind: null }, kind: { fact: true } },
+    { payload: { concept: 'Revenue' }, kind: { fact: true } },
   ])('admits the kind of $payload as $kind, from the payload alone', async ({ payload, kind }) => {
     const source = { n: 1, excerpt: 'Revenue = $10M', section_ref: 'XBRL · Revenue', verified: true, fragment_url: null }
     const wire = stream()
