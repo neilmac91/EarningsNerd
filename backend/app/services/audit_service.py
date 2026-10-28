@@ -26,9 +26,16 @@ def create_audit_log(
     details: Optional[Dict[str, Any]] = None,
     status: str = "success",
     error_message: Optional[str] = None,
+    *,
+    mandatory: bool = False,
 ) -> AuditLog:
     """
     Create an audit log entry.
+
+    Best effort by default: the row commits on its own, and a failure is logged and swallowed. With
+    ``mandatory`` the row is the caller's to commit (F19): it is added to the caller's session and not
+    committed, so the caller's commit writes it with the change it records or not at all, and a failure
+    raises.
 
     Args:
         db: Database session
@@ -42,6 +49,7 @@ def create_audit_log(
         details: Additional context as a dictionary (will be stored as JSON)
         status: Status of the action ("success", "failed", "partial")
         error_message: Error message if status is "failed"
+        mandatory: Add the row to the caller's transaction, uncommitted, and raise on failure
 
     Returns:
         The created AuditLog instance
@@ -73,6 +81,8 @@ def create_audit_log(
         )
 
         db.add(audit_log)
+        if mandatory:
+            return audit_log
         db.commit()
         db.refresh(audit_log)
 
@@ -84,6 +94,8 @@ def create_audit_log(
         return audit_log
 
     except Exception as e:
+        if mandatory:
+            raise
         logger.error(f"Failed to create audit log: {str(e)}")
         db.rollback()
         # Don't raise - audit logging should never break the main flow
@@ -99,13 +111,14 @@ def stage_user_deletion(
     third_party_results: Dict[str, str],
     ip_address: Optional[str] = None,
 ) -> AuditLog:
-    """Stage an account deletion's audit row in the deletion's own transaction, flushed and not committed (F19).
+    """Stage an account deletion's audit row in the deletion's own transaction, uncommitted (F19).
 
-    This audit is mandatory, unlike the best-effort events above: a failed insert raises, so the deletion it
-    records rolls back with it, and the caller commits the two together."""
-    audit_log = AuditLog(
+    This audit is mandatory, unlike the best-effort events: the caller's commit writes the row with the
+    deletion it records, and a failed insert fails that commit, so the two commit together or neither does."""
+    return create_audit_log(
+        db=db,
         action="user_deleted",
-        user_id=str(user_id),
+        user_id=user_id,
         user_email=user_email,
         entity_type="user",
         entity_id=str(user_id),
@@ -115,10 +128,8 @@ def stage_user_deletion(
             "timestamp": iso_z(utcnow()),
         },
         status="success",
+        mandatory=True,
     )
-    db.add(audit_log)
-    db.flush()
-    return audit_log
 
 
 def log_data_export(

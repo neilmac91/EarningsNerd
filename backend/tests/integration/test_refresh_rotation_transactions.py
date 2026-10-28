@@ -519,7 +519,7 @@ def test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone(
     has not committed, then waits at the lock; once the first commits, the lock's own query finds no row and
     the deletion raises, so the route answers its own 500 (the deletion-failure policy is F18's). Checked
     before the lock, or through the loaded row, it would find the account and delete nothing, answering 200.
-    The second stages its audit row only once the lock finds the account, so the one deletion has one (F19)."""
+    The first deletion's audit row commits with it, and the second, refused, commits none: one row (F19)."""
     first, second, live, released = _race(
         postgres_engine, "delete_account", "delete_loaded_account", second_starts="after_first_lock",
     )

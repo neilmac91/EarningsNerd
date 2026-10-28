@@ -40,11 +40,11 @@ def delete_account(db: Session, user_id: int, *, third_party_results: Mapping[st
     ``user_deleted`` audit row and commit the two together; the ORM cascade removes the rows the
     account owns.
 
-    The audit is staged under the lock, after the account is found and before anything is deleted, and
-    records ``third_party_results`` (the route's Stripe, PostHog and Sentry outcomes) and the email the
-    locked row holds. A failed audit insert raises before the deletion, a failed deletion or commit
-    leaves the audit uncommitted, and the route's rollback discards both (F19): no such deletion goes
-    unaudited, and no failed one is audited as a success. The provider actions it records have already
+    The audit is staged under the lock, once the account is found, and records ``third_party_results``
+    (the route's Stripe, PostHog and Sentry outcomes) and the email the locked row holds. The commit
+    writes it with the deletion: a failed audit insert, deletion or commit raises before anything is
+    committed, and the route's rollback discards both (F19), so no such deletion goes unaudited and no
+    failed one is audited as a success. The provider actions it records have already
     run and are not undone. With the account already gone it raises ``LookupError`` (``_lock_account``)
     with no audit row staged."""
     email = _lock_account(db, user_id)
