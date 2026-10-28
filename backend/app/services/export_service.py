@@ -478,7 +478,8 @@ class ExportService:
             if clause.note:
                 text = f"{self._analysis_note_mark(clause.note)} {text}"
             elif clause.gap:
-                text += ', shown as <span class="data">—</span>'
+                # The grid's own dash, alone in its run, as the page's summary draws the table's (MissingValue).
+                text += f', shown as <span class="data">{self._analysis_value_text(None, "", False)}</span>'
             clauses.append(text)
         summary = " · ".join(["<strong>Data notes</strong>", *clauses])
         return (f'<p class="fine-print data-notes-summary">{summary}</p>{self._analysis_notes_list(envelope["notes"])}'
