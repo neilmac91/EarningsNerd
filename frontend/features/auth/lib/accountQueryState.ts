@@ -1,4 +1,4 @@
-import type { QueryClient, QueryState } from '@tanstack/react-query'
+import { hashKey, type QueryClient, type QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
 import { ApiError, cancelRefresh } from '@/lib/api/client'
@@ -55,10 +55,42 @@ export function resetAccountQueries(
   for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
 }
 
+/** Another tab's sign-in or logout reaches this one only through /me (the Header reads it again on focus, once its last
+ * read is a minute old), and resets nothing (E29 (3)). A read that names another reader than the one this tab last
+ * showed finds the account families still holding that reader's snapshots. So does a read that names no one: a logout
+ * in another tab, or a lost session another tab found first, clears the shared session marker, so this tab's 401 reads
+ * as a guest's, and a guest's disabled reads still return what the cache holds (the calendar's alert bells). Either
+ * way the families go, as a reset's do, and the session generation moves on, so that reader's answers still in flight
+ * write nothing (E29 (1)); the new identity stays. A reset in this tab (a logout, a login, a lost session) empties the
+ * families itself and writes its null by hand, and a failed logout then puts back the reader it found, so neither
+ * counts. A cleared cache (`queryClient.clear()`) writes no null, so a /me that answers no one after it drops the
+ * families again, already empty. The cache calls this inside the update, before any observer hears of it, so no render
+ * shows the new identity beside the previous reader's snapshots. */
+function watchReader(queryClient: QueryClient): () => void {
+  const identity = hashKey(queryKeys.currentUser())
+  const readerOf = (data: unknown) => (data as CurrentUser | null | undefined)?.id ?? null
+  let reader = readerOf(queryClient.getQueryData(queryKeys.currentUser()))
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.action.type !== 'success' || event.query.queryHash !== identity) return
+    const previous = reader
+    reader = readerOf(event.query.state.data)
+    // A reset's null is written by hand (setQueryData); a /me's is fetched.
+    if (previous === null || previous === reader || (reader === null && event.action.manual)) return
+    advanceSessionGeneration('session-loss')
+    for (const queryKey of ACCOUNT_QUERY_FAMILIES) void queryClient.cancelQueries({ queryKey })
+    for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
+  })
+}
+
 export function subscribeAccountQueryReset(queryClient: QueryClient): () => void {
-  return subscribeSessionLoss((generation) => {
+  const stopLossReset = subscribeSessionLoss((generation) => {
     if (isSessionGenerationCurrent(generation)) resetAccountQueries(queryClient, generation, 'session-loss')
   })
+  const stopReaderWatch = watchReader(queryClient)
+  return () => {
+    stopLossReset()
+    stopReaderWatch()
+  }
 }
 
 /** What /me says of this browser's session after a logout request that failed: no user, the user, or nothing. */
