@@ -1,6 +1,6 @@
 import { hashKey, type QueryClient, type QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, logoutAllSessions, LogoutAllSuperseded, type CurrentUser } from '@/features/auth/api/auth-api'
 import { ApiError, cancelRefresh } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurrent, subscribeSessionLoss, getExplicitSessionGeneration, isExplicitSessionGenerationCurrent, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, clearSessionActive } from '@/lib/api/session'
@@ -8,6 +8,19 @@ import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurr
 /** What a logout that did not take tells the reader, whatever /me answered: their account, or nothing it could read (a
  * connection that dropped, or a /me or a refresh that answered 5xx while the connection worked). */
 export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Try again in a moment."
+
+/** What "Log out of all devices" tells the reader when the Log out it waited for logged this device out (E157): no
+ * session is left here to end the others with, so they log in again and press it again. */
+export const LOGGED_OUT_FIRST_MESSAGE =
+  'This device was already logged out, so your other devices could not be logged out from here. Log in again to log them out.'
+
+/** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
+export class LoggedOutFirst extends Error {
+  constructor() {
+    super('The logout this one waited for ended the session it would have used, so it logged nothing out.')
+    this.name = 'LoggedOutFirst'
+  }
+}
 
 /** Every query family that holds one account's data, by key prefix. Most are unkeyed by the reader,
  * so after a logout or login in this tab the next account would read the previous one's snapshot
@@ -141,19 +154,24 @@ function restoreIdentity(queryClient: QueryClient, shown: QueryState<CurrentUser
 }
 
 /** A logout running in this tab, and the explicit generation it answers for: the one it found, then its own reset's
- * once its request has failed and /me is read. */
+ * once its request has failed and /me is read. A logout of every session (`everySession`) answers for the one it found
+ * when it posted. `survived`, set as a Log out settles for the session it found, is what a logout of every session that
+ * waited for it reads (logoutAllInTurn): true when that session outlived it (the logout did not take: /me named the
+ * reader, or could not be read), false when it took, and unset when a login accepted meanwhile took the tab. */
 interface LogoutUnderWay {
   generation: number
   settled: Promise<void>
+  everySession?: true
+  survived?: boolean
 }
 
 /** One logout at a time, for the controls that log out through this helper (the account menu, the mobile menu and the
- * dashboard; the settings page's "Log out of all devices" runs outside it, E157). A second would undo the first: its
- * request clears the session flag (auth-api's logout) while the first reads /me, so a lapsed access cookie reads as a
- * guest and the first leaves as logged out with the refresh cookie alive; and its answer, landing after the first's
- * reset moved the generation past the one it started with, is dropped, so a logout it completed leaves the tab showing
- * the account. A login accepted meanwhile moves the generation past this one, and that account's logout starts its
- * own. */
+ * dashboard) and for the settings page's "Log out of all devices" (logoutAllInTurn, E157). A second would undo the
+ * first: its request clears the session flag (auth-api's logout) while the first reads /me, so a lapsed access cookie
+ * reads as a guest and the first leaves as logged out with the refresh cookie alive; and its answer, landing after the
+ * first's reset moved the generation past the one it started with, is dropped, so a logout it completed leaves the tab
+ * showing the account. A login accepted meanwhile moves the generation past this one, and that account's logout starts
+ * its own. */
 let logoutUnderWay: LogoutUnderWay | null = null
 
 /** A late logout completion must not reset or navigate away from a newer accepted login.
@@ -168,8 +186,8 @@ let logoutUnderWay: LogoutUnderWay | null = null
  * found for the read, since the request clears it (auth-api's logout) and a lapsed access cookie then reads as a
  * guest: /me 401s, and only the flag lets that 401 renew the session from the refresh cookie. A login accepted
  * meanwhile owns the tab, and nothing follows for this logout but its error. A call while a logout of the same
- * session runs (a second press) joins it (logoutUnderWay): it settles as that logout does, and neither its request
- * nor its callback runs.
+ * session runs (a second press, or a press while "Log out of all devices" runs) joins it (logoutUnderWay): it settles
+ * as that logout does, and neither its request nor its callback runs.
  */
 export function logoutAndResetAccount(
   queryClient: QueryClient,
@@ -226,12 +244,44 @@ async function settleLogout(
       if (error instanceof ApiError && error.status === 503 && error.backendDetail) toast.warning(error.backendDetail)
     } else {
       if (read === 'unknown' && isSessionGenerationCurrent(reset)) restoreIdentity(queryClient, shown)
+      run.survived = true
       toast.error(LOGOUT_FAILED_MESSAGE)
       onCurrentSettled?.(false)
       throw failure.error
     }
   }
+  run.survived = false
   onCurrentSettled?.(true)
+}
+
+/** The settings page's "Log out of all devices", in the one-logout flight (E157). Pressed while a Log out runs, it
+ * waits for that one to settle, since either would undo the other (logoutUnderWay): its `beginLogout` would clear the
+ * session flag a failed Log out's read of /me needs, and that Log out's reset would lift its refresh fence (E133), or,
+ * before it posts, end it as LogoutAllSuperseded. Then it posts only while the session survived that Log out. One that
+ * took leaves this device no session to end the others with: it posts nothing and rejects with LoggedOutFirst. One a
+ * login overtook leaves the tab to that account, and it rejects with LogoutAllSuperseded, as a login accepted while it
+ * waits for the refresh in flight makes it (auth-api's logoutAllSessions). While it runs, a Log out press joins it, as a
+ * second press of Log out joins the first, and so does a second press of it: one request, one outcome. It resets
+ * nothing: its control clears the cache and leaves once it took (ConnectedAccounts). */
+export function logoutAllInTurn(): Promise<void> {
+  const running = logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation) ? logoutUnderWay : null
+  if (running?.everySession) return running.settled
+  if (running) {
+    const next = (): Promise<void> => {
+      if (running.survived === false) throw new LoggedOutFirst()
+      // It posts for the session that survived, never for a login accepted since: the check and the post's
+      // `beginLogout`, which takes the generation it answers for, share this turn.
+      if (!running.survived || !isExplicitSessionGenerationCurrent(running.generation)) throw new LogoutAllSuperseded()
+      return logoutAllInTurn()
+    }
+    return running.settled.then(next, next)
+  }
+  const run = { generation: getExplicitSessionGeneration(), everySession: true } as LogoutUnderWay
+  run.settled = logoutAllSessions().then(() => undefined).finally(() => {
+    if (logoutUnderWay === run) logoutUnderWay = null
+  })
+  logoutUnderWay = run
+  return run.settled
 }
 
 /** No await between final credential ownership check and replacement cache publication. */
