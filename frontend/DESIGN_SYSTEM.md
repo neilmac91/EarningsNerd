@@ -355,9 +355,11 @@ fails a value it cannot read as a length, reads a class a same-file binding hold
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
 conditions as one render and a ternary's arms as one or the other (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`
 is a frame at `p-6`), failing closed where it cannot correlate two conditions, never reads a form field (input, textarea, select) as a frame, since its padding reserves room
-for a glyph, reads a Notice's className as a frame's and fails a Notice inside a dialog's body whose className does not cap
-Notice's own `px-4` in every render (`px-cap-N`, or a cap on each side; `p-cap-4` does not, since the stylesheet emits `p`
-before `px`), and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+for a glyph, reads a Notice's className as a frame's and fails a Notice inside a dialog's body whose className leaves
+Notice's own `px-4` on a side in some render: Tailwind emits padding by group (`p`, then `px` and `py`, then one side) and
+within a group by class name, so `px-cap-4`, a later group or a `px` whose name sorts after `px-4` takes the sides (one of
+step 4 or more held to the cap), and `p-cap-4`, `px-3` and Tailwind 4's trailing `!` do not (`designRules.spec.ts`
+compiles the order), and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
 stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility

@@ -259,12 +259,15 @@
 //                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
 //                       longest words. A <Notice> is a frame wherever it is written (components/ui/Notice.tsx draws a
 //                       full border and a radius at NOTICE_INSET, px-4), so its className is read as a frame's; inside
-//                       a dialog's body, where Notice's own px-4 is at the threshold, its className caps that inset in
-//                       every render, under no variant: a capped px, or a cap on each side, which the stylesheet emits
-//                       after Notice's own. p-cap-N does not (the stylesheet emits p before px), nor does a numbered or
-//                       arbitrary px, failing closed, nor a className the rule cannot read (E229: the day dialog's
-//                       holiday line broke "Thanksgiving" inside the word at 390px under 200% text). A Notice is read
-//                       under any name an import from @/components/ui or its Notice module binds, and as `ui.Notice`.
+//                       a dialog's body, where Notice's own px-4 is at the threshold, its className overrides that inset
+//                       on both sides in every render, under no variant, as Tailwind orders padding: by group (p, then
+//                       px and py, then one side), within a group by class name, and an important token over every plain
+//                       one. px-cap-4 does, and so does any override from a later group or one whose name sorts after
+//                       px-4, at step 4 or more held to the cap as a frame's padding; p-cap-N does not, nor px-3, nor
+//                       Tailwind 4's trailing `!` (Tailwind 3 generates no class for it), nor a className the rule cannot
+//                       read (E229: the day dialog's holiday line broke "Thanksgiving" inside the word at 390px under
+//                       200% text). A Notice is read under any name an import from @/components/ui or its Notice module
+//                       binds, and as `ui.Notice`.
 //                       A class a same-file binding holds, named in any class attribute
 //                       (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL} p-6`; the initializer a string, a template or a
 //                       cx()/clsx() call), is read with it in each branch where it is named (`framed ? FRAME : PAD`
@@ -1951,27 +1954,27 @@ export function uncappedInset(classText, threshold) {
 }
 
 /** The inline sides ('left', 'right' or 'left and right') on which a Notice whose className holds `always` in every
- *  render keeps Notice's own inset (NOTICE_INSET), else null. The stylesheet emits `p` before `px` and `px` before one side, an
- *  important token after every plain one, and within `px` a capped key after the numbered steps, so a token under no
- *  variant overrides Notice's inset on its side from a later group, as an important one, or as a capped `px` key. A
- *  numbered or arbitrary `px` value beside Notice's own is read as leaving Notice's, failing closed, since which of
- *  the two the stylesheet emits later is the theme's key order. */
+ *  render keeps Notice's own inset (NOTICE_INSET), else null. Tailwind 3 emits the padding utilities by group (`p`,
+ *  then `px` and `py`, then one side: SIDE_GROUP) and within a group by class name, compared as a string, so `px-10`
+ *  comes before `px-2`, every numbered step before `px-[…]` and the capped keys, and `px-gutter` and `px-px` after them
+ *  (tests/unit/designRules.spec.ts compiles the order); an important token outranks every plain one. A token under no
+ *  variant takes a side from Notice's own when it is important, from a later group, or from Notice's group with a
+ *  name that sorts after Notice's: `px-cap-4` and `px-6` do, `px-3` and `p-cap-4` do not. What takes a side at step 4
+ *  or more is a frame's padding, held to the cap where the className is read as a frame's. A trailing `!` is Tailwind
+ *  4's important mark, for which Tailwind 3 generates no class, so it sets nothing. */
 export function noticeKeepsInset(always) {
-  const recipe = SIDE_GROUP[paddingPrefix(NOTICE_INSET)]
+  const own = { rank: SIDE_GROUP[paddingPrefix(NOTICE_INSET)], name: NOTICE_INSET }
   const kept = []
-  for (const [side, name] of [['l', 'left'], ['r', 'right']]) {
-    let top = -1
-    let capped = false
+  for (const [side, label] of [['l', 'left'], ['r', 'right']]) {
+    let winner = own
     for (const raw of always.split(/\s+/)) {
-      if (paddingStep(raw) === undefined || !paddingSides(raw).includes(side)) continue
+      if (raw.endsWith('!') || paddingStep(raw) === undefined || !paddingSides(raw).includes(side)) continue
       const { variants, utility, important } = splitClassToken(raw)
       if (variants.length > 0) continue
       const rank = SIDE_GROUP[paddingPrefix(raw)] + (important ? IMPORTANT_RANK : 0)
-      const cap = CAPPED_KEY.test(PADDING.exec(utility)[2])
-      if (rank > top) [top, capped] = [rank, cap]
-      else if (rank === top && cap) capped = true
+      if (rank > winner.rank || (rank === winner.rank && utility > winner.name)) winner = { rank, name: utility }
     }
-    if (top < recipe || (top === recipe && !capped)) kept.push(name)
+    if (winner === own) kept.push(label)
   }
   return kept.length > 0 ? kept.join(' and ') : null
 }
@@ -2157,8 +2160,9 @@ export const surfacePaddingCap = {
       context.report({ node, messageId, data })
     }
     /** A Notice written inside a dialog's body is a frame there whose own inline inset (NOTICE_INSET) is at the
-     *  threshold, so its className overrides that inset with a capped token in every render (E229): its unconditional
-     *  text, a same-file binding read where it is named. A className the rule cannot read, or none, leaves Notice's. */
+     *  threshold, so its className overrides that inset in every render (E229, noticeKeepsInset): its unconditional
+     *  text, a same-file binding read where it is named. A className the rule cannot read, or none, leaves Notice's.
+     *  An override of step 4 or more is reported once, by the frame check, with its own capped fix. */
     const checkNotice = (element) => {
       if (nameOf(element) !== 'Notice' || !inDialogBody(element)) return
       const attribute = classAttribute(element)

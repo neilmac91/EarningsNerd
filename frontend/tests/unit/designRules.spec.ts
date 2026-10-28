@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint, RuleTester } from 'eslint'
@@ -62,9 +63,9 @@ import {
  *    step 4. A step is read by its resolved size (a configured key, an arbitrary length), a value the rule cannot
  *    read fails closed, a class a same-file binding holds is read with the attribute that names it, a Card or a
  *    section imported under another name is read as itself, a form field is never a frame, a Notice is a frame whose
- *    own px-4 (NOTICE_INSET, held to Notice's source) its className caps in every render inside a dialog's body
- *    (E229), and a capped key the theme does not define fails anywhere. The shapes out of its reach are planted as
- *    stated gaps.
+ *    own px-4 (NOTICE_INSET, held to Notice's source) its className overrides in every render inside a dialog's body,
+ *    as the stylesheet the theme compiles to orders padding (E229), and a capped key the theme does not define fails
+ *    anywhere. The shapes out of its reach are planted as stated gaps.
  *  - elements-built-with-jsx: the app builds its elements in JSX, which the gates that read elements see, so React's
  *    element factories are refused under any name (Codex's two forms on #1370's 44229515 among them), a use of React
  *    the rule cannot follow is refused as unreadable, and the DOM's document.createElement, JSX, a type and the one
@@ -824,14 +825,15 @@ describe('uncappedInset', () => {
 })
 
 describe('noticeKeepsInset', () => {
-  it("reads which inline side keeps Notice's own inset, as the stylesheet orders the groups", () => {
-    // No inline padding, a zero, a numbered or arbitrary px beside Notice's own (failing closed), or padding on every
-    // side, which the stylesheet emits before px: Notice's own px-4 stays on both sides.
-    for (const always of ['', 'mt-4', 'px-0', 'px-3', 'px-[12px]', 'p-cap-4', 'p-2', 'py-cap-4']) {
+  it("reads which inline side keeps Notice's own inset, as the stylesheet orders padding", () => {
+    // No inline padding, Notice's own, a px whose name sorts before px-4, padding on every side (the stylesheet emits
+    // p before px), and Tailwind 4's trailing important mark, which Tailwind 3 generates no class for.
+    for (const always of ['', 'mt-4', 'px-0', 'px-3', 'px-2.5', 'px-4', 'p-cap-4', 'p-2', 'py-cap-4', 'px-cap-4!']) {
       expect(noticeKeepsInset(always), always).toBe('left and right')
     }
-    // A capped px, from a later group or important, overrides it.
-    for (const always of ['px-cap-4', 'mt-2.5 px-cap-3', 'px-3 px-cap-4', 'ps-cap-4 pe-cap-4', 'pl-3 pr-3', '!p-cap-4', '!px-0']) {
+    // A px whose name sorts after px-4 (a capped key, a larger or arbitrary step, a named key), a later group, or an
+    // important token overrides it; one of step 4 or more is then a frame's padding, held to the cap by the frame check.
+    for (const always of ['px-cap-4', 'mt-2.5 px-cap-3', 'px-3 px-cap-4', 'px-6', 'px-[12px]', 'px-px', 'ps-cap-4 pe-cap-4', 'pl-3 pr-3', '!p-cap-4', '!px-0']) {
       expect(noticeKeepsInset(always), always).toBeNull()
     }
     // One side set, a variant's padding (no base), or a cap that styles another element.
@@ -840,6 +842,37 @@ describe('noticeKeepsInset', () => {
     expect(noticeKeepsInset('sm:px-cap-4')).toBe('left and right')
     expect(noticeKeepsInset('[&>div]:px-cap-4')).toBe('left and right')
   })
+
+  it('orders padding as the stylesheet tailwind.config.js compiles to', async () => {
+    const load = createRequire(import.meta.url)
+    const postcss = load('postcss')
+    const tailwindcss = load('tailwindcss')
+    const config = load('../../tailwind.config.js')
+    const plain = ['px-0', 'px-2.5', 'px-3', 'px-10', 'px-4.5', 'px-6', 'px-[12px]', 'px-cap-3', 'px-cap-4', 'px-gutter', 'px-px', 'p-6', 'p-cap-4']
+    const sided = ['pl-3', 'pr-cap-4', 'ps-cap-4', 'pe-3']
+    const important = ['!px-0', '!p-cap-4']
+    const content = [NOTICE_INSET, ...plain, ...sided, ...important, 'px-cap-4!'].join(' ')
+    const { css } = await postcss([tailwindcss({ ...config, content: [{ raw: content }], corePlugins: { ...config.corePlugins, preflight: false } })]).process(
+      '@tailwind utilities;',
+      { from: undefined },
+    )
+    const at = (token: string) => css.indexOf(`.${token.replace(/([[\].!])/g, '\\$1')} {`)
+    const own = at(NOTICE_INSET)
+    expect(own).toBeGreaterThan(-1)
+    // A plain token takes Notice's sides exactly when the stylesheet emits it after Notice's own; one side's token, its
+    // side.
+    for (const token of plain) {
+      expect(at(token), token).toBeGreaterThan(-1)
+      expect(noticeKeepsInset(token) === null, token).toBe(at(token) > own)
+    }
+    for (const token of sided) expect(noticeKeepsInset(token) !== 'left and right', token).toBe(at(token) > own)
+    // An important token outranks every plain one whatever its place, and a trailing mark ships no class.
+    for (const token of important) {
+      expect(css.slice(at(token)).split('}')[0], token).toContain('!important')
+      expect(noticeKeepsInset(token), token).toBeNull()
+    }
+    expect(css).not.toContain('px-cap-4\\!')
+  }, 30_000)
 
   it("names Notice's own inline inset, at the dialog threshold, on the frame Notice draws", () => {
     const source = readFileSync(path.join(frontendRoot, 'components/ui/Notice.tsx'), 'utf8')
@@ -923,6 +956,8 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     '<ModalBody><Notice variant="error" title="t" className="mt-4 px-cap-4" /></ModalBody>',
     '<dialog><div><Notice variant="info" title="t" className="mx-2 mt-2.5 px-cap-4" /></div></dialog>',
     '<ModalBody><Notice variant="info" title="t" className="ps-cap-4 pe-cap-4" /></ModalBody>',
+    // A px whose name sorts after px-4 takes the sides, and under step 4 it is no frame's inset to cap.
+    '<ModalBody><Notice variant="info" title="t" className="px-[12px]" /></ModalBody>',
     "const PAD = 'mt-4 px-cap-4'\nexport const x = <ModalBody><Notice variant=\"info\" title=\"t\" className={PAD} /></ModalBody>",
     "import { Notice as Banner } from '@/components/ui'\nexport const x = <ModalBody><Banner variant=\"info\" title=\"t\" className=\"px-cap-4\" /></ModalBody>",
   ],
@@ -1064,6 +1099,14 @@ ruleTester.run('surface-padding-cap', surfacePaddingCap, {
     },
     { code: "<ModalBody><Notice variant=\"info\" title=\"t\" className={open ? 'px-cap-4' : ''} /></ModalBody>", errors: [{ messageId: 'noticeInset' }] },
     { code: '<ModalBody><Notice variant="info" title="t" className="sm:px-cap-4" /></ModalBody>', errors: [{ messageId: 'noticeInset' }] },
+    // Tailwind 4's trailing important mark, which Tailwind 3 generates no class for.
+    { code: '<ModalBody><Notice variant="info" title="t" className="px-cap-4!" /></ModalBody>', errors: [{ messageId: 'noticeInset' }] },
+    // A px of step 4 or more takes the sides from Notice's own, so it is reported once, as a frame's uncapped padding
+    // with its own capped fix (the tier review's nit on b353ab5a).
+    {
+      code: '<ModalBody><Notice variant="info" title="t" className="px-6" /></ModalBody>',
+      errors: [{ messageId: 'uncapped', data: { token: 'px-6', surface: "a Notice inside a dialog's body", fix: 'px-cap-6' } }],
+    },
     // Under another name or a namespace, through a callback written there, and with a className the rule cannot read.
     {
       code: "import { Notice as Banner } from '@/components/ui'\nexport const x = <ModalBody><Banner variant=\"info\" title=\"t\" /></ModalBody>",
