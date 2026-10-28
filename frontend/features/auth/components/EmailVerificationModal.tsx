@@ -174,11 +174,11 @@ export default function EmailVerificationModal() {
             variant="error"
             title="Couldn't send a new link"
             description={resend.failure.message}
-            className="mt-4"
+            className="mt-4 px-cap-4"
           />
         ) : null}
         {checkFailure ? (
-          <Notice key={`check-${checkFailure.n}`} variant="error" title={checkFailure.title} description={checkFailure.message} className="mt-4" />
+          <Notice key={`check-${checkFailure.n}`} variant="error" title={checkFailure.title} description={checkFailure.message} className="mt-4 px-cap-4" />
         ) : null}
       </ModalBody>
       <ModalFooter>

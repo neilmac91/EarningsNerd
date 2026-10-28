@@ -257,7 +257,18 @@
 //                       frame inside a dialog's body (written inside <ModalBody> or a native <dialog> in the same file, a
 //                       Card included) caps from step 4: the dialog's own inset already halves the measure there, and at
 //                       320px under 200% text the cookie dialog's category cards left their text 92px and broke its
-//                       longest words. A class a same-file binding holds, named in any class attribute
+//                       longest words. A <Notice> is a frame wherever it is written (components/ui/Notice.tsx draws a
+//                       full border and a radius at NOTICE_INSET, px-4), so its className is read as a frame's; inside
+//                       a dialog's body, where Notice's own px-4 is at the threshold, its className overrides that inset
+//                       on both sides in every render, under no variant, as Tailwind orders padding: by group (p, then
+//                       px and py, then one side), within a group by class name, and an important token over every plain
+//                       one. px-cap-4 does, and so does any override from a later group or one whose name sorts after
+//                       px-4, at step 4 or more held to the cap as a frame's padding; p-cap-N does not, nor px-3, nor
+//                       Tailwind 4's trailing `!` (Tailwind 3 generates no class for it), nor a className the rule cannot
+//                       read (E229: the day dialog's holiday line broke "Thanksgiving" inside the word at 390px under
+//                       200% text). A Notice is read under any name an import from @/components/ui or its Notice module
+//                       binds, and as `ui.Notice`.
+//                       A class a same-file binding holds, named in any class attribute
 //                       (`className={PAD}`, `cx(SHELL, 'p-6')`, `${SHELL} p-6`; the initializer a string, a template or a
 //                       cx()/clsx() call), is read with it in each branch where it is named (`framed ? FRAME : PAD`
 //                       renders one or the other), and as text that is always there where the collector does not walk to
@@ -1824,6 +1835,13 @@ const SURFACE_SOURCES = /^(?:@\/components\/ui(?:\/(?:Card|Modal))?|\.\/(?:Card|
 const SECTIONED_COMPONENTS = new Set(['Card', 'Modal'])
 /** A dialog's body: a frame written inside one caps from DIALOG_WELL_STEP. */
 const DIALOG_BODIES = new Set(['ModalBody', 'dialog'])
+/** Notice draws its own frame (components/ui/Notice.tsx): a full border, a radius and this inline inset, which a
+ *  call site's className can override but never remove, so a Notice is a frame wherever it is written, and inside a
+ *  dialog's body one whose own inset is at the threshold (E229). tests/unit/designRules.spec.ts holds this to Notice's
+ *  source. */
+export const NOTICE_INSET = 'px-4'
+/** The modules Notice is imported from: a local name bound to it is Notice (`import { Notice as Banner }`). */
+const NOTICE_SOURCES = /^(?:@\/components\/ui(?:\/Notice)?|\.\/Notice)$/
 /** Form fields: their border and radius draw a control, and their padding reserves room for a glyph (an icon field's
  *  pl-11, a select's pr-9), so they are never a frame. */
 const FORM_FIELDS = new Set(['input', 'textarea', 'select'])
@@ -1935,6 +1953,32 @@ export function uncappedInset(classText, threshold) {
   return null
 }
 
+/** The inline sides ('left', 'right' or 'left and right') on which a Notice whose className holds `always` in every
+ *  render keeps Notice's own inset (NOTICE_INSET), else null. Tailwind 3 emits the padding utilities by group (`p`,
+ *  then `px` and `py`, then one side: SIDE_GROUP) and within a group by class name, compared as a string, so `px-10`
+ *  comes before `px-2`, every numbered step before `px-[…]` and the capped keys, and `px-gutter` and `px-px` after them
+ *  (tests/unit/designRules.spec.ts compiles the order); an important token outranks every plain one. A token under no
+ *  variant takes a side from Notice's own when it is important, from a later group, or from Notice's group with a
+ *  name that sorts after Notice's: `px-cap-4` and `px-6` do, `px-3` and `p-cap-4` do not. What takes a side at step 4
+ *  or more is a frame's padding, held to the cap where the className is read as a frame's. A trailing `!` is Tailwind
+ *  4's important mark, for which Tailwind 3 generates no class, so it sets nothing. */
+export function noticeKeepsInset(always) {
+  const own = { rank: SIDE_GROUP[paddingPrefix(NOTICE_INSET)], name: NOTICE_INSET }
+  const kept = []
+  for (const [side, label] of [['l', 'left'], ['r', 'right']]) {
+    let winner = own
+    for (const raw of always.split(/\s+/)) {
+      if (raw.endsWith('!') || paddingStep(raw) === undefined || !paddingSides(raw).includes(side)) continue
+      const { variants, utility, important } = splitClassToken(raw)
+      if (variants.length > 0) continue
+      const rank = SIDE_GROUP[paddingPrefix(raw)] + (important ? IMPORTANT_RANK : 0)
+      if (rank > winner.rank || (rank === winner.rank && utility > winner.name)) winner = { rank, name: utility }
+    }
+    if (winner === own) kept.push(label)
+  }
+  return kept.length > 0 ? kept.join(' and ') : null
+}
+
 /** The name a function is declared or bound under (`function CardBody`, `const CardBody = (…) =>`, inside memo() or
  *  forwardRef(), bare or as `React.x`), else null. */
 function functionName(fn) {
@@ -1997,6 +2041,10 @@ export const surfacePaddingCap = {
         "tailwind.config.js PADDING_CAP_STEPS), so it stops growing at narrow widths under enlarged text (E120).",
       undefinedCap:
         '{{token}} names a capped step tailwind.config.js does not define (PADDING_CAP_STEPS), so it ships unstyled.',
+      noticeInset:
+        "A Notice inside a dialog's body keeps Notice's own {{inset}} on its {{side}}, which keeps growing with the text: " +
+        "a frame inside a dialog's body caps its inset from step 4 (E120, E229). Write px-cap-4 in its className, in " +
+        "every render: the stylesheet emits a capped px after Notice's own.",
     },
   },
   create(context) {
@@ -2012,6 +2060,7 @@ export const surfacePaddingCap = {
       for (const spec of statement.specifiers) {
         const imported = spec.type === 'ImportSpecifier' ? spec.imported.name ?? spec.imported.value : null
         if (SURFACE_SOURCES.test(source) && SURFACE_COMPONENTS.has(imported)) aliases.set(spec.local.name, imported)
+        if (NOTICE_SOURCES.test(source) && imported === 'Notice') aliases.set(spec.local.name, 'Notice')
         if (source === 'react' && imported === 'Fragment') fragments.add(spec.local.name)
       }
     }
@@ -2110,7 +2159,20 @@ export const surfacePaddingCap = {
       const messageId = found.fix ? 'uncapped' : found.step === null ? 'unreadable' : 'noStep'
       context.report({ node, messageId, data })
     }
-    return classUnitVisitors((node, pieces) => {
+    /** A Notice written inside a dialog's body is a frame there whose own inline inset (NOTICE_INSET) is at the
+     *  threshold, so its className overrides that inset in every render (E229, noticeKeepsInset): its unconditional
+     *  text, a same-file binding read where it is named. A className the rule cannot read, or none, leaves Notice's.
+     *  An override of step 4 or more is reported once, by the frame check, with its own capped fix. */
+    const checkNotice = (element) => {
+      if (nameOf(element) !== 'Notice' || !inDialogBody(element)) return
+      const attribute = classAttribute(element)
+      const root = { parent: null }
+      const pieces = attribute ? collectStaticText(attribute.value, new WeakSet(), [], root, resolveBinding) : []
+      const always = pieces.filter((piece) => piece.branch === root).map((piece) => piece.text).join(' ')
+      const side = noticeKeepsInset(always)
+      if (side) context.report({ node: attribute ?? element.openingElement, messageId: 'noticeInset', data: { side, inset: NOTICE_INSET } })
+    }
+    const classUnits = classUnitVisitors((node, pieces) => {
       // A class a same-file binding holds is read with the attribute that names it, in each branch where it is named
       // (`framed ? FRAME : PAD` renders one or the other); a binding the collector does not walk to (`merge(PAD)`)
       // is read as text that is always there. Each text is one render: pieces under separate conditions together.
@@ -2135,19 +2197,23 @@ export const surfacePaddingCap = {
       }
       const { surface, card, element, sides } = surfaceOf(node)
       const field = element !== null && FORM_FIELDS.has(nameOf(element))
+      // A Notice's className lands on the frame Notice draws, whatever the class text says (NOTICE_INSET).
+      const notice = element !== null && nameOf(element) === 'Notice'
       const well = element !== null && inDialogBody(element)
       for (const text of texts) {
-        const framed = card || (!field && drawsFrame(text))
+        const framed = card || notice || (!field && drawsFrame(text))
         const threshold = framed && well ? DIALOG_WELL_STEP : surface || framed ? SURFACE_STEP : null
         if (threshold === null) continue
         // A section carries the inset on the sides its surface leaves it; a frame carries its own on every side.
         const found = uncappedInset(framed || !sides ? text : onSides(text, sides), threshold)
         if (found) {
-          report(node, found, surface ?? (well ? "a frame inside a dialog's body" : 'a frame (a full border and a radius)'))
+          const frame = notice ? 'a Notice' : 'a frame'
+          report(node, found, surface ?? (well ? `${frame} inside a dialog's body` : notice ? 'a Notice (it draws a frame)' : 'a frame (a full border and a radius)'))
           return
         }
       }
     })
+    return { ...classUnits, JSXElement: checkNotice }
   },
 }
 

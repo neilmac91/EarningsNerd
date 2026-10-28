@@ -143,6 +143,8 @@ export class LogoutAllSuperseded extends Error {
   }
 }
 
+/** The logout of every session. The app calls it only in the one-logout flight, never beside a Log out (E157:
+ * accountQueryState's logoutAllInTurn; held by tests/unit/logoutCallSitesGate.spec.ts). */
 export const logoutAllSessions = async () => {
   const generation = beginLogout()
   try {

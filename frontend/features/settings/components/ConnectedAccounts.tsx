@@ -4,14 +4,15 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { KeyIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
-  logoutAllSessions,
   LogoutAllSuperseded,
   type AuthConnection,
 } from '@/features/auth/api/auth-api'
+import { LOGGED_OUT_FIRST_MESSAGE, LoggedOutFirst, logoutAllInTurn } from '@/features/auth/lib/accountQueryState'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -60,8 +61,10 @@ export default function ConnectedAccounts() {
     },
   })
 
+  // In the one-logout flight (logoutAllInTurn, E157): pressed while a Log out runs, it waits for that one, and posts
+  // only while the session survived it; a Log out pressed while it runs waits for it, and runs on its own if it fails.
   const logoutAllMutation = useMutation({
-    mutationFn: logoutAllSessions,
+    mutationFn: logoutAllInTurn,
     onSuccess: () => {
       queryClient.clear()
       router.push('/login')
@@ -70,6 +73,12 @@ export default function ConnectedAccounts() {
       // Another login was accepted while it waited: the tab is that account's now, so there is nothing to clear, to
       // leave or to say here.
       if (err instanceof LogoutAllSuperseded) return
+      // The Log out it waited for logged this device out (E157). The page leaves with that Log out and renders no section
+      // for a reader gone, so this section's error line would never show: a toast outlives the page.
+      if (err instanceof LoggedOutFirst) {
+        toast.error(LOGGED_OUT_FIRST_MESSAGE)
+        return
+      }
       setError(
         isApiError(err) ? getErrorMessage(err) : 'Could not log out of all devices.',
       )
