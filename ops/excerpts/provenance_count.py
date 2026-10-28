@@ -22,16 +22,22 @@ the Cloud Run jobs) and counts:
 - the last native line inside E28 (b)'s window, rounded down to its minute: native sections stopped after it,
   so it bounds the onset CI could not. A regex line bounds nothing: a 6-K, a thin native assembly, a parse
   timeout or the size cap falls back on any day;
-- the size cap: distinct accessions fetched over it by era and since #1347's merge (E28 (a): the count over the
-  eras native sections worked, before the onset and after #1350's deploy, sizes what the cap changes), size-cap
-  fallbacks (the skip lines) by form, and the distinct accessions they join to;
+- the size cap: distinct accessions fetched over it by era and since #1347's merge (a ceiling: runs that reused a
+  stored excerpt among them), and those also built natively in the same era (E28 (a): over the eras native sections
+  worked, before the onset and after #1350's deploy, these size what the cap changes), size-cap fallbacks (the skip
+  lines) by form, and the distinct accessions they join to;
 - the accessions fetched with no provenance line, only when no day was cut (else null).
+
+Each line is counted only from the logger that writes it (summary_generation_service for provenance,
+summary_pipeline for the fetch lines, edgar.xbrl_service for the cap), its message starting with the line's own
+words: a request another logger records (a search query, say) may hold the same words and is never counted.
 
 Retention fails closed. The `_Default` bucket's `retentionDays`, where the identity may read it, and a bounded
 probe for the oldest stdout or stderr entry the scope still holds (the streams the lines are written to, never
 the audit logs `_Required` keeps for 400 days) each date what is gone, and the later of the two wins (a
-retention raised after lines expired keeps them gone). An empty probe (`{}`) means nothing is held. A day wholly
-before that date reads `expired_or_absent`, the day it falls in `partly_expired_or_absent`; an oldest entry
+retention raised after lines expired keeps them gone). An empty probe (`{}`) means nothing is held, unless the
+readable bucket says the window is (then the days are read and left unverified). A day wholly before that date
+reads `expired_or_absent`, the day it falls in `partly_expired_or_absent`; an oldest entry
 within an hour of the window's start is a quiet start, not expiry. When the probe cannot say, every day up to
 and including the first day that holds a line reads `retention_unverified`, never `complete` with 0. A day whose
 pages ran out reads `partial`, one that could not be read `unavailable` with a closed class; a read that runs out
@@ -86,9 +92,18 @@ MARKS = (
     ("after", "2026-10-16T04:10:00Z"),
 )
 PROVENANCE = "Excerpt provenance: "
-FETCHED = re.compile(r"\[stream:(\d+)\] SEC fetch completed\. Text length: (\d+)")
+FETCHED = re.compile(r"\[stream:(\d+)\] SEC fetch completed\. Text length: (\d+)$")
 STARTED = re.compile(r"\[stream:(\d+)\] Starting SEC fetch for URL: \S*/Archives/edgar/data/\d+/(\d{18})/")
-CAPPED = re.compile(r"Section parse skipped: ([\d,]+)-char (\S+) document is over the size cap")
+CAPPED = re.compile(r"Section parse skipped: ([\d,]+)-char (\S+) document is over the size cap$")
+# Each line is taken from the logger that writes it alone, its message starting with the line's own words: a
+# request another logger records (a search query, say) may hold the same words, and is never counted.
+LOGGERS = {
+    "provenance": "app.services.summary_generation_service",
+    "fetch": "app.services.summary_pipeline",
+    "cap": "app.services.edgar.xbrl_service",
+}
+_FORMATTED = re.compile(r"\[[^\]]*\] \w+ +\[[^\]]*\] ([\w.]+) - (.*)", re.DOTALL)  # logging_service's text format
+FORM_KEYS = (*CAP_FORMS, "10-K/A", "10-Q/A", "20-F/A", "6-K")
 SOURCES = ("edgartools", "regex_fallback", "legacy_cached_excerpt")
 CLASSES = (*SOURCES, "unavailable", "other", "unreadable")
 _TIMESTAMP = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})")
@@ -113,9 +128,15 @@ class Logging:
             # Code-owned HTTPS endpoints only; nothing from the workflow's input forms a URL.
             with urlopen(request, timeout=30) as response:  # nosec B310
                 raw = response.read(MAX_RESPONSE + 1)
+                declared = response.headers.get("Content-Length")
             if len(raw) > MAX_RESPONSE:
                 return None, "response_size_limit"
-            payload = json.loads(raw) if raw.strip() else {}
+            # A body cut short of its declared length reads without raising; Logging never answers with no body.
+            if declared is not None and declared.strip().isdigit() and int(declared) != len(raw):
+                return None, "transport_or_decode_error"
+            if not raw.strip():
+                return None, "invalid_response"
+            payload = json.loads(raw)
             return (payload, None) if isinstance(payload, dict) else (None, "invalid_response")
         except HTTPError as exc:
             return None, f"http_{exc.code}"
@@ -139,7 +160,12 @@ def parse_timestamp(text) -> datetime | None:
     if not match:
         return None
     whole, fraction, zone = match.groups()
-    moment = datetime.strptime(whole, "%Y-%m-%dT%H:%M:%S")
+    try:
+        moment = datetime.strptime(whole, "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return None
+    if zone != "Z" and (int(zone[1:3]) > 23 or int(zone[4:6]) > 59):
+        return None
     if fraction:
         moment = moment.replace(microsecond=int(fraction[:6].ljust(6, "0")))
     offset = timedelta(0) if zone == "Z" else timedelta(hours=int(zone[1:3]), minutes=int(zone[4:6])) * (
@@ -177,26 +203,28 @@ def day_filter(start: datetime, end: datetime) -> str:
     lines = ('"Excerpt provenance:"', '"SEC fetch completed. Text length:"', '"Starting SEC fetch for URL:"',
              '"Section parse skipped:"')
     payload = " OR ".join(f"textPayload:{line} OR jsonPayload.message:{line}" for line in lines)
-    return f'timestamp>="{_stamp(start)}" AND timestamp<"{_stamp(end)}" AND {scope_filter()} AND ({payload})'
+    return (f'timestamp>="{_stamp(start)}" AND timestamp<"{_stamp(end)}" AND {scope_filter()} AND {APP_STREAMS} '
+            f'AND ({payload})')
 
 
-def message(entry: dict) -> str:
-    text = entry.get("textPayload")
-    if isinstance(text, str):
-        return text
+def logged(entry: dict) -> tuple[str, str]:
+    """The logger and message of an entry: production's JSON (``logger``, ``message``) or the text format."""
     payload = entry.get("jsonPayload")
-    text = payload.get("message") if isinstance(payload, dict) else None
-    return text if isinstance(text, str) else ""
+    if isinstance(payload, dict):
+        logger, text = payload.get("logger"), payload.get("message")
+        return (logger, text) if isinstance(logger, str) and isinstance(text, str) else ("", "")
+    text = entry.get("textPayload")
+    match = _FORMATTED.match(text) if isinstance(text, str) else None
+    return (match.group(1), match.group(2)) if match else ("", "")
 
 
 def provenance(text: str) -> dict | None:
     """The record a provenance line carries, or None for a line that does not read as one."""
-    at = text.find(PROVENANCE)
-    if at < 0:
+    if not text.startswith(PROVENANCE):
         return None
     try:
-        record, _end = json.JSONDecoder().raw_decode(text, at + len(PROVENANCE))
-    except ValueError:
+        record, _end = json.JSONDecoder().raw_decode(text, len(PROVENANCE))
+    except (ValueError, RecursionError):
         return None
     return record if isinstance(record, dict) else None
 
@@ -226,7 +254,7 @@ def _form(value) -> str | None:
     if not isinstance(value, str):
         return None
     form = value.strip().upper()
-    return form if form in (*CAP_FORMS, *(f"{base}/A" for base in CAP_FORMS)) else "other"
+    return form if form in FORM_KEYS else "other"
 
 
 def _schema_two(sink: dict, name: str, record: dict, accession: str) -> None:
@@ -266,14 +294,14 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
                   "unmatched": 0}
         per_class: dict[str, set] = {}
         for entry in day["entries"]:
-            text = message(entry)
+            logger, text = logged(entry)
             moment = parse_timestamp(entry.get("timestamp")) or day["start"]
-            started = STARTED.search(text)
+            started = STARTED.match(text) if logger == LOGGERS["fetch"] else None
             if started:
                 filing_accession[started.group(1)] = started.group(2)
                 fetched.add(started.group(2))
                 continue
-            done = FETCHED.search(text)
+            done = FETCHED.match(text) if logger == LOGGERS["fetch"] else None
             if done:
                 counts["fetches"] += 1
                 length = int(done.group(2))
@@ -282,14 +310,14 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
                     counts["over_size_cap_fetches"] += 1
                     over_cap_fetches.append((done.group(1), moment))
                 continue
-            capped = CAPPED.search(text)
+            capped = CAPPED.match(text) if logger == LOGGERS["cap"] else None
             if capped:
-                form = _form(capped.group(2)) or "other"
+                form = _form(capped.group(2))
                 counts["size_cap_fallbacks"][form] = counts["size_cap_fallbacks"].get(form, 0) + 1
                 capped_by_form[form] = capped_by_form.get(form, 0) + 1
                 capped_lengths.append(int(capped.group(1).replace(",", "")))
                 continue
-            if PROVENANCE not in text:
+            if logger != LOGGERS["provenance"] or not text.startswith(PROVENANCE):
                 counts["unmatched"] += 1
                 continue
             record = provenance(text)
@@ -322,6 +350,7 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
     # E28 (a): the filings fetched over the cap, by era, and since the cap's merge; a fetch whose run named no
     # accession is counted apart.
     over_cap_by_era = {era_name: set() for era_name, _ in MARKS}
+    native_over_cap_by_era = {era_name: set() for era_name, _ in MARKS}
     since_cap: set = set()
     over_cap_unnamed = 0
     for filing, moment in over_cap_fetches:
@@ -330,9 +359,11 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
             over_cap_unnamed += 1
             continue
         over_cap_by_era[era(moment)].add(accession)
+        if accession in eras["edgartools"][era(moment)]:
+            native_over_cap_by_era[era(moment)].add(accession)
         if moment >= cap_merged:
             since_cap.add(accession)
-    logged = set().union(*whole.values())
+    with_provenance = set().union(*whole.values())
     cut = any(day["state"] in ("partial", "unavailable") for day in days_read)
     window_days = [day for day in days_read if day["start"] < deployed and day["start"] + timedelta(days=1) > onset]
     covered = start <= onset and end >= deployed and all(day["state"] == "complete" for day in window_days)
@@ -348,12 +379,19 @@ def tally(days_read: list[dict], start: datetime, end: datetime) -> dict:
         "accessions_native_and_regex": len(whole["edgartools"] & whole["regex_fallback"]),
         "last_native_line_in_e28_window": _minute(last_native),
         "size_cap": {"cap_merged": CAP_MERGED,
+                     # Every accession fetched over the cap, runs that reused a stored excerpt among them: a ceiling.
                      "over_cap_accessions_by_era": {era_name: len(found) for era_name, found in over_cap_by_era.items()},
+                     # E28 (a): those also built natively in the same era, the excerpts the cap now sends to regex;
+                     # before the onset and after #1350's deploy together, each accession once.
+                     "native_over_cap_accessions_by_era": {
+                         era_name: len(found) for era_name, found in native_over_cap_by_era.items()},
+                     "native_over_cap_accessions_outside_403": len(
+                         native_over_cap_by_era["before"] | native_over_cap_by_era["after"]),
                      "over_cap_accessions_since_cap_merged": len(since_cap),
                      "over_cap_fetches_unnamed": over_cap_unnamed,
                      "size_cap_fallbacks": dict(sorted(capped_by_form.items())),
                      "size_cap_fallback_accessions": len(joined), "size_cap_fallbacks_unjoined": unjoined},
-        "accessions_fetched_without_provenance": None if cut else len(fetched - logged),
+        "accessions_fetched_without_provenance": None if cut else len(fetched - with_provenance),
     }
 
 
@@ -427,8 +465,12 @@ def collect(api, project: str, start: str, end: str, now: datetime | None = None
     if probe["state"] == "complete" and probe["timestamp"] and probe["timestamp"] - slices[0][0] > QUIET_START:
         floors.append(probe["timestamp"])
     floor = max(floors) if floors else None
-    nothing_kept = probe["state"] == "complete" and probe["timestamp"] is None
-    verified = probe["state"] == "complete"
+    # An empty probe means nothing is kept, unless the bucket says the window is: then the probe's own filter is
+    # in doubt, and the days are read and left unverified rather than called gone.
+    empty = probe["state"] == "complete" and probe["timestamp"] is None
+    retained_by_bucket = floor is None or floor < slices[0][0]
+    nothing_kept = empty and not (bucket["days"] and retained_by_bucket)
+    verified = probe["state"] == "complete" and not empty
     seen_a_line = False
     days_read = []
     for first, last in slices:

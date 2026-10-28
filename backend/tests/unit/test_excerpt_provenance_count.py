@@ -37,26 +37,33 @@ CAPPED = "0001140361-26-015366"
 FETCHED_ONLY = "0000950170-26-000101"
 
 
+PROVENANCE_LOGGER = "app.services.summary_generation_service"
+FETCH_LOGGER = "app.services.summary_pipeline"
+CAP_LOGGER = "app.services.edgar.xbrl_service"
+
+
+def line(logger, text, stamp, *, json_payload=True):
+    # Production's JSON shape (logging_service.StructuredLogFormatter), or its text format.
+    if json_payload:
+        return {"timestamp": stamp, "jsonPayload": {"logger": logger, "message": text, "level": "INFO"}}
+    return {"timestamp": stamp, "textPayload": f"[{stamp}] INFO     [-] {logger} - {text}"}
+
+
 def provenance_line(source, accession, stamp, *, json_payload=True, **schema_two):
     record = {"schema_version": 2 if schema_two else 1, "accession": accession, "source": source,
               "excerpt_chars": 10, "excerpt_sha256": "a" * 64, "supplied_sections": [], **schema_two}
-    text = "Excerpt provenance: " + json.dumps(record, sort_keys=True)
-    if json_payload:
-        return {"timestamp": stamp, "jsonPayload": {"message": text, "level": "INFO"}}
-    return {"timestamp": stamp, "textPayload": f"[{stamp}] INFO     [-] app.services - {text}"}
+    return line(PROVENANCE_LOGGER, "Excerpt provenance: " + json.dumps(record, sort_keys=True), stamp,
+                json_payload=json_payload)
 
 
 def fetch_lines(filing_id, accession, length, stamp):
     url = f"https://www.sec.gov/Archives/edgar/data/1140361/{accession.replace('-', '')}/doc.htm"
-    return [
-        {"timestamp": stamp, "jsonPayload": {"message": f"[stream:{filing_id}] Starting SEC fetch for URL: {url}"}},
-        {"timestamp": stamp, "jsonPayload": {"message": f"[stream:{filing_id}] SEC fetch completed. Text length: {length}"}},
-    ]
+    return [line(FETCH_LOGGER, f"[stream:{filing_id}] Starting SEC fetch for URL: {url}", stamp),
+            line(FETCH_LOGGER, f"[stream:{filing_id}] SEC fetch completed. Text length: {length}", stamp)]
 
 
 def cap_line(length, form, stamp):
-    return {"timestamp": stamp,
-            "jsonPayload": {"message": f"Section parse skipped: {length:,}-char {form} document is over the size cap"}}
+    return line(CAP_LOGGER, f"Section parse skipped: {length:,}-char {form} document is over the size cap", stamp)
 
 
 def day(start, entries, state="complete"):
@@ -74,9 +81,9 @@ class FakeLogging:
         self.calls.append(body["filter"] if body else url)
         if body is None:
             return (self.bucket, None) if self.bucket else (None, "http_403")
+        # The probe and the day reads alike read the app's own streams, never the audit logs _Required keeps.
+        assert ' AND logName:("run.googleapis.com%2Fstdout" OR "run.googleapis.com%2Fstderr")' in body["filter"]
         if body["pageSize"] == 1:
-            # The probe reads the app's own streams, never the audit logs _Required keeps for 400 days.
-            assert 'logName:("run.googleapis.com%2Fstdout" OR "run.googleapis.com%2Fstderr")' in body["filter"]
             answer = self.probe.pop(0) if self.probe else {}
         else:
             first = re.search(r'timestamp>="([^"]+)"', body["filter"]).group(1)[:10]
@@ -136,8 +143,8 @@ def test_counts_each_class_window_reason_and_form_and_names_none(count):
                         outcome="unavailable", fallback_reason="sections_not_supplied", filing_type="6-K"),
         provenance_line("legacy_cached_excerpt", NATIVE, "2026-10-12T00:00:00Z"),
         provenance_line("somewhere_new", NATIVE, "2026-10-12T00:00:00Z"),
-        {"timestamp": "2026-10-10T00:00:00Z", "jsonPayload": {"message": "Excerpt provenance: {not json"}},
-        {"timestamp": "2026-10-10T00:00:00Z", "jsonPayload": {"message": "[stream:9] Starting SEC fetch for URL: x"}},
+        line(PROVENANCE_LOGGER, "Excerpt provenance: {not json", "2026-10-10T00:00:00Z"),
+        line(FETCH_LOGGER, "[stream:9] Starting SEC fetch for URL: x", "2026-10-10T00:00:00Z"),
     ]
     report = count.tally([day("2026-10-10T00:00:00", entries)], START, END)
     [only] = report["days"]
@@ -151,10 +158,10 @@ def test_counts_each_class_window_reason_and_form_and_names_none(count):
     # counts over the whole read.
     assert window["schema_two"] == {
         "by_fallback_reason": {"regex_fallback": {"sections_not_supplied": 1}, "unavailable": {"sections_not_supplied": 1}},
-        "by_form": {"regex_fallback": {"10-Q": 1}, "unavailable": {"other": 1}}}
+        "by_form": {"regex_fallback": {"10-Q": 1}, "unavailable": {"6-K": 1}}}
     assert report["schema_two"] == {
         "by_fallback_reason": {"regex_fallback": {"sections_not_supplied": 2}, "unavailable": {"sections_not_supplied": 1}},
-        "by_form": {"regex_fallback": {"10-K": 1, "10-Q": 1}, "unavailable": {"other": 1}}}
+        "by_form": {"regex_fallback": {"10-K": 1, "10-Q": 1}, "unavailable": {"6-K": 1}}}
     # The onset's bound is the last native line inside the window, to its minute: not the one at the deploy mark.
     assert report["last_native_line_in_e28_window"] == "2026-10-05T07:41Z"
     assert report["accessions_by_era"]["regex_fallback"] == {"before": 0, "onset": 1, "window": 2, "after": 1}
@@ -181,22 +188,73 @@ def test_each_size_cap_firing_joins_its_own_run_and_nothing_else(count):
         *fetch_lines(45, BOTH, 19_000_000, "2026-10-22T00:00:00Z"),
         cap_line(19_000_000, "10-Q", "2026-10-22T00:00:01Z"),
         # A fetch whose run logged no start line names no accession: its skip line stays unjoined too.
-        {"timestamp": "2026-10-23T00:00:00Z",
-         "jsonPayload": {"message": "[stream:46] SEC fetch completed. Text length: 21000000"}},
+        line(FETCH_LOGGER, "[stream:46] SEC fetch completed. Text length: 21000000", "2026-10-23T00:00:00Z"),
         cap_line(21_000_000, "10-K/A", "2026-10-23T00:00:01Z"),
         # One fetch of a length named, another of the same length not: whose run the skip line is stays unknown.
         *fetch_lines(47, "0000950170-26-000777", 22_000_000, "2026-10-24T00:00:00Z"),
-        {"timestamp": "2026-10-24T00:00:00Z",
-         "jsonPayload": {"message": "[stream:48] SEC fetch completed. Text length: 22000000"}},
+        line(FETCH_LOGGER, "[stream:48] SEC fetch completed. Text length: 22000000", "2026-10-24T00:00:00Z"),
         cap_line(22_000_000, "10-Q", "2026-10-24T00:00:01Z"),
     ]
     report = count.tally([day("2026-10-08T00:00:00", entries)], START, END)
     assert report["size_cap"] == {"cap_merged": "2026-10-16T17:50:25Z",
                                   "over_cap_accessions_by_era": {"before": 0, "onset": 0, "window": 1, "after": 5},
+                                  "native_over_cap_accessions_by_era": {"before": 0, "onset": 0, "window": 0, "after": 0},
+                                  "native_over_cap_accessions_outside_403": 0,
                                   "over_cap_accessions_since_cap_merged": 5, "over_cap_fetches_unnamed": 2,
                                   "size_cap_fallbacks": {"10-K": 1, "10-K/A": 1, "10-Q": 2, "20-F": 1},
                                   "size_cap_fallback_accessions": 1, "size_cap_fallbacks_unjoined": 4}
     assert report["days"][0]["over_size_cap_fetches"] == 8
+
+
+def test_only_each_lines_own_logger_counts_and_hostile_text_stays_closed(count):
+    # A search query another logger records can hold the same words; deep nesting is no crash; keys stay closed.
+    spoof = "Excerpt provenance: " + json.dumps({"accession": REGEX, "source": "regex_fallback"})
+    entries = [
+        line("app.routers.companies", f"Company search failed for {spoof}", "2026-10-10T00:00:00Z"),
+        line("app.routers.companies", spoof, "2026-10-10T00:00:00Z"),
+        line(PROVENANCE_LOGGER, "Excerpt provenance: " + "[" * 5000, "2026-10-10T00:00:00Z"),
+        line(PROVENANCE_LOGGER, "Logged: Excerpt provenance: {}", "2026-10-10T00:00:00Z"),
+        line(CAP_LOGGER, "[stream:1] SEC fetch completed. Text length: 99000000", "2026-10-10T00:00:00Z"),
+        line(FETCH_LOGGER, "Section parse skipped: 99,000,000-char 10-K document is over the size cap",
+             "2026-10-10T00:00:00Z"),
+        provenance_line("regex_fallback", NATIVE, "2026-10-10T00:00:00Z", outcome="fallback",
+                        fallback_reason="<script>alert(1)</script>", filing_type="10-k"),
+        provenance_line("regex_fallback", BOTH, "2026-10-10T00:00:00Z", outcome="fallback",
+                        fallback_reason="native_excerpt_thin", filing_type="S-1"),
+        {**line(PROVENANCE_LOGGER, "x", "z"), "timestamp": "2026-02-30T00:00:00Z"},  # an impossible date: no crash
+    ]
+    report = count.tally([day("2026-10-10T00:00:00", entries)], START, END)
+    [only] = report["days"]
+    assert only["lines"] == {"regex_fallback": 2, "unreadable": 1}
+    assert (only["fetches"], only["unmatched"], only["size_cap_fallbacks"]) == (0, 6, {})
+    assert report["accessions"]["regex_fallback"] == 2
+    assert report["schema_two"] == {"by_fallback_reason": {"regex_fallback": {"native_excerpt_thin": 1, "other": 1}},
+                                    "by_form": {"regex_fallback": {"10-K": 1, "other": 1}}}
+    assert "script" not in json.dumps(report)
+    for text in ("2026-02-30T00:00:00Z", "2026-10-04T09:29:00+99:00", "2026-13-01T00:00:00Z"):
+        assert count.parse_timestamp(text) is None
+
+
+def test_the_cap_counts_filings_once_by_era_and_the_native_ones_e28_a_sizes(count):
+    entries = [
+        # Built natively before the onset, over the cap: an excerpt the cap would now send to regex.
+        *fetch_lines(50, NATIVE, 18_000_000, "2026-10-01T00:00:00Z"),
+        provenance_line("edgartools", NATIVE, "2026-10-01T00:00:01Z"),
+        *fetch_lines(51, NATIVE, 18_000_000, "2026-10-02T00:00:00Z"),  # the same filing again: counted once
+        provenance_line("legacy_cached_excerpt", NATIVE, "2026-10-02T00:00:01Z"),
+        # Fetched over the cap after the deploy, reusing its stored excerpt: a ceiling's, not a native one's.
+        *fetch_lines(52, REGEX, 18_500_000, "2026-10-16T05:00:00Z"),
+        provenance_line("legacy_cached_excerpt", REGEX, "2026-10-16T05:00:01Z"),
+        # Built natively after the deploy, before the cap's merge; and one fetched at the merge's own second.
+        *fetch_lines(53, BOTH, 19_500_000, "2026-10-16T06:00:00Z"),
+        provenance_line("edgartools", BOTH, "2026-10-16T06:00:01Z"),
+        *fetch_lines(54, CAPPED, 20_500_000, "2026-10-16T17:50:25Z"),
+    ]
+    size_cap = count.tally([day("2026-10-01T00:00:00", entries)], START, END)["size_cap"]
+    assert size_cap["over_cap_accessions_by_era"] == {"before": 1, "onset": 0, "window": 0, "after": 3}
+    assert size_cap["native_over_cap_accessions_by_era"] == {"before": 1, "onset": 0, "window": 0, "after": 1}
+    assert size_cap["native_over_cap_accessions_outside_403"] == 2
+    assert size_cap["over_cap_accessions_since_cap_merged"] == 1
 
 
 def test_a_cut_day_leaves_fetches_without_provenance_unknown(count):
@@ -237,13 +295,17 @@ def test_the_later_of_the_buckets_boundary_and_the_oldest_entry_dates_what_is_go
                               ("2026-10-06", "partly_expired_or_absent"), ("2026-10-07", "complete")]
 
 
-def test_an_empty_probe_means_nothing_is_kept_with_the_bucket_or_without(count):
+def test_an_empty_probe_means_nothing_is_kept_unless_the_bucket_says_otherwise(count):
     # entries:list leaves out an empty list: `{}` is "nothing at or after the start", every day gone.
-    for bucket in (None, {"retentionDays": 3650}):
-        api = FakeLogging(bucket=bucket, probe=({},))
-        report = count.collect(api, "earnings-nerd", "2026-10-04T00:00:00Z", "2026-10-06T00:00:00Z", now=NOW)
-        assert {d["state"] for d in report["days"]} == {"expired_or_absent"}
-        assert report["retention"]["oldest_retained"] == {"state": "complete", "timestamp": None}
+    api = FakeLogging(probe=({},))
+    report = count.collect(api, "earnings-nerd", "2026-10-04T00:00:00Z", "2026-10-06T00:00:00Z", now=NOW)
+    assert {d["state"] for d in report["days"]} == {"expired_or_absent"}
+    assert report["retention"]["oldest_retained"] == {"state": "complete", "timestamp": None}
+    # A bucket that keeps the window puts the probe's own filter in doubt: the days are read, and unverified.
+    api = FakeLogging(bucket={"retentionDays": 3650}, probe=({},))
+    report = count.collect(api, "earnings-nerd", "2026-10-04T00:00:00Z", "2026-10-06T00:00:00Z", now=NOW)
+    assert {d["state"] for d in report["days"]} == {"retention_unverified"}
+    assert sum("Excerpt provenance" in call for call in api.calls) == 2
 
 
 def test_a_slow_or_failed_probe_leaves_every_day_to_the_first_line_unverified(count):
@@ -313,7 +375,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
 
 def test_the_client_keeps_closed_classes_and_paces_its_requests(count, monkeypatch):
-    _Handler.answers = {"/empty": (200, b""), "/object": (200, b'{"entries": []}'), "/list": (200, b"[]"),
+    _Handler.answers = {"/empty": (200, b"  "), "/object": (200, b'{"entries": []}'), "/list": (200, b"[]"),
                         "/denied": (403, b'{"error": "PRIVATE principal@example.invalid"}'),
                         "/broken": (200, b'{"entries": ')}
     server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
@@ -327,8 +389,9 @@ def test_the_client_keeps_closed_classes_and_paces_its_requests(count, monkeypat
                    for path in ("/empty", "/object", "/list", "/denied", "/broken")]
     finally:
         server.shutdown()
-    assert answers == [({}, None), ({"entries": []}, None), (None, "invalid_response"), (None, "http_403"),
-                       (None, "transport_or_decode_error")]
+    # Logging answers an empty result with `{}`, never with no body: an empty body is no answer.
+    assert answers == [(None, "invalid_response"), ({"entries": []}, None), (None, "invalid_response"),
+                       (None, "http_403"), (None, "transport_or_decode_error")]
     assert "principal" not in json.dumps(answers)
     assert len(slept) == 4 and all(0 < wait <= 5.0 for wait in slept)
 
@@ -339,6 +402,7 @@ def test_a_malformed_answer_is_a_closed_class_never_a_crash(count, monkeypatch):
     import socketserver
 
     raw = {"/status": b"GARBAGE\r\n\r\n",
+           "/cut": b"HTTP/1.1 200 OK\r\nContent-Length: 4096\r\n\r\n{}",
            "/short": b"HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n{\"entries\"",
            "/deep": b"HTTP/1.1 200 OK\r\nContent-Length: 200000\r\n\r\n" + b"[" * 100000 + b"]" * 100000}
 
@@ -359,7 +423,7 @@ def test_a_malformed_answer_is_a_closed_class_never_a_crash(count, monkeypatch):
     finally:
         server.shutdown()
         server.server_close()
-    assert answers == [(None, "transport_or_decode_error")] * 3
+    assert answers == [(None, "transport_or_decode_error")] * 4
 
 
 def test_the_project_and_the_window_are_checked_before_any_read(count):
