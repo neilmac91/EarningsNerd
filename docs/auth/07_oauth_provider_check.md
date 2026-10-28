@@ -40,16 +40,19 @@ this build". Its row stays **Unverified**, whatever the console shows.
 - **Google's button** (`GoogleSignInButton.tsx`):
   - label "Continue with Google";
   - a white `#FFFFFF` surface with a 1px `#E5E7EB` border;
-  - label ink `#334155` at 14px on a 20px line, weight 500;
+  - label ink `#334155` at 14px on a 20px line, weight 500, in the body face: SF Pro on Apple systems, Inter
+    elsewhere (the stack puts `-apple-system` first, `frontend/DESIGN_SYSTEM.md` §3), so the face a checker sees
+    depends on their device;
   - the four-colour "G" at 18px, 12px from the label;
-  - a 12px corner radius and 12px × 16px padding;
-  - hover `#F8FAFC`.
+  - a 12px corner radius and 12px × 16px padding, 46px tall with its border;
+  - hover `#F8FAFC`;
+  - the same in both themes: it stays white with its light hairline in the dark theme too.
 - **Apple's button** (`AppleSignInButton.tsx`):
   - label "Continue with Apple";
   - a black `#000000` surface with white text in the light theme, white with black text in the dark;
-  - 14px on a 20px line, weight 600;
+  - 14px on a 20px line, weight 600, in the same face as Google's label;
   - the Apple glyph at 18px in the text's colour;
-  - the same radius, padding and gap as Google's.
+  - the same radius, padding and gap as Google's, 44px tall (it has no border).
 - **Both buttons**: the full width of the form, with the brand focus ring. The ring is the one change
   `frontend/DESIGN_SYSTEM.md` §9 allows to a provider's mandated look.
 - **The logo to upload** is the founder's own full-resolution app tile, as supplied
@@ -83,8 +86,8 @@ Record each field as the console names it on the day.
    - A field the screens did not show is recorded as "not shown at this step", not as a mismatch.
 8. **The button against Google's branding guideline**
    (<https://developers.google.com/identity/branding-guidelines>, read on the day): the surface, border, label font,
-   size, weight and colour, the "G" and its size, the corner radius and the allowed labels. Record each difference
-   as a value pair, ours then the guideline's.
+   size, weight and colour, the "G" and its size, the corner radius, the height and the allowed labels, in both
+   themes. Record each difference as a value pair, ours then the guideline's.
 
 ## Apple
 
