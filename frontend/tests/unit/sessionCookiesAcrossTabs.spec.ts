@@ -5,43 +5,75 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * E29 (4) and E133, across tabs. The session cookies belong to the browser, not the tab: a silent refresh's answer sets
  * them again for the session it was sent with, a password login's sets the new account's, and a logout's clears them.
  * So a refresh one tab sent before another tab's login that answers after it puts the previous account's cookies over
- * the login's (the browser is that account while the tab shows the new one), and one that answers after another tab's
- * logout signs the browser in again. Every silent refresh holds the session cookies' Web Lock shared, and a login, a
- * logout and a logout of every session hold it exclusive around their post (lib/api/client.ts,
- * withSessionCookiesExclusive), within the one wait each already had: each waits for every tab's refresh in flight, and
- * every tab's next refresh waits for its answer, then goes out with the cookies then current. At the limit it posts
- * without the lock, and a refresh still unanswered can then answer after it: no tab can cancel another's.
+ * the login's (the browser is that account while the tab shows the new one), one that answers after another tab's
+ * logout signs the browser in again, and two refreshes sent at once carry the one refresh cookie, so the second
+ * presents the token the first rotated away and meets the replay sweep, which ends every session of the account (E96).
+ * Every silent refresh, and a login, a logout and a logout of every session around their post, hold the session
+ * cookies' Web Lock (lib/api/client.ts), granted one at a time in the order asked for: a post waits for the refreshes
+ * queued before it, within the one wait it already had, and the refreshes queued after it wait for its answer, then go
+ * out with the cookies then current. At its limit a post goes out without the lock, and a refresh still unanswered can
+ * answer after it: no tab can cancel another's. A refresh waits at most REFRESH_LOCK_WAIT_MS, and goes out without the
+ * lock when the browser refuses it. A logout that waited behind another tab's login that took posts nothing: the login
+ * stamps itself (lib/api/session.ts), and the logout's cookies are no longer its own.
  *
- * Two tabs are two module graphs of the real client, auth API and session (a module reset and a dynamic import each,
- * each with its own refresh stub), sharing what a browser shares: a lock manager (FakeLockManager), localStorage (the
- * session marker) and the session cookies, modelled for two accounts as loginWaitsForRefresh.spec.ts models them: a
- * request carries the cookies of the moment it is sent, a refresh's answer sets again the session it was sent with, a
- * login that took sets Y's, and a logout's answer clears them. X is the account signed in before; its access token has
- * expired. jsdom has no lock manager of its own, so every other spec runs each tab alone, as an older browser does.
+ * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
+ * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
+ * (FakeLockManager), localStorage (the session marker and the login stamp) and the session cookies, modelled for two
+ * accounts as loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a
+ * refresh's answer sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears
+ * them. The API answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay
+ * that ends every session of its account, and anything else is refused; a logout revokes its session's live token,
+ * whichever of its tokens it carries. X is the account signed in before; its access token has expired. jsdom has no
+ * lock manager of its own, so every other spec runs each tab alone, as an older browser does.
  */
 
 type LockMode = 'shared' | 'exclusive'
+interface LockRequestOptions { mode?: LockMode; signal?: AbortSignal; ifAvailable?: boolean; steal?: boolean }
+type LockCallback = (lock: { name: string; mode: LockMode } | null) => unknown
 interface Waiting { mode: LockMode; grant: () => void }
 
 /**
  * A LockManager with the Web Locks semantics the client relies on, for each name: requests are granted in the order
  * they are made, a shared one while no exclusive lock is held, an exclusive one while no lock is held, and none ahead of
- * a request queued before it, so a later shared request waits behind a waiting exclusive one. The callback runs once
- * granted, never in the request's own turn, and the lock is held until what it returns settles; the request's promise
- * settles with that outcome only once the lock is released. A request whose signal aborts while it waits leaves the
- * queue and rejects with the signal's reason, its callback never run; one made with an aborted signal rejects at once.
+ * a request queued before it, so a later shared request waits behind a waiting exclusive one and exclusive ones are
+ * granted one at a time. The callback runs once granted, never in the request's own turn, and the lock is held until
+ * what it returns settles; the request's promise settles with that outcome only once the lock is released. A request
+ * whose signal aborts while it waits leaves the queue and rejects with the signal's reason, its callback never run; one
+ * made with an aborted signal rejects at once. It refuses, before granting anything, what a browser refuses: a name
+ * that starts with '-', steal with ifAvailable or a shared mode, and a signal with steal or ifAvailable
+ * (NotSupportedError), and every request while `refusing` is set, as a browser answers an origin whose site data is
+ * blocked (SecurityError). ifAvailable calls back with no lock when it cannot be granted at once; steal is not modelled.
  * A browser grants a lock in a later task, here a microtask: nothing in the client relies on how soon.
  */
 class FakeLockManager {
+  refusing: DOMException | undefined
   private readonly held = new Map<string, LockMode[]>()
   private readonly queued = new Map<string, Waiting[]>()
 
-  request(name: string, options: { mode?: LockMode; signal?: AbortSignal }, callback: () => unknown): Promise<unknown> {
-    const { mode = 'exclusive', signal } = options
+  request(name: string, ...args: [LockRequestOptions, LockCallback] | [LockCallback]): Promise<unknown> {
+    const [options, callback] = args.length === 2 ? args : [{}, args[0]]
+    const { mode = 'exclusive', signal, ifAvailable = false, steal = false } = options
+    const notSupported = (why: string) => Promise.reject(new DOMException(why, 'NotSupportedError'))
+    if (this.refusing) return Promise.reject(this.refusing)
+    if (name.startsWith('-')) return notSupported("a lock's name may not start with '-'")
+    if (steal && ifAvailable) return notSupported('steal and ifAvailable together')
+    if (steal && mode !== 'exclusive') return notSupported('steal with a shared mode')
+    if (signal && (steal || ifAvailable)) return notSupported('a signal with steal or ifAvailable')
     if (signal?.aborted) return Promise.reject(signal.reason)
+    if (steal) return Promise.reject(new Error('the fake lock manager does not model steal'))
     const queue = this.listOf(this.queued, name)
     const held = this.listOf(this.held, name)
     return new Promise((resolve, reject) => {
+      const run = (lock: { name: string; mode: LockMode } | null, release: () => void) => queueMicrotask(() => {
+        new Promise((settle) => settle(callback(lock))).then(
+          (value) => { release(); resolve(value) },
+          (error: unknown) => { release(); reject(error) },
+        )
+      })
+      if (ifAvailable && !(queue.length === 0 && this.grantable(mode, held))) {
+        run(null, () => undefined)
+        return
+      }
       const abort = () => {
         queue.splice(queue.indexOf(waiting), 1)
         reject(signal?.reason)
@@ -52,15 +84,9 @@ class FakeLockManager {
         grant: () => {
           signal?.removeEventListener('abort', abort)
           held.push(mode)
-          queueMicrotask(() => {
-            const release = () => {
-              held.splice(held.indexOf(mode), 1)
-              this.grant(name)
-            }
-            new Promise((settle) => settle(callback())).then(
-              (value) => { release(); resolve(value) },
-              (error: unknown) => { release(); reject(error) },
-            )
+          run({ name, mode }, () => {
+            held.splice(held.indexOf(mode), 1)
+            this.grant(name)
           })
         },
       }
@@ -75,13 +101,15 @@ class FakeLockManager {
     return [...this.held.values(), ...this.queued.values()].every((list) => list.length === 0)
   }
 
+  private grantable(mode: LockMode, held: LockMode[]): boolean {
+    return mode === 'exclusive' ? held.length === 0 : !held.includes('exclusive')
+  }
+
   /** Grants, in order, each request at the head of the queue that can be granted now. */
   private grant(name: string): void {
     const queue = this.listOf(this.queued, name)
     const held = this.listOf(this.held, name)
-    while (queue.length > 0 && (queue[0].mode === 'exclusive' ? held.length === 0 : !held.includes('exclusive'))) {
-      queue.shift()?.grant()
-    }
+    while (queue.length > 0 && this.grantable(queue[0].mode, held)) queue.shift()?.grant()
   }
 
   private listOf<T>(lists: Map<string, T[]>, name: string): T[] {
@@ -92,23 +120,30 @@ class FakeLockManager {
 }
 
 type Account = 'X' | 'Y'
-type TabName = 'A' | 'B'
-/** What the tabs share: the browser's session cookies (whose session, none once a logout clears them, and whether its
- * access token is still good), what reached the server, in order, from which tab and as whom, and the lock manager. */
+type TabName = 'A' | 'B' | 'C'
+type Outcome = 'took' | 'refused'
+/** An account's session as the API holds it: its live refresh token (a serial), and whether a logout revoked it or a
+ * replay swept the account's sessions. */
+interface ServerSession { tip: number; revoked: boolean; swept: boolean }
+/** What the tabs share: the browser's session cookies (whose session, none once a logout clears them, which refresh token,
+ * and whether the access token is still good), the API's side of each account's session, what reached the API, in
+ * order, from which tab and as whom, and the lock manager. */
 interface Browser {
-  cookies: { session: Account | null; fresh: boolean }
+  cookies: { session: Account | null; token: number; fresh: boolean }
+  server: Record<Account, ServerSession>
   events: string[]
   locks: FakeLockManager
 }
 /** One tab: its own module graph of the client, the auth API and the session, its refresh stub, and the answers the
- * case holds for it, each next refresh's and each next login's or logout's in order (none held answers at once). */
+ * case holds for it, each next refresh's and each next login's or logout's in order (none held answers at once, a post
+ * as one that took). */
 interface Tab {
   client: typeof import('@/lib/api/client')
   auth: typeof import('@/features/auth/api/auth-api')
   session: typeof import('@/lib/api/session')
   refresh: Mock<(baseUrl: string, signal?: AbortSignal) => Promise<void>>
   refreshAnswers: Promise<void>[]
-  postAnswers: Promise<void>[]
+  postAnswers: Promise<Outcome>[]
 }
 
 const EMAIL = 'y@example.test'
@@ -120,20 +155,21 @@ let browser: Browser
 let tabA: Tab
 let tabB: Tab
 
-function hold() {
-  let resolve!: () => void
-  const promise = new Promise<void>((yes) => { resolve = yes })
-  held.push(resolve)
+function hold<T = void>(fallback?: T) {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((yes) => { resolve = yes })
+  held.push(() => resolve(fallback as T))
   return { promise, resolve }
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 const ok = (config: InternalAxiosRequestConfig, data: unknown) => ({ data, status: 200, statusText: 'OK', headers: {}, config })
-const unauthorized = (config: InternalAxiosRequestConfig) => Object.assign(new Error('Request failed with status code 401'), {
-  config, isAxiosError: true, response: { status: 401, statusText: 'Unauthorized', data: { detail: 'Token expired' }, headers: {}, config },
+const unauthorized = (config: InternalAxiosRequestConfig, detail: string) => Object.assign(new Error('Request failed with status code 401'), {
+  config, isAxiosError: true, response: { status: 401, statusText: 'Unauthorized', data: { detail }, headers: {}, config },
 })
 const withoutLocks = () => { delete (navigator as { locks?: unknown }).locks }
+const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
 
-/** A tab of `shared`: a fresh module graph, whose refresh and requests reach the server modelled above. */
+/** A tab of `shared`: a fresh module graph, whose refresh and requests reach the API modelled above. */
 async function openTab(name: TabName, shared: Browser): Promise<Tab> {
   const refresh = vi.fn<(baseUrl: string, signal?: AbortSignal) => Promise<void>>()
   vi.resetModules()
@@ -146,37 +182,61 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
     refreshAnswers: [],
     postAnswers: [],
   }
-  // Sent with the cookies of the moment, it answers when the case lets it, setting that session's again, fresh; sent
-  // with none, it is refused. Cancelled first, it fails, and its answer is dropped, as the browser drops one.
+  // Sent with the cookies of the moment (axios sends none for a cancelled request), it reaches the API at once, which
+  // rotates a live token, sweeps the account's sessions on one rotated away (E96) and refuses anything else; its answer
+  // comes when the case lets it, setting the rotated session's cookies, fresh. Cancelled first, its answer is dropped.
   refresh.mockImplementation((_url, signal) => {
-    const sentWith = shared.cookies.session
-    shared.events.push(`${name}'s refresh sent with ${sentWith ?? 'no session'}`)
+    if (signal?.aborted) return Promise.reject(new CanceledError())
+    const { session, token } = shared.cookies
+    shared.events.push(`${name}'s refresh sent with ${session ?? 'no session'}`)
+    const account = session ? shared.server[session] : undefined
+    let rotated: number | undefined
+    if (account && token < account.tip) {
+      Object.assign(account, { revoked: true, swept: true })
+      shared.events.push(`${name}'s refresh replays ${session}'s rotated token, and every session of ${session} ends`)
+    } else if (account && token === account.tip && !account.revoked) {
+      account.tip += 1
+      rotated = account.tip
+    }
     const answer = tab.refreshAnswers.shift() ?? Promise.resolve()
     return new Promise<void>((resolve, reject) => {
       signal?.addEventListener('abort', () => reject(new CanceledError()))
       void answer.then(() => {
         if (signal?.aborted) return
-        if (sentWith === null) {
+        if (session === null || rotated === undefined) {
           shared.events.push(`${name}'s refresh refused`)
           reject(Object.assign(new Error('Request failed with status code 401'), { response: { status: 401 } }))
           return
         }
-        shared.cookies = { session: sentWith, fresh: true }
-        shared.events.push(`${name}'s refresh answered for ${sentWith}`)
+        shared.cookies = { session, token: rotated, fresh: true }
+        shared.events.push(`${name}'s refresh answered for ${session}`)
         resolve()
       })
     })
   })
   tab.client.default.defaults.adapter = async (config) => {
     const url = config.url ?? ''
-    shared.events.push(`${name} ${POSTS.includes(url) ? 'posts' : 'reads'} ${url} as ${shared.cookies.session ?? 'no session'}`)
+    const { session } = shared.cookies
     if (POSTS.includes(url)) {
-      await (tab.postAnswers.shift() ?? Promise.resolve())
-      shared.cookies = url === '/api/auth/login' ? { session: 'Y', fresh: true } : { session: null, fresh: false }
+      shared.events.push(`${name} posts ${url} as ${session ?? 'no session'}`)
+      // A logout reaches the API as it is sent, and revokes its session's live token, whichever of its tokens it carries.
+      if (url !== '/api/auth/login' && session) shared.server[session].revoked = true
+      if ((await (tab.postAnswers.shift() ?? 'took')) === 'refused') {
+        shared.events.push(`${name}'s ${url} refused`)
+        throw unauthorized(config, 'Incorrect email or password')
+      }
+      if (url === '/api/auth/login') {
+        const tip = shared.server.Y.tip + 1
+        shared.server.Y = { tip, revoked: false, swept: false }
+        shared.cookies = { session: 'Y', token: tip, fresh: true }
+      } else {
+        shared.cookies = { session: null, token: 0, fresh: false }
+      }
       shared.events.push(`${name}'s ${url} answered`)
       return ok(config, { ok: true })
     }
-    if (!shared.cookies.fresh) throw unauthorized(config)
+    shared.events.push(`${name} reads ${url} as ${session ?? 'no session'}`)
+    if (!shared.cookies.fresh) throw unauthorized(config, 'Token expired')
     return ok(config, { reader: shared.cookies.session })
   }
   return tab
@@ -184,7 +244,12 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
 
 beforeEach(async () => {
   window.localStorage.clear()
-  browser = { cookies: { session: 'X', fresh: false }, events: [], locks: new FakeLockManager() }
+  browser = {
+    cookies: { session: 'X', token: 1, fresh: false },
+    server: { X: { tip: 1, revoked: false, swept: false }, Y: { tip: 0, revoked: false, swept: false } },
+    events: [],
+    locks: new FakeLockManager(),
+  }
   Object.defineProperty(navigator, 'locks', { value: browser.locks, configurable: true })
   tabA = await openTab('A', browser)
   tabB = await openTab('B', browser)
@@ -202,14 +267,14 @@ afterEach(async () => {
 })
 
 describe('the fake lock manager', () => {
-  it('grants as the Web Locks API does: shared beside shared, in order, a later shared behind a waiting exclusive, and an aborted wait gone', async () => {
+  it('grants as the Web Locks API does: shared beside shared, in order, a later shared behind a waiting exclusive, exclusive ones one at a time, and an aborted wait gone', async () => {
     const locks = new FakeLockManager()
     const granted: string[] = []
     const holder = (label: string) => {
       const { promise, resolve } = hold()
       return { release: resolve, run: () => { granted.push(label); return promise } }
     }
-    const [first, second, exclusive, later] = ['shared 1', 'shared 2', 'exclusive', 'shared 3'].map(holder)
+    const [first, second, exclusive, later, last] = ['shared 1', 'shared 2', 'exclusive 1', 'shared 3', 'exclusive 2'].map(holder)
     const aborted = new AbortController()
     const never = vi.fn()
     const requests = [
@@ -217,6 +282,7 @@ describe('the fake lock manager', () => {
       locks.request('n', { mode: 'shared' }, second.run),
       locks.request('n', { mode: 'exclusive' }, exclusive.run),
       locks.request('n', { mode: 'shared' }, later.run),
+      locks.request('n', { mode: 'exclusive' }, last.run),
     ]
     const cancelled = locks.request('n', { mode: 'shared', signal: aborted.signal }, never).catch((error: unknown) => error)
     await settle()
@@ -224,23 +290,89 @@ describe('the fake lock manager', () => {
 
     aborted.abort()
     expect(await cancelled).toMatchObject({ name: 'AbortError' })
-    first.release()
-    await requests[0]
-    await settle()
-    expect(granted).toEqual(['shared 1', 'shared 2'])
-    second.release()
-    await requests[1]
-    await settle()
-    expect(granted).toEqual(['shared 1', 'shared 2', 'exclusive'])
-    exclusive.release()
-    await requests[2]
-    await settle()
-    expect(granted).toEqual(['shared 1', 'shared 2', 'exclusive', 'shared 3'])
-    later.release()
-    await requests[3]
+    const steps: [{ release: () => void }, string[]][] = [
+      [first, ['shared 1', 'shared 2']],
+      [second, ['shared 1', 'shared 2', 'exclusive 1']],
+      [exclusive, ['shared 1', 'shared 2', 'exclusive 1', 'shared 3']],
+      [later, ['shared 1', 'shared 2', 'exclusive 1', 'shared 3', 'exclusive 2']],
+    ]
+    for (const [[step, expected], request] of steps.map((entry, index) => [entry, requests[index]] as const)) {
+      step.release()
+      await request
+      await settle()
+      expect(granted).toEqual(expected)
+    }
+    last.release()
+    await requests[4]
     expect(await locks.request('n', { signal: aborted.signal }, never).catch((error: unknown) => error)).toMatchObject({ name: 'AbortError' })
     expect(never).not.toHaveBeenCalled()
     expect(locks.idle()).toBe(true)
+  })
+
+  it('refuses what a browser refuses, before granting anything', async () => {
+    const locks = new FakeLockManager()
+    const never = vi.fn()
+    const { signal } = new AbortController()
+    const nameOf = (request: Promise<unknown>) => request.then(() => 'granted', (error: unknown) => (error as DOMException).name)
+    expect(await Promise.all([
+      locks.request('-reserved', {}, never),
+      locks.request('n', { steal: true, ifAvailable: true }, never),
+      locks.request('n', { steal: true, mode: 'shared' }, never),
+      locks.request('n', { ifAvailable: true, signal }, never),
+      locks.request('n', { steal: true, signal }, never),
+    ].map(nameOf))).toEqual(Array(5).fill('NotSupportedError'))
+    locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
+    expect(await nameOf(locks.request('n', { mode: 'exclusive' }, never))).toBe('SecurityError')
+    await settle()
+    expect(never).not.toHaveBeenCalled()
+    expect(locks.idle()).toBe(true)
+  })
+})
+
+describe("silent refreshes across tabs: one at a time (E96's two-tab trigger)", () => {
+  it("sends two tabs' refreshes asked for together one at a time, the second with the cookies the first set", async () => {
+    const first = hold()
+    tabA.refreshAnswers.push(first.promise)
+    const refreshing = [tabA.client.ensureRefreshed(), tabB.client.ensureRefreshed()]
+    await settle()
+    expect(browser.events).toEqual(["A's refresh sent with X"])
+
+    first.resolve()
+    await Promise.all(refreshing)
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X", "B's refresh sent with X", "B's refresh answered for X"])
+    // Each presented the live token: no replay, no sweep.
+    expect(browser.server.X).toEqual({ tip: 3, revoked: false, swept: false })
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("sends a refresh at once without the lock when the browser refuses it, as it does a login's post, and leaves no wait's timer behind", async () => {
+    fakeTimers()
+    browser.locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
+    await tabA.client.ensureRefreshed()
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X"])
+
+    await tabB.auth.login(EMAIL, PASSWORD)
+    expect(browser.events.slice(2)).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered"])
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('sends a refresh still waiting for the lock at REFRESH_LOCK_WAIT_MS without it, which then meets the replay sweep: the trigger the bound leaves (E96)', async () => {
+    fakeTimers()
+    // Tab A's refresh holds the lock and never answers: its request had no timeout of its own.
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    void tabA.client.ensureRefreshed().catch(() => undefined)
+    await vi.advanceTimersByTimeAsync(0)
+    const waiting = tabB.client.ensureRefreshed().catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(tabB.client.REFRESH_LOCK_WAIT_MS - 1)
+    expect(browser.events).toEqual(["A's refresh sent with X"])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and every session of X ends", "B's refresh refused",
+    ])
+    expect(await waiting).toMatchObject({ response: { status: 401 } })
+    expect(browser.server.X.swept).toBe(true)
   })
 })
 
@@ -259,12 +391,12 @@ describe("a password login in one tab and another tab's silent refresh (E29 (4))
     expect(browser.events).toEqual([
       "A's refresh sent with X", "A's refresh answered for X", 'B posts /api/auth/login as X', "B's /api/auth/login answered",
     ])
-    expect(browser.cookies).toEqual({ session: 'Y', fresh: true })
+    expect(browser.cookies).toMatchObject({ session: 'Y', fresh: true })
     expect(browser.locks.idle()).toBe(true)
   })
 
   it('holds a refresh another tab asks for while the login is out, which then goes out with the cookies then current', async () => {
-    const loginAnswer = hold()
+    const loginAnswer = hold<Outcome>('took')
     tabB.postAnswers.push(loginAnswer.promise)
     const signingIn = tabB.auth.login(EMAIL, PASSWORD)
     await settle()
@@ -274,18 +406,43 @@ describe("a password login in one tab and another tab's silent refresh (E29 (4))
     expect(browser.events).toEqual(['B posts /api/auth/login as X', 'A reads /api/watchlist/ as X'])
     expect(tabA.refresh).not.toHaveBeenCalled()
 
-    loginAnswer.resolve()
+    loginAnswer.resolve('took')
     await signingIn
     expect(await reading).toMatchObject({ status: 200, data: { reader: 'Y' } })
     expect(browser.events).toEqual([
       'B posts /api/auth/login as X', 'A reads /api/watchlist/ as X', "B's /api/auth/login answered",
       "A's refresh sent with Y", "A's refresh answered for Y", 'A reads /api/watchlist/ as Y',
     ])
-    expect(browser.cookies).toEqual({ session: 'Y', fresh: true })
+    expect(browser.cookies).toMatchObject({ session: 'Y', fresh: true })
+  })
+
+  it("sends the refreshes held behind it one at a time, another tab's and its own tab's, each with the cookies the one before set: none presents a rotated token", async () => {
+    const loginAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+    await settle()
+    // Both tabs' access tokens have expired: tab A's 401 asks for a refresh, which waits for the lock, and tab B's for
+    // one its own login holds back (loginInFlight).
+    const answerA = hold()
+    tabA.refreshAnswers.push(answerA.promise)
+    const reads = [tabA.client.default.get('/api/watchlist/'), tabB.client.default.get('/api/notifications/')]
+    await settle()
+    loginAnswer.resolve('took')
+    await signingIn
+    await settle()
+    expect(browser.events.filter((event) => event.includes('refresh'))).toEqual(["A's refresh sent with Y"])
+    expect(tabB.refresh).not.toHaveBeenCalled()
+
+    answerA.resolve()
+    expect(await Promise.all(reads)).toMatchObject([{ status: 200, data: { reader: 'Y' } }, { status: 200, data: { reader: 'Y' } }])
+    expect(browser.events.filter((event) => event.includes('refresh'))).toEqual([
+      "A's refresh sent with Y", "A's refresh answered for Y", "B's refresh sent with Y", "B's refresh answered for Y",
+    ])
+    expect(browser.server.Y).toEqual({ tip: 3, revoked: false, swept: false })
   })
 
   it('sends nothing for a refresh cancelled while it waits for the lock, and the next one goes out at once', async () => {
-    const loginAnswer = hold()
+    const loginAnswer = hold<Outcome>('took')
     tabB.postAnswers.push(loginAnswer.promise)
     const signingIn = tabB.auth.login(EMAIL, PASSWORD)
     await settle()
@@ -295,7 +452,7 @@ describe("a password login in one tab and another tab's silent refresh (E29 (4))
     tabA.client.cancelRefresh()
     expect(await waiting).toMatchObject({ name: 'AbortError' })
 
-    loginAnswer.resolve()
+    loginAnswer.resolve('took')
     await signingIn
     await settle()
     expect(tabA.refresh).not.toHaveBeenCalled()
@@ -306,12 +463,21 @@ describe("a password login in one tab and another tab's silent refresh (E29 (4))
     ])
     expect(browser.locks.idle()).toBe(true)
   })
+
+  it('posts a login refused under the lock once, and stamps nothing', async () => {
+    tabB.postAnswers.push(Promise.resolve<Outcome>('refused'))
+    expect(await tabB.auth.login(EMAIL, PASSWORD).catch((error: unknown) => error)).toMatchObject({ status: 401 })
+    await settle()
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login refused"])
+    expect(tabA.session.getLoginStamp()).toBeNull()
+    expect(browser.locks.idle()).toBe(true)
+  })
 })
 
 describe.each([
   ['a logout', 'logout', '/api/auth/logout'],
   ['a logout of every session', 'logoutAllSessions', '/api/auth/logout-all'],
-] as const)("%s in one tab and another tab's silent refresh (E133)", (_, method, path) => {
+] as const)("%s in one tab and another tab's silent refresh or login (E133, E29 (4))", (_, method, path) => {
   it('waits for the refresh another tab has in flight, then posts, and nothing sets the cookies again after its answer', async () => {
     const answer = hold()
     tabA.refreshAnswers.push(answer.promise)
@@ -325,12 +491,12 @@ describe.each([
     await Promise.all([refreshing, loggingOut])
     await settle()
     expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X", `B posts ${path} as X`, `B's ${path} answered`])
-    expect(browser.cookies).toEqual({ session: null, fresh: false })
+    expect(browser.cookies).toMatchObject({ session: null, fresh: false })
     expect(browser.locks.idle()).toBe(true)
   })
 
   it('holds a refresh another tab asks for while its post is out, which then goes out with no session to renew', async () => {
-    const postAnswer = hold()
+    const postAnswer = hold<Outcome>('took')
     tabB.postAnswers.push(postAnswer.promise)
     const loggingOut = tabB.auth[method]()
     await settle()
@@ -340,11 +506,11 @@ describe.each([
     await settle()
     expect(tabA.refresh).not.toHaveBeenCalled()
 
-    postAnswer.resolve()
+    postAnswer.resolve('took')
     await loggingOut
     expect(await refreshing).toMatchObject({ response: { status: 401 } })
     expect(browser.events).toEqual([`B posts ${path} as X`, `B's ${path} answered`, "A's refresh sent with no session", "A's refresh refused"])
-    expect(browser.cookies).toEqual({ session: null, fresh: false })
+    expect(browser.cookies).toMatchObject({ session: null, fresh: false })
   })
 
   it('posts nothing for a login accepted in its tab while it waited for the lock: the check shares the post\'s turn', async () => {
@@ -366,6 +532,39 @@ describe.each([
     expect(tabB.session.hasActiveSession()).toBe(true)
     expect(browser.locks.idle()).toBe(true)
   })
+
+  it("posts nothing when another tab's login took while it waited for the lock: the cookies are that login's, and so is the session flag", async () => {
+    const loginAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+    await settle()
+    // Tab A, still showing X, logs out behind tab B's login.
+    const outcome = tabA.auth[method]().catch((error: unknown) => error)
+    await settle()
+    loginAnswer.resolve('took')
+    await signingIn
+    if (method === 'logoutAllSessions') expect(await outcome).toBeInstanceOf(tabA.auth.LogoutAllSuperseded)
+    else expect(await outcome).toBeUndefined()
+    await settle()
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered"])
+    expect(browser.cookies).toMatchObject({ session: 'Y', fresh: true })
+    expect(browser.server.Y).toEqual({ tip: 1, revoked: false, swept: false })
+    expect(tabB.session.hasActiveSession()).toBe(true)
+  })
+
+  it("posts when another tab's login failed while it waited: the cookies are still its own", async () => {
+    const loginAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabB.auth.login(EMAIL, PASSWORD).catch((error: unknown) => error)
+    await settle()
+    const loggingOut = tabA.auth[method]()
+    await settle()
+    loginAnswer.resolve('refused')
+    expect(await signingIn).toMatchObject({ status: 401 })
+    await loggingOut
+    expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login refused", `A posts ${path} as X`, `A's ${path} answered`])
+    expect(browser.cookies).toMatchObject({ session: null, fresh: false })
+  })
 })
 
 const EACH_POST = [
@@ -376,19 +575,20 @@ const EACH_POST = [
 
 describe.each(EACH_POST)('%s, at the limit', (_, post, path, limitOf) => {
   it("posts without the lock once its one wait is spent, its own tab's refresh's share included, while another tab's refresh is unanswered, which can then still answer after it (the gap the code states)", async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    fakeTimers()
     const limit = limitOf(tabB)
-    const stalled = hold()
-    tabA.refreshAnswers.push(stalled.promise)
-    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
-    // Tab B's own refresh answers 4 s in, a share of the one wait.
+    // Tab B's own refresh holds the lock first and answers 4 s in, a share of the one wait.
     tabB.refreshAnswers.push(new Promise((resolve) => setTimeout(resolve, 4_000)))
     const own = tabB.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
+    // Tab A's, queued behind it, then holds the lock and does not answer in time.
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
     const posting = post(tabB)
     await vi.advanceTimersByTimeAsync(4_000)
     await own
-    expect(browser.events).toEqual(["A's refresh sent with X", "B's refresh sent with X", "B's refresh answered for X"])
+    expect(browser.events).toEqual(["B's refresh sent with X", "B's refresh answered for X", "A's refresh sent with X"])
 
     await vi.advanceTimersByTimeAsync(limit - 4_000 - 1)
     expect(browser.events).toHaveLength(3)
@@ -400,32 +600,112 @@ describe.each(EACH_POST)('%s, at the limit', (_, post, path, limitOf) => {
     stalled.resolve()
     await unanswered
     expect(browser.events.at(-1)).toBe("A's refresh answered for X")
-    expect(browser.cookies).toEqual({ session: 'X', fresh: true })
+    expect(browser.cookies).toMatchObject({ session: 'X', fresh: true })
+  })
+
+  it("cancels its own tab's refresh still unanswered at the limit, and posts: that refresh's answer is dropped", async () => {
+    fakeTimers()
+    const limit = limitOf(tabB)
+    const stalled = hold()
+    tabB.refreshAnswers.push(stalled.promise)
+    const own = tabB.client.ensureRefreshed().catch((error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(0)
+    const signal = tabB.refresh.mock.calls[0][1] as AbortSignal
+    const posting = post(tabB)
+    await vi.advanceTimersByTimeAsync(limit - 1)
+    expect(signal.aborted).toBe(false)
+    expect(browser.events).toEqual(["B's refresh sent with X"])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(signal.aborted).toBe(true)
+    await posting
+    // Its answer comes after all, and is dropped: cancelled, it cannot set the cookies again after the post's answer.
+    stalled.resolve()
+    expect(await own).toBeInstanceOf(CanceledError)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(browser.events).toEqual(["B's refresh sent with X", `B posts ${path} as X`, `B's ${path} answered`])
+  })
+
+  it('lets a refresh queued behind its request go out beside its unlocked post once the lock frees (the gap the code states)', async () => {
+    const tabC = await openTab('C', browser)
+    fakeTimers()
+    const limit = limitOf(tabB)
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
+    await vi.advanceTimersByTimeAsync(0)
+    const postAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(postAnswer.promise)
+    const posting = post(tabB)
+    await vi.advanceTimersByTimeAsync(1_000)
+    // Tab C asks for a refresh after the post's request: it is queued behind it.
+    const queued = tabC.client.ensureRefreshed().catch(() => undefined)
+    await vi.advanceTimersByTimeAsync(limit - 1_000)
+    expect(browser.events).toEqual(["A's refresh sent with X", `B posts ${path} as X`])
+
+    // The post went out without the lock at the limit and is still out; tab A's refresh answers and frees the lock, and
+    // tab C's goes out beside the post.
+    stalled.resolve()
+    await unanswered
+    await vi.advanceTimersByTimeAsync(0)
+    postAnswer.resolve('took')
+    await Promise.all([posting, queued])
+    expect(browser.events.slice(0, 4)).toEqual(["A's refresh sent with X", `B posts ${path} as X`, "A's refresh answered for X", "C's refresh sent with X"])
+    expect(browser.events.indexOf("C's refresh sent with X")).toBeLessThan(browser.events.indexOf(`B's ${path} answered`))
   })
 })
 
 describe('with no navigator.locks (an older browser, a non-secure context)', () => {
-  it.each(EACH_POST)("%s posts as one tab did: once its own tab's refresh has answered, never waiting for another tab's", async (_, post, path) => {
+  it.each(EACH_POST)("%s posts at once, never waiting for another tab's refresh, which can then answer after it", async (_, post, path) => {
     withoutLocks()
     const stalled = hold()
     tabA.refreshAnswers.push(stalled.promise)
     const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
-    const own = hold()
-    tabB.refreshAnswers.push(own.promise)
-    const ownRefresh = tabB.client.ensureRefreshed()
     await settle()
-    const posting = post(tabB)
-    await settle()
-    expect(browser.events).toEqual(["A's refresh sent with X", "B's refresh sent with X"])
+    await post(tabB)
+    expect(browser.events).toEqual(["A's refresh sent with X", `B posts ${path} as X`, `B's ${path} answered`])
 
-    own.resolve()
-    await ownRefresh
-    await posting
-    expect(browser.events).toEqual([
-      "A's refresh sent with X", "B's refresh sent with X", "B's refresh answered for X", `B posts ${path} as X`, `B's ${path} answered`,
-    ])
     stalled.resolve()
     await unanswered
-    expect(browser.cookies).toEqual({ session: 'X', fresh: true })
+    expect(browser.events.at(-1)).toBe("A's refresh answered for X")
+    expect(browser.cookies).toMatchObject({ session: 'X', fresh: true })
+  })
+
+  it("sends two tabs' refreshes at once, and the second meets the replay sweep: E96's trigger, without a lock manager", async () => {
+    withoutLocks()
+    const first = hold()
+    tabA.refreshAnswers.push(first.promise)
+    const refreshing = [tabA.client.ensureRefreshed(), tabB.client.ensureRefreshed()].map((refresh) => refresh.catch(() => undefined))
+    await settle()
+    first.resolve()
+    await Promise.all(refreshing)
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and every session of X ends",
+      "B's refresh refused", "A's refresh answered for X",
+    ])
+    expect(browser.server.X.swept).toBe(true)
+  })
+})
+
+describe('with no localStorage (site data blocked)', () => {
+  it.each([
+    ['a logout', 'logout', '/api/auth/logout'],
+    ['a logout of every session', 'logoutAllSessions', '/api/auth/logout-all'],
+  ] as const)("%s behind another tab's login that took posts as before: no stamp to read", async (_, method, path) => {
+    const blocked = () => { throw new DOMException('The operation is insecure.', 'SecurityError') }
+    const spies = (['getItem', 'setItem', 'removeItem'] as const).map((name) => vi.spyOn(Storage.prototype, name).mockImplementation(blocked))
+    try {
+      const loginAnswer = hold<Outcome>('took')
+      tabB.postAnswers.push(loginAnswer.promise)
+      const signingIn = tabB.auth.login(EMAIL, PASSWORD)
+      await settle()
+      const loggingOut = tabA.auth[method]()
+      await settle()
+      loginAnswer.resolve('took')
+      await Promise.all([signingIn, loggingOut])
+      expect(browser.events).toEqual(['B posts /api/auth/login as X', "B's /api/auth/login answered", `A posts ${path} as Y`, `A's ${path} answered`])
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
   })
 })

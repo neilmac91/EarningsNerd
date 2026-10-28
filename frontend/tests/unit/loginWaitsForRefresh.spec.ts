@@ -358,28 +358,33 @@ describe('a refresh asked for while a login is under way', () => {
  * argument of the call returned (its expression body, or a `return` of its own, through `await` and parentheses) by a
  * function handed inline, as the second argument, to a call of `withoutRefreshBeside` imported by that name from
  * lib/api/client, so the helper's promise is that request's; one that names /api/auth/logout or /api/auth/logout-all
- * is so, alike, for `withSessionCookiesExclusive`, which holds the session cookies' lock exclusive around it. In
+ * is so, alike, for `withSessionCookiesExclusive`, which holds the session cookies' lock around it. In
  * lib/api/client.ts, withoutRefreshBeside hands its send by name, as the second argument, to the module's own
  * withSessionCookiesExclusive (a function it declares at its top level), and names it nowhere else, so the login holds
- * the lock too. Each of the three routes is one whose own 401 asks for no refresh (isRefreshableRequest): a refresh
- * asked for under the exclusive hold would wait for the lock its own caller holds. The refresh: none starts outside
- * ensureRefreshed, which holds it behind a login, and its one call there is returned, as above, by a function handed
- * inline as the second argument to the module's own withSessionCookiesShared, which holds the lock shared.
+ * the lock too. The refresh: none starts outside ensureRefreshed, which holds it behind a login, and its one call there
+ * is returned, as above, by a function handed inline as the second argument to the module's own
+ * withSessionCookiesForRefresh, which holds the lock for it, one refresh at a time. The holds' callers: every use of
+ * either name, anywhere, is one of the four calls the client and the auth API make (HOLD_SITES: the refresh in
+ * ensureRefreshed, the login's hand-off in withoutRefreshBeside and the two logouts), so no other request runs under
+ * the lock, and each of the three routes posted under it is one whose own 401 asks for no refresh (isRefreshableRequest):
+ * a refresh asked for under the lock would wait for the lock its own caller holds, and every tab's refresh behind it.
  * lib/api/refresh, whose refreshAccessToken posts to /api/auth/refresh, is imported or exported anywhere only by
  * lib/api/client.ts, by that one name, whose one use of it is that call, and no other literal names that path;
  * client.ts's NO_REFRESH_PATHS, a list of paths and not a request, is pinned for the login's, the logout's and the
- * refresh's paths to its one site. What the holds themselves do (the lock's modes, the one wait, the post at its limit)
- * is sessionCookiesAcrossTabs.spec.ts's to hold. What it reads: every tracked file under frontend/ (`git ls-files`) of
- * each JS and TS extension, in every directory but tests/, in one walk per file. Refused though the rule may hold: a
- * path held in a const, a helper renamed on import or read off a namespace, a send declared apart, a send that awaits
- * the post and returns its answer, the login's send wrapped in an arrow before it is handed on, a hold imported or
- * declared other than as the client's own top-level function, withoutRefreshBeside declared as a const, and any import
- * of the refresh module but client.ts's, a type-only one included. lib/api/refresh.ts's own uses of refreshAccessToken
- * are read too (its name resolves to the declaration there, not to an import), so a keep-alive inside it that calls
- * refreshAccessToken is refused. Out of its reach (planted as gaps): a path assembled at run time; a send that returns
- * a call of an async local helper which posts without returning the post; another request sent under the exclusive
- * hold, whose own 401 must ask for no refresh; a hold whose own body takes no lock; and, inside refreshAccessToken
- * itself, a second post of its own path (a timer it sets there), which reads as the one path where it stands.
+ * refresh's paths to its one site. What the holds themselves do (the lock, the waits and their bounds, the post at its
+ * limit, the login's stamp) is sessionCookiesAcrossTabs.spec.ts's to hold. What it reads: every tracked file under
+ * frontend/ (`git ls-files`) of each JS and TS extension, in every directory but tests/, in one walk per file. Refused
+ * though the rule may hold: a path held in a const, a helper renamed on import or read off a namespace, a send declared
+ * apart, a send that awaits the post and returns its answer, the login's send wrapped in an arrow before it is handed
+ * on, a hold imported or declared other than as the client's own top-level function, a hold's name used but as the
+ * callee of one of its four calls (a value, a re-export, a string), withoutRefreshBeside declared as a const, and any
+ * import of the refresh module but client.ts's, a type-only one included. lib/api/refresh.ts's own uses of
+ * refreshAccessToken are read too (its name resolves to the declaration there, not to an import), so a keep-alive
+ * inside it that calls refreshAccessToken is refused. Out of its reach (planted as gaps): a path or a hold's name
+ * assembled at run time; a send that returns a call of an async local helper which posts without returning the post;
+ * another request one of the four sends makes before its own; a hold whose own body takes no lock; and, inside
+ * refreshAccessToken itself, a second post of its own path (a timer it sets there), which reads as the one path where
+ * it stands.
  */
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SOURCE = /\.(?:[cm]?[jt]s|[jt]sx)$/
@@ -387,8 +392,8 @@ const REFRESH_PATH = /\/api\/auth\/refresh(?![\w-])/
 const CLIENT = 'lib/api/client.ts'
 const AUTH_API = 'features/auth/api/auth-api.ts'
 const REFRESH_MODULE = 'lib/api/refresh'
-// The client's two holds of the session cookies' lock: the refresh's, shared, and the posts', exclusive.
-const SHARED_HOLD = 'withSessionCookiesShared'
+// The client's two holds of the session cookies' lock, both exclusive: the refresh's, and the posts'.
+const REFRESH_HOLD = 'withSessionCookiesForRefresh'
 const EXCLUSIVE_HOLD = 'withSessionCookiesExclusive'
 // The posts whose answer sets or clears the session cookies: each route, the literals that name it, and the helper
 // whose send must post it. The login's helper keeps its one-tab gate and hands the send on to the exclusive hold.
@@ -403,8 +408,15 @@ const HELD = Object.keys(HELD_POSTS) as HeldPost[]
 const LOGIN_SEND = ['handed to the exclusive hold']
 // The refresh's sites, all of them: anything else, anywhere, is a refresh that could start outside ensureRefreshed.
 const REFRESH_SITES: Record<string, string[]> = {
-  [CLIENT]: ['call of refreshAccessToken in ensureRefreshed under the shared hold', 'import { refreshAccessToken } from lib/api/refresh', 'path in NO_REFRESH_PATHS'],
+  [CLIENT]: ["call of refreshAccessToken in ensureRefreshed under the refresh's hold", 'import { refreshAccessToken } from lib/api/refresh', 'path in NO_REFRESH_PATHS'],
   'lib/api/refresh.ts': ['path in refreshAccessToken'],
+}
+const HOLD_NAMES: string[] = [REFRESH_HOLD, EXCLUSIVE_HOLD]
+// The holds' calls, all of them: any other use of either name, anywhere, is another request that could run under the
+// lock, or a hold that could be taken around one.
+const HOLD_SITES: Record<string, string[]> = {
+  [CLIENT]: [`call of ${EXCLUSIVE_HOLD} in withoutRefreshBeside`, `call of ${REFRESH_HOLD} in ensureRefreshed`],
+  [AUTH_API]: [`call of ${EXCLUSIVE_HOLD} in logout`, `call of ${EXCLUSIVE_HOLD} in logoutAllSessions`],
 }
 
 const scriptKind = (file: string): ts.ScriptKind =>
@@ -452,6 +464,8 @@ interface Reading {
   refresh: string[]
   /** In lib/api/client.ts, what withoutRefreshBeside does with its send: each use of it, sorted. */
   loginSend: string[]
+  /** Each use of a hold's name, but its declaration in the client and an import that keeps the name, sorted. */
+  holds: string[]
 }
 
 /** One walk over a module for both ends of the hold. */
@@ -488,6 +502,17 @@ function read(source: string, file: string): Reading {
     const to = handedTo(call)
     return !!to && ts.isIdentifier(to.expression) && to.expression.text === helper && imported.has(helper) && !resolve(to.expression)
   }
+  /** What a use of a hold's name is: nothing to report for the hold's declaration at the client's top level or an
+      import that keeps its name; else a call (by the name, or read off a namespace) and where it is, or anything else. */
+  const holdUse = (node: ts.Identifier): string | undefined => {
+    const parent = node.parent
+    if (ts.isFunctionDeclaration(parent) && parent.name === node) return file === CLIENT && parent.parent === sf ? undefined : `declaration of ${node.text}`
+    if (ts.isImportSpecifier(parent)) return parent.propertyName ? `renamed import of ${node.text}` : undefined
+    if (ts.isExportSpecifier(parent)) return `export of ${node.text}`
+    const callee = ts.isPropertyAccessExpression(parent) && parent.name === node ? parent : node
+    return ts.isCallExpression(callee.parent) && callee.parent.expression === callee
+      ? `call of ${node.text} in ${holder(callee.parent)}` : `reference to ${node.text} in ${holder(node)}`
+  }
   const inNoRefreshPaths = (node: ts.Node): boolean =>
     file === CLIENT && ts.isArrayLiteralExpression(node.parent) && ts.isVariableDeclaration(node.parent.parent) &&
     ts.isIdentifier(node.parent.parent.name) && node.parent.parent.name.text === 'NO_REFRESH_PATHS'
@@ -495,6 +520,7 @@ function read(source: string, file: string): Reading {
     posts: { login: { outside: [], inside: 0, exempt: 0 }, logout: { outside: [], inside: 0, exempt: 0 }, logoutAll: { outside: [], inside: 0, exempt: 0 } },
     refresh: [],
     loginSend: [],
+    holds: [],
   }
   const refreshModule = (specifier: ts.Node | undefined): boolean =>
     !!specifier && ts.isStringLiteralLike(specifier) && moduleOf(specifier.text, file) === REFRESH_MODULE
@@ -520,23 +546,27 @@ function read(source: string, file: string): Reading {
       else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') found.refresh.push(`require of ${REFRESH_MODULE}`)
     }
     // A use of the imported refreshAccessToken: not its import, not a property's name, not a local of the same name. Its
-    // call reads as held only when a function handed to the module's own shared hold returns it.
+    // call reads as held only when a function handed to the module's own refresh hold returns it.
     if (ts.isIdentifier(node) && refreshNames.has(node.text) && !ts.isImportSpecifier(node.parent) && !resolve(node) &&
       !((ts.isPropertyAccessExpression(node.parent) || ts.isPropertyAssignment(node.parent)) && node.parent.name === node)) {
       const call = ts.isCallExpression(node.parent) && node.parent.expression === node ? node.parent : undefined
       const to = call && handedTo(call)
-      const held = !!to && ownFunction(to.expression, SHARED_HOLD)
-      found.refresh.push(`${call ? 'call of' : 'reference to'} ${node.text} in ${holder(node)}${held ? ' under the shared hold' : ''}`)
+      const held = !!to && ownFunction(to.expression, REFRESH_HOLD)
+      found.refresh.push(`${call ? 'call of' : 'reference to'} ${node.text} in ${holder(node)}${held ? " under the refresh's hold" : ''}`)
     }
     // In the module that declares it, every use of refreshAccessToken but its declaration's own name: there the name
     // resolves to the declaration, not to an import, so the rule above does not see it, and a keep-alive there would
-    // skip the hold, the shared refresh and a logout's wait.
+    // skip the hold, the one refresh in flight and a logout's wait.
     if (file === `${REFRESH_MODULE}.ts` && ts.isIdentifier(node) && node.text === 'refreshAccessToken' &&
       !((ts.isFunctionDeclaration(node.parent) || ts.isVariableDeclaration(node.parent)) && node.parent.name === node) &&
       !((ts.isPropertyAccessExpression(node.parent) || ts.isPropertyAssignment(node.parent)) && node.parent.name === node)) {
       const called = ts.isCallExpression(node.parent) && node.parent.expression === node
       found.refresh.push(`${called ? 'call of' : 'reference to'} refreshAccessToken in ${holder(node)}`)
     }
+    // Each use of a hold, by its name or as a string.
+    const use = ts.isIdentifier(node) && HOLD_NAMES.includes(node.text) ? holdUse(node) : undefined
+    if (use) found.holds.push(use)
+    if (ts.isStringLiteralLike(node) && HOLD_NAMES.includes(node.text)) found.holds.push(`string ${node.text} in ${holder(node)}`)
     // In the client, each use of withoutRefreshBeside's send (its second parameter).
     if (file === CLIENT && ts.isFunctionDeclaration(node) && node.parent === sf && node.name?.text === 'withoutRefreshBeside' && node.parameters[1]) {
       for (const use of bindingReferences(sf, resolve)(node.parameters[1])) {
@@ -550,6 +580,7 @@ function read(source: string, file: string): Reading {
   visit(sf)
   found.refresh.sort()
   found.loginSend.sort()
+  found.holds.sort()
   return found
 }
 
@@ -602,7 +633,7 @@ const LOGOUT_FORMS: { form: string; post: Exclude<HeldPost, 'login'>; source: st
   { form: "posted once this tab's refresh has settled, as before the lock", post: 'logout', source: `${API}import { refreshSettled } from '@/lib/api/client'\nexport const logout = async () => {\n  await refreshSettled(1)\n  return api.post('/api/auth/logout')\n}`, outside: 1, inside: 0 },
   { form: 'posted once the hold has ended', post: 'logoutAll', source: `${API}${EXCLUSIVE}export const logoutAll = async () => {\n  await withSessionCookiesExclusive(1, async () => undefined)\n  return api.post('/api/auth/logout-all')\n}`, outside: 1, inside: 0 },
   { form: "posted in the login's helper", post: 'logout', source: `${API}${HELPER}export const logout = () => withoutRefreshBeside(1, () => api.post('/api/auth/logout'))`, outside: 1, inside: 0 },
-  { form: "posted under the refresh's shared hold", post: 'logout', source: `${API}import { withSessionCookiesShared } from '@/lib/api/client'\nexport const logout = (signal: AbortSignal) => withSessionCookiesShared(signal, () => api.post('/api/auth/logout'))`, outside: 1, inside: 0 },
+  { form: "posted under the refresh's hold", post: 'logout', source: `${API}import { withSessionCookiesForRefresh } from '@/lib/api/client'\nexport const logout = (signal: AbortSignal) => withSessionCookiesForRefresh(signal, () => api.post('/api/auth/logout'))`, outside: 1, inside: 0 },
   { form: 'posted in the send, but not returned', post: 'logoutAll', source: `${API}${EXCLUSIVE}export const logoutAll = () => withSessionCookiesExclusive(1, async () => { void api.post('/api/auth/logout-all') })`, outside: 1, inside: 0 },
   { form: 'posted beside the promise the send returns', post: 'logout', source: `${API}${EXCLUSIVE}export const logout = () => withSessionCookiesExclusive(1, () => (api.post('/api/auth/logout'), Promise.resolve()))`, outside: 1, inside: 0 },
   { form: 'in the send, in a function it never calls', post: 'logout', source: `${API}${EXCLUSIVE}export const logout = () => withSessionCookiesExclusive(1, () => { const later = () => api.post('/api/auth/logout'); void later; return Promise.resolve() })`, outside: 1, inside: 0 },
@@ -620,7 +651,7 @@ const LOGOUT_FORMS: { form: string; post: Exclude<HeldPost, 'login'>; source: st
   { form: 'the path assembled at run time', post: 'logout', source: `${API}export const logout = () => api.post('/api/auth/' + 'logout')`, outside: 0, inside: 0, gap: true },
   { form: 'the last segment substituted into a template', post: 'logoutAll', source: `${API}export const logoutAll = () => api.post(\`/api/auth/\${'logout-all'}\`)`, outside: 0, inside: 0, gap: true },
   { form: 'the post behind a local helper that does not return it', post: 'logoutAll', source: `${API}${EXCLUSIVE}const fire = async (url: string) => { void api.post(url) }\nexport const logoutAll = () => withSessionCookiesExclusive(10, () => fire('/api/auth/logout-all'))`, outside: 0, inside: 1, gap: true },
-  { form: 'another request sent under the hold, whose own 401 would ask for a refresh', post: 'logout', source: `${API}${EXCLUSIVE}export const rename = () => withSessionCookiesExclusive(1, () => api.patch('/api/users/me', {}))`, outside: 0, inside: 0, gap: true },
+  { form: 'another request a send makes before its post', post: 'logout', source: `${API}${EXCLUSIVE}export const logout = () => withSessionCookiesExclusive(1, async () => {\n  await api.get('/api/auth/me')\n  return api.post('/api/auth/logout')\n})`, outside: 0, inside: 1, gap: true },
 ]
 
 // withoutRefreshBeside in a client that declares the exclusive hold (`head`), with each body.
@@ -633,7 +664,7 @@ const LOGIN_SEND_FORMS: { form: string; source: string; uses: string[]; flag: bo
   { form: 'its send called beside the hold', source: besideTheLogin('  void withSessionCookiesExclusive(limitMs, send)\n  return send()'), uses: ['called', 'handed to the exclusive hold'], flag: true },
   { form: 'its send wrapped in an arrow', source: besideTheLogin('  return withSessionCookiesExclusive(limitMs, () => send())'), uses: ['called'], flag: true },
   { form: 'its send in the first argument', source: besideTheLogin('  return withSessionCookiesExclusive(send as never, async () => undefined)'), uses: ['used otherwise'], flag: true },
-  { form: "its send under the refresh's shared hold", source: besideTheLogin('  return withSessionCookiesShared(new AbortController().signal, send)', `function withSessionCookiesShared(signal: AbortSignal, refresh: () => Promise<void>) {\n  return navigator.locks.request('session', { mode: 'shared', signal }, refresh)\n}\n`), uses: ['used otherwise'], flag: true },
+  { form: "its send under the refresh's hold", source: besideTheLogin('  return withSessionCookiesForRefresh(new AbortController().signal, send)', `function withSessionCookiesForRefresh(signal: AbortSignal, refresh: () => Promise<void>) {\n  return navigator.locks.request('session', { mode: 'exclusive', signal }, refresh)\n}\n`), uses: ['used otherwise'], flag: true },
   { form: 'the exclusive hold shadowed by a local', source: besideTheLogin('  const withSessionCookiesExclusive = (_ms: number, run: () => Promise<T>) => run()\n  return withSessionCookiesExclusive(limitMs, send)'), uses: ['used otherwise'], flag: true },
   { form: 'the exclusive hold imported from another module', source: besideTheLogin('  return withSessionCookiesExclusive(limitMs, send)', "import { withSessionCookiesExclusive } from './locks'\n"), uses: ['used otherwise'], flag: true },
   { form: 'no withoutRefreshBeside in the client', source: HOLDS_EXCLUSIVE, uses: [], flag: true },
@@ -642,26 +673,26 @@ const LOGIN_SEND_FORMS: { form: string; source: string; uses: string[]; flag: bo
   { form: 'an exclusive hold that takes no lock', source: besideTheLogin('  return withSessionCookiesExclusive(limitMs, send)', 'function withSessionCookiesExclusive<T>(limitMs: number, send: () => Promise<T>) {\n  return refreshSettled(limitMs).then(send)\n}\n'), uses: LOGIN_SEND, flag: false, gap: true },
 ]
 
-// A client with the refresh's sanctioned sites and its shared hold (`hold`), and a body for each form.
-const HOLDS_SHARED = "function withSessionCookiesShared(signal: AbortSignal, refresh: () => Promise<void>) {\n  return navigator.locks.request('session', { mode: 'shared', signal }, refresh)\n}\n"
-const client = (body: string, head = "import { refreshAccessToken } from './refresh'\n", hold = HOLDS_SHARED) =>
+// A client with the refresh's sanctioned sites and its hold (`hold`), and a body for each form.
+const HOLDS_REFRESH = "function withSessionCookiesForRefresh(signal: AbortSignal, refresh: () => Promise<void>) {\n  return navigator.locks.request('session', { mode: 'exclusive', signal }, refresh)\n}\n"
+const client = (body: string, head = "import { refreshAccessToken } from './refresh'\n", hold = HOLDS_REFRESH) =>
   `${head}const NO_REFRESH_PATHS = ['/api/auth/refresh', '/api/auth/login']\n${hold}${body}`
-const ENSURE = 'export function ensureRefreshed() { return withSessionCookiesShared(signal, () => refreshAccessToken(getApiUrl())) }\n'
-const ensure = (callback: string) => client(`export function ensureRefreshed() { return withSessionCookiesShared(signal, ${callback}) }\n`)
-// The client's sites with the one call in ensureRefreshed outside the shared hold.
+const ENSURE = 'export function ensureRefreshed() { return withSessionCookiesForRefresh(signal, () => refreshAccessToken(getApiUrl())) }\n'
+const ensure = (callback: string) => client(`export function ensureRefreshed() { return withSessionCookiesForRefresh(signal, ${callback}) }\n`)
+// The client's sites with the one call in ensureRefreshed outside the refresh's hold.
 const UNHELD = ['call of refreshAccessToken in ensureRefreshed', 'import { refreshAccessToken } from lib/api/refresh', 'path in NO_REFRESH_PATHS']
 const KEEP_ALIVE = 'features/session/keepAlive.ts'
 const REFRESH_TS = "import axios from 'axios'\n"
   + 'export async function refreshAccessToken(baseUrl: string, signal?: AbortSignal): Promise<void> {\n'
   + '  await axios.post(`${baseUrl}/api/auth/refresh`, {}, { withCredentials: true, signal })\n}\n'
 const REFRESH_FORMS: { form: string; source: string; file: string; sites: string[]; flag: boolean; gap?: true }[] = [
-  { form: 'the client: one call, in ensureRefreshed, under the shared hold', file: CLIENT, source: client(ENSURE), sites: REFRESH_SITES[CLIENT], flag: false },
+  { form: "the client: one call, in ensureRefreshed, under the refresh's hold", file: CLIENT, source: client(ENSURE), sites: REFRESH_SITES[CLIENT], flag: false },
   { form: 'refresh.ts posting to its path', file: 'lib/api/refresh.ts', source: "import axios from 'axios'\nexport async function refreshAccessToken(baseUrl: string) { await axios.post(`${baseUrl}/api/auth/refresh`, {}) }", sites: REFRESH_SITES['lib/api/refresh.ts'], flag: false },
-  { form: 'a second call in ensureRefreshed', file: CLIENT, source: client('export function ensureRefreshed() { if (gate) return gate.then(() => refreshAccessToken(getApiUrl())); return withSessionCookiesShared(signal, () => refreshAccessToken(getApiUrl())) }'), sites: ['call of refreshAccessToken in ensureRefreshed', ...REFRESH_SITES[CLIENT]], flag: true },
+  { form: 'a second call in ensureRefreshed', file: CLIENT, source: client('export function ensureRefreshed() { if (gate) return gate.then(() => refreshAccessToken(getApiUrl())); return withSessionCookiesForRefresh(signal, () => refreshAccessToken(getApiUrl())) }'), sites: ['call of refreshAccessToken in ensureRefreshed', ...REFRESH_SITES[CLIENT]], flag: true },
   { form: 'a call outside ensureRefreshed', file: CLIENT, source: client(`${ENSURE}export function keepAlive() { return refreshAccessToken(getApiUrl()) }`), sites: ['call of refreshAccessToken in keepAlive', ...REFRESH_SITES[CLIENT]], flag: true },
   { form: 'handed over as a value', file: CLIENT, source: client(`${ENSURE}setInterval(refreshAccessToken, 60_000)`), sites: [...REFRESH_SITES[CLIENT], 'reference to refreshAccessToken in module'], flag: true },
   { form: 'exported on from the client', file: CLIENT, source: client(`${ENSURE}export { refreshAccessToken }`), sites: [...REFRESH_SITES[CLIENT], 'reference to refreshAccessToken in module'], flag: true },
-  { form: 'renamed on import', file: CLIENT, source: client('export function ensureRefreshed() { return withSessionCookiesShared(signal, () => renew(getApiUrl())) }', "import { refreshAccessToken as renew } from './refresh'\n"), sites: ['call of renew in ensureRefreshed under the shared hold', 'import { refreshAccessToken as renew } from lib/api/refresh', 'path in NO_REFRESH_PATHS'], flag: true },
+  { form: 'renamed on import', file: CLIENT, source: client('export function ensureRefreshed() { return withSessionCookiesForRefresh(signal, () => renew(getApiUrl())) }', "import { refreshAccessToken as renew } from './refresh'\n"), sites: ["call of renew in ensureRefreshed under the refresh's hold", 'import { refreshAccessToken as renew } from lib/api/refresh', 'path in NO_REFRESH_PATHS'], flag: true },
   { form: 'a keep-alive module importing it', file: KEEP_ALIVE, source: "import { refreshAccessToken } from '@/lib/api/refresh'\nexport const keepAlive = () => setInterval(() => refreshAccessToken(''), 60_000)", sites: ['call of refreshAccessToken in keepAlive', 'import { refreshAccessToken } from lib/api/refresh'], flag: true },
   { form: 'imported by a relative path from lib/api', file: 'lib/api/keepAlive.ts', source: "import { refreshAccessToken } from './refresh.ts'\nexport const keepAlive = () => refreshAccessToken('')", sites: ['call of refreshAccessToken in keepAlive', 'import { refreshAccessToken } from lib/api/refresh'], flag: true },
   { form: 'a type-only import', file: KEEP_ALIVE, source: "import type { refreshAccessToken } from '@/lib/api/refresh'\nexport type Renew = typeof refreshAccessToken", sites: ['import type { refreshAccessToken } from lib/api/refresh', 'reference to refreshAccessToken in module'], flag: true },
@@ -674,16 +705,16 @@ const REFRESH_FORMS: { form: string; source: string; file: string; sites: string
   { form: 'a fetch to the path', file: KEEP_ALIVE, source: "void fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' })", sites: ['path in module'], flag: true },
   { form: 'the path in a const', file: KEEP_ALIVE, source: "export const REFRESH = '/api/auth/refresh'", sites: ['path in REFRESH'], flag: true },
   { form: 'NO_REFRESH_PATHS elsewhere', file: KEEP_ALIVE, source: "const NO_REFRESH_PATHS = ['/api/auth/refresh']", sites: ['path in NO_REFRESH_PATHS'], flag: true },
-  // Each way out of the shared hold.
-  { form: 'the one call in ensureRefreshed, outside the shared hold', file: CLIENT, source: client('export function ensureRefreshed() { return refreshAccessToken(getApiUrl()) }\n'), sites: UNHELD, flag: true },
-  { form: 'under the shared hold, but not returned', file: CLIENT, source: ensure('() => { void refreshAccessToken(getApiUrl()); return Promise.resolve() }'), sites: UNHELD, flag: true },
+  // Each way out of the refresh's hold.
+  { form: "the one call in ensureRefreshed, outside the refresh's hold", file: CLIENT, source: client('export function ensureRefreshed() { return refreshAccessToken(getApiUrl()) }\n'), sites: UNHELD, flag: true },
+  { form: "under the refresh's hold, but not returned", file: CLIENT, source: ensure('() => { void refreshAccessToken(getApiUrl()); return Promise.resolve() }'), sites: UNHELD, flag: true },
   { form: "beside the promise the hold's callback returns", file: CLIENT, source: ensure('() => (refreshAccessToken(getApiUrl()), Promise.resolve())'), sites: UNHELD, flag: true },
   { form: "awaited in the hold's callback, which returns nothing", file: CLIENT, source: ensure('async () => { await refreshAccessToken(getApiUrl()) }'), sites: UNHELD, flag: true },
   { form: "in a function the hold's callback never calls", file: CLIENT, source: ensure('() => { const later = () => refreshAccessToken(getApiUrl()); void later; return Promise.resolve() }'), sites: ['call of refreshAccessToken in later', ...UNHELD.slice(1)], flag: true },
-  { form: 'the callback handed as the first argument', file: CLIENT, source: client('export function ensureRefreshed() { return withSessionCookiesShared((() => refreshAccessToken(getApiUrl())) as never, async () => undefined) }\n'), sites: UNHELD, flag: true },
+  { form: 'the callback handed as the first argument', file: CLIENT, source: client('export function ensureRefreshed() { return withSessionCookiesForRefresh((() => refreshAccessToken(getApiUrl())) as never, async () => undefined) }\n'), sites: UNHELD, flag: true },
   { form: 'under the exclusive hold', file: CLIENT, source: client(`${HOLDS_EXCLUSIVE}export function ensureRefreshed() { return withSessionCookiesExclusive(1, () => refreshAccessToken(getApiUrl())) }\n`), sites: UNHELD, flag: true },
-  { form: 'the shared hold shadowed by a parameter', file: CLIENT, source: client('export function ensureRefreshed(withSessionCookiesShared: (signal: AbortSignal, run: () => Promise<void>) => Promise<void>) { return withSessionCookiesShared(signal, () => refreshAccessToken(getApiUrl())) }\n'), sites: UNHELD, flag: true },
-  { form: 'the shared hold imported from another module', file: CLIENT, source: client(ENSURE, "import { refreshAccessToken } from './refresh'\nimport { withSessionCookiesShared } from './locks'\n", ''), sites: UNHELD, flag: true },
+  { form: "the refresh's hold shadowed by a parameter", file: CLIENT, source: client('export function ensureRefreshed(withSessionCookiesForRefresh: (signal: AbortSignal, run: () => Promise<void>) => Promise<void>) { return withSessionCookiesForRefresh(signal, () => refreshAccessToken(getApiUrl())) }\n'), sites: UNHELD, flag: true },
+  { form: "the refresh's hold imported from another module", file: CLIENT, source: client(ENSURE, "import { refreshAccessToken } from './refresh'\nimport { withSessionCookiesForRefresh } from './locks'\n", ''), sites: UNHELD, flag: true },
   // Look-alikes, which pass.
   { form: 'a longer path that starts with it', file: KEEP_ALIVE, source: "export const STATUS = '/api/auth/refresh-status'", sites: [], flag: false },
   { form: 'another module named refresh', file: KEEP_ALIVE, source: "import { refresh } from '@/features/filings/api/refresh'\nexport const go = () => refresh()", sites: [], flag: false },
@@ -698,7 +729,31 @@ const REFRESH_FORMS: { form: string; source: string; file: string; sites: string
     + 'export async function refreshAccessToken(baseUrl: string): Promise<void> {\n  const url = `${baseUrl}/api/auth/refresh`\n'
     + '  setInterval(() => void axios.post(url, {}, { withCredentials: true }), 25 * 60_000)\n  await axios.post(url, {}, { withCredentials: true })\n}\n',
     sites: ['path in refreshAccessToken'], flag: false, gap: true },
-  { form: 'a shared hold that takes no lock', file: CLIENT, source: client(ENSURE, undefined, 'function withSessionCookiesShared(_signal: AbortSignal, refresh: () => Promise<void>) {\n  return refresh()\n}\n'), sites: REFRESH_SITES[CLIENT], flag: false, gap: true },
+  { form: 'a refresh hold that takes no lock', file: CLIENT, source: client(ENSURE, undefined, 'function withSessionCookiesForRefresh(_signal: AbortSignal, refresh: () => Promise<void>) {\n  return refresh()\n}\n'), sites: REFRESH_SITES[CLIENT], flag: false, gap: true },
+]
+
+// The auth API's two logouts under the posts' hold, and the client's two calls beside its declarations of both holds.
+const LOGOUTS = `${API}${EXCLUSIVE}export const logoutAllSessions = async () => withSessionCookiesExclusive(1, async () => api.post('/api/auth/logout-all'))\n`
+  + "export const logout = async () => withSessionCookiesExclusive(1, async () => api.post('/api/auth/logout'))\n"
+const CLIENT_HOLDS = `${HOLDS_REFRESH}${HOLDS_EXCLUSIVE}export function ensureRefreshed() { return withSessionCookiesForRefresh(signal, () => refreshAccessToken(getApiUrl())) }\n`
+  + 'export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>) { return withSessionCookiesExclusive(limitMs, send, stampLogin) }\n'
+const NAMESPACE = "import * as client from '@/lib/api/client'\n"
+const HOLD_FORMS: { form: string; source: string; file: string; sites: string[]; flag: boolean; gap?: true }[] = [
+  { form: "the auth API's two logouts", file: AUTH_API, source: LOGOUTS, sites: HOLD_SITES[AUTH_API], flag: false },
+  { form: "the client's two calls, beside its declarations of both holds", file: CLIENT, source: CLIENT_HOLDS, sites: HOLD_SITES[CLIENT], flag: false },
+  // Another request under the lock, or a hold taken around one.
+  { form: "a fourth caller: a password change under the posts' hold", file: AUTH_API, source: `${LOGOUTS}export const changePassword = () => withSessionCookiesExclusive(1, () => api.post('/api/auth/change-password', {}))\n`, sites: [...HOLD_SITES[AUTH_API], `call of ${EXCLUSIVE_HOLD} in changePassword`], flag: true },
+  { form: 'a caller in another module', file: 'features/fixture.ts', source: `${API}${EXCLUSIVE}export const rename = () => withSessionCookiesExclusive(1, () => api.patch('/api/users/me', {}))\n`, sites: [`call of ${EXCLUSIVE_HOLD} in rename`], flag: true },
+  { form: "a second caller of the refresh's hold", file: CLIENT, source: `${CLIENT_HOLDS}export function keepAlive() { return withSessionCookiesForRefresh(signal, () => api.get('/api/auth/me')) }\n`, sites: [...HOLD_SITES[CLIENT], `call of ${REFRESH_HOLD} in keepAlive`], flag: true },
+  { form: 'the hold renamed on import', file: 'features/fixture.ts', source: "import { withSessionCookiesExclusive as alone } from '@/lib/api/client'\nexport const go = () => alone(1, async () => undefined)\n", sites: [`renamed import of ${EXCLUSIVE_HOLD}`], flag: true },
+  { form: 'another name imported as the hold', file: 'features/fixture.ts', source: "import { withoutRefreshBeside as withSessionCookiesExclusive } from '@/lib/api/client'\nexport const go = () => withSessionCookiesExclusive(1, async () => undefined)\n", sites: [`call of ${EXCLUSIVE_HOLD} in go`, `renamed import of ${EXCLUSIVE_HOLD}`], flag: true },
+  { form: 'read off a namespace', file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => client.withSessionCookiesExclusive(1, async () => undefined)\n`, sites: [`call of ${EXCLUSIVE_HOLD} in go`], flag: true },
+  { form: 'handed on as a value', file: 'features/fixture.ts', source: `${EXCLUSIVE}export const hold = withSessionCookiesExclusive\n`, sites: [`reference to ${EXCLUSIVE_HOLD} in hold`], flag: true },
+  { form: 're-exported', file: 'lib/api/index.ts', source: "export { withSessionCookiesExclusive } from './client'\n", sites: [`export of ${EXCLUSIVE_HOLD}`], flag: true },
+  { form: 'its name as a string key', file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => client['withSessionCookiesExclusive'](1, async () => undefined)\n`, sites: [`string ${EXCLUSIVE_HOLD} in go`], flag: true },
+  { form: 'declared again in another module', file: 'features/fixture.ts', source: 'export function withSessionCookiesForRefresh() { return undefined }\n', sites: [`declaration of ${REFRESH_HOLD}`], flag: true },
+  // Out of its reach.
+  { form: "the hold's name assembled at run time", file: 'features/fixture.ts', source: `${NAMESPACE}export const go = () => (client as unknown as Record<string, (ms: number, send: () => Promise<void>) => unknown>)['withSessionCookies' + 'Exclusive'](1, async () => undefined)\n`, sites: [], flag: false, gap: true },
 ]
 
 type Counts = { outside: number; inside: number; exempt: number }
@@ -709,7 +764,7 @@ const countsOf = (reading: Reading): Record<HeldPost, Counts> => ({
   logoutAll: { outside: reading.posts.logoutAll.outside.length, inside: reading.posts.logoutAll.inside, exempt: reading.posts.logoutAll.exempt },
 })
 
-describe("both ends of the hold stay in the client: each post in its helper's send, the login's handed on to the exclusive hold, and the refresh in ensureRefreshed under the shared one", () => {
+describe("both ends of the hold stay in the client: each post in its helper's send, the login's handed on to the exclusive hold, and the refresh in ensureRefreshed under its own", () => {
   it('scores each planted form', () => {
     const postScores = [
       ...LOGIN_FORMS.map(({ form, source, file = 'features/fixture.ts', outside, inside, exempt = 0 }) =>
@@ -729,6 +784,12 @@ describe("both ends of the hold stay in the client: each post in its helper's se
       return { form, expected: { sites: [...sites].sort(), flag }, got: { sites: got, flag: flagged } }
     })
     expect(refreshScores.filter(({ expected, got }) => JSON.stringify(expected) !== JSON.stringify(got))).toEqual([])
+    const holdScores = HOLD_FORMS.map(({ form, source, file, sites, flag }) => {
+      const got = read(source, file).holds
+      const flagged = JSON.stringify(got) !== JSON.stringify([...(HOLD_SITES[file] ?? [])].sort())
+      return { form, expected: { sites: [...sites].sort(), flag }, got: { sites: got, flag: flagged } }
+    })
+    expect(holdScores.filter(({ expected, got }) => JSON.stringify(expected) !== JSON.stringify(got))).toEqual([])
   })
 
   it("finds no other in the tree, and reads each post's own send, the login's hand-off and the refresh's sites where they are", () => {
@@ -747,6 +808,8 @@ describe("both ends of the hold stay in the client: each post in its helper's se
       .toEqual({ [CLIENT]: LOGIN_SEND })
     expect(Object.fromEntries(readings.filter(({ refresh }) => refresh.length > 0).map(({ file, refresh }) => [file, refresh])))
       .toEqual(Object.fromEntries(Object.entries(REFRESH_SITES).map(([file, sites]) => [file, [...sites].sort()])))
+    expect(Object.fromEntries(readings.filter(({ holds }) => holds.length > 0).map(({ file, holds }) => [file, holds])))
+      .toEqual(Object.fromEntries(Object.entries(HOLD_SITES).map(([file, sites]) => [file, [...sites].sort()])))
   })
 
   it('holds under the exclusive hold only posts whose own 401 asks for no refresh, which would wait for the lock its caller holds', () => {
