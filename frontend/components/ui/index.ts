@@ -23,7 +23,7 @@ export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 export { MissingValue, type MissingValueProps } from './MissingValue'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
 // components/StateCard.tsx notice card; one letter from StatCard the KPI tile).
-export { GuidanceCard, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'
+export { GuidanceCard, GuidanceIconWell, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'
 // The brand device's margin and in-text marker (DESIGN.md › Graphic device): the landing's evidence row and
 // the filing page's Risks section, around passages the server located (D-044).
 export { MarkedCopy, EnRef } from './MarkedCopy'
