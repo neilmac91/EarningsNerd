@@ -148,8 +148,10 @@ export function ensureRefreshed(): Promise<void> {
     return refreshPromise.catch(() => undefined).then(() => refreshAfterWaiting(generation))
   }
   // A login under way: a refresh sent now carries the previous session's cookies, and one that answers after the login
-  // sets them over the new login's, which no generation fence stops (E29 (4)). It waits for the login's answer, and is
-  // then sent with whatever cookies are current, or not at all once an accepted login has moved the generation.
+  // sets them over the new login's, which no generation fence stops (E29 (4)). It waits for the login's answer, then
+  // goes out with whatever cookies are current: after a login that failed, the previous session's, which it renews;
+  // after one that took, the new session's (one extra rotation), for the gate clears before login() resumes, so it
+  // wakes before app/login/page.tsx accepts the login, and the generation that acceptance moves fences its replay.
   if (!refreshPromise && loginInFlight) return loginInFlight.then(() => refreshAfterWaiting(generation))
   if (!refreshPromise) {
     const abort = new AbortController()
@@ -194,8 +196,13 @@ export function refreshSettled(limitMs: number): Promise<void> {
  * for waits (ensureRefreshed): sent after that answer, it carries whatever cookies are current. The login sets the
  * gate before it waits on anything, and clears it only while it is still its own. Unlike a logout (beginLogout), the
  * session reads as active meanwhile, so a failed login's concurrent 401s renew the previous session rather than lose
- * it. What this leaves open: a refresh another tab started is out of this tab's reach; that half needs the tabs to
- * tell each other of a login.
+ * it. The cancel at the limit is E96's one-tab case, as it is before a logout: the server may already have rotated the
+ * refresh it drops, and if the login then fails, the browser keeps the token rotated away, which its next refresh
+ * replays. `send` must be a request whose own 401 starts no refresh (NO_REFRESH_PATHS holds /api/auth/login): a
+ * refresh it asked for would wait on the login it belongs to, which would never answer, and every later refresh with
+ * it. One login at a time (the login form's busy guard): a later login that answers first clears the gate while an
+ * earlier one is still out. What this leaves open: a refresh another tab started is out of this tab's reach; that half
+ * needs the tabs to tell each other of a login.
  */
 export function withoutRefreshBeside<T>(limitMs: number, send: () => Promise<T>): Promise<T> {
   const sent = refreshSettled(limitMs).then(send)
