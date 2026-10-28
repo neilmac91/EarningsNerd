@@ -1834,6 +1834,91 @@ async def test_an_oauth_callback_keeps_its_sign_in_when_a_statement_after_its_co
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["login", "refresh"])
+async def test_a_login_or_refresh_keeps_its_session_when_a_statement_after_its_commit_fails(
+    monkeypatch, tmp_path, route,
+):
+    """A password login, or a refresh, whose every statement after its commit fails: the dropped connection, the
+    pool timeout. The new refresh token has committed, so the answer must carry it and an access token for the
+    account; only the login's best-effort audit row is missing. The access token takes the stored address the
+    service read before its commit. Read from the user that commit expired, it was a statement after the commit,
+    and its failure answered 500: a login that had committed, or a rotation whose new token the client never got,
+    so its next refresh replayed the one rotated away and signed every device out (E121)."""
+    import jwt
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'session-after-commit.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="after-commit@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        _, raw_token = refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    # Once a commit follows a new refresh token's insert, every statement fails.
+    minted, failing = threading.Event(), threading.Event()
+
+    def watch(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        if failing.is_set():
+            raise OperationalError(statement, {}, Exception("the server went away"))
+        if statement.startswith("INSERT INTO refresh_tokens"):
+            minted.set()
+
+    def committed(_conn: Any) -> None:
+        if minted.is_set():
+            failing.set()
+
+    event.listen(engine, "before_cursor_execute", watch)
+    event.listen(engine, "commit", committed)
+    password = "Sup3rSecretPassw0rd!"  # gitleaks:allow - test fixture, not a credential
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (password, "the stored hash"))
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+        ) as client:
+            if route == "login":
+                response = await client.post(
+                    "/api/auth/login", json={"email": "after-commit@example.com", "password": password},
+                )
+            else:
+                client.cookies.set(settings.REFRESH_COOKIE_NAME, raw_token)
+                response = await client.post("/api/auth/refresh")
+        assert failing.is_set()
+        assert response.status_code == 200, response.text
+        access = jwt.decode(response.json()["access_token"], options={"verify_signature": False})
+        assert access["sub"] == "after-commit@example.com"
+        assert engine.pool.checkedout() == 0
+        event.remove(engine, "before_cursor_execute", watch)
+        with sessions() as db:
+            live = {token.token_hash for token in db.query(RefreshToken).filter(RefreshToken.revoked_at.is_(None))}
+            # The answer carries the new token, live; a login leaves the earlier session too, a refresh rotated it.
+            carried = refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME])
+            earlier = refresh_token_service._hash_token(raw_token)
+            assert live == ({carried, earlier} if route == "login" else {carried}) and carried != earlier
+            assert db.query(AuditLog).count() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
     whose rollback fails there (a connection that dropped after the unit's last statement) must not

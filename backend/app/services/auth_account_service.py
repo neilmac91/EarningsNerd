@@ -130,10 +130,13 @@ def record_password_login(
     *,
     user_agent: Optional[str] = None,
     ip: Optional[str] = None,
-) -> Optional[Tuple[User, str]]:
+) -> Optional[Tuple[User, str, str]]:
     """Finish a password login whose password matched ``verified_hash``: reset the account's lockout,
     stamp ``last_login_at`` and mint the session's refresh token, committed together (see
-    ``login_lockout.clear_failures``). Returns the user and the raw refresh token.
+    ``login_lockout.clear_failures``). Returns the user, the raw refresh token and the account's stored
+    address, read before the commit expires the user: the caller builds the access token and the audit row
+    from it, so no read after the commit can fail a login that committed (E121). It is the stored address,
+    not the one the request typed, whose case can differ.
 
     Under the account's users row lock (``refresh_token_service.lock_user_tokens``), and only while that
     hash is still the account's and the account active: a password reset or change revokes every
@@ -150,8 +153,9 @@ def record_password_login(
     login_lockout.clear_failures(db, email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
     _, refresh_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
+    stored_email = user.email
     db.commit()
-    return user, refresh_token
+    return user, refresh_token, stored_email
 
 
 def verify_email_token(db: Session, raw_token: str) -> User:

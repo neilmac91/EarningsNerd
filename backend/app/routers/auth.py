@@ -374,8 +374,8 @@ def issue_session(
     endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
     concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
     (body responses echo it). Pass ``email=`` when the caller read the address before a commit that
-    expired ``user``, as the OAuth callbacks do before their mint's: the access token then reads nothing
-    after that commit, so no failure there can turn a committed sign-in into an error (E121).
+    expired ``user``, as the password login, ``/refresh`` and the OAuth callbacks do: the access token then
+    reads nothing after that commit, so no failure there can turn a committed sign-in into an error (E121).
     """
     access_token = create_access_token(data={"sub": email if email is not None else user.email})
     _set_auth_cookie(response, access_token)
@@ -764,9 +764,12 @@ async def login(
                     db, user_id, verified_hash, email, user_agent=user_agent, ip=ip,
                 )
                 if login is not None:
-                    user, refresh_token = login
-                    access_token = issue_session(db, user, response, request, refresh_token=refresh_token, commit=False)
-                    audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
+                    # The address the service read before its commit: nothing after it reads the user (E121).
+                    user, refresh_token, stored_email = login
+                    access_token = issue_session(
+                        db, user, response, request, refresh_token=refresh_token, commit=False, email=stored_email,
+                    )
+                    audit_service.log_login_success(db, user_id, stored_email, ip_address=hashed_ip)
                     return access_token
             login_lockout.record_failure(db, email)  # counts against the email (existent or not)
             audit_service.log_failed_login(db, email, ip_address=hashed_ip)
@@ -807,15 +810,18 @@ async def refresh(
     user_agent, ip = request.headers.get("user-agent"), _client_ip(request)
 
     def rotate_and_issue() -> str:
-        # One unit in the thread pool, released before the route returns: the rotation's checkout,
-        # and the user read its commit expires, never wait on the event loop
-        # (lessons/ops-release-cached-filing-reads-before-yield.md).
+        # One unit in the thread pool, released before the route returns: the rotation's checkout never
+        # waits on the event loop (lessons/ops-release-cached-filing-reads-before-yield.md), and the access
+        # token takes the address read before the rotation's commit, so nothing after that commit can fail it
+        # (E121): the client would lose the rotated token, and its next refresh would replay the old one.
         try:
             # Commits the rotation; on a replay it commits the chain revocation before re-raising.
-            user, new_refresh_token = refresh_token_service.rotate_and_commit(
+            user, new_refresh_token, email = refresh_token_service.rotate_and_commit(
                 db, raw_token, user_agent=user_agent, ip=ip,
             )
-            return issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
+            return issue_session(
+                db, user, response, request, refresh_token=new_refresh_token, commit=False, email=email,
+            )
         finally:
             filing_list_service.release_request_session(db)
 
