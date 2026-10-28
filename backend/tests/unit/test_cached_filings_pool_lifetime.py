@@ -15,7 +15,8 @@ One rule, three parts in this one module:
   one, which also holds no connection while it hashes; the password reset and change, their refusals
   and a failing write included, which hold none while they hash or wait for the breached-password
   check; the connections list and unlink, their refusals and a failing unlink included, but for an
-  unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer), each
+  unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
+  OAuth starts, which save their state there), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1400,6 +1401,93 @@ async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkey
         with sessions() as db:
             assert db.query(OAuthAccount).count() == 0
             assert [(row.action, row.user_id) for row in db.query(AuditLog)] == [("oauth_unlinked", str(user_id))]
+    finally:
+        engine.dispose()
+
+
+# Each OAuth start: its method and path, its answer's status, and where its consent URL and state cookie are.
+_OAUTH_STARTS = {
+    "google_login": ("GET", "/api/auth/google", 302, "https://accounts.google.com/", "oauth_state"),
+    "google_start": ("POST", "/api/auth/google/start", 200, "https://accounts.google.com/", "oauth_state"),
+    "apple_login": ("GET", "/api/auth/apple", 302, "https://appleid.apple.com/", "apple_oauth_state"),
+    "apple_start": ("POST", "/api/auth/apple/start", 200, "https://appleid.apple.com/", "apple_oauth_state"),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", list(_OAUTH_STARTS))
+async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp_path, route):
+    """Each OAuth start saves its single-use state row in the thread pool, the route handing its session to
+    ``run_in_threadpool`` itself (E121); the helper that rate limits and builds the consent URL takes no session.
+    Nine starts on four slots make no checkout, statement or release on the loop, and the finalizer finds each
+    session's one commit done. Each answers with a consent URL for its own state and the cookie that binds it,
+    and leaves that state's row."""
+    from urllib.parse import parse_qs, urlparse
+
+    from app.config import settings
+    from app.models import OAuthState
+    from app.routers import auth
+
+    method, path, status, consent, cookie = _OAUTH_STARTS[route]
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-starts.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    OAuthState.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "google-client")
+    monkeypatch.setattr(settings, "APPLE_CLIENT_ID", "apple-client")
+    monkeypatch.setattr(auth, "OAUTH_START_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            if method == "GET":
+                return await client.get(path, follow_redirects=False)
+            return await client.post(path, json={})
+
+    try:
+        responses = await asyncio.gather(*[send() for _ in range(9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # One close per request, the finalizer's, with the save's commit already done.
+        assert [request.open_at_close for request in request_sessions] == [[False]] * 9
+        assert [response.status_code for response in responses] == [status] * 9
+        urls = [response.headers["location"] if method == "GET" else response.json()["url"] for response in responses]
+        assert all(url.startswith(consent) for url in urls)
+        states = [parse_qs(urlparse(url).query)["state"][0] for url in urls]
+        assert all(response.cookies.get(cookie) for response in responses)
+        with sessions() as db:
+            assert sorted(row.state for row in db.query(OAuthState)) == sorted(states)
+        assert len(set(states)) == 9
     finally:
         engine.dispose()
 
@@ -4351,10 +4439,11 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # thread dispatcher is a call whose last name is in ``_THREAD_DISPATCHERS``.
 #
 # Strict: the walk does not look inside a callee, so it counts each call the session is handed to,
-# though a callee may never use it on the loop. On main four such hand-offs never do: the four OAuth
-# starts' ``_start_google`` and ``_start_apple`` put their state write in the thread pool themselves
-# (since #1547). ``admin_account_service.create_free_account``, a refusal, took the session until E171's
-# invite slice dropped it.
+# though a callee may never use it on the loop. The four OAuth starts handed theirs to ``_start_google``
+# and ``_start_apple``, which put the state write in the thread pool themselves (since #1547), until
+# E121 had each start hand its session to ``run_in_threadpool`` itself.
+# ``admin_account_service.create_free_account``, a refusal, took the session until E171's invite slice
+# dropped it.
 # The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one: it reads
 # ``user.email``, which the mint's commit expired, so it refreshes the user through the request
 # session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
@@ -4413,15 +4502,7 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "apple_callback"): 6,
 
-    ("app/routers/auth.py", "apple_login"): 1,
-
-    ("app/routers/auth.py", "apple_start"): 1,
-
     ("app/routers/auth.py", "google_callback"): 6,
-
-    ("app/routers/auth.py", "google_login"): 1,
-
-    ("app/routers/auth.py", "google_start"): 1,
 
     ("app/routers/auth.py", "register"): 5,
 
