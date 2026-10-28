@@ -86,7 +86,9 @@ pytestmark = pytest.mark.usefixtures("collection_ready")
 PASSWORD = "Sup3rSecretPassw0rd"  # >=12 chars, upper+lower+digit; test fixture, not a credential  # gitleaks:allow
 NEW_PASSWORD = PASSWORD + "9z"  # gitleaks:allow
 
-VERIFIED_BODY = {"message": "Email verified. You can now use all features."}
+# The verification's answer confirms the verification and claims nothing past it (F56): what waits on a verified
+# email is checkout (closed), linking a Google or Apple sign-in to the account, and the reverse trial while it is on.
+VERIFIED_BODY = {"message": "Email verified."}
 RESEND_OPAQUE = {"message": "If that email has an unverified account, a new verification link is on its way."}
 FORGOT_OPAQUE = {"message": "If an account exists for that email, a password reset link is on its way."}
 RESET_BODY = {"message": "Password updated. You can now log in with your new password."}

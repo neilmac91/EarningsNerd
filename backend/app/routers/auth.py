@@ -855,7 +855,7 @@ async def verify_email(
                     )
                 except Exception:
                     logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
-    return {"message": "Email verified. You can now use all features."}
+    return {"message": "Email verified."}
 
 
 @router.post("/resend-verification")
