@@ -318,6 +318,10 @@ export default function AnalysisPageClient() {
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
+  // A refresh that fails keeps the last answer on screen. A sync's answer shows the history line, never periods, so its
+  // failure is a failed load; and only the picker shows periods, so only its failure says it kept them.
+  const coverageSettled = !!coverage && !coverage.syncing
+  const periodsShown = coverageSettled && !unsupported
   // The coverage line names the company as the rest of the app does, in its display casing (EDGAR serves the
   // conformed name, often in capitals); the ticker stands in until the coverage read lands.
   const companyName = formatCompanyName(coverage?.company_name) || ticker
@@ -383,8 +387,8 @@ export default function AnalysisPageClient() {
               <Notice
                 variant="error"
                 className="mb-4"
-                title={coverage ? 'Could not refresh available periods.' : 'Could not load available periods.'}
-                description={coverage ? 'Showing the last loaded periods.' : undefined}
+                title={coverageSettled ? 'Could not refresh available periods.' : 'Could not load available periods.'}
+                description={periodsShown ? 'Showing the last loaded periods.' : undefined}
                 action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
               />
             )}
@@ -394,11 +398,19 @@ export default function AnalysisPageClient() {
                 <span className="sr-only">Loading…</span>
               </div>
             ) : coverage?.syncing ? (
-              !coverageFailure.failed &&
-              <Notice
-                variant="info"
-                title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-              />
+              // The history fetch is activity, never a Notice: the Ask answer's line (DESIGN_SYSTEM.md §4 › Inline
+              // notice), its one sage pulse dot held to the first line when the words wrap, in a box as tall as
+              // text-sm's line (h-5 and the line height are both 1.25rem, so they grow together under enlarged text).
+              !coverageFailure.failed && (
+                <p role="status" className="flex items-start gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  <span aria-hidden="true" className="flex h-5 flex-none items-center">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
+                  </span>
+                </p>
+              )
             ) : unsupported ? (
               <Notice
                 variant="info"
