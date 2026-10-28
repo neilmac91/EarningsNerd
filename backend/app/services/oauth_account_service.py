@@ -370,8 +370,10 @@ def unlink_oauth_provider(db: Session, user_id: int, provider: str) -> None:
 
     Under the account's users row lock (``refresh_token_service.lock_user_tokens``), taken before the guard
     reads the password and the links: two unlinks of one account, one per provider or a double click on one,
-    run one after the other, and the second counts what the first left (READ COMMITTED). The route runs this
-    in the thread pool, where two requests on one instance interleave; on the event loop they did not (E121).
+    run one after the other, and the second counts what the first left (READ COMMITTED). The password is read
+    by a column query, not from a user the session loaded before the lock. The route runs this in the thread
+    pool, where two requests on one instance interleave; on one instance's event loop they did not, and across
+    the API's instances they always could (E121).
 
     Raises :class:`ProviderNotLinkedError` when there is no such link (an account deleted meanwhile has none)
     and :class:`LastSignInMethodError` when removing it would leave neither a password nor another link.

@@ -57,8 +57,9 @@ def lock_user_tokens(db: Session, user_id: int) -> None:
     a password reset before it reads the account it writes (``complete_password_reset_by_id``), and an unlink
     before it counts the account's sign-in methods (``oauth_account_service.unlink_oauth_provider``).
     FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of inserts that name
-    the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, and a
-    timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
+    the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, except a
+    Stripe delivery, which can hold the row across a bounded Stripe read (``watchlist_service.lock_watch_rows``
+    says so too), and a timeout would turn a moment's wait into a failed refresh. SQLite ignores it."""
     db.query(User.id).filter(User.id == user_id).with_for_update(key_share=True).first()
 
 
