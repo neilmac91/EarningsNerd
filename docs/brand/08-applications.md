@@ -472,8 +472,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   marked block, as on the filing page (D-044): the 3px brand bar and the tint on square corners, the
   filing's words upright in the ink and in Inter, since Newsreader stays inside the product; the
   Risks table sets its columns, so a long token breaks inside its cell (`pdf_branding.py`, E75). The
-  CSV keeps the same rows. A PDF link rests in its line's ink with an underline, as the page's prose
-  links rest, because print has no pointer to turn it sage, so the wordmark's "Nerd" is the only
+  CSV keeps the same rows. A Financial Highlights row with no prior prints the page's missing-value
+  token (—) in that cell in both exports, where the page draws MissingValue; a zero prints as a zero
+  and every other blank cell stays blank (`MISSING_FIGURE`, E13). A PDF link rests in its line's ink
+  with an underline, as the page's prose links rest, because print has no pointer to turn it sage, so
+  the wordmark's "Nerd" is the only
   sage text in the exports. The PDFs carry Inter's italic beside its roman
   (`backend/app/assets/fonts/Inter-Variable-Italic-latin.woff2`, the same 4.001 build and latin
   subset), since WeasyPrint never slants a face it lacks: without it the wordmark's "Nerd" and every

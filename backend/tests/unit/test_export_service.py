@@ -24,7 +24,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.analysis_export_metadata import period_label
-from app.services.export_service import SUMMARY_CLOSING_NOTE, ExportService
+from app.services.export_service import MISSING_FIGURE, SUMMARY_CLOSING_NOTE, ExportService
 from app.services.provenance_service import RISK_PROJECTION_KEY, export_raw_summary
 from app.services import summary_sections
 
@@ -547,6 +547,91 @@ class TestFiledFigure:
         block = summary_sections._metrics_block([{"metric": "Revenue", "current_period": "$9.89B",
                                                   "commentary": "Volumes rose.", "commentary_withheld": "figure_replaced"}])
         assert block.rows[0][-1] == "Volumes rose."
+
+
+class TestMissingPrior:
+    """A Financial Highlights row with no prior prints the page's mark for a missing figure in both exports (MissingValue's
+    token, E13), so a missing prior never reads as an empty cell. A zero is a figure and a written prior ("Not disclosed")
+    prints as written; no other cell changes, the page's own projection keeps its blank, and no prior is found for the
+    row."""
+
+    ROWS = [
+        {"metric": "Omitted", "current_period": "$5.0B"},
+        {"metric": "Null", "current_period": "$5.0B", "prior_period": None},
+        {"metric": "Empty", "current_period": "$5.0B", "prior_period": ""},
+        {"metric": "Spaces", "current_period": "$5.0B", "prior_period": "   "},
+        {"metric": "Flag", "current_period": "$5.0B", "prior_period": False},
+        {"metric": "Camel", "current_period": "$5.0B", "priorPeriod": "$4.0B"},
+        {"metric": "Zero", "current_period": "$5.0B", "prior_period": 0},
+        {"metric": "Zero float", "current_period": 0.0, "prior_period": 0.0},
+        {"metric": "Zero text", "current_period": "$5.0B", "prior_period": "$0"},
+        {"metric": "Undisclosed", "current_period": "$5.0B", "prior_period": "Not disclosed"},
+        {"metric": "Degraded", "current_period": "$5.0B", "prior_period": "—"},
+        {"metric": "No current", "current_period": "", "prior_period": "$4.0B"},
+    ]
+    PRIORS = {"Omitted": "—", "Null": "—", "Empty": "—", "Spaces": "—", "Flag": "—", "Camel": "$4.0B", "Zero": "0",
+              "Zero float": "0.0", "Zero text": "$0", "Undisclosed": "Not disclosed", "Degraded": "—",
+              "No current": "$4.0B"}
+
+    def test_both_exports_print_the_dash_for_a_missing_prior_and_nothing_else(self, service):
+        summary, filing = _make_summary_and_filing({"financial_highlights": {"table": [dict(row) for row in self.ROWS]}})
+        [block] = [block for section in summary_sections.render_sections(export_raw_summary(summary, filing))
+                   for block in section.blocks if block.kind == "metrics"]
+        csv_rows = {row[0]: row for row in _csv_rows(service.generate_csv(summary, filing))
+                    if row and row[0] in self.PRIORS}
+        html = service.generate_pdf_html(summary, filing)
+
+        for projected in block.rows:
+            metric, printed = projected[0], csv_rows[projected[0]]
+            # Only the prior moves, and only a blank one: the current, the change and the takeaway print as projected.
+            assert printed == [*projected[:2], self.PRIORS[metric], *projected[3:]], metric
+            cells = "".join(f'<td class="num">{escape(cell)}</td>' for cell in printed[1:4])
+            assert f"<tr><td>{escape(metric)}</td>{cells}<td>{escape(printed[4])}</td></tr>" in html, metric
+        assert csv_rows["No current"][1] == "" and csv_rows["Omitted"][4] == ""
+        # Only the Financial Highlights block takes it: any other table's blank cell stays blank, whatever its header.
+        table = summary_sections.Block("table", headers=["Item", "Prior Period"], rows=[["Goodwill", ""]])
+        assert "<tr><td>Goodwill</td><td></td></tr>" in service._render_block_html(table)
+        # The page keeps its own blank (MissingValue draws it there) and its typed rows: the dash is the exports'.
+        assert {row[0]: row[2] for row in block.rows if not row[2]} == {
+            "Omitted": "", "Null": "", "Empty": "", "Spaces": "", "Flag": ""}
+        assert [row.get("prior_period", "absent") for row in block.metric_rows][:7] == [
+            "absent", None, "", "   ", False, "absent", 0]
+
+    def test_a_figure_of_zero_is_a_figure(self):
+        # Read as `a or b`, a prior or current of 0 fell through to the camelCase alias and the cell printed blank.
+        block = summary_sections._metrics_block([
+            {"metric": "Zero", "current_period": 0, "prior_period": 0.0},
+            {"metric": "Alias", "current_period": "", "currentPeriod": "$1.0B", "prior_period": None, "priorPeriod": 0},
+        ])
+        assert [row[1:3] for row in block.rows] == [["0", "0.0"], ["$1.0B", "0"]]
+
+    def test_no_prior_is_found_for_a_row_without_one(self, service, monkeypatch):
+        # The filing's XBRL holds the prior year, but the row stated none: the exports print the dash, not the filed
+        # figure, and no change is computed from it.
+        from app.services.edgar.compat import xbrl_service
+
+        own_xbrl = object()
+        monkeypatch.setattr(xbrl_service, "extract_standardized_metrics",
+                            lambda data: TestFiledFigure.XBRL if data is own_xbrl else pytest.fail("foreign XBRL"))
+        summary, filing = _make_summary_and_filing({"financial_highlights": {"table": [{
+            "metric": "Operating income", "current_period": "$133,050M", "prior_period": "",
+            "commentary": "Operating income was the largest in the company's history.",
+        }]}})
+        filing.xbrl_data = own_xbrl
+        row = next(r for r in _csv_rows(service.generate_csv(summary, filing)) if r and r[0] == "Operating income")
+        html = service.generate_pdf_html(summary, filing)
+        assert row[2:4] == ["—", "—"]
+        assert '<td class="num">—</td><td class="num">—</td>' in html
+        assert "123,216" not in html and not any("123,216" in cell for cell in row)
+
+    def test_the_dash_is_the_pages_token(self):
+        # MissingValue draws the token the page shows for a value it does not have, and metricValue reads the token alone
+        # as missing (a degraded summary writes it), so the exports print the page's mark, never a second one.
+        frontend = Path(__file__).resolve().parents[3] / "frontend"
+        drawn = re.findall(r'<span aria-hidden="true">([^<]*)</span>',
+                           (frontend / "components/ui/MissingValue.tsx").read_text())
+        assert drawn == [MISSING_FIGURE]
+        assert "value.trim() === '—'" in (frontend / "features/summaries/lib/metricValue.ts").read_text()
 
 
 class TestRisksParity:

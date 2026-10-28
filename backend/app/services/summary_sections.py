@@ -103,6 +103,13 @@ def _clean(value: Any) -> str:
     return ""
 
 
+def _cell(row: dict, key: str, alias: str) -> str:
+    """``row[key]``, else ``row[alias]``, as one clean cell. A figure of 0 is a value: read as ``a or b``, it fell
+    through to the alias and the cell printed blank, where the exports now print a missing figure's dash (E13)."""
+    value = row.get(key)
+    return _clean(value if value or type(value) in (int, float) else row.get(alias))
+
+
 def _str_list(value: Any) -> List[str]:
     """Normalize a list-ish value into a list of clean, non-empty strings."""
     if isinstance(value, str):
@@ -292,8 +299,8 @@ def _metrics_block(table: Any, *, exact_delta_owned: bool = False) -> Optional[B
         rows.append(
             [
                 metric,
-                _clean(row.get("current_period") or row.get("currentPeriod")),
-                _clean(row.get("prior_period") or row.get("priorPeriod")),
+                _cell(row, "current_period", "currentPeriod"),
+                _cell(row, "prior_period", "priorPeriod"),
                 change_cell,
                 takeaway,
             ]

@@ -73,6 +73,21 @@ def _num(numeric: list[bool], column: int) -> str:
     return ' class="num"' if column < len(numeric) and numeric[column] else ""
 
 
+# The page's mark for a figure it does not have (MissingValue's token, which it reads as "unavailable"). A Financial
+# Highlights row with no prior prints it in both exports, as the page does, so a missing prior never reads as an empty
+# cell (E13); a zero prints as a zero, and every other blank cell stays blank.
+MISSING_FIGURE = "—"
+
+
+def _export_rows(block: Block) -> list[list[str]]:
+    """A block's rows as both exports print them: a metrics row's blank prior takes MISSING_FIGURE."""
+    if block.kind != "metrics" or "Prior Period" not in block.headers:
+        return block.rows
+    prior = block.headers.index("Prior Period")
+    return [[MISSING_FIGURE if column == prior and not cell.strip() else cell for column, cell in enumerate(row)]
+            for row in block.rows]
+
+
 def original_document_url(filing: Filing) -> str:
     """The filing's original on SEC.gov, as the filing page's "Original on SEC.gov" opens it
     (frontend/features/filings/lib/originalDocumentUrl.ts, EN-01): the primary document when it is an
@@ -179,7 +194,7 @@ class ExportService:
                     if located[r] and c == len(row) - 1 else f"<td{_num(numeric, c)}>{escape(cell)}</td>"
                     for c, cell in enumerate(row)
                 ) + "</tr>"
-                for r, row in enumerate(block.rows)
+                for r, row in enumerate(_export_rows(block))
             )
             # The filing's own words (the source-owned Risks excerpts) set their columns (pdf_branding's
             # table.excerpts), so a long token in them breaks inside its cell rather than widen the table.
@@ -255,7 +270,7 @@ class ExportService:
             elif block.kind in ("table", "metrics"):
                 if block.headers:
                     writer.writerow(block.headers)
-                for row in block.rows:
+                for row in _export_rows(block):
                     writer.writerow(row)
             elif block.kind == "callout":
                 if block.text:
