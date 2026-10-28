@@ -50,7 +50,8 @@ export function hasActiveSession(): boolean {
 }
 
 // JS request ownership only; cookies and /me remain the authentication source. This fences
-// late in-tab responses, not concurrent Set-Cookie responses or changes in another tab.
+// late in-tab responses, not concurrent Set-Cookie responses. A change in another tab moves it only
+// once this tab's /me names another reader (accountQueryState's subscribeAccountIdentityChange).
 let sessionGeneration = 0
 let lastExplicitTransitionGeneration = 0
 const lossListeners = new Set<(generation: number) => void>()

@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, MutationObserver, useQuery } from '@tanstack/react-query'
 import type { InternalAxiosRequestConfig } from 'axios'
+import type { ReactNode } from 'react'
+import { toast } from 'sonner'
 import api from '@/lib/api/client'
 import { getCurrentUser, getCurrentUserSafe, login, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
-import { ACCOUNT_QUERY_FAMILIES, logoutAndResetAccount, resetAccountQueries, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
+import { ACCOUNT_QUERY_FAMILIES, LOGOUT_FAILED_MESSAGE, logoutAndResetAccount, resetAccountQueries, subscribeAccountIdentityChange, subscribeAccountQueryReset, acceptLoginAndResetAccount } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getSessionGeneration, getExplicitSessionGeneration, assertExplicitSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { queryKeys } from '@/lib/queryKeys'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -416,6 +418,241 @@ describe('account snapshots follow the resolved identity', () => {
     expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
     expect(shared.filter((key) => client.getQueryData(key) === undefined)).toEqual([])
   })
+
+  it('a logout in this tab leaves a mounted read whose placeholder is its previous data with none of the reader’s', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.whatChanged.byViewer(7, 1), { owner: 1 })
+    const renders: string[] = []
+    // As useWhatChanged reads its report where no server seed stands in: keyed by the reader, the anonymous key once
+    // the reader is gone, with the previous key's data as the placeholder.
+    function Report() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: report } = useQuery({
+        queryKey: queryKeys.whatChanged.byViewer(7, user?.id ?? null),
+        queryFn: () => new Promise<{ owner: number }>(() => {}),
+        placeholderData: (previous) => previous,
+      })
+      const shown = `${user === null ? 'guest' : user?.id}:${JSON.stringify(report ?? null)}`
+      renders.push(shown)
+      return <output>{shown}</output>
+    }
+    render(<QueryClientProvider client={client}><Report /></QueryClientProvider>)
+    expect(screen.getByRole('status')).toHaveTextContent('1:{"owner":1}')
+
+    const before = renders.length
+    act(() => resetAccountQueries(client))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/^guest:/))
+    expect(screen.getByRole('status')).toHaveTextContent('guest:null')
+    expect(renders.slice(before).filter((shown) => shown.includes('"owner":1'))).toEqual([])
+  })
+
+  // The admin pages' shape: a layout that reads the reader renders the page as `children`, an element its own re-render
+  // does not re-render, so only the reset itself reaches the page's read.
+  it('after a failed logout, a family read handed in as children shows its loading state, then the restored reader’s own data', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.adminInvites(), [{ owner: 1, read: 'before' }])
+    markSessionActive()
+    api.defaults.adapter = async (config) => {
+      if (config.url !== '/api/auth/me') throw new Error('offline logout')
+      return response(config, makeUser(1))
+    }
+    const renders: string[] = []
+    function Layout({ children }: { children: ReactNode }) {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      return user ? <>{children}</> : null
+    }
+    function Invites() {
+      const { data, status } = useQuery({ queryKey: queryKeys.adminInvites(), queryFn: async () => [{ owner: 1, read: 'after' }] })
+      const shown = `${status}:${JSON.stringify(data ?? null)}`
+      renders.push(shown)
+      return <output>{shown}</output>
+    }
+    render(<QueryClientProvider client={client}><Layout><Invites /></Layout></QueryClientProvider>)
+    expect(screen.getByRole('status')).toHaveTextContent('success:[{"owner":1,"read":"before"}]')
+
+    const before = renders.length
+    await act(async () => { await logoutAndResetAccount(client, logout).catch(() => undefined) })
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('success:[{"owner":1,"read":"after"}]'))
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(1))
+    const after = renders.slice(before)
+    expect(after[0]).toBe('pending:null')
+    expect(after.filter((shown) => shown !== 'pending:null' && !shown.includes('"owner":1'))).toEqual([])
+  })
+})
+
+// A login in another tab reaches this one only through /me (the Header re-reads it on focus): no reset runs here.
+describe('a /me that names another reader drops the previous reader’s families (subscribeAccountIdentityChange)', () => {
+  /** Reader 1 shown, a snapshot under every account family, and one shared entry. */
+  const seedReaderOne = (client: QueryClient) => {
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    for (const queryKey of ACCOUNT_QUERY_FAMILIES) client.setQueryData(queryKey, { owner: 1 })
+    client.setQueryData(queryKeys.company('AAPL'), { owner: 1 })
+  }
+  /** Every entry under an account family that holds data. */
+  const familyData = (client: QueryClient) => ACCOUNT_QUERY_FAMILIES
+    .flatMap((queryKey) => client.getQueryCache().findAll({ queryKey }))
+    .filter((query) => query.state.data !== undefined)
+    .map((query) => query.queryHash)
+  const answerMe = (reader: CurrentUser | null) => {
+    api.defaults.adapter = async (config) => {
+      if (reader) return response(config, reader)
+      throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
+    }
+  }
+  const readMe = (client: QueryClient) => client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+
+  it('a /me naming another reader removes every account family before the new reader renders, and moves the generation passively', async () => {
+    const client = newClient()
+    seedReaderOne(client)
+    disposers.push(subscribeAccountIdentityChange(client))
+    const generation = getSessionGeneration()
+    const explicit = getExplicitSessionGeneration()
+    const renders: string[] = []
+    function Probe() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: list } = useQuery({ queryKey: queryKeys.watchlist(), queryFn: () => new Promise<never>(() => {}), enabled: !!user })
+      renders.push(`${user?.id}:${JSON.stringify(list ?? null)}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Probe /></QueryClientProvider>)
+    expect(renders[renders.length - 1]).toBe('1:{"owner":1}')
+
+    answerMe(makeUser(2))
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await waitFor(() => expect(renders.some((shown) => shown.startsWith('2:'))).toBe(true))
+    expect(renders.filter((shown) => shown.startsWith('2:') && shown !== '2:null')).toEqual([])
+    expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
+    // The Probe's reader-2 render builds the watchlist entry again, to read it for reader 2: it holds nothing.
+    expect(familyData(client)).toEqual([])
+    expect(client.getQueryData(queryKeys.company('AAPL'))).toEqual({ owner: 1 })
+    expect(getSessionGeneration()).toBe(generation + 1)
+    // Passively: a login this tab has under way keeps its explicit ownership.
+    expect(getExplicitSessionGeneration()).toBe(explicit)
+  })
+
+  it('a mounted read whose placeholder is its previous data shows none of the previous reader’s under the new one', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    client.setQueryData(queryKeys.whatChanged.byViewer(7, 1), { owner: 1 })
+    disposers.push(subscribeAccountIdentityChange(client))
+    const renders: string[] = []
+    // As useWhatChanged reads its report: keyed by the reader, with the previous key's data as the placeholder.
+    function Report() {
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: report } = useQuery({
+        queryKey: queryKeys.whatChanged.byViewer(7, user?.id ?? null),
+        queryFn: () => new Promise<{ owner: number }>(() => {}),
+        placeholderData: (previous) => previous,
+        enabled: !!user,
+      })
+      const shown = `${user?.id}:${JSON.stringify(report ?? null)}`
+      renders.push(shown)
+      return <output>{shown}</output>
+    }
+    render(<QueryClientProvider client={client}><Report /></QueryClientProvider>)
+    expect(screen.getByRole('status')).toHaveTextContent('1:{"owner":1}')
+
+    answerMe(makeUser(2))
+    await act(async () => { await client.refetchQueries({ queryKey: queryKeys.currentUser() }) })
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/^2:/))
+    expect(screen.getByRole('status')).toHaveTextContent('2:null')
+    expect(renders.filter((shown) => shown.startsWith('2:') && shown !== '2:null')).toEqual([])
+  })
+
+  it('a /me for the same reader, its other fields changed, keeps every family and the generation', async () => {
+    const client = newClient()
+    seedReaderOne(client)
+    disposers.push(subscribeAccountIdentityChange(client))
+    const generation = getSessionGeneration()
+    answerMe({ ...makeUser(1), full_name: 'Renamed', email: 'renamed@example.test', is_pro: true })
+    await readMe(client)
+    expect(familyData(client)).toHaveLength(ACCOUNT_QUERY_FAMILIES.length)
+    expect(getSessionGeneration()).toBe(generation)
+  })
+
+  it.each([
+    ['answers no reader (another tab logged out)', async (client: QueryClient) => {
+      answerMe(null)
+      expect(await readMe(client)).toBeNull()
+    }],
+    ['entry is removed (clear(), garbage collection)', async (client: QueryClient) => {
+      client.removeQueries({ queryKey: queryKeys.currentUser() })
+    }],
+  ])('reader 1 shown, then the /me %s, then a /me naming reader 2: every family is dropped', async (_between, between) => {
+    const client = newClient()
+    seedReaderOne(client)
+    disposers.push(subscribeAccountIdentityChange(client))
+    const generation = getSessionGeneration()
+    await between(client)
+    // Nothing has named another reader yet.
+    expect(familyData(client)).toHaveLength(ACCOUNT_QUERY_FAMILIES.length)
+    expect(getSessionGeneration()).toBe(generation)
+    answerMe(makeUser(2))
+    await readMe(client)
+    expect(familyData(client)).toEqual([])
+    expect(getSessionGeneration()).toBe(generation + 1)
+  })
+
+  it('a /me that answers no reader, then the same reader again, keeps every family', async () => {
+    const client = newClient()
+    seedReaderOne(client)
+    disposers.push(subscribeAccountIdentityChange(client))
+    const generation = getSessionGeneration()
+    answerMe(null)
+    await readMe(client)
+    answerMe(makeUser(1))
+    await readMe(client)
+    expect(familyData(client)).toHaveLength(ACCOUNT_QUERY_FAMILIES.length)
+    expect(getSessionGeneration()).toBe(generation)
+  })
+
+  it.each([
+    ['the reader it restored', 1, 1, [{ owner: 1 }], true],
+    ['another reader (another tab’s login)', 2, 2, undefined, false],
+  ] as const)('a failed logout whose /me names %s compares it with that restored reader, and reports to that reader alone', async (_who, readerId, advances, kept, reported) => {
+    const failed = vi.spyOn(toast, 'error')
+    const continued = vi.fn()
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountIdentityChange(client))
+    markSessionActive()
+    const me = deferred<unknown>()
+    let meRead = false
+    api.defaults.adapter = async (config) => {
+      if (config.url !== '/api/auth/me') throw new Error('offline logout')
+      meRead = true
+      return response(config, await me.promise)
+    }
+    const generation = getSessionGeneration()
+    const settled = logoutAndResetAccount(client, logout, continued).catch((error: Error) => error.message)
+    await waitFor(() => expect(meRead).toBe(true))
+    // While /me is read, a family refetches under the reader the logout restored.
+    client.setQueryData(queryKeys.watchlist(), [{ owner: 1 }])
+    me.resolve(makeUser(readerId))
+    expect(await settled).toBe('offline logout')
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual(kept)
+    // The reset's own advance, and the listener's when /me names another reader.
+    expect(getSessionGeneration()).toBe(generation + advances)
+    // Another reader owns the tab now: the logout is superseded, and that reader hears nothing of it.
+    expect(failed.mock.calls).toEqual(reported ? [[LOGOUT_FAILED_MESSAGE]] : [])
+    expect(continued.mock.calls).toEqual(reported ? [[false]] : [])
+  })
+
+  it('the identity a transition in this tab publishes is not read as another change', async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountIdentityChange(client))
+    const generation = getSessionGeneration()
+    // The reset's null is this tab's own write: it clears the reader the listener compares with.
+    acceptLoginAndResetAccount(client, getExplicitSessionGeneration())
+    client.setQueryData(queryKeys.watchlist(), [{ owner: 2 }])
+    answerMe(makeUser(2))
+    await readMe(client)
+    expect(getSessionGeneration()).toBe(generation + 1)
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual([{ owner: 2 }])
+  })
 })
 
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -623,7 +860,18 @@ describe('account query ownership structural gate', () => {
     for (const file of ['features/analysis/components/AnalysisPageClient.tsx', 'features/filings/components/copilot/AskCopilotRail.tsx']) {
       expect(readFileSync(path.join(frontend, file), 'utf8')).toContain('invalidateQueries({ queryKey: queryKeys.usage.all() })')
     }
-    expect(readFileSync(path.join(frontend, 'app/providers.tsx'), 'utf8')).toContain('subscribeAccountQueryReset(queryClient)')
+    // Providers subscribes the app's client to both account listeners, each in an effect that returns its unsubscribe. Read
+    // from the parsed source, so a call left in a comment does not count.
+    const providersFile = path.join(frontend, 'app/providers.tsx')
+    const providers = ts.createSourceFile(providersFile, readFileSync(providersFile, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+    const component = providers.statements.find((statement): statement is ts.FunctionDeclaration => ts.isFunctionDeclaration(statement) && statement.name?.text === 'Providers')
+    const subscribed = (component?.body?.statements ?? []).flatMap((statement) => {
+      const call = ts.isExpressionStatement(statement) ? statement.expression : undefined
+      if (!call || !ts.isCallExpression(call) || call.expression.getText(providers) !== 'useEffect') return []
+      const effect = call.arguments[0]
+      return effect && ts.isArrowFunction(effect) && !ts.isBlock(effect.body) ? [effect.body.getText(providers)] : []
+    })
+    expect(subscribed).toEqual(['subscribeAccountQueryReset(queryClient)', 'subscribeAccountIdentityChange(queryClient)'])
     expect(readFileSync(path.join(frontend, 'lib/api/client.ts'), 'utf8')).not.toContain('QueryClient')
   })
 })

@@ -6,7 +6,8 @@ import type { ReactNode } from 'react'
 import api from '@/lib/api/client'
 import { getCurrentUserSafe, logout, type CurrentUser } from '@/features/auth/api/auth-api'
 import {
-  LOGOUT_FAILED_MESSAGE, SESSION_READ_LIMIT_MS, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountQueryReset,
+  LOGOUT_FAILED_MESSAGE, SESSION_READ_LIMIT_MS, acceptLoginAndResetAccount, logoutAndResetAccount, subscribeAccountIdentityChange,
+  subscribeAccountQueryReset,
 } from '@/features/auth/lib/accountQueryState'
 import { advanceSessionGeneration, clearSessionActive, getExplicitSessionGeneration, getSessionGeneration, hasActiveSession, markSessionActive, notifySessionLost } from '@/lib/api/session'
 import { refreshAccessToken } from '@/lib/api/refresh'
@@ -33,8 +34,8 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  *
  * The requests run through the real API client and auth API, with the adapter answering, so the interceptor's
  * statuses, the session flag and the generation fences are the ones the app runs; the refresh is the one stub, and the
- * client is built as Providers builds the app's: its defaults (a read stays fresh for a minute) and its reset of a
- * lost session.
+ * client is built as Providers builds the app's: its defaults (a read stays fresh for a minute), its reset of a
+ * lost session, and its drop of the account families when /me names another reader.
  */
 
 const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }))
@@ -112,11 +113,13 @@ const logoutPosts = () => server.requests.filter((request) => request === 'post 
 const originalAdapter = api.defaults.adapter
 const clients: QueryClient[] = []
 const disposers: (() => void)[] = []
-/** A client as Providers builds the app's: its defaults, and the account reset when a request confirms the session lost. */
+/** A client as Providers builds the app's: its defaults, the account reset when a request confirms the session lost, and
+    the families' drop when /me names another reader. */
 const newClient = () => {
   const client = new QueryClient({ defaultOptions: QUERY_CLIENT_DEFAULTS })
   clients.push(client)
   disposers.push(subscribeAccountQueryReset(client))
+  disposers.push(subscribeAccountIdentityChange(client))
   return client
 }
 

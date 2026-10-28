@@ -1,4 +1,4 @@
-import type { QueryClient, QueryState } from '@tanstack/react-query'
+import { hashKey, type QueryClient, type QueryState } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getCurrentUserSafe, type CurrentUser } from '@/features/auth/api/auth-api'
 import { ApiError, cancelRefresh } from '@/lib/api/client'
@@ -37,6 +37,21 @@ export const ACCOUNT_QUERY_FAMILIES = [
   queryKeys.feedback.all(),
 ] as const
 
+/** Empty every account family's queries, then remove them: the one removal both account changes share (the reset in
+ * this tab, a /me naming another reader). Removing a query does not tell its observers, and a mounted observer keeps
+ * the removed query as the last one that held data, which a `placeholderData: (previous) => …` hands to the next key it
+ * reads (the anonymous one after a logout, the new reader's after a login). reset() puts the query back to its initial
+ * state first, which tells its observers; it destroys the query too, cancelling a fetch still running. */
+function emptyAndRemoveAccountFamilies(queryClient: QueryClient): void {
+  const cache = queryClient.getQueryCache()
+  for (const queryKey of ACCOUNT_QUERY_FAMILIES) {
+    for (const query of cache.findAll({ queryKey })) {
+      query.reset()
+      cache.remove(query)
+    }
+  }
+}
+
 /** Drop identity-derived snapshots before a replacement identity can be accepted.
  * cancelQueries starts cancellation synchronously. No post-await cleanup may erase the next
  * account. Do not clear the active-session marker: successful login already established it.
@@ -52,12 +67,48 @@ export function resetAccountQueries(
   for (const queryKey of ACCOUNT_QUERY_FAMILIES) void queryClient.cancelQueries({ queryKey })
   queryClient.setQueryData(queryKeys.currentUser(), null)
   // Another account in this tab starts from its own reads.
-  for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
+  emptyAndRemoveAccountFamilies(queryClient)
 }
 
 export function subscribeAccountQueryReset(queryClient: QueryClient): () => void {
   return subscribeSessionLoss((generation) => {
     if (isSessionGenerationCurrent(generation)) resetAccountQueries(queryClient, generation, 'session-loss')
+  })
+}
+
+const CURRENT_USER_HASH = hashKey(queryKeys.currentUser())
+
+/** A fetched /me that names another reader than the one this tab last confirmed empties and removes every account
+ * family, and moves the session generation, passively, so a login this tab has under way keeps its explicit
+ * ownership while the previous reader's late mutation answers fail their fences. That is how a login in another tab
+ * reaches this one: through /me alone (the Header re-reads it on focus), with no reset here. A QueryCache listener runs
+ * inside the dispatch that stores the answer, before observers hear of it (a later tick). Removing a query does not
+ * tell its observers, and a mounted observer keeps the removed query as the last one that held data, which a
+ * `placeholderData: (previous) => …` hands to the new reader's key; so each family query is first put back to its
+ * initial state, which tells its observers and cancels its fetch, then removed. No render shows the new reader with the
+ * previous one's data, as data or as a placeholder. `owner` is the reader this tab last confirmed: a fetched /me that named
+ * one, or this tab's own write (the reset's null clears it, restoreIdentity puts the reset's reader back). A fetched
+ * null leaves it, as do a cancelled read's revert and the entry's removal (clear(), garbage collection): another tab's
+ * logout reads here as no reader, and the login that follows must still be compared with the reader the families
+ * hold. A /me for the same reader changes nothing, whatever its other fields. A /me that names no reader resets
+ * nothing (E29).
+ */
+export function subscribeAccountIdentityChange(queryClient: QueryClient): () => void {
+  let owner = queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.query.queryHash !== CURRENT_USER_HASH || event.action.type !== 'success') return
+    const reader = (event.action.data as CurrentUser | null | undefined)?.id
+    if (event.action.manual) {
+      owner = reader
+      return
+    }
+    if (reader === undefined) return
+    const previous = owner
+    owner = reader
+    if (previous === undefined || previous === reader) return
+    advanceSessionGeneration('session-loss')
+    // Its reset() destroys each query first, which cancels its fetch, so no cancelQueries runs before it.
+    emptyAndRemoveAccountFamilies(queryClient)
   })
 }
 
@@ -135,7 +186,8 @@ let logoutUnderWay: LogoutUnderWay | null = null
  * stays where it is, and the logout rejects with the request's error. The session flag goes back to what the logout
  * found for the read, since the request clears it (auth-api's logout) and a lapsed access cookie then reads as a
  * guest: /me 401s, and only the flag lets that 401 renew the session from the refresh cookie. A login accepted
- * meanwhile owns the tab, and nothing follows for this logout but its error. A call while a logout of the same
+ * meanwhile owns the tab, and nothing follows for this logout but its error; so does another reader the read of /me
+ * names (a login in another tab). A call while a logout of the same
  * session runs (a second press) joins it (logoutUnderWay): it settles as that logout does, and neither its request
  * nor its callback runs.
  */
@@ -184,6 +236,11 @@ async function settleLogout(
     if (sessionWasActive) markSessionActive()
     const read = await readSession(queryClient)
     if (!isExplicitSessionGenerationCurrent(reset)) throw failure.error
+    // Another reader, whom /me names now (a login in another tab), owns the tab: this logout is superseded, as by a
+    // login accepted here, so the reader shown is not told that a logout they did not ask for failed.
+    if (read === 'user' && shown?.data && queryClient.getQueryData<CurrentUser | null>(queryKeys.currentUser())?.id !== shown.data.id) {
+      throw failure.error
+    }
     // No user: logged out, flag and all. A user: /me's answer has marked the flag. A read that failed leaves the flag
     // as the logout found it (only a lost session clears it, and that moves the session generation), and the identity
     // goes back as the reset found it.

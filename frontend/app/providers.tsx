@@ -8,7 +8,7 @@ import { ThemeProvider, useTheme } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
-import { subscribeAccountQueryReset } from '@/features/auth/lib/accountQueryState'
+import { subscribeAccountIdentityChange, subscribeAccountQueryReset } from '@/features/auth/lib/accountQueryState'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
 
 // Sets `is_pro`/`plan` PostHog person properties app-wide once the user + subscription resolve
@@ -81,6 +81,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: QUERY_CLIENT_DEFAULTS }))
 
   useEffect(() => subscribeAccountQueryReset(queryClient), [queryClient])
+  // A /me that names another reader (a login in another tab) drops the previous reader's account families.
+  useEffect(() => subscribeAccountIdentityChange(queryClient), [queryClient])
 
   return (
     <IconContext.Provider value={ICON_DEFAULTS}>
