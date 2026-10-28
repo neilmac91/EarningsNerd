@@ -151,7 +151,7 @@ const ROUTES: Route[] = [
     },
     ready: async (p) => {
       await expect(p.getByRole('heading', { level: 2, name: 'Generating the summary' })).toBeVisible()
-      await expect(p.getByText('Writing the summary', { exact: true })).toBeVisible()
+      await expect(p.getByText('Writing the summary and checking its figures against the filing', { exact: true })).toBeVisible()
       // The status line crossfades in on mount (animate-fadeIn): the census reads the header once that has finished, never mid-opacity.
       await settled(p.getByRole('heading', { level: 2, name: 'Generating the summary' }).locator('xpath=..'))
     },
@@ -394,7 +394,7 @@ test.describe('main routes at 1440x900, light theme', () => {
       // Anti-vacuity: the homepage keeps tertiary labels inside its sample cards (on panel and white), and
       // the in-flight card its pending step labels.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name}`).toBeGreaterThan(10)
-      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary')
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name}`).toContain('Writing the summary and checking its figures against the filing')
       // Soft: one run reports every floor a route misses.
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name}`).toEqual([])
 
@@ -486,7 +486,7 @@ test.describe('main routes at 1440x900, dark theme', () => {
       const census = await inkCensus(page, TERTIARY_INK_DARK, route.foldOpacity)
       // Anti-vacuity, as in light: the homepage's sample cards and the in-flight card's pending steps.
       if (route.name === 'home') expect(census.length, `tertiary text found on ${route.name} in dark`).toBeGreaterThan(10)
-      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name} in dark`).toContain('Writing the summary')
+      if (route.foldOpacity) expect(census.map((c) => c.text), `pending steps measured on ${route.name} in dark`).toContain('Writing the summary and checking its figures against the filing')
       expect.soft(census.filter((c) => c.ratio < 4.5), `tertiary text under 4.5:1 on ${route.name} in dark`).toEqual([])
 
       if (route.name === 'company') {

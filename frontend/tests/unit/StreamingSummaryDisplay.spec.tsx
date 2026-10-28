@@ -62,12 +62,12 @@ describe('StreamingSummaryDisplay live region', () => {
   })
 
   it('changes only on stage transitions, not on progress ticks', async () => {
-    const { rerender } = renderAt('analyzing', 5)
+    const { rerender } = renderAt('parsing', 5)
     await act(async () => {})
-    const live = () => screen.getByText(/^(Checking figures against the filing’s data|Writing the summary)\.$/)
+    const live = () => screen.getByText(/^(Reading the statements, risk factors and MD&A|Writing the summary and checking its figures against the filing)\.$/)
     const before = live().textContent
     rerender(
-      <StreamingSummaryDisplay streamingText="" stage="analyzing" message="" filing={filing} elapsedSeconds={20} />,
+      <StreamingSummaryDisplay streamingText="" stage="parsing" message="" filing={filing} elapsedSeconds={20} />,
     )
     await act(async () => {})
     expect(live().textContent).toBe(before)
@@ -75,7 +75,22 @@ describe('StreamingSummaryDisplay live region', () => {
       <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
     )
     await act(async () => {})
-    expect(live()).toHaveTextContent('Writing the summary.')
+    expect(live()).toHaveTextContent('Writing the summary and checking its figures against the filing.')
+  })
+
+  // The backend's analyzing stage passes in milliseconds, and the figures are checked while the summary is written
+  // (under summarizing), so one step says both: the region announces it once, as analyzing starts, and the stage
+  // change to summarizing says nothing new (E196 (6)).
+  it('announces the writing step once across analyzing and summarizing, where the figure check is part of it', async () => {
+    const { rerender } = renderAt('analyzing', 5)
+    await act(async () => {})
+    const live = screen.getByText('Writing the summary and checking its figures against the filing.')
+    expect(live).toHaveAttribute('aria-live', 'polite')
+    rerender(
+      <StreamingSummaryDisplay streamingText="" stage="summarizing" message="" filing={filing} elapsedSeconds={21} />,
+    )
+    await act(async () => {})
+    expect(live).toHaveTextContent(/^Writing the summary and checking its figures against the filing\.$/)
   })
 
   it('has a generic announcement for early and unknown stages', async () => {
@@ -94,7 +109,7 @@ describe('StreamingSummaryDisplay step log', () => {
   it('shows a pending step with its empty marker, its label at full opacity in tertiary ink', async () => {
     renderAt('fetching')
     await act(async () => {})
-    const pending = screen.getByText('Writing the summary')
+    const pending = screen.getByText('Writing the summary and checking its figures against the filing')
     // Its marker: the empty hairline circle (no check, no dot) beside the label.
     const marker = pending.previousElementSibling as HTMLElement
     expect(marker.className.split(/\s+/)).toEqual(expect.arrayContaining(['rounded-full', 'border', 'border-border-light', 'dark:border-border-dark']))
@@ -106,16 +121,32 @@ describe('StreamingSummaryDisplay step log', () => {
     expect(screen.getByText('Fetching the 10-K from SEC.gov').className).toContain('font-medium')
   })
 
-  it('reads the four steps in the product voice, the first naming the filing’s own form', async () => {
+  it('reads the three steps in the product voice, the first naming the filing’s own form', async () => {
     renderAt('fetching')
     await act(async () => {})
     const labels = screen.getAllByRole('listitem').map((item) => item.textContent)
     expect(labels).toEqual([
       'Fetching the 10-K from SEC.gov',
       'Reading the statements, risk factors and MD&A',
-      'Checking figures against the filing’s data',
-      'Writing the summary',
+      'Writing the summary and checking its figures against the filing',
     ])
+  })
+
+  // A step of its own for the figure check ticked done within milliseconds of the analyzing stage, before any figure
+  // was checked; the writing step now covers both stages: active through each, done only when the run completes.
+  it('keeps the writing step active through analyzing and summarizing, and done only at completion', async () => {
+    const step = () => screen.getByText('Writing the summary and checking its figures against the filing')
+    const reading = () => screen.getByText('Reading the statements, risk factors and MD&A')
+    const { rerender } = renderAt('parsing')
+    await act(async () => {})
+    expect(step().className.split(/\s+/)).toEqual(expect.arrayContaining(['text-text-tertiary-light']))
+    for (const stage of ['analyzing', 'summarizing']) {
+      rerender(<StreamingSummaryDisplay streamingText="" stage={stage} message="" filing={filing} elapsedSeconds={1} />)
+      await act(async () => {})
+      expect(step().className, stage).toContain('font-medium')
+      expect(reading().className, stage).not.toContain('font-medium')
+      expect(reading().className.split(/\s+/), stage).toEqual(expect.arrayContaining(['text-text-secondary-light']))
+    }
   })
 
   // The stalled sentence takes the header's live-status line (a sentence the reader must read: secondary ink,
