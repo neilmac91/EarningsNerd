@@ -36,7 +36,6 @@ const ALLOW: Record<string, { count: number; reason: string }> = {
   'components/EarningsNerdLogoIcon.tsx': { count: 1, reason: "the brand's own mark" },
   'components/ui/Button.tsx': { count: 1, reason: 'the two-tone spinner (a ring at 30% and its arc), which no Phosphor glyph draws' },
   'components/ui/Input.tsx': { count: 1, reason: "FieldSpinner, the button's two-tone spinner at 16px" },
-  'components/ui/Chart.tsx': { count: 1, reason: 'TrendSparkline, a chart: its line is the data' },
   'features/analysis/components/TrendChartSvg.tsx': { count: 2, reason: 'the trend chart and its sticky axis gutter' },
   'features/analysis/components/chartMarks.tsx': { count: 2, reason: "a legend's series swatch, drawn as the chart draws its series, and an absent series' dashed line" },
   'features/auth/components/AppleSignInButton.tsx': { count: 1, reason: "Apple's logo, as Apple's sign-in guidelines give it" },
