@@ -222,7 +222,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, ActivityLine, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -1315,8 +1315,8 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
                  2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
-                 analysis page's history fetch (an info Notice until E196 (2)), the last two with a pulse dot
-                 kept to the first line when their words wrap. Gate: tests/unit/statusTintResidue.spec.ts
+                 analysis page's history fetch (an info Notice until E196 (2)), the last two drawn by
+                 <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info
@@ -1351,6 +1351,22 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
                  results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
+
+Activity line    <ActivityLine role?>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+                 Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
+                 has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot. The words are
+                 in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static under reduced
+                 motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line height are both
+                 1.25rem), so it keeps to the first line when the words wrap, and the words wrap under their own
+                 start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320 to 390px under
+                 200% text, the analysis page's history fetch two on a phone and four or five under 200% text. The
+                 live region is the caller's: role="status" where the line is its own (the history fetch), none where
+                 a container already is one (the Copilot's reading card, the region the plan card's sentence lands
+                 in). Gate: tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list
+                 outside ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a
+                 template, an array literal joined into one string or a class attribute's parts included, wherever
+                 the list is bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -2248,9 +2264,9 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  attestation. Never conflate source matching with support for every answer claim.
                  It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error; there is no streaming status, token text or caret. Under enlarged text the
-                 words wrap in the phone sheet (two lines at 320 to 390px under 200% text), so the dot sits in
-                 a box one text-sm line tall and keeps to the first line, as on the analysis page.
+                 done or error; there is no streaming status, token text or caret. The reading line is
+                 <ActivityLine> (Activity line), whose dot keeps to the first line when the words wrap in the
+                 phone sheet under 200% text.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
