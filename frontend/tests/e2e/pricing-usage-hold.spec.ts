@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Locator, type Page } from '@playwright/test'
 import { PRICING_PLAN_KEY } from '../../features/subscriptions/lib/pricingHint'
 import { SESSION_KEY } from '../../lib/api/session'
 
@@ -169,8 +169,12 @@ for (const [plan, account] of Object.entries(ACCOUNTS)) {
  * text (chief design's probe on #1728). A returning reader's browser keeps the API client's session flag and the plan
  * the page last named, and a script before the plans marks the document from both
  * (features/subscriptions/lib/pricingHint.ts), so the card and the switch take the plan's place from the first paint.
- * The identity read is held while the first paint is read; then every read answers.
+ * The identity read is held while the first paint is read; then every read answers. The plans' place is read in the
+ * page, from <main>'s top: above it, at 320 and 330px under 200% text, the site header has a band of its own, where a
+ * signed-in reader's bell and menu take a row as the check settles, 137 to 225px (E176, accepted on #1565).
  */
+const inPage = (heading: Locator) => heading.evaluate((el) => el.getBoundingClientRect().top - el.closest('main')!.getBoundingClientRect().top)
+
 for (const [plan, account] of Object.entries(ACCOUNTS)) {
   for (const { width, textSize } of CASES) {
     const at = `${width}px${textSize === 32 ? ' under 200% text' : ''}`
@@ -190,16 +194,15 @@ for (const [plan, account] of Object.entries(ACCOUNTS)) {
       await expect(heading).toBeVisible()
       await expect(page.getByRole('button', { name: 'Checking your plan…' })).toHaveCount(2)
       await page.evaluate(() => document.fonts.ready)
-      const top = () => heading.evaluate((el) => el.getBoundingClientRect().top + window.scrollY)
-      const first = await top()
+      const first = await inPage(heading)
 
       answerIdentity()
       await expect(page.getByRole('button', { name: 'Current plan', exact: true })).toBeVisible()
       await expect(page.getByText(account.line, { exact: true })).toBeVisible()
-      const landed = await top()
+      const landed = await inPage(heading)
       expect(
         Math.abs(landed - first),
-        `the Free plan's heading at ${first}px on the first paint and ${landed}px once the ${plan} account landed`,
+        `the Free plan's heading ${first}px into the page on the first paint and ${landed}px once the ${plan} account landed`,
       ).toBeLessThanOrEqual(1)
     })
   }
@@ -231,7 +234,7 @@ async function asGuest(page: Page, baseURL: string): Promise<() => void> {
   return answerHeld
 }
 
-/** One load of /pricing for a guest: the Free plan's heading on the first paint, and once the guest is confirmed, with
+/** One load of /pricing for a guest: the Free plan's heading in the page on the first paint, and once the guest is confirmed, with
  *  `whileHeld` read before the identity answers. Each load answers the API afresh; the newest route answers first. */
 async function guestLoad(page: Page, baseURL: string, load: () => Promise<unknown>, whileHeld: () => Promise<void>): Promise<{ first: number; landed: number }> {
   const answerIdentity = await asGuest(page, baseURL)
@@ -240,12 +243,11 @@ async function guestLoad(page: Page, baseURL: string, load: () => Promise<unknow
   await expect(heading).toBeVisible()
   await expect(page.getByRole('button', { name: 'Checking your plan…' })).toHaveCount(2)
   await page.evaluate(() => document.fonts.ready)
-  const top = () => heading.evaluate((el) => el.getBoundingClientRect().top + window.scrollY)
-  const first = await top()
+  const first = await inPage(heading)
   await whileHeld()
   answerIdentity()
   await expect(page.getByRole('button', { name: 'Create a free account' })).toBeVisible()
-  return { first, landed: await top() }
+  return { first, landed: await inPage(heading) }
 }
 
 /**
@@ -258,18 +260,18 @@ test("a guest's plans keep their place from the first paint, and a lapsed sessio
   await page.setViewportSize({ width: 390, height: 900 })
   const usageCard = page.getByText('Current usage', { exact: true })
   const guest = await guestLoad(page, baseURL!, () => page.goto('/pricing'), () => expect(usageCard).toBeHidden())
-  expect(Math.abs(guest.landed - guest.first), `a guest's Free heading at ${guest.first}px, then ${guest.landed}px`).toBeLessThanOrEqual(1)
+  expect(Math.abs(guest.landed - guest.first), `a guest's Free heading ${guest.first}px into the page, then ${guest.landed}px`).toBeLessThanOrEqual(1)
 
   await page.evaluate(([session, planKey]) => {
     localStorage.setItem(session, '1')
     localStorage.setItem(planKey, 'free')
   }, [SESSION_KEY, PRICING_PLAN_KEY])
   const lapsed = await guestLoad(page, baseURL!, () => page.reload(), () => expect(usageCard).toBeVisible())
-  expect(lapsed.landed, `the lapsed session's card held the Free heading at ${lapsed.first}px; the guest's answer took it to ${lapsed.landed}px`).toBeLessThan(lapsed.first)
+  expect(lapsed.landed, `the lapsed session's card held the Free heading ${lapsed.first}px into the page; the guest's answer took it to ${lapsed.landed}px`).toBeLessThan(lapsed.first)
   await expect(usageCard).toHaveCount(0)
   expect(await page.evaluate(([session, planKey]) => [localStorage.getItem(session), localStorage.getItem(planKey)], [SESSION_KEY, PRICING_PLAN_KEY])).toEqual([null, null])
 
   const next = await guestLoad(page, baseURL!, () => page.reload(), () => expect(usageCard).toBeHidden())
-  expect(Math.abs(next.landed - next.first), `the next load's Free heading at ${next.first}px, then ${next.landed}px`).toBeLessThanOrEqual(1)
+  expect(Math.abs(next.landed - next.first), `the next load's Free heading ${next.first}px into the page, then ${next.landed}px`).toBeLessThanOrEqual(1)
   expect(next.landed).toBe(guest.landed)
 })
