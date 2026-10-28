@@ -14,7 +14,8 @@ One rule, three parts in this one module:
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
   one, which also holds no connection while it hashes; the password reset and change, their refusals
   and a failing write included, which hold none while they hash or wait for the breached-password
-  check; the connections list and unlink, their refusals and a failing unlink included), each
+  check; the connections list and unlink, their refusals and a failing unlink included, but for an
+  unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1187,6 +1188,7 @@ async def test_password_reset_and_change_release_their_connection_before_their_w
 # thread pool, with nothing awaited in between. An unlink's last statement is its audit row's refresh.
 _CONNECTION_CLOSES = {
     "list": [True, False],
+    "list_no_password": [True, False],
     "unlink": [True, False],
     "unlink_not_linked": [True, False],
     "unlink_last_method": [True, False],
@@ -1211,9 +1213,12 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
     """The connections list reads the account's links in one thread-pool unit, and an unlink deletes its link and
     writes its oauth_unlinked audit row in one, each released before the route returns. Nine requests on four slots
     make no checkout, statement or release on the loop and leave nothing for the finalizer, their refusals and a
-    failing unlink included. On the loop the list read there, and the unlink deleted, committed and audited there,
-    then read the user its commit had expired, to name it in the audit row (E121). An unlink removes each account's
-    link and writes its row; a refusal or a failed unlink leaves every link as it was and writes none."""
+    failing unlink included, but for an unknown provider's 400: it runs no unit, so the finalizer ends its auth
+    lookup's read, in the thread pool. On the loop the list read there, and the unlink deleted, committed and
+    audited there, then read the user its commit had expired, to name it in the audit row (E121). An unlink removes
+    each account's link, then writes its row; a refusal or a failed unlink leaves every link as it was and writes
+    none. The unlink's users row lock is SQLite's no-op here; the PostgreSQL races in
+    tests/integration/test_refresh_rotation_transactions.py pin it."""
     from app.models import OAuthAccount, User
     from app.models.audit_log import AuditLog
     from app.routers import auth
@@ -1231,7 +1236,7 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
         model.__table__.create(engine)
     sessions = sessionmaker(bind=engine)
     emails = [f"connections-{i}@example.com" for i in range(9)]
-    password = None if case == "unlink_last_method" else "the stored hash"
+    password = None if case in ("unlink_last_method", "list_no_password") else "the stored hash"
     with sessions() as db:
         accounts = [User(email=email, is_active=True, hashed_password=password) for email in emails]
         db.add_all(accounts)
@@ -1264,6 +1269,16 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
     event.listen(engine, "before_cursor_execute",
                  lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
     event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    # Each thread's link deletes and audit inserts, in order: a unit runs on one thread, so an unlink's delete
+    # comes just before its audit row there.
+    writes: dict[int, list[str]] = {}
+
+    def record_write(_conn: Any, _cursor: Any, statement: str, *_args: Any) -> None:
+        for prefix, kind in (("DELETE FROM oauth_accounts", "delete"), ("INSERT INTO audit_logs", "audit")):
+            if statement.startswith(prefix):
+                writes.setdefault(threading.get_ident(), []).append(kind)
+
+    event.listen(engine, "before_cursor_execute", record_write)
 
     if case == "unlink_fails":
         def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
@@ -1279,7 +1294,7 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
     async def send(i: int) -> httpx.Response:
         headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
         async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
-            if case == "list":
+            if case.startswith("list"):
                 return await client.get("/api/auth/connections")
             return await client.delete(f"/api/auth/connections/{_CONNECTION_PROVIDERS.get(case, 'google')}")
 
@@ -1291,14 +1306,15 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
         assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
         assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
         assert engine.pool.checkedout() == 0
-        # Each unit released its session once; the dependency's finalizer found nothing open.
+        # Each unit released its session once, and the dependency's finalizer found nothing open; an unknown
+        # provider's 400 ran no unit, so the finalizer ended its read.
         assert [request.open_at_close for request in request_sessions] == [_CONNECTION_CLOSES[case]] * 9
-        if case == "list":
+        if case.startswith("list"):
             assert [response.status_code for response in responses] == [200] * 9
             assert [
                 (body["has_password"], [(p["provider"], p["provider_email"], type(p["linked_at"])) for p in body["providers"]])
                 for body in (response.json() for response in responses)
-            ] == [(True, [("google", f"google-{i}@example.com", str)]) for i in range(9)]
+            ] == [(case == "list", [("google", f"google-{i}@example.com", str)]) for i in range(9)]
         else:
             status, payload = _CONNECTION_ANSWERS[case]
             assert [response.status_code for response in responses] == [status] * 9
@@ -1310,6 +1326,8 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
                       for row in db.query(AuditLog).order_by(AuditLog.id)]
         if case == "unlink":
             assert links == []
+            assert sum(kinds.count("delete") for kinds in writes.values()) == 9
+            assert all(kinds == ["delete", "audit"] * (len(kinds) // 2) for kinds in writes.values()), writes
             assert sorted(audits, key=lambda row: row[2]) == [
                 ("oauth_unlinked", str(account_id), email, {"provider": "google"})
                 for account_id, email in zip(account_ids, emails)
@@ -1317,6 +1335,71 @@ async def test_connections_list_and_unlink_run_their_session_work_off_the_loop(m
         else:
             assert links == [(account_id, "google") for account_id in account_ids]
             assert audits == []
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_an_unlink_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The unlink's unit releases its session after the link's delete and its audit row have committed. A close
+    that fails there must be logged, not raised: a 500 would report a done unlink as failed, and the retry it
+    invites would answer 404. The first close, the unit's release, raises once it has closed; the route answers
+    200, and the finalizer's close finds nothing open."""
+    from app.models import OAuthAccount, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'unlink-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, OAuthAccount, AuditLog):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-unlink-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        db.add(OAuthAccount(user_id=user.id, provider="google", provider_account_id="google-sub"))
+        db.commit()
+        user_id = user.id
+
+    at_close: list[bool] = []
+
+    class FailingFirstClose(Session):
+        """Records, at each close, whether the session held a transaction; the first close, the unlink unit's
+        release after its commits, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 1:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingFirstClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    token = auth.create_access_token({"sub": "failed-unlink-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.delete("/api/auth/connections/google")
+        assert response.status_code == 200 and response.json() == {"status": "success", "unlinked": "google"}
+        # The unit's failed close, after the audit row's refresh, and the finalizer's.
+        assert at_close == [True, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            assert db.query(OAuthAccount).count() == 0
+            assert [(row.action, row.user_id) for row in db.query(AuditLog)] == [("oauth_unlinked", str(user_id))]
     finally:
         engine.dispose()
 

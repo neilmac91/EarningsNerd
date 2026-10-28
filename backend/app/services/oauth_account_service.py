@@ -365,20 +365,27 @@ def list_oauth_accounts(db: Session, user_id: int) -> list[OAuthAccount]:
     return db.query(OAuthAccount).filter(OAuthAccount.user_id == user_id).all()
 
 
-def unlink_oauth_provider(db: Session, user: User, provider: str) -> None:
+def unlink_oauth_provider(db: Session, user_id: int, provider: str) -> None:
     """Delete the user's link for ``provider`` and commit, unless it is their last sign-in method.
 
-    Raises :class:`ProviderNotLinkedError` when there is no such link and
-    :class:`LastSignInMethodError` when removing it would leave neither a password nor another link.
+    Under the account's users row lock (``refresh_token_service.lock_user_tokens``), taken before the guard
+    reads the password and the links: two unlinks of one account, one per provider or a double click on one,
+    run one after the other, and the second counts what the first left (READ COMMITTED). The route runs this
+    in the thread pool, where two requests on one instance interleave; on the event loop they did not (E121).
+
+    Raises :class:`ProviderNotLinkedError` when there is no such link (an account deleted meanwhile has none)
+    and :class:`LastSignInMethodError` when removing it would leave neither a password nor another link.
     """
-    rows = list_oauth_accounts(db, user.id)
+    refresh_token_service.lock_user_tokens(db, user_id)
+    has_password = bool(db.query(User.hashed_password).filter(User.id == user_id).scalar())
+    rows = list_oauth_accounts(db, user_id)
     target = next((r for r in rows if r.provider == provider), None)
     if not target:
         raise ProviderNotLinkedError()
 
     # Lockout guard: after removing this provider the user must keep at least one credential
     # (a password or another linked provider).
-    remaining = (1 if user.hashed_password else 0) + (len(rows) - 1)
+    remaining = (1 if has_password else 0) + (len(rows) - 1)
     if remaining < 1:
         raise LastSignInMethodError()
 

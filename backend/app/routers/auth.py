@@ -1526,7 +1526,10 @@ async def unlink_connection(
     """Unlink an OAuth provider — but never remove the user's only remaining sign-in method.
 
     One unit in the thread pool, the unlink and its audit row, released before the route returns, so no
-    statement or release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    statement or release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md).
+    In the thread pool two unlinks of one account can interleave, so the unlink takes the account's users row
+    lock before its guard reads. A provider the route does not know is refused before any unit; the dependency's
+    finalizer then ends the auth lookup's read, in the thread pool."""
     provider = provider.lower().strip()
     if provider not in {"google", "apple"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
@@ -1537,8 +1540,9 @@ async def unlink_connection(
     def unlink() -> None:
         # The link's delete commits on its own, then its oauth_unlinked audit row, which is best effort.
         try:
-            # Lockout guard inside: the user must keep a password or another linked provider.
-            oauth_account_service.unlink_oauth_provider(db, current_user, provider)
+            # Lockout guard inside, under the account's users row lock: the user must keep a password or
+            # another linked provider, and a concurrent unlink waits for this one's commit.
+            oauth_account_service.unlink_oauth_provider(db, user_id, provider)
             audit_service.create_audit_log(
                 db,
                 action="oauth_unlinked",
