@@ -351,9 +351,17 @@ def test_a_listed_subscription_of_another_customer_is_never_cancelled(client, mo
     assert stripe_api.cancelled == ["sub_0_trialing"]
 
 
+FAILURE_CAUSES = {
+    "audit": "injected audit-insert failure",
+    "account": "injected account-delete failure",
+    "commit": "injected commit failure",
+}
+
+
 @pytest.mark.requires_db
+@pytest.mark.parametrize("failed_write", list(FAILURE_CAUSES))
 def test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes(
-    client, monkeypatch, caplog,
+    client, monkeypatch, caplog, failed_write,
 ):
     # Stripe's cancellation is not part of the database transaction and is not undone. The account stays, no
     # audit row commits, and the failure's log line carries the outcomes the audit row would have recorded
@@ -361,7 +369,7 @@ def test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs
     stripe_api = _FakeStripe(["trialing"])
     monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
     with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
-        app.dependency_overrides[get_db] = _failing_db("account", [])
+        app.dependency_overrides[get_db] = _failing_db(failed_write, [])
         mark = _last_audit_id()
         with caplog.at_level(logging.ERROR, logger="app.routers.users"):
             resp = client.delete("/api/users/me")
@@ -372,8 +380,33 @@ def test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs
         assert stripe_api.cancelled == ["sub_0_trialing"]
         assert _user_exists(uid)
         assert _audit_rows(email) == [] and _deletion_audits_since(mark) == []
-        assert (f"Error deleting user account {uid}: injected account-delete failure. Third-party deletion "
+        assert (f"Error deleting user account {uid}: {FAILURE_CAUSES[failed_write]}. Third-party deletion "
                 f"results: {{'stripe': 'subscriptions_cancelled', ") in caplog.text
+
+
+@pytest.mark.requires_db
+def test_a_retry_after_a_deletion_failed_past_stripe_deletes_the_account_and_cancels_nothing_twice(client, monkeypatch):
+    # The retry after a partial cleanup (F18's runbook): the first request cancelled the subscription and then failed
+    # in the database, keeping the account and committing no audit row. The retry walks the same subscriptions, finds
+    # the cancelled one ended and cancels nothing again, then deletes the account with one audit row of its own. Its
+    # Stripe outcome reads "subscriptions_cancelled" because its walk finished, not because it cancelled anything.
+    stripe_api = _FakeStripe(["trialing"])
+    monkeypatch.setattr(stripe, "default_http_client", stripe.RequestsClient(session=stripe_api))
+    with _seeded_user(stripe_customer_id=STRIPE_CUSTOMER) as (uid, email):
+        mark = _last_audit_id()
+        app.dependency_overrides[get_db] = _failing_db("account", [])
+        first = client.delete("/api/users/me")
+        assert first.status_code == 500 and _user_exists(uid)
+        assert _deletion_audits_since(mark) == []
+        app.dependency_overrides.pop(get_db)
+
+        retry = client.delete("/api/users/me")
+
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["third_party_deletions"]["stripe"] == "subscriptions_cancelled"
+        assert stripe_api.cancelled == ["sub_0_trialing"]  # once, by the first request
+        assert not _user_exists(uid)
+        assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
 
 
 @pytest.mark.requires_db
