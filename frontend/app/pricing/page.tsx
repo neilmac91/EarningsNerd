@@ -122,8 +122,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
     enabled: !!currentUser,
   })
   const { data: usage, isError: usageError } = usageQuery
-  // A signed-in reader's usage read is in flight: the usage box holds its place (E226).
-  const usageHeld = isAuthenticated && usage === undefined && !usageError
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
+  // A signed-in reader's usage read is in flight and has not failed: the usage box holds its place (E226). It reads
+  // the retained failure, not the raw error: a Retry puts a failed read back to pending, and the box holds nothing
+  // beside the failure's notice while the retry runs.
+  const usageHeld = isAuthenticated && usage === undefined && !usageFailure.failed
 
   // The Free plan's account CTA follows the page-wide access decision (invite-only or public), read
   // from the same payload the landing page reads on the server. Until it answers, and when it
@@ -142,7 +145,6 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // refetch until data replaces it.
   const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
   const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(currentUser?.id))
-  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh

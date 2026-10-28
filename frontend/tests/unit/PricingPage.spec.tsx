@@ -721,8 +721,10 @@ describe('PricingPage', () => {
     expect(screen.queryByText(copy)).not.toBeInTheDocument()
   })
 
-  // A guest has no usage to hold, and a failed usage read holds nothing: the retry notice says what failed.
-  it('holds no usage box for a guest or after the usage read fails', async () => {
+  // A guest has no usage to hold, and a failed usage read holds nothing: the retry notice says what failed. A Retry
+  // puts the failed read back to pending, and the box holds nothing through it either, so the plans do not move down
+  // and back up while the retry runs (the review of #1715).
+  it('holds no usage box for a guest or after the usage read fails, a Retry included', async () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     const guest = renderPricing()
     await screen.findByRole('heading', { level: 2, name: 'Free' })
@@ -735,6 +737,17 @@ describe('PricingPage', () => {
     renderPricing()
     await screen.findByText('Usage is unavailable')
     expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    let answerUsage: (value: Usage) => void = () => {}
+    mockGetUsage.mockReturnValue(new Promise<Usage>((resolve) => { answerUsage = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(mockGetUsage).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('Usage is unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    answerUsage({ ...baseUsage, summaries_used: 4, summaries_limit: 5, is_pro: false })
+    await screen.findByText('4 / 5 summaries used this month')
+    expect(screen.queryByText('Usage is unavailable')).not.toBeInTheDocument()
   })
 })
 
