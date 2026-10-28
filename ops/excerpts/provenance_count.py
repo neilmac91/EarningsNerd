@@ -33,7 +33,9 @@ summary_pipeline for the fetch lines, edgar.xbrl_service for the cap), its messa
 words: a request another logger records (a search query, say) may hold the same words and is never counted. The
 API service and the task worker write JSON (logging_service, `logger` and `message`); the Cloud Run jobs set
 logging up with basicConfig, so a job's line is Python's default `LEVEL:logger:message` text, read from a job
-alone.
+alone (its format pinned by test_excerpt_provenance_count.py). Cloud Run stores each line of a job's text as an
+entry of its own, so a later line of another logger's multi-line message that spells a counted line in full
+would be read as one: no job logs such text today, and the JSON path is immune.
 
 Retention fails closed. The `_Default` bucket's `retentionDays`, where the identity may read it, and a bounded
 probe for the oldest stdout or stderr entry the scope still holds (the streams the lines are written to, never
@@ -170,6 +172,8 @@ def parse_timestamp(text) -> datetime | None:
         moment = datetime.strptime(whole, "%Y-%m-%dT%H:%M:%S")
         if fraction:
             moment = moment.replace(microsecond=int(fraction[:6].ljust(6, "0")))
+        if zone != "Z" and (int(zone[1:3]) > 23 or int(zone[4:6]) > 59):
+            return None
         offset = timedelta(0) if zone == "Z" else timedelta(hours=int(zone[1:3]), minutes=int(zone[4:6])) * (
             1 if zone[0] == "+" else -1)
         return moment.replace(tzinfo=timezone(offset)).astimezone(timezone.utc)

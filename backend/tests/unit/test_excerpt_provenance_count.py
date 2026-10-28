@@ -249,7 +249,7 @@ def test_only_each_lines_own_logger_counts_and_hostile_text_stays_closed(count):
     assert report["schema_two"] == {"by_fallback_reason": {"regex_fallback": {"native_excerpt_thin": 1, "other": 1}},
                                     "by_form": {"regex_fallback": {"10-K": 1, "other": 1}}}
     assert "script" not in json.dumps(report)
-    for text in ("2026-02-30T00:00:00Z", "2026-10-04T09:29:00+99:00", "2026-13-01T00:00:00Z",
+    for text in ("2026-02-30T00:00:00Z", "2026-10-04T09:29:00+99:00", "2026-10-04T09:29:00+05:99", "2026-13-01T00:00:00Z",
                  "0001-01-01T00:00:00+05:00", "9999-12-31T23:59:59-05:00"):
         assert count.parse_timestamp(text) is None
 
@@ -278,10 +278,53 @@ def test_the_cap_counts_filings_once_by_era_and_the_native_ones_e28_a_sizes(coun
     # native build in one era never makes another era's over-cap fetch native.
     entries += [*fetch_lines(55, NATIVE, 18_000_000, "2026-10-17T00:00:00Z"),
                 provenance_line("edgartools", NATIVE, "2026-10-17T00:00:01Z"),
-                *fetch_lines(56, REGEX, 18_500_000, "2026-10-01T05:00:00Z")]
+                *fetch_lines(56, REGEX, 18_500_000, "2026-10-01T05:00:00Z"),
+                # Native only after the deploy, fetched over the cap before the onset: not a native before.
+                *fetch_lines(57, BOTH, 19_500_000, "2026-10-01T06:00:00Z")]
     size_cap = count.tally([day("2026-10-01T00:00:00", entries)], START, END)["size_cap"]
+    assert size_cap["over_cap_accessions_by_era"]["before"] == 3
     assert size_cap["native_over_cap_accessions_by_era"] == {"before": 1, "onset": 0, "window": 0, "after": 2}
     assert size_cap["native_over_cap_accessions_outside_403"] == 2
+
+
+def test_a_jobs_whole_run_counts_in_the_text_it_writes(count):
+    # A forced rebuild in the pregenerate job: its start, fetch, cap and provenance lines, all basicConfig text,
+    # join to one accession; a traceback's last line spelling a counted line is no line; a job's JSON is read too.
+    job = dict(json_payload=False)
+    entries = [
+        *[line(FETCH_LOGGER, entry["jsonPayload"]["message"], entry["timestamp"], **job)
+          for entry in fetch_lines(60, CAPPED, 17_500_000, "2026-10-20T00:00:00Z")],
+        line(CAP_LOGGER, "Section parse skipped: 17,500,000-char 10-K document is over the size cap",
+             "2026-10-20T00:00:01Z", **job),
+        provenance_line("regex_fallback", CAPPED, "2026-10-20T00:00:02Z", **job),
+        {**line(PROVENANCE_LOGGER, "x", "2026-10-20T00:00:03Z", **job), "textPayload":
+            "ValueError: INFO:app.services.summary_generation_service:Excerpt provenance: {}"},
+        line(PROVENANCE_LOGGER, "Excerpt provenance: " + json.dumps({"accession": NATIVE, "source": "edgartools"}),
+             "2026-10-20T00:00:04Z", resource="cloud_run_job"),
+    ]
+    assert all("textPayload" in entry and "jsonPayload" not in entry for entry in entries[:5])
+    assert "jsonPayload" in entries[5] and entries[5]["resource"]["type"] == "cloud_run_job"
+    report = count.tally([day("2026-10-20T00:00:00", entries)], START, END)
+    [only] = report["days"]
+    assert (only["fetches"], only["over_size_cap_fetches"], only["size_cap_fallbacks"]) == (1, 1, {"10-K": 1})
+    assert only["lines"] == {"edgartools": 1, "regex_fallback": 1} and only["unmatched"] == 1
+    assert report["size_cap"]["size_cap_fallback_accessions"] == 1
+    assert report["accessions_fetched_without_provenance"] == 0
+
+
+def test_the_jobs_that_build_excerpts_log_in_the_format_the_reader_reads():
+    # pregenerate (a forced rebuild among its runs) and the stale-summary drain write the counted lines through
+    # basicConfig's default format; a `format=` there would drop every job line from the count unseen.
+    import ast
+
+    scripts = Path(__file__).resolve().parents[2] / "scripts"
+    for name in ("pregenerate_examples.py", "refresh_stale_summaries.py"):
+        calls = [node for node in ast.walk(ast.parse((scripts / name).read_text()))
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                 and node.func.attr == "basicConfig"]
+        assert calls, name
+        assert all(keyword.arg not in ("format", "handlers", "stream", "filename") for call in calls
+                   for keyword in call.keywords), name
 
 
 def test_a_cut_day_leaves_fetches_without_provenance_unknown(count):
