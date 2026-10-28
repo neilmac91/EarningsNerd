@@ -666,6 +666,30 @@ describe('PricingPage', () => {
     if (!on) expect(container).not.toHaveTextContent('20-F')
     expect(container).not.toHaveTextContent(/Supported/i)
   })
+
+  // The usage box states the account's own numbers, so it lifts as a card and takes no status tint: it was an info
+  // tint with a blue meter, and now draws the dashboard's meter, the shared UsageMeter (E196). A Free account's meter
+  // is a progress bar named with its count, in warning ink at 80% of the limit; a Pro account's box has none.
+  it.each([
+    ['a Free account at 4 of 5', { summaries_used: 4, summaries_limit: 5, is_pro: false }, '4 / 5 summaries used this month', true],
+    ['a Pro account', { summaries_used: 12, summaries_limit: null, is_pro: true }, '12 / ∞ summaries used this month', false],
+  ] as const)('draws the usage box as a card with the shared usage meter: %s', async (_, usage, line, meter) => {
+    mockGetUsage.mockResolvedValue({ ...baseUsage, ...usage })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: usage.is_pro })
+    renderPricing()
+    const box = (await screen.findByText(line)).parentElement!
+    expect(box).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    expect(box.outerHTML).not.toMatch(/(?:bg|border)-info-/)
+    expect(within(box).getByText('Current usage')).toBeInTheDocument()
+    if (meter) {
+      const bar = within(box).getByRole('progressbar', { name: '4 of 5 summaries used this month' })
+      expect(bar).toHaveAttribute('aria-valuenow', '4')
+      expect(bar).toHaveAttribute('aria-valuemax', '5')
+      expect(bar.firstElementChild).toHaveClass('bg-warning-light', 'dark:bg-warning-dark')
+    } else {
+      expect(within(box).queryByRole('progressbar')).not.toBeInTheDocument()
+    }
+  })
 })
 
 // These cases exercise the form after release; legalReadiness.spec.tsx holds the closed and stale gates.
