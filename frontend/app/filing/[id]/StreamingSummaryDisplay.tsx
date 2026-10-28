@@ -42,7 +42,9 @@ import { pricingHref } from '@/features/subscriptions/lib/pricingRoute'
 // (DESIGN_SYSTEM.md §4 › Inline notice, §9). The pools follow the pipeline
 // (backend/app/services/summary_stages): fetching downloads, parsing reads the sections, and the
 // figure work runs under summarizing (analyzing is two yields between two progress writes,
-// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool.
+// enrichment.py:187-195, so it lasts milliseconds), so those two stages share a pool. A line says what the step
+// beside it does not: "Checking the figures against the filing's data…" left the summarizing pool once the
+// writing step said the same (E230).
 const STATUS_LINES = {
   fetching: ['Opening the filing…'],
   parsing: [
@@ -51,7 +53,6 @@ const STATUS_LINES = {
     'Reviewing the line called Other…',
   ],
   summarizing: [
-    'Checking the figures against the filing’s data…',
     'Finding where the filing says that…',
     'Translating management’s phrasing into plain English…',
   ],
@@ -93,7 +94,7 @@ const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing
 // replaced did (docs/voice-and-style.md › Claims). "Against the filing" is true of both checks: the figure trace reads
 // the filing's text, and the projection beside it the filing's own XBRL.
 const buildLoadingSteps = (filingType: string) => [
-  { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
+  { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov`, code: filingType || undefined },
   { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
   { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing' },
 ]
@@ -124,6 +125,20 @@ const STAGE_PROGRESS_MAP: Record<string, number> = {
 // --- Step log ---
 
 type StepStatus = 'complete' | 'active' | 'pending'
+
+/** A step's label with its form code kept whole, one whitespace-nowrap run, as the live-status line keeps it: at 390px
+    under 200% text the fetching step broke "10-K" at its hyphen (E230). The live region reads the plain label. */
+function StepLabel({ label, code }: { label: string; code?: string }) {
+  const at = code ? label.indexOf(code) : -1
+  if (!code || at < 0) return <>{label}</>
+  return (
+    <>
+      {label.slice(0, at)}
+      <span className="whitespace-nowrap">{code}</span>
+      {label.slice(at + code.length)}
+    </>
+  )
+}
 
 /** Quiet, backend-driven step log — brand check (done) / static dot (active) / empty hairline
     circle (pending). Every label stays at full opacity: a pending one is tertiary ink (4.9:1 and up),
@@ -175,7 +190,7 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
                     : 'text-text-tertiary-light dark:text-text-tertiary-dark'
               }`}
             >
-              {step.label}
+              <StepLabel label={step.label} code={step.code} />
             </span>
           </li>
         )
