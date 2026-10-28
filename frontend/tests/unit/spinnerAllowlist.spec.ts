@@ -5,12 +5,15 @@
    Search field), a spinner marks one of two waits (DESIGN_SYSTEM.md §4 ›
    Spinner): a control's own request, where the glyph takes the place of the
    control's icon, sits before its label or in a select's trailing inset, and
-   the control carries aria-busy; or a page's one read, in a region that names
-   the wait. A run in progress shown in words is the Activity line, a loading
-   layout is Skeleton bones. Each site is pinned here, by file, with the wait
-   it marks, so a new spinner fails until its author names which of the two it
-   is; the two lines that still pair their words with a spinner are pinned as
-   they stand.
+   the control carries aria-busy; or a wait whose answer decides the layout,
+   in a region or over a heading that names it. A new page draws its frame
+   over bones (§11 › Loading); the three full-page loaders are that rule's
+   shrink-only exceptions, pinned as they stand. A run in progress shown in
+   words is the Activity line, a loading layout is Skeleton bones. Each site
+   is pinned here, by file, with the wait it marks, so a new spinner fails
+   until its author names which of the two it is; the two lines that still
+   pair their words with a spinner are pinned until they move to the Activity
+   line (E235).
 
    Sites: the scan reads class lists as tests/unit/classListScan.ts states,
    and a site is the innermost list holding `animate-spin`, behind any variant
@@ -43,8 +46,9 @@ const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 // it in the same change, its reason naming the wait it marks.
 const MAX_ALLOWLIST_SIZE = 14
 const CONTROL = "a control's own request:"
-const PAGE = "a page's one read:"
-const WORDS = 'words beside a spinner, waiting on the pass that decides whether such a line takes the Activity line (tasks/todo.md E233):'
+const LAYOUT = 'a wait whose answer decides the layout:'
+const EXCEPTION = "a full-page loader, one of §11's shrink-only exceptions:"
+const WORDS = 'words beside a spinner, until they move to the Activity line (tasks/todo.md E235):'
 const ALLOW: Record<string, { sites: number; reason: string }> = {
   'components/ui/Button.tsx': { sites: 1, reason: "the busy Button's spinner, <Button loading> (Steady loading)" },
   'components/ui/Input.tsx': { sites: 1, reason: "FieldSpinner, a busy field's spinner in its trailing inset (Search field)" },
@@ -62,19 +66,19 @@ const ALLOW: Record<string, { sites: number; reason: string }> = {
   },
   'app/company/[ticker]/page-client.tsx': {
     sites: 1,
-    reason: `${PAGE} the company loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
+    reason: `${EXCEPTION} the company loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
   },
   'app/filing/[id]/page-client.tsx': {
     sites: 2,
     reason:
-      `${PAGE} the filing loader (fullPageSpinnerGate pins it) and the summary's while its generation is decided, ` +
-      'each a status region named for the wait',
+      `${EXCEPTION} the filing loader (fullPageSpinnerGate pins it); and ${LAYOUT} the summary's while its generation ` +
+      'is decided; each a status region named for the wait',
   },
   'features/filings/components/TickerFilingsView.tsx': {
     sites: 1,
-    reason: `${PAGE} the /filing/<TICKER> loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
+    reason: `${EXCEPTION} the /filing/<TICKER> loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
   },
-  'app/verify-email/page.tsx': { sites: 1, reason: `${PAGE} over the heading "Verifying your email…", which names the wait` },
+  'app/verify-email/page.tsx': { sites: 1, reason: `${LAYOUT} over the heading "Verifying your email…", which names the wait` },
   'features/analysis/components/NarrativePane.tsx': {
     sites: 1,
     reason: `${WORDS} "Assembling the numbers…" and "Writing…" as the trend analysis streams`,
@@ -122,7 +126,7 @@ function unhiddenSpinners(source: string, fileName: string): number[] {
   return lines
 }
 
-describe('a spinner marks a control’s own request or a page’s one read, each site pinned, the glyph hidden', () => {
+describe('a spinner marks a control’s own request or a wait that decides the layout, each site pinned, the glyph hidden', () => {
   it('counts the planted sites: the spinners it must find, the lines it must pass, and its stated gaps', () => {
     const planted: [string, number][] = [
       // Found: a string site, behind a variant, with Tailwind's `!`; a const; any string.
@@ -196,8 +200,9 @@ describe('a spinner marks a control’s own request or a page’s one read, each
     expect(
       problems,
       "A spinner outside Button and Input marks a control's own request (in place of its icon, the control aria-busy) " +
-        "or a page's one read (in a region that names the wait): DESIGN_SYSTEM.md §4 › Spinner. A run in progress " +
-        'shown in words is <ActivityLine>, a loading layout is <Skeleton> bones, a busy Button is <Button loading>.',
+        'or a wait whose answer decides the layout (in a region or over a heading that names it): DESIGN_SYSTEM.md §4 › ' +
+        'Spinner. A new page draws its frame over bones (§11 › Loading), a run in progress shown in words is ' +
+        '<ActivityLine>, and a busy Button is <Button loading>.',
     ).toEqual([])
   })
 

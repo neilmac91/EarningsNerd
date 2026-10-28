@@ -1423,20 +1423,22 @@ Spinner          <CircleNotchIcon aria-hidden="true" className="… animate-spin
                  quieter one, and the control carries aria-busy (the watchlist's ticker chips, the invite row's
                  resend, the feedback row's status select, the resend links on /check-email and in the verification
                  banner; the alert settings show theirs beside their heading while a switch saves, the switches
-                 busy). A page that cannot draw before its one read: brand-strong, h-8, in a role="status" region
-                 whose aria-label and sr-only words name the wait (the company, filing and ticker-filings loaders,
-                 which fullPageSpinnerGate pins until bones replace them, and the filing summary's while its
-                 generation is decided); /verify-email's, h-10, sits over its heading, "Verifying your email…". The
-                 glyph is aria-hidden: the control's aria-busy, the region's name or the words beside it say what
-                 waits. It is static under reduced motion. A run in progress shown in words is the Activity line, a
-                 loading layout is Skeleton bones; the two lines that still pair their words with a spinner (the
-                 trend analysis's "Assembling the numbers…" and "Writing…", /delete-account's "Checking whether you
-                 are logged in…") wait on the pass that decides whether such a line takes the Activity line
-                 (tasks/todo.md E233). Gate: tests/unit/spinnerAllowlist.spec.ts pins every animate-spin class list
-                 to its file and the wait it marks, reading lists as the pulsing-mark gate does
-                 (tests/unit/classListScan.ts), and fails a spinner glyph that is not aria-hidden, on its element or
-                 on an HTML element around it (a component around it may not pass aria-hidden to the DOM, so it does
-                 not count); its stated gaps are planted where a source can hold them.
+                 busy). A wait whose answer decides which layout shows, so it has no shape to bone: brand-strong, in
+                 a role="status" region whose aria-label and sr-only words name the wait (the filing summary's, h-8,
+                 while its generation is decided) or over the heading that names it (/verify-email's, h-10,
+                 "Verifying your email…"). A page never swaps itself for a full-page spinner (§11 › Loading): a new
+                 page draws its frame over bones. The company, filing and ticker-filings loaders are that rule's
+                 shrink-only exceptions, which fullPageSpinnerGate pins until bones replace them, each a status
+                 region named for its wait; they are not a form to copy. The glyph is aria-hidden: the control's
+                 aria-busy, the region's name or the words beside it say what waits. It is static under reduced
+                 motion. A run in progress shown in words is the Activity line, a loading layout is Skeleton bones;
+                 the two lines that still pair their words with a spinner (the trend analysis's "Assembling the
+                 numbers…" and "Writing…", /delete-account's "Checking whether you are logged in…") move to the
+                 Activity line (tasks/todo.md E235). Gate: tests/unit/spinnerAllowlist.spec.ts pins every
+                 animate-spin class list to its file and the wait it marks, reading lists as the pulsing-mark gate
+                 does (tests/unit/classListScan.ts), and fails a spinner glyph that is not aria-hidden, on its
+                 element or on an HTML element around it (a component around it may not pass aria-hidden to the DOM,
+                 so it does not count); its stated gaps are planted where a source can hold them.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:

@@ -99,7 +99,8 @@ A change of more than one kind below takes the widest reading. Any of them adds
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
     - a run in progress shown in words (a fetch, an answer being grounded, a loading line): Activity line;
-    - a wait shown by a turning glyph outside Button and Input (a control's own request, a page's one read): Spinner;
+    - a wait shown by a turning glyph outside Button and Input (a control's own request, a wait
+      that decides the layout): Spinner;
     - a fade on content (a mask or a gradient that fades it out at an edge): Locked preview;
     - figure tiles outside /analysis: Analysis KPI;
     - a bar of how much of a limit is used (a plan's monthly summaries): Usage meter.
