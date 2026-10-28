@@ -97,7 +97,8 @@ def _live_descendants(db: Session, token: RefreshToken) -> list[int]:
         .cte("refresh_chain", recursive=True)
     )
     successor = aliased(RefreshToken)
-    chain = chain.union_all(
+    # ``union``, not ``union_all``: a row met twice ends the recursion, a belt behind the increasing-id guard.
+    chain = chain.union(
         select(successor.id, successor.user_id, successor.replaced_by_id, successor.revoked_at)
         .join(chain, successor.id == chain.c.replaced_by_id)
         .where(successor.user_id == chain.c.user_id, successor.id > chain.c.id)

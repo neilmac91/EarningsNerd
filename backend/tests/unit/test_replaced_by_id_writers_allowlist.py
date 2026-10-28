@@ -1,7 +1,7 @@
 """Structural gate: only refresh-token rotation writes ``RefreshToken.replaced_by_id``.
 
-``refresh_token_service.rotate_refresh_token`` revokes every live token of the user when a revoked
-token with ``replaced_by_id`` set is presented, reading the link as proof that the token was rotated
+``refresh_token_service.rotate_refresh_token`` revokes the live tokens of a presented token's chain when
+that token is revoked with ``replaced_by_id`` set, reading the link as proof that the token was rotated
 away and that someone else holds its successor. That reading is sound only while rotation is the one
 writer. A revocation path or a session transfer that set the link would send its tokens down the
 theft sweep again, which is the bug ``test_refresh_token_revocation_kinds.py`` pins for the writers

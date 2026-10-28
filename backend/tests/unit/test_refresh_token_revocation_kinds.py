@@ -19,8 +19,9 @@ gated by ``test_refresh_replay.py`` and ``test_auth_token_flows.py``.
 Since E96 the theft path revokes the replayed token's chain alone: the live tokens its rotations lead to, followed
 only through links to the same user's newer tokens (``refresh_token_service._live_descendants``). A replay on one
 device ends that device's chain and leaves the account's other devices signed in, and a copy rotated away before a
-reset no longer ends the login made after it. A link the walk must not follow (to another user, to an older token,
-to itself or to no row) refuses the replay and revokes nothing past it. The refresh route also takes a per-IP limit
+reset no longer ends the login made after it, and a copy several rotations behind still ends its whole chain. A
+link the walk must not follow (to another user, to an older token, to itself, to no row, or back from a later hop)
+refuses the replay and revokes nothing past it. The refresh route also takes a per-IP limit
 before any database work, above a burst of tabs, keyed by the trusted client address, and refuses a refresh token
 no minting could produce (a lone surrogate) as an unknown one instead of answering 500.
 """
@@ -38,6 +39,7 @@ from tests.support.account_agreement import ACCOUNT_AGREEMENT
 
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm.attributes import set_committed_value
 
 from main import app
@@ -264,14 +266,17 @@ def test_a_copy_rotated_away_before_a_reset_no_longer_ends_the_login_made_after_
 # ── a replay ends its own chain (E96) ─────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.requires_db
-def test_a_replay_on_one_device_ends_that_devices_chain_and_leaves_the_other_signed_in(laptop, phone, mail):
+@pytest.mark.parametrize("rotations", [1, 2], ids=["one-rotation-behind", "two-rotations-behind"])
+def test_a_replay_on_one_device_ends_that_devices_chain_and_leaves_the_other_signed_in(rotations, laptop, phone, mail):
     """Two chains of one account: the phone's and the laptop's. A copy of the laptop's token, replayed after the
     laptop rotated it away, is refused and ends the laptop's chain, its live tip included; the phone's session is
-    another chain and still refreshes. Before E96 the sweep revoked every token of the account."""
+    another chain and still refreshes. Before E96 the sweep revoked every token of the account. Two rotations put
+    the copy two links behind the tip, so a sweep that revoked only the replayed token's successor fails here."""
     email, user_id = _register(laptop)
     _login(phone, email)
     stolen = _login(laptop, email)
-    assert laptop.post("/api/auth/refresh").status_code == 200  # the laptop rotates its copy away
+    for _ in range(rotations):
+        assert laptop.post("/api/auth/refresh").status_code == 200  # the laptop rotates its copy away
     tip = laptop.cookies.get(settings.REFRESH_COOKIE_NAME)
     assert _live_tokens(user_id) == 2
 
@@ -316,27 +321,41 @@ def _live(token_id: int) -> bool:
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("form", ["to-another-user", "to-an-older-token", "to-itself", "to-no-row"])
+@pytest.mark.parametrize(
+    "form", ["to-another-user", "to-an-older-token", "to-itself", "to-no-row", "back-past-the-first-hop"],
+)
 def test_a_replay_over_a_link_no_rotation_writes_revokes_nothing_past_it(form, caplog):
     # Each form is decided by one guard alone (lessons/test-pin-each-guard-where-it-alone-decides.md): the other
     # user's token is newer than the replayed one, so only the same-user guard refuses that link, and the older token
-    # is the owner's, so only the increasing-id guard refuses that one.
+    # is the owner's, so only the increasing-id guard refuses that one. The last form's backward link is one hop in,
+    # to a token newer than the replayed one, so the guard must compare each link with its own source.
     owner, other = _chain_user(), _chain_user()
     older_id, _ = _minted(owner)
     replayed_id, raw = _minted(owner)
     others_id, _ = _minted(other)
-    target = {"to-another-user": others_id, "to-an-older-token": older_id, "to-itself": replayed_id,
-              "to-no-row": replayed_id + 10_000}[form]
-    _link(replayed_id, target)
+    kept = [older_id, others_id]
+    if form == "back-past-the-first-hop":
+        between_id, _ = _minted(owner)
+        newer_id, _ = _minted(owner)
+        _link(replayed_id, newer_id)  # a rotation's link
+        _link(newer_id, between_id)  # then back, to a live token minted between the two
+        source, kept = newer_id, kept + [between_id]
+    else:
+        target = {"to-another-user": others_id, "to-an-older-token": older_id, "to-itself": replayed_id,
+                  "to-no-row": replayed_id + 10_000}[form]
+        _link(replayed_id, target)
+        source = replayed_id
 
     with caplog.at_level(logging.WARNING, logger="app.services.refresh_token_service"):
         with SessionLocal() as db, pytest.raises(refresh_token_service.RefreshTokenReuseError):
             refresh_token_service.rotate_and_commit(db, raw)
         with SessionLocal() as db:
             assert refresh_token_service.revoke_and_commit(db, raw) is None  # a logout's walk is the same walk
-    assert _live(older_id) and _live(others_id)
-    unfollowed = [r.getMessage() for r in caplog.records if "did not follow" in r.getMessage()]
-    assert unfollowed and all(str(replayed_id) in line and raw not in line for line in unfollowed), unfollowed
+    assert all(_live(token_id) for token_id in kept)
+    unfollowed = [r for r in caplog.records if "did not follow" in r.msg]
+    # One line from each walk (the refresh's and the logout's), naming the user and the link's source by id alone.
+    assert [r.args for r in unfollowed] == [(owner.id, [source])] * 2, [r.getMessage() for r in unfollowed]
+    assert not any(raw in r.getMessage() for r in unfollowed)
 
 
 @pytest.mark.requires_db
@@ -384,8 +403,18 @@ def test_a_limited_refresh_does_no_database_work(laptop, mail):
     for _ in range(auth_module.REFRESH_LIMITER.limit):
         assert laptop.post("/api/auth/refresh").status_code == 401
     laptop.cookies.set(settings.REFRESH_COOKIE_NAME, live)
-    limited = laptop.post("/api/auth/refresh")
+    statements = []
+
+    def count(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    event.listen(Engine, "after_cursor_execute", count)
+    try:
+        limited = laptop.post("/api/auth/refresh")
+    finally:
+        event.remove(Engine, "after_cursor_execute", count)
     assert limited.status_code == 429, limited.text
+    assert statements == []
     assert "set-cookie" not in limited.headers
     with SessionLocal() as db:
         token = db.query(RefreshToken).filter(RefreshToken.user_id == user_id).one()
