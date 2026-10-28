@@ -7,7 +7,8 @@
  * whose 401s on protected endpoints are expected and routine — never trigger refresh
  * storms. The flag is advisory only and carries no credential value.
  */
-const SESSION_KEY = 'en_session_active'
+// Exported for the pricing page's pre-paint hint (features/subscriptions/lib/pricingHint.ts), which only reads it.
+export const SESSION_KEY = 'en_session_active'
 
 // In-memory fallback for when localStorage is unavailable (Safari private mode, storage
 // blocked by browser settings). Without it, hasActiveSession() would always be false there

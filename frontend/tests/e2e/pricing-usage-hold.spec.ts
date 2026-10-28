@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { PRICING_PLAN_KEY } from '../../features/subscriptions/lib/pricingHint'
+import { SESSION_KEY } from '../../lib/api/session'
 
 /**
  * The pricing page's usage box holds its place while a signed-in reader's usage read is in flight (E226).
@@ -16,6 +18,10 @@ import { test, expect, type Page } from '@playwright/test'
  * moved up 56px (168px at 320 and 390px under 200% text). The identity read names the plan first, so the switch hides
  * once it names Pro, before the subscription read answers; the second loop below holds the subscription read and holds
  * the heading as it answers, for a Free account, whose switch stays, and a Pro one, whose switch has already gone.
+ *
+ * Both holds start at a read's answer, after the first paint, which on a cold load is the static page's (E228). The third
+ * loop below reads the plans' place from that first paint, for a returning reader whose browser keeps the API client's
+ * session flag and the plan the page last named; the guest cases after it read a guest's, and a lapsed session's.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser with
  * page.route, the usage read held until the case answers it, and the middleware's session gate is satisfied by its
@@ -154,3 +160,116 @@ for (const [plan, account] of Object.entries(ACCOUNTS)) {
     })
   }
 }
+
+/**
+ * A cold load (E228). The first paint is the static page's, before any read answers, so the card held from the
+ * identity read's answer (E226) mounted only then, and a Pro account's switch left only then (E227): a signed-in
+ * reader's plans moved as the identity read answered, in CI's fonts the Free plan's heading 130 to 138px for a Free
+ * account and 50 to 58px for a Pro account, and 354 and 273px (Free) or 138 and 57px (Pro) at 320 and 390px under 200%
+ * text (chief design's probe on #1728). A returning reader's browser keeps the API client's session flag and the plan
+ * the page last named, and a script before the plans marks the document from both
+ * (features/subscriptions/lib/pricingHint.ts), so the card and the switch take the plan's place from the first paint.
+ * The identity read is held while the first paint is read; then every read answers.
+ */
+for (const [plan, account] of Object.entries(ACCOUNTS)) {
+  for (const { width, textSize } of CASES) {
+    const at = `${width}px${textSize === 32 ? ' under 200% text' : ''}`
+    test(`the plans keep their place as a returning ${plan} account's identity lands on a cold load, at ${at}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Page.setFontSizes', { fontSizes: { standard: textSize, fixed: textSize === 32 ? 26 : 13 } })
+      await page.addInitScript(([session, planKey, last]) => {
+        localStorage.setItem(session, '1')
+        localStorage.setItem(planKey, last)
+      }, [SESSION_KEY, PRICING_PLAN_KEY, account.isPro ? 'pro' : 'free'])
+      const answerIdentity = await signIn(page, account, baseURL!, '/api/auth/me')
+      await page.goto('/pricing')
+
+      // The first paint: the plans show and the identity read has not answered, so neither plan is named yet.
+      const heading = page.getByRole('heading', { level: 2, name: 'Free', exact: true })
+      await expect(heading).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Checking your plan…' })).toHaveCount(2)
+      await page.evaluate(() => document.fonts.ready)
+      const top = () => heading.evaluate((el) => el.getBoundingClientRect().top + window.scrollY)
+      const first = await top()
+
+      answerIdentity()
+      await expect(page.getByRole('button', { name: 'Current plan', exact: true })).toBeVisible()
+      await expect(page.getByText(account.line, { exact: true })).toBeVisible()
+      const landed = await top()
+      expect(
+        Math.abs(landed - first),
+        `the Free plan's heading at ${first}px on the first paint and ${landed}px once the ${plan} account landed`,
+      ).toBeLessThanOrEqual(1)
+    })
+  }
+}
+
+/** Answers the API for a guest: the identity read, and the refresh a session flag makes it try first, find no session.
+ *  The identity read is held: the returned function answers it. */
+async function asGuest(page: Page, baseURL: string): Promise<() => void> {
+  const origin = new URL(baseURL).origin
+  const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
+  let answerHeld: () => void = () => {}
+  const heldAnswered = new Promise<void>((resolve) => { answerHeld = resolve })
+  await page.route((url) => url.origin === API_ORIGIN, async (route) => {
+    const path = new URL(route.request().url()).pathname
+    switch (path) {
+      case '/api/auth/me':
+        await heldAnswered
+        return route.fulfill({ status: 401, headers: cors, json: { detail: 'Not authenticated' } })
+      case '/api/auth/refresh':
+        return route.fulfill({ status: 401, headers: cors, json: { detail: 'Not authenticated' } })
+      case '/api/auth/registration':
+        return route.fulfill({ status: 200, headers: cors, json: { mode: 'public', beta_promo_enabled: false } })
+      case '/api/legal/readiness':
+        return route.fulfill({ status: 200, headers: cors, json: READINESS })
+      default:
+        return route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } })
+    }
+  })
+  return answerHeld
+}
+
+/** One load of /pricing for a guest: the Free plan's heading on the first paint, and once the guest is confirmed, with
+ *  `whileHeld` read before the identity answers. Each load answers the API afresh; the newest route answers first. */
+async function guestLoad(page: Page, baseURL: string, load: () => Promise<unknown>, whileHeld: () => Promise<void>): Promise<{ first: number; landed: number }> {
+  const answerIdentity = await asGuest(page, baseURL)
+  await load()
+  const heading = page.getByRole('heading', { level: 2, name: 'Free', exact: true })
+  await expect(heading).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Checking your plan…' })).toHaveCount(2)
+  await page.evaluate(() => document.fonts.ready)
+  const top = () => heading.evaluate((el) => el.getBoundingClientRect().top + window.scrollY)
+  const first = await top()
+  await whileHeld()
+  answerIdentity()
+  await expect(page.getByRole('button', { name: 'Create a free account' })).toBeVisible()
+  return { first, landed: await top() }
+}
+
+/**
+ * A guest's browser keeps no session flag, so nothing is marked and the plans paint where they settle (E228). A flag
+ * left by a session that lapsed without a logout is the mark's wrong case: the card shows on the first paint and the
+ * plans move up once, as the identity read finds no session. That read clears the flag (getCurrentUserSafe) and the
+ * page clears the plan it recorded, so the next load paints as a guest's.
+ */
+test("a guest's plans keep their place from the first paint, and a lapsed session's mark moves them once", async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  const usageCard = page.getByText('Current usage', { exact: true })
+  const guest = await guestLoad(page, baseURL!, () => page.goto('/pricing'), () => expect(usageCard).toBeHidden())
+  expect(Math.abs(guest.landed - guest.first), `a guest's Free heading at ${guest.first}px, then ${guest.landed}px`).toBeLessThanOrEqual(1)
+
+  await page.evaluate(([session, planKey]) => {
+    localStorage.setItem(session, '1')
+    localStorage.setItem(planKey, 'free')
+  }, [SESSION_KEY, PRICING_PLAN_KEY])
+  const lapsed = await guestLoad(page, baseURL!, () => page.reload(), () => expect(usageCard).toBeVisible())
+  expect(lapsed.landed, `the lapsed session's card held the Free heading at ${lapsed.first}px; the guest's answer took it to ${lapsed.landed}px`).toBeLessThan(lapsed.first)
+  await expect(usageCard).toHaveCount(0)
+  expect(await page.evaluate(([session, planKey]) => [localStorage.getItem(session), localStorage.getItem(planKey)], [SESSION_KEY, PRICING_PLAN_KEY])).toEqual([null, null])
+
+  const next = await guestLoad(page, baseURL!, () => page.reload(), () => expect(usageCard).toBeHidden())
+  expect(Math.abs(next.landed - next.first), `the next load's Free heading at ${next.first}px, then ${next.landed}px`).toBeLessThanOrEqual(1)
+  expect(next.landed).toBe(guest.landed)
+})

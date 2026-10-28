@@ -8,6 +8,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
+import { PRICING_PLAN_KEY } from '@/features/subscriptions/lib/pricingHint'
 
 const mockGetSubscriptionStatus = vi.fn<[], Promise<SubscriptionStatus>>()
 const mockGetUsage = vi.fn<[], Promise<Usage>>()
@@ -135,6 +136,7 @@ describe('PricingPage', () => {
     flags.ENABLE_ANALYSIS = false
     flags.ENABLE_FPI_FILINGS = false
     localStorage.clear()
+    delete document.documentElement.dataset.pricingHint
     capturedOnClick.clear()
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
     mockGetUsage.mockResolvedValue(baseUsage)
@@ -424,6 +426,8 @@ describe('PricingPage', () => {
 
     expect(await screen.findByText(/couldn't check your account/i)).toBeInTheDocument()
     expect(screen.getByText('network down')).toBeInTheDocument()
+    // Nor a usage card: a failed identity read holds nothing, whatever the pre-paint mark said (E228).
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
     const unavailable = screen.getAllByRole('button', { name: /plan unavailable/i })
     expect(unavailable).toHaveLength(2)
     unavailable.forEach((button) => expect(button).toBeDisabled())
@@ -741,7 +745,8 @@ describe('PricingPage', () => {
     mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: isPro })
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: isPro })
     renderPricing()
-    const held = (await screen.findByText('Current usage')).parentElement!
+    // The card at the plan the identity's answer names: before it, the same card waits on the pre-paint mark (E228).
+    const held = (await screen.findByText(copy)).parentElement!
     expect(held).toHaveAttribute('aria-busy', 'true')
     expect(held).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
     const still = within(held).getByText(copy)
@@ -765,7 +770,8 @@ describe('PricingPage', () => {
   it('holds no usage box for a guest or after the usage read fails, a Retry included', async () => {
     mockGetCurrentUserSafe.mockResolvedValue(null)
     const guest = renderPricing()
-    await screen.findByRole('heading', { level: 2, name: 'Free' })
+    // A confirmed guest, offered an account: until the identity answers, the card waits on the pre-paint mark (E228).
+    await screen.findByRole('button', { name: /create a free account/i })
     expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
     guest.unmount()
 
@@ -786,6 +792,59 @@ describe('PricingPage', () => {
     answerUsage({ ...baseUsage, summaries_used: 4, summaries_limit: 5, is_pro: false })
     await screen.findByText('4 / 5 summaries used this month')
     expect(screen.queryByText('Usage is unavailable')).not.toBeInTheDocument()
+  })
+
+  // A cold load paints before any read answers (E228). Until the identity read answers, the held card renders with the
+  // static page, shown only under the mark a script set before the first paint from a returning reader's session flag
+  // and last plan (features/subscriptions/lib/pricingHint.ts): a Pro mark leaves out the count's limit and the meter,
+  // and hides the billing switch. The identity's answer keeps the same card, now at the plan it names, and records
+  // that plan, and the document's mark, for the next load.
+  it.each([
+    ['a Free account', false, '0 / 5 summaries used this month'],
+    ['a Pro account', true, '0 / ∞ summaries used this month'],
+  ] as const)('before the identity read answers, the held card and the switch follow the pre-paint mark: %s', async (_, isPro, copy) => {
+    let answerIdentity: (user: unknown) => void = () => {}
+    mockGetCurrentUserSafe.mockReturnValue(new Promise((resolve) => { answerIdentity = resolve }))
+    mockGetSubscriptionStatus.mockReturnValue(new Promise(() => {}))
+    mockGetUsage.mockReturnValue(new Promise(() => {}))
+    renderPricing()
+
+    const hinted = (await screen.findByText('Current usage')).parentElement!
+    expect(hinted).toHaveAttribute('aria-busy', 'true')
+    expect(hinted).toHaveClass('hidden', '[[data-pricing-hint]_&]:block')
+    expect(within(hinted).getByText('5')).toHaveClass('[[data-pricing-hint=pro]_&]:hidden')
+    expect(within(hinted).getByText('∞')).toHaveClass('hidden', '[[data-pricing-hint=pro]_&]:inline')
+    expect(hinted.lastElementChild).toHaveClass('invisible', '[[data-pricing-hint=pro]_&]:hidden')
+    expect(screen.getByRole('switch', BILLING_SWITCH).parentElement).toHaveClass('[[data-pricing-hint=pro]_&]:hidden')
+
+    answerIdentity({ id: 1, email: 'u@example.com', is_pro: isPro })
+    const held = (await screen.findByText(copy)).parentElement!
+    expect(held).toBe(hinted)
+    expect(held).not.toHaveClass('hidden')
+    expect(held.className).not.toContain('data-pricing-hint')
+    expect(held.querySelectorAll('.invisible')).toHaveLength(isPro ? 1 : 2)
+    if (isPro) expect(screen.queryByRole('switch', BILLING_SWITCH)).not.toBeInTheDocument()
+    else expect(screen.getByRole('switch', BILLING_SWITCH).parentElement!.className).not.toContain('data-pricing-hint')
+    expect(localStorage.getItem(PRICING_PLAN_KEY)).toBe(isPro ? 'pro' : 'free')
+    expect(document.documentElement.dataset.pricingHint).toBe(isPro ? 'pro' : 'free')
+  })
+
+  // A guest's answer, the mark's wrong case (a session that lapsed without a logout), drops the waiting card and
+  // clears the recorded plan and the document's mark, so the plans hold no card on the next load either.
+  it("a guest's answer drops the card waiting on the mark and clears the mark for the next load", async () => {
+    localStorage.setItem(PRICING_PLAN_KEY, 'free')
+    document.documentElement.dataset.pricingHint = 'free'
+    let answerIdentity: (user: unknown) => void = () => {}
+    mockGetCurrentUserSafe.mockReturnValue(new Promise((resolve) => { answerIdentity = resolve }))
+    renderPricing()
+
+    const hinted = (await screen.findByText('Current usage')).parentElement!
+    answerIdentity(null)
+    await screen.findByRole('button', { name: /create a free account/i })
+    expect(hinted).not.toBeInTheDocument()
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+    expect(localStorage.getItem(PRICING_PLAN_KEY)).toBeNull()
+    expect(document.documentElement.dataset.pricingHint).toBeUndefined()
   })
 })
 

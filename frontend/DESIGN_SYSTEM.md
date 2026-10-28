@@ -700,12 +700,19 @@ Usage meter      <UsageMeter used limit label className>  (components/ui, E196):
                  holds its place (E226): the card and its label show, still copies of the count line and, for a
                  Free account, the meter keep their lines (`invisible`, hidden from assistive technology, the
                  card `aria-busy`), and the answered card is keyed apart, so the meter mounts at its value. A
-                 guest and a failed read hold nothing. Under 200% text the count line sits at its wrap edge at
+                 guest and a failed read hold nothing. A cold load's first paint is the static page's, before the
+                 identity read answers: a script before the plans marks the document with a returning reader's
+                 plan, from the API client's session flag and the plan the page last named (`data-pricing-hint`,
+                 features/subscriptions/lib/pricingHint.ts), and the same held card shows under the mark, a Pro
+                 mark leaving out the meter and the billing switch, so the plans hold still from the first paint
+                 (E228). A mark left by a session that lapsed without a logout moves a guest's plans up once: the
+                 identity read clears the flag. Under 200% text the count line sits at its wrap edge at
                  about 290 to 350px and 518 to 580px, where a count whose figures are narrower or wider than the
                  copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on #1715.
                  Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
                  clamp, the naming), tests/unit/PricingPage.spec.tsx (the usage box and its hold),
-                 tests/e2e/pricing-usage-hold.spec.ts (the plans' place as the count lands) and
+                 tests/unit/pricingHint.spec.tsx (the mark), tests/e2e/pricing-usage-hold.spec.ts (the plans'
+                 place as the count lands, and from a cold load's first paint) and
                  tests/unit/statusTintResidue.spec.ts (a hand-drawn meter's warning and error fills are residue
                  outside components/ui).
 
