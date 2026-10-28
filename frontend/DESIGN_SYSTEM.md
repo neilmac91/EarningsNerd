@@ -1337,7 +1337,10 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
                  draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
                  on the dropdown's own opaque panel, so the page does not show through its tint (the company
-                 search's failure, E196 (4)).
+                 search's failure, E196 (4)). That panel takes the Notice's 12px (`rounded-lg`), not the dropdown's
+                 16px (`rounded-xl`): it has no padding or border of its own, so its edge is the Notice's, and under
+                 a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
+                 results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +

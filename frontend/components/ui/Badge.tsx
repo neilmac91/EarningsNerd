@@ -34,6 +34,11 @@
                      pack's review status (ReviewStatusChip, E140) render the
                      set, and tests/unit/statusChipContrast.spec.ts measures
                      them on their rows and cards, at rest and hovered.
+                     The summary's Saved chip (SummaryActionsBar, E196 (4))
+                     is success too, and that spec does not read it: 5.0:1
+                     on its white ground in light; in dark, with no ground of
+                     its own, 8.3:1 on the page it sits on and 6.4:1 on a
+                     panel (the tier review and chief design on #1731).
                      tentative, the set's sixth, is a status not yet settled
                      (the calendar's estimated date, "Est."): neutral-status's
                      ink on the hairline, dashed, with no fill in either

@@ -22,13 +22,13 @@ import { describe, expect, it } from 'vitest'
  *     system sanctions (§9), and a token inside another (`shadow-ring-error-dark`, the focus ring the primitives own)
  *     is not read. The gain/loss tones (lib/financialTone.ts) and the brand's tints are not status. RESIDUE lists what
  *     the census found on 2026-10-24, per file at its count, with the surface and the open item that retires it
- *     (tasks/todo.md E196: its clause (2) the guidance and warning containers, (4) the other clones of Notice,
- *     GuidanceCard and Badge; its clause (1), the pricing usage box, took the shared UsageMeter on 2026-10-27, and the
- *     dashboard's meter with it, and its clause (3), the error clones and the "Market closed" line, took Notice on
- *     2026-10-28, the Copilot's error bubble by its tint); a line under "a status tint on a state, no item" is held
- *     at its count until a primitive takes the surface. Shrink-only: a fixed surface fails until its count is
- *     lowered, a new tint fails, and the totals equal RESIDUE_MAX, lowered in the same commit as each shrink
- *     (lessons/test-allowlist-caps-are-equalities.md).
+ *     (tasks/todo.md E196: its clause (2) the guidance and warning containers; its clause (1), the pricing usage box,
+ *     took the shared UsageMeter on 2026-10-27, and the dashboard's meter with it; its clause (3), the error clones and
+ *     the "Market closed" line, took Notice on 2026-10-28, the Copilot's error bubble by its tint; and its clause (4),
+ *     the other clones of Notice, GuidanceCard and Badge, took their primitives the same day); a line under "a status
+ *     tint on a state, no item" is held at its count until a primitive takes the surface. Shrink-only: a fixed surface
+ *     fails until its count is lowered, a new tint fails, and the totals equal RESIDUE_MAX, lowered in the same commit
+ *     as each shrink (lessons/test-allowlist-caps-are-equalities.md).
  *
  *  2. NOTICE VARIANT WRITTEN. Every `<Notice …>` under app, components and features, read under its name, a
  *     named-import alias (`Notice as Banner`), a namespace import (`UI.Notice`) and a same-file const alias
