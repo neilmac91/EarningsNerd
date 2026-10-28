@@ -456,25 +456,35 @@ describe('account snapshots follow the resolved identity', () => {
     expect(getSessionGeneration()).toBe(start + 1)
   })
 
-  it("a /me that answers no one between two readers empties nothing, and the next reader still drops the first one's snapshots (E29 (3))", async () => {
+  it("a /me that answers no one after another tab logged out drops the previous reader's snapshots, and no render shows a guest or the next reader beside them (E29 (3))", async () => {
     const client = newClient()
     client.setQueryData(queryKeys.currentUser(), makeUser(1))
     disposers.push(subscribeAccountQueryReset(client))
-    client.setQueryData(queryKeys.watchlist(), { owner: 1 })
+    client.setQueryData(queryKeys.earningsAlertTickers(), ['AAPL'])
+    const seen: string[] = []
+    function Bells() {
+      // As the calendar reads them: a guest's read is disabled, and a disabled read still returns what the cache holds.
+      const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
+      const { data: tickers } = useQuery({ queryKey: queryKeys.earningsAlertTickers(), queryFn: () => new Promise<never>(() => {}), enabled: !!user })
+      seen.push(`${user?.id ?? null}:${(tickers as string[] | undefined)?.join() ?? null}`)
+      return null
+    }
+    render(<QueryClientProvider client={client}><Bells /></QueryClientProvider>)
     const start = getSessionGeneration()
     // Another tab logged out, clearing the shared session marker: this tab's /me 401 reads as a guest's, with no
     // refresh and no lost session, so nothing resets.
     api.defaults.adapter = async (config) => {
       throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
     }
-    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
-    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
-    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 1 })
-    expect(getSessionGeneration()).toBe(start)
-    // That tab then signed in as another account, and this tab's next /me names it.
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('null:null'))
+    expect(getSessionGeneration()).toBe(start + 1)
+    // That tab then signed in as another account, and this tab's next /me names it: the families are already empty.
     api.defaults.adapter = async (config) => response(config, makeUser(2))
-    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
-    expect(client.getQueryData(queryKeys.watchlist())).toBeUndefined()
+    await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
+    await waitFor(() => expect(seen.at(-1)).toBe('2:null'))
+    expect(seen).toContain('1:AAPL')
+    expect(seen.filter((pair) => pair.endsWith(':AAPL') && pair !== '1:AAPL')).toEqual([])
     expect(getSessionGeneration()).toBe(start + 1)
   })
 
