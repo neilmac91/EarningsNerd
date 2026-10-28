@@ -579,8 +579,12 @@ class TestFigureCheck:
         (EARLIER_FILING, EARLIER_FILING, False),
         (THIS_FILING, None, True),
         (None, None, True),
-        # The same filing, its dashes aside (SEC's companyfacts dashes it; a stored accession may not).
+        # The same filing, its dashes aside (SEC's companyfacts dashes it; a stored accession may not); another
+        # filing's, dashes aside, is still another's.
         (THIS_FILING.replace("-", ""), THIS_FILING, True),
+        (EARLIER_FILING.replace("-", ""), EARLIER_FILING, False),
+        # A value that is no accession number names no filing: read as unrecorded, as before.
+        ("stored", "fresh", True),
     ])
     def test_an_earlier_instant_is_held_to_the_filings_own_accession(self, current_accn, earlier_accn, verified):
         current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
@@ -1421,13 +1425,18 @@ class TestScopeTagsHoldTheirSources:
 
         out: dict[str, set[str]] = {}
         for node in ast.walk(ast.parse(inspect.getsource(xbrl_companyfacts.parse_company_facts))):
-            if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "append_items" and len(node.args) == 4):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "append_items"):
                 continue
-            key, select = node.args[2], node.args[3]
-            if isinstance(key, ast.Constant) and isinstance(select, ast.Call) and len(select.args) >= 3:
-                tags = select.args[2]
-                assert isinstance(tags, ast.List), f"{key.value}: read its candidates from a literal list"
-                out.setdefault(key.value, set()).update(element.value for element in tags.elts)
+            key = node.args[2] if len(node.args) > 2 else None
+            assert isinstance(key, ast.Constant), "append_items names its concept as a literal"
+            if key.value == "cash_and_equivalents":
+                continue  # its tag is recorded, from CASH_TAG_CANDIDATES (above)
+            # Any other shape fails here, so a concept added another way is read, never skipped.
+            select = node.args[3] if len(node.args) == 4 and not node.keywords else None
+            assert isinstance(select, ast.Call) and len(select.args) >= 3, f"{key.value}: read its candidates"
+            tags = select.args[2]
+            assert isinstance(tags, ast.List), f"{key.value}: read its candidates from a literal list"
+            out.setdefault(key.value, set()).update(element.value for element in tags.elts)
         return out
 
     def test_the_companyfacts_inline_lists_are_read(self):

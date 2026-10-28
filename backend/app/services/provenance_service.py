@@ -656,9 +656,10 @@ def _shows_a_figure(text: Any) -> bool:
 
 
 def _accession(value: Any) -> Optional[str]:
-    """An accession number as one string, its dashes aside (SEC's companyfacts dashes it; a stored one may not), or
-    None where none is recorded."""
-    return (value.replace("-", "").strip() or None) if isinstance(value, str) else None
+    """An accession number as its 18 digits, its dashes aside (SEC's companyfacts dashes it; a stored one may not), or
+    None where none is recorded or the value is not one: it names no filing, so it neither proves nor refuses one."""
+    digits = value.replace("-", "").strip() if isinstance(value, str) else ""
+    return digits if len(digits) == 18 and digits.isdigit() else None
 
 
 def _recorded_elsewhere(fact: dict, filing: Any) -> bool:

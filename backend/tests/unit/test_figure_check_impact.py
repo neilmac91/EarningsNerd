@@ -214,6 +214,23 @@ def test_the_guarded_session_refuses_a_write_and_leaves_others_alone(cohort):
         other.commit()
 
 
+def test_on_postgresql_the_guard_first_sets_the_transaction_read_only(monkeypatch):
+    # The database refuses what the statement guard might miss; SQLite has no such setting, so a stand-in names
+    # the dialect and records what the guard runs and where it listens.
+    from types import SimpleNamespace
+
+    from sqlalchemy import event
+
+    executed, listened = [], []
+    connection = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"),
+                                 execute=lambda statement: executed.append(str(statement)))
+    session = SimpleNamespace(connection=lambda: connection)
+    monkeypatch.setattr(event, "listen", lambda target, name, _fn: listened.append((target, name)))
+    impact.guard_read_only(session)
+    assert executed == ["SET TRANSACTION READ ONLY"]
+    assert listened == [(connection, "before_cursor_execute"), (session, "before_flush")]
+
+
 def test_a_no_total_banks_revenue_row_is_dropped_by_both_checks():
     # The page drops a no-total bank's revenue row, as the retired check's enrichment did (751ce417^): no change.
     bank = {"reporting_currency": "USD", "revenue": {"current": {"value": None}},

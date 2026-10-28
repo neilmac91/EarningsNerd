@@ -18,9 +18,9 @@ XBRL, ``standardized_xbrl``):
   ``unreadable``: summaries whose stored data the check could not read, counted, never guessed.
 
 Output is one JSON object of aggregate counts: no filing text, prompt, summary body, identifier or
-setting. Nothing is written and no model is called: every statement the session runs must start with
-SELECT (anything else raises before it reaches the database), on PostgreSQL its transaction is also READ
-ONLY, and the session is rolled back at the end. A summary counts whole or not at all: one that cannot be
+setting. Nothing is written and no model is called: on PostgreSQL the session's transaction is first set
+READ ONLY, every statement it runs after that must start with SELECT (anything else raises before it
+reaches the database), and the session is rolled back at the end. A summary counts whole or not at all: one that cannot be
 read adds nothing but its ``unreadable`` count.
 The script exits 1 when any summary in the cohort was unreadable, or when an id ``--summary-ids`` names
 is missing, so a partial count is never read as a whole one; a range's absent ids (deleted or never made)
