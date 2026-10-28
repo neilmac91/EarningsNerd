@@ -6,7 +6,8 @@ raised (the token store down, the pool exhausted), the exception reached the glo
 stayed in the browser, and on a shared computer the next person to open the site was signed in as the
 first. The route now answers 503 on a response of its own that carries the three deletions. Setting them
 on the injected Response and raising instead would drop them, as FastAPI renders an HTTPException as a
-fresh response (``/refresh``'s clears are lost that way: ``test_auth_token_flows.py`` pins it).
+fresh response (``/refresh``'s were, until E121 removed them; ``test_raised_answers_carry_no_injected_headers.py``
+now refuses the form).
 
 A failed revoke writes no audit row, since no session is known to have ended, and leaves nothing
 half-committed: the unit's own ``release_request_session`` rolls it back, so the token stays live in the
