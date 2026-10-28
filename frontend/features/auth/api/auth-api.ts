@@ -1,4 +1,4 @@
-import api, { ApiError, refreshSettled } from '@/lib/api/client'
+import api, { ApiError, refreshSettled, withoutRefreshBeside } from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, markSessionConfirmed, clearSessionActive, getSessionGeneration, assertSessionGeneration, hasActiveSession, getExplicitSessionGeneration, assertExplicitSessionGeneration, isExplicitSessionGenerationCurrent, beginLogout, endLogout } from '@/lib/api/session'
 import type { AccountAgreement } from '@/features/legal/api/legal-api'
@@ -38,13 +38,18 @@ export const startOAuthWithInvite = async (provider: 'google' | 'apple', invite?
   return response.data.url
 }
 
+/**
+ * The password login. Its answer sets the new session's cookies, so no silent refresh runs beside it (E29 (4),
+ * client.ts's withoutRefreshBeside): the one in flight answers first, or is cancelled at LOGIN_REFRESH_WAIT_MS, and a
+ * refresh a 401 asks for meanwhile waits for the login's answer. Another tab's refresh is out of this tab's reach.
+ */
 export const login = async (email: string, password: string, turnstileToken?: string) => {
   const generation = getExplicitSessionGeneration()
-  const response = await api.post(
+  const response = await withoutRefreshBeside(LOGIN_REFRESH_WAIT_MS, () => api.post(
     '/api/auth/login',
     { email, password },
     turnstileConfig(turnstileToken),
-  )
+  ))
   assertExplicitSessionGeneration(generation)
   markSessionActive()
   return response.data
@@ -115,6 +120,8 @@ export const unlinkProvider = async (provider: string) => {
 
 // How long a logout waits, at most, for a silent refresh in flight to answer before it posts.
 export const LOGOUT_REFRESH_WAIT_MS = 10_000
+// How long a login waits, at most, for a silent refresh in flight to answer before it posts (E29 (4)), as a logout does.
+export const LOGIN_REFRESH_WAIT_MS = 10_000
 
 /**
  * Before a logout posts: start no new silent refresh, and let the one in flight answer first. A refresh's answer sets
