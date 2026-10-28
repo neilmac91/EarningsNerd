@@ -3,7 +3,7 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Button, countControlClass, cx } from '@/components/ui'
+import { Button, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
@@ -392,13 +392,10 @@ export default function CopilotMessage({
     )
   }
 
-  // --- Assistant: error bubble ---
+  // --- Assistant: error bubble (the answer card's shape, with the thread's tail, in Notice's error tint) ---
   if (message.status === 'error') {
     return (
-      <div
-        role="alert"
-        className="rounded-xl rounded-bl-sm border border-error-light/25 bg-error-light/[0.06] px-4 py-3 text-sm dark:border-error-dark/25 dark:bg-error-dark/10"
-      >
+      <div role="alert" className={cx('rounded-xl rounded-bl-sm border px-4 py-3 text-sm', noticeTint('error'))}>
         <p className="font-medium text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
         <div className="mt-2.5">
           {onRetry && (

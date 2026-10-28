@@ -22,11 +22,12 @@ import { describe, expect, it } from 'vitest'
  *     system sanctions (§9), and a token inside another (`shadow-ring-error-dark`, the focus ring the primitives own)
  *     is not read. The gain/loss tones (lib/financialTone.ts) and the brand's tints are not status. RESIDUE lists what
  *     the census found on 2026-10-24, per file at its count, with the surface and the open item that retires it
- *     (tasks/todo.md E196: its clause (2) the guidance and warning containers, (3) and (4) the error and other clones of
- *     Notice and Badge; its clause (1), the pricing usage box, took the shared UsageMeter on 2026-10-27, and the
- *     dashboard's meter with it); a line under "a status tint on a state, no item" is held at its count until a
- *     primitive takes the surface. Shrink-only: a fixed surface fails until its count is lowered, a new tint fails,
- *     and the totals equal RESIDUE_MAX, lowered in the same commit as each shrink
+ *     (tasks/todo.md E196: its clause (2) the guidance and warning containers, (4) the other clones of Notice,
+ *     GuidanceCard and Badge; its clause (1), the pricing usage box, took the shared UsageMeter on 2026-10-27, and the
+ *     dashboard's meter with it, and its clause (3), the error clones and the "Market closed" line, took Notice on
+ *     2026-10-28, the Copilot's error bubble by its tint); a line under "a status tint on a state, no item" is held
+ *     at its count until a primitive takes the surface. Shrink-only: a fixed surface fails until its count is
+ *     lowered, a new tint fails, and the totals equal RESIDUE_MAX, lowered in the same commit as each shrink
  *     (lessons/test-allowlist-caps-are-equalities.md).
  *
  *  2. NOTICE VARIANT WRITTEN. Every `<Notice …>` under app, components and features, read under its name, a
@@ -55,10 +56,7 @@ const RESIDUE: Record<string, number> = {
   'features/admin/components/ShareInvite.tsx': 4, // the invite-sharing warning well
   'features/auth/components/UserMenu.tsx': 6, // the unverified dot and the verify-email row
   'features/auth/components/VerificationBanner.tsx': 6, // the banner's warning ground and hover
-  // E196 (3) and (4): clones of Notice, GuidanceCard or Badge that take the primitive.
-  'features/search/components/FullTextSearch.tsx': 4, // an error Notice clone (2026-10-18)
-  'features/filings/components/copilot/CopilotMessage.tsx': 4, // the error bubble, Notice's error recipe verbatim
-  'features/calendar/components/DayDetailDialog.tsx': 4, // the "Market closed" info Notice clone
+  // E196 (4): clones of Notice, GuidanceCard or Badge that take the primitive (E196 (3)'s three took theirs).
   'features/companies/components/CompanySearch.tsx': 3, // the error dropdown's light and dark hairline and its dark ground
   'features/calendar/components/AlertBell.tsx': 4, // the error icon well, GuidanceCard's recipe
   'features/admin/components/BulkResultSummary.tsx': 2, // the error rows' tint
@@ -74,7 +72,7 @@ const RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/FilingViewer.tsx': 4, // the viewer's warning strip
 }
 /** Equal to the table, never above it: lower both with the table in the same commit. */
-const RESIDUE_MAX = { files: 20, uses: 77 }
+const RESIDUE_MAX = { files: 17, uses: 65 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -194,8 +192,9 @@ const INFO_NOTICES: Record<string, number> = {
   'features/analysis/components/NarrativePane.tsx': 2, // source references that need attention, not enough history: results
   'features/analysis/components/AnalysisPageClient.tsx': 4, // an unsupported filer (a state); the signed-out guidance, the Pro upsell and the history fetch (activity) wait on E196 (2)
   'features/auth/components/RegisterForm.tsx': 1, // the private-beta guidance waits on E196 (2)
+  'features/calendar/components/DayDetailDialog.tsx': 1, // "Market closed for {holiday}": a state of the day (E196 (3))
 }
-const INFO_NOTICES_MAX = { files: 6, uses: 11 }
+const INFO_NOTICES_MAX = { files: 7, uses: 12 }
 
 describe('status tints are a census (DESIGN_SYSTEM.md §4 › Inline notice, §12)', () => {
   const uses = new Map<string, number>()
