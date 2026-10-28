@@ -798,20 +798,27 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
   test('a figure focused while the rail is hidden lands below the band the rail then takes', async ({ page, baseURL }) => {
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, 'legacy', theme, 1)
-    // A last row taller than the heading row, its figure under the site header while the rail is hidden. Chromium
-    // centres an obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to
-    // the scroll padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
-    const placed = await page.evaluate(() => {
+    // A last row taller than the rail, its figure under the site header while the rail is hidden. Chromium centres an
+    // obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to the scroll
+    // padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
+    const placed = await page.evaluate(async () => {
+      const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       const table = document.querySelector('[data-analysis-metrics] table')!
       const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
-      const head = table.querySelector('thead')!.getBoundingClientRect().height
-      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
-      for (const cell of row.cells) cell.style.height = `${header / 2 + head - 4}px`
-      // Room below the table to place it, and its bottom 4px inside the heading row's height under the header.
+      // Room below the table to place it. The rail's height is the one the page reserves while the table is under the
+      // header's line, shorter than the heading row where the rail leaves out the Metric legend (E202).
       document.body.style.paddingBottom = '150vh'
-      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - head + 4)
-      return { rail: !!document.querySelector('[data-table-header-rail] > div'), bottom: table.getBoundingClientRect().bottom - header - head }
+      window.scrollTo(0, table.getBoundingClientRect().top + window.scrollY - header + 8)
+      await frames()
+      const rail = parseFloat(document.documentElement.style.getPropertyValue('--table-rail-h'))
+      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
+      for (const cell of row.cells) cell.style.height = `${header / 2 + rail - 4}px`
+      // The table's bottom 4px inside the rail's height under the header.
+      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - rail + 4)
+      await frames()
+      return { rail: !!document.querySelector('[data-table-header-rail] > div'), height: rail }
     })
+    expect(placed.height, 'the page reserves the rail while the table is under the header').toBeGreaterThan(0)
     expect(placed.rail, 'the rail is hidden before the focus moves').toBe(false)
     // The reserve follows the scroll a frame later; the focus move waits for it, as a reader's key press would.
     await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
@@ -889,6 +896,58 @@ test.describe('analysis heading rail / 1024px', () => {
     await expect.poll(() => scroller.evaluate(el => el.scrollLeft), 'the wheel reached the table through the rail').not.toBe(before)
   })
 })
+
+/** Under 200% text on a phone the heading row is three lines, 112px, in either mode (the Metric cell's legend under
+ *  "Metric"; in an annual run the window over "CAGR" too), under a site header already 225px tall. The rail leaves out
+ *  what only the table's own heading row needs (data-rail-omit): the legend and the window. It is the quarter headings'
+ *  two lines in a quarterly run and one line in an annual run, and the page reserves that height, not the row's (E202). */
+for (const [state, mode, rail] of [['legacy', 'quarterly', 80], ['annual', 'annual', 48]] as const) {
+  test.describe(`analysis heading rail / 390px under 200% text / ${mode}`, () => {
+    test.use({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('the rail leaves out the legend and the window, the page reserves its height, and a figure reached by Shift+Tab lands below it', async ({ page, baseURL }) => {
+      test.setTimeout(90_000)
+      await openAnalysis(page, baseURL!, state, 'light', 2)
+      const rows = page.locator(`${TABLE} tbody tr`)
+      // Row 6's top just under the site header, placed again until the page has settled and the rail shows.
+      await expect.poll(async () => {
+        await rows.nth(6).evaluate(row => {
+          const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+        })
+        await page.waitForTimeout(250)
+        return page.locator('[data-table-header-rail] > div').count()
+      }, { timeout: 20_000 }).toBe(1)
+      const read = await page.evaluate(() => {
+        const head = document.querySelector('[data-analysis-metrics] table thead')!
+        const bar = document.querySelector('[data-table-header-rail] > div')!
+        return {
+          head: head.getBoundingClientRect().height,
+          bar: bar.getBoundingClientRect().height,
+          reserve: document.documentElement.style.getPropertyValue('--table-rail-h'),
+          inRow: [...head.querySelectorAll('[data-rail-omit]')].map(part => getComputedStyle(part).display),
+          inRail: [...bar.querySelectorAll('[data-rail-omit]')].map(part => getComputedStyle(part).display),
+        }
+      })
+      expect(read.head, 'the heading row is three lines').toBe(112)
+      expect(read.bar, `the rail is ${rail}px`).toBe(rail)
+      expect(read.reserve, 'the page reserves the rail, not the heading row').toBe(`${rail}px`)
+      expect(read.inRow, 'the heading row shows the legend, and the window in an annual run').toEqual(mode === 'annual' ? ['block', 'block'] : ['block'])
+      expect(read.inRail, 'the rail leaves them out').toEqual(read.inRow.map(() => 'none'))
+      // Tab into the row below, then back up: focus lands on row 6's last figure, which the page must scroll clear.
+      await rows.nth(7).locator('button[aria-label$="View source and calculation"]').first().focus()
+      await page.keyboard.press('Shift+Tab')
+      const focused = page.locator(':focus')
+      await expect(focused).toHaveAttribute('aria-label', /View source and calculation$/)
+      const place = await focused.evaluate(button => {
+        const top = button.getBoundingClientRect().top
+        const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+        const rail = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect().bottom ?? 0
+        return { top, clear: Math.max(header, rail) }
+      })
+      expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+    })
+  })
+}
 
 /** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
  *  4.375rem, so below md, in the band where that cost the third period, the metric column gives up to 6px (MetricsTable).

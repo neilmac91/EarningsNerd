@@ -123,7 +123,8 @@ export default function MetricsTable({
     })
     const metricColumn: Column<Row> = {
       key: 'metric',
-      header: <><span>Metric</span><span className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
+      // The legend stays in the table's own heading row; the page heading rail leaves it out (data-rail-omit, E202).
+      header: <><span>Metric</span><span data-rail-omit className="block font-normal normal-case tracking-normal text-data-xs">value · Δ vs {basis}</span></>,
       rowHeader: true,
       // The metric column sits on the panel frame: the name in the figure ink (Lc 101.3 / -91.8 on panel), its currency
       // line in the panel's secondary ink (90.9 / -77.3).
@@ -137,11 +138,12 @@ export default function MetricsTable({
     if (!showsCagr) {
       return [metricColumn, ...periodColumns]
     }
-    // An en-dash already offers a line break after it, so the window wraps there in a narrow column.
+    // An en-dash already offers a line break after it, so the window wraps there in a narrow column. The window stays
+    // in the table's own heading row; the page heading rail shows "CAGR" alone (data-rail-omit, E202).
     const cagrWindow = formatAnalysisWindow(dataset.periods[0]?.key ?? '', dataset.periods.at(-1)?.key ?? '')
     const cagrColumn: Column<Row> = {
       key: 'cagr',
-      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal">{cagrWindow}<span className="block">CAGR</span></span></>,
+      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal"><span data-rail-omit className="block">{cagrWindow}</span><span className="block">CAGR</span></span></>,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
