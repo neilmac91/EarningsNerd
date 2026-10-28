@@ -114,7 +114,7 @@ function CheckEmailContent() {
           aria-busy={resendLoading || undefined}
           className="group rounded-lg focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 font-medium disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed"
         >
-          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
+          {resendLoading && <CircleNotchIcon aria-hidden="true" className="h-3 w-3 animate-spin text-brand-strong/50 motion-reduce:animate-none dark:text-brand-strong-dark/50" />}
           {/* The label sets the ink and draws the underline, so the underline is always the label's
               colour (a button's own underline is drawn in the button's inherited secondary ink). The
               countdown carries a number, so it rests in the secondary ink at full strength while the

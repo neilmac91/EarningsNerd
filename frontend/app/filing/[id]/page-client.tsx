@@ -248,7 +248,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
   if (filingQuery.isPending && !filingFailure.failed) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark" aria-label="Filing">
-        <div role="status">
+        <div role="status" aria-label="Loading filing">
           <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
           <span className="sr-only">Loading filing…</span>
         </div>
@@ -401,8 +401,9 @@ function FilingDetailView({ filingId, initialFiling, initialSummary, initialChan
             // generating: show a neutral spinner, NOT the fake "Reading the filing" progress
             // card. A signed-out visitor headed for the gate must never flash live AI-progress for
             // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
-            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
-              <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading the summary">
+              <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+              <span className="sr-only">Loading the summary…</span>
             </div>
           ) : (
             <StreamingSummaryDisplay

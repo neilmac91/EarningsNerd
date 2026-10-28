@@ -64,8 +64,9 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
   if (companyLoading) {
     return (
       <main className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
-        <div className="flex h-full min-h-screen items-center justify-center">
-          <CircleNotchIcon className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+        <div role="status" aria-label="Loading filings" className="flex h-full min-h-screen items-center justify-center">
+          <CircleNotchIcon aria-hidden="true" className="h-8 w-8 animate-spin motion-reduce:animate-none text-brand-strong dark:text-brand-strong-dark" />
+          <span className="sr-only">Loading filings…</span>
         </div>
       </main>
     )
