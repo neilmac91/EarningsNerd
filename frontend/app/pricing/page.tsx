@@ -12,7 +12,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import { Button, Card, Notice, Switch, cx, primaryUnavailableClass, secondaryUnavailableClass } from '@/components/ui'
+import { Button, Card, Notice, Switch, UsageMeter, cx, primaryUnavailableClass, secondaryUnavailableClass } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
@@ -434,33 +434,23 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
           )}
         </div>
 
-        {/* Usage Stats */}
+        {/* Usage Stats: a card with the dashboard's meter (UsageMeter: sage, warning from 80%, error at 100%). The box
+            states the account's own numbers, so it lifts as a card and takes no status tint (E196). */}
         {usage && !usageError && (
-          <div className="mb-8 bg-info-light/10 border border-info-light/40 rounded-lg p-4 max-w-2xl mx-auto dark:bg-info-dark/15 dark:border-info-dark/40">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-info-text dark:text-info-dark">Current usage</p>
-                <p className="text-sm text-info-text dark:text-info-dark">
-                  {usage.summaries_used} / {usage.summaries_limit || '∞'} summaries used this month
-                </p>
-              </div>
-              {!usage.is_pro && usage.summaries_limit && (
-                <div
-                  className="w-32 bg-info-light/20 rounded-full h-2 dark:bg-info-dark/20"
-                  role="progressbar"
-                  aria-label={`${usage.summaries_used} of ${usage.summaries_limit} summaries used this month`}
-                  aria-valuenow={usage.summaries_used}
-                  aria-valuemin={0}
-                  aria-valuemax={usage.summaries_limit}
-                >
-                  <div
-                    className="bg-info-light dark:bg-info-dark h-2 rounded-full transition-[width] duration-base"
-                    style={{ width: `${(usage.summaries_used / usage.summaries_limit) * 100}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+          <Card className="mx-auto mb-8 max-w-2xl p-cap-5">
+            <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Current usage</p>
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              {usage.summaries_used} / {usage.summaries_limit || '∞'} summaries used this month
+            </p>
+            {!usage.is_pro && usage.summaries_limit && (
+              <UsageMeter
+                className="mt-3"
+                used={usage.summaries_used}
+                limit={usage.summaries_limit}
+                label={`${usage.summaries_used} of ${usage.summaries_limit} summaries used this month`}
+              />
+            )}
+          </Card>
         )}
 
         {/* Beta member: Pro is free via the 100%-off forever promo. Make their $0 total clear. */}

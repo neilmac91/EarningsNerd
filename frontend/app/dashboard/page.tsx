@@ -24,7 +24,7 @@ import EarningsCalendar from '@/features/dashboard/components/EarningsCalendar'
 import YourCompanies from '@/features/dashboard/components/YourCompanies'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
-import { Badge, Button, buttonVariants, Card, GuidanceCard, Notice, SkeletonStat, SkeletonText } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Notice, SkeletonStat, SkeletonText, UsageMeter } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 import { FREE_SUMMARY_LIMIT } from '@/lib/planLimits'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
@@ -473,18 +473,7 @@ export default function DashboardPage() {
                       remaining
                     </span>
                   </div>
-                  <div className="w-full bg-panel-light rounded-full h-3 border border-border-light dark:bg-background-dark dark:border-border-dark">
-                    <div
-                      className={`h-full rounded-full transition-[width] duration-base ${
-                        usagePercentage >= 100
-                          ? 'bg-error-light dark:bg-error-dark'
-                          : usagePercentage >= 80
-                          ? 'bg-warning-light dark:bg-warning-dark'
-                          : 'bg-brand-strong dark:bg-brand-dark'
-                      }`}
-                      style={{ width: `${Math.min(100, usagePercentage)}%` }}
-                    />
-                  </div>
+                  <UsageMeter used={usage?.summaries_used ?? 0} limit={usage?.summaries_limit} />
                   <Link href="/pricing" className={buttonVariants({ variant: 'primary', wrap: true, className: 'w-full text-center' })}>
                     Upgrade to Pro
                   </Link>

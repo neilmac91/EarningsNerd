@@ -679,6 +679,19 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  read, each planted as a gap) and tests/unit/MissingValue.spec.tsx (the reading, the
                  words a site passes and the positioned clip).
 
+Usage meter      <UsageMeter used limit label className>  (components/ui, E196): a plan's monthly usage as a
+                 bar, on the dashboard's plan card and the pricing page's usage box, each inside a Card that
+                 states the counts in words. A hairline track (h-3, rounded-full, border-border-light
+                 bg-panel-light, dark:border-border-dark dark:bg-background-dark: the card's own fill in light, and
+                 in dark the page's ground, a step below the card) and a fill that never runs past it: the brand's sage below 80% of the limit, warning from 80% and error at
+                 100% (`usageMeterFill`), the status colours on a state, a limit nearly or wholly used. A
+                 `label` names it as a progress bar with its value; without one it is drawn only, beside the
+                 counts. Any bar of a limit's use draws through it, never its classes by hand, and the box
+                 around it is a Card, never a status tint: the pricing page's was an info tint with a blue
+                 meter until E196. Gates: tests/unit/UsageMeter.spec.tsx (the fills, the clamp, the naming),
+                 tests/unit/PricingPage.spec.tsx (the usage box) and tests/unit/statusTintResidue.spec.ts (a
+                 hand-drawn meter's warning and error fills are residue outside components/ui).
+
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
                  it scrolls with the table and has its own snap stop. The MetricsTable Card is its
