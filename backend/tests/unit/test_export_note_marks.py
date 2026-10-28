@@ -18,7 +18,8 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    runs.
 5. The workbook's letter: a marked figure's cell stays a number whose format prints the letter, in every unit, a
    window's change and the top line's growth among them, and "n/m" takes it from the text section; a chart's value axis
-   keeps the figures' own format, unlinked, so no tick prints a letter.
+   keeps the figures' own format, unlinked, so no tick prints a letter. A quarterly PDF's Q4 header takes the page's †
+   where a fourth quarter's flow figure is calculated, with its legend, and no figure takes one.
 6. The Metrics header row ends in the key to the letters the grid prints, exactly when it prints one.
 7. The exports' own sentences hold the reason words' surface rules (test_analysis_data_notes.py): no page action, no
    drawing, no single figure, no semicolon. The gap words alone say how each file draws a gap, which is their job.
@@ -312,6 +313,29 @@ def test_the_exports_own_sentences_hold_the_reason_words_surface_rules():
     # Planted: the page's own closing line and sentence ending fail here.
     assert _surface_problems("Select any figure to see its source filing, method and inputs.")
     assert _surface_problems("Select any value for its source and full precision.")
+
+
+def test_a_quarterly_grid_marks_its_derived_fourth_quarters_never_a_figure():
+    """MetricsTable.tsx's Q4 header † and its legend (coherence §2.5: they mark a period, not a figure): a calculated
+    Q4 flow figure puts the † on its column's header, which the legend explains; no figure carries one."""
+    def quarterly(derived: bool) -> SimpleNamespace:
+        dataset = {"mode": "quarterly", "period_key": "2024Q3..2025Q1", "periods": [
+            {"key": "2024Q3", "fiscal_period": "Q3"}, {"key": "2024Q4", "fiscal_period": "Q4"},
+            {"key": "2025Q1", "fiscal_period": "Q1"}], "series": [
+            {"concept": "revenue", "label": "Revenue", "unit": "USD", "points": [
+                {"period": "2024Q3", "value": 300.0}, {"period": "2024Q4", "value": 400.0, "derived": derived},
+                {"period": "2025Q1", "value": 350.0}]},
+            {"concept": "cash_and_equivalents", "label": "Cash", "unit": "USD", "points": [{"period": "2024Q4", "value": 9.0}]}]}
+        dataset["data_notes"] = data_notes(dataset)
+        return SimpleNamespace(mode="quarterly", period_key=dataset["period_key"], dataset_json=dataset, narrative_md="",
+                               citations_json=[])
+
+    html = ExportService().generate_analysis_pdf_html(quarterly(True), COMPANY)
+    assert '<th class="num">Q4 2024 †</th>' in html and '<th class="num">Q3 2024</th>' in html
+    assert f"{QUARTER_LEGEND} {DERIVED_Q4_LEGEND}" in html
+    assert html.count("†") == 2, "the header and its legend, never a figure"
+    plain = ExportService().generate_analysis_pdf_html(quarterly(False), COMPANY)
+    assert "†" not in plain and QUARTER_LEGEND in plain
 
 
 # ---- The PDF's layout ---------------------------------------------------------------------------------------------
