@@ -54,6 +54,14 @@ const WRAP: Record<NoticeVariant, string> = {
   ),
 }
 
+/** The variant's tint, its hairline and ground, for a surface of another shape that states the same thing: the
+    Copilot's error bubble keeps the thread's tail in the error tint (E196 (3)). The tint stays the primitive's, so a
+    change to it reaches that surface too. Each borrower is listed, with the variant it writes, in
+    tests/unit/statusTintResidue.spec.ts's TINT_BORROWED. */
+export function noticeTint(variant: NoticeVariant): string {
+  return WRAP[variant]
+}
+
 const ICON: Record<NoticeVariant, string> = {
   error: 'text-error-light dark:text-error-dark',
   // The glyph is a graphic (3:1 floor) — info.light holds 4.3:1 inside the

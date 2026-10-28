@@ -13,7 +13,7 @@
    name; this surface is the empty/error guidance card only.
 ============================================================================= */
 
-import { useId, type ReactNode, type Ref } from 'react'
+import { useId, type HTMLAttributes, type ReactNode, type Ref } from 'react'
 import { MagnifyingGlassIcon, WarningCircleIcon } from '@/lib/icons'
 import { cx } from './cx'
 
@@ -54,6 +54,22 @@ const ICON_WRAP: Record<GuidanceCardVariant, string> = {
   ),
 }
 
+/** The card's icon well: a round well in its variant's tint (the brand's for guidance, the error's for a failure),
+    the glyph in the tint's ink. The card draws it at 44px; the alert bell's blocked panel draws its glyph in it at
+    32px, so the well is one recipe wherever it shows (E196 (4)). */
+export function GuidanceIconWell({
+  variant,
+  className,
+  ...rest
+}: { variant: GuidanceCardVariant } & HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span
+      className={cx('flex flex-none items-center justify-center rounded-full border', ICON_WRAP[variant], className)}
+      {...rest}
+    />
+  )
+}
+
 /** The variant's glyph, Phosphor's from lib/icons at regular weight (DESIGN.md › Icons), as Notice's are: the
     magnifier for an empty state, the warning circle for an error, 20px in the tile's ink (ICON_WRAP). */
 function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
@@ -82,9 +98,9 @@ export function GuidanceCard({
         className,
       )}
     >
-      <span className={cx('flex h-11 w-11 items-center justify-center rounded-full border', ICON_WRAP[variant])}>
+      <GuidanceIconWell variant={variant} className="h-11 w-11">
         {icon ?? <DefaultIcon variant={variant} />}
-      </span>
+      </GuidanceIconWell>
       <Heading
         ref={headingRef}
         tabIndex={headingRef ? -1 : undefined}

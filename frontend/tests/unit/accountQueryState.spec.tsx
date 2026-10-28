@@ -145,9 +145,11 @@ describe('account snapshots follow the resolved identity', () => {
       throw Object.assign(new Error('expired A'), { config, response: { status: 401, data: { detail: 'Expired access' } } })
     }
     const explicitGeneration = getExplicitSessionGeneration()
-    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
+    // The old identity's refresh is in flight when the login starts, and the login waits for its answer (E29 (4)): a
+    // refresh asked for once the login is under way would wait for the login's answer, so none could fail beside it.
     const oldIdentity = client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }).catch((error) => error)
     await waitFor(() => expect(refreshAccessToken).toHaveBeenCalledTimes(1))
+    const signedIn = login('2@example.test', 'test-only-password').catch((error) => error)
     // The logout starts while that refresh is in flight and waits for its answer (E133); the refresh's 401 then
     // lands as a passive loss while the logout is under way, and the logout must still send its request.
     const pendingLogout = order === 'passive-loss-then-logout' ? logoutAndResetAccount(client, logout) : null

@@ -34,6 +34,11 @@
                      pack's review status (ReviewStatusChip, E140) render the
                      set, and tests/unit/statusChipContrast.spec.ts measures
                      them on their rows and cards, at rest and hovered.
+                     The summary's Saved chip (SummaryActionsBar, E196 (4))
+                     is success too, and that spec does not read it: 5.0:1
+                     on its white ground in light; in dark, with no ground of
+                     its own, 8.3:1 on the page it sits on and 6.4:1 on a
+                     panel (the tier review and chief design on #1731).
                      tentative, the set's sixth, is a status not yet settled
                      (the calendar's estimated date, "Est."): neutral-status's
                      ink on the hairline, dashed, with no fill in either
@@ -81,7 +86,7 @@
    one eyebrow token (`tracking-eyebrow` = --track-eyebrow 0.08em).
 ============================================================================= */
 
-import { type HTMLAttributes, type ReactNode } from 'react'
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 import { cx } from './cx'
 
 /** Badge's status set: a status ink on the status ground, or a tentative status on its dashed one (DESIGN_SYSTEM.md
@@ -143,7 +148,11 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   icon?: ReactNode
 }
 
-export function Badge({ variant = 'neutral', icon, className, children, ...rest }: BadgeProps) {
+/** The chip's span takes a ref, for a chip that takes focus when it appears (the summary's Saved chip). */
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
+  { variant = 'neutral', icon, className, children, ...rest },
+  ref,
+) {
   const auto: ReactNode =
     icon !== undefined ? (
       icon
@@ -158,9 +167,9 @@ export function Badge({ variant = 'neutral', icon, className, children, ...rest 
     ) : null
 
   return (
-    <span className={cx(BASE, VARIANT[variant], className)} {...rest}>
+    <span ref={ref} className={cx(BASE, VARIANT[variant], className)} {...rest}>
       {auto}
       {children}
     </span>
   )
-}
+})

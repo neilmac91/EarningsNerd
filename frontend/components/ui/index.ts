@@ -9,7 +9,7 @@ export {
 // v3.1: the one single-choice toggle group (calendar view + filings form filter).
 export { SegmentedControl, MAX_SEGMENTS, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
-export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
+export { Notice, noticeTint, type NoticeProps, type NoticeVariant } from './Notice'
 export { Switch, type SwitchProps } from './Switch'
 // A plan's monthly usage as a bar, sage to warning at 80% and error at 100% (E196): the dashboard and pricing pages.
 export { UsageMeter, usageMeterFill, type UsageMeterProps } from './UsageMeter'
@@ -23,7 +23,7 @@ export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 export { MissingValue, type MissingValueProps } from './MissingValue'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
 // components/StateCard.tsx notice card; one letter from StatCard the KPI tile).
-export { GuidanceCard, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'
+export { GuidanceCard, GuidanceIconWell, type GuidanceCardProps, type GuidanceCardVariant } from './GuidanceCard'
 // The brand device's margin and in-text marker (DESIGN.md › Graphic device): the landing's evidence row and
 // the filing page's Risks section, around passages the server located (D-044).
 export { MarkedCopy, EnRef } from './MarkedCopy'
