@@ -275,11 +275,11 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   signature and its blue info callout went on 2026-10-24: a quip is activity, not a state); the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
   and its three steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
-  statements, risk factors and MD&A" and "Writing the summary and checking its figures against the
-  filing", which the live region announces as they start. The last covers the analyzing and summarizing
+  statements, risk factors and MD&A" and "Writing the summary and checking figures against the filing's
+  data", which the live region announces as they start. The last covers the analyzing and summarizing
   stages: analyzing passes in milliseconds and the figures are checked while the summary is written, so a
   step of its own, "Checking figures against the filing's data", ticked done before any figure was checked
-  (E196 (6)). Neither "Generating the summary" nor "AI-generated
+  (E196 (6)); the check keeps those words, since the code checks only some figures. Neither "Generating the summary" nor "AI-generated
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it." in
   that line, unsigned, and the live region says it once, without guessing why. A stored summary that failed reads "This summary did

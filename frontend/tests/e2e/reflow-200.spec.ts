@@ -1230,7 +1230,7 @@ for (const state of [
       await page.goto('/filing/3')
       const heading = page.getByRole('heading', { level: 2, name: 'Generating the summary' })
       await expect(heading).toBeVisible()
-      await expect(page.getByText('Writing the summary and checking its figures against the filing', { exact: true })).toBeVisible()
+      await expect(page.getByText('Writing the summary and checking figures against the filing’s data', { exact: true })).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
       if (state.doubled) await doubleText(page)
       // The line crossfades in on mount (animate-fadeIn; the span is inline, so only its opacity leg applies): its box is read once that has finished.

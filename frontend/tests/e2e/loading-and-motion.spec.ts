@@ -109,7 +109,7 @@ async function openRunInFlight(page: Page, baseURL: string) {
   await page.goto('/filing/3')
   const heading = page.getByRole('heading', { level: 2, name: 'Generating the summary' })
   await expect(heading).toBeVisible()
-  await expect(page.getByText('Writing the summary and checking its figures against the filing', { exact: true })).toBeVisible()
+  await expect(page.getByText('Writing the summary and checking figures against the filing’s data', { exact: true })).toBeVisible()
   await page.evaluate(() => document.fonts.ready)
   return heading.locator('xpath=following-sibling::p[1]')
 }

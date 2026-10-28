@@ -68,7 +68,7 @@ const BRAND_INK = {
 }
 const LAUNCHER = 'button[aria-haspopup="dialog"][aria-label="Source"]'
 /** The in-flight card's pending step, the label the "summary in flight" route waits for. */
-const PENDING_STEP = 'Writing the summary and checking its figures against the filing'
+const PENDING_STEP = 'Writing the summary and checking figures against the filing’s data'
 
 const FOLDER = 'https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/'
 const companyFiling = (id: number, filing_type: string, filing_date: string, report_date: string) => ({

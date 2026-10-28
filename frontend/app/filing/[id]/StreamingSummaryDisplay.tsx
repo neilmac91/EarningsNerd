@@ -88,11 +88,13 @@ const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing
 // analysis" step because the summary path does no embedding. The figures are checked while the summary is written:
 // the backend's `analyzing` stage passes in milliseconds, two yields between two progress writes, and the XBRL
 // cross-reference and the grounding check before the summary is stored both run under `summarizing`. So one step
-// covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)).
+// covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)). The
+// check keeps its own words, "checking figures against the filing's data": the code checks only some figures, so the
+// label claims no more than the step it replaces did (docs/voice-and-style.md › Claims).
 const buildLoadingSteps = (filingType: string) => [
   { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
   { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
-  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking its figures against the filing' },
+  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing’s data' },
 ]
 
 // Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
