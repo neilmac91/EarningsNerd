@@ -16,7 +16,9 @@ One rule, three parts in this one module:
   and a failing write included, which hold none while they hash or wait for the breached-password
   check; the connections list and unlink, their refusals and a failing unlink included, but for an
   unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer; the four
-  OAuth starts, which save their state in the thread pool), each
+  OAuth starts, which save their state in the thread pool; the two OAuth callbacks, a sign-in, a sign-up,
+  a link to an existing account, a refusal and a lost race each, which hold no connection while they wait
+  for the provider or send the linked-account notice), each
   watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
@@ -1490,6 +1492,202 @@ async def test_oauth_starts_save_their_state_in_the_thread_pool(monkeypatch, tmp
         with sessions() as db:
             assert sorted(row.state for row in db.query(OAuthState)) == sorted(states)
         assert len(set(states)) == 9
+    finally:
+        engine.dispose()
+
+
+# The OAuth callbacks' cases: what the nine accounts are before their callbacks, and what each sign-in writes. A
+# sign-in finds its provider link; a sign-up creates its account (public mode, signup assent on its state); a link
+# attaches the provider to the verified account with that email, and sends the linked-account notice; a refusal is a
+# new account with an unverified email (its state carries signup assent, so the email decides).
+_CALLBACK_AUDITS = {
+    "signin": ["oauth_login"],
+    "signup": ["register", "oauth_login"],
+    "link": ["oauth_login", "oauth_linked"],
+    "refused": [],
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_CALLBACK_AUDITS))
+@pytest.mark.parametrize("provider", ["google", "apple"])
+async def test_oauth_callbacks_sign_in_in_one_thread_pool_unit(monkeypatch, tmp_path, collection_ready, provider, case):
+    """Each OAuth callback consumes its state in one thread-pool unit, waits for the provider with no connection
+    out, then resolves the account, mints and commits the sign-in, sets the session cookies and writes its audit
+    rows in a second, released before it sends the linked-account notice with no connection out (E121). On the
+    loop the base resolved, committed and audited there, and the session cookies refreshed the user the mint's
+    commit had expired. One callback alone first: no connection is out while it waits; then eight more on four
+    slots make no checkout, statement or release on the loop and leave nothing for the finalizer. Each answer
+    carries the session of its own account; a refusal carries none and writes no account, link or row."""
+    from types import SimpleNamespace
+
+    from app.config import settings
+    from app.database import Base
+    from app.models import OAuthAccount, OAuthState, RefreshToken, User
+    from app.models.audit_log import AuditLog
+    from app.routers import auth
+    from app.services import oauth_account_service, refresh_token_service
+    from app.services.account_agreement_service import accept_current_agreement
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'oauth-callbacks.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine)
+    emails = [f"callback-{i}@example.com" for i in range(9)]
+    subjects = [f"{provider}-subject-{i}" for i in range(9)]
+    with sessions() as db:
+        if case in ("signin", "link"):
+            accounts = [User(email=email, is_active=True, email_verified=True, full_name=f"Reader {i}")
+                        for i, email in enumerate(emails)]
+            db.add_all(accounts)
+            db.flush()
+            if case == "signin":
+                db.add_all([OAuthAccount(user_id=account.id, provider=provider, provider_account_id=subject)
+                            for account, subject in zip(accounts, subjects)])
+        agreement = accept_current_agreement() if case in ("signup", "refused") else None
+        for i in range(9):
+            oauth_account_service.store_oauth_state(db, f"state-{i}", f"nonce-{i}", None, agreement)
+        db.commit()
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+
+    # The provider's claims for each request's code or token, and the waits each request makes, with the
+    # connections out during each.
+    claims = {
+        f"token-{i}": {
+            "sub": subjects[i], "email": emails[i], "name": f"Reader {i}",
+            "email_verified": (case != "refused") if provider == "google" else str(case != "refused").lower(),
+        }
+        for i in range(9)
+    }
+    waits: list[tuple[str, int]] = []
+    sent: list[tuple[str, str | None, str]] = []
+
+    class TokenResponse:
+        def __init__(self, token: str) -> None:
+            self.token = token
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"id_token": self.token}
+
+    class GoogleClient:
+        """Google's code exchange, one round trip."""
+
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> "GoogleClient":
+            return self
+
+        async def __aexit__(self, *_exc: Any) -> bool:
+            return False
+
+        async def post(self, _url: str, data: dict) -> TokenResponse:
+            waits.append(("provider", engine.pool.checkedout()))
+            await asyncio.sleep(0.02)
+            return TokenResponse(data["code"].replace("code-", "token-"))
+
+    async def verify_google(token: str) -> dict:
+        return claims[token]
+
+    async def verify_apple(token: str, raw_nonce: str) -> dict:
+        waits.append(("provider", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # Apple's key fetch
+        assert raw_nonce == token.replace("token-", "nonce-")
+        return claims[token]
+
+    async def send_linked(*, to_email: str, name: str | None, provider: str) -> None:
+        waits.append(("mail", engine.pool.checkedout()))
+        sent.append((to_email, name, provider))
+        await asyncio.sleep(0.02)  # Resend's round trip
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "public")
+    monkeypatch.setattr(auth, "httpx", SimpleNamespace(AsyncClient=GoogleClient))
+    monkeypatch.setattr(auth, "_verify_google_id_token", verify_google)
+    monkeypatch.setattr(auth, "_verify_apple_id_token", verify_apple)
+    monkeypatch.setattr("app.services.email_service.send_oauth_linked_email", send_linked)
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        state = f"state-{i}"
+        if provider == "google":
+            cookies = {auth._OAUTH_STATE_COOKIE: state}
+        else:
+            cookies = {auth._APPLE_STATE_COOKIE: auth._apple_state_cookie_value(state)}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", cookies=cookies) as client:
+            if provider == "google":
+                return await client.get("/api/auth/google/callback", params={"code": f"code-{i}", "state": state},
+                                        follow_redirects=False)
+            return await client.post("/api/auth/apple/callback", data={"state": state, "id_token": f"token-{i}"},
+                                     follow_redirects=False)
+
+    try:
+        # One callback alone first: no connection is out while it waits for the provider or sends the notice.
+        responses = [await send(0)]
+        assert waits == [("provider", 0)] + ([("mail", 0)] if case == "link" else [])
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert engine.pool.checkedout() == 0
+        # The state's unit commits and leaves nothing open; the sign-in unit's release ends its transaction; the
+        # finalizer finds nothing.
+        assert [request.open_at_close for request in request_sessions] == [[True, False]] * 9
+        assert [response.status_code for response in responses] == [302] * 9
+        refused = case == "refused"
+        landing = f"{settings.FRONTEND_URL}/login?error=email_unverified" if refused else settings.FRONTEND_URL
+        assert [response.headers["location"] for response in responses] == [landing] * 9
+        assert sorted(sent) == ([] if case != "link" else sorted(
+            (email, f"Reader {i}", provider.capitalize()) for i, email in enumerate(emails)))
+        with sessions() as db:
+            account_ids = {user.email: user.id for user in db.query(User)}
+            links = sorted((link.user_id, link.provider, link.provider_account_id) for link in db.query(OAuthAccount))
+            live = {token.token_hash: token.user_id for token in db.query(RefreshToken)}
+            audits = sorted((row.user_email, row.action) for row in db.query(AuditLog))
+            assert db.query(OAuthState).count() == 0
+        if refused:
+            assert (account_ids, links, live, audits) == ({}, [], {}, [])
+            assert [settings.REFRESH_COOKIE_NAME in response.cookies for response in responses] == [False] * 9
+        else:
+            assert sorted(account_ids) == sorted(emails)
+            assert links == sorted((account_ids[email], provider, subject) for email, subject in zip(emails, subjects))
+            # Each answer's refresh cookie is its own account's only session.
+            assert [
+                live.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            assert all(response.cookies.get(settings.COOKIE_NAME) for response in responses)
+            assert audits == sorted((email, action) for email in emails for action in _CALLBACK_AUDITS[case])
     finally:
         engine.dispose()
 
@@ -4446,9 +4644,9 @@ async def test_the_stale_refresh_keeps_its_outcomes_when_its_own_sessions_fail_t
 # E121 had each start hand its session to ``run_in_threadpool`` itself.
 # ``admin_account_service.create_free_account``, a refusal, took the session until E171's invite slice
 # dropped it. No hand-off left on main is such a strict over-count.
-# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` is not one either: it reads
-# ``user.email``, which the mint's commit expired, so it refreshes the user through the request
-# session, on the loop. A logged or type-checked session (``logger.info("%s", db)``,
+# The two OAuth callbacks' ``issue_session(db, user, ..., refresh_token=...)`` was not one either: it read
+# ``user.email``, which the mint's commit expired, so it refreshed the user through the request session,
+# on the loop, until E121 put it in each callback's sign-in unit. A logged or type-checked session (``logger.info("%s", db)``,
 # ``isinstance(db, Session)``) counts too, and so do a dispatcher reached through an import alias, a
 # session inside ``functools.partial`` or a generator expression handed to the thread pool, an uncalled
 # method handed to a dispatcher by keyword, a comprehension's variable named like the session
@@ -4502,10 +4700,6 @@ ROUTERS_DIR = BACKEND_DIR / "app" / "routers"
 # 2026-10-25. The blank line between entries keeps in-place number edits on different entries mergeable in
 # any order.
 ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
-    ("app/routers/auth.py", "apple_callback"): 6,
-
-    ("app/routers/auth.py", "google_callback"): 6,
-
     ("app/routers/auth.py", "register"): 5,
 
     ("app/routers/auth.py", "verify_email"): 3,
