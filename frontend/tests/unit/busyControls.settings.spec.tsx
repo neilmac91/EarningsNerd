@@ -65,6 +65,13 @@ vi.mock('next/link', () => ({
     <a href={href} {...props}>{children}</a>
   ),
 }))
+// The foreign-issuer alert rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS (E33). Every case starts with it off, as the flag
+// ships; a case turns it on through the getter, as pricing-section.spec.tsx does.
+const flags = vi.hoisted(() => ({ ENABLE_FPI_FILINGS: false }))
+vi.mock('@/lib/featureFlags', async (original) => ({
+  ...(await original<typeof import('@/lib/featureFlags')>()),
+  get ENABLE_FPI_FILINGS() { return flags.ENABLE_FPI_FILINGS },
+}))
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void
@@ -98,6 +105,7 @@ afterEach(() => {
   cleanup()
   onlineManager.setOnline(true)
   Object.values(api).forEach((mock) => mock.mockReset())
+  flags.ENABLE_FPI_FILINGS = false
 })
 
 describe('ProfileForm Save', () => {
@@ -697,5 +705,54 @@ describe('NotificationPreferencesForm', () => {
     expect(screen.getByText('Daily')).toHaveClass('font-data')
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Filing alerts' })).toBeInTheDocument()
+  })
+
+  // E33: the foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the mirror of the API's ENABLE_FPI_FILINGS, as the
+  // plan lines do. Off, no row offers a form the API keeps off; on, each shows the preference the server stored.
+  const switchNames = () => screen.getAllByRole('switch').map((control) => control.getAttribute('aria-label'))
+  const TEN_K = 'Annual reports (10-K)'
+  const TWENTY_F = 'Foreign annual reports (20-F)'
+  const SIX_K = 'Foreign interim reports (6-K)'
+
+  it.each([false, true])('offers the foreign-issuer rows only while the FPI flag is on, each in its stored state (flag %s)', async (on) => {
+    flags.ENABLE_FPI_FILINGS = on
+    api.getNotificationPreferences.mockResolvedValue({ ...prefs, notify_20f: true, notify_6k: false })
+    const { container } = renderWithClient(<NotificationPreferencesForm />)
+
+    await screen.findByRole('switch', { name: TEN_K })
+    expect(switchNames()).toEqual([
+      TEN_K, 'Quarterly reports (10-Q)', 'Material events (8-K)', ...(on ? [TWENTY_F, SIX_K] : []), 'Real-time alerts',
+    ])
+    expect(screen.getByText('Daily')).toBeInTheDocument()
+    if (!on) {
+      expect(container).not.toHaveTextContent(/20-F|40-F|6-K|foreign/i)
+      return
+    }
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  // E33: a hidden row keeps what the reader stored. Each switch saves its own field alone, so a save made while the
+  // foreign rows are hidden carries neither notify_20f nor notify_6k, and the API changes only the fields it is sent
+  // (users.py: model_dump(exclude_unset=True)), as the mock does. A build with the flag on shows them as stored.
+  it('a save while the foreign rows are hidden sends only its own field, and the flag turned on shows the stored values', async () => {
+    const stored: NotificationPreferences = { ...prefs, notify_20f: true, notify_6k: true }
+    api.getNotificationPreferences.mockResolvedValue(stored)
+    api.updateNotificationPreferences.mockImplementation(async (update: Partial<NotificationPreferences>) => ({ ...stored, ...update }))
+    const { client, rerender } = renderWithClient(<NotificationPreferencesForm />)
+
+    const annual = await screen.findByRole('switch', { name: TEN_K })
+    expect(screen.queryByRole('switch', { name: TWENTY_F })).toBeNull()
+    expect(screen.queryByRole('switch', { name: SIX_K })).toBeNull()
+    fireEvent.click(annual)
+    await waitFor(() => expect(annual).toHaveAttribute('aria-checked', 'true'))
+    expect(api.updateNotificationPreferences).toHaveBeenCalledTimes(1)
+    expect(api.updateNotificationPreferences.mock.calls[0][0]).toStrictEqual({ notify_10k: true })
+    expect(client.getQueryData(queryKeys.notificationPreferences())).toMatchObject({ notify_10k: true, notify_20f: true, notify_6k: true })
+
+    flags.ENABLE_FPI_FILINGS = true
+    rerender(<QueryClientProvider client={client}><NotificationPreferencesForm /></QueryClientProvider>)
+    expect(screen.getByRole('switch', { name: TWENTY_F })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: SIX_K })).toHaveAttribute('aria-checked', 'true')
   })
 })

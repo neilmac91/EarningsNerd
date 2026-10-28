@@ -6,6 +6,7 @@ import { clsx } from 'clsx'
 import Link from 'next/link'
 import { CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
 import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
+import { ENABLE_FPI_FILINGS } from '@/lib/featureFlags'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -167,20 +168,27 @@ function PreferenceRows({
         locked={!prefs.eightk_available}
         onChange={setBool('notify_8k')}
       />
-      <Toggle
-        label="Foreign annual reports (20-F)"
-        description="Annual reports from foreign issuers (20-F / 40-F)."
-        checked={prefs.notify_20f}
-        busy={busy}
-        onChange={setBool('notify_20f')}
-      />
-      <Toggle
-        label="Foreign interim reports (6-K)"
-        description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
-        checked={prefs.notify_6k}
-        busy={busy}
-        onChange={setBool('notify_6k')}
-      />
+      {/* The foreign-issuer rows follow NEXT_PUBLIC_ENABLE_FPI_FILINGS, the API's ENABLE_FPI_FILINGS mirror, as the plan
+          lines do (E33), so the form never offers a form the API keeps off. A hidden row keeps its stored value: each
+          switch saves its own field alone, so no other save carries notify_20f or notify_6k. */}
+      {ENABLE_FPI_FILINGS && (
+        <>
+          <Toggle
+            label="Foreign annual reports (20-F)"
+            description="Annual reports from foreign issuers (20-F / 40-F)."
+            checked={prefs.notify_20f}
+            busy={busy}
+            onChange={setBool('notify_20f')}
+          />
+          <Toggle
+            label="Foreign interim reports (6-K)"
+            description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
+            checked={prefs.notify_6k}
+            busy={busy}
+            onChange={setBool('notify_6k')}
+          />
+        </>
+      )}
       <Toggle
         label="Real-time alerts"
         description="An email from the hourly filing check, instead of the daily digest."
