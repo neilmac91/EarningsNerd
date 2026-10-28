@@ -89,12 +89,13 @@ const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing
 // the backend's `analyzing` stage passes in milliseconds, two yields between two progress writes, and the XBRL
 // cross-reference and the grounding check before the summary is stored both run under `summarizing`. So one step
 // covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)). The
-// check keeps its own words, "checking figures against the filing's data": the code checks only some figures, so the
-// label claims no more than the step it replaces did (docs/voice-and-style.md › Claims).
+// check says "figures", never "its figures": the code checks only some, so the label claims no more than the step it
+// replaced did (docs/voice-and-style.md › Claims). "Against the filing" is true of both checks: the figure trace reads
+// the filing's text, and the projection beside it the filing's own XBRL.
 const buildLoadingSteps = (filingType: string) => [
   { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
   { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
-  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing’s data' },
+  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing' },
 ]
 
 // Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
@@ -143,9 +144,11 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
               : 'pending'
 
         return (
+          // The marker aligns to the label's first line: its circle and the label's line are both 1.25rem, so a label
+          // that wraps (the writing step's, at phone widths) keeps its dot beside its first line, not between lines.
           <li
             key={step.stages[0]}
-            className="flex items-center gap-3"
+            className="flex items-start gap-3"
           >
             <span
               className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors duration-base ${
