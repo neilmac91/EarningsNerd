@@ -10,9 +10,9 @@ import { advanceSessionGeneration, getSessionGeneration, isSessionGenerationCurr
 export const LOGOUT_FAILED_MESSAGE = "We couldn't log you out. Try again in a moment."
 
 /** What "Log out of all devices" tells the reader when the Log out it waited for logged this device out (E157): no
- * session is left here to end the others with, so they log in again and press it again. */
+ * session is left here to end the others with, so they log in and press it again. */
 export const LOGGED_OUT_FIRST_MESSAGE =
-  'This device was already logged out, so your other devices could not be logged out from here. Log in again to log them out.'
+  "You were already logged out here, so we couldn't log out your other devices. Log in, then choose Log out of all devices again."
 
 /** A logout of every session that posted nothing: the logout it waited for logged this device out (logoutAllInTurn). */
 export class LoggedOutFirst extends Error {
@@ -155,9 +155,12 @@ function restoreIdentity(queryClient: QueryClient, shown: QueryState<CurrentUser
 
 /** A logout running in this tab, and the explicit generation it answers for: the one it found, then its own reset's
  * once its request has failed and /me is read. A logout of every session (`everySession`) answers for the one it found
- * when it posted. `survived`, set as a Log out settles for the session it found, is what a logout of every session that
- * waited for it reads (logoutAllInTurn): true when that session outlived it (the logout did not take: /me named the
- * reader, or could not be read), false when it took, and unset when a login accepted meanwhile took the tab. */
+ * as it started, read before it waits for the refresh in flight (up to LOGOUT_REFRESH_WAIT_MS), and it may never post.
+ * `survived`, set as a Log out settles for the session it found, is what a logout of every session that waited for it
+ * reads (logoutAllInTurn): true when that session outlived it (the logout did not take: /me named the same reader, or
+ * could not be read), false when it took, and unset when the tab may no longer be that session's: a login accepted
+ * meanwhile, or a session generation that moved while /me was read (a /me naming another reader, another tab's sign-in
+ * that watchReader found, or a lost session). */
 interface LogoutUnderWay {
   generation: number
   settled: Promise<void>
@@ -185,16 +188,40 @@ let logoutUnderWay: LogoutUnderWay | null = null
  * stays where it is, and the logout rejects with the request's error. The session flag goes back to what the logout
  * found for the read, since the request clears it (auth-api's logout) and a lapsed access cookie then reads as a
  * guest: /me 401s, and only the flag lets that 401 renew the session from the refresh cookie. A login accepted
- * meanwhile owns the tab, and nothing follows for this logout but its error. A call while a logout of the same
- * session runs (a second press, or a press while "Log out of all devices" runs) joins it (logoutUnderWay): it settles
- * as that logout does, and neither its request nor its callback runs.
+ * meanwhile owns the tab, and nothing follows for this logout but its error. A call while a Log out of the same
+ * session runs (a second press) joins it (logoutUnderWay): it settles as that logout does, and neither its request nor
+ * its callback runs. A call while "Log out of all devices" runs waits for it (E157): one that took ended this session
+ * with the others, and the call settles with it, its callback unrun; one that failed left the session, and the call
+ * then runs as a fresh press would, its own request, callback and report, unless a login has taken the tab since. That
+ * control's error line may have gone with its page, so a press that only joined it would end in silence.
  */
 export function logoutAndResetAccount(
   queryClient: QueryClient,
   logout: () => Promise<unknown>,
   onCurrentSettled?: (succeeded: boolean) => void,
 ): Promise<void> {
-  if (logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation)) return logoutUnderWay.settled
+  return pressLogout(queryClient, logout, onCurrentSettled)
+}
+
+/** One press of Log out in the flight, as logoutAndResetAccount says: it joins a Log out under way, waits for a logout
+ * of every session under way, or starts its own. */
+function pressLogout(
+  queryClient: QueryClient,
+  logout: () => Promise<unknown>,
+  onCurrentSettled?: (succeeded: boolean) => void,
+): Promise<void> {
+  const running = logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation) ? logoutUnderWay : null
+  if (running && !running.everySession) return running.settled
+  if (running) {
+    const waitedFor = running.generation
+    return running.settled.then(
+      () => undefined,
+      (error: unknown) => {
+        if (!isExplicitSessionGenerationCurrent(waitedFor)) throw error
+        return pressLogout(queryClient, logout, onCurrentSettled)
+      },
+    )
+  }
   const run = { generation: getExplicitSessionGeneration() } as LogoutUnderWay
   run.settled = settleLogout(queryClient, logout, run, onCurrentSettled).finally(() => {
     if (logoutUnderWay === run) logoutUnderWay = null
@@ -244,7 +271,9 @@ async function settleLogout(
       if (error instanceof ApiError && error.status === 503 && error.backendDetail) toast.warning(error.backendDetail)
     } else {
       if (read === 'unknown' && isSessionGenerationCurrent(reset)) restoreIdentity(queryClient, shown)
-      run.survived = true
+      // The session it found outlived it only while the session generation holds: a /me naming another reader (another
+      // tab signed in) moves it (watchReader), and a logout of every session posted now would end that account's.
+      if (isSessionGenerationCurrent(reset)) run.survived = true
       toast.error(LOGOUT_FAILED_MESSAGE)
       onCurrentSettled?.(false)
       throw failure.error
@@ -259,10 +288,13 @@ async function settleLogout(
  * session flag a failed Log out's read of /me needs, and that Log out's reset would lift its refresh fence (E133), or,
  * before it posts, end it as LogoutAllSuperseded. Then it posts only while the session survived that Log out. One that
  * took leaves this device no session to end the others with: it posts nothing and rejects with LoggedOutFirst. One a
- * login overtook leaves the tab to that account, and it rejects with LogoutAllSuperseded, as a login accepted while it
- * waits for the refresh in flight makes it (auth-api's logoutAllSessions). While it runs, a Log out press joins it, as a
- * second press of Log out joins the first, and so does a second press of it: one request, one outcome. It resets
- * nothing: its control clears the cache and leaves once it took (ConnectedAccounts). */
+ * login overtook, or whose read of /me named another reader, leaves the tab to that account, and it rejects with
+ * LogoutAllSuperseded, as a login accepted while it waits for the refresh in flight makes it (auth-api's
+ * logoutAllSessions). While it runs, a Log out press waits for it (logoutAndResetAccount), and a second press of it
+ * joins it. One that failed puts the session flag back as it found it, as a failed Log out does for its read of /me:
+ * its request clears the flag whatever the answer, and without it a lapsed access cookie would read as a guest while
+ * the refresh cookie lives; a login accepted since marks its own. It resets nothing: its control clears the cache and
+ * leaves once it took (ConnectedAccounts). */
 export function logoutAllInTurn(): Promise<void> {
   const running = logoutUnderWay && isExplicitSessionGenerationCurrent(logoutUnderWay.generation) ? logoutUnderWay : null
   if (running?.everySession) return running.settled
@@ -277,7 +309,14 @@ export function logoutAllInTurn(): Promise<void> {
     return running.settled.then(next, next)
   }
   const run = { generation: getExplicitSessionGeneration(), everySession: true } as LogoutUnderWay
-  run.settled = logoutAllSessions().then(() => undefined).finally(() => {
+  const sessionWasActive = hasActiveSession()
+  run.settled = logoutAllSessions().then(
+    () => undefined,
+    (error: unknown) => {
+      if (sessionWasActive && isExplicitSessionGenerationCurrent(run.generation)) markSessionActive()
+      throw error
+    },
+  ).finally(() => {
     if (logoutUnderWay === run) logoutUnderWay = null
   })
   logoutUnderWay = run

@@ -62,7 +62,7 @@ export default function ConnectedAccounts() {
   })
 
   // In the one-logout flight (logoutAllInTurn, E157): pressed while a Log out runs, it waits for that one, and posts
-  // only while the session survived it; a Log out pressed while it runs joins it.
+  // only while the session survived it; a Log out pressed while it runs waits for it, and runs on its own if it fails.
   const logoutAllMutation = useMutation({
     mutationFn: logoutAllInTurn,
     onSuccess: () => {
