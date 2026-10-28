@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addressFit } from './fixtures/readerAddress'
+import { addressFit, atItsAt } from './fixtures/readerAddress'
 
 /**
  * EmailVerificationModal's "Resend link" keeps keyboard focus through its own success and failure
@@ -178,9 +178,11 @@ test('a quick second tap on Resend after a failure stays on Resend at phone widt
 
 /** The intro sets the reader's address in a sentence. Under 200% text "unverified@example.com" (321.7px) is longer
  *  than the line, and it ran 23, 44, 71 and 106px past its paragraph at 414, 390, 360 and 320px, the dialog's body
- *  scrolling sideways (chief design on #1745). It wraps inside the paragraph only where it must (`break-words`): at the
- *  default size it stays whole on its own line, where `break-all` split it at 320px. Each painted box of the address
- *  lies inside the paragraph and the screen, and nothing in the dialog or the page scrolls sideways
+ *  scrolling sideways (chief design on #1745). It breaks after its @ before anywhere else (AddressText, chief design on
+ *  #1750), "unverified@" over "example.com" under 200% text, where `break-words` alone ended it on a fragment
+ *  ("unverified@example.co" over "m"), and inside a part only where the part is longer than the line: at the default
+ *  size it stays whole on its own line, where `break-all` split it at 320px. Each painted box of the address lies
+ *  inside the paragraph and the screen, and nothing in the dialog or the page scrolls sideways
  *  (fixtures/readerAddress.ts; the pages that set the address are in reader-address.spec.ts). */
 for (const [width, doubled] of [
   [390, true],
@@ -204,7 +206,9 @@ for (const [width, doubled] of [
     expect(fit.offscreen, `${at}: the address lies inside the screen`).toEqual([])
     expect(fit.scrolls, `${at}: nothing in the dialog scrolls sideways`).toEqual([])
     expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
-    // At the default size it fits a line, and stays whole: break-all split it at 320px.
-    if (!doubled) expect(fit.lines, `${at}: the address is one run on one line`).toBe(1)
+    // Under 200% text it breaks after its @, each part whole; at the default size it fits a line and stays whole, where
+    // break-all split it at 320px.
+    if (doubled) expect(fit.pieces, `${at}: the address breaks after its @`).toEqual(atItsAt(EMAIL)[1])
+    else expect(fit.pieces, `${at}: the address is one run on one line`).toEqual([EMAIL])
   })
 }

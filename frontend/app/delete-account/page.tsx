@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { CircleNotchIcon, ShieldWarningIcon, TrashIcon } from '@/lib/icons'
 import { getCurrentUserSafe, deleteUserAccount } from '@/features/auth/api/auth-api'
+import AddressText from '@/features/auth/components/AddressText'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
@@ -93,9 +94,10 @@ export default function DeleteAccountPage() {
            Card's own hairline. */
         <Card as="section" className="mt-6 p-cap-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
           {/* An address has no break opportunity, so under 200% text it ran past the card and the page scrolled
-              sideways; break-words breaks it only where it is longer than the line. */}
+              sideways; it breaks after its @ (AddressText), and break-words breaks a part only where it is longer
+              than the line. */}
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Logged in as <strong className="break-words text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
+            Logged in as <strong className="break-words text-text-primary-light dark:text-text-primary-dark"><AddressText address={user.email} /></strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
           </p>
           <Input

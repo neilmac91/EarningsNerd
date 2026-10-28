@@ -1,16 +1,18 @@
 import { test, expect, type Page } from '@playwright/test'
-import { addressFit } from './fixtures/readerAddress'
+import { addressFit, atItsAt } from './fixtures/readerAddress'
 
 /**
  * The pages that set the reader's own address in a sentence keep it inside its paragraph (the verify-email dialog's
  * intro, chief design's note on #1745, is in email-verification-resend.spec.ts). An address has no break opportunity,
  * so under 200% text "unverified@example.com" is longer than the line: /delete-account's "Logged in as" ran it 37, 59,
  * 85 and 120px past its paragraph at 414, 390, 360 and 320px, the page scrolling sideways from 390px, and
- * /forgot-password's sent line 4, 28, 58 and 98px, the page scrolling sideways from 360px. Each takes `break-words`,
- * as /check-email's address does: it breaks only where it is longer than the line, so at the default size it stays
- * whole. Each painted box of the address lies inside its paragraph and the screen, and nothing in <main> or the page
- * scrolls sideways, but where E231 holds: at 320px under 200% text /delete-account's destructive button, below the
- * address, still takes the page 8px wide.
+ * /forgot-password's sent line 4, 28, 58 and 98px, the page scrolling sideways from 360px. Each breaks after its @
+ * before anywhere else (AddressText, chief design on #1750), "unverified@" over "example.com" under 200% text, and
+ * inside a part only where the part is longer than the line (`break-words`, as /check-email's address does). At 320px
+ * at the default size the address stays whole or breaks after its @, never inside a part. Each painted box of the
+ * address lies inside its paragraph and the screen, and nothing in <main> or the page scrolls sideways. Where E231
+ * holds, at 320px under 200% text, /delete-account's destructive button, below the address, is wider than its card;
+ * the page is read with that button out of the layout, so anything else that takes the page wide still fails.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser, and
  * /delete-account's reader is signed in by the middleware's presence cookie and the session read.
@@ -44,7 +46,7 @@ const PAGES = [
   {
     name: '/delete-account, signed in,',
     // E231: the destructive button's longest word, icon and padding are wider than the card at 320px under 200% text.
-    buttonWideAt320: true,
+    wideAt320: 'Permanently delete my account',
     open: async (page: Page, baseURL: string) => {
       await answer(page, baseURL, true)
       await page.goto('/delete-account')
@@ -53,7 +55,7 @@ const PAGES = [
   },
   {
     name: "/forgot-password's sent line",
-    buttonWideAt320: false,
+    wideAt320: null,
     open: async (page: Page, baseURL: string) => {
       await answer(page, baseURL, false)
       await page.goto('/forgot-password')
@@ -81,14 +83,17 @@ for (const surface of PAGES) {
       await surface.open(page, baseURL!)
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), `${at}: the text setting took`).toBe(doubled ? '32px' : '16px')
       await page.evaluate(() => document.fonts.ready)
+      if (surface.wideAt320 && width === 320 && doubled) {
+        await page.getByRole('button', { name: surface.wideAt320 }).evaluate((button) => { button.style.display = 'none' })
+      }
       const fit = await addressFit(page.getByRole('main'), EMAIL)
       expect(fit.found, `${at}: the page names the reader's address`).toBe(true)
       expect(fit.past, `${at}: the address lies inside its paragraph`).toEqual([])
       expect(fit.offscreen, `${at}: the address lies inside the screen`).toEqual([])
       expect(fit.scrolls, `${at}: nothing in <main> scrolls sideways`).toEqual([])
-      if (!(surface.buttonWideAt320 && width === 320 && doubled)) expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
-      // At the default size it fits a line, and stays whole.
-      if (!doubled) expect(fit.lines, `${at}: the address is one run on one line`).toBe(1)
+      expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
+      if (doubled) expect(fit.pieces, `${at}: the address breaks after its @`).toEqual(atItsAt(EMAIL)[1])
+      else expect(atItsAt(EMAIL), `${at}: the address is whole, or broken only after its @`).toContainEqual(fit.pieces)
     })
   }
 }
