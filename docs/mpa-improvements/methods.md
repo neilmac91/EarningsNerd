@@ -1010,11 +1010,12 @@ return { results, rules }
 ## Restatement census
 
 The census behind coherence.md §1.6 and D-061 ([verification/restatement-census.md](verification/restatement-census.md))
-ran on 2026-10-25 from `backend/scripts/restatement_census.py`, written on a WP5 branch that was never pushed. The
-script went with its session, so it is not here and the census cannot be rerun from this repository. Its output's
-header records the run's time, its source (SEC companyfacts through `app.services.facts.transport`) and every
-definition it used (winner, own, within, across, later filing, gap). WP5 commits a rerunnable census with its
-evidence (E206).
+ran on 2026-10-25 from `backend/scripts/restatement_census.py`, written on a WP5 branch that was never pushed; that
+script went with its session. Its output's header records the run's time, its source (SEC companyfacts through
+`app.services.facts.transport`) and every definition it used (winner, own, within, across, later filing, gap). WP5b
+(#1682) commits a rerunnable census at the same path, which picks the year's own report by ingest's own rule
+(`facts/own_reports.py`). It is not the script behind the published figures, and a rerun's counts can differ slightly
+from them.
 
 ## File-overlap script
 

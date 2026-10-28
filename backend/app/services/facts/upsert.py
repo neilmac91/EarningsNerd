@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.services.facts.concepts import (
 )
 from app.services.facts.fiscal_evidence import adopt_trusted_fiscal_years
 from app.services.facts.lineage import annotate_filing_calculations
+from app.services.facts.own_reports import insert_history_rows
 from app.services.facts.reconcile import _prior_values, cross_check_facts, reconcile_facts
 from app.utils.datetimes import utcnow
 
@@ -228,7 +229,7 @@ def process_filing_facts(
 
 
 def upsert_facts_bulk(
-    db: Session, facts: list[dict[str, Any]], *, commit: bool = True
+    db: Session, facts: list[dict[str, Any]], *, history: Sequence[dict[str, Any]] = (), commit: bool = True
 ) -> dict[str, int]:
     """Batched writer for latest-filed winners from a full-history companyfacts payload.
 
@@ -240,18 +241,18 @@ def upsert_facts_bulk(
     never has two current rows. Facts must already carry ``reconciled`` (no gate runs here —
     see ``normalize_companyfacts``). Known Filing dates also protect an already-stored newer
     accession from a delayed SEC response; rows without local Filing metadata retain the
-    normalizer's latest-filed ordering within that response.
+    normalizer's latest-filed ordering within that response. ``history`` (the normalizer's
+    ``meta["history"]``, riding beside the batch's winners) is stored apart, non-current, by
+    ``own_reports.insert_history_rows``; the result's ``history`` counts those rows.
     """
     if not facts:
-        return {"inserted": 0, "skipped": 0, "demoted": 0}
+        return {"inserted": 0, "skipped": 0, "demoted": 0, "history": 0}
     _lock_fact_companies(db, facts)
     company_id = facts[0]["company_id"]
-    concepts = {f["concept"] for f in facts}
-    rows = (
-        db.query(FinancialFact)
-        .filter(FinancialFact.company_id == company_id, FinancialFact.concept.in_(list(concepts)))
-        .all()
-    )
+    concepts = {f["concept"] for f in (*facts, *history)}
+    rows = db.query(FinancialFact).filter(
+        FinancialFact.company_id == company_id, FinancialFact.concept.in_(list(concepts))
+    ).all()
     accessions = {f["accession"] for f in facts} | {row.accession for row in rows}
     filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
         Filing.accession_number.in_(accessions)
@@ -260,9 +261,7 @@ def upsert_facts_bulk(
     latest_by_key: dict[tuple, list[FinancialFact]] = {}
     null_fp_latest: dict[tuple, list[FinancialFact]] = {}
     for row in rows:
-        existing_identity.add(
-            (row.concept, row.period_end, row.fiscal_period, row.unit, row.accession)
-        )
+        existing_identity.add((row.concept, row.period_end, row.fiscal_period, row.unit, row.accession))
         if row.is_latest:
             latest_by_key.setdefault(
                 (row.concept, row.period_end, row.fiscal_period, row.unit), []
@@ -308,9 +307,10 @@ def upsert_facts_bulk(
                 null_fp_latest[null_key] = [inserted_row]
         inserted += 1
 
+    history_inserted = insert_history_rows(db, history, existing_identity)
     if commit:
         db.commit()
-    return {"inserted": inserted, "skipped": skipped, "demoted": demoted}
+    return {"inserted": inserted, "skipped": skipped, "demoted": demoted, "history": history_inserted}
 
 
 def _write_fact_rows(
