@@ -122,6 +122,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
     enabled: !!currentUser,
   })
   const { data: usage, isError: usageError } = usageQuery
+  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
+  // A signed-in reader's usage read is in flight and has not failed: the usage box holds its place (E226). It reads
+  // the retained failure, not the raw error: a Retry puts a failed read back to pending, and the box holds nothing
+  // beside the failure's notice while the retry runs.
+  const usageHeld = isAuthenticated && usage === undefined && !usageFailure.failed
 
   // The Free plan's account CTA follows the page-wide access decision (invite-only or public), read
   // from the same payload the landing page reads on the server. Until it answers, and when it
@@ -140,7 +145,6 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // refetch until data replaces it.
   const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
   const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(currentUser?.id))
-  const usageFailure = useRetainedFailure(usageQuery, queryKeys.usage.byUser(currentUser?.id))
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh
@@ -225,6 +229,12 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // Expired trial rows can retain their Stripe status after the API resolves them to Free.
   const isTrialing = Boolean(subscription?.is_pro) && subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
+  // The billing switch is for an account that can still buy, so a paid or trialing subscription hides it. Until the
+  // subscription read answers, the identity read names the plan: once it names Pro the switch hides, so a Pro
+  // account's plans hold still as the subscription read answers (E227); until the identity answers, it shows, as it
+  // does for anyone. The identity's is_pro mirrors the users row, so where a lagging webhook leaves it at odds with
+  // the subscription, the switch takes the read's answer when it lands.
+  const showBillingSwitch = subscriptionResolved ? !isPaidPro && !isTrialing : !currentUser?.is_pro
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
   // Reframe the Pro card around their $0 total with no card.
@@ -407,10 +417,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
 
           {/* Billing Toggle — free users only. A card-trial user already holds a subscription
               (their buy CTA is disabled as current-plan), so the toggle would only move a
-              button they can't press. The row wraps where it cannot fit (a 320px phone at 200%
+              button they can't press. Until the subscription read answers, a Pro identity hides it
+              (showBillingSwitch, E227). The row wraps where it cannot fit (a 320px phone at 200%
               text), the yearly label on a centred line of its own; on one line it pushed
               "Monthly" past the screen's left edge. */}
-          {!isPaidPro && !isTrialing && (
+          {showBillingSwitch && (
             <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-white' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
@@ -435,9 +446,23 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
         </div>
 
         {/* Usage Stats: a card with the dashboard's meter (UsageMeter: sage, warning from 80%, error at 100%). The box
-            states the account's own numbers, so it lifts as a card and takes no status tint (E196). */}
-        {usage && !usageError && (
-          <Card className="mx-auto mb-8 max-w-2xl p-cap-5">
+            states the account's own numbers, so it lifts as a card and takes no status tint (E196). While a signed-in
+            reader's usage read is in flight the card holds its place at the plan the identity read names (E226): its
+            label shows, and a still copy of the count line and, for a Free account, of the meter keeps their lines,
+            so the plans below stay put as the count lands. Under 200% text, at the count line's wrap edges (about 290 to
+            350px and 518 to 580px), a count whose figures are narrower or wider than the copy's "0" takes a line fewer
+            or more (chief design on #1715). The two cards are keyed apart, so the meter mounts at its value rather than
+            running up from empty. */}
+        {usageHeld ? (
+          <Card key="usage-held" aria-busy="true" className="mx-auto mb-8 max-w-2xl p-cap-5">
+            <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Current usage</p>
+            <p aria-hidden="true" className="invisible text-sm">
+              0 / {currentUser?.is_pro ? '∞' : FREE_SUMMARY_LIMIT} summaries used this month
+            </p>
+            {!currentUser?.is_pro && <UsageMeter className="invisible mt-3" used={0} limit={FREE_SUMMARY_LIMIT} />}
+          </Card>
+        ) : usage && !usageError && (
+          <Card key="usage" className="mx-auto mb-8 max-w-2xl p-cap-5">
             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Current usage</p>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {usage.summaries_used} / {usage.summaries_limit || '∞'} summaries used this month

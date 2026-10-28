@@ -63,6 +63,7 @@ const TRIGGER_LINES: Record<string, number> = {
   'Company identity': 2,
   'Search field': 2,
   'Section ledger': 2,
+  'Activity line': 1,
   'Admin pages': 1,
   'Analysis KPI': 1,
   'Ask answer': 1,

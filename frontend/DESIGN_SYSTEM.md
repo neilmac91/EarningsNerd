@@ -222,7 +222,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, ActivityLine, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -344,14 +344,22 @@ filings index's header and rows, the admin lists' rows). Each takes the cap from
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
-threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give way by
-their own rule, §7), and a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+threshold stays as it is (a Notice's `px-4` on a page, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give
+way by their own rule, §7), and a page's gutter is no surface. A Notice is a frame wherever it is written (its recipe draws
+a full border and a radius at `px-4`), so inside a dialog's body its own `px-4` is at the threshold, and its className
+caps it with `px-cap-4`, which the stylesheet emits after Notice's own (E229): the day dialog's holiday line broke
+"Thanksgiving" inside the word at 390px under 200% text until it did, and the verify-email dialog's two failures take it
+too. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
 conditions as one render and a ternary's arms as one or the other (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`
 is a frame at `p-6`), failing closed where it cannot correlate two conditions, never reads a form field (input, textarea, select) as a frame, since its padding reserves room
-for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+for a glyph, reads a Notice's className as a frame's and fails a Notice inside a dialog's body whose className leaves
+Notice's own `px-4` on a side in some render: Tailwind emits padding by group (`p`, then `px` and `py`, then one side) and
+within a group by class name, so `px-cap-4`, a later group or a `px` whose name sorts after `px-4` takes the sides (one of
+step 4 or more held to the cap), and `p-cap-4`, `px-3` and Tailwind 4's trailing `!` do not (`designRules.spec.ts`
+compiles the order), and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
 stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility
@@ -693,9 +701,18 @@ Usage meter      <UsageMeter used limit label className>  (components/ui, E196):
                  `label` names it as a progress bar with its value; without one it is drawn only, beside the
                  counts. Any bar of a limit's use draws through it, never its classes by hand, and the box
                  around it is a Card, never a status tint: the pricing page's was an info tint with a blue
-                 meter until E196. Gates: tests/unit/UsageMeter.spec.tsx (the fills, the clamp, the naming),
-                 tests/unit/PricingPage.spec.tsx (the usage box) and tests/unit/statusTintResidue.spec.ts (a
-                 hand-drawn meter's warning and error fills are residue outside components/ui).
+                 meter until E196. While a signed-in reader's usage read is in flight the pricing page's box
+                 holds its place (E226): the card and its label show, still copies of the count line and, for a
+                 Free account, the meter keep their lines (`invisible`, hidden from assistive technology, the
+                 card `aria-busy`), and the answered card is keyed apart, so the meter mounts at its value. A
+                 guest and a failed read hold nothing. Under 200% text the count line sits at its wrap edge at
+                 about 290 to 350px and 518 to 580px, where a count whose figures are narrower or wider than the
+                 copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on #1715.
+                 Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
+                 clamp, the naming), tests/unit/PricingPage.spec.tsx (the usage box and its hold),
+                 tests/e2e/pricing-usage-hold.spec.ts (the plans' place as the count lands) and
+                 tests/unit/statusTintResidue.spec.ts (a hand-drawn meter's warning and error fills are residue
+                 outside components/ui).
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
@@ -1182,6 +1199,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
                  under Solid chip): pending and new on info-status, used and resolved on success, expired
                  and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The summary's Saved chip is `success`, its check-circle in the slot; until E196 (4) it was a
+                 hand-rolled 10% success tint, where the ink falls under 4.5:1 (Badge's header). Badge forwards
+                 its ref, so the chip takes focus when the save that put it there succeeds
+                 (tests/unit/busyControls.filings.spec.tsx).
                  The calendar's status ladder (StatusChip in EventRow, a label alone) is a status, so every
                  rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
                  with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
@@ -1330,8 +1351,9 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  progress indicator in sage with its words in the ink, as the generating card's live-status
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
-                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Ask answer); one
-                 remains, AnalysisPageClient's history fetch (E196). Gate: tests/unit/statusTintResidue.spec.ts
+                 2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
+                 analysis page's history fetch (an info Notice until E196 (2)), the last two drawn by
+                 <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info
@@ -1352,7 +1374,36 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  (the waitlist page below lg) its title and description stay at the start with its glyph and
                  its action row, and a caller needs none of its own (WaitlistForm's two text-left went with E120; gate:
                  tests/unit/waitlistSuccessCard.spec.tsx, the two Notices of the form in that column).
+                 A surface of another shape that states what a Notice states takes the Notice's tint by import,
+                 noticeTint(variant) (components/ui/Notice.tsx), never a copy of its classes: the Copilot's error
+                 bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
+                 E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
+                 statusTintResidue.spec.ts's TINT_BORROWED).
+                 GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
+                 tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
+                 draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
+                 on the dropdown's own opaque panel, so the page does not show through its tint (the company
+                 search's failure, E196 (4)). That panel takes the Notice's 12px (`rounded-lg`), not the dropdown's
+                 16px (`rounded-xl`): it has no padding or border of its own, so its edge is the Notice's, and under
+                 a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
+                 results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
+
+Activity line    <ActivityLine role?>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+                 Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
+                 has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot. The words are
+                 in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static under reduced
+                 motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line height are both
+                 1.25rem), so it keeps to the first line when the words wrap, and the words wrap under their own
+                 start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320 to 390px under
+                 200% text, the analysis page's history fetch two on a phone and four or five under 200% text. The
+                 live region is the caller's: role="status" where the line is its own (the history fetch), none where
+                 a container already is one (the Copilot's reading card, the region the plan card's sentence lands
+                 in). Gate: tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list
+                 outside ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a
+                 template, an array literal joined into one string or a class attribute's parts included, wherever
+                 the list is bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -2244,13 +2295,15 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
                  is that status region already, so the sentence is announced when it lands. The error tint
-                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
+                 (Notice's, by noticeTint) and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
                  It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error; there is no streaming status, token text or caret.
+                 done or error; there is no streaming status, token text or caret. The reading line is
+                 <ActivityLine> (Activity line), whose dot keeps to the first line when the words wrap in the
+                 phone sheet under 200% text.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
@@ -2693,8 +2746,8 @@ Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue�
 alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
 labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
 (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`, color
-with `directionTone()`/`directionTextTone()` from `ui/Chart.tsx`. Chart chrome (grid, axis, labels,
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme`
+carries the gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid, axis, labels,
 crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
 chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark`
@@ -2704,8 +2757,8 @@ follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carrie
 `chartTheme` ink to the tailwind token it copies, per theme. The chart export's secondary ink
 (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`.
-Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
-category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
+Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
+left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
 paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
@@ -2779,13 +2832,13 @@ Never invert or neutralize by hardcoding concept names in the frontend — consu
 ## 11. Motion — tokens only
 
 Four durations + two curves, defined ONCE (`globals.css` `:root`; JS mirror `lib/motion.ts` for
-Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.**
+timers and rAF loops, which need numbers). **No raw ms or bezier strings anywhere else.**
 
 | Token | Value | Use |
 |-------|-------|-----|
 | `--duration-fast` / `duration-fast` | 150ms | hover + color feedback |
 | `--duration-base` / `duration-base` | 200ms | crossfades, theme switch, skeleton→content — also the bare `transition-*` default |
-| `--duration-slow` / `duration-slow` | 600ms | entrances, draw-ins, count-up |
+| `--duration-slow` / `duration-slow` | 600ms | entrances, count-up |
 | `--duration-ambient` / `duration-ambient` | 1800ms | ambient loops + attention decay: shimmer, pulse, citation-flash |
 | `--ease-standard` | cubic-bezier(0.4, 0, 0.2, 1) | everything |
 | `--ease-pop` | cubic-bezier(0.34, 1.56, 0.64, 1) | the success check-pop ONLY |
@@ -2814,12 +2867,13 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
-  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  value, the Recharts bars draw without their grow-in (`isAnimationActive`'s default, `'auto'`, reads the
+  preference), `scroll-behavior` is `auto`. Gates: the
   `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
   for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
   motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
-  skeleton→content, sparkline draw-in, check-pop.
+  skeleton→content, check-pop.
 
 ## 12. Definition-of-done for any theme/token change
 

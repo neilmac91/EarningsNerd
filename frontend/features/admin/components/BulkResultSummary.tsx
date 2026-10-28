@@ -80,10 +80,12 @@ export default function BulkResultSummary({ outcomes, skipped, emailRequested }:
             {failed.length} failed
           </div>
           <ul className="space-y-1.5">
+            {/* A failed row sits on the created rows' ground, its reason in the error ink: the group's heading already
+                says these failed, and a tint behind each row was a status box of its own (E196 (4)). */}
             {failed.map((o) => (
               <li
                 key={o.email}
-                className="rounded bg-error-light/10 px-2.5 py-1.5 dark:bg-error-dark/10"
+                className="rounded bg-background-light px-2.5 py-1.5 dark:bg-white/5"
               >
                 <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                   {o.email}

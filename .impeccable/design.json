@@ -526,7 +526,7 @@
       {
         "name": "duration-slow",
         "value": "600ms",
-        "purpose": "Entrances, chart drawing and count-up."
+        "purpose": "Entrances and count-up."
       },
       {
         "name": "duration-ambient",

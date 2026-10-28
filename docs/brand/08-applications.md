@@ -268,15 +268,21 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
 
 ## 3. Inside the product
 
-- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): seven lines in the voice
-  (five new, one kept, "Reading the size-8 fine print…", and the opening line "Opening the filing…") in three
-  pools, one for fetching, three for parsing and three shared by analyzing and summarizing; one shows per
+- **Generation** (`frontend/app/filing/[id]/StreamingSummaryDisplay.tsx`): six lines in the voice
+  (four new, one kept, "Reading the size-8 fine print…", and the opening line "Opening the filing…") in three
+  pools, one for fetching, three for parsing and two shared by analyzing and summarizing (a third, "Checking
+  the figures against the filing's data…", left with E230: the writing step beside it says that); one shows per
   filing in the card's live-status line in place of "Processing…", changing with the pipeline's stage, unsigned (the "Reading the filing"
   signature and its blue info callout went on 2026-10-24: a quip is activity, not a state); the stalled line and the timeout error say what happened
   and what to do. The heading "Generation interrupted" stays. The card reads "Generating the summary"
-  and its four steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
-  statements, risk factors and MD&A", "Checking figures against the filing's data" and "Writing the
-  summary", which the live region announces as they start. Neither "Generating the summary" nor "AI-generated
+  and its three steps read "Fetching the 10-K from SEC.gov" (the filing's own form), "Reading the
+  statements, risk factors and MD&A" and "Writing the summary and checking figures against the filing",
+  which the live region announces as they start. The last covers the analyzing and summarizing stages:
+  analyzing passes in milliseconds and the figures are checked while the summary is written, so a step of
+  its own, "Checking figures against the filing's data", ticked done before any figure was checked (E196
+  (6)). It says "figures", not "its figures", since the code checks only some, and each step's marker sits
+  beside its label's first line when the label wraps. The first step keeps its form code whole, one unbroken run, as
+  the live-status line does, so "10-K" never breaks at its hyphen under 200% text (E230). Neither "Generating the summary" nor "AI-generated
   summary" carries a glyph beside it: the sparkle is the AI summary chip's alone. A pending step keeps full opacity in the tertiary ink (it
   sat at 2.1:1 under opacity-40). A slow run reads "Taking longer than usual. Still working on it." in
   that line, unsigned, and the live region says it once, without guessing why. A stored summary that failed reads "This summary did
@@ -679,15 +685,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   result rows an inset one inside the clipped list. The rows and the unselected form toggles brighten
   on hover to the row tint (`brand-weak`), never darken. The field stops at the length the backend
   accepts, and `tests/unit/searchQueryLimitParity.spec.tsx` reads that bound from the router; an
-  error shows the backend's own detail, or the surface's sentence ("Search did not load. Try again
-  in a minute.") when the body carried none, a bodiless 503 or 413 included. The description no
+  error is an error Notice titled "Search did not load", its message the backend's own detail, or the
+  surface's advice ("Try again in a minute.") when the body carried none, a bodiless 503 or 413
+  included (E196 (3)). The description no
   longer promises every filing, and the title is in sentence case. At 200% text a row's company
   name wraps under its ticker in the primary ink (in both themes), each date and form code stays
   whole, and a middot keeps to the fact before it, so no line starts with one; each fact, its label,
   its value and its middot, is one run, so a line breaks between facts, and inside one only when it
-  alone is wider than the line; the error alert's
+  alone is wider than the line; the error Notice's
   glyph keeps its size, its message takes its column's whole width and breaks a long token, and
-  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the alert
+  "Try again" ("Trying again…" while busy) sits on its own row under it, inside the Notice
   (`full-text-search.spec.tsx`). The two date fields take the Input primitive's 14px text and shrink to their
   row: in the forms plugin's 1rem, with the blank room Chrome keeps in a date field for a six-digit year, each was
   312px in a 256px row at 320px under 200% text and the page scrolled to 344px (E81,

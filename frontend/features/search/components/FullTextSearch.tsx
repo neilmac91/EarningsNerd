@@ -5,9 +5,9 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ApiError } from '@/lib/api/client'
 import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
-import { ArrowSquareOutIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
+import { ArrowSquareOutIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
-import { FieldSpinner, cx, inputClasses } from '@/components/ui'
+import { FieldSpinner, Notice, cx, inputClasses } from '@/components/ui'
 import { fmtCount } from '@/lib/format'
 import { formatCompanyName } from '@/lib/formatCompanyName'
 import { SEARCH_QUERY_MAX, clampQuery } from '@/features/search/lib/queryLimit'
@@ -151,12 +151,11 @@ export default function FullTextSearch() {
   // Retry in it included; keepPreviousData's placeholder does not count); a new query is another query,
   // so typing one drops the old failure.
   const failure = useRetainedFailure(search, queryKeys.fullTextSearch(query, formsParam, startDate, endDate))
-  // The backend's own detail (the 429 and 502 sentences) reads verbatim, or the surface's sentence when
-  // the body carried none: `backendDetail` is unset for a lost connection, a non-string detail, an HTML
-  // gateway page, and lib/api/client's status fallbacks or axios's "Request failed with status code N".
+  // Under the alert's title, the backend's own detail (the 429 and 502 sentences) reads verbatim, or the
+  // surface's advice when the body carried none: `backendDetail` is unset for a lost connection, a non-string
+  // detail, an HTML gateway page, and lib/api/client's status fallbacks or axios's "Request failed with status code N".
   const backendDetail = failure.error instanceof ApiError ? failure.error.backendDetail : undefined
-  const errorText =
-    typeof backendDetail === 'string' && backendDetail ? backendDetail : 'Search did not load. Try again in a minute.'
+  const errorText = typeof backendDetail === 'string' && backendDetail ? backendDetail : 'Try again in a minute.'
 
   const toggleForm = (form: string) =>
     setForms((prev) => (prev.includes(form) ? prev.filter((f) => f !== form) : [...prev, form]))
@@ -257,26 +256,19 @@ export default function FullTextSearch() {
         {!validRange && <span className="text-warning-light dark:text-warning-dark">Start date must be on or before end date.</span>}
       </div>
 
+      {/* An error Notice: its message, the backend's own words, which can hold a long token, breaks inside it, and
+          the Retry takes the action row under the message. That row keeps the room of "Trying again…" at rest;
+          beside the message, in a row that could not wrap, that room pushed it past the screen at 200% text on a
+          phone. When the alert goes while Retry holds focus (the search lands), focus moves to the field, except
+          after a tap, which would raise the touch keyboard. full-text-search.spec.tsx pins this layout, and
+          tests/e2e/reflow-200.spec.ts holds it at 200% text on a phone. */}
       {failure.failed && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
-        >
-          <WarningIcon className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
-          <div className="min-w-0 flex-1">
-            {/* The backend's own words, which can hold a long token: it breaks inside the alert. */}
-            <p className="break-words">{errorText}</p>
-            {/* The Retry takes its own row under the message, as a Notice's action does: it keeps the room of
-                "Trying again…" at rest, and beside the message, in a row that could not wrap, that room pushed
-                it past the screen at 200% text on a phone. When the alert goes while Retry holds focus (the
-                search lands), focus moves to the field, except after a tap, which would raise the touch
-                keyboard. full-text-search.spec.tsx pins this layout, and tests/e2e/reflow-200.spec.ts holds it at
-                200% text on a phone. */}
-            <div className="mt-2.5 flex">
-              <RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />
-            </div>
-          </div>
-        </div>
+        <Notice
+          variant="error"
+          title="Search did not load"
+          description={errorText}
+          action={<RetryButton size="sm" failures={[failure]} focusTarget={inputRef} textField />}
+        />
       )}
 
       {query.length === 0 && (

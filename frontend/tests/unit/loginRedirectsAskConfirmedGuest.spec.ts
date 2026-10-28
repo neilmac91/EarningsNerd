@@ -249,7 +249,7 @@ describe('a page leaves for /login only for a confirmed guest', () => {
     expect(files).toEqual(expect.arrayContaining(['middleware.ts', 'next.config.js', 'eslint.config.mjs', 'app/admin/layout.tsx']))
     // The guards that ask, as well as the exemptions: a reader that found nothing would pass the checks below.
     expect(found.filter(({ asks }) => asks).map(({ file }) => file).sort()).toEqual([
-      'app/admin/layout.tsx', 'app/dashboard/page.tsx', 'app/dashboard/watchlist/page.tsx',
+      'app/admin/layout.tsx', 'app/dashboard/page.tsx', 'app/dashboard/settings/page.tsx', 'app/dashboard/watchlist/page.tsx',
     ])
   })
 
