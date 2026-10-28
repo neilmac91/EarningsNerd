@@ -230,9 +230,10 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   const isTrialing = Boolean(subscription?.is_pro) && subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
   // The billing switch is for an account that can still buy, so a paid or trialing subscription hides it. Until the
-  // subscription read answers, the identity read names the plan: a Pro identity hides it from the start, so a Pro
-  // account's plans hold still as the read answers (E227). The identity's is_pro mirrors the users row, so where a
-  // lagging webhook leaves it at odds with the subscription, the switch takes the read's answer when it lands.
+  // subscription read answers, the identity read names the plan: once it names Pro the switch hides, so a Pro
+  // account's plans hold still as the subscription read answers (E227); until the identity answers, it shows, as it
+  // does for anyone. The identity's is_pro mirrors the users row, so where a lagging webhook leaves it at odds with
+  // the subscription, the switch takes the read's answer when it lands.
   const showBillingSwitch = subscriptionResolved ? !isPaidPro && !isTrialing : !currentUser?.is_pro
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).

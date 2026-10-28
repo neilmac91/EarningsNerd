@@ -13,9 +13,9 @@ import { test, expect, type Page } from '@playwright/test'
  *
  * The billing switch above the plans is the page's other late read (E227). It hides for a paid or trialing
  * subscription, and it showed for a paid Pro account until the subscription read answered, then left, and the plans
- * moved up 56px (168px at 320 and 390px under 200% text). The identity read names the plan first, so a Pro identity
- * hides the switch from the start; the second loop below holds the subscription read and holds the heading as it
- * answers, for a Free account, whose switch stays, and a Pro one, whose switch never shows.
+ * moved up 56px (168px at 320 and 390px under 200% text). The identity read names the plan first, so the switch hides
+ * once it names Pro, before the subscription read answers; the second loop below holds the subscription read and holds
+ * the heading as it answers, for a Free account, whose switch stays, and a Pro one, whose switch has already gone.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser with
  * page.route, the usage read held until the case answers it, and the middleware's session gate is satisfied by its
