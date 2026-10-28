@@ -50,9 +50,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence, count_label,
-    detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index, operand_records,
-    period_label, point_method, point_notes,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, SHEETS_WITH_CELLS, WORKBOOK_CLOSING, SummaryClause, calculated_sentence,
+    count_label, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index,
+    operand_records, period_label, point_method, point_notes,
 )
 from app.services.trend_analysis.data_notes import marks_figure, resolve_data_notes
 from app.utils.company_names import display_company_name
@@ -260,8 +260,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         notes.append(sentence)
     if _has_derived(dataset):
         notes.append(
-            "Calculated figures, computed Q4 included, carry comments. Calculation method is separate from whether "
-            "the source checks passed."
+            f"{SHEETS_WITH_CELLS}, calculated figures, computed Q4 included, carry comments. Calculation method is "
+            "separate from whether the source checks passed."
         )
     # The data notes as the page's fine print: the summary line, every note (marked ones first, a letter only where it
     # marks) and the closing line.

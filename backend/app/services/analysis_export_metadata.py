@@ -37,14 +37,15 @@ _FORMULA_LABELS = {
 # hold (test_export_note_marks.py), so the page's "confirm that reported figures" drops its "that".
 AUTOMATED_CHECKS = ("Automated checks confirm reported figures come from the company’s filed data (XBRL). "
                     "They are not an audit of the company’s accounts.")
-# A reported figure has no formula and an older calculation may have no recorded inputs, so the evidence says "any".
-EVIDENCE = ("Sources & methods gives each figure’s source and method, with any recorded formula and inputs for a "
-            "calculated figure.")
+# What Sources & methods holds for a figure is what was recorded: a reported figure has no formula, an older calculation
+# may have no recorded inputs, and a figure with no provenance has no source link and an unknown method.
+EVIDENCE = "Sources & methods gives whatever source, method, formula and inputs are recorded for each figure."
 PDF_CLOSING = f"{EVIDENCE} {AUTOMATED_CHECKS}"
-# The workbook has a cell for a figure in Metrics and on the chart sheets only: a growth figure off them is in Sources
-# & methods alone.
-WORKBOOK_CLOSING = (f"{EVIDENCE} In Metrics and the chart sheets, a figure with a data note or a calculation carries a "
-                    f"comment. {AUTOMATED_CHECKS}")
+# The workbook has a cell for a figure in Metrics and on the sheets with charts only (worksheets, each with a chart
+# beside its columns): a growth figure off them is in Sources & methods alone.
+SHEETS_WITH_CELLS = "In Metrics and the sheets with charts"
+WORKBOOK_CLOSING = (f"{EVIDENCE} {SHEETS_WITH_CELLS}, a figure with a data note or a calculation carries a comment. "
+                    f"{AUTOMATED_CHECKS}")
 # The quarterly grid's legend for its Q4 header † (MetricsTable.tsx, whose "; it does not" reads ". It does not" here):
 # the dagger marks a period, never a figure.
 QUARTER_LEGEND = "Fiscal quarters follow the company’s reporting calendar."

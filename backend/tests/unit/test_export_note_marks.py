@@ -7,11 +7,11 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    PDF raises (any `<sup>`, whose text must be a letter), links to, sets alone as a run of text ("c" or "c.", the
    detail's letter column or a `<strong>c.</strong>`) or names ("Data note c", "Note c"), and every letter the workbook
    sets in a number format, names in any cell or comment ("Data note c") or prints in a clause or entry's shape ("c
-   Revenue FY2024: …", "c. …") in any cell, is one of the case's `marked_letters`; and each of them shows: the PDF draws
-   the citation supplements' too, the workbook, which carries no narrative, the report's. A site that bypasses
-   `marks_figure` draws record_only_and_mixed_marking's record-only c, its unknown d or its gap's e. A format or a raised
-   mark the reader does not know fails. What it cannot see: a letter in a shape not named here, such as "(c)" in a
-   sentence.
+   Revenue FY2024: …", "c. …") on any line of any cell or comment, is one of the case's `marked_letters`; and each of
+   them shows: the PDF draws the citation supplements' too, the workbook, which carries no narrative, the report's. A
+   site that bypasses `marks_figure` draws record_only_and_mixed_marking's record-only c, its unknown d or its gap's
+   e. A format or a raised mark the reader does not know fails. What it cannot see: a letter in a shape not named
+   here, such as "(c)" in a sentence.
 2. Every note stays: each keeps its anchored entry in the PDF (the report's under the grid, a supplement's under
    Narrative sources) and its words in the workbook's Overview, and an annual PDF prints no †.
 3. The fine print's words are the page's, read from DataNotes.tsx's source: the summary's count clauses (rendered from
@@ -28,7 +28,8 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    prints a letter. A quarterly PDF's Q4 header takes the page's † where a fourth quarter's flow figure is calculated,
    with its legend, and no figure takes one.
 6. The Metrics header row ends in the key to the letters the grid prints, exactly when it prints one: a note marked only
-   on a YoY or QoQ figure, which the grid does not show, stays out of it.
+   on a window figure (a CAGR or a percentage-point change) names its clause there, and a note marked only on a YoY or
+   QoQ figure, which the grid does not show, stays out of it.
 7. Every line of the fine print both files print holds the reason words' surface rules (test_analysis_data_notes.py): no
    page action, no drawing, no single figure, no semicolon. The gap words alone say how each file draws a gap, which is
    their job; the detail's entries list places and counts with "; " and their messages are the reason words, which
@@ -68,7 +69,7 @@ FRONTEND = Path(__file__).resolve().parents[3] / "frontend"
 ANALYSIS_COMPONENTS = FRONTEND / "features" / "analysis" / "components"
 
 PDF_MARK = re.compile(r'<sup class="data-note"><a href="#analysis-data-note-([a-z]+)">([a-z]+)</a></sup>')
-PDF_LINK = re.compile(r'href="#analysis-data-note-([a-z]+)"')
+PDF_LINK = re.compile(r"""href=["']#analysis-data-note-([a-z]+)["']""")
 # A letter named in words, in either file: "Data note c", and in the PDF "Note c" too.
 NAMED = re.compile(r"\bData note ([a-z]{1,2})\b")
 # Every format the workbook sets, with the letter a marked note adds: '#,##0" a"', '0.00"x a"', '0.0" pp a"', '@" a"'.
@@ -114,8 +115,9 @@ def workbook_letters(data: bytes) -> set[str]:
                 texts = [cell.value] if isinstance(cell.value, str) else []
                 for text in [*texts, *([cell.comment.text] if cell.comment is not None else [])]:
                     # Named ("Data note c"), a summary or key clause ("c Revenue FY2024: …") and a detail entry ("c. …").
-                    letters |= set(NAMED.findall(text)) | set(re.findall(r"(?:^| · )([a-z]{1,2}) (?=\S)", text))
-                    letters |= set(re.findall(r"^([a-z]{1,2})\. ", text))
+                    # Every line of the text: a comment holds one line per note or method detail.
+                    letters |= set(NAMED.findall(text)) | set(re.findall(r"(?m)(?:^| · )([a-z]{1,2}) (?=\S)", text))
+                    letters |= set(re.findall(r"(?m)^([a-z]{1,2})\. ", text))
     return letters
 
 
@@ -158,7 +160,8 @@ def test_the_gate_reads_a_letter_wherever_an_export_can_set_one():
     for planted, letter in (('$1<sup class="data-note"><a href="#analysis-data-note-c">c</a></sup>', "c"),
                             ('<span class="note-letter">d.</span>', "d"), ('<a href="#analysis-data-note-e">', "e"),
                             ("<li><strong>c.</strong> Shown as stored.</li>", "c"), ("<td>$1<sup>d</sup></td>", "d"),
-                            ("<p>Data note e: Not in our data.</p>", "e"), ("<p>See Note c.</p>", "c")):
+                            ("<p>Data note e: Not in our data.</p>", "e"), ("<p>See Note c.</p>", "c"),
+                            ("<p><a href='#analysis-data-note-d'>Source</a></p>", "d")):
         assert pdf_letters(html.replace("</body>", planted + "</body>")) - pdf_letters(html) == {letter}, planted
     with pytest.raises(AssertionError, match="a raised mark the reader does not know"):
         pdf_letters(html.replace("</body>", "<p>$1<sup>†</sup></p></body>"))
@@ -181,6 +184,9 @@ def test_the_gate_reads_a_letter_wherever_an_export_can_set_one():
     assert letters_after(lambda book: book["Overview"].append(["Data note c: Shown as stored."])) == {"c"}
     assert letters_after(lambda book: book["Sources & methods"].cell(2, 5, "Data note d")) == {"d"}
     assert letters_after(lambda book: book["Cash generation"].cell(2, 1, "e Net income FY2023: no check")) == {"e"}
+    # A later line of a comment, in each shape.
+    for line, letter in (("c Net income FY2023: no check", "c"), ("d. Shown as stored.", "d")):
+        assert letters_after(lambda book: setattr(book["Metrics"]["D5"].comment, "text", f"Calculated figure.\n{line}")) == {letter}
     with pytest.raises(AssertionError, match="a format the reader does not know"):
         letters_after(lambda book: setattr(book["Metrics"]["D2"], "number_format", '#,##0"(c)"'))
 
@@ -243,9 +249,13 @@ def _page(pattern: str, source: str, what: str) -> re.Match:
 
 def _render(template: str, values: dict[str, int]) -> str:
     """One of DataNotes.tsx's summary spans as the page renders it: `{plural(count, 'one', 'many')}` and `{name}`."""
-    text = re.sub(r"\{plural\(([\w.]+), '([^']*)', '([^']*)'\)\}",
-                  lambda found: f"{values[found[1]]} {found[2] if values[found[1]] == 1 else found[3]}", template)
-    return re.sub(r"\{([\w.]+)\}", lambda found: str(values[found[1]]), text)
+    try:
+        text = re.sub(r"\{plural\(([\w.]+), '([^']*)', '([^']*)'\)\}",
+                      lambda found: f"{values[found[1]]} {found[2] if values[found[1]] == 1 else found[3]}", template)
+        return re.sub(r"\{([\w.]+)\}", lambda found: str(values[found[1]]), text)
+    except KeyError as name:
+        raise AssertionError(f"DataNotes.tsx's count clauses moved (they count {name}, which the port does not): "
+                             "re-read them and the port in analysis_export_metadata.py") from None
 
 
 def test_the_fine_print_reads_the_page_words():
@@ -286,7 +296,8 @@ def test_the_fine_print_reads_the_page_words():
     joined = _page(r"`\$\{label\} \$\{periods\.join\('([^']*)'\)\}`\)\.join\('([^']*)'\)", page, "summary places")
     more = _page(r"`\$\{shown\}( and )\$\{places\.length - SUMMARY_PLACES\}( more)`", page, "and N more")
     labels = _page(r"const comparisonLabel = \(basis: string\) => (.*)", page, "comparison labels")[1]
-    words = dict(re.findall(r"basis === '(\w+)' \? '([^']*)'", labels)) | {"cagr": re.search(r": '([^']*)'\s*$", labels)[1]}
+    words = dict(re.findall(r"basis === '(\w+)' \? '([^']*)'", labels))
+    words["cagr"] = _page(r": '([^']*)'\s*$", labels, "comparison labels' last word")[1]
     suffixes = set(re.findall(r"\.basis === 'window_pp' \? '([^']*)' : ''", page))
     assert words.keys() == {"qoq", "yoy", "window_pp", "cagr"} and len(suffixes) == 1, (words, suffixes)
     for basis, word in words.items():
@@ -323,6 +334,14 @@ def test_the_fine_print_reads_the_page_words():
             assert entry["places"] == f"Revenue ({periods}).", entry
         periods = compared[2].join(f"FY{2020 + index}" for index in range(growths))
         assert entry["comparisons"] == f"{compared[1]}Net margin {words['yoy']} ({periods}).", entry
+    # Two metrics: the separator between them, as the page joins its places and its comparisons.
+    two = {"id": "analysis-data-note-a", "letter": "a", "kind": "review", "reasons": ["source_conflict"], "message": "M.",
+           "values": [{"label": label, "period": "FY2024"} for label in ("Revenue", "Net income")],
+           "comparisons": [{"label": label, "period": "FY2024", "basis": "yoy"} for label in ("Revenue", "Net income")]}
+    entry = detail_entries([two])[0]
+    assert entry["places"] == f"Revenue (FY2024){listed[2]}Net income (FY2024).", entry
+    assert entry["comparisons"] == (f"{compared[1]}Revenue {words['yoy']} (FY2024){compared[3]}"
+                                    f"Net income {words['yoy']} (FY2024)."), entry
 
     # The checks sentence: the page's, with "confirm that" and its semicolon read as the surface rules ask.
     checks = _page(r"(Automated checks confirm [^<]*?accounts\.)", page, "checks sentence")[1]
@@ -467,6 +486,15 @@ def test_the_metrics_header_row_keys_the_letters_its_grid_prints():
     dataset["series"][0]["points"][0].pop("provenance")
     alone = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Metrics"]
     assert [cell.value for cell in alone[1]][-1] == "Window"
+    # A note marked only on a window figure, which the grid's window column shows, names its clause in the key.
+    conflict = {"method": "calculated", "validation": "needs_review", "reasons": ["source_conflict"]}
+    for series, field, clause in ((0, "cagr_provenance", "a Revenue CAGR FY2022–FY2024"),
+                                  (1, "window_pp_provenance", "a Net margin window percentage-point change FY2022–FY2024")):
+        window = _dataset()
+        window["series"][series][field] = conflict
+        sheet = load_workbook(io.BytesIO(build_analysis_workbook(window)))["Metrics"]
+        assert sheet.cell(1, headers.index("Window") + 2).value == (
+            f"Data notes · {clause}: the filings report different values (the most recent shown)"), field
 
 
 # ---- The exports' own words ----------------------------------------------------------------------------------------
@@ -553,10 +581,7 @@ def _rows(count: int) -> SimpleNamespace:
 
 
 def _render_pdf(weasyprint, html: str):
-    try:
-        return weasyprint.HTML(string=html).render()
-    except Exception as exc:  # missing system libs in odd envs: not what this test reads
-        pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+    return weasyprint.HTML(string=html).render()
 
 
 def _pages(document, last_row: str) -> dict[str, int]:
@@ -580,7 +605,10 @@ def _pages(document, last_row: str) -> dict[str, int]:
 
 
 def test_the_summary_line_stays_on_the_grids_last_page():
-    weasyprint = pytest.importorskip("weasyprint")
+    try:  # a missing package, or missing system libraries, which WeasyPrint raises as OSError on import
+        import weasyprint
+    except (ImportError, OSError) as exc:
+        pytest.skip(f"WeasyPrint unavailable: {exc}")
     rule = ".data-notes-summary { break-before: avoid; } "
     for count in range(8, 60):
         html = ExportService().generate_analysis_pdf_html(_rows(count), COMPANY)
