@@ -77,9 +77,9 @@ _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
 _KEY_WIDTH = 44
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
 
-# The three line panels of the page's chart model (charts/model.ts; the bar panel is built separately — its top-line
-# concept is dataset-dependent). A panel whose concepts are all absent is skipped (a bank has no gross margin), where
-# the page keeps a chart that does not apply as its card, saying so: a data sheet with no column has nothing to chart.
+# The three line panels from TrendCharts.tsx (the bar panel is built separately — its top-line
+# concept is dataset-dependent). Panels whose concepts are all absent are skipped, mirroring the
+# frontend's collapsing panels (a bank has no gross margin).
 _LINE_PANELS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Margins",
