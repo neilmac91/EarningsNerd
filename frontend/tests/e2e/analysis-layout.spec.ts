@@ -945,29 +945,60 @@ for (const [state, mode, rail] of [['legacy', 'quarterly', 80], ['annual', 'annu
         return { top, clear: Math.max(header, rail) }
       })
       expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
-      // The rail's arrival: it waits until what is left of the heading row below the header fits under it, so it never
-      // sits over the row's lower lines (the legend, the window, a second "CAGR"). The row's top `past` px past the
-      // header's line, placed again until the page has settled.
-      const arrival = async (past: number) => {
-        await expect.poll(async () => {
-          await page.evaluate((past) => {
-            const head = document.querySelector('[data-analysis-metrics] table thead')!
-            const line = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
-            window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - line + past)
-          }, past)
-          await page.waitForTimeout(250)
-          return page.evaluate(() => Math.round(document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
-            - document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().top))
-        }, { timeout: 20_000 }).toBe(past)
-        return page.evaluate(() => {
-          const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
-          return { shown: !!bar, row: document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().bottom, bar: bar?.bottom ?? 0 }
+      // The switch (chief design on #1763): the headings sit at the top of their row, so the rail is the row's own first
+      // lines. With the row's top 1px past the header's line the rail shows, each of its lines sits where the row's same
+      // line was as the row met the line, and no line of the row still in view under the rail repeats one of the rail's:
+      // only the legend and the window pass under it. Placed again until the page has settled.
+      await expect.poll(async () => {
+        await page.evaluate(() => {
+          const head = document.querySelector('[data-analysis-metrics] table thead')!
+          const line = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - line + 1)
         })
-      }
-      expect((await arrival(8)).shown, 'the rail waits while the heading row still runs on below it').toBe(false)
-      const arrived = await arrival(read.head - rail + 4)
-      expect(arrived.shown, 'the rail shows once the rest of the heading row fits under it').toBe(true)
-      expect(arrived.row, 'nothing of the heading row shows below the rail').toBeLessThanOrEqual(arrived.bar + 0.5)
+        await page.waitForTimeout(250)
+        return page.evaluate(() => Math.round(document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          - document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().top))
+      }, { timeout: 20_000 }).toBe(1)
+      const switched = await page.evaluate(() => {
+        // The lines a cell paints: each text node outside the screen-reader copy, by its first box (a part the rail leaves
+        // out paints none there).
+        const lines = (cell: Element) => {
+          const out: { text: string; top: number }[] = []
+          const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const text = node.textContent!.trim()
+            if (!text || node.parentElement!.closest('.sr-only')) continue
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            const box = [...range.getClientRects()].find((r) => r.width && r.height)
+            if (box) out.push({ text, top: box.top })
+          }
+          return out
+        }
+        const bar = document.querySelector('[data-table-header-rail] > div')
+        const head = document.querySelector('[data-analysis-metrics] table thead')!
+        if (!bar) return null
+        const past = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom - head.getBoundingClientRect().top
+        const band = bar.getBoundingClientRect()
+        const railCells = [...bar.querySelectorAll<HTMLElement>(':scope > div, :scope > div > div > div')].filter((cell) => cell.style.width)
+        const rowCells = [...head.querySelectorAll('th')]
+        const moved: string[] = []
+        const twice: string[] = []
+        railCells.forEach((cell, index) => {
+          const kept = lines(cell)
+          const row = lines(rowCells[index])
+          for (const line of kept) {
+            const same = row.find((other) => other.text === line.text)
+            if (!same || Math.abs(line.top - same.top - past) > 1) moved.push(`${line.text}: ${same ? `${Math.round(line.top - same.top - past)}px` : 'not in the row'}`)
+          }
+          for (const line of row) if (line.top >= band.bottom - 0.5 && kept.some((other) => other.text === line.text)) twice.push(line.text)
+        })
+        return { cells: railCells.length, columns: rowCells.length, moved, twice }
+      })
+      expect(switched, 'the rail shows with the heading row 1px past the line').not.toBeNull()
+      expect(switched!.cells, 'a rail cell for each column').toBe(switched!.columns)
+      expect(switched!.moved, 'each rail line sits where the same line of the row was').toEqual([])
+      expect(switched!.twice, 'no line of the row in view under the rail repeats a rail line').toEqual([])
     })
   })
 }

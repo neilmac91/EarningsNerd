@@ -138,12 +138,13 @@ export default function MetricsTable({
     if (!showsCagr) {
       return [metricColumn, ...periodColumns]
     }
-    // An en-dash already offers a line break after it, so the window wraps there in a narrow column. The window stays
-    // in the table's own heading row; the page heading rail shows "CAGR" alone (data-rail-omit, E202).
+    // An en-dash already offers a line break after it, so the window wraps there in a narrow column. The window sits
+    // under "CAGR", as the legend sits under "Metric": it stays in the table's own heading row, and the page heading
+    // rail shows "CAGR" alone, on the row's own first line (data-rail-omit, E202).
     const cagrWindow = formatAnalysisWindow(dataset.periods[0]?.key ?? '', dataset.periods.at(-1)?.key ?? '')
     const cagrColumn: Column<Row> = {
       key: 'cagr',
-      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal"><span data-rail-omit className="block">{cagrWindow}</span><span className="block">CAGR</span></span></>,
+      header: <><span className="sr-only">{cagrWindow} CAGR</span><span aria-hidden="true" className="block font-data normal-case tracking-normal"><span className="block">CAGR</span><span data-rail-omit className="block">{cagrWindow}</span></span></>,
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {

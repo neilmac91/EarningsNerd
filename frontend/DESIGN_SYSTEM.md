@@ -782,15 +782,16 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  heading row rides a zero-height sticky rail under the site header
                  (top-[var(--site-header-h,4rem)], z-sticky, print:hidden, on the panel with the rule
                  outline), mounted only while the rail is stuck at the header's line, the real thead has
-                 passed under the header far enough that what is left of it fits under the rail (as soon
-                 as its top passes, where the rail is as tall as the row) and the table is still below
-                 it, and following the table's
+                 passed under the header and the table is still below it, and following the table's
                  scrollLeft. The copy leaves out any part of a header marked data-rail-omit, a line of its
-                 own that only the table's own heading row needs: the metrics table's legend under
-                 "Metric" and its CAGR window over "CAGR" (E202). So under 200% text on a phone, where the
-                 heading row is three lines, 112px, the rail is the quarter headings' two lines, 80px, in a
-                 quarterly run and one line, 48px, in an annual run, under a site header already 225px
-                 tall; at the default size 40 and 24px where the row is 56px. Under an ancestor that
+                 own that only the table's own heading row needs, under what the rail keeps: the metrics
+                 table's legend under "Metric" and its CAGR window under "CAGR" (E202). With the rail on,
+                 the headings sit at the top of the row (the th's align-top, the rail cells'
+                 justify-start), so the rail is the row's own first lines: as it takes over nothing
+                 moves, and only the legend and the window pass under it. So under 200% text on a phone,
+                 where the heading row is three lines, 112px, the rail is the quarter headings' two
+                 lines, 80px, in a quarterly run and one line, 48px, in an annual run, under a site
+                 header up to 225px tall; at the default size 40 and 24px where the row is 56px. Under an ancestor that
                  clips overflow (the landing demo's mockup frame, a
                  locked preview) that box is the rail's scroll container, so the rail never sticks to the
                  page and never shows. The real thead stays the one screen readers read. The rail lets
@@ -821,8 +822,9 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  rail nor reserves its padding; at 1024px a horizontal wheel over the rail moves the
                  table; at 390px under 200% text, in a quarterly and an annual run, the rail leaves out
                  the legend and the window, is 80 and 48px where the row is 112px, the page reserves that
-                 height, a figure reached by Shift+Tab lands below it, and the rail waits while the row
-                 still runs on below it, then leaves nothing of the row showing below it).
+                 height, a figure reached by Shift+Tab lands below it, and with the row's top 1px past
+                 the header's line each rail line sits where the row's same line was and no line of the
+                 row in view under the rail repeats one).
                  The table's figure controls carry no underline (the KPI value keeps its dotted one): in
                  the readout a rule under every value parted values from their change lines, and dark
                  1x readers gave a period with no change the next column's (four of seven with it, none
