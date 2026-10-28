@@ -151,7 +151,10 @@ export default function EmailVerificationModal() {
       <ModalBody>
         <p className="text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
           Subscribing requires a verified email. We send verification links to{' '}
-          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+          {/* The address wraps inside the paragraph only where it is longer than the line (overflow-wrap), so under
+              200% text it no longer runs past the paragraph and scrolls the dialog sideways, and at the default size
+              it moves to its own line whole, where break-all would split it at a line's end. */}
+          <span className="break-words font-medium text-text-primary-light dark:text-text-primary-dark">
             {user?.email ?? 'your email address'}
           </span>
           .
