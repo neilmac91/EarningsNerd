@@ -6,7 +6,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import { bindingReferences, bindingResolver, type Binding } from './astBindings'
 import { lazyImport } from './importWalk'
-import { LOGOUT_CALL_SITES } from './logoutCallSites'
+import { LOGOUT_ALL_CALL_SITES, LOGOUT_CALL_SITES } from './logoutCallSites'
 
 /**
  * Gate (CLAUDE.md rule 12): a logout that did not take never navigates. `logoutAndResetAccount`
@@ -81,6 +81,27 @@ import { LOGOUT_CALL_SITES } from './logoutCallSites'
  * client and the session reset, which are imported code this gate does not read: the router, window.location, history,
  * window.open, and each load jsdom reports (another URL or a reload through document.location, a form's submit). jsdom
  * passes over a load of the URL the document is at without a word, so that one goes unheard.
+ *
+ * Gate (CLAUDE.md rule 12, E157): the logout of every session runs in the same one-logout flight. Beside it, it undid a
+ * Log out and a Log out undid it: its `beginLogout` cleared the session flag a failed Log out's read of /me needs, so a
+ * lapsed access cookie read as a guest, and a Log out's reset lifted its refresh fence (E133) or ended it as superseded.
+ * So its request, `logoutAllSessions` (features/auth/api/auth-api.ts), is named in no module but two: its own, where only
+ * its declaration names it (a const's arrow or a function), and the flight's (accountQueryState.ts), where it is a plain
+ * named import of its module and the callee of calls inside `logoutAllInTurn`, the flight's entry for it (a function, or
+ * a const's arrow or function). Its route sits in a string or a template only inside that declaration: a part holding
+ * `/logout-all` after a slash, so an id or a class named `logout-all` is no route. Each identifier of the name is read,
+ * wherever it stands (an import, a re-export, a namespace's member, a destructured binding, a value handed on, a second
+ * declaration), and each string equal to it, in the files the gate above reads. Each control that logs out of every
+ * session names the entry once (LOGOUT_ALL_CALL_SITES, tests/unit/logoutCallSites.ts, whose every file
+ * logoutAllJoinsTheFlight.spec.tsx gives a control and its cases), and no other module outside the flight's names it;
+ * the flight's own names it only as its declaration and in calls inside it, so it is exported under no other name. An
+ * import that renames either name is refused, as the gate above refuses one of its helper, since a control importing the
+ * entry under another name would name it nowhere and escape the inventory; so is a string equal to the entry's name.
+ * Where in the entry it posts (once a Log out under way has settled, and only while the session survived it) is the
+ * behaviour spec's to hold. Out of reach, planted below as gaps: the name or the route assembled at run time
+ * (`auth['logoutAll' + 'Sessions']`, a computed key, `'/api/auth/logout' + '-all'`, `'/api/auth/' + 'logout-all'`), and
+ * the route's last segment handed to a template as a substitution (`` `/api/auth/${'logout-all'}` ``): a part that holds
+ * `logout-all` with no slash before it reads as an id or a class does.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -520,6 +541,99 @@ export function readLogoutCalls(source: string, file: string): LogoutCallReading
   return { calls, problems: problems.sort((a, b) => a.line - b.line || a.problem.localeCompare(b.problem)) }
 }
 
+/** The logout of every session's request, its route, and the flight's entry for it (the second header). */
+const LOGOUT_ALL = 'logoutAllSessions'
+/** The route's path, `/logout-all` after a slash, before the string's end, a further segment, a query or a fragment. */
+const LOGOUT_ALL_ROUTE = /\/logout-all(?:$|[/?#])/
+const LOGOUT_ALL_ENTRY = 'logoutAllInTurn'
+/** The request's own module. */
+const LOGOUT_ALL_HOME = 'features/auth/api/auth-api.ts'
+/** That module under any specifier that names it: `@/features/auth/api/auth-api`, `./auth-api.ts`. */
+const AUTH_API = /(?:^|\/)auth-api(?:\.[cm]?[jt]sx?)?$/
+
+type ReachProblem = 'request' | 'route' | 'renamed import' | 'entry'
+
+export interface LogoutAllReach {
+  /** Whether the module declares the request: its own module only. */
+  declares: boolean
+  /** The calls of the request inside the flight's entry: the flight's module only. */
+  inFlight: number
+  /** How often the module names the entry, outside an import of it; the flight's own module counts none. */
+  entries: number
+  problems: { line: number; problem: ReachProblem }[]
+}
+
+/** How one module reaches the logout of every session, read as the second header says. */
+export function readLogoutAllReach(source: string, file: string): LogoutAllReach {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, scriptKind(file))
+  const line = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1
+  const reach: LogoutAllReach = { declares: false, inFlight: 0, entries: 0, problems: [] }
+  const flag = (node: ts.Node, problem: ReachProblem) => reach.problems.push({ line: line(node), problem })
+  let declaration: ts.Node | undefined
+  let entryDeclared = false
+  const inside = (node: ts.Node, outer: ts.Node | undefined) => {
+    for (let at: ts.Node | undefined = node; at; at = at.parent) if (at === outer) return true
+    return false
+  }
+  /** Whether `at` declares `name`: a function of that name, or a const or a let. */
+  const declares = (at: ts.Node, name: string): boolean =>
+    (ts.isFunctionDeclaration(at) || ts.isVariableDeclaration(at)) && at.name !== undefined && ts.isIdentifier(at.name) && at.name.text === name
+  /** Whether an identifier is the name a declaration gives (not a use of it in the declaration's value). */
+  const isDeclaredName = (node: ts.Identifier, name: string) => declares(node.parent, name) && (node.parent as ts.NamedDeclaration).name === node
+  /** Whether a node sits in the flight's entry: a function declaration of its name, or a const's arrow or function. */
+  const inEntry = (node: ts.Node) => {
+    for (let at = node.parent; at; at = at.parent) {
+      if (ts.isFunctionDeclaration(at) && declares(at, LOGOUT_ALL_ENTRY)) return true
+      if ((ts.isArrowFunction(at) || ts.isFunctionExpression(at)) && declares(at.parent, LOGOUT_ALL_ENTRY)) return true
+    }
+    return false
+  }
+  /** `import { logoutAllSessions } from '…auth-api'`: a plain named import of the request's module, neither renamed nor type-only. */
+  const isPlainImport = (specifier: ts.ImportSpecifier) => {
+    const clause = specifier.parent.parent
+    return !specifier.propertyName && !specifier.isTypeOnly && !clause.isTypeOnly &&
+      ts.isStringLiteral(clause.parent.moduleSpecifier) && AUTH_API.test(clause.parent.moduleSpecifier.text)
+  }
+  const visit = (node: ts.Node): void => {
+    // An import that renames either name, either way (`{ logoutAllInTurn as everywhere }`, `{ other as logoutAllSessions }`).
+    if (ts.isImportSpecifier(node) && node.propertyName && [node.name.text, node.propertyName.text].some((name) => name === LOGOUT_ALL || name === LOGOUT_ALL_ENTRY)) {
+      flag(node, 'renamed import')
+      return
+    }
+    if (ts.isIdentifier(node) && node.text === LOGOUT_ALL) {
+      const parent = node.parent
+      if (file === LOGOUT_ALL_HOME && !declaration && isDeclaredName(node, LOGOUT_ALL)) {
+        declaration = parent
+        reach.declares = true
+      } else if (file === DEFINITION && ts.isImportSpecifier(parent) && isPlainImport(parent)) {
+        // The flight's import of the request.
+      } else if (file === DEFINITION && ts.isCallExpression(parent) && parent.expression === node && inEntry(node)) {
+        reach.inFlight += 1
+      } else {
+        flag(node, 'request')
+      }
+    }
+    if (ts.isIdentifier(node) && node.text === LOGOUT_ALL_ENTRY) {
+      const parent = node.parent
+      if (file !== DEFINITION) {
+        if (!ts.isImportSpecifier(parent)) reach.entries += 1
+      } else if (!entryDeclared && isDeclaredName(node, LOGOUT_ALL_ENTRY)) {
+        entryDeclared = true
+      } else if (!(ts.isCallExpression(parent) && parent.expression === node && inEntry(node))) {
+        // In its own module the entry is named only by its declaration and its own calls: exported under no other name.
+        flag(node, 'entry')
+      }
+    }
+    if (ts.isStringLiteralLike(node) && node.text === LOGOUT_ALL) flag(node, 'request')
+    if (ts.isStringLiteralLike(node) && node.text === LOGOUT_ALL_ENTRY) flag(node, 'entry')
+    const text = ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node) ? node.text : undefined
+    if (text !== undefined && LOGOUT_ALL_ROUTE.test(text) && !(file === LOGOUT_ALL_HOME && inside(node, declaration))) flag(node, 'route')
+    ts.forEachChild(node, visit)
+  }
+  visit(sf)
+  return reach
+}
+
 const problemsOf = (source: string, file = 'app/fixture.tsx') => readLogoutCalls(source, file).problems.map(({ problem }) => problem)
 
 const IMPORT = "import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'\n"
@@ -765,9 +879,62 @@ export const go = (qc, logout) => m['logoutAndResetAccount'](qc, logout)
   { form: 'a props spread that carries a handler that navigates', source: handler({ use: '<button {...more} onClick={handleLogout}>Log out</button>' }).replace('export function Menu', "const more = { onPointerUp: () => window.location.assign('/') }\nexport function Menu"), problems: [], gap: true },
 ]
 
+const AUTH_IMPORT = "import { logoutAllSessions } from '@/features/auth/api/auth-api'\n"
+const NAMESPACE_IMPORT = "import * as auth from '@/features/auth/api/auth-api'\n"
+/** The request's declaration as its module writes it. */
+const REQUEST = "export const logoutAllSessions = async () => {\n  const response = await api.post('/api/auth/logout-all')\n  return response.data\n}\n"
+/** Each form of reaching the logout of every session: what the gate must say of it, as FORMS above. */
+const REACH_FORMS: { form: string; source: string; file?: string; problems: ReachProblem[]; gap?: true }[] = [
+  // Look-alikes that must pass.
+  { form: "the flight's shape: the request imported, and called in its entry", file: DEFINITION, source: `${AUTH_IMPORT}export function logoutAllInTurn() {
+  const run = { settled: logoutAllSessions().then(() => undefined) }
+  return run.settled
+}
+`, problems: [] },
+  { form: "the request's declaration, posting its route", file: LOGOUT_ALL_HOME, source: REQUEST, problems: [] },
+  { form: "a control that hands the flight's entry to its mutation", source: "import { logoutAllInTurn } from '@/features/auth/lib/accountQueryState'\nexport const useEverywhere = () => useMutation({ mutationFn: logoutAllInTurn })\n", problems: [] },
+  { form: "a longer name, a comment that names the request and its route, and the plain logout's route", source: "// logoutAllSessions posts /api/auth/logout-all\nexport const logoutAllSessionsShown = true\nexport const paths = ['/api/auth/logout', `/api/auth/logout?next=${'/'}`]\n", problems: [] },
+  { form: 'an id and a class that hold logout-all, which name no route', source: 'export const Row = () => <div id="logout-all" className="settings-logout-all">Log out of all devices</div>\n', problems: [] },
+  { form: "the flight's entry as a const's arrow, calling the request", file: DEFINITION, source: `${AUTH_IMPORT}export const logoutAllInTurn = () => logoutAllSessions().then(() => undefined)\n`, problems: [] },
+  { form: "the flight's entry calling itself once a Log out under way has settled", file: DEFINITION, source: `${AUTH_IMPORT}export function logoutAllInTurn() {\n  if (running) return running.settled.then(() => logoutAllInTurn())\n  return logoutAllSessions()\n}\n`, problems: [] },
+
+  // Forms that reach the request outside the flight, or the flight's entry outside the inventory.
+  { form: "the control as it stood before E157: the request imported and handed to its mutation", source: `${AUTH_IMPORT}export const useEverywhere = () => useMutation({ mutationFn: logoutAllSessions })\n`, problems: ['request', 'request'] },
+  { form: 'a renamed import, and the call through it', source: "import { logoutAllSessions as everywhere } from '@/features/auth/api/auth-api'\nexport const go = () => everywhere()\n", problems: ['renamed import'] },
+  { form: 'another function imported under the name of the request', source: "import { logout as logoutAllSessions } from '@/features/auth/api/auth-api'\nexport const go = () => logoutAllSessions()\n", problems: ['renamed import', 'request'] },
+  { form: "a control importing the flight's entry renamed, which names it nowhere else", source: "import { logoutAllInTurn as everywhere } from '@/features/auth/lib/accountQueryState'\nexport const useEverywhere = () => useMutation({ mutationFn: everywhere })\n", problems: ['renamed import'] },
+  { form: "the flight's entry's name as a string key", source: "import * as account from '@/features/auth/lib/accountQueryState'\nexport const go = () => account['logoutAllInTurn']()\n", problems: ['entry'] },
+  { form: "in the flight's module, the entry exported under another name", file: DEFINITION, source: `${AUTH_IMPORT}export function logoutAllInTurn() {\n  return logoutAllSessions()\n}\nexport { logoutAllInTurn as everywhere }\n`, problems: ['entry'] },
+  { form: "in the flight's module, a wrapper that calls the entry from outside it", file: DEFINITION, source: `${AUTH_IMPORT}export function logoutAllInTurn() {\n  return logoutAllSessions()\n}\nexport const everywhere = () => logoutAllInTurn()\n`, problems: ['entry'] },
+  { form: "a namespace import's member", source: `${NAMESPACE_IMPORT}export const go = () => auth.logoutAllSessions()\n`, problems: ['request'] },
+  { form: 'the name as a string key', source: `${NAMESPACE_IMPORT}export const go = () => auth['logoutAllSessions']()\n`, problems: ['request'] },
+  { form: 'a dynamic import, destructured, and the call', source: "export const go = async () => {\n  const { logoutAllSessions } = await import('@/features/auth/api/auth-api')\n  return logoutAllSessions()\n}\n", problems: ['request', 'request'] },
+  { form: 'a re-export', source: "export { logoutAllSessions } from '../features/auth/api/auth-api'\n", problems: ['request'] },
+  { form: 'its route posted directly', source: "export const go = () => api.post('/api/auth/logout-all')\n", problems: ['route'] },
+  { form: 'its route in a template', source: "export const go = (base) => fetch(`${base}/api/auth/logout-all`, { method: 'POST' })\n", problems: ['route'] },
+  { form: "its route as a form's action", source: 'export const Everywhere = () => <form action="/api/auth/logout-all" method="post"><button>Log out of all devices</button></form>\n', problems: ['route'] },
+  { form: "in the flight's module, a call outside its entry", file: DEFINITION, source: `${AUTH_IMPORT}export const now = () => logoutAllSessions()\n`, problems: ['request'] },
+  { form: "in the flight's module, the request handed on as a value in its entry", file: DEFINITION, source: `${AUTH_IMPORT}export function logoutAllInTurn() {\n  return later(logoutAllSessions)\n}\n`, problems: ['request'] },
+  { form: "in the flight's module, a renamed import", file: DEFINITION, source: "import { logoutAllSessions as all } from '@/features/auth/api/auth-api'\nexport function logoutAllInTurn() {\n  return all()\n}\n", problems: ['renamed import'] },
+  { form: "in the flight's module, a type-only import", file: DEFINITION, source: "import type { logoutAllSessions } from '@/features/auth/api/auth-api'\nexport function logoutAllInTurn() {\n  return logoutAllSessions()\n}\n", problems: ['request'] },
+  { form: "in the flight's module, its route", file: DEFINITION, source: "export function logoutAllInTurn() {\n  return api.post('/api/auth/logout-all')\n}\n", problems: ['route'] },
+  { form: "in the request's module, an alias", file: LOGOUT_ALL_HOME, source: `${REQUEST}export const logoutEverywhere = logoutAllSessions\n`, problems: ['request'] },
+  { form: "in the request's module, a call from another function", file: LOGOUT_ALL_HOME, source: `${REQUEST}export const both = async () => { await logout(); await logoutAllSessions() }\n`, problems: ['request'] },
+  { form: "in the request's module, its route posted by another function", file: LOGOUT_ALL_HOME, source: `${REQUEST}export const again = () => api.post('/api/auth/logout-all')\n`, problems: ['route'] },
+  { form: "in the request's module, a second declaration of the name, and the call of it", file: LOGOUT_ALL_HOME, source: `${REQUEST}function later() {\n  const logoutAllSessions = () => api.post('/api/x')\n  return logoutAllSessions()\n}\n`, problems: ['request', 'request'] },
+
+  // Out of reach (the header names each): the gate passes them.
+  { form: 'the name assembled at run time', source: `${NAMESPACE_IMPORT}export const go = () => auth['logoutAll' + 'Sessions']()\n`, problems: [], gap: true },
+  { form: 'a member read by a computed key', source: `${NAMESPACE_IMPORT}export const go = (key) => auth[key]()\n`, problems: [], gap: true },
+  { form: 'the route assembled by concatenation', source: "export const go = () => api.post('/api/auth/logout' + '-all')\n", problems: [], gap: true },
+  { form: "the route's last segment concatenated whole after its slash", source: "export const go = () => api.post('/api/auth/' + 'logout-all')\n", problems: [], gap: true },
+  { form: "the route's last segment handed to a template as a substitution", source: "export const go = () => api.post(`/api/auth/${'logout-all'}`)\n", problems: [], gap: true },
+]
+
 const listed = execFileSync('git', ['ls-files', '-z'], { cwd: FRONTEND, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\0').filter(Boolean)
 const files = scannedFiles(listed)
 const readings = files.map((file) => ({ file, ...readLogoutCalls(readFileSync(path.join(FRONTEND, file), 'utf8'), file) }))
+const reaches = files.map((file) => ({ file, ...readLogoutAllReach(readFileSync(path.join(FRONTEND, file), 'utf8'), file) }))
 
 describe('a logout that did not take never navigates', () => {
   it('reads every tracked source file, of every JS and TS extension, in every directory but tests/', () => {
@@ -796,5 +963,36 @@ describe('a logout that did not take never navigates', () => {
     // A new control that logs out joins INVENTORY (tests/unit/logoutCallSites.ts), and failedLogoutChecksSession.spec.tsx
     // then fails until a control of its cases sits in the new file.
     expect(calls).toEqual(Object.fromEntries(Object.keys(INVENTORY).map((file) => [file, 1])))
+  })
+})
+
+describe('the logout of every session runs in the one-logout flight (E157)', () => {
+  it('scores each planted form', () => {
+    const scored = REACH_FORMS.map(({ form, source, file, problems }) => ({
+      form, expected: problems, got: readLogoutAllReach(source, file ?? 'app/fixture.tsx').problems.map(({ problem }) => problem),
+    }))
+    expect(scored.filter(({ expected, got }) => JSON.stringify(expected) !== JSON.stringify(got))).toEqual([])
+    // The look-alikes of the tree's shapes are seen as what they are, so their passing is the reading, not a miss.
+    const read = (start: string) => {
+      const planted = REACH_FORMS.find(({ form }) => form.startsWith(start))
+      if (!planted) throw new Error(`no planted form starts "${start}"`)
+      return readLogoutAllReach(planted.source, planted.file ?? 'app/fixture.tsx')
+    }
+    expect([
+      read("the flight's shape").inFlight, read("the flight's entry as a const's arrow").inFlight,
+      read("the request's declaration").declares, read('a control that hands').entries,
+    ]).toEqual([1, 1, true, 1])
+  })
+
+  it("finds its request named only where it is declared and in the flight's entry, its route only in that declaration, and the entry named once in each control", () => {
+    const problems = reaches.flatMap(({ file, problems }) => problems.map(({ line, problem }) => `${file}:${line} ${problem}`))
+    expect(problems, 'see the second header of tests/unit/logoutCallSitesGate.spec.ts for where the request may be named').toEqual([])
+    // Anchored to the tree: the declaration and the flight's call are where the reading looks for them.
+    expect(reaches.filter(({ declares }) => declares).map(({ file }) => file)).toEqual([LOGOUT_ALL_HOME])
+    expect(Object.fromEntries(reaches.filter(({ inFlight }) => inFlight > 0).map(({ file, inFlight }) => [file, inFlight]))).toEqual({ [DEFINITION]: 1 })
+    // A new control that logs out of every session joins LOGOUT_ALL_CALL_SITES (tests/unit/logoutCallSites.ts), and
+    // logoutAllJoinsTheFlight.spec.tsx then fails until a control of its cases sits in the new file.
+    const entries = Object.fromEntries(reaches.filter(({ entries }) => entries > 0).map(({ file, entries }) => [file, entries]))
+    expect(entries).toEqual(Object.fromEntries(Object.keys(LOGOUT_ALL_CALL_SITES).map((file) => [file, 1])))
   })
 })
