@@ -2005,13 +2005,70 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_a_refused_refresh_keeps_its_401_when_its_release_finds_the_connection_dropped(
+    monkeypatch, tmp_path, caplog,
+):
+    """A refresh with a token the store does not hold: the rotation's lookup reads, finds none and raises,
+    committing nothing, so its transaction and one slot are still open when the unit releases. The release's
+    close drops the real DBAPI connection first, so its rollback fails as a connection that dropped after the
+    unit's last statement does. SQLAlchemy reads that as a disconnect: it invalidates the connection and returns
+    its slot, the session lets go of its transaction, ``release_request_session`` logs the failure instead of
+    raising it, and the route answers its 401, not a 500, with nothing left for the finalizer."""
+    from app.config import settings
+    from app.models import AuditLog, RefreshToken, User
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'refused-refresh-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken, AuditLog):
+        model.__table__.create(engine)
+
+    at_close: list[tuple[bool, int]] = []
+
+    class DroppedCloseSession(Session):
+        """Records, at each close, whether the session held a transaction and how many slots were out.
+        The first close drops its DBAPI connection first, as a server that went away would."""
+
+        def close(self) -> None:
+            at_close.append((self.in_transaction(), engine.pool.checkedout()))
+            if len(at_close) == 1 and self.in_transaction():
+                self.connection().connection.dbapi_connection.close()
+            super().close()
+
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=DroppedCloseSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/api/auth/refresh", headers={"Cookie": f"{settings.REFRESH_COOKIE_NAME}=a-token-never-issued"},
+            )
+        assert response.status_code == 401 and response.json() == {"detail": "Your session has ended. Log in again."}
+        # The unit's close held the lookup's transaction and one slot; by the finalizer's close the dropped
+        # connection had been invalidated and its slot returned.
+        assert at_close == [(True, 1), (False, 0)]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert logged.exc_info[1].connection_invalidated
+        assert engine.pool.checkedout() == 0
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
     """The change's second unit releases its session after the mint's commit. A close that fails there must be
     logged, not raised: the new password, the revocation of every other session and this device's new token
     have committed, so a 500 would sign the reader out everywhere, this device included, and a retry with the
     password they had would be refused as wrong. No transaction is open after that commit, so no dropped
-    connection can fail this close as one fails the refresh's above; the second close raises instead, once its
-    own close has run, and the route answers with the new session's cookie."""
+    connection can fail this close as one fails a refused refresh's release above; the second close raises
+    instead, once its own close has run, and the route answers with the new session's cookie."""
     from app.config import settings
     from app.models import RefreshToken, User
     from app.routers import auth

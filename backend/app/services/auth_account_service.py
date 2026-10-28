@@ -136,7 +136,7 @@ def record_password_login(
     ``login_lockout.clear_failures``). Returns the user, the raw refresh token and the account's stored
     address, read before the commit expires the user: the caller builds the access token and the audit row
     from it, so no read after the commit can fail a login that committed (E121). It is the stored row's
-    value, the one the base read after the commit.
+    value; a login's typed address is lowercased and matched exactly, so the two are the same string.
 
     Under the account's users row lock (``refresh_token_service.lock_user_tokens``), and only while that
     hash is still the account's and the account active: a password reset or change revokes every
