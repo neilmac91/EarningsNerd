@@ -318,6 +318,10 @@ export default function AnalysisPageClient() {
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
+  // A refresh that fails keeps the last answer on screen. A sync's answer shows the history line, never periods, so its
+  // failure is a failed load; and only the picker shows periods, so only its failure says it kept them.
+  const coverageSettled = !!coverage && !coverage.syncing
+  const periodsShown = coverageSettled && !unsupported
   // The coverage line names the company as the rest of the app does, in its display casing (EDGAR serves the
   // conformed name, often in capitals); the ticker stands in until the coverage read lands.
   const companyName = formatCompanyName(coverage?.company_name) || ticker
@@ -383,8 +387,8 @@ export default function AnalysisPageClient() {
               <Notice
                 variant="error"
                 className="mb-4"
-                title={coverage ? 'Could not refresh available periods.' : 'Could not load available periods.'}
-                description={coverage ? 'Showing the last loaded periods.' : undefined}
+                title={coverageSettled ? 'Could not refresh available periods.' : 'Could not load available periods.'}
+                description={periodsShown ? 'Showing the last loaded periods.' : undefined}
                 action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
               />
             )}
