@@ -377,3 +377,79 @@ async def test_two_checkouts_whose_lookups_both_read_no_customer_check_out_with_
     stored = _stored_customer_id(email)
     assert stored in {"cus_1", "cus_2"}
     assert [call.kwargs["customer"] for call in create_session.call_args_list] == [stored, stored]
+
+
+def _checkout_watching_the_portal(client, monkeypatch, *, portal_error: Exception | None = None):
+    """``_checkout`` with the billing portal mocked too; return (response, Customer.create, Session.create, portal)."""
+    portal = MagicMock(url="https://billing.stripe.test/portal")
+    with patch.object(stripe.billing_portal.Session, "create", return_value=portal,
+                      side_effect=portal_error) as create_portal:
+        resp, create_customer, create_session = _checkout(client, monkeypatch)
+    return resp, create_customer, create_session, create_portal
+
+
+@pytest.mark.parametrize("beta", [False, True])
+@pytest.mark.parametrize("status", ["past_due", "unpaid"])
+def test_a_past_due_or_unpaid_account_is_sent_to_the_billing_portal_not_a_second_checkout(
+        client, monkeypatch, status, beta):
+    """Stripe still holds the subscription open for its unpaid invoice: checkout answers its usual
+    ``{"url"}`` with a billing portal session on the stored customer, and makes no customer and no
+    checkout session, so the account cannot be billed twice (E98 (4))."""
+    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta")
+    email = _new_user(stripe_customer_id="cus_owing", is_beta=beta)
+    _add_subscription(email, plan="free", status=status, stripe_customer_id="cus_owing", stripe_subscription_id="sub_owing")
+    _sign_in(email)
+
+    resp, create_customer, create_session, create_portal = _checkout_watching_the_portal(client, monkeypatch)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"url": "https://billing.stripe.test/portal"}
+    create_portal.assert_called_once()
+    assert create_portal.call_args.kwargs["customer"] == "cus_owing"
+    assert create_portal.call_args.kwargs["return_url"].endswith("/dashboard")
+    create_customer.assert_not_called()
+    create_session.assert_not_called()
+
+
+def test_a_past_due_accounts_portal_failure_answers_the_portal_detail(client, monkeypatch, caplog):
+    email = _new_user(stripe_customer_id="cus_owing")
+    _add_subscription(email, plan="free", status="past_due", stripe_customer_id="cus_owing")
+    _sign_in(email)
+    caplog.set_level(logging.DEBUG)
+
+    resp, _, create_session, _ = _checkout_watching_the_portal(
+        client, monkeypatch, portal_error=stripe.error.APIConnectionError(_PROVIDER_TEXT))
+
+    assert (resp.status_code, resp.json()) == (400, {"detail": PORTAL_FAILED})
+    [line] = [r.getMessage() for r in caplog.records if r.name == "app.routers.subscriptions"]
+    assert line == "Billing portal failed at Stripe (APIConnectionError, request unknown)"
+    create_session.assert_not_called()
+
+
+@pytest.mark.parametrize("status", ["canceled", "incomplete", "incomplete_expired", "paused"])
+def test_an_account_with_nothing_to_pay_still_checks_out(client, monkeypatch, status):
+    """Only past_due and unpaid owe an open invoice; any other row checks out as before, with no second trial."""
+    email = _new_user()
+    _add_subscription(email, plan="free", status=status)
+    _sign_in(email)
+
+    resp, _, create_session, create_portal = _checkout_watching_the_portal(client, monkeypatch)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"url": "https://checkout.stripe.test/session"}
+    create_portal.assert_not_called()
+    assert "subscription_data" not in create_session.call_args.kwargs
+
+
+def test_a_past_due_row_without_a_stored_customer_checks_out_as_before(client, monkeypatch):
+    """No customer, no portal to open: checkout runs as before. Webhook-written rows always carry one."""
+    email = _new_user(stripe_customer_id=None)
+    _add_subscription(email, plan="free", status="past_due")
+    _sign_in(email)
+
+    resp, create_customer, create_session, create_portal = _checkout_watching_the_portal(client, monkeypatch)
+
+    assert resp.status_code == 200, resp.text
+    create_portal.assert_not_called()
+    create_customer.assert_called_once()
+    create_session.assert_called_once()

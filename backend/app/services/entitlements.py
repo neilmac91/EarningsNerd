@@ -40,6 +40,9 @@ PRO_EARNINGS_ALERT_LIMIT = 100
 # Statuses that grant Pro. Mirrors ``app.models.subscription.ACTIVE_STATUSES`` (kept local to avoid
 # importing the model layer for a constant); ``trialing`` is the 7-day reverse trial.
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
+# Statuses of a subscription Stripe keeps open while it collects an unpaid invoice: no Pro, and the
+# account recovers it in the billing portal, where a second checkout would bill it twice (E98).
+_AWAITING_PAYMENT_STATUSES = frozenset({"past_due", "unpaid"})
 
 
 class Plan(str, Enum):
@@ -142,19 +145,30 @@ def subscription_state_grants_pro(status: Optional[str], trial_end: Optional[dat
     return True
 
 
-def _subscription_grants_pro(user: User) -> Optional[bool]:
-    """Return True/False from the user's Subscription row, or None if no usable row is present.
-
-    Guards relationship access: a detached instance or a session without the relationship loaded
-    should fall back to the ``is_pro`` mirror rather than raise.
-    """
+def _subscription_row(user: User):
+    """The user's Subscription row, or None. Guards relationship access: a detached instance or a
+    session without the relationship loaded yields None rather than raising."""
     try:
-        sub = getattr(user, "subscription", None)
+        return getattr(user, "subscription", None)
     except Exception:
         return None
+
+
+def _subscription_grants_pro(user: User) -> Optional[bool]:
+    """Return True/False from the user's Subscription row, or None if no usable row is present, so a
+    missing row falls back to the ``is_pro`` mirror."""
+    sub = _subscription_row(user)
     if sub is None:
         return None
     return subscription_state_grants_pro(getattr(sub, "status", None), getattr(sub, "trial_end", None))
+
+
+def subscription_awaits_payment(user: User) -> bool:
+    """True if the user's own Subscription row is past_due or unpaid: Stripe still holds that subscription
+    open for an unpaid invoice, so the account pays it in the billing portal rather than buying a second
+    one (E98). No row, an unloadable one and the ``is_pro`` mirror never are."""
+    sub = _subscription_row(user)
+    return sub is not None and (getattr(sub, "status", None) or "").lower() in _AWAITING_PAYMENT_STATUSES
 
 
 def get_plan(user: User) -> Plan:
