@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
@@ -143,20 +143,28 @@ export default function SettingsPage() {
         {header}
 
         <div className={enterClass}>
-          {/* Profile — email (read-only) + editable display name */}
-          <ProfileForm />
+          {/* Profile — email (read-only) + editable display name. It observes only /me, so it mounts without a
+              reader too; keyed by the reader, so another account never inherits a name typed for the last one. */}
+          <ProfileForm key={`profile:${user?.id ?? 'none'}`} />
 
           {/* Billing: plan, usage, the trial end date, renewal or access-until date, manage portal */}
           <BillingPanel />
 
-          {/* Connected accounts & sessions */}
-          <ConnectedAccounts />
+          {/* The account's own reads wait for a confirmed reader, as the dashboard's do: a guest's would 401 and show
+              load errors, and a failed or paused /me leaves no confirmed reader to read for. Keyed by the reader, so
+              another account starts them over and the same account keeps their state. */}
+          {user && (
+            <Fragment key={`account:${user.id}`}>
+              {/* Connected accounts & sessions */}
+              <ConnectedAccounts />
 
-          {/* Set / change password (OAuth-only users can set one here) */}
-          <ChangePasswordForm />
+              {/* Set / change password (OAuth-only users can set one here) */}
+              <ChangePasswordForm />
 
-          {/* New-filing alert preferences */}
-          <NotificationPreferencesForm />
+              {/* New-filing alert preferences */}
+              <NotificationPreferencesForm />
+            </Fragment>
+          )}
 
           {/* Data Export */}
           <Card className="p-cap-6 mb-6">

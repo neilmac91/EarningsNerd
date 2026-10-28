@@ -580,6 +580,58 @@ describe('SettingsPage over a failed account check', () => {
   })
 })
 
+// E29: the account's own sections wait for a confirmed reader, as the dashboard's do, and start over for another one.
+describe('SettingsPage and the reader it shows', () => {
+  const accountSections = ['Connected accounts & sessions', /^(Change|Set a) password$/, 'Filing alerts']
+  const neverAnswered = () => new Promise<never>(() => {})
+
+  // The paused row: on the old page the reads pause offline too, so only the mounted sections' headings tell it apart.
+  it.each(['guest', 'failed', 'paused'] as const)('with no confirmed reader (%s), the account-only sections neither mount nor read', async (state) => {
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    api.getNotificationPreferences.mockReturnValue(neverAnswered())
+    api.getSubscriptionStatus.mockReturnValue(neverAnswered())
+    api.getUsage.mockReturnValue(neverAnswered())
+    if (state === 'guest') api.getCurrentUserSafe.mockResolvedValue(null)
+    if (state === 'failed') api.getCurrentUserSafe.mockRejectedValue(new Error('account down'))
+    if (state === 'paused') {
+      onlineManager.setOnline(false)
+      api.getCurrentUserSafe.mockResolvedValue(user(null))
+    }
+    renderWithClient(<SettingsPage />)
+    await settle()
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: 'Account settings' })).toBeInTheDocument()
+    for (const name of accountSections) expect(screen.queryByRole('heading', { name })).toBeNull()
+    expect(api.getConnections).not.toHaveBeenCalled()
+    expect(api.getNotificationPreferences).not.toHaveBeenCalled()
+    if (state !== 'paused') return
+    act(() => onlineManager.setOnline(true))
+    expect(await screen.findByRole('heading', { name: 'Filing alerts' })).toBeInTheDocument()
+    await waitFor(() => expect(api.getConnections).toHaveBeenCalled())
+    expect(api.getNotificationPreferences).toHaveBeenCalled()
+  })
+
+  it('the account sections start over for another reader and keep their state for the same one', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } })
+    client.setQueryData(queryKeys.currentUser(), user(null))
+    api.getConnections.mockResolvedValue({ providers: [], has_password: true })
+    for (const read of [api.getNotificationPreferences, api.getSubscriptionStatus, api.getUsage]) read.mockReturnValue(neverAnswered())
+    renderWithClient(<SettingsPage />, client)
+    const typed = { 'Current password': 'typed by the first account', 'Display name': 'Named by the first account' }
+    for (const [label, value] of Object.entries(typed)) fireEvent.change(await screen.findByLabelText(label), { target: { value } })
+
+    // The same reader read again, its email and plan changed and its name not: what was typed stays.
+    act(() => client.setQueryData(queryKeys.currentUser(), { ...user(null), email: 'renamed@example.test', is_pro: false }))
+    await settle()
+    for (const [label, value] of Object.entries(typed)) expect(screen.getByLabelText(label)).toHaveValue(value)
+
+    // Another reader with the same empty name: nothing typed for the first carries over.
+    act(() => client.setQueryData(queryKeys.currentUser(), { ...user(null), id: 2, email: 'b@example.test' }))
+    await settle()
+    for (const label of Object.keys(typed)) expect(await screen.findByLabelText(label)).toHaveValue('')
+  })
+})
+
 describe('NotificationPreferencesForm', () => {
   const prefs: NotificationPreferences = {
     notify_10k: false, notify_10q: true, notify_8k: false, notify_20f: false, notify_6k: false,
