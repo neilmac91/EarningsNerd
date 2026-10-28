@@ -676,7 +676,8 @@ const holdsWait = (inner: ts.Node): boolean =>
   !ts.isFunctionLike(inner) && (waits(inner) || ts.forEachChild(inner, holdsWait) === true)
 
 /** The const a name reads, from the innermost scope around it that declares it (a block, a function's body, the file);
- *  undefined for a parameter, which cannot be traced to a capture, or for a name no scope here declares. */
+ *  undefined for a parameter, which cannot be traced to a capture, for a let or var, or for a name no scope here
+ *  declares. */
 function bindingOf(name: ts.Identifier): ts.VariableDeclaration | undefined {
   for (let scope: ts.Node | undefined = name.parent; scope; scope = scope.parent) {
     if (ts.isFunctionLike(scope) && scope.parameters.some((parameter) => ts.isIdentifier(parameter.name) && parameter.name.text === name.text)) return undefined
@@ -684,10 +685,27 @@ function bindingOf(name: ts.Identifier): ts.VariableDeclaration | undefined {
     for (const statement of statements) {
       if (!ts.isVariableStatement(statement)) continue
       const declaration = statement.declarationList.declarations.find((candidate) => ts.isIdentifier(candidate.name) && candidate.name.text === name.text)
-      if (declaration) return declaration
+      // Only a const holds what it was set to: a let can be set again after the wait.
+      if (declaration) return statement.declarationList.flags & ts.NodeFlags.Const ? declaration : undefined
     }
   }
   return undefined
+}
+
+/** The name a function goes by: its own, or the variable or property that holds it; undefined for an anonymous one. */
+function nameOf(fn: ts.Node): string | undefined {
+  if ((ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn) || ts.isMethodDeclaration(fn)) && fn.name && ts.isIdentifier(fn.name)) return fn.name.text
+  const holder = fn.parent
+  return holder && (ts.isVariableDeclaration(holder) || ts.isPropertyAssignment(holder)) && ts.isIdentifier(holder.name) ? holder.name.text : undefined
+}
+
+/** The lib/queryKeys.ts family a write names: in its key, or in the `queryKey` of the filters setQueriesData takes. */
+function writtenFamily(node: ts.CallExpression, source: ts.SourceFile): string | undefined {
+  const first = node.arguments[0]
+  const key = first && ts.isObjectLiteralExpression(first)
+    ? first.properties.find((property): property is ts.PropertyAssignment => ts.isPropertyAssignment(property) && property.name.getText(source) === 'queryKey')?.initializer
+    : first
+  return /^queryKeys\.(\w+)/.exec(key?.getText(source) ?? '')?.[1]
 }
 
 /** Whether one write into an account-owned family is fenced, as the gate below reads it (its comment says how, and what
@@ -717,15 +735,25 @@ export function fencedWrite(node: ts.CallExpression & { expression: ts.PropertyA
   }
   if (!writer) return false
   scan(writer)
-  // The generation a fence compares is one captured before the function first waits: the mutation's context
-  // (`<context>.generation`), or a getSessionGeneration() const outside the function or ahead of its first wait. One read
-  // in the same run as its check cannot have moved.
+  // The generation a fence compares is one captured before the function first waits: the `generation` of one of the
+  // writing function's own parameters (the mutation's context), or a getSessionGeneration() const ahead of its first wait,
+  // or outside it in a function that is not a component's or a hook's body. One read in the same run as its check cannot
+  // have moved. A component or a hook reads it again at each render, and a pending mutation takes the options of the
+  // latest render (TanStack's MutationObserver.setOptions), so it compares that render's generation, not the press's.
   const captured = (generation: ts.Expression | undefined): boolean => {
-    if (generation && ts.isPropertyAccessExpression(generation)) return generation.name.text === 'generation'
+    if (generation && ts.isPropertyAccessExpression(generation)) {
+      const of = generation.expression
+      return generation.name.text === 'generation' && ts.isIdentifier(of) && ts.isFunctionLike(writer)
+        && writer.parameters.some((parameter) => ts.isIdentifier(parameter.name) && parameter.name.text === of.text)
+    }
     const binding = generation && ts.isIdentifier(generation) ? bindingOf(generation) : undefined
     if (binding?.initializer?.getText(source) !== 'getSessionGeneration()') return false
     const inside = binding.getStart(source) > writer.getStart(source) && binding.getEnd() <= writer.getEnd()
-    return !inside || (firstWait !== Infinity && binding.getEnd() <= firstWait)
+    if (inside) return firstWait !== Infinity && binding.getEnd() <= firstWait
+    let holder: ts.Node | undefined = binding.parent
+    while (holder && !ts.isFunctionLike(holder)) holder = holder.parent
+    const holderName = holder && nameOf(holder)
+    return holder !== undefined && !/^(?:[A-Z]|use(?:[A-Z0-9]|$))/.test(holderName ?? '')
   }
   const fence = Math.max(-1, ...fences.filter((call) => captured(call.arguments[0])).map((call) => call.getStart(source)))
   // The write's receiver and arguments are evaluated before it, so an await among them comes after any fence ahead of it.
@@ -784,9 +812,8 @@ const awaitInsideTheReceiver = async (context) => {
   if (!context || !isSessionGenerationCurrent(context.generation)) return
   ;(await clientFor()).setQueryData(queryKeys.watchlist(), [])
 }
-const checkBeforeAForAwaitLoop = async (pages) => {
-  const generation = getSessionGeneration()
-  assertSessionGeneration(generation)
+const checkBeforeAForAwaitLoop = async (pages, context) => {
+  assertSessionGeneration(context.generation)
   for await (const page of pages) client.setQueryData(queryKeys.savedSummaries(), page)
 }
 const checkBeforeALoopThatAwaitsAfterItsWrite = async (lists, context) => {
@@ -816,6 +843,38 @@ const generationHandedInAsAParameter = (data, generation) => {
   if (!isSessionGenerationCurrent(generation)) return
   client.setQueryData(queryKeys.watchlist(), data)
 }
+const generationOnAnotherObject = (data) => {
+  if (!isSessionGenerationCurrent(latest.generation)) return
+  client.setQueryData(queryKeys.watchlist(), data)
+}
+const letReassignedAfterTheAwait = async () => {
+  let generation = getSessionGeneration()
+  await client.cancelQueries({ queryKey: queryKeys.watchlist() })
+  generation = getSessionGeneration()
+  assertSessionGeneration(generation)
+  client.setQueryData(queryKeys.watchlist(), [])
+}
+const generationCapturedInRender = function PreferencesForm() {
+  const generation = getSessionGeneration()
+  return useMutation({
+    mutationFn: save,
+    onSuccess: (updated) => {
+      if (!isSessionGenerationCurrent(generation)) return
+      client.setQueryData(queryKeys.notificationPreferences(), updated)
+    },
+  })
+}
+const generationCapturedInAHook = function useSavePreferences() {
+  const generation = getSessionGeneration()
+  return useMutation({
+    mutationFn: save,
+    onSuccess: (updated) => {
+      if (!isSessionGenerationCurrent(generation)) return
+      client.setQueryData(queryKeys.notificationPreferences(), updated)
+    },
+  })
+}
+const filtersWriteWithNoCheck = (data) => client.setQueriesData({ queryKey: queryKeys.watchlist() }, data)
 const theIdentity = () => client.setQueryData(queryKeys.currentUser(), null)
 const aSharedFamily = async () => {
   await later()
@@ -831,6 +890,16 @@ const gapCheckInABranchTheWriteDoesNotFollow = (data, _variables, context) => {
   }
   client.setQueryData(queryKeys.watchlist(), data)
 }
+const gapCaptureInAnAnonymousComponent = memo(function () {
+  const generation = getSessionGeneration()
+  return useMutation({
+    mutationFn: save,
+    onSuccess: (updated) => {
+      if (!isSessionGenerationCurrent(generation)) return
+      client.setQueryData(queryKeys.notificationPreferences(), updated)
+    },
+  })
+})
 const gapElementAccess = async () => {
   await later()
   client['setQueryData'](queryKeys.watchlist(), [])
@@ -948,16 +1017,19 @@ describe('account query ownership structural gate', () => {
     // fails) or assertSessionGeneration, with no await between the fence and the write, since an await can span a
     // transition; an await in the write's receiver or arguments, or a `for await` loop, is one too, and so is a loop
     // around the write that waits anywhere in it, at its body's start, since its next turn writes after that wait. The
-    // fence compares a generation captured before the function first waits: the mutation's context
-    // (`<context>.generation`), or a getSessionGeneration() const outside the function or ahead of its first wait; one
-    // read afresh, one read in the same run as its check, or one handed in as a parameter does not count. The reader is
-    // fencedWrite, scored on its planted forms (FENCE_FORMS) by the next case. The gate reads source order, not control
-    // flow, so that the check's result guards the write is review-checked: a check whose result is dropped, or one in a
-    // branch the write does not follow, passes. Nor does it see a write not called as setQueryData or setQueriesData by
-    // name (element access, a destructured or aliased method) or one through another cache API (query.setData,
-    // fetchQuery); each of these is planted as a gap. Out of reach the same way, and not planted: ensureQueryData,
-    // prefetchQuery and hydrate. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx and the mark-seen
-    // case above.
+    // fence compares a generation captured before the function first waits: the `generation` of one of the writing
+    // function's own parameters (the mutation's context), or a getSessionGeneration() const ahead of its first wait, or
+    // outside it in a function that is not a component's or a hook's body (a name with a capital, or use…), since a pending
+    // mutation runs the options of the latest render. A generation read afresh, one read in the same run as its check,
+    // one handed in as a parameter, a `generation` on any other object, and a let do not count. The family is read from the
+    // write's key, or from the `queryKey` of the filters setQueriesData takes. The reader is fencedWrite, scored on its
+    // planted forms (FENCE_FORMS) by the next case. The gate reads source order, not control flow, so that the check's
+    // result guards the write is review-checked: a check whose result is dropped, or one in a branch the write does not
+    // follow, passes; so does a capture in a component it cannot name (an anonymous function). Nor does it see a write not
+    // called as setQueryData or setQueriesData by name (element access, a destructured or aliased method) or one through
+    // another cache API (query.setData, fetchQuery). Each of these is planted as a gap. Out of reach the same way, and not
+    // planted: ensureQueryData, prefetchQuery and hydrate. The late answers themselves: tests/unit/lateMutationAnswers.spec.tsx
+    // and the mark-seen case above.
     // Writes left unfenced, each at its count, so a second write beside an exempt one is not exempt by accident.
     const exempt: Record<string, number> = {
       // The saved-summary Delete: its updater returns nothing once the reset has removed the family, and otherwise keeps
@@ -972,7 +1044,7 @@ describe('account query ownership structural gate', () => {
       function visit(node: ts.Node) {
         if (isCacheWrite(node)) {
           const key = node.arguments[0]?.getText(source) ?? ''
-          const family = /^queryKeys\.(\w+)/.exec(key)?.[1]
+          const family = writtenFamily(node, source)
           const site = `${relative}:${family}`
           if (family && accountOwned.includes(family) && site in exempt) exemptions[site] = (exemptions[site] ?? 0) + 1
           else if (family && accountOwned.includes(family) && !fencedWrite(node, source)) {
@@ -994,7 +1066,7 @@ describe('account query ownership structural gate', () => {
       if (isCacheWrite(node)) {
         let top: ts.Node = node
         while (!ts.isSourceFile(top.parent)) top = top.parent
-        const family = /^queryKeys\.(\w+)/.exec(node.arguments[0]?.getText(source) ?? '')?.[1]
+        const family = writtenFamily(node, source)
         const verdict = family && accountOwned.includes(family) ? (fencedWrite(node, source) ? 'fenced' : 'unfenced') : 'not owned'
         if (ts.isVariableStatement(top)) verdicts[top.declarationList.declarations[0].name.getText(source)] = verdict
       }
@@ -1019,11 +1091,17 @@ describe('account query ownership structural gate', () => {
       generationCapturedAfterTheAwait: 'unfenced',
       captureAndCheckInOneRun: 'unfenced',
       generationHandedInAsAParameter: 'unfenced',
+      generationOnAnotherObject: 'unfenced',
+      letReassignedAfterTheAwait: 'unfenced',
+      generationCapturedInRender: 'unfenced',
+      generationCapturedInAHook: 'unfenced',
+      filtersWriteWithNoCheck: 'unfenced',
       theIdentity: 'not owned',
       aSharedFamily: 'not owned',
       // Gaps: each breaks the rule, and the gate passes it.
       gapCheckThatDecidesNothing: 'fenced',
       gapCheckInABranchTheWriteDoesNotFollow: 'fenced',
+      gapCaptureInAnAnonymousComponent: 'fenced',
       gapElementAccess: 'unseen',
       gapDestructuredMethod: 'unseen',
       gapAliasedMethod: 'unseen',

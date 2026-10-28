@@ -214,6 +214,9 @@ describe('a mutation answer that lands after the account changed (E29)', () => {
       resetAccountQueries(client)
       client.setQueryData(queryKeys.notificationPreferences(), next)
     })
+    // The form re-renders for the next account before the save answers, so a generation read in its render would be
+    // the next account's by then (a pending mutation runs the options of the latest render).
+    await settle()
     await act(async () => saved.resolve(preferences({ notify_10q: true })))
     await settle()
     // Unfenced, the switches showed the first account's answer: 10-K on and 10-Q on.
