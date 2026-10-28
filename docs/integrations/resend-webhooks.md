@@ -12,6 +12,90 @@ Webhooks allow Resend to notify your application in real-time when email events 
 - Measure engagement (opens and clicks)
 - Debug email delivery issues
 
+## Production activation checklist (F46)
+
+Founder-run: engineering prepared these steps from the code and Resend's documentation (read
+2026-10-28), and nothing here is done until the **Record** at the end is filled in. Never paste the
+signing secret into the repository, a log, a chat or a pull request: every command below prints names
+and metadata only. The backend side is in place: `POST /api/webhooks/resend` verifies Svix signatures
+(`backend/app/routers/webhooks.py`, gated by `backend/tests/unit/test_resend_webhook_signature.py` and
+`test_resend_webhook_handlers.py`). Only the API service receives these webhooks; the task worker
+(`earningsnerd-task-worker`, F60) needs no binding.
+
+1. **Read what the service binds, by name.** From a terminal signed in to `gcloud`:
+
+   ```bash
+   gcloud run services describe earningsnerd-backend --region=us-west1 --project=earnings-nerd \
+     --format='value(spec.template.spec.containers[0].env[].name)'
+   gcloud secrets versions list RESEND_WEBHOOK_SECRET --project=earnings-nerd --format='table(name,state,createTime)'
+   ```
+
+   The first lists environment names only, the second the secret's versions and their states only. If
+   `RESEND_WEBHOOK_SECRET` is in the first list and has an enabled version, step 3 is a check that the
+   stored value is this webhook's current secret (add a version if you are unsure); otherwise do step 3
+   in full.
+2. **Create or open the webhook in Resend.** On the Webhooks page (`https://resend.com/webhooks`), open
+   the webhook for `https://api.earningsnerd.io/api/webhooks/resend` if one exists, or choose **Add
+   Webhook** and enter that URL. Two webhooks for one URL deliver every event twice. Select the seven
+   events the backend handles: `email.sent`, `email.delivered`, `email.delivery_delayed`,
+   `email.bounced`, `email.complained`, `email.opened`, `email.clicked`. Resend offers four more
+   (`email.failed`, `email.received`, `email.scheduled`, `email.suppressed`); the backend answers them
+   200 and logs "Unhandled Resend webhook event type", so leave them off unless you want those log lines.
+3. **Store and bind the signing secret.** Resend shows it on the webhook details page. Either paste it
+   into a new secret or a new version in the Secret Manager console, or use a terminal command that
+   neither echoes it nor writes it to your shell history:
+
+   ```bash
+   read -rs RESEND_SECRET   # paste the whole value, which starts with whsec_, then press Return
+   printf '%s' "$RESEND_SECRET" | gcloud secrets create RESEND_WEBHOOK_SECRET --project=earnings-nerd --data-file=-
+   # When the secret already exists, add a version instead:
+   #   printf '%s' "$RESEND_SECRET" | gcloud secrets versions add RESEND_WEBHOOK_SECRET --project=earnings-nerd --data-file=-
+   unset RESEND_SECRET
+   gcloud run services update earningsnerd-backend --region=us-west1 --project=earnings-nerd \
+     --update-secrets=RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest
+   ```
+
+   The update makes a new revision of the API service. CI's deploys merge secrets
+   (`--update-secrets`), so the binding survives later deploys. Run step 1 again: the name is listed.
+4. **Prove one delivery.** Resend's documentation describes testing a webhook by performing an event it
+   tracks, not by a test button. Send one email to an inbox you own, for example a password reset
+   for your own account on the site. In Resend, open the webhook and that email's message: the
+   delivery should show a 200 response (Resend retries a failure, and a message can be sent again with
+   **Replay**). Then read the service log:
+
+   ```bash
+   gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend" AND ("Resend webhook" OR "RESEND_WEBHOOK_SECRET" OR "Email sent" OR "Email delivered")' \
+     --project=earnings-nerd --limit=20 --format='value(timestamp,textPayload,jsonPayload.message)'
+   ```
+
+   Expected: `Received Resend webhook: email.sent`, then `Email sent: re_… to f***@example.com - Subject: …`
+   (the recipient masked), and likewise for `email.delivered`. A refusal logs one of
+   `RESEND_WEBHOOK_SECRET is not set in production`, `RESEND_WEBHOOK_SECRET is not a Svix signing secret
+   (whsec_ and base64)`, `Invalid Resend webhook signature` (a wrong secret, such as another webhook's)
+   or `Resend webhook timestamp is more than five minutes from the server clock`, and Resend shows 401.
+   An unsigned request is refused with 400 (`Missing webhook signature`); the unit tests above cover the
+   unsigned, wrongly signed and stale cases, so no production probe is needed.
+5. **Optional: click attribution (E11c).** Resend reports clicks only while tracking is on for the
+   sending domain: **Domains**, the domain, **Configuration**, **Enable tracking metrics**, with click
+   tracking enabled and its tracking subdomain verified (Resend's tracking page, read 2026-10-28). A click counts only on a filing alert sent to an account (one
+   `earningsnerd_delivery_batches` row); transactional mail, such as the reset in step 4, resolves to
+   nothing. With an alert delivered to an inbox you own, follow one of its links: PostHog records one
+   `alert_email_clicked` event for your user id (`kind`, `batch_id`, `hours_to_first_click`,
+   `link_path`). Follow a link again: no second event, because only a batch's first click is stamped
+   (`docs/OPERATIONS.md`, "Alert-to-return measurement"). A 200 for a click event alone does not show
+   attribution. If no alert reaches an inbox you own, record this step as Unverified.
+
+**Record** (fill in when done; Unverified until then):
+
+| Item | Value |
+| --- | --- |
+| Endpoint URL in Resend | Unverified |
+| Events selected | Unverified |
+| `RESEND_WEBHOOK_SECRET` version bound (its number, never its value) | Unverified |
+| API service revision serving after the bind | Unverified |
+| Step 4 delivery: event, response, time (UTC) | Unverified |
+| Step 5 click attribution | Unverified |
+
 ## Backend Setup (Already Complete)
 
 The following has been implemented in your backend:
@@ -60,18 +144,14 @@ https://api.earningsnerd.io/api/webhooks/resend
 - ✅ `email.opened` - Recipient opened the email (requires tracking)
 - ✅ `email.clicked` - Recipient clicked a link (requires tracking)
 
-**Recommended**: Select all events for comprehensive tracking.
+These are the seven events the backend handles; the activation checklist above says why to leave
+Resend's other four off.
 
 ### 2.4 Save and Get Signing Secret
 
-1. Click **"Create"** or **"Save"**
-2. Resend will show you a **Signing Secret** (starts with `whsec_`)
-3. **IMPORTANT**: Copy this secret immediately - you won't be able to see it again!
-
-Example signing secret format:
-```
-whsec_1234567890abcdefghijklmnopqrstuvwxyz
-```
+1. Save the webhook.
+2. Resend shows its **signing secret** on the webhook details page: `whsec_` followed by base64 text.
+   Copy it whole; never paste it anywhere but Secret Manager or your local `.env`.
 
 ## Step 3: Add Webhook Secret to Environment Variables
 
@@ -81,19 +161,15 @@ The backend runs on Cloud Run and reads its secrets from Secret Manager (`docs/D
 The runtime service account already holds `secretmanager.secretAccessor`, and the CI deploy merges
 secrets (`--update-secrets`), so a secret bound once survives later deploys:
 
-```bash
-# Paste the whole signing secret from the webhook's page; it already starts with whsec_.
-printf '%s' 'PASTE_THE_WHOLE_SECRET' | gcloud secrets create RESEND_WEBHOOK_SECRET --data-file=-
-gcloud run services update earningsnerd-backend --region=us-west1 \
-  --update-secrets=RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest
-```
+Use the activation checklist's step 3 above: it reads the secret without echoing it or writing it to
+your shell history, then binds it with `gcloud run services update ... --update-secrets=...`.
 
 While the secret is unset, production refuses every webhook with 401 and logs
 "RESEND_WEBHOOK_SECRET is not set in production".
 
 ### For Development (Local)
 
-1. Open `/home/user/EarningsNerd/backend/.env`
+1. Open `backend/.env` in your checkout
 2. Add the following line:
    ```bash
    RESEND_WEBHOOK_SECRET=whsec_your_actual_secret_here
@@ -122,37 +198,25 @@ resend webhooks forward http://localhost:8000/api/webhooks/resend
 
 ## Step 4: Test the Webhook
 
-### Test Method 1: Send a Test Email
+### Test Method 1: Send a Real Email
 
-Trigger a contact form submission or send a test email:
+Resend's documentation tests a webhook by performing an event it tracks. Send one email to an inbox
+you own through the running app (a password reset for your own account, for example); production uses
+the activation checklist's step 4.
 
-```bash
-# From your backend directory
-curl -X POST http://localhost:8000/api/contact/ \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test User",
-    "email": "test@example.com",
-    "message": "Testing webhooks"
-  }'
-```
+### Test Method 2: Replay From the Resend Dashboard
 
-### Test Method 2: Use Resend Dashboard
-
-1. In Resend dashboard, go to **Webhooks**
-2. Click on your webhook
-3. Click **"Send test event"**
-4. Select an event type (e.g., `email.delivered`)
-5. Click **"Send"**
+In Resend, open **Webhooks**, choose your webhook, open a message and choose **Replay**: Resend sends
+that event again, failed or not.
 
 ### Verify Webhook Receipt
 
 Check your backend logs for webhook events:
 
-```bash
-# You should see logs like:
+```text
+# You should see logs like (the recipient is masked):
 [INFO] Received Resend webhook: email.sent
-[INFO] Email sent: re_abc123... to test@example.com
+[INFO] Email sent: re_abc123... to t***@example.com - Subject: We received your message
 ```
 
 ## Step 5: Monitor Webhooks
@@ -359,7 +423,7 @@ CREATE TABLE email_events (
 );
 ```
 
-2. **Update Event Handlers** in `/backend/app/routers/webhooks.py`:
+2. **Update Event Handlers** in `backend/app/routers/webhooks.py`:
 ```python
 async def handle_email_bounced(data: Dict[str, Any]):
     email_id = data.get("email_id")
@@ -397,10 +461,8 @@ await send_email(
 )
 ```
 
-2. Enable tracking in Resend dashboard:
-   - Go to **Settings** → **Email Tracking**
-   - Enable **Open Tracking**
-   - Enable **Click Tracking**
+2. Enable tracking in the Resend dashboard, per domain: **Domains**, the domain, **Configuration**,
+   **Enable tracking metrics**; turn on open and click tracking and verify the tracking subdomain.
 
 ## Support
 
@@ -413,13 +475,5 @@ If you encounter issues:
 
 ## Summary Checklist
 
-- [ ] Webhook endpoint deployed at `https://api.earningsnerd.io/api/webhooks/resend`
-- [ ] Webhook created in Resend dashboard
-- [ ] All desired events subscribed
-- [ ] Webhook signing secret copied
-- [ ] `RESEND_WEBHOOK_SECRET` created in Secret Manager and bound to `earningsnerd-backend`
-- [ ] Test webhook sent and received
-- [ ] Webhook logs showing successful events
-- [ ] Email events being processed correctly
-
-Once completed, your Resend webhooks will be fully operational! 🎉
+Production activation is the founder-run checklist at the top of this guide, and its **Record** table
+is the evidence: a webhook is not active until that table is filled in.
