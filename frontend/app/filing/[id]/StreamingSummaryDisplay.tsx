@@ -83,14 +83,19 @@ const statusLine = (stage: string, filingId: number, isStalled: boolean): string
 // live stage below — not from a timer — so the log reflects what is actually happening.
 const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing', 'summarizing', 'completed'] as const
 
-// Honest progress steps mapped to real backend stages. The filing-type label is
-// derived from the actual filing (no more hard-coded "10-Q"), and there is no
-// "vectorizing"/"semantic analysis" step because the summary path does no embedding.
+// Honest progress steps mapped to real backend stages, each step the stages it covers, in order. The filing-type
+// label is derived from the actual filing (no more hard-coded "10-Q"), and there is no "vectorizing"/"semantic
+// analysis" step because the summary path does no embedding. The figures are checked while the summary is written:
+// the backend's `analyzing` stage passes in milliseconds, two yields between two progress writes, and the XBRL
+// cross-reference and the grounding check before the summary is stored both run under `summarizing`. So one step
+// covers both stages and says both, where a step of its own ticked done before any figure was checked (E196 (6)). The
+// check says "figures", never "its figures": the code checks only some, so the label claims no more than the step it
+// replaced did (docs/voice-and-style.md › Claims). "Against the filing" is true of both checks: the figure trace reads
+// the filing's text, and the projection beside it the filing's own XBRL.
 const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
-  { stage: 'parsing', label: 'Reading the statements, risk factors and MD&A' },
-  { stage: 'analyzing', label: 'Checking figures against the filing’s data' },
-  { stage: 'summarizing', label: 'Writing the summary' },
+  { stages: ['fetching'], label: `Fetching the ${filingType || 'filing'} from SEC.gov` },
+  { stages: ['parsing'], label: 'Reading the statements, risk factors and MD&A' },
+  { stages: ['analyzing', 'summarizing'], label: 'Writing the summary and checking figures against the filing' },
 ]
 
 // Screen-reader announcement for the live region. Derived from the stage (never the percent), so the
@@ -99,7 +104,7 @@ const buildLoadingSteps = (filingType: string) => [
 // stalled reads both again).
 const stageAnnouncement = (stage: string, filingType: string): string => {
   if (stage === 'completed') return 'Summary ready.'
-  const step = buildLoadingSteps(filingType).find((s) => s.stage === stage)
+  const step = buildLoadingSteps(filingType).find((s) => s.stages.includes(stage))
   if (step) return `${step.label}.`
   if (stage === 'initializing' || stage === 'queued') return 'Starting summary generation.'
   return 'Generating the summary.'
@@ -128,18 +133,22 @@ function StepList({ filingType, stage, displayStageIdx }: { filingType: string; 
   return (
     <ul className="space-y-3">
       {steps.map((step) => {
-        const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
+        // A step is active through each stage it covers and done once the run is past its last.
+        const firstIdx = STAGE_ORDER.indexOf(step.stages[0] as (typeof STAGE_ORDER)[number])
+        const lastIdx = STAGE_ORDER.indexOf(step.stages[step.stages.length - 1] as (typeof STAGE_ORDER)[number])
         const status: StepStatus =
-          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx)
+          stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > lastIdx)
             ? 'complete'
-            : displayStageIdx === stepIdx
+            : displayStageIdx >= firstIdx && displayStageIdx <= lastIdx
               ? 'active'
               : 'pending'
 
         return (
+          // The marker aligns to the label's first line: its circle and the label's line are both 1.25rem, so a label
+          // that wraps (the writing step's, at phone widths) keeps its dot beside its first line, not between lines.
           <li
-            key={step.stage}
-            className="flex items-center gap-3"
+            key={step.stages[0]}
+            className="flex items-start gap-3"
           >
             <span
               className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors duration-base ${
