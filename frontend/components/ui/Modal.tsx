@@ -47,6 +47,7 @@
 
 import { useEffect, useRef, type HTMLAttributes, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
+import { XIcon } from '@/lib/icons'
 import { cx } from './cx'
 
 const FOCUSABLE =
@@ -275,9 +276,7 @@ export function ModalHeader({ id, icon, tone = 'brand', onClose, className, chil
             'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
           )}
         >
-          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-          </svg>
+          <XIcon className="h-5 w-5" aria-hidden="true" />
         </button>
       ) : null}
     </div>
