@@ -789,9 +789,8 @@ const checkBeforeAForAwaitLoop = async (pages) => {
   assertSessionGeneration(generation)
   for await (const page of pages) client.setQueryData(queryKeys.savedSummaries(), page)
 }
-const checkBeforeALoopThatAwaitsAfterItsWrite = async (lists) => {
-  const generation = getSessionGeneration()
-  assertSessionGeneration(generation)
+const checkBeforeALoopThatAwaitsAfterItsWrite = async (lists, context) => {
+  if (!context || !isSessionGenerationCurrent(context.generation)) return
   for (const list of lists) {
     client.setQueryData(queryKeys.watchlist(), list)
     await later()
