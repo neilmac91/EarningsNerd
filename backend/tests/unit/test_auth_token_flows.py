@@ -19,7 +19,8 @@ first sign-in whose session mint fails are pinned beside them:
     verifies, and a user who is already Pro
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
-    login that replaced the refused cookies before the refusal answered keeps its session (E121)
+    login that replaced the refused cookies before the refusal answered keeps them, and its session unless the
+    refusal was a replay of the same account's token, whose sweep ends it until E96 (E121)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
@@ -532,6 +533,10 @@ REFRESH_COOKIE = "earningsnerd_refresh_token"
 _NEVER_VALID = datetime(2000, 1, 1)  # naive, as the refresh token's own expiry is
 
 
+def _header_names(resp) -> set[str]:
+    return {name.decode().lower() for name, _value in resp.headers.raw}
+
+
 def _jar(client: TestClient) -> list[tuple[str, str, str]]:
     """The browser's cookies: every cookie the client holds, with its path and value."""
     return sorted((cookie.name, cookie.path, cookie.value) for cookie in client.cookies.jar)
@@ -587,20 +592,24 @@ def _make_refusable(client: TestClient, email: str, kind: str) -> tuple[str, str
         ("revoked", "another account"),
         ("revoked", "the same account"),
         ("replayed", "another account"),
+        ("replayed", "the same account"),
         ("expired", "another account"),
         ("expired", "the same account"),
         ("inactive", "another account"),
     ],
 )
-def test_a_refused_refresh_sets_no_cookie_and_a_newer_login_keeps_its_session(client, mail, caplog, kind, newer):
+def test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies(client, mail, caplog, kind, newer):
     """A refused refresh answers 401 with no Set-Cookie header at all, whatever it refused (E121).
 
     The refusal cannot prove the cookies it refused are still the browser's: the request carries the cookies of
-    the moment it was sent, and a login can replace them before its answer lands. Here the refresh is sent with
-    the first account's cookies, a login then sets the newer session's, and the refusal answers after it. The
-    browser's cookies are the login's, unchanged; /me answers the newer account; its refresh token still renews.
-    A deletion header on the refusal would have ended that session. A replay whose newer login is the same
-    account is E96's: the replay sweep revokes every live token of the account on main, the newer login's too.
+    the moment it was sent, and a login can replace them before its answer lands. Here the Cookie header is taken
+    from the first account's session, a login then sets the newer session's cookies, and the refresh goes out
+    with the header taken before, so it is refused after the login and its answer lands on the login's cookies.
+    They stay as the login set them, and /me answers the newer account. The refusal's headers are an ordinary
+    401's, so no deletion of any kind (Set-Cookie, Clear-Site-Data) rides it. The newer login's refresh token
+    still renews, except after a replay of the same account's token: the replay sweep revokes every live token
+    of the account, the newer login's too, until E96 scopes it to the replayed chain; E96's PR flips that case
+    to renew.
     """
     first, _ = _register(client, mail)
     sent_with, reason = _make_refusable(client, first, kind)
@@ -616,13 +625,20 @@ def test_a_refused_refresh_sets_no_cookie_and_a_newer_login_keeps_its_session(cl
     assert refused.json() == {"detail": "Your session has ended. Log in again."}
     assert refused.headers["www-authenticate"] == "Bearer"
     assert [k for k, _v in refused.headers.raw if k.lower() == b"set-cookie"] == []
+    assert "clear-site-data" not in refused.headers
+    # An ordinary 401 from the same app (a request with no session) carries the same header names.
+    ordinary = client.get("/api/auth/me", headers={"Cookie": ""})
+    assert ordinary.status_code == 401 and _header_names(refused) == _header_names(ordinary)
     assert reason in caplog.text  # refused for the reason the case set up, not another
 
     assert _jar(client) == held
     me = client.get("/api/auth/me")
     assert me.status_code == 200 and me.json()["email"] == newer_email
     renewed = client.post("/api/auth/refresh")
-    assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
+    if kind == "replayed" and newer == "the same account":
+        assert renewed.status_code == 401  # the replay sweep ended it (E96 makes this 200)
+    else:
+        assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
 
 
 # ── password login and change: what commits, and when ─────────────────────────

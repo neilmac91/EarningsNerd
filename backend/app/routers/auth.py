@@ -797,11 +797,15 @@ async def refresh(
 
     # A refusal sets no cookie, on purpose (E121). It cannot tell whether the cookies it refused are still the
     # browser's: the request carries the cookies of the moment it was sent, and a login in another tab or an OAuth
-    # sign-in's redirect can have replaced them before this answer lands, so deleting them here could end that newer
-    # session. The browser keeps the refused refresh cookie, which grants nothing, and the client ends only the session
-    # it sent this refresh for (notifySessionLost's generation check, frontend/lib/api/session.ts). The deletions this
-    # route set on the injected Response before raising never reached the browser anyway: FastAPI answers an exception
-    # with a fresh response (tests/unit/test_raised_answers_carry_no_injected_headers.py).
+    # sign-in's redirect can have replaced them before this answer lands, so a deletion here could end that newer
+    # session. The browser keeps every cookie it holds, en_session included, so the edge guard
+    # (frontend/middleware.ts) still lets it reach a protected page, whose /me read then finds no session. The
+    # client reconciles: the refusing tab ends the session it knew and clears the session marker every tab reads
+    # (notifySessionLost, frontend/lib/api/session.ts), and a tab holding a newer login marks it again at its next
+    # /me read (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep each time it is
+    # sent (refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on the injected
+    # Response and then raised; FastAPI answers an exception with a fresh response, so they never reached the
+    # browser (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
