@@ -1,4 +1,5 @@
-import { test, expect, type Locator, type Page } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import { addressFit } from './fixtures/readerAddress'
 
 /**
  * EmailVerificationModal's "Resend link" keeps keyboard focus through its own success and failure
@@ -179,22 +180,8 @@ test('a quick second tap on Resend after a failure stays on Resend at phone widt
  *  than the line, and it ran 23, 44, 71 and 106px past its paragraph at 414, 390, 360 and 320px, the dialog's body
  *  scrolling sideways (chief design on #1745). It wraps inside the paragraph only where it must (`break-words`): at the
  *  default size it stays whole on its own line, where `break-all` split it at 320px. Each painted box of the address
- *  lies inside the paragraph, and nothing in the dialog scrolls sideways. */
-const addressFit = (dialog: Locator) =>
-  dialog.evaluate((panel, email) => {
-    const address = [...panel.querySelectorAll('span')].find((span) => span.textContent === email)
-    if (!address) return { found: false, past: [] as string[], lines: 0, scrolls: [] as string[] }
-    const paragraph = address.closest('p')!.getBoundingClientRect()
-    const boxes = [...address.getClientRects()]
-    const past = boxes
-      .filter((r) => r.left < paragraph.left - 0.5 || r.right > paragraph.right + 0.5)
-      .map((r) => `${Math.round(r.left)}-${Math.round(r.right)}px in ${Math.round(paragraph.left)}-${Math.round(paragraph.right)}px`)
-    const scrolls = [panel, ...panel.querySelectorAll('*')]
-      .filter((el) => el.scrollWidth > el.clientWidth + 1 && ['auto', 'scroll'].includes(getComputedStyle(el).overflowX))
-      .map((el) => `<${el.tagName.toLowerCase()}> ${el.scrollWidth}px in ${el.clientWidth}px`)
-    return { found: true, past, lines: new Set(boxes.map((r) => Math.round(r.top))).size, scrolls }
-  }, EMAIL)
-
+ *  lies inside the paragraph, and nothing in the dialog or the page scrolls sideways (fixtures/readerAddress.ts; the
+ *  pages that set the address are in reader-address.spec.ts). */
 for (const [width, doubled] of [
   [390, true],
   [360, true],
@@ -211,10 +198,11 @@ for (const [width, doubled] of [
     const { dialog } = await openPrompt(page, baseURL!, 'light', SENT)
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), `${at}: the text setting took`).toBe(doubled ? '32px' : '16px')
     await page.evaluate(() => document.fonts.ready)
-    const fit = await addressFit(dialog)
+    const fit = await addressFit(dialog, EMAIL)
     expect(fit.found, `${at}: the intro names the reader's address`).toBe(true)
     expect(fit.past, `${at}: the address lies inside its paragraph`).toEqual([])
     expect(fit.scrolls, `${at}: nothing in the dialog scrolls sideways`).toEqual([])
+    expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
     // At the default size it fits a line, and stays whole: break-all split it at 320px.
     if (!doubled) expect(fit.lines, `${at}: the address is one run on one line`).toBe(1)
   })

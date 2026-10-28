@@ -92,8 +92,10 @@ export default function DeleteAccountPage() {
            plain class join, so a className `border-error-*` would clash nondeterministically with
            Card's own hairline. */
         <Card as="section" className="mt-6 p-cap-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
+          {/* An address has no break opportunity, so under 200% text it ran past the card and the page scrolled
+              sideways; break-words breaks it only where it is longer than the line. */}
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Logged in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
+            Logged in as <strong className="break-words text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
           </p>
           <Input

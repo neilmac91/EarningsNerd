@@ -80,9 +80,11 @@ export default function ForgotPasswordPage() {
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Check your email
           </h1>
+          {/* An address has no break opportunity, so under 200% text it ran past the column and the page scrolled
+              sideways; break-words breaks it only where it is longer than the line. */}
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             If an account exists for{' '}
-            <span className="font-medium text-text-primary-light dark:text-text-primary-dark">{email}</span>, a
+            <span className="break-words font-medium text-text-primary-light dark:text-text-primary-dark">{email}</span>, a
             password reset link is on its way. It expires in 1 hour.
           </p>
         </div>
