@@ -26,7 +26,7 @@ over the same shared notes fixture (`tests/fixtures/analysis_data_notes.json`) a
    window's change and the top line's growth among them, and "n/m" takes it from the text section, while an "n/m"
    whose note marks nothing keeps General; a chart's value axis keeps the figures' own format, unlinked, so no tick
    prints a letter. A quarterly PDF's Q4 header takes the page's † where a fourth quarter's flow figure is calculated,
-   with its legend, and no figure takes one.
+   with its legend, and no figure takes one; the workbook's Overview names those same quarters in a sentence.
 6. The Metrics grid has the key to the letters it prints under it, after one blank row, merged across the grid's
    columns, exactly when it prints one, and nothing beside it: a note marked only on a window figure (a CAGR or a
    percentage-point change) names its clause there, and a note marked only on a YoY or QoQ figure, which the grid does
@@ -612,6 +612,26 @@ def test_a_quarterly_grid_marks_its_derived_fourth_quarters_never_a_figure():
     assert html.count("†") == 2, "the header and its legend, never a figure"
     plain = ExportService().generate_analysis_pdf_html(_quarterly_q4(False), COMPANY)
     assert "†" not in plain and QUARTER_LEGEND in plain
+
+
+def test_a_quarterly_workbook_names_the_fourth_quarters_the_pdf_marks():
+    """The PDF's Q4 header † in the workbook's words, where it has no header to mark: one Overview line names the
+    columns whose flow figures are calculated, exactly those the PDF marks, and none prints without one. A current
+    snapshot's comment on such a figure reads "Calculated figure." (point_notes), so the comments alone do not say it."""
+    tail = " are calculated from annual totals less the first nine months."
+
+    def said(dataset: dict) -> list[str]:
+        overview = load_workbook(io.BytesIO(build_analysis_workbook(dataset)))["Overview"]
+        return [line for (line, *_rest) in overview.iter_rows(values_only=True) if str(line).endswith(tail)]
+
+    assert said(_quarterly_q4(True).dataset_json) == [f"Some flow figures in Q4 2024{tail}"]
+    assert said(_quarterly_q4(False).dataset_json) == []
+    # The page's own run: the workbook names the Q4 columns the PDF marks with its †, as one list.
+    run = _layout_run("legacy", "quarterly", 20)
+    marked = re.findall(r'<th class="num">(Q4 \d{4}) †</th>', ExportService().generate_analysis_pdf_html(run, COMPANY))
+    assert len(marked) > 1, marked
+    assert said(run.dataset_json) == [f"Some flow figures in {', '.join(marked[:-1])} and {marked[-1]}{tail}"]
+    assert said(_layout_run("legacy", "annual", 20).dataset_json) == []
 
 
 # ---- The PDF's layout ---------------------------------------------------------------------------------------------

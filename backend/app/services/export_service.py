@@ -9,7 +9,7 @@ from app.models import Summary, Filing
 from app.services.pdf_branding import PALETTE, PDF_OPTIONS, render_branded_pdf
 from app.services.analysis_export_metadata import (
     ANALYSIS_DISCLAIMER, DERIVED_Q4_LEGEND, FCF_DEFINITION, PDF_CLOSING, QUARTER_LEGEND, calculated_sentence,
-    detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index, operand_records,
+    derived_quarters, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index, operand_records,
     period_label, point_method, raw_value_text, source_urls,
 )
 from app.services.trend_analysis.data_notes import (
@@ -358,20 +358,9 @@ class ExportService:
             for index, url in enumerate(source_urls(provenance), start=1)
         )
 
-    @staticmethod
-    def _derived_quarters(dataset: dict) -> set[str]:
-        """The quarterly grid's Q4 columns with a calculated flow figure, whose header takes the page's † (MetricsTable.tsx
-        derivedQuarter): the dagger marks the period, never a figure."""
-        if dataset.get("mode") != "quarterly":
-            return set()
-        return {period.get("key") for period in dataset.get("periods", []) if period.get("fiscal_period") == "Q4" and any(
-            point.get("period") == period.get("key") and point.get("value") is not None and point.get("derived")
-            and (point.get("provenance") or {}).get("method") != "reported"
-            for series in dataset.get("series", []) for point in series.get("points", []))}
-
     def _analysis_grid(self, dataset: dict, indexed: dict) -> str:
         periods = [p.get("key", "") for p in dataset.get("periods", [])]
-        derived = self._derived_quarters(dataset)
+        derived = derived_quarters(dataset)
         # Every period column holds figures (td.num below), so its header aligns with them.
         headers = "".join(f'<th class="num">{escape(period_label(period))}{" †" if period in derived else ""}</th>'
                           for period in periods)
@@ -397,7 +386,7 @@ class ExportService:
         sentences = [ANALYSIS_GRID_ROUNDING, calculated_sentence(dataset), ANALYSIS_GRID_PRECISION]
         lead = f'<p class="fine-print">{escape(" ".join(filter(None, sentences)))}</p>'
         if dataset.get("mode") == "quarterly":
-            legend = [QUARTER_LEGEND, DERIVED_Q4_LEGEND if self._derived_quarters(dataset) else ""]
+            legend = [QUARTER_LEGEND, DERIVED_Q4_LEGEND if derived_quarters(dataset) else ""]
             lead += f'<p class="fine-print">{escape(" ".join(filter(None, legend)))}</p>'
         return lead
 

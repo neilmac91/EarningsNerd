@@ -50,7 +50,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence, derived_q4_sentence,
     count_label, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index,
     operand_records, period_label, point_method, point_notes,
 )
@@ -265,6 +265,10 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         FCF_DEFINITION,
     ]
     if sentence := calculated_sentence(dataset):
+        notes.append(sentence)
+    # The PDF's Q4 header † in words: the workbook has no header to mark, and a current snapshot's comment reads
+    # "Calculated figure." (point_notes), not "Computed Q4.".
+    if sentence := derived_q4_sentence(dataset):
         notes.append(sentence)
     if _has_derived(dataset):
         # Which figures carry a comment is the closing line's to say (WORKBOOK_CLOSING), once.

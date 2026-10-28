@@ -262,9 +262,35 @@ def calculated_sentence(dataset: dict[str, Any]) -> str:
     names = calculated_metrics(dataset)
     if not names:
         return ""
-    listed = names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+    listed = _listed(names)
     verb = "are" if len(names) > 1 or names == ["margins"] else "is"
     return f"{listed[:1].upper()}{listed[1:]} {verb} calculated from filed figures."
+
+
+def _listed(names: list[str]) -> str:
+    """"a", "a and b", "a, b and c"."""
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def derived_quarters(dataset: dict[str, Any]) -> list[str]:
+    """A quarterly run's Q4 columns with a calculated flow figure, in the run's order, whose header takes the page's †
+    (MetricsTable.tsx derivedQuarter): the dagger marks the period, never a figure. An annual run has none."""
+    if dataset.get("mode") != "quarterly":
+        return []
+    return [period.get("key") for period in dataset.get("periods", []) if period.get("fiscal_period") == "Q4" and any(
+        point.get("period") == period.get("key") and point.get("value") is not None and point.get("derived")
+        and (point.get("provenance") or {}).get("method") != "reported"
+        for series in dataset.get("series", []) for point in series.get("points", []))]
+
+
+def derived_q4_sentence(dataset: dict[str, Any]) -> str:
+    """The workbook's words for what the PDF's Q4 header † marks, where it has no header to mark: the columns, named,
+    whose flow figures are calculated ("Some flow figures in Q4 2023 and Q4 2024 are calculated from annual totals less
+    the first nine months."); "" when the run computes no Q4."""
+    quarters = [period_label(key) for key in derived_quarters(dataset)]
+    if not quarters:
+        return ""
+    return f"Some flow figures in {_listed(quarters)} are calculated from annual totals less the first nine months."
 
 
 def source_urls(provenance: dict[str, Any]) -> list[str]:
