@@ -60,7 +60,8 @@ const range = { mode: 'quarterly' as const, start_period: '2026Q2', end_period: 
 // Each data notes version the page reads beyond version 1, with the pull request that taught the page to read it. A
 // version move lands its reader first, in a pull request of its own, and DATA_NOTES_VERSION moves only once that one
 // has deployed. Vercel deploys a merge minutes before deploy-backend, so a reader shipped beside its writer leaves every
-// tab opened before the Vercel deploy refusing the server's completions until it is reloaded
+// tab opened before the Vercel deploy refusing the server's completions until it is reloaded. Landing the reader first
+// narrows that to a tab opened before the reader's deploy and still open when the server moves
 // (lessons/arch-a-data-notes-version-lands-its-reader-first.md).
 const READERS: Record<number, string> = { 2: '#1641', 3: '#1769' }
 
@@ -141,8 +142,9 @@ describe('analysis presentation API admission', () => {
   it('reads exactly the data notes versions with a recorded reader, the server\'s among them', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const reads = (version: number) => {
-      const versioned = { ...notes, version }
-      const report = { ...dataset, data_notes: versioned }
+      // Typed as a wire envelope so a version the page does not know still reaches the decoders' own checks.
+      const versioned = { ...notes, version } as unknown as DataNotesWire
+      const report: AnalysisDataset = { ...dataset, data_notes: versioned }
       const decodes = (decode: () => unknown) => { try { decode(); return true } catch { return false } }
       const envelope = decodes(() => decodeDataNotes(versioned, report))
       const narrative = decodes(() => decodeNarrativePresentation(

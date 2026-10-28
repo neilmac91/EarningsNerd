@@ -20,6 +20,10 @@ later one, only once the reader has deployed. The reader admits the new version 
 it (the local grouper keeps the server's current version). Record the reader's pull request in `READERS` in
 `frontend/tests/unit/analysis-presentation-api.spec.ts`.
 
+This narrows the gap; it does not close it. A tab opened before the reader's Vercel deploy, and still open when the
+server moves, keeps the old bundle and refuses as above until it is reloaded. The page has no deploy skew handling
+(no deployment id check or build-id poll), so a longer wait between the two merges is the only lever that shrinks it.
+
 **Evidence**: #1769 taught the page version 3 ahead of #1667. Partly gated by
 `frontend/tests/unit/analysis-presentation-api.spec.ts`:
 - both decoders must read exactly version 1 and the versions in `READERS`;
