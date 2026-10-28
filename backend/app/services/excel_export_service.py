@@ -260,8 +260,8 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         notes.append(sentence)
     if _has_derived(dataset):
         notes.append(
-            "Calculated figures (including computed Q4) carry cell comments; calculation method "
-            "is separate from whether the source checks passed."
+            "Calculated figures, computed Q4 included, carry comments. Calculation method is separate from whether "
+            "the source checks passed."
         )
     # The data notes as the page's fine print: the summary line, every note (marked ones first, a letter only where it
     # marks) and the closing line.
@@ -311,6 +311,7 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
         headers += ["Window growth", "Window"]
     _write_header_row(ws, headers)
 
+    shown: set[str] = set()  # the notes whose letter the grid prints: its values' and its window figures'
     for row_index, series in enumerate(series_list, start=2):
         unit = series.get("unit", "USD")
         percent = bool(series.get("percent"))
@@ -325,6 +326,8 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
         for offset, period in enumerate(periods):
             note = indexed.get((series["concept"], period, "value"))
             _write_point(ws, row_index, 4 + offset, by_period.get(period) or {}, unit, percent, note)
+            if note and marks_figure(note):
+                shown.add(note["key"])
 
         if has_window:
             growth_cell = ws.cell(row=row_index, column=4 + len(periods))
@@ -344,15 +347,18 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelo
                 period = series.get("window_pp_range" if basis == "window_pp" else "cagr_window") or dataset.get("period_key", "")
                 note = indexed.get((series["concept"], period, basis))
                 growth_cell.number_format = _marked_format(number_format, note)
+                if note and marks_figure(note):
+                    shown.add(note["key"])
                 notes = point_notes({"provenance": series.get(f"{basis}_provenance"),
                                      "reconciled": series.get(f"{basis}_reconciled")}, note)
                 if notes:
                     growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
     # The fine print on the header row (coherence §2.4): one cell past the grid keys the letters it prints, in the
-    # footnote font with no fill or border, so the header row's repeat on every printed page carries it. The Overview
-    # holds the whole fine print; a grid with no marked note prints no key.
-    marked = [clause for clause in fine_print_summary(envelope) if clause.note]
+    # footnote font with no fill or border, so the header row's repeat on every printed page carries it. A note marked
+    # only on a growth figure the grid does not show (a YoY or QoQ) stays out of it: the Overview holds the whole fine
+    # print. A grid that prints no letter prints no key.
+    marked = [clause for clause in fine_print_summary(envelope) if clause.note and clause.note["key"] in shown]
     if marked:
         key = " · ".join(["Data notes", *map(_summary_words, marked)])
         key_cell = _write_text(ws, 1, len(headers) + 1, key)

@@ -36,7 +36,11 @@ SUMMARY_CLOSING_NOTE = (
 # The sentence above the analysis grid, where the page's ends "Select any value for its source and full precision.",
 # which a file cannot offer: the PDF names where the full precision is.
 ANALYSIS_GRID_ROUNDING = "Figures are rounded for display."
-ANALYSIS_GRID_PRECISION = "Sources & methods gives each figure’s full precision, formula and inputs."
+ANALYSIS_GRID_PRECISION = ("Sources & methods gives each figure’s full precision, with any recorded formula and inputs "
+                           "for a calculated figure.")
+# The lead of a citation's own notes under Narrative sources; the page's "Data notes for these sources" reads, to the
+# surface rules, as naming one place.
+ANALYSIS_SUPPLEMENTS_LEAD = "Data notes for narrative sources"
 
 # A PDF table aligns the same columns the page does. The metrics block (Financial Highlights) is
 # FinancialMetricsTable on the page, whose Current Period, Prior Period and Change columns are
@@ -516,8 +520,7 @@ class ExportService:
             f"Dataset version: {escape(str(dataset.get('dataset_version') or 'Legacy snapshot'))}"
             f'<br>Snapshot: <span class="snapshot">{escape(str(dataset.get("snapshot_id") or "Not recorded"))}</span>'
         )
-        # A citation's own concern that no report figure carries lists under its sources, as on the page ("Data notes
-        # for these sources", whose "these" the surface rules read as naming one place).
+        # A citation's own concern that no report figure carries lists under its sources, as on the page.
         report_keys = {note["key"] for note in report_notes["notes"]}
         supplements = self._analysis_notes_list([note for note in notes["notes"] if note["key"] not in report_keys])
         body_html = f"""
@@ -530,7 +533,7 @@ class ExportService:
                 <p class="footnote">{escape(FCF_DEFINITION)}</p>
             </section>
             <h2>Narrative sources</h2><ol class="sources">{citation_items}</ol>
-            {f'<p class="fine-print"><strong>Data notes for narrative sources</strong></p>{supplements}' if supplements else ""}
+            {f'<p class="fine-print"><strong>{ANALYSIS_SUPPLEMENTS_LEAD}</strong></p>{supplements}' if supplements else ""}
             <p class="footnote">Source entries identify reported or calculated figures.
                 Citation verification confirms traceability, not financial reconciliation.</p>
             <section class="methods"><h2>Sources &amp; methods</h2>
