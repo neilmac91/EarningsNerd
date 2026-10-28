@@ -159,8 +159,9 @@ function restoreIdentity(queryClient: QueryClient, shown: QueryState<CurrentUser
  * `survived`, set as a Log out settles for the session it found, is what a logout of every session that waited for it
  * reads (logoutAllInTurn): true when that session outlived it (the logout did not take: /me named the same reader, or
  * could not be read), false when it took, and unset when the tab may no longer be that session's: a login accepted
- * meanwhile, or a session generation that moved while /me was read (a /me naming another reader, another tab's sign-in
- * that watchReader found, or a lost session). */
+ * meanwhile, or a /me naming another reader (another tab's sign-in, which watchReader turns into a new session
+ * generation). A session lost while /me is read counts as taken: the loss's reset cancels the read, which then answers
+ * that reset's null. */
 interface LogoutUnderWay {
   generation: number
   settled: Promise<void>
@@ -313,6 +314,9 @@ export function logoutAllInTurn(): Promise<void> {
   run.settled = logoutAllSessions().then(
     () => undefined,
     (error: unknown) => {
+      // A loss confirmed meanwhile (a refused refresh) gets the flag back too, and the next 401 spends one refused
+      // refresh on it. A check of the session generation would also keep the flag down after a loss this request's own
+      // fence makes up: a 401 that could not renew while it ran counts as one (client.ts).
       if (sessionWasActive && isExplicitSessionGenerationCurrent(run.generation)) markSessionActive()
       throw error
     },

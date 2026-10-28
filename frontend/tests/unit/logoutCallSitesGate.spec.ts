@@ -99,8 +99,9 @@ import { LOGOUT_ALL_CALL_SITES, LOGOUT_CALL_SITES } from './logoutCallSites'
  * entry under another name would name it nowhere and escape the inventory; so is a string equal to the entry's name.
  * Where in the entry it posts (once a Log out under way has settled, and only while the session survived it) is the
  * behaviour spec's to hold. Out of reach, planted below as gaps: the name or the route assembled at run time
- * (`auth['logoutAll' + 'Sessions']`, a computed key, `'/api/auth/logout' + '-all'`), and the route's last segment handed
- * to a template as a substitution (`` `/api/auth/${'logout-all'}` ``).
+ * (`auth['logoutAll' + 'Sessions']`, a computed key, `'/api/auth/logout' + '-all'`, `'/api/auth/' + 'logout-all'`), and
+ * the route's last segment handed to a template as a substitution (`` `/api/auth/${'logout-all'}` ``): a part that holds
+ * `logout-all` with no slash before it reads as an id or a class does.
  */
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -926,6 +927,7 @@ const REACH_FORMS: { form: string; source: string; file?: string; problems: Reac
   { form: 'the name assembled at run time', source: `${NAMESPACE_IMPORT}export const go = () => auth['logoutAll' + 'Sessions']()\n`, problems: [], gap: true },
   { form: 'a member read by a computed key', source: `${NAMESPACE_IMPORT}export const go = (key) => auth[key]()\n`, problems: [], gap: true },
   { form: 'the route assembled by concatenation', source: "export const go = () => api.post('/api/auth/logout' + '-all')\n", problems: [], gap: true },
+  { form: "the route's last segment concatenated whole after its slash", source: "export const go = () => api.post('/api/auth/' + 'logout-all')\n", problems: [], gap: true },
   { form: "the route's last segment handed to a template as a substitution", source: "export const go = () => api.post(`/api/auth/${'logout-all'}`)\n", problems: [], gap: true },
 ]
 
