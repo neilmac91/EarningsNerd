@@ -15,7 +15,10 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * for each other, as on main, unless a refresh is queued between them (requests are granted in order). At its limit a
  * post goes out without the lock, and a refresh still unanswered can answer after it: no tab can cancel another's. A
  * refresh waits at most REFRESH_LOCK_WAIT_MS, as long as a post ahead of it can keep it waiting, and goes out without
- * the lock when the browser refuses it.
+ * the lock when the browser refuses it. A password change, whose answer revokes the account's refresh token and gives
+ * the browser a new one, posts under the same hold, its lapsed access token renewed after it; and an OAuth sign-in,
+ * a navigation no lock can hold, sets the new session's cookies outside it, so the identity read waits instead for the
+ * refreshes queued before it (E29).
  *
  * Two tabs (a third where a case says so) are module graphs of the real client, auth API and session (a module reset
  * and a dynamic import each, each with its own refresh stub), sharing what a browser shares: a lock manager
@@ -24,8 +27,10 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears them. The API
  * answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay that ends
  * every session of its account, and anything else is refused; a logout revokes its session's live token, whichever of
- * its tokens it carries. X is the account signed in before; its access token has expired. jsdom has no lock manager of
- * its own, so every other spec runs each tab alone, as an older browser does.
+ * its tokens it carries; a password change, which needs a good access token, revokes the account's live token without
+ * rotating it, so that token is refused when presented again, and gives the browser a new one. X is the account signed
+ * in before; its access token has expired. jsdom has no lock manager of its own, so every other spec runs each tab
+ * alone, as an older browser does.
  */
 
 type LockMode = 'shared' | 'exclusive'
@@ -123,9 +128,10 @@ class FakeLockManager {
 type Account = 'X' | 'Y'
 type TabName = 'A' | 'B' | 'C'
 type Outcome = 'took' | 'refused'
-/** An account's session as the API holds it: its live refresh token (a serial), and whether a logout revoked it or a
- * replay swept the account's sessions. */
-interface ServerSession { tip: number; revoked: boolean; swept: boolean }
+/** An account's session as the API holds it: its live refresh token (a serial), whether a logout revoked it or a replay
+ * swept the account's sessions, and the tokens a password change revoked without rotating them, which are refused with
+ * no sweep (refresh_token_service.rotate_refresh_token). */
+interface ServerSession { tip: number; revoked: boolean; swept: boolean; cut?: number[] }
 /** What the tabs share: the browser's session cookies (whose session, none once a logout clears them, which refresh token,
  * and whether the access token is still good), the API's side of each account's session, what reached the API, in
  * order, from which tab and as whom, and the lock manager. */
@@ -149,7 +155,7 @@ interface Tab {
 
 const EMAIL = 'y@example.test'
 const PASSWORD = 'test-only-password'
-const POSTS = ['/api/auth/login', '/api/auth/logout', '/api/auth/logout-all']
+const POSTS = ['/api/auth/login', '/api/auth/logout', '/api/auth/logout-all', '/api/auth/change-password']
 // Every answer a case holds, let go after it, so that nothing a case left waiting runs into the next.
 const held: (() => void)[] = []
 let browser: Browser
@@ -169,6 +175,13 @@ const unauthorized = (config: InternalAxiosRequestConfig, detail: string) => Obj
 })
 const withoutLocks = () => { delete (navigator as { locks?: unknown }).locks }
 const fakeTimers = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+/** An OAuth sign-in as Y: its callback's answer is a navigation, which sets Y's cookies outside the lock. */
+function signInByNavigation(): void {
+  const tip = browser.server.Y.tip + 1
+  browser.server.Y = { tip, revoked: false, swept: false }
+  browser.cookies = { session: 'Y', token: tip, fresh: true }
+  browser.events.push('an OAuth callback signs the browser in as Y')
+}
 
 /** A tab of `shared`: a fresh module graph, whose refresh and requests reach the API modelled above. */
 async function openTab(name: TabName, shared: Browser): Promise<Tab> {
@@ -192,7 +205,9 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
     shared.events.push(`${name}'s refresh sent with ${session ?? 'no session'}`)
     const account = session ? shared.server[session] : undefined
     let rotated: number | undefined
-    if (account && token < account.tip) {
+    if (account?.cut?.includes(token)) {
+      // Revoked without rotation by a password change: refused, below, with no sweep.
+    } else if (account && token < account.tip) {
       Object.assign(account, { revoked: true, swept: true })
       shared.events.push(`${name}'s refresh replays ${session}'s rotated token, and every session of ${session} ends`)
     } else if (account && token === account.tip && !account.revoked) {
@@ -220,6 +235,22 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
     const { session } = shared.cookies
     if (POSTS.includes(url)) {
       shared.events.push(`${name} posts ${url} as ${session ?? 'no session'}`)
+      if (url === '/api/auth/change-password') {
+        // The route needs a good access token. With one, the API revokes the account's live refresh token without
+        // rotating it and mints the browser a new one, as the request arrives; its answer sets that one.
+        if (!session || !shared.cookies.fresh) {
+          shared.events.push(`${name}'s ${url} refused: its access token has expired`)
+          throw unauthorized(config, 'You are not logged in.')
+        }
+        const account = shared.server[session]
+        account.cut = [...(account.cut ?? []), account.tip]
+        account.tip += 1
+        const minted = account.tip
+        await (tab.postAnswers.shift() ?? 'took')
+        shared.cookies = { session, token: minted, fresh: true }
+        shared.events.push(`${name}'s ${url} answered`)
+        return ok(config, { message: 'Password updated.' })
+      }
       // A logout reaches the API as it is sent, and revokes its session's live token, whichever of its tokens it carries.
       if (url !== '/api/auth/login' && session) shared.server[session].revoked = true
       if ((await (tab.postAnswers.shift() ?? 'took')) === 'refused') {
@@ -388,7 +419,8 @@ describe("silent refreshes across tabs: one at a time (E96's two-tab trigger)", 
     const { REFRESH_LOCK_WAIT_MS, REQUEST_TIMEOUT_MS } = tabA.client
     // The client's own request timeout is the one `api` sends with.
     expect(tabA.client.default.defaults.timeout).toBe(REQUEST_TIMEOUT_MS)
-    expect(REFRESH_LOCK_WAIT_MS).toBeGreaterThanOrEqual(Math.max(tabA.auth.LOGIN_REFRESH_WAIT_MS, tabA.auth.LOGOUT_REFRESH_WAIT_MS) + REQUEST_TIMEOUT_MS)
+    const { LOGIN_REFRESH_WAIT_MS, LOGOUT_REFRESH_WAIT_MS, PASSWORD_CHANGE_REFRESH_WAIT_MS } = tabA.auth
+    expect(REFRESH_LOCK_WAIT_MS).toBeGreaterThanOrEqual(Math.max(LOGIN_REFRESH_WAIT_MS, LOGOUT_REFRESH_WAIT_MS, PASSWORD_CHANGE_REFRESH_WAIT_MS) + REQUEST_TIMEOUT_MS)
   })
 
   it('keeps a refresh queued behind a post that waited most of its budget and then held the lock for most of its request waiting until it answers', async () => {
@@ -722,6 +754,176 @@ describe.each(EACH_POST)('%s, at the limit', (_, post, path, limitOf) => {
   })
 })
 
+describe("a password change in one tab and another tab's silent refresh (E29)", () => {
+  it("waits for the refresh another tab has in flight, then posts, and holds a refresh asked for after it until its answer: nothing presents the token it revoked", async () => {
+    // X's access token is still good, so nothing but the lock keeps the change from posting at once.
+    browser.cookies.fresh = true
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await settle()
+    const changeAnswer = hold<Outcome>('took')
+    tabB.postAnswers.push(changeAnswer.promise)
+    const changing = tabB.auth.changePassword('old-password', 'new-password')
+    await settle()
+    expect(browser.events).toEqual(["A's refresh sent with X"])
+
+    answer.resolve()
+    await refreshing
+    await settle()
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X", 'B posts /api/auth/change-password as X'])
+    // A refresh tab A asks for while the change is out waits for its answer.
+    const next = tabA.client.ensureRefreshed()
+    await settle()
+    expect(tabA.refresh).toHaveBeenCalledTimes(1)
+
+    changeAnswer.resolve('took')
+    expect(await changing).toEqual({ message: 'Password updated.' })
+    await next
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", "A's refresh answered for X", 'B posts /api/auth/change-password as X',
+      "B's /api/auth/change-password answered", "A's refresh sent with X", "A's refresh answered for X",
+    ])
+    // The token the change revoked (2) was never presented again: nothing refused, nothing swept, and the browser renews.
+    expect(browser.server.X).toMatchObject({ tip: 4, cut: [2], revoked: false, swept: false })
+    expect(browser.cookies).toEqual({ session: 'X', token: 4, fresh: true })
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("renews a lapsed access token after its hold, through the identity read's own refresh, and posts once more through the hold", async () => {
+    // X's access token has expired: the change's first post answers 401, which asks for no refresh under the hold.
+    expect(await tabB.auth.changePassword('old-password', 'new-password')).toEqual({ message: 'Password updated.' })
+    expect(browser.events).toEqual([
+      'B posts /api/auth/change-password as X', "B's /api/auth/change-password refused: its access token has expired",
+      'B reads /api/auth/me as X', "B's refresh sent with X", "B's refresh answered for X", 'B reads /api/auth/me as X',
+      'B posts /api/auth/change-password as X', "B's /api/auth/change-password answered",
+    ])
+    expect(browser.server.X).toMatchObject({ tip: 3, cut: [2], revoked: false, swept: false })
+    expect(browser.cookies).toEqual({ session: 'X', token: 3, fresh: true })
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("posts nothing for a login accepted in its tab while it waited for the lock: the check shares the post's turn", async () => {
+    browser.cookies.fresh = true
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await settle()
+    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await settle()
+    // A login completes in tab B and is accepted while the change waits: the tab now holds another account's session.
+    tabB.session.markSessionActive()
+    tabB.session.advanceSessionGeneration('explicit')
+    answer.resolve()
+    await refreshing
+    expect(await outcome).toMatchObject({ name: 'AbortError' })
+    expect(browser.events).toEqual(["A's refresh sent with X", "A's refresh answered for X"])
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('posts nothing more for a login accepted in its tab while the identity read renewed it', async () => {
+    const renewal = hold()
+    tabB.refreshAnswers.push(renewal.promise)
+    const outcome = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    await settle()
+    expect(browser.events.at(-1)).toBe("B's refresh sent with X")
+    tabB.session.markSessionActive()
+    tabB.session.advanceSessionGeneration('explicit')
+    renewal.resolve()
+    expect(await outcome).toBeInstanceOf(Error)
+    expect(browser.events.filter((event) => event === 'B posts /api/auth/change-password as X')).toHaveLength(1)
+    expect(browser.server.X.cut).toBeUndefined()
+    expect(browser.locks.idle()).toBe(true)
+  })
+})
+
+describe("the identity read after an OAuth sign-in, which no lock can hold, and another tab's silent refresh (E29)", () => {
+  it("reads the account the browser holds once a refresh another tab sent with the previous session's cookies has answered", async () => {
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await settle()
+    signInByNavigation()
+    // The tab the sign-in lands in reads its identity.
+    const reading = tabB.auth.getCurrentUser()
+    await settle()
+    expect(browser.events).toEqual(["A's refresh sent with X", 'an OAuth callback signs the browser in as Y'])
+
+    answer.resolve()
+    await refreshing
+    expect(await reading).toEqual({ reader: 'X' })
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", 'an OAuth callback signs the browser in as Y', "A's refresh answered for X", 'B reads /api/auth/me as X',
+    ])
+    // The tab shows the account the browser holds: the refresh's answer undid the sign-in, and the read says so.
+    expect(browser.cookies.session).toBe('X')
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it('reads at IDENTITY_READ_REFRESH_WAIT_MS, and a refresh still unanswered then can set the previous cookies after the read (the gap the code states)', async () => {
+    fakeTimers()
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await vi.advanceTimersByTimeAsync(0)
+    signInByNavigation()
+    const reading = tabB.auth.getCurrentUser()
+    await vi.advanceTimersByTimeAsync(tabB.auth.IDENTITY_READ_REFRESH_WAIT_MS - 1)
+    expect(browser.events.filter((event) => event.startsWith('B '))).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await reading).toEqual({ reader: 'Y' })
+    stalled.resolve()
+    await refreshing
+    expect(browser.events.slice(-2)).toEqual(['B reads /api/auth/me as Y', "A's refresh answered for X"])
+    expect(browser.cookies.session).toBe('X')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('reads at once when the browser refuses the lock, and leaves no timer behind', async () => {
+    fakeTimers()
+    browser.locks.refusing = new DOMException('Site data is blocked for this origin.', 'SecurityError')
+    signInByNavigation()
+    expect(await tabB.auth.getCurrentUser()).toEqual({ reader: 'Y' })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('stops waiting as soon as its signal aborts, and reads nothing', async () => {
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await settle()
+    const abort = new AbortController()
+    let settled = false
+    const reading = tabB.auth.getCurrentUser({ signal: abort.signal }).then(() => 'read', () => 'refused').finally(() => { settled = true })
+    await settle()
+    abort.abort()
+    await settle()
+    expect(settled).toBe(true)
+    expect(await reading).toBe('refused')
+    expect(browser.events).toEqual(["A's refresh sent with X"])
+
+    answer.resolve()
+    await refreshing
+    expect(browser.locks.idle()).toBe(true)
+  })
+
+  it("waits for no post: a read while another tab's login is out goes out at once, as on main (it asks for the lock shared)", async () => {
+    browser.cookies.fresh = true
+    const loginAnswer = hold<Outcome>('took')
+    tabA.postAnswers.push(loginAnswer.promise)
+    const signingIn = tabA.auth.login(EMAIL, PASSWORD)
+    await settle()
+    expect(await tabB.auth.getCurrentUser()).toEqual({ reader: 'X' })
+
+    loginAnswer.resolve('took')
+    await signingIn
+    expect(browser.events).toEqual(['A posts /api/auth/login as X', 'B reads /api/auth/me as X', "A's /api/auth/login answered"])
+    expect(browser.locks.idle()).toBe(true)
+  })
+})
+
 describe('with no navigator.locks (an older browser, a non-secure context)', () => {
   it.each(EACH_POST)("%s posts at once, never waiting for another tab's refresh, which can then answer after it", async (_, post, path) => {
     withoutLocks()
@@ -736,6 +938,37 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     await unanswered
     expect(browser.events.at(-1)).toBe("A's refresh answered for X")
     expect(browser.cookies).toMatchObject({ session: 'X', fresh: true })
+  })
+
+  it("a password change posts at once, never waiting for another tab's refresh, whose answer can then set the token the change revoked", async () => {
+    withoutLocks()
+    browser.cookies.fresh = true
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
+    await settle()
+    await tabB.auth.changePassword('old-password', 'new-password')
+    stalled.resolve()
+    await unanswered
+    expect(browser.events).toEqual([
+      "A's refresh sent with X", 'B posts /api/auth/change-password as X', "B's /api/auth/change-password answered", "A's refresh answered for X",
+    ])
+    // The browser holds the token the change revoked, which its next refresh presents and the API refuses.
+    expect(browser.cookies).toEqual({ session: 'X', token: 2, fresh: true })
+    expect(browser.server.X.cut).toEqual([2])
+  })
+
+  it("reads the identity at once, so a refresh another tab sent before an OAuth sign-in can set the previous cookies after the read", async () => {
+    withoutLocks()
+    const stalled = hold()
+    tabA.refreshAnswers.push(stalled.promise)
+    const unanswered = tabA.client.ensureRefreshed().catch(() => undefined)
+    await settle()
+    signInByNavigation()
+    expect(await tabB.auth.getCurrentUser()).toEqual({ reader: 'Y' })
+    stalled.resolve()
+    await unanswered
+    expect(browser.cookies.session).toBe('X')
   })
 
   it("sends two tabs' refreshes at once, and the second meets the replay sweep: E96's trigger, without a lock manager", async () => {
