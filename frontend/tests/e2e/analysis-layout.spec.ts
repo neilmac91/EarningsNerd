@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
-import { KPI_FACE_GLYPHS, KPI_MISSING_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
+import { DATA_FACE_GLYPHS, DATA_FACE_MISSING } from '../../lib/format'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
@@ -1282,10 +1282,11 @@ test.describe('analysis KPI strip, long values', () => {
   })
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
+    // kpiValueGlyphs counts ASCII and DATA_FACE_GLYPHS at the face's one advance, which the strip measures as painted
     // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at 1.25em. Each glyph is measured in
     // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
-    // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
+    // at a fallback's advance; DATA_FACE_MISSING shows the probe tells the two apart. The list is the one fmtCurrency and
+    // the trend charts' moneyPrefix print signs from (E203), so this holds it to the faces the build fetched.
     test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'annual', theme, 1)
@@ -1305,14 +1306,14 @@ test.describe('analysis KPI strip, long values', () => {
         const strip = value.closest('dl')!
         return { size: parseFloat(style.fontSize), advance: parseFloat(strip.style.getPropertyValue('--kpi-figure')), measured }
       }, glyphs)
-      const own = await measure(ascii + KPI_FACE_GLYPHS)
-      expect(own.measured).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      const own = await measure(ascii + DATA_FACE_GLYPHS)
+      expect(own.measured).toHaveLength(95 + [...DATA_FACE_GLYPHS].length)
       // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
       expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
       expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
       // The control depends on the fallback: where glyphs snap, a serif glyph within half a pixel of the advance would
       // round to it. Liberation Serif's ₩ (1em) and ₫ (0.51em) and Chromium's 0.3em narrow space are far from it.
-      const missing = await measure(KPI_MISSING_GLYPHS)
+      const missing = await measure(DATA_FACE_MISSING)
       expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
     })
   })
