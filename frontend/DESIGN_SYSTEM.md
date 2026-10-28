@@ -396,9 +396,10 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  longest word, so where the button is narrower than the spinner beside that word the spinner
                  goes above the label, and the room is never wider than that word with the padding.
                  RetryButton's "Trying again…" reserves a longer label. /delete-account's destructive button
-                 passes its shorter "Deleting…" for the row alone (E231): under 200% text on a phone its trash
-                 icon goes above the label at its own 32px, where the plain row squeezed it to 14 to 16px
-                 beside the label and the button ran past its card. Nothing extra is reserved, so the button
+                 passes its shorter "Deleting…" for the row alone (E231): under 200% text its trash icon keeps
+                 its own 32px, beside the label where the label's longest word fits there and above it on the
+                 narrowest phones, where the plain row squeezed it to 14 to 16px beside the label and the
+                 button ran past its card. Nothing extra is reserved, so the button
                  still narrows to "Deleting…" while it deletes, as it did before
                  (tests/unit/button-wrap.spec.tsx holds the cell and the rows; busyControlsStayFocusable.spec.ts
                  holds RetryButton to reserving the busy text it shows; tests/e2e/delete-account-button.spec.ts

@@ -7,7 +7,8 @@ import { test, expect, type Page } from '@playwright/test'
  * squeezed the trash icon from 32px to 14px wide beside a label that wanted the room. Chief design's answer on #1750,
  * both moves, since neither alone fits at 320px:
  *  - the page's gutter gives way under 200% text as the legal pages' does: <main> narrows px-4 (32px a side there) to
- *    px-2 below 13em of its layout's query container, so the gutter is 16px at every phone width and text size;
+ *    px-2 below 13em of its layout's query container (416px under 200% text), so the gutter is 16px at 416px and
+ *    below under 200% text, and on every phone at the default size;
  *  - the button lays its label out in Button's wrapping row (`reserveLoadingText`), so where the label's longest word
  *    cannot sit beside the icon, the icon goes above the label and keeps its 32px.
  * At each width the button lies inside its card's content box, the icon keeps its own size, the gutter is 16px and
