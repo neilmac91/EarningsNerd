@@ -89,7 +89,8 @@ in-flight renewal, but a session token already issued runs to its expiry and E96
 stronger wording returns only with the founder's go-ahead. The high-tier review of PR #1659 (2026-10-26):
 `backend/app/services/excel_export_service.py` (`_write_point` leaves a missing value's cell empty, its
 note in the comment) against `data_notes.REASONS`; `backend/tests/unit/test_analysis_data_notes.py`
-(`test_reason_words_hold_on_every_surface_that_prints_them`) fails a reason's words that ask for a
-page action, say how a gap is drawn, name one figure or carry a semicolon, and a summary clause with
-a semicolon, each rule tested both ways (round 4 widened the page-action and one-figure rules again
+(`test_reason_words_hold_on_every_surface_that_prints_them`) fails a reason's words that its
+page-action, drawing or one-figure patterns match or that carry a semicolon, and a summary clause with
+a semicolon, each rule tested both ways, while a phrasing the patterns do not match passes and chief
+design reviews the words (round 4 widened the page-action and one-figure rules again
 after a narrowing let "Click for the source filing" and "This amount" through); `test_excel_export.py` holds the gap's empty cell and its comment.
