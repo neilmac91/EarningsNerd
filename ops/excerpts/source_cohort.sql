@@ -31,7 +31,8 @@
 -- Repair reach (founder-held, E28 (b)): with_summary counts filings with a stored summary; latest_of_form
 -- counts filings no newer stored filing of their company and form follows (filing_date, then id). The forced
 -- precompute (precompute_service.precompute_one, #1585) reaches only the latest filing of a ticker and form,
--- resolved from SEC by report date, so latest_of_form is an upper bound on what it can repair.
+-- resolved from SEC by report date then filing date, so latest_of_form estimates what it can repair: a filer
+-- whose filings were stored out of order, or whose newest is not stored, may differ either way.
 -- Read-only: one REPEATABLE READ READ ONLY transaction; 120 s per statement, 10 s for a lock. Tables:
 -- filing_content_cache, filings, summaries (no user, auth or billing table). Cost: filing_content_cache once
 -- (each excerpt's first 64 characters, which PostgreSQL may detoast whole to take), filings once and again
