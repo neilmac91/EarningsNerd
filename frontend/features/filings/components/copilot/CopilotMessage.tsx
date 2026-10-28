@@ -456,8 +456,8 @@ export default function CopilotMessage({
     <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
-        // background tool activity is deliberately not surfaced to the user. The card is the live region the line's
-        // words land in.
+        // background tool activity is deliberately not surfaced to the user. The card is created with this line in it,
+        // so the line is not announced; the card is the status region for the plan card's sentence, which replaces it.
         <ActivityLine>Reading the filing…</ActivityLine>
       ) : (
         <>

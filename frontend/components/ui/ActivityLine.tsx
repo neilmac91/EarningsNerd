@@ -15,13 +15,14 @@
    static under reduced motion. The line owns its type size, which the box is
    measured against, so it takes no className.
 
-   The line takes no role (the type refuses one). Its live region is the
-   container it lands in, one that exists before the words do, because a status
-   region announces text added to it, never text it was created with: the
-   Copilot's reading card (where the plan card's sentence lands too) and the
-   analysis page's coverage region (mounted until the coverage answer settles,
-   a failed read included). That the container is there first is
-   review-checked.
+   The line takes no role (the type refuses one). A status region announces
+   text added to it, never text it was created with. On the analysis page the
+   coverage region exists before the history fetch's words arrive (it is
+   mounted until the coverage answer settles, a failed read included), so they
+   are heard. The Copilot's reading card is created with "Reading the filing…"
+   in it, so that line is not announced; the card is a status region for the
+   plan card's sentence, which replaces the line in the same element. A caller
+   whose words must be heard mounts its region first (review-checked).
 
    A pulsing round mark ships only here and in Badge's live dot:
    tests/unit/pulsingMarkAllowlist.spec.ts fails a class list that draws one
