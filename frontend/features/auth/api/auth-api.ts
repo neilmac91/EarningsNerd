@@ -244,12 +244,16 @@ export const PASSWORD_CHANGE_REFRESH_WAIT_MS = 10_000
 // The password change's post, holding the session cookies' lock shared (client.ts's withSessionCookiesForPost). A
 // login or a logout accepted in this tab while it waited changed the account the tab shows, so it posts only while the
 // explicit generation it was asked under is current, in the post's own turn, after both waits, as a logout does.
-function postPasswordChange(body: { current_password?: string; new_password: string }, generation: number) {
+function postPasswordChange(currentPassword: string | null, newPassword: string, generation: number) {
   return withSessionCookiesForPost(PASSWORD_CHANGE_REFRESH_WAIT_MS, async () => {
     if (!isExplicitSessionGenerationCurrent(generation)) {
       throw new DOMException('This tab changed account while the password change waited, so the password was not changed.', 'AbortError')
     }
-    return api.post('/api/auth/change-password', body)
+    // current_password is omitted for OAuth-only users setting a password for the first time.
+    return api.post('/api/auth/change-password', {
+      current_password: currentPassword || undefined,
+      new_password: newPassword,
+    })
   })
 }
 
@@ -269,16 +273,14 @@ function postPasswordChange(body: { current_password?: string; new_password: str
  * tab's refresh, and this tab's own asked for while the post is out.
  */
 export const changePassword = async (currentPassword: string | null, newPassword: string) => {
-  // current_password is omitted for OAuth-only users setting a password for the first time.
-  const body = { current_password: currentPassword || undefined, new_password: newPassword }
   const generation = getExplicitSessionGeneration()
   try {
-    return (await postPasswordChange(body, generation)).data
+    return (await postPasswordChange(currentPassword, newPassword, generation)).data
   } catch (error: unknown) {
     if (getErrorStatus(error) !== 401) throw error
   }
   await getCurrentUser()
-  return (await postPasswordChange(body, generation)).data
+  return (await postPasswordChange(currentPassword, newPassword, generation)).data
 }
 
 export const verifyEmail = async (token: string) => {
