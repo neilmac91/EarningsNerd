@@ -203,8 +203,9 @@ def _surface_problems(words: str) -> list[str]:
     "Click on the figure.", "Scroll down to the table.",
     "Click for the source filing.", "Tap for details.", "Hover for its inputs.", "Press for details.",
     "Choose from the list.", "Clicked on, it opens the filing.", "Selecting shows the filing.", "Drag to zoom.",
-    "Clicks open the filing.", "Selected, it opens the filing.", "Followed, it opens the filing.",
-    "Drag it to compare.", "Then select the row.",
+    "Clicks open the filing.", "Selected, it opens the filing.", "Drag it to compare.", "Then select the row.",
+    # The final round: the participle followed, set off by a comma.
+    "Followed, it opens the filing.",
     "See the tooltip.", "Review the filing, or press here.", "Press release aside, select it.", "Drag the slider.",
     # Round 5: open, pick, expand, follow, mouse over, and the page's dialog, link and panel.
     "Open it to see both filings.", "Pick one to see both filings.", "Open the dialog to compare.",
@@ -280,7 +281,6 @@ def test_the_surface_words_check_fails_what_it_names(words):
     # Round 7: a place that holds no drawing, the filing's own break after its subject, a link no verb aims at, and WP5's
     # planned words (coherence.md section 1.6 and section 3's table) with their page-only words and semicolons left out,
     # and with "this figure" dropped from the sign sentence, since a note's words name no one figure (DEICTIC).
-    "Followed by a later filing\u2019s restatement.",
     "Shown in aggregate as a single line.", "The annual report shows a break in the series.",
     "Matched to the source link.", "Matched via the source link.",
     "First reported as $6.7B in its own annual report (10-K, filed \u2026). A later filing (filed \u2026) reports $5.1B, "
@@ -288,6 +288,8 @@ def test_the_surface_words_check_fails_what_it_names(words):
     "A later filing reports a different value for 2 figures (Revenue FY2018, FY2019).",
     "Growth across the change reads n/m.", "A later filing reports the opposite sign.",
     "At 1,000 times the scale of the year\u2019s own annual report.", "One of them is likely a tagging error.",
+    # The final round: the participle followed with no comma after it.
+    "Followed by a later filing\u2019s restatement.",
     # Some phrasings the patterns do not match, which pass: a third-person form, which our own process takes too, a
     # drawing said with no verb or with a verb not listed, the article form after a comma, a part not listed, and an
     # imperative after an introductory phrase aimed through a possessive.
