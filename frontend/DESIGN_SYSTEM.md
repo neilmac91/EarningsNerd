@@ -1406,21 +1406,26 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
-Activity line    <ActivityLine role?>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
                  Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
                  has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
-                 that show only words (the dashboard's "Checking your plan…" among them) take no dot. The words are
-                 in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static under reduced
-                 motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line height are both
-                 1.25rem), so it keeps to the first line when the words wrap, and the words wrap under their own
-                 start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320 to 390px under
-                 200% text, the analysis page's history fetch two on a phone and four or five under 200% text. The
-                 live region is the caller's: role="status" where the line is its own (the history fetch), none where
-                 a container already is one (the Copilot's reading card, the region the plan card's sentence lands
-                 in). Gate: tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list
-                 outside ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a
-                 template, an array literal joined into one string or a class attribute's parts included, wherever
-                 the list is bound; its stated gaps are planted.
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot: the dot marks a
+                 run the reader waits on that nothing else in view shows. The words are in the secondary ink; the dot
+                 is brand-strong in both themes, aria-hidden and static under reduced motion. The dot sits in a box
+                 as tall as the line's text-sm line (h-5 and the line height are both 1.25rem), so it keeps to the
+                 first line when the words wrap, and the words wrap under their own start: the Copilot's "Reading the
+                 filing…" takes two lines in the phone sheet at 320 to 390px under 200% text, the analysis page's
+                 history fetch two on a phone and four or five under 200% text. The line takes no role (the type
+                 refuses one). A status region announces text added to it, never text it was created with. On the
+                 analysis page the coverage region exists before the history fetch's words arrive (it is mounted
+                 until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
+                 card is created with "Reading the filing…" in it, so that line is not announced; the card is a
+                 status region for the plan card's sentence, which replaces the line in the same element. A caller
+                 whose words must be heard mounts its region first (review-checked). Gate:
+                 tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
+                 ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
+                 array literal joined into one string or a class attribute's parts included, wherever the list is
+                 bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
