@@ -2,7 +2,7 @@
 
 FastAPI answers an exception, an ``HTTPException`` or an exception handler's 500, with a fresh response, and
 drops every header and cookie the route set on the ``Response`` it was handed (the runtime cases below pin
-that). A route that edits that Response and then raises in the same block sends none of the edit. ``/refresh``
+that). A route that edits that Response and then raises out of the route sends none of the edit. ``/refresh``
 deleted the session cookies that way before each refusal, and the browser never saw the deletions (E121
 removed them: a refused refresh sets no cookie, on purpose,
 ``test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies`` in ``test_auth_token_flows.py``).
@@ -18,7 +18,8 @@ edit is a call on the parameter or on one of its attributes (``response.headers.
 parameter or its headers, an assignment into or deletion of one of its attributes (in a tuple target too), or
 a call of, or a call passed, a function nested in the route that edits it (a thread-pool unit). An edit counts
 at the statement of the block that holds it, wherever inside that statement it lies, so an edit on an earlier
-branch is refused before a later raise even when that branch returns: raise first, or raise in an ``else``.
+branch is refused before a later raise even when that branch returns: raise first, or raise in an ``else``. And
+a raise counts wherever it goes, so an edit then a raise the route catches and answers past is refused too.
 
 What it cannot see, left to review (each pinned in ``PLANTED_GAPS``): a raise inside a later compound statement
 (an edit, then a raise inside a later ``if``); a raise from a later call (``enforce_rate_limit``,
@@ -104,7 +105,6 @@ def _edits(statement: ast.stmt, params: set[str], units: set[str]) -> bool:
             if isinstance(node.func, ast.Name) and node.func.id in units:
                 return True
             passed = list(node.args) + [keyword.value for keyword in node.keywords]
-            passed = [value.value if isinstance(value, ast.Starred) else value for value in passed]
             if any(isinstance(value, ast.Name) and value.id in params | units for value in passed):
                 return True
             if any(_is_headers(value, params) for value in passed):
@@ -124,14 +124,10 @@ def _is_headers(node: ast.AST, params: set[str]) -> bool:
             and isinstance(node.value, ast.Name) and node.value.id in params)
 
 
-def _target_leaves(target: ast.AST):
-    if isinstance(target, (ast.Tuple, ast.List)):
-        for element in target.elts:
-            yield from _target_leaves(element)
-    elif isinstance(target, ast.Starred):
-        yield from _target_leaves(target.value)
-    else:
-        yield target
+def _target_leaves(target: ast.AST) -> list[ast.AST]:
+    """The targets an assignment writes: a tuple's elements, else the target itself. A subscript's index is read, not
+    written (``cache[response.status_code] = 1``)."""
+    return target.elts if isinstance(target, ast.Tuple) else [target]
 
 
 def _editing_units(function: ast.AST, params: set[str]) -> set[str]:
@@ -219,6 +215,9 @@ def route(response: Response):
 def route(response: Response):
     apply_no_store(response.headers)
     raise HTTPException(status_code=400)
+def raw(response: Response):
+    append_cookie(response.raw_headers, "a=b")
+    raise HTTPException(status_code=401)
 """,
     "a tuple target": """
 def route(response: Response):
@@ -340,6 +339,14 @@ def route(response: Response):
         _clear_auth_cookie(response)
         raise HTTPException(status_code=401)
 """,
+    "a raise the route catches, after an edit (the stated over-reach)": """
+def route(response: Response):
+    try:
+        response.set_cookie("a", "b")
+        raise ValueError()
+    except ValueError:
+        return {}
+""",
     "an edit on an earlier branch that returns (the stated over-reach)": """
 def route(response: Response, ok: bool):
     if ok:
@@ -383,6 +390,11 @@ from httpx import Response
 def check(resp: Response):
     resp.read()
     raise RuntimeError()
+""",
+    "an attribute read as a subscript's index": """
+def route(response: Response):
+    cache[response.status_code] = 1
+    raise HTTPException(status_code=401)
 """,
     "an attribute read passed to a log": """
 def route(response: Response):
