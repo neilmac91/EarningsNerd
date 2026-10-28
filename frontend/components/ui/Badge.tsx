@@ -81,7 +81,7 @@
    one eyebrow token (`tracking-eyebrow` = --track-eyebrow 0.08em).
 ============================================================================= */
 
-import { type HTMLAttributes, type ReactNode } from 'react'
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 import { cx } from './cx'
 
 /** Badge's status set: a status ink on the status ground, or a tentative status on its dashed one (DESIGN_SYSTEM.md
@@ -143,7 +143,11 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   icon?: ReactNode
 }
 
-export function Badge({ variant = 'neutral', icon, className, children, ...rest }: BadgeProps) {
+/** The chip's span takes a ref, for a chip that takes focus when it appears (the summary's Saved chip). */
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
+  { variant = 'neutral', icon, className, children, ...rest },
+  ref,
+) {
   const auto: ReactNode =
     icon !== undefined ? (
       icon
@@ -158,9 +162,9 @@ export function Badge({ variant = 'neutral', icon, className, children, ...rest 
     ) : null
 
   return (
-    <span className={cx(BASE, VARIANT[variant], className)} {...rest}>
+    <span ref={ref} className={cx(BASE, VARIANT[variant], className)} {...rest}>
       {auto}
       {children}
     </span>
   )
-}
+})

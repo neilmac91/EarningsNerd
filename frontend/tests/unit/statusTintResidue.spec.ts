@@ -55,14 +55,10 @@ const RESIDUE: Record<string, number> = {
   'features/admin/components/ShareInvite.tsx': 4, // the invite-sharing warning well
   'features/auth/components/UserMenu.tsx': 6, // the unverified dot and the verify-email row
   'features/auth/components/VerificationBanner.tsx': 6, // the banner's warning ground and hover
-  // E196 (3) and (4): clones of Notice, GuidanceCard or Badge that take the primitive.
+  // E196 (3): clones of Notice that take the primitive (E196 (4)'s four took theirs).
   'features/search/components/FullTextSearch.tsx': 4, // an error Notice clone (2026-10-18)
   'features/filings/components/copilot/CopilotMessage.tsx': 4, // the error bubble, Notice's error recipe verbatim
   'features/calendar/components/DayDetailDialog.tsx': 4, // the "Market closed" info Notice clone
-  'features/companies/components/CompanySearch.tsx': 3, // the error dropdown's light and dark hairline and its dark ground
-  'features/calendar/components/AlertBell.tsx': 4, // the error icon well, GuidanceCard's recipe
-  'features/admin/components/BulkResultSummary.tsx': 2, // the error rows' tint
-  'features/summaries/components/SummaryActionsBar.tsx': 2, // the hand-rolled success chip (Badge has `success`)
   // A status tint on a genuine state, no open item: held at its count until a primitive takes the surface.
   'app/delete-account/page.tsx': 2, // the deletion card's error ring
   'app/global-error.tsx': 2, // the error boundary's stack well
@@ -74,7 +70,7 @@ const RESIDUE: Record<string, number> = {
   'features/filings/components/copilot/FilingViewer.tsx': 4, // the viewer's warning strip
 }
 /** Equal to the table, never above it: lower both with the table in the same commit. */
-const RESIDUE_MAX = { files: 20, uses: 77 }
+const RESIDUE_MAX = { files: 16, uses: 66 }
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
