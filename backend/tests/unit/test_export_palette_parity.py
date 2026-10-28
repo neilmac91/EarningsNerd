@@ -24,11 +24,11 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    Every hex literal in the four export modules is a token value.
 3. Grounds and contrast: the rules that paint behind text or change how its colours composite
    (background, box-shadow, border-image, opacity, filter, backdrop-filter, mix-blend-mode, mask) are
-   exactly `.masthead`'s background in each PDF, so a new ground fails until it is named here. The
-   gate cannot know where a selector matches, so every text colour the stylesheet sets clears 4.5:1
-   on every ground the stylesheet paints and on the white page: the masthead's document kind, the
-   table header and the tertiary ink among them. Every workbook cell's font clears 4.5:1 on its fill,
-   or on white without one.
+   exactly `.masthead`'s background and the marked block's (`blockquote.located`, the same tint) in each
+   PDF, so a new ground fails until it is named here. The gate cannot know where a selector matches, so
+   every text colour the stylesheet sets clears 4.5:1 on every ground the stylesheet paints and on the
+   white page: the masthead's document kind, the table header and the tertiary ink among them. Every
+   workbook cell's font clears 4.5:1 on its fill, or on white without one.
 4. Sage (D-041, applying D-030 to the exports): the wordmark's "Nerd" is the only text that takes a
    brand colour. A PDF link rests in its line's ink with an underline, since print has no pointer to
    turn it sage and a link's text can carry an index ("Source filing 1"): each PDF's stylesheet
@@ -587,11 +587,12 @@ def test_every_rendered_and_written_colour_is_a_token():
     assert len(workbook_colours(_workbook_bytes())) > 100
 
 
-def test_the_grounds_are_the_page_and_the_masthead_alone():
-    """A rule that paints behind text is a ground every text colour must clear; the masthead's tint is
-    the only one, so a new ground (a tinted section, an inset shadow, a page colour) fails here first."""
+def test_the_grounds_are_the_page_the_masthead_and_the_marked_block_alone():
+    """A rule that paints behind text is a ground every text colour must clear; the masthead's tint and the
+    marked block's (a located excerpt, D-044) are the only ones, one token, so a new ground (a tinted section,
+    an inset shadow, a page colour) fails here first."""
     for name, html in _pdfs().items():
-        assert ground_rules(html) == {".masthead": ["background"]}, name
+        assert ground_rules(html) == {".masthead": ["background"], "blockquote.located": ["background"]}, name
         assert grounds(html) == {WHITE, TOKENS["brand-weak"]}, name
 
 

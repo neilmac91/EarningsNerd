@@ -1,7 +1,9 @@
 """One cross-surface gate for the source-first Risks trust boundary."""
 
 import json
+import re
 from datetime import date
+from html import unescape
 from types import SimpleNamespace
 
 import pytest
@@ -275,6 +277,10 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
         assert source_span in surfaces[name], name
         assert "Selected excerpts are not a complete risk inventory" in surfaces[name], name
     assert literal_span in surfaces["pdf"] and literal_span in surfaces["csv"]
+    # The PDF sets each excerpt the projection located, and only those, as the device's marked block (D-044, E75).
+    located = [unescape(text) for text in re.findall(r'<blockquote class="located">(.*?)</blockquote>', surfaces["pdf"])]
+    assert located == [risk["supporting_evidence"] for risk in enriched["raw_summary"]["sections"]["risks"]]
+    assert len(located) == projection["verified_count"] == 4
     assert enriched["raw_summary"]["sections"]["risks"][1]["supporting_evidence"] == literal_span
     assert enriched["raw_summary"]["sections"]["risks"][3]["supporting_evidence"] == wrapped_span
     assert source_span not in preview
@@ -338,5 +344,6 @@ async def test_only_same_filing_source_bytes_reach_every_risk_surface(monkeypatc
     )
     for rendered in legacy_surfaces:
         assert source_span in rendered and unsafe_summary not in rendered
+    assert re.findall(r'<blockquote class="located">(.*?)</blockquote>', legacy_surfaces[2]) == [source_span]
     assert "Operating history remains visible." in legacy_enriched["business_overview"]
     assert legacy_enriched["rendered_sections"] == []

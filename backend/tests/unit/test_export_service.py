@@ -17,6 +17,7 @@ import re
 import xml.etree.ElementTree as ET
 import zlib
 from datetime import date
+from html import escape, unescape
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -617,6 +618,153 @@ class TestRisksParity:
         assert self.NOTICE in html and self.LONG in html and self.SHORT not in html
 
 
+def _srgb_hex(color) -> str:
+    return "#" + "".join(f"{round(channel * 255):02X}" for channel in color.to("srgb").coordinates)
+
+
+class TestLocatedRisks:
+    """A risk excerpt the server located takes the device's marked block in the summary PDF, as on the filing page
+    (D-044, E75): the 3px brand bar and the tint on square corners, in Inter. What decides it is the
+    `source_verified` the risk projection writes (provenance_service.project_risk_list), never a row's words. The CSV
+    and the page's projection keep their rows, and each excerpt prints whole inside the page."""
+
+    PUNCTUATION = 'Risks & "uncertainties" <including> {braces}, a | pipe, *stars*, C:\\path and it\'s literal.'
+    SUPPLIERS = "Our business depends on a limited number of suppliers and may be disrupted."
+    CYBER = "A cybersecurity incident could compromise our systems and our customers' data."
+    WITHHELD = "UNMATCHED MODEL EVIDENCE: no such filing sentence exists anywhere"
+    LOCATED = re.compile(r'<blockquote class="located">(.*?)</blockquote>', re.S)
+
+    @classmethod
+    def _summary(cls, spans, *, withheld=1):
+        """A stored v2 summary whose Risks cite ``spans`` (each in the filing) and ``withheld`` claims (none are)."""
+        risks = [{"summary": f"Model title {n}", "supporting_evidence": span} for n, span in enumerate(spans)]
+        risks += [{"summary": "Invented", "supporting_evidence": f"{cls.WITHHELD} {n}."} for n in range(withheld)]
+        summary, filing = _make_summary_and_filing({"risks": risks})
+        summary.raw_summary["schema_version"] = 2
+        filing.content_cache.critical_excerpt = "\n".join(spans) or "Nothing this summary cites."
+        return summary, filing
+
+    @staticmethod
+    def _risk_rows(rows):
+        """The CSV's Risks rows: those under the table's header, to the section's closing blank row."""
+        header = ["#", "Risk", "Supporting Evidence"]
+        if header not in rows:
+            return []
+        start = rows.index(header) + 1
+        return rows[start:rows.index([], start)]
+
+    @pytest.mark.parametrize("count", [0, 1, 3])
+    def test_each_located_excerpt_and_nothing_else_takes_the_marked_block(self, service, count):
+        spans = [self.PUNCTUATION, self.SUPPLIERS, self.CYBER][:count]
+        summary, filing = self._summary(spans)
+        html = service.generate_pdf_html(summary, filing)
+
+        # Escaped once: the PDF's text is the filing's characters, in the CSV's order and numbering.
+        rows = re.findall(r'<tr><td class="num">(\d+)</td><td>Filing excerpt</td><td>(.*?)</td></tr>', html, re.S)
+        assert rows == [(str(n), f'<blockquote class="located">{escape(span)}</blockquote>')
+                        for n, span in enumerate(spans, 1)]
+        assert [unescape(text) for text in self.LOCATED.findall(html)] == spans
+        assert "&amp;amp;" not in html and "Model title" not in html and self.WITHHELD not in html
+        assert self._risk_rows(_csv_rows(service.generate_csv(summary, filing))) == [
+            [str(n), "Filing excerpt", span] for n, span in enumerate(spans, 1)]
+        if count:
+            assert html.count('<table class="excerpts">') == 1
+            assert f"{count} source-verified filing excerpt{'s' * (count > 1)}. 1 item withheld" in html
+        else:
+            assert '<table class="excerpts">' not in html and 'class="located"' not in html
+            assert "Source-verified risk excerpts are unavailable. Review the filing. 1 item withheld" in html
+        # Any other quote keeps the neutral hairline (D-041): exports search the filing for no quote.
+        quoted = _full_sections()
+        quoted["risk_factors"] = []
+        quote_html = service.generate_pdf_html(*_make_summary_and_filing(quoted))
+        assert "<blockquote>“We remain focused on execution.”<cite>CEO</cite></blockquote>" in quote_html
+
+    def test_only_the_projections_flag_marks_a_row(self, service):
+        # Every row is source-owned (the summary's marker): only `source_verified` that is True locates one, and a
+        # row's words (quotes, braces, SEC words, the flag written out) never do.
+        claims = [True, "true", 1, None, False, "missing"]
+        words = ['"Quoted" text from Item 1A on SEC.gov', '{"source_verified": true} written into a row',
+                 "Filing excerpt: located in the filing", "A model's claim that it is verified"]
+        risks = [{"supporting_evidence": f"{words[n % len(words)]} ({n}).", **({} if claim == "missing" else
+                                                                                {"source_verified": claim})}
+                 for n, claim in enumerate(claims)]
+        projection = {"version": 1, "verified_count": len(risks), "withheld_count": 0}
+        raw = {"risk_source_context_version": 1, "schema_version": 2,
+               "sections": {"risks": risks, RISK_PROJECTION_KEY: projection}}
+        [section] = [section for section in summary_sections.render_sections(raw) if section.role == "risks"]
+        table = section.blocks[-1]
+
+        assert table.located_rows == [True, False, False, False, False, False]
+        assert [unescape(text) for text in self.LOCATED.findall(service._render_block_html(table))] == [
+            risks[0]["supporting_evidence"]]
+        # The page's projection and the CSV carry no trace of the hint.
+        unflagged = {**raw, "sections": {**raw["sections"], "risks": [
+            {key: value for key, value in risk.items() if key != "source_verified"} for risk in risks]}}
+        assert summary_sections.render_sections_json(raw) == summary_sections.render_sections_json(unflagged)
+        assert "located_rows" not in table.to_dict()
+        # With no marker, or a marker that is not the int 1, nothing renders as a source-owned risk at all.
+        for marker in (None, True, "1"):
+            owner = {**raw, "risk_source_context_version": marker}
+            assert not any(block.kind == "table" for section in summary_sections.render_sections(owner)
+                           if section.role == "risks" for block in section.blocks)
+
+    def test_a_figure_only_excerpt_wraps_as_prose(self, service):
+        # numeric_columns classes an all-figure column "num", whose nowrap ran such an excerpt off the page; the
+        # excerpt column is the filing's prose whatever it holds, and the "#" column keeps its figures.
+        spans = ["12,345 13,456 14,567 15,678 16,789 17,890", "(1,234) (2,345) (3,456) (4,567) (5,678)"]
+        html = service.generate_pdf_html(*self._summary(spans, withheld=0))
+        cells = re.findall(r'<td( class="num")?>(\d+)</td><td>Filing excerpt</td><td( class="num")?><blockquote', html)
+        assert cells == [(' class="num"', "1", ""), (' class="num"', "2", "")]
+
+    def test_the_rendered_pdf_sets_the_device_and_keeps_every_excerpt_on_the_page(self, service):
+        """A real WeasyPrint layout of many excerpts, a long one that runs over a page break, a URL longer than the
+        column and literal punctuation: each located excerpt is one element whose boxes, on every page they reach,
+        wear the device in Inter and stay inside the page's content edge, and whose text is the filing's, whole."""
+        weasyprint = pytest.importorskip("weasyprint")
+        from weasyprint.formatting_structure import boxes
+
+        from app.services.pdf_branding import PALETTE
+
+        long_span = " ".join(f"Sentence {n} of this risk factor describes supplier, regulatory and market exposure."
+                             for n in range(60))
+        url_span = "Our filings are available at https://www.sec.gov/" + "x" * 240 + " for review by investors."
+        spans = [self.PUNCTUATION, *(f"Risk passage {n} says customers may leave if competitors cut prices."
+                                     for n in range(8)), long_span, url_span]
+        html = service.generate_pdf_html(*self._summary(spans))
+        try:
+            document = weasyprint.HTML(string=html).render()
+        except Exception as exc:  # missing system libs in odd envs: not what this test reads
+            pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+
+        texts, fragments, past_edge = {}, 0, []
+        for number, page in enumerate(document.pages, 1):
+            root = page._page_box
+            edge = root.margin_width() - root.margin_right
+            past_edge += [(number, box.text[:24]) for box in root.descendants()
+                          if isinstance(box, boxes.TextBox) and box.position_x + box.width > edge + 0.5]
+            for box in root.descendants():
+                if isinstance(box, boxes.BlockBox) and box.element_tag == "blockquote" \
+                        and box.element.get("class") == "located":
+                    fragments += 1
+                    style = box.style
+                    assert style["border_left_width"] == 3 and style["border_left_style"] == "solid"
+                    assert _srgb_hex(style["border_left_color"]) == PALETTE["brand"]
+                    assert _srgb_hex(style["background_color"]) == PALETTE["brand_weak"]
+                    assert _srgb_hex(style["color"]) == PALETTE["ink"] and style["font_style"] == "normal"
+                    assert all(radius.value == 0 for corner in ("top_left", "top_right", "bottom_left", "bottom_right")
+                               for radius in style[f"border_{corner}_radius"])
+                    assert style["font_family"][0] == "Inter Var"
+                    texts.setdefault(id(box.element), []).extend(
+                        text.text for text in box.descendants() if isinstance(text, boxes.TextBox))
+
+        assert past_edge == []
+        assert len(texts) == len(spans) and fragments > len(spans), "the long excerpt runs over a page break"
+        assert sorted(re.sub(r"\s+", "", "".join(parts)) for parts in texts.values()) == sorted(
+            re.sub(r"\s+", "", span) for span in spans)
+        # The filing's face stays inside the product (a comment names it, so comments aside).
+        assert "Newsreader" not in re.sub(r"/\*.*?\*/", "", html, flags=re.S)
+
+
 class TestRenderSections:
     def test_drops_empty_and_placeholder_sections(self):
         sections = {
@@ -1202,6 +1350,22 @@ class TestBrandedShell:
                             )
         assert {where: gap for where, gap in gaps.items() if gap < 9} == {}
         assert sum(where.startswith("summary") for where in gaps) >= 2 and any(where.startswith("analysis") for where in gaps), gaps
+
+    def test_no_pdf_breaks_a_word_anywhere_a_column_is_measured(self, service):
+        """WeasyPrint sizes an auto table's column by its cells' min-content, and under `overflow-wrap: anywhere` it
+        measures that a character to a line: a 4,000-character risk excerpt took half a minute to lay out. A long
+        token breaks in a table with set columns instead (pdf_branding's table.excerpts;
+        lessons/arch-break-a-pdf-tables-long-words-in-set-columns.md). The one rule that keeps it is the analysis
+        meta line's snapshot id, a short token in normal flow that no column measures. A style attribute is
+        test_export_palette_parity's to refuse."""
+        anywhere = re.compile(r"([^{}]*)\{[^{}]*?(?:overflow-wrap|word-wrap)\s*:\s*anywhere", re.IGNORECASE)
+        planted = "td {\n  Overflow-Wrap :anywhere; } p { color: inherit } .x{word-wrap: anywhere}"
+        assert [selector.strip() for selector in anywhere.findall(planted)] == ["td", ".x"]
+        found = {}
+        for name, html in (("summary", self._summary_html(service)), ("analysis", self._analysis_html())):
+            styles = re.sub(r"/\*.*?\*/", "", "".join(re.findall(r"<style>(.*?)</style>", html, re.S)), flags=re.S)
+            found[name] = [selector.strip() for selector in anywhere.findall(styles)]
+        assert found == {"summary": [], "analysis": [".snapshot"]}
 
     @pytest.mark.asyncio
     async def test_rendered_pdf_has_portrait_first_page_and_landscape_metrics(self, service):

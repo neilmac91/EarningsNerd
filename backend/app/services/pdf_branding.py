@@ -17,7 +17,8 @@ apart (owner decision D4, export-overhaul plan). The shell owns:
 - The design-token PALETTE (DESIGN_SYSTEM.md) — PDFs must never use off-token grays or the
   banned legacy blue.
 - Reader-table manners (D-041, applying D-030): headers in the tertiary ink on no fill, hairline
-  rows, no cell grid; quotes on a neutral hairline. A link rests in its line's ink with a quiet
+  rows, no cell grid; quotes on a neutral hairline, and a passage the server located on the device's
+  marked block (D-044, ``blockquote.located``). A link rests in its line's ink with a quiet
   underline, as the page's prose links do at rest: print has no pointer to turn it sage, and its
   text can carry an index ("Source filing 1"). Sage colours only the wordmark's "Nerd".
 
@@ -302,6 +303,27 @@ blockquote cite {{
   font-style: normal;
   color: {p["ink_tertiary"]};
 }}
+/* A passage the server located takes the device's marked block (D-044), as on the filing page: the 3px brand
+   bar and the tint on square corners, the filing's words upright in the ink. In Inter: the filing's face
+   (Newsreader) stays inside the product. Any other quote keeps the neutral hairline above (D-041). It sits in
+   a table cell, so it brings no margin of its own. */
+blockquote.located {{
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid {p["brand"]};
+  border-radius: 0;
+  background: {p["brand_weak"]};
+  color: {p["ink"]};
+  font-style: normal;
+}}
+/* The table of the filing's own words (the Risks excerpts: #, label, excerpt) sets its columns, so a long token
+   (a URL) breaks inside its cell. An auto table sizes a column to its longest word and ran such a token over the
+   page's edge, and `overflow-wrap: anywhere`, which would shrink that word, cost WeasyPrint about half a minute
+   on a 4,000-character excerpt. */
+table.excerpts {{ table-layout: fixed; }}
+table.excerpts th:first-child {{ width: 5%; }}
+table.excerpts th:nth-child(2) {{ width: 13%; }}
+table.excerpts td {{ overflow-wrap: break-word; }}
 ul, ol {{ margin: 0 0 10px 0; padding-left: 20px; color: {p["ink_secondary"]}; }}
 /* A nested list takes the disc too, as the app's lists do at every level (WeasyPrint's default is the circle). */
 ul ul {{ list-style-type: disc; }}
