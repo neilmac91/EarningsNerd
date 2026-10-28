@@ -180,8 +180,8 @@ test('a quick second tap on Resend after a failure stays on Resend at phone widt
  *  than the line, and it ran 23, 44, 71 and 106px past its paragraph at 414, 390, 360 and 320px, the dialog's body
  *  scrolling sideways (chief design on #1745). It wraps inside the paragraph only where it must (`break-words`): at the
  *  default size it stays whole on its own line, where `break-all` split it at 320px. Each painted box of the address
- *  lies inside the paragraph, and nothing in the dialog or the page scrolls sideways (fixtures/readerAddress.ts; the
- *  pages that set the address are in reader-address.spec.ts). */
+ *  lies inside the paragraph and the screen, and nothing in the dialog or the page scrolls sideways
+ *  (fixtures/readerAddress.ts; the pages that set the address are in reader-address.spec.ts). */
 for (const [width, doubled] of [
   [390, true],
   [360, true],
@@ -201,6 +201,7 @@ for (const [width, doubled] of [
     const fit = await addressFit(dialog, EMAIL)
     expect(fit.found, `${at}: the intro names the reader's address`).toBe(true)
     expect(fit.past, `${at}: the address lies inside its paragraph`).toEqual([])
+    expect(fit.offscreen, `${at}: the address lies inside the screen`).toEqual([])
     expect(fit.scrolls, `${at}: nothing in the dialog scrolls sideways`).toEqual([])
     expect(fit.page, `${at}: the page does not scroll sideways`).toBeNull()
     // At the default size it fits a line, and stays whole: break-all split it at 320px.
