@@ -24,6 +24,13 @@ Google or Apple does not have and which a lost first-sign-in race does not call 
 then said "Google will link once both sides have verified it", which reads as automatic: verifying
 links nothing, and the provider links only on a later sign-in through it (the principal review).
 
+PR #1659 (analysis data notes version 2) wrote "shown as a dash" into the gap's reason sentence and
+a "Select it to …" clause into eight others. One sentence serves every surface through the notes
+envelope's message, and the workbook prints it as a comment on an empty cell, while the PDF, the
+workbook and the chart PNG offer nothing to select (its high-tier review). Its fix rounds then
+swapped "this figure" for "the figure", still one figure above a note that groups several ("The
+figure's period ends …" above "(4 figures)" in the PDF), until every sentence named none.
+
 **Rule**:
 - Before writing "withheld", "verified", "the filing's own words", "every", "any company" or a
   count, list every surface the sentence covers and find, for each, the code that enforces it.
@@ -39,6 +46,10 @@ links nothing, and the provider links only on a later sign-in through it (the pr
 - An exclusive or negative claim ("only checkout", "never waits on it", "the one gate") is a promise
   too, in a comment or a record as much as on a page: grep every read of the field or flag it names
   (`email_verified`) and scope the claim to what those reads do.
+- A sentence one map feeds to several surfaces (a data note's reason) promises on each of them. Keep
+  a page action ("select it") and a surface's drawing ("shown as a dash") out of it, and say them
+  on the surface that does them. Where a surface prints it once for several figures, it names no
+  one figure: not "this figure", nor "the figure", "the saved calculation" or "the value".
 - When a correction rewrites one sentence, grep for the same claim elsewhere (another component, a
   comment, a record, a mail) and fix or hand off every copy in the same change.
 - An error's remedy is a promise for every path that sends its code: read each raise site before
@@ -75,4 +86,11 @@ a logout keep a live token (E127, fixed by #1422; `tasks/todo.md` E96); `legalTr
 (`E127_PROMISES`) holds the two items to what still holds on every run, timed or not: #1431 then
 fixed a login that straddled a password reset, and #1465 a logout that did not wait for an
 in-flight renewal, but a session token already issued runs to its expiry and E96 is open, so the
-stronger wording returns only with the founder's go-ahead.
+stronger wording returns only with the founder's go-ahead. The high-tier review of PR #1659 (2026-10-26):
+`backend/app/services/excel_export_service.py` (`_write_point` leaves a missing value's cell empty, its
+note in the comment) against `data_notes.REASONS`; `backend/tests/unit/test_analysis_data_notes.py`
+(`test_reason_words_hold_on_every_surface_that_prints_them`) fails a reason's words that its
+page-action, drawing or one-figure patterns match or that carry a semicolon, and a summary clause with
+a semicolon, each rule tested both ways, while a phrasing the patterns do not match passes and chief
+design reviews the words (round 4 widened the page-action and one-figure rules again
+after a narrowing let "Click for the source filing" and "This amount" through); `test_excel_export.py` holds the gap's empty cell and its comment.

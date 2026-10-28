@@ -1,0 +1,2735 @@
+{
+ "ticker": "DUK",
+ "arm": "deepseek-flash-p",
+ "family": "deepseek",
+ "model": "deepseek-flash",
+ "split": "holdout",
+ "profile": "operating",
+ "window": "FY2016..FY2025",
+ "snapshot_id": "133f8936644a4387f293e75560caadcd2a66f90d27f6d7c6b6f528c8ee6a1eaa",
+ "prompt_sha256": "d558d371f739479c44f6727a2fb1166f82fbade3f74e6d37f3b2c4fc401229ba",
+ "packs": "packs-v2",
+ "pack_sha256": "aecb0bf67b43e6c81b6f15aa58a148dad78fab45b06d154612a5f0e94834cad9",
+ "attempts": [
+  {
+   "attempt": 0,
+   "input_tokens": 42956,
+   "cached_input_tokens": 1920,
+   "output_tokens": 1733,
+   "reasoning_tokens": 0,
+   "latency_s": 9.209,
+   "cost_usd": 0.007201,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 44689
+   },
+   "problems": [],
+   "raw": "{\"sections\": [\n  {\"key\": \"arc\", \"title\": \"The arc\", \"sentences\": [\n    {\"type\": \"fact\", \"text\": \"Revenue compounded at 3.8% a year from FY2016 to FY2025, reaching $31.7 billion [F198][F9].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating income grew faster, at 5.8% a year, lifting operating margin from 22.9% to 27.2% [F199][F20][F28].\"},\n    {\"type\": \"cause\", \"text\": \"FY2022 was the step change in the top line, with revenue up 17.1% on rate cases, favorable weather and volumes [D239][P26].\"},\n    {\"type\": \"cause\", \"text\": \"FY2020 was the trough, when net income fell 63.3% on coal ash settlement impairments and pandemic-driven volume losses [D157][P60].\"}\n  ]},\n  {\"key\": \"drivers\", \"title\": \"What drove growth\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Electric Utilities and Infrastructure supplied 90.9% of FY2025 revenue and added 3.6pp of the 5.6% growth [D541][D543][D358].\"},\n    {\"type\": \"comparison\", \"text\": \"Residential electric was the largest customer class at 43.3% of revenue, contributing 2.8pp in FY2025 [D774][D776].\"},\n    {\"type\": \"comparison\", \"text\": \"Gas Utilities and Infrastructure grew 27.1% in FY2025, adding 2.0pp, with Piedmont Natural Gas up 32.1% [D565][D566][D682].\"},\n    {\"type\": \"comparison\", \"text\": \"Operating income grew 8.8% against 5.6% revenue growth, an incremental margin of 41.4% [D359][D358][D378].\"},\n    {\"type\": \"comparison\", \"text\": \"Diluted EPS rose 10.5% in FY2025, ahead of 9.8% net income growth, despite a 0.6% larger share count [D362][D360][D374].\"}\n  ]},\n  {\"key\": \"margins\", \"title\": \"Margins and costs\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"FY2025 operating margin of 27.2% is the window high, 4.3pp above the 22.9% median and 7.5pp above the FY2020 low [F28][D932][D933][D931].\"},\n    {\"type\": \"comparison\", \"text\": \"The FY2025 margin widened 0.8pp as revenue growth outpaced operating-cost growth by only 0.3pp [D370][D379].\"},\n    {\"type\": \"comparison\", \"text\": \"D&A rose to 24.3% of revenue from 21.4%, a 2.9pp drag that other cost lines offset [D341][D303].\"},\n    {\"type\": \"comparison\", \"text\": \"Net margin of 15.7% sits 11.5pp below operating margin, reflecting interest expense of $3.6 billion and a 11.2% tax rate [F47][D967][X63][D345].\"},\n    {\"type\": \"comparison\", \"text\": \"Net margin ranks in the 25th percentile against utilities peers, whose median is 17.6% [D951][D952].\"}\n  ]},\n  {\"key\": \"cash\", \"title\": \"Cash conversion\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Operating cash flow of $12.3 billion was 2.48x net income in FY2025, near the 2.59x window median [F77][D346][D958].\"},\n    {\"type\": \"comparison\", \"text\": \"Capex of $14.0 billion, 44.2% of revenue and 1.82x D&A, pushed free cash flow to -$1.7 billion, a -5.3% margin [F87][D342][D348][F97][D343].\"},\n    {\"type\": \"cause\", \"text\": \"FY2022 conversion fell to 2.32x as rising fuel costs created undercollections that increased borrowings [D226][P36].\"},\n    {\"type\": \"comparison\", \"text\": \"Stock-based compensation is immaterial at 0.8% of operating cash flow [D349].\"}\n  ]},\n  {\"key\": \"balance_sheet\", \"title\": \"Balance sheet and capital allocation\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"Net debt reached $89.6 billion in FY2025, up from $50.0 billion in FY2016, as total debt rose 6.6% [D352][D14][D376].\"},\n    {\"type\": \"comparison\", \"text\": \"Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969].\"},\n    {\"type\": \"comparison\", \"text\": \"Cash of $245 million covers 0.1 years of the latest burn, and the current ratio fell to 0.55x [D350][D356][F177].\"},\n    {\"type\": \"comparison\", \"text\": \"Dividends of $3.2 billion in FY2022 exceeded free cash flow, and the diluted share count rose 4.2% in FY2021 [D234][F94][D214].\"}\n  ]},\n  {\"key\": \"red_flags\", \"title\": \"Red flags\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little liquidity cushion [F177][D943].\"},\n    {\"type\": \"comparison\", \"text\": \"Net debt has risen nine straight years to $89.6 billion, funding a capex programme that keeps free cash flow negative [D352][R3][F97].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow ran below 80% of net income in FY2023, FY2024 and FY2025, at -0.96x, 0.01x and -0.34x [D269][D309][D347][R4].\"},\n    {\"type\": \"fact\", \"text\": \"FY2021 operating expenses, pretax income and tax were later restated, so that year's margin comparisons carry a data-quality caveat [X29][X69][X79][R6][R7][R8].\"}\n  ]},\n  {\"key\": \"watch\", \"title\": \"What to watch\", \"sentences\": [\n    {\"type\": \"comparison\", \"text\": \"If operating margin holds above the 27.2% FY2025 high, the cost discipline of FY2024-FY2025 is confirmed; a drop toward the 22.9% median would reverse it [F28][D932][D933].\"},\n    {\"type\": \"comparison\", \"text\": \"Free cash flow margin above the -5.8% median would signal capex is peaking; a repeat of the -19.0% FY2022 low would deepen the funding gap [D939][D937].\"},\n    {\"type\": \"comparison\", \"text\": \"Net debt above $89.6 billion in the next 10-K would extend the nine-year climb; a decline would break it [D352][R3].\"}\n  ]}\n]}"
+  },
+  {
+   "attempt": "repair",
+   "input_tokens": 44841,
+   "cached_input_tokens": 42880,
+   "output_tokens": 118,
+   "reasoning_tokens": 0,
+   "latency_s": 2.429,
+   "cost_usd": 0.000494,
+   "backend": "openai_compat",
+   "model_served": "deepseek-flash",
+   "meta": {
+    "finish_reason": "stop",
+    "total_tokens": 44959
+   },
+   "problems": [],
+   "raw": "{\"patches\": [{\"section\": \"balance_sheet\", \"original\": \"Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969].\", \"type\": \"comparison\", \"text\": \"Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers, against a peer median net cash position of -235.4% of revenue [D353][D968][D969].\"}]}"
+  }
+ ],
+ "usage": {
+  "input_tokens": 87797,
+  "cached_input_tokens": 44800,
+  "output_tokens": 1851,
+  "reasoning_tokens": 0
+ },
+ "latency_s": 11.638,
+ "cost_usd": 0.007695,
+ "generation_ok": true,
+ "pipeline": "v2",
+ "nonce": "f08357f5677e",
+ "output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 3.8% a year from FY2016 to FY2025, reaching $31.7 billion [F198][F9]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew faster, at 5.8% a year, lifting operating margin from 22.9% to 27.2% [F199][F20][F28]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 was the step change in the top line, with revenue up 17.1% on rate cases, favorable weather and volumes [D239][P26]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2020 was the trough, when net income fell 63.3% on coal ash settlement impairments and pandemic-driven volume losses [D157][P60]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Electric Utilities and Infrastructure supplied 90.9% of FY2025 revenue and added 3.6pp of the 5.6% growth [D541][D543][D358]."
+     },
+     {
+      "type": "comparison",
+      "text": "Residential electric was the largest customer class at 43.3% of revenue, contributing 2.8pp in FY2025 [D774][D776]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gas Utilities and Infrastructure grew 27.1% in FY2025, adding 2.0pp, with Piedmont Natural Gas up 32.1% [D565][D566][D682]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 8.8% against 5.6% revenue growth, an incremental margin of 41.4% [D359][D358][D378]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS rose 10.5% in FY2025, ahead of 9.8% net income growth, despite a 0.6% larger share count [D362][D360][D374]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 27.2% is the window high, 4.3pp above the 22.9% median and 7.5pp above the FY2020 low [F28][D932][D933][D931]."
+     },
+     {
+      "type": "comparison",
+      "text": "The FY2025 margin widened 0.8pp as revenue growth outpaced operating-cost growth by only 0.3pp [D370][D379]."
+     },
+     {
+      "type": "comparison",
+      "text": "D&A rose to 24.3% of revenue from 21.4%, a 2.9pp drag that other cost lines offset [D341][D303]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of 15.7% sits 11.5pp below operating margin, reflecting interest expense of $3.6 billion and a 11.2% tax rate [F47][D967][X63][D345]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin ranks in the 25th percentile against utilities peers, whose median is 17.6% [D951][D952]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $12.3 billion was 2.48x net income in FY2025, near the 2.59x window median [F77][D346][D958]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $14.0 billion, 44.2% of revenue and 1.82x D&A, pushed free cash flow to -$1.7 billion, a -5.3% margin [F87][D342][D348][F97][D343]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 conversion fell to 2.32x as rising fuel costs created undercollections that increased borrowings [D226][P36]."
+     },
+     {
+      "type": "comparison",
+      "text": "Stock-based compensation is immaterial at 0.8% of operating cash flow [D349]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $89.6 billion in FY2025, up from $50.0 billion in FY2016, as total debt rose 6.6% [D352][D14][D376]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers, against a peer median net cash position of -235.4% of revenue [D353][D968][D969]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cash of $245 million covers 0.1 years of the latest burn, and the current ratio fell to 0.55x [D350][D356][F177]."
+     },
+     {
+      "type": "comparison",
+      "text": "Dividends of $3.2 billion in FY2022 exceeded free cash flow, and the diluted share count rose 4.2% in FY2021 [D234][F94][D214]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little liquidity cushion [F177][D943]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt has risen nine straight years to $89.6 billion, funding a capex programme that keeps free cash flow negative [D352][R3][F97]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow ran below 80% of net income in FY2023, FY2024 and FY2025, at -0.96x, 0.01x and -0.34x [D269][D309][D347][R4]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2021 operating expenses, pretax income and tax were later restated, so that year's margin comparisons carry a data-quality caveat [X29][X69][X79][R6][R7][R8]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 27.2% FY2025 high, the cost discipline of FY2024-FY2025 is confirmed; a drop toward the 22.9% median would reverse it [F28][D932][D933]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin above the -5.8% median would signal capex is peaking; a repeat of the -19.0% FY2022 low would deepen the funding gap [D939][D937]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt above $89.6 billion in the next 10-K would extend the nine-year climb; a decline would break it [D352][R3]."
+     }
+    ]
+   }
+  ]
+ },
+ "words": 543,
+ "raw_first_pass_gate": {
+  "passed": false,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 24,
+   "cause": 3
+  },
+  "claims": 70,
+  "verified": 70,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-235.4%' net cash's minus sign printed under 'net debt' [D969]"
+   }
+  ],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 3.8% a year from FY2016 to FY2025, reaching $31.7 billion [F198][F9].",
+    "type": "fact",
+    "citations": [
+     "F198",
+     "F9"
+    ],
+    "claims": [
+     {
+      "claim": "3.8%",
+      "value": 3.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F198"
+      ]
+     },
+     {
+      "claim": "$31.7 billion",
+      "value": 31.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating income grew faster, at 5.8% a year, lifting operating margin from 22.9% to 27.2% [F199][F20][F28].",
+    "type": "comparison",
+    "citations": [
+     "F199",
+     "F20",
+     "F28"
+    ],
+    "claims": [
+     {
+      "claim": "5.8%",
+      "value": 5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F199"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     },
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2022 was the step change in the top line, with revenue up 17.1% on rate cases, favorable weather and volumes [D239][P26].",
+    "type": "cause",
+    "citations": [
+     "D239",
+     "P26"
+    ],
+    "claims": [
+     {
+      "claim": "17.1%",
+      "value": 17.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D239"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2020 was the trough, when net income fell 63.3% on coal ash settlement impairments and pandemic-driven volume losses [D157][P60].",
+    "type": "cause",
+    "citations": [
+     "D157",
+     "P60"
+    ],
+    "claims": [
+     {
+      "claim": "63.3%",
+      "value": 63.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D157"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Electric Utilities and Infrastructure supplied 90.9% of FY2025 revenue and added 3.6pp of the 5.6% growth [D541][D543][D358].",
+    "type": "comparison",
+    "citations": [
+     "D541",
+     "D543",
+     "D358"
+    ],
+    "claims": [
+     {
+      "claim": "90.9%",
+      "value": 90.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D541"
+      ]
+     },
+     {
+      "claim": "3.6pp",
+      "value": 3.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D543"
+      ]
+     },
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Residential electric was the largest customer class at 43.3% of revenue, contributing 2.8pp in FY2025 [D774][D776].",
+    "type": "comparison",
+    "citations": [
+     "D774",
+     "D776"
+    ],
+    "claims": [
+     {
+      "claim": "43.3%",
+      "value": 43.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D774"
+      ]
+     },
+     {
+      "claim": "2.8pp",
+      "value": 2.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D776"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Gas Utilities and Infrastructure grew 27.1% in FY2025, adding 2.0pp, with Piedmont Natural Gas up 32.1% [D565][D566][D682].",
+    "type": "comparison",
+    "citations": [
+     "D565",
+     "D566",
+     "D682"
+    ],
+    "claims": [
+     {
+      "claim": "27.1%",
+      "value": 27.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D565"
+      ]
+     },
+     {
+      "claim": "2.0pp",
+      "value": 2.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D566"
+      ]
+     },
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D682"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 8.8% against 5.6% revenue growth, an incremental margin of 41.4% [D359][D358][D378].",
+    "type": "comparison",
+    "citations": [
+     "D359",
+     "D358",
+     "D378"
+    ],
+    "claims": [
+     {
+      "claim": "8.8%",
+      "value": 8.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D359"
+      ]
+     },
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     },
+     {
+      "claim": "41.4%",
+      "value": 41.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D378"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS rose 10.5% in FY2025, ahead of 9.8% net income growth, despite a 0.6% larger share count [D362][D360][D374].",
+    "type": "comparison",
+    "citations": [
+     "D362",
+     "D360",
+     "D374"
+    ],
+    "claims": [
+     {
+      "claim": "10.5%",
+      "value": 10.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D362"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D360"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D374"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of 27.2% is the window high, 4.3pp above the 22.9% median and 7.5pp above the FY2020 low [F28][D932][D933][D931].",
+    "type": "comparison",
+    "citations": [
+     "F28",
+     "D932",
+     "D933",
+     "D931"
+    ],
+    "claims": [
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     },
+     {
+      "claim": "4.3pp",
+      "value": 4.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F28-D933",
+      "ids": [
+       "F28",
+       "D933"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D933"
+      ]
+     },
+     {
+      "claim": "7.5pp",
+      "value": 7.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F28-D931",
+      "ids": [
+       "F28",
+       "D931"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2025 margin widened 0.8pp as revenue growth outpaced operating-cost growth by only 0.3pp [D370][D379].",
+    "type": "comparison",
+    "citations": [
+     "D370",
+     "D379"
+    ],
+    "claims": [
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D370"
+      ]
+     },
+     {
+      "claim": "0.3pp",
+      "value": 0.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D379"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "D&A rose to 24.3% of revenue from 21.4%, a 2.9pp drag that other cost lines offset [D341][D303].",
+    "type": "comparison",
+    "citations": [
+     "D341",
+     "D303"
+    ],
+    "claims": [
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "21.4%",
+      "value": 21.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D303"
+      ]
+     },
+     {
+      "claim": "2.9pp",
+      "value": 2.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D341-D303",
+      "ids": [
+       "D341",
+       "D303"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 15.7% sits 11.5pp below operating margin, reflecting interest expense of $3.6 billion and a 11.2% tax rate [F47][D967][X63][D345].",
+    "type": "comparison",
+    "citations": [
+     "F47",
+     "D967",
+     "X63",
+     "D345"
+    ],
+    "claims": [
+     {
+      "claim": "15.7%",
+      "value": 15.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F47"
+      ]
+     },
+     {
+      "claim": "11.5pp",
+      "value": 11.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D967"
+      ]
+     },
+     {
+      "claim": "$3.6 billion",
+      "value": 3.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X63"
+      ]
+     },
+     {
+      "claim": "11.2%",
+      "value": 11.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D345"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin ranks in the 25th percentile against utilities peers, whose median is 17.6% [D951][D952].",
+    "type": "comparison",
+    "citations": [
+     "D951",
+     "D952"
+    ],
+    "claims": [
+     {
+      "claim": "25th percentile",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D951"
+      ]
+     },
+     {
+      "claim": "17.6%",
+      "value": 17.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D952"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $12.3 billion was 2.48x net income in FY2025, near the 2.59x window median [F77][D346][D958].",
+    "type": "comparison",
+    "citations": [
+     "F77",
+     "D346",
+     "D958"
+    ],
+    "claims": [
+     {
+      "claim": "$12.3 billion",
+      "value": 12.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F77"
+      ]
+     },
+     {
+      "claim": "2.48x",
+      "value": 2.48,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D346"
+      ]
+     },
+     {
+      "claim": "2.59x",
+      "value": 2.59,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D958"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex of $14.0 billion, 44.2% of revenue and 1.82x D&A, pushed free cash flow to -$1.7 billion, a -5.3% margin [F87][D342][D348][F97][D343].",
+    "type": "comparison",
+    "citations": [
+     "F87",
+     "D342",
+     "D348",
+     "F97",
+     "D343"
+    ],
+    "claims": [
+     {
+      "claim": "$14.0 billion",
+      "value": 14.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F87"
+      ]
+     },
+     {
+      "claim": "44.2%",
+      "value": 44.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     },
+     {
+      "claim": "1.82x",
+      "value": 1.82,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D348"
+      ]
+     },
+     {
+      "claim": "-$1.7 billion",
+      "value": -1.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F97"
+      ]
+     },
+     {
+      "claim": "-5.3%",
+      "value": -5.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D343"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "FY2022 conversion fell to 2.32x as rising fuel costs created undercollections that increased borrowings [D226][P36].",
+    "type": "cause",
+    "citations": [
+     "D226",
+     "P36"
+    ],
+    "claims": [
+     {
+      "claim": "2.32x",
+      "value": 2.32,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Stock-based compensation is immaterial at 0.8% of operating cash flow [D349].",
+    "type": "comparison",
+    "citations": [
+     "D349"
+    ],
+    "claims": [
+     {
+      "claim": "0.8%",
+      "value": 0.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D349"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt reached $89.6 billion in FY2025, up from $50.0 billion in FY2016, as total debt rose 6.6% [D352][D14][D376].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "D14",
+     "D376"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     },
+     {
+      "claim": "$50.0 billion",
+      "value": 50.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D14"
+      ]
+     },
+     {
+      "claim": "6.6%",
+      "value": 6.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D376"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969].",
+    "type": "comparison",
+    "citations": [
+     "D353",
+     "D968",
+     "D969"
+    ],
+    "claims": [
+     {
+      "claim": "282.3%",
+      "value": 282.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D353"
+      ]
+     },
+     {
+      "claim": "33rd percentile",
+      "value": 33.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D968"
+      ]
+     },
+     {
+      "claim": "-235.4%",
+      "value": -235.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D969"
+      ]
+     }
+    ],
+    "failures": [
+     "backstop R2a: '-235.4%' net cash's minus sign printed under 'net debt' [D969]"
+    ]
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Cash of $245 million covers 0.1 years of the latest burn, and the current ratio fell to 0.55x [D350][D356][F177].",
+    "type": "comparison",
+    "citations": [
+     "D350",
+     "D356",
+     "F177"
+    ],
+    "claims": [
+     {
+      "claim": "$245 million",
+      "value": 245.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D350"
+      ]
+     },
+     {
+      "claim": "0.1 years",
+      "value": 0.1,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D356"
+      ]
+     },
+     {
+      "claim": "0.55x",
+      "value": 0.55,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Dividends of $3.2 billion in FY2022 exceeded free cash flow, and the diluted share count rose 4.2% in FY2021 [D234][F94][D214].",
+    "type": "comparison",
+    "citations": [
+     "D234",
+     "F94",
+     "D214"
+    ],
+    "claims": [
+     {
+      "claim": "$3.2 billion",
+      "value": 3.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D234"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D214"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little liquidity cushion [F177][D943].",
+    "type": "comparison",
+    "citations": [
+     "F177",
+     "D943"
+    ],
+    "claims": [
+     {
+      "claim": "0.55x",
+      "value": 0.55,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     },
+     {
+      "claim": "0.53x",
+      "value": 0.53,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D943"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net debt has risen nine straight years to $89.6 billion, funding a capex programme that keeps free cash flow negative [D352][R3][F97].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "R3",
+     "F97"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow ran below 80% of net income in FY2023, FY2024 and FY2025, at -0.96x, 0.01x and -0.34x [D269][D309][D347][R4].",
+    "type": "comparison",
+    "citations": [
+     "D269",
+     "D309",
+     "D347",
+     "R4"
+    ],
+    "claims": [
+     {
+      "claim": "80%",
+      "value": 80.0,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "passage R4",
+      "ids": [
+       "R4"
+      ]
+     },
+     {
+      "claim": "-0.96x",
+      "value": -0.96,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D269"
+      ]
+     },
+     {
+      "claim": "0.01x",
+      "value": 0.01,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D309"
+      ]
+     },
+     {
+      "claim": "-0.34x",
+      "value": -0.34,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D347"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2021 operating expenses, pretax income and tax were later restated, so that year's margin comparisons carry a data-quality caveat [X29][X69][X79][R6][R7][R8].",
+    "type": "fact",
+    "citations": [
+     "X29",
+     "X69",
+     "X79",
+     "R6",
+     "R7",
+     "R8"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating margin holds above the 27.2% FY2025 high, the cost discipline of FY2024-FY2025 is confirmed; a drop toward the 22.9% median would reverse it [F28][D932][D933].",
+    "type": "comparison",
+    "citations": [
+     "F28",
+     "D932",
+     "D933"
+    ],
+    "claims": [
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D933"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow margin above the -5.8% median would signal capex is peaking; a repeat of the -19.0% FY2022 low would deepen the funding gap [D939][D937].",
+    "type": "comparison",
+    "citations": [
+     "D939",
+     "D937"
+    ],
+    "claims": [
+     {
+      "claim": "-5.8%",
+      "value": -5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D939"
+      ]
+     },
+     {
+      "claim": "-19.0%",
+      "value": -19.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D937"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net debt above $89.6 billion in the next 10-K would extend the nine-year climb; a decline would break it [D352][R3].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "R3"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 1
+ },
+ "retyped": [],
+ "gate": {
+  "passed": true,
+  "sentences": 29,
+  "sentence_types": {
+   "fact": 2,
+   "comparison": 24,
+   "cause": 3
+  },
+  "claims": 70,
+  "verified": 70,
+  "unverified_counts": 0,
+  "names": 0,
+  "failed_claims": 0,
+  "failures": [],
+  "detail": [
+   {
+    "section": "arc",
+    "text": "Revenue compounded at 3.8% a year from FY2016 to FY2025, reaching $31.7 billion [F198][F9].",
+    "type": "fact",
+    "citations": [
+     "F198",
+     "F9"
+    ],
+    "claims": [
+     {
+      "claim": "3.8%",
+      "value": 3.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F198"
+      ]
+     },
+     {
+      "claim": "$31.7 billion",
+      "value": 31.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F9"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "Operating income grew faster, at 5.8% a year, lifting operating margin from 22.9% to 27.2% [F199][F20][F28].",
+    "type": "comparison",
+    "citations": [
+     "F199",
+     "F20",
+     "F28"
+    ],
+    "claims": [
+     {
+      "claim": "5.8%",
+      "value": 5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F199"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F20"
+      ]
+     },
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2022 was the step change in the top line, with revenue up 17.1% on rate cases, favorable weather and volumes [D239][P26].",
+    "type": "cause",
+    "citations": [
+     "D239",
+     "P26"
+    ],
+    "claims": [
+     {
+      "claim": "17.1%",
+      "value": 17.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D239"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "arc",
+    "text": "FY2020 was the trough, when net income fell 63.3% on coal ash settlement impairments and pandemic-driven volume losses [D157][P60].",
+    "type": "cause",
+    "citations": [
+     "D157",
+     "P60"
+    ],
+    "claims": [
+     {
+      "claim": "63.3%",
+      "value": 63.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D157"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Electric Utilities and Infrastructure supplied 90.9% of FY2025 revenue and added 3.6pp of the 5.6% growth [D541][D543][D358].",
+    "type": "comparison",
+    "citations": [
+     "D541",
+     "D543",
+     "D358"
+    ],
+    "claims": [
+     {
+      "claim": "90.9%",
+      "value": 90.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D541"
+      ]
+     },
+     {
+      "claim": "3.6pp",
+      "value": 3.6,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D543"
+      ]
+     },
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Residential electric was the largest customer class at 43.3% of revenue, contributing 2.8pp in FY2025 [D774][D776].",
+    "type": "comparison",
+    "citations": [
+     "D774",
+     "D776"
+    ],
+    "claims": [
+     {
+      "claim": "43.3%",
+      "value": 43.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D774"
+      ]
+     },
+     {
+      "claim": "2.8pp",
+      "value": 2.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D776"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Gas Utilities and Infrastructure grew 27.1% in FY2025, adding 2.0pp, with Piedmont Natural Gas up 32.1% [D565][D566][D682].",
+    "type": "comparison",
+    "citations": [
+     "D565",
+     "D566",
+     "D682"
+    ],
+    "claims": [
+     {
+      "claim": "27.1%",
+      "value": 27.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D565"
+      ]
+     },
+     {
+      "claim": "2.0pp",
+      "value": 2.0,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D566"
+      ]
+     },
+     {
+      "claim": "32.1%",
+      "value": 32.1,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D682"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Operating income grew 8.8% against 5.6% revenue growth, an incremental margin of 41.4% [D359][D358][D378].",
+    "type": "comparison",
+    "citations": [
+     "D359",
+     "D358",
+     "D378"
+    ],
+    "claims": [
+     {
+      "claim": "8.8%",
+      "value": 8.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D359"
+      ]
+     },
+     {
+      "claim": "5.6%",
+      "value": 5.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D358"
+      ]
+     },
+     {
+      "claim": "41.4%",
+      "value": 41.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D378"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "drivers",
+    "text": "Diluted EPS rose 10.5% in FY2025, ahead of 9.8% net income growth, despite a 0.6% larger share count [D362][D360][D374].",
+    "type": "comparison",
+    "citations": [
+     "D362",
+     "D360",
+     "D374"
+    ],
+    "claims": [
+     {
+      "claim": "10.5%",
+      "value": 10.5,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D362"
+      ]
+     },
+     {
+      "claim": "9.8%",
+      "value": 9.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D360"
+      ]
+     },
+     {
+      "claim": "0.6%",
+      "value": 0.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D374"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "FY2025 operating margin of 27.2% is the window high, 4.3pp above the 22.9% median and 7.5pp above the FY2020 low [F28][D932][D933][D931].",
+    "type": "comparison",
+    "citations": [
+     "F28",
+     "D932",
+     "D933",
+     "D931"
+    ],
+    "claims": [
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     },
+     {
+      "claim": "4.3pp",
+      "value": 4.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F28-D933",
+      "ids": [
+       "F28",
+       "D933"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D933"
+      ]
+     },
+     {
+      "claim": "7.5pp",
+      "value": 7.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp F28-D931",
+      "ids": [
+       "F28",
+       "D931"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "The FY2025 margin widened 0.8pp as revenue growth outpaced operating-cost growth by only 0.3pp [D370][D379].",
+    "type": "comparison",
+    "citations": [
+     "D370",
+     "D379"
+    ],
+    "claims": [
+     {
+      "claim": "0.8pp",
+      "value": 0.8,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D370"
+      ]
+     },
+     {
+      "claim": "0.3pp",
+      "value": 0.3,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D379"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "D&A rose to 24.3% of revenue from 21.4%, a 2.9pp drag that other cost lines offset [D341][D303].",
+    "type": "comparison",
+    "citations": [
+     "D341",
+     "D303"
+    ],
+    "claims": [
+     {
+      "claim": "24.3%",
+      "value": 24.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D341"
+      ]
+     },
+     {
+      "claim": "21.4%",
+      "value": 21.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D303"
+      ]
+     },
+     {
+      "claim": "2.9pp",
+      "value": 2.9,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "pp D341-D303",
+      "ids": [
+       "D341",
+       "D303"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin of 15.7% sits 11.5pp below operating margin, reflecting interest expense of $3.6 billion and a 11.2% tax rate [F47][D967][X63][D345].",
+    "type": "comparison",
+    "citations": [
+     "F47",
+     "D967",
+     "X63",
+     "D345"
+    ],
+    "claims": [
+     {
+      "claim": "15.7%",
+      "value": 15.7,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F47"
+      ]
+     },
+     {
+      "claim": "11.5pp",
+      "value": 11.5,
+      "unit": "pp",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D967"
+      ]
+     },
+     {
+      "claim": "$3.6 billion",
+      "value": 3.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "X63"
+      ]
+     },
+     {
+      "claim": "11.2%",
+      "value": 11.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D345"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "margins",
+    "text": "Net margin ranks in the 25th percentile against utilities peers, whose median is 17.6% [D951][D952].",
+    "type": "comparison",
+    "citations": [
+     "D951",
+     "D952"
+    ],
+    "claims": [
+     {
+      "claim": "25th percentile",
+      "value": 25.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D951"
+      ]
+     },
+     {
+      "claim": "17.6%",
+      "value": 17.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D952"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Operating cash flow of $12.3 billion was 2.48x net income in FY2025, near the 2.59x window median [F77][D346][D958].",
+    "type": "comparison",
+    "citations": [
+     "F77",
+     "D346",
+     "D958"
+    ],
+    "claims": [
+     {
+      "claim": "$12.3 billion",
+      "value": 12.3,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F77"
+      ]
+     },
+     {
+      "claim": "2.48x",
+      "value": 2.48,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D346"
+      ]
+     },
+     {
+      "claim": "2.59x",
+      "value": 2.59,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D958"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Capex of $14.0 billion, 44.2% of revenue and 1.82x D&A, pushed free cash flow to -$1.7 billion, a -5.3% margin [F87][D342][D348][F97][D343].",
+    "type": "comparison",
+    "citations": [
+     "F87",
+     "D342",
+     "D348",
+     "F97",
+     "D343"
+    ],
+    "claims": [
+     {
+      "claim": "$14.0 billion",
+      "value": 14.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F87"
+      ]
+     },
+     {
+      "claim": "44.2%",
+      "value": 44.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D342"
+      ]
+     },
+     {
+      "claim": "1.82x",
+      "value": 1.82,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D348"
+      ]
+     },
+     {
+      "claim": "-$1.7 billion",
+      "value": -1.7,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F97"
+      ]
+     },
+     {
+      "claim": "-5.3%",
+      "value": -5.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D343"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "FY2022 conversion fell to 2.32x as rising fuel costs created undercollections that increased borrowings [D226][P36].",
+    "type": "cause",
+    "citations": [
+     "D226",
+     "P36"
+    ],
+    "claims": [
+     {
+      "claim": "2.32x",
+      "value": 2.32,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D226"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "cash",
+    "text": "Stock-based compensation is immaterial at 0.8% of operating cash flow [D349].",
+    "type": "comparison",
+    "citations": [
+     "D349"
+    ],
+    "claims": [
+     {
+      "claim": "0.8%",
+      "value": 0.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D349"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt reached $89.6 billion in FY2025, up from $50.0 billion in FY2016, as total debt rose 6.6% [D352][D14][D376].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "D14",
+     "D376"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     },
+     {
+      "claim": "$50.0 billion",
+      "value": 50.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D14"
+      ]
+     },
+     {
+      "claim": "6.6%",
+      "value": 6.6,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D376"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers, against a peer median net cash position of -235.4% of revenue [D353][D968][D969].",
+    "type": "comparison",
+    "citations": [
+     "D353",
+     "D968",
+     "D969"
+    ],
+    "claims": [
+     {
+      "claim": "282.3%",
+      "value": 282.3,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D353"
+      ]
+     },
+     {
+      "claim": "33rd percentile",
+      "value": 33.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D968"
+      ]
+     },
+     {
+      "claim": "-235.4%",
+      "value": -235.4,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D969"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Cash of $245 million covers 0.1 years of the latest burn, and the current ratio fell to 0.55x [D350][D356][F177].",
+    "type": "comparison",
+    "citations": [
+     "D350",
+     "D356",
+     "F177"
+    ],
+    "claims": [
+     {
+      "claim": "$245 million",
+      "value": 245.0,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D350"
+      ]
+     },
+     {
+      "claim": "0.1 years",
+      "value": 0.1,
+      "unit": "years",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D356"
+      ]
+     },
+     {
+      "claim": "0.55x",
+      "value": 0.55,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "balance_sheet",
+    "text": "Dividends of $3.2 billion in FY2022 exceeded free cash flow, and the diluted share count rose 4.2% in FY2021 [D234][F94][D214].",
+    "type": "comparison",
+    "citations": [
+     "D234",
+     "F94",
+     "D214"
+    ],
+    "claims": [
+     {
+      "claim": "$3.2 billion",
+      "value": 3.2,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D234"
+      ]
+     },
+     {
+      "claim": "4.2%",
+      "value": 4.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D214"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little liquidity cushion [F177][D943].",
+    "type": "comparison",
+    "citations": [
+     "F177",
+     "D943"
+    ],
+    "claims": [
+     {
+      "claim": "0.55x",
+      "value": 0.55,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     },
+     {
+      "claim": "1.0x",
+      "value": 1.0,
+      "unit": "x",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F177"
+      ]
+     },
+     {
+      "claim": "0.53x",
+      "value": 0.53,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D943"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Net debt has risen nine straight years to $89.6 billion, funding a capex programme that keeps free cash flow negative [D352][R3][F97].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "R3",
+     "F97"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "Free cash flow ran below 80% of net income in FY2023, FY2024 and FY2025, at -0.96x, 0.01x and -0.34x [D269][D309][D347][R4].",
+    "type": "comparison",
+    "citations": [
+     "D269",
+     "D309",
+     "D347",
+     "R4"
+    ],
+    "claims": [
+     {
+      "claim": "80%",
+      "value": 80.0,
+      "unit": "pct",
+      "qualifier": "at_most",
+      "status": "verified",
+      "matched": "passage R4",
+      "ids": [
+       "R4"
+      ]
+     },
+     {
+      "claim": "-0.96x",
+      "value": -0.96,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D269"
+      ]
+     },
+     {
+      "claim": "0.01x",
+      "value": 0.01,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D309"
+      ]
+     },
+     {
+      "claim": "-0.34x",
+      "value": -0.34,
+      "unit": "x",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D347"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "red_flags",
+    "text": "FY2021 operating expenses, pretax income and tax were later restated, so that year's margin comparisons carry a data-quality caveat [X29][X69][X79][R6][R7][R8].",
+    "type": "fact",
+    "citations": [
+     "X29",
+     "X69",
+     "X79",
+     "R6",
+     "R7",
+     "R8"
+    ],
+    "claims": [],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "If operating margin holds above the 27.2% FY2025 high, the cost discipline of FY2024-FY2025 is confirmed; a drop toward the 22.9% median would reverse it [F28][D932][D933].",
+    "type": "comparison",
+    "citations": [
+     "F28",
+     "D932",
+     "D933"
+    ],
+    "claims": [
+     {
+      "claim": "27.2%",
+      "value": 27.2,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "F28"
+      ]
+     },
+     {
+      "claim": "22.9%",
+      "value": 22.9,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D933"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Free cash flow margin above the -5.8% median would signal capex is peaking; a repeat of the -19.0% FY2022 low would deepen the funding gap [D939][D937].",
+    "type": "comparison",
+    "citations": [
+     "D939",
+     "D937"
+    ],
+    "claims": [
+     {
+      "claim": "-5.8%",
+      "value": -5.8,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D939"
+      ]
+     },
+     {
+      "claim": "-19.0%",
+      "value": -19.0,
+      "unit": "pct",
+      "qualifier": "",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D937"
+      ]
+     }
+    ],
+    "failures": []
+   },
+   {
+    "section": "watch",
+    "text": "Net debt above $89.6 billion in the next 10-K would extend the nine-year climb; a decline would break it [D352][R3].",
+    "type": "comparison",
+    "citations": [
+     "D352",
+     "R3"
+    ],
+    "claims": [
+     {
+      "claim": "$89.6 billion",
+      "value": 89.6,
+      "unit": "usd",
+      "qualifier": "at_least",
+      "status": "verified",
+      "matched": "cited",
+      "ids": [
+       "D352"
+      ]
+     }
+    ],
+    "failures": []
+   }
+  ],
+  "backstop_failures": 0
+ },
+ "first_pass_gate": {
+  "passed": false,
+  "claims": 70,
+  "verified": 70,
+  "failed_claims": 0,
+  "failures": [
+   {
+    "section": "balance_sheet",
+    "sentence": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969].",
+    "type": "comparison",
+    "failure": "backstop R2a: '-235.4%' net cash's minus sign printed under 'net debt' [D969]"
+   }
+  ],
+  "backstop_failures": 1
+ },
+ "first_pass_output": {
+  "sections": [
+   {
+    "key": "arc",
+    "title": "The arc",
+    "sentences": [
+     {
+      "type": "fact",
+      "text": "Revenue compounded at 3.8% a year from FY2016 to FY2025, reaching $31.7 billion [F198][F9]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew faster, at 5.8% a year, lifting operating margin from 22.9% to 27.2% [F199][F20][F28]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 was the step change in the top line, with revenue up 17.1% on rate cases, favorable weather and volumes [D239][P26]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2020 was the trough, when net income fell 63.3% on coal ash settlement impairments and pandemic-driven volume losses [D157][P60]."
+     }
+    ]
+   },
+   {
+    "key": "drivers",
+    "title": "What drove growth",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Electric Utilities and Infrastructure supplied 90.9% of FY2025 revenue and added 3.6pp of the 5.6% growth [D541][D543][D358]."
+     },
+     {
+      "type": "comparison",
+      "text": "Residential electric was the largest customer class at 43.3% of revenue, contributing 2.8pp in FY2025 [D774][D776]."
+     },
+     {
+      "type": "comparison",
+      "text": "Gas Utilities and Infrastructure grew 27.1% in FY2025, adding 2.0pp, with Piedmont Natural Gas up 32.1% [D565][D566][D682]."
+     },
+     {
+      "type": "comparison",
+      "text": "Operating income grew 8.8% against 5.6% revenue growth, an incremental margin of 41.4% [D359][D358][D378]."
+     },
+     {
+      "type": "comparison",
+      "text": "Diluted EPS rose 10.5% in FY2025, ahead of 9.8% net income growth, despite a 0.6% larger share count [D362][D360][D374]."
+     }
+    ]
+   },
+   {
+    "key": "margins",
+    "title": "Margins and costs",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "FY2025 operating margin of 27.2% is the window high, 4.3pp above the 22.9% median and 7.5pp above the FY2020 low [F28][D932][D933][D931]."
+     },
+     {
+      "type": "comparison",
+      "text": "The FY2025 margin widened 0.8pp as revenue growth outpaced operating-cost growth by only 0.3pp [D370][D379]."
+     },
+     {
+      "type": "comparison",
+      "text": "D&A rose to 24.3% of revenue from 21.4%, a 2.9pp drag that other cost lines offset [D341][D303]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin of 15.7% sits 11.5pp below operating margin, reflecting interest expense of $3.6 billion and a 11.2% tax rate [F47][D967][X63][D345]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net margin ranks in the 25th percentile against utilities peers, whose median is 17.6% [D951][D952]."
+     }
+    ]
+   },
+   {
+    "key": "cash",
+    "title": "Cash conversion",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Operating cash flow of $12.3 billion was 2.48x net income in FY2025, near the 2.59x window median [F77][D346][D958]."
+     },
+     {
+      "type": "comparison",
+      "text": "Capex of $14.0 billion, 44.2% of revenue and 1.82x D&A, pushed free cash flow to -$1.7 billion, a -5.3% margin [F87][D342][D348][F97][D343]."
+     },
+     {
+      "type": "cause",
+      "text": "FY2022 conversion fell to 2.32x as rising fuel costs created undercollections that increased borrowings [D226][P36]."
+     },
+     {
+      "type": "comparison",
+      "text": "Stock-based compensation is immaterial at 0.8% of operating cash flow [D349]."
+     }
+    ]
+   },
+   {
+    "key": "balance_sheet",
+    "title": "Balance sheet and capital allocation",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "Net debt reached $89.6 billion in FY2025, up from $50.0 billion in FY2016, as total debt rose 6.6% [D352][D14][D376]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt is 282.3% of revenue, in the 33rd percentile of three utilities peers whose median is -235.4% [D353][D968][D969]."
+     },
+     {
+      "type": "comparison",
+      "text": "Cash of $245 million covers 0.1 years of the latest burn, and the current ratio fell to 0.55x [D350][D356][F177]."
+     },
+     {
+      "type": "comparison",
+      "text": "Dividends of $3.2 billion in FY2022 exceeded free cash flow, and the diluted share count rose 4.2% in FY2021 [D234][F94][D214]."
+     }
+    ]
+   },
+   {
+    "key": "red_flags",
+    "title": "Red flags",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "The current ratio of 0.55x is below 1.0x and near the 0.53x window low, leaving little liquidity cushion [F177][D943]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt has risen nine straight years to $89.6 billion, funding a capex programme that keeps free cash flow negative [D352][R3][F97]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow ran below 80% of net income in FY2023, FY2024 and FY2025, at -0.96x, 0.01x and -0.34x [D269][D309][D347][R4]."
+     },
+     {
+      "type": "fact",
+      "text": "FY2021 operating expenses, pretax income and tax were later restated, so that year's margin comparisons carry a data-quality caveat [X29][X69][X79][R6][R7][R8]."
+     }
+    ]
+   },
+   {
+    "key": "watch",
+    "title": "What to watch",
+    "sentences": [
+     {
+      "type": "comparison",
+      "text": "If operating margin holds above the 27.2% FY2025 high, the cost discipline of FY2024-FY2025 is confirmed; a drop toward the 22.9% median would reverse it [F28][D932][D933]."
+     },
+     {
+      "type": "comparison",
+      "text": "Free cash flow margin above the -5.8% median would signal capex is peaking; a repeat of the -19.0% FY2022 low would deepen the funding gap [D939][D937]."
+     },
+     {
+      "type": "comparison",
+      "text": "Net debt above $89.6 billion in the next 10-K would extend the nine-year climb; a decline would break it [D352][R3]."
+     }
+    ]
+   }
+  ]
+ },
+ "repair_kind": "patch"
+}

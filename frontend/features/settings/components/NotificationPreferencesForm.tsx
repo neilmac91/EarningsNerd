@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
 import { CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
+import { getSessionGeneration, isSessionGenerationCurrent } from '@/lib/api/session'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -90,7 +91,11 @@ export default function NotificationPreferencesForm() {
 
   const mutation = useMutation({
     mutationFn: updateNotificationPreferences,
-    onSuccess: (updated) => {
+    // The account the change was made under (E29): a save that answers after the session generation moved on
+    // (a logout, another login, a lost session) writes nothing into the next account's preferences.
+    onMutate: () => ({ generation: getSessionGeneration() }),
+    onSuccess: (updated, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(context.generation)) return
       // The server returns the coerced/effective prefs — trust them as the source of truth.
       queryClient.setQueryData(queryKeys.notificationPreferences(), updated)
     },

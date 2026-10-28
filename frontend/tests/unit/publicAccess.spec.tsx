@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PostHog } from 'posthog-js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LegalReadiness } from '@/features/legal/api/legal-api'
 import { legalReady } from './fixtures/legalReady'
 import { PublicAccessProvider } from '@/features/marketing/components/PublicAccessProvider'
@@ -8,8 +9,9 @@ import PublicAccessLine from '@/features/marketing/components/PublicAccessLine'
 import ClosingLine from '@/features/marketing/components/ClosingLine'
 import PricingSection from '@/features/marketing/components/PricingSection'
 import { WaitlistAccessStatus, WaitlistEntryLink } from '@/features/waitlist/components/WaitlistAccess'
+import { PILL_LABEL } from '@/features/waitlist/components/WaitlistPill'
 import Header from '@/components/Header'
-import { ACCESS_COPY, accountLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
+import { ACCESS_COPY, accountLabels, accountShortLabels, heldAccessLines, publicAccessCopy, type AccessMode } from '@/features/marketing/lib/access'
 
 const mocks = vi.hoisted(() => ({ read: vi.fn(), pathname: '/', stats: vi.fn() }))
 vi.mock('@/features/legal/api/legal-api', () => ({ getLegalReadiness: mocks.read }))
@@ -56,6 +58,11 @@ beforeEach(() => {
   mocks.read.mockReset().mockResolvedValue(closed)
   mocks.stats.mockReset().mockResolvedValue({ total_signups: 0 })
   mocks.pathname = '/'
+})
+let analytics: PostHog | undefined
+afterEach(async () => {
+  await analytics?.shutdown()
+  analytics = undefined
 })
 
 describe('public access promises follow fresh readiness', () => {
@@ -176,5 +183,112 @@ describe('the header and the hero keep their place as readiness lands (E220)', (
     fireEvent(window, new Event('focus'))
     await waitFor(() => expect(read()).toEqual([publicAccessCopy(mode, ...unconfirmed).line]))
     expect(held()).toEqual([...heldAccessLines(mode), publicAccessCopy(mode, ...unconfirmed).line])
+  })
+
+  it.each(MODES)("holds every label the %s compact bar's account link can print in its cell (E223)", (mode) => {
+    for (const [readiness, loading] of [checking, opened, closedAnswer, unconfirmed]) {
+      expect(accountShortLabels(mode), `${readiness?.collection_available} ${loading}`).toContain(publicAccessCopy(mode, readiness, loading).ctaShort)
+    }
+  })
+
+  it.each(MODES)("keeps the %s compact bar's account label in one cell with the labels it holds, the shown one alone read and recorded (E223)", async (mode) => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    // The real PostHog SDK, driven as in feedback-autocapture.spec.tsx. Its autocapture records the text of every span
+    // in a clicked link that does not opt out (ph-no-capture), so a click on the link records the shown label alone.
+    analytics = new PostHog()
+    vi.spyOn(analytics, '_send_request').mockImplementation((request) => {
+      request.callback?.({ statusCode: 200, json: {} })
+    })
+    const recorded: unknown[] = []
+    analytics.on('eventCaptured', (event) => {
+      if (event.event === '$autocapture') recorded.push(event.properties.$el_text)
+    })
+    analytics.init('phc_synthetic_header_project', {
+      api_host: 'https://example.invalid',
+      autocapture: true, capture_pageview: false, capture_pageleave: false,
+      disable_session_recording: true, disable_external_dependency_loading: true,
+      request_batching: false, advanced_disable_flags: true,
+      persistence: 'memory',
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <Header accessMode={mode} />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    // Chief design on #1686: the compact link holds the mode's label and the live example's in one cell, as the full
+    // bar's copy holds accountLabels, so the bar keeps its height as readiness lands; its name stays the shown label.
+    // The label's place in the cell is the e2e case's to measure (header-covers-nothing.spec.ts).
+    const cell = (name: string) => {
+      const link = screen.getByRole('link', { name })
+      const cells = link.firstElementChild!
+      expect(cells).toHaveClass('grid')
+      const labels = [...cells.children] as HTMLElement[]
+      for (const label of labels) expect(label).toHaveClass('col-start-1', 'row-start-1')
+      for (const label of labels) expect(label.classList.contains('invisible')).toBe(label.hasAttribute('aria-hidden'))
+      recorded.length = 0
+      link.addEventListener('click', (event) => event.preventDefault(), { once: true })
+      fireEvent.click(link)
+      return {
+        held: labels.map((label) => label.textContent),
+        read: labels.filter((label) => !label.hasAttribute('aria-hidden')).map((label) => label.textContent),
+        recorded: [...recorded],
+      }
+    }
+    const example = publicAccessCopy(mode, ...checking).ctaShort
+    await screen.findByRole('link', { name: example })
+    expect(cell(example)).toEqual({ held: accountShortLabels(mode), read: [example], recorded: [example] })
+    await act(async () => pending.resolve(legalReady))
+    const own = ACCESS_COPY[mode].ctaShort
+    expect(cell(own)).toEqual({ held: accountShortLabels(mode), read: [own], recorded: [own] })
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await screen.findByRole('link', { name: publicAccessCopy(mode, ...closedAnswer).ctaShort })
+    expect(cell(publicAccessCopy(mode, ...closedAnswer).ctaShort)).toEqual({ held: accountShortLabels(mode), read: [example], recorded: [example] })
+  })
+
+  it("keeps the waitlist page's status in one cell with the checking line and the counter's pill, the shown one alone read (E222)", async () => {
+    const pending = deferred()
+    mocks.read.mockReturnValueOnce(pending.promise)
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <PublicAccessProvider>
+          <WaitlistAccessStatus />
+        </PublicAccessProvider>
+      </QueryClientProvider>,
+    )
+    // Chief design on #1686 (comment 6433704320): the status above the waitlist form holds the checking line and the
+    // counter's pill in one cell, as the hero's access line holds its lines, so the form keeps its place as readiness
+    // answers open. The held pill is static: the counter's stats load only once readiness answers open. The shown
+    // item's place in the cell is the e2e case's to measure (legal-readiness.spec.ts).
+    const cell = () => {
+      const status = container.firstElementChild!
+      expect(status).toHaveClass('grid')
+      const items = [...status.children] as HTMLElement[]
+      for (const item of items) expect(item).toHaveClass('col-start-1', 'row-start-1')
+      for (const item of items) expect(item.classList.contains('invisible')).toBe(item.hasAttribute('aria-hidden'))
+      return {
+        held: items.filter((item) => item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+        read: items.filter((item) => !item.hasAttribute('aria-hidden')).map((item) => item.textContent),
+      }
+    }
+    const checkingLine = publicAccessCopy('invite', ...checking).line
+    expect(cell()).toEqual({ held: [PILL_LABEL], read: [checkingLine] })
+    expect(mocks.stats).not.toHaveBeenCalled()
+    await act(async () => pending.resolve(legalReady))
+    await waitFor(() => expect(mocks.stats).toHaveBeenCalledTimes(1))
+    expect(cell()).toEqual({ held: [checkingLine], read: [PILL_LABEL] })
+    mocks.read.mockResolvedValueOnce(closed)
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...closedAnswer).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
+    mocks.read.mockRejectedValueOnce(new Error('offline'))
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(cell().read).toEqual([publicAccessCopy('invite', ...unconfirmed).line]))
+    expect(cell().held).toEqual([checkingLine, PILL_LABEL])
   })
 })

@@ -673,6 +673,33 @@ const headerAt = (page: Page) =>
     return { height: header.getBoundingClientRect().height, scrollY: window.scrollY, navLeft: nav.width > 0 ? nav.left : null }
   })
 
+/**
+ * How far the compact bar's account label sits from its link's centre, across and down, in px; null where the compact
+ * bar is hidden. The link holds every label it can print in one cell (E223), so the shown label may sit in a cell a
+ * taller or wider twin sets, and its span stretches over that cell: the offset reads the text's own box, by a range.
+ */
+const compactLabelOffset = (page: Page) =>
+  page.evaluate(() => {
+    const label = document.querySelector('header[data-site-header] a > span.grid > span:not([aria-hidden])')
+    const link = label?.closest('a')
+    if (!label || !link?.checkVisibility()) return null
+    const range = document.createRange()
+    range.selectNodeContents(label)
+    const text = range.getBoundingClientRect()
+    const box = link.getBoundingClientRect()
+    return { x: text.x + text.width / 2 - (box.x + box.width / 2), y: text.y + text.height / 2 - (box.y + box.height / 2) }
+  })
+/**
+ * Where the compact bar shows, its account label is found and sits within a pixel of its link's centre, the layout's
+ * rounding; where the full bar shows, the label is out of view. Requiring the label keeps a missed selector from
+ * passing the check unread.
+ */
+const expectCentred = (offset: { x: number; y: number } | null, what: string, compact: boolean) => {
+  expect(offset !== null, `${what} is ${compact ? '' : 'not '}in view, in the ${compact ? 'compact' : 'full'} bar`).toBe(compact)
+  if (offset === null) return
+  expect(Math.max(Math.abs(offset.x), Math.abs(offset.y)), `${what} sits ${offset.x.toFixed(1)}px across and ${offset.y.toFixed(1)}px down from its link's centre`).toBeLessThanOrEqual(1)
+}
+
 const HELD_STATES = [
   { width: 1024, doubled: false, bar: 'compact' },
   { width: 1152, doubled: false, bar: 'full' },
@@ -745,15 +772,18 @@ test.describe('the site header holds one height as its auth check settles (E174,
             expect(pending.navLeft, 'the full bar shows its nav while the check is held').not.toBeNull()
             expect(Math.abs(after.navLeft! - pending.navLeft!), `the nav's left edge while the check ran (${pending.navLeft}px) and after (${after.navLeft}px)`).toBeLessThanOrEqual(0.5)
           }
-          // Each access mode's compact label in turn, as a copy fixture: the header keeps its held height with either.
+          // Each access mode's compact label in turn, as a copy fixture: the shown label takes the mode's own and its
+          // hidden twin stays the live example's, the cell the link holds in that mode (E223), and the header keeps its
+          // held height with either, the label central in its link.
           if (bar === 'compact' && who === 'guest') {
             for (const label of [ACCESS_COPY.invite.ctaShort, ACCESS_COPY.public.ctaShort]) {
               await settled.evaluate((link, text) => {
-                link.textContent = text
+                link.querySelector(':scope > span > span:not([aria-hidden])')!.textContent = text
               }, label)
               await settle(page)
               const held = await headerAt(page)
               expect(held.height, `the header with a guest's "${label}" (${held.height}px), as while the check ran (${pending.height}px)`).toBe(pending.height)
+              expectCentred(await compactLabelOffset(page), `a guest's "${label}"`, true)
             }
           }
         })
@@ -771,8 +801,11 @@ test.describe('the site header holds one height as its auth check settles (E174,
  * now holds every label its account link can print in the mode (accountLabels), and the access line the checking
  * line and the mode's own (heldAccessLines). With the auth check answered (a guest) and readiness held open, the
  * case scrolls, reads the header, the nav's left edge, the access line's height and the page's scroll, answers
- * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"); at
- * these widths it keeps the bar's height, and below 15rem under 200% text it can change it (E223).
+ * readiness, and reads them again. The compact bar's link relabels too ("Live example", then "Request invite"), and
+ * under 200% text at 370 and 450px, below 15rem, "Live example" took one line in the 88px button and "Request invite"
+ * two (102px), so the bar grew 14px; the link now holds both labels in one cell (accountShortLabels), and the bar
+ * keeps its height there too (E223, chief design on #1686, comment 6436319684). The shown label stays central in its
+ * link in either state, a one-line "Live example" in the cell a two-line "Request invite" sets included.
  */
 const READINESS_STATES = [
   { width: 320, doubled: false },
@@ -780,6 +813,8 @@ const READINESS_STATES = [
   { width: 1152, doubled: false },
   { width: 1440, doubled: false },
   { width: 320, doubled: true },
+  { width: 370, doubled: true },
+  { width: 450, doubled: true },
   { width: 640, doubled: true },
   { width: 1440, doubled: true },
   { width: 2304, doubled: true },
@@ -804,9 +839,11 @@ const accessLineAt = (page: Page) =>
 
 test.describe('the header and the hero keep their place as registration readiness lands (E220)', () => {
   for (const { width, doubled } of READINESS_STATES) {
+    // The compact bar shows below 72rem: 1152px, or 2304px under 200% text.
+    const compact = width < (doubled ? 2304 : 1152)
     test.describe(`${width}px${doubled ? ' and 200% text' : ''}, a guest`, () => {
       test.use({ viewport: { width, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block', colorScheme: 'light' })
-      test('the nav keeps its left edge, the access line its height and a scrolled page its place', async ({ page, baseURL }) => {
+      test('the nav keeps its left edge, the access line its height, a scrolled page its place and the compact label its centre', async ({ page, baseURL }) => {
         await page.addInitScript(() => {
           localStorage.setItem('theme', 'light')
           localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
@@ -821,6 +858,7 @@ test.describe('the header and the hero keep their place as registration readines
         await settle(page)
         const checking = await headerAt(page)
         const checkingLine = await accessLineAt(page)
+        expectCentred(await compactLabelOffset(page), "the compact link's label while readiness is held", compact)
         expect(checking.scrollY, 'the page is scrolled while readiness is held').toBeGreaterThan(1000)
 
         release()
@@ -828,6 +866,7 @@ test.describe('the header and the hero keep their place as registration readines
         await settle(page)
         const settled = await headerAt(page)
         const settledLine = await accessLineAt(page)
+        expectCentred(await compactLabelOffset(page), "the compact link's label once readiness answers", compact)
         expect(settledLine, `the access line while readiness was held (${checkingLine}px) and after (${settledLine}px)`).toBe(checkingLine)
         expect(settled.height, `the header while readiness was held (${checking.height}px) and after (${settled.height}px)`).toBe(checking.height)
         expect(settled.scrollY, `the page scrolled to ${checking.scrollY}px while readiness was held`).toBe(checking.scrollY)

@@ -98,8 +98,10 @@ A change of more than one kind below takes the widest reading. Any of them adds
       scroll is a motion change: §11 too);
     - a filter, window or sort that changes how many items a list shows: Analysis table;
     - Copilot answer rendering (CopilotMessage, the Ask rail): Ask answer;
+    - a run in progress shown in words (a fetch, an answer being grounded, a loading line): Activity line;
     - a fade on content (a mask or a gradient that fades it out at an edge): Locked preview;
-    - figure tiles outside /analysis: Analysis KPI.
+    - figure tiles outside /analysis: Analysis KPI;
+    - a bar of how much of a limit is used (a plan's monthly summaries): Usage meter.
 
   The ESLint design rules and the vitest gates catch the mechanical slips
   (`earningsnerd/direction-text-tokens` holds the 700-level clause for the direction text it

@@ -302,6 +302,44 @@ describe('PricingPage', () => {
     expect(screen.queryByRole('button', { name: /create a free account|request an invite/i })).not.toBeInTheDocument()
   })
 
+  // Until the subscription read answers, the identity read names the plan (E227): a Pro identity holds no billing
+  // switch, so a Pro account's plans hold still as the read answers. Where the users row's mirror lags, the read's
+  // answer decides when it lands.
+  it.each([
+    ['a paid subscription', { is_pro: true, status: 'active', plan: 'pro' }, /^current plan$/i, false],
+    ['a trialing subscription', { is_pro: true, status: 'trialing', plan: 'pro' }, /current plan \(trial\)/i, false],
+    ['a Free answer to a lagging mirror', { is_pro: false, status: null, plan: 'free' }, /^current plan$/i, true],
+  ] as const)('a Pro identity holds no billing switch while the subscription read is in flight: %s', async (_, answer, current, switchAfter) => {
+    let answerSubscription: (value: SubscriptionStatus) => void = () => {}
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { answerSubscription = resolve }))
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    renderPricing()
+    // The subscription read starts only once the identity has answered.
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByRole('button', { name: 'Checking your plan…' })).toHaveLength(2)
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+
+    answerSubscription({ ...baseSub, ...answer })
+    await screen.findByRole('button', { name: current })
+    if (switchAfter) expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
+    else expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+  })
+
+  it('a Pro identity holds no billing switch through a failed subscription read; a Free identity keeps it', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    mockGetSubscriptionStatus.mockRejectedValue(new Error('Subscription is unavailable'))
+    const pro = renderPricing()
+    await screen.findByText('Subscription is unavailable')
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    pro.unmount()
+
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: false })
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>(() => {}))
+    renderPricing()
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
+  })
+
   it('never leaves the Free card stuck on "Processing…"', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
 
@@ -665,6 +703,89 @@ describe('PricingPage', () => {
     expect(screen.getByText(on ? '10-K, 10-Q and 20-F filings from SEC EDGAR' : '10-K and 10-Q filings from SEC EDGAR')).toBeInTheDocument()
     if (!on) expect(container).not.toHaveTextContent('20-F')
     expect(container).not.toHaveTextContent(/Supported/i)
+  })
+
+  // The usage box states the account's own numbers, so it lifts as a card and takes no status tint: it was an info
+  // tint with a blue meter, and now draws the dashboard's meter, the shared UsageMeter (E196). A Free account's meter
+  // is a progress bar named with its count, in warning ink at 80% of the limit; a Pro account's box has none.
+  it.each([
+    ['a Free account at 4 of 5', { summaries_used: 4, summaries_limit: 5, is_pro: false }, '4 / 5 summaries used this month', true],
+    ['a Pro account', { summaries_used: 12, summaries_limit: null, is_pro: true }, '12 / ∞ summaries used this month', false],
+  ] as const)('draws the usage box as a card with the shared usage meter: %s', async (_, usage, line, meter) => {
+    mockGetUsage.mockResolvedValue({ ...baseUsage, ...usage })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: usage.is_pro })
+    renderPricing()
+    const box = (await screen.findByText(line)).parentElement!
+    expect(box).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    expect(box.outerHTML).not.toMatch(/(?:bg|border)-info-/)
+    expect(within(box).getByText('Current usage')).toBeInTheDocument()
+    if (meter) {
+      const bar = within(box).getByRole('progressbar', { name: '4 of 5 summaries used this month' })
+      expect(bar).toHaveAttribute('aria-valuenow', '4')
+      expect(bar).toHaveAttribute('aria-valuemax', '5')
+      expect(bar.firstElementChild).toHaveClass('bg-warning-light', 'dark:bg-warning-dark')
+    } else {
+      expect(within(box).queryByRole('progressbar')).not.toBeInTheDocument()
+    }
+  })
+
+  // While a signed-in reader's usage read is in flight the box holds its place at the plan the identity read names
+  // (E226): the card and its label show, still copies keep the count line's lines and, for a Free account, the
+  // meter's, hidden from assistive technology, and the card says it is busy. The answered card replaces it.
+  it.each([
+    ['a Free account', false, '0 / 5 summaries used this month', { summaries_used: 4, summaries_limit: 5 }, '4 / 5 summaries used this month'],
+    ['a Pro account', true, '0 / ∞ summaries used this month', { summaries_used: 12, summaries_limit: null }, '12 / ∞ summaries used this month'],
+  ] as const)('holds the usage box while the usage read is in flight: %s', async (_, isPro, copy, usage, line) => {
+    let answerUsage: (value: Usage) => void = () => {}
+    mockGetUsage.mockReturnValue(new Promise<Usage>((resolve) => { answerUsage = resolve }))
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: isPro })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub, is_pro: isPro })
+    renderPricing()
+    const held = (await screen.findByText('Current usage')).parentElement!
+    expect(held).toHaveAttribute('aria-busy', 'true')
+    expect(held).toHaveClass('bg-panel-light', 'dark:bg-panel-dark')
+    const still = within(held).getByText(copy)
+    expect(still).toHaveClass('invisible')
+    expect(still).toHaveAttribute('aria-hidden', 'true')
+    expect(held.querySelectorAll('.invisible')).toHaveLength(isPro ? 1 : 2)
+    expect(within(held).queryByRole('progressbar')).not.toBeInTheDocument()
+
+    answerUsage({ ...baseUsage, ...usage, is_pro: isPro })
+    const box = (await screen.findByText(line)).parentElement!
+    // A new card, not the held one updated: its meter mounts at its value rather than running up from empty.
+    expect(box).not.toBe(held)
+    expect(box).not.toHaveAttribute('aria-busy')
+    expect(box.querySelectorAll('.invisible')).toHaveLength(0)
+    expect(screen.queryByText(copy)).not.toBeInTheDocument()
+  })
+
+  // A guest has no usage to hold, and a failed usage read holds nothing: the retry notice says what failed. A Retry
+  // puts the failed read back to pending, and the box holds nothing through it either, so the plans do not move down
+  // and back up while the retry runs (the review of #1715).
+  it('holds no usage box for a guest or after the usage read fails, a Retry included', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue(null)
+    const guest = renderPricing()
+    await screen.findByRole('heading', { level: 2, name: 'Free' })
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+    guest.unmount()
+
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com' })
+    mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
+    mockGetUsage.mockRejectedValue(new Error('Usage is unavailable'))
+    renderPricing()
+    await screen.findByText('Usage is unavailable')
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    let answerUsage: (value: Usage) => void = () => {}
+    mockGetUsage.mockReturnValue(new Promise<Usage>((resolve) => { answerUsage = resolve }))
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(mockGetUsage).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('Usage is unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Current usage')).not.toBeInTheDocument()
+
+    answerUsage({ ...baseUsage, summaries_used: 4, summaries_limit: 5, is_pro: false })
+    await screen.findByText('4 / 5 summaries used this month')
+    expect(screen.queryByText('Usage is unavailable')).not.toBeInTheDocument()
   })
 })
 

@@ -10,7 +10,7 @@ import { getCompany } from '@/features/companies/api/companies-api'
 import { tickerShaped } from '@/features/companies/lib/tickerShape'
 import CompanyLogo from '@/components/CompanyLogo'
 import { formatCompanyName } from '@/lib/formatCompanyName'
-import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
+import { ActivityLine, Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { ApiError } from '@/lib/api/client'
@@ -318,6 +318,10 @@ export default function AnalysisPageClient() {
   }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
+  // A refresh that fails keeps the last answer on screen. A sync's answer shows the history line, never periods, so its
+  // failure is a failed load; and only the picker shows periods, so only its failure says it kept them.
+  const coverageSettled = !!coverage && !coverage.syncing
+  const periodsShown = coverageSettled && !unsupported
   // The coverage line names the company as the rest of the app does, in its display casing (EDGAR serves the
   // conformed name, often in capitals); the ticker stands in until the coverage read lands.
   const companyName = formatCompanyName(coverage?.company_name) || ticker
@@ -383,22 +387,26 @@ export default function AnalysisPageClient() {
               <Notice
                 variant="error"
                 className="mb-4"
-                title={coverage ? 'Could not refresh available periods.' : 'Could not load available periods.'}
-                description={coverage ? 'Showing the last loaded periods.' : undefined}
+                title={coverageSettled ? 'Could not refresh available periods.' : 'Could not load available periods.'}
+                description={periodsShown ? 'Showing the last loaded periods.' : undefined}
                 action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
               />
             )}
-            {coverageQuery.isPending && !coverageFailure.failed ? (
-              <div role="status" aria-label="Loading available periods">
-                <Skeleton className="h-16 w-full rounded-lg" />
-                <span className="sr-only">Loading…</span>
+            {!coverageSettled ? (
+              // One status region until the coverage answer settles: a status region announces text added to it, never text it
+              // was created with, so the history fetch is heard because its words land in the region the load already
+              // was, a failed read on the way included (the region stays, empty, beside the error Notice). The fetch is
+              // activity, never a Notice (DESIGN_SYSTEM.md §4 › Activity line).
+              <div role="status" aria-label={coverageQuery.isPending && !coverageFailure.failed ? 'Loading available periods' : undefined}>
+                {coverageFailure.failed ? null : coverageQuery.isPending ? (
+                  <>
+                    <Skeleton className="h-16 w-full rounded-lg" />
+                    <span className="sr-only">Loading…</span>
+                  </>
+                ) : coverage?.syncing ? (
+                  <ActivityLine>{`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}</ActivityLine>
+                ) : null}
               </div>
-            ) : coverage?.syncing ? (
-              !coverageFailure.failed &&
-              <Notice
-                variant="info"
-                title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-              />
             ) : unsupported ? (
               <Notice
                 variant="info"

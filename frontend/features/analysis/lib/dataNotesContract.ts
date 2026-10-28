@@ -91,7 +91,8 @@ export function decodeDataNoteList(value: unknown): DataNote[] {
 function decodeEnvelope(value: unknown): DataNotesWire {
   const raw = record(value, 'data_notes')
   // Version 2 changes only the server's copy and letter order, so both decode alike; a tab opened before the server
-  // moves keeps reading version 1.
+  // moves keeps reading its version 1 report (a completion it streams after the move is a version 2 prefix, which
+  // decodeCitationDataNotes refuses until the report is reloaded).
   if (raw.version !== 1 && raw.version !== 2) invalid('unsupported version')
   const totals = record(raw.totals, 'totals')
   return {

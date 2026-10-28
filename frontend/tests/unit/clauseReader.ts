@@ -2,8 +2,9 @@
  * A sentence read as clauses and noun phrases, for the gates that read what a sentence says rather than how near two of
  * its words stand (E162). legalTruth.spec.tsx's endpoint family reads each clause's subject, verb group and conditions
  * through it since stage 1, its consent family since stage 2, with the readings over the clauses below, its one-use
- * family since stage 3, which reads whose subject a one-use form is said of, and its session-end family since stage
- * 4b, which reads each clause alone as well as the sentence whole, so a shape one family reads the others read too
+ * family since stage 3, which reads whose subject a one-use form is said of, its session-end family since stage 4b,
+ * which reads each clause alone as well as the sentence whole, and the reuse family's sweep the same way since stage
+ * 4c, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a
  * login, an endpoint or the whole API, another operation than the analytics' own, another credential than the token)
  * and matches it at the places this reading names (matchAt), not anywhere in the sentence.
@@ -88,9 +89,14 @@
  * after "true" or "the case", opens the clause the verb takes as its object, which a negation on the group governs
  * from outside ("It is not true that ...": complementAt).
  *
- * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, and a noun the
- * lexicon also lists as a verb ends a phrase after another noun unless its own verb group follows ("the access logs
- * record every call" reads as "the access" and a verb); a gerund's object with a determiner or a pronoun reads as a
+ * Out of reach: a verb the lexicon lacks reads as a noun after a noun, so a phrase runs on over it, with a noun phrase
+ * and a verb group after it read as a relative clause on it ("A refresh token presented a second time does not by
+ * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
+ * clause-by-clause reading reads as a participle: participleAt); a clause a subordinator opens between a clause's
+ * subject and its verb runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out."
+ * reads "because it is not valid signs everyone out" as one); and a noun the lexicon also lists as a verb ends a
+ * phrase after another noun unless its own verb group follows ("the access logs record every call" reads as "the
+ * access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your
  * password ends every session" as one, which legalTruth.spec.tsx's session-end family reads as the object: gerundAt); a
  * subject named twice ("each endpoint and each page") reads as

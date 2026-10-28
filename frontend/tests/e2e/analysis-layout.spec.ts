@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
-import { KPI_FACE_GLYPHS, KPI_MISSING_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
+import { DATA_FACE_GLYPHS, DATA_FACE_MISSING } from '../../lib/format'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
@@ -513,13 +513,15 @@ async function stableAnalysisOutsideTable(page: Page) {
 async function assertNotes(page: Page, state: AnalysisState) {
   const expected = EXPECTED_NOTES[state]
   const summary = page.locator(`${NOTES} > details > summary`)
-  // One line of fine print under the table (D-061): the gaps and the calculated figures counted in words, never "—".
-  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as a dash`)
+  // One line of fine print under the table (D-061): the gaps counted beside the table's dash itself, which a screen
+  // reader hears as "a dash" (MissingValue), and the calculated figures counted in words.
+  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as —`)
+  await expect(summary.locator('.sr-only', { hasText: 'a dash' })).toHaveCount(1)
   await expect(summary).toContainText(`${expected.calculated} calculated from filed figures`)
   if (state === 'discrepancy') {
-    // A note that questions the number is named by its letter, places and words.
+    // A note that questions the number is named by its letter, places and summary words (data notes version 2).
     await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
-    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: Available sources disagree on this figure')
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values (the most recent shown)')
   } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
   if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
   // Never while a note needs review, the legacy state's record-only note included.
@@ -1063,11 +1065,19 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
       const table = document.querySelector('[data-analysis-metrics]')!
       const notes = document.querySelector('[data-analysis-data-notes]')!
       const summary = notes.querySelector(':scope > details > summary')!
-      const range = document.createRange(); range.selectNodeContents(summary)
+      // The lines it paints: the sr-only words a screen reader hears in place of a mark or the dash (MissingValue's "a
+      // dash") sit in a clipped 1px box that wraps them onto lines no reader sees, so they are left out.
+      const bottoms = new Set<number>()
+      const walker = document.createTreeWalker(summary, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const rect of range.getClientRects()) if (rect.width && rect.height) bottoms.add(Math.round(rect.bottom))
+      }
       return {
         follows: table.nextElementSibling === notes,
         gap: notes.getBoundingClientRect().top - table.getBoundingClientRect().bottom,
-        lines: new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.bottom))).size,
+        lines: bottoms.size,
       }
     })
     expect(placement.follows, 'the data notes follow the metrics table').toBe(true)
@@ -1272,10 +1282,11 @@ test.describe('analysis KPI strip, long values', () => {
   })
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
+    // kpiValueGlyphs counts ASCII and DATA_FACE_GLYPHS at the face's one advance, which the strip measures as painted
     // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at 1.25em. Each glyph is measured in
     // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
-    // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
+    // at a fallback's advance; DATA_FACE_MISSING shows the probe tells the two apart. The list is the one fmtCurrency and
+    // the trend charts' moneyPrefix print signs from (E203), so this holds it to the faces the build fetched.
     test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'annual', theme, 1)
@@ -1295,14 +1306,14 @@ test.describe('analysis KPI strip, long values', () => {
         const strip = value.closest('dl')!
         return { size: parseFloat(style.fontSize), advance: parseFloat(strip.style.getPropertyValue('--kpi-figure')), measured }
       }, glyphs)
-      const own = await measure(ascii + KPI_FACE_GLYPHS)
-      expect(own.measured).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      const own = await measure(ascii + DATA_FACE_GLYPHS)
+      expect(own.measured).toHaveLength(95 + [...DATA_FACE_GLYPHS].length)
       // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
       expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
       expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
       // The control depends on the fallback: where glyphs snap, a serif glyph within half a pixel of the advance would
       // round to it. Liberation Serif's ₩ (1em) and ₫ (0.51em) and Chromium's 0.3em narrow space are far from it.
-      const missing = await measure(KPI_MISSING_GLYPHS)
+      const missing = await measure(DATA_FACE_MISSING)
       expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
     })
   })

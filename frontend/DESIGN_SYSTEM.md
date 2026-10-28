@@ -222,7 +222,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, ActivityLine, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -344,14 +344,22 @@ filings index's header and rows, the admin lists' rows). Each takes the cap from
 body takes it from step 4, since the dialog's own inset already halves the measure there: the cookie dialog's category
 cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 200% text and broke its longest words
 ("Essen" over "tial"), and with the body's and the cards' caps keep 188, 220 and 244px and break none. A step under the
-threshold stays as it is (a Notice's `px-4`, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give way by
-their own rule, §7), and a page's gutter is no surface. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
+threshold stays as it is (a Notice's `px-4` on a page, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give
+way by their own rule, §7), and a page's gutter is no surface. A Notice is a frame wherever it is written (its recipe draws
+a full border and a radius at `px-4`), so inside a dialog's body its own `px-4` is at the threshold, and its className
+caps it with `px-cap-4`, which the stylesheet emits after Notice's own (E229): the day dialog's holiday line broke
+"Thanksgiving" inside the word at 390px under 200% text until it did, and the verify-email dialog's two failures take it
+too. Gate: the ESLint rule `earningsnerd/surface-padding-cap` (`eslint.designRules.mjs`; its
 planted cases in `tests/unit/designRules.spec.ts`), which reads a step by its resolved size (`p-gutter`, `p-[24px]`),
 fails a value it cannot read as a length, reads a class a same-file binding holds with any class attribute that names
 it, in each branch where it is named (`cx(SHELL, 'p-6')`, `framed ? FRAME : PAD`), reads pieces under separate
 conditions as one render and a ternary's arms as one or the other (`cx(bordered && FRAME, compact ? 'p-3' : 'p-6')`
 is a frame at `p-6`), failing closed where it cannot correlate two conditions, never reads a form field (input, textarea, select) as a frame, since its padding reserves room
-for a glyph, and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
+for a glyph, reads a Notice's className as a frame's and fails a Notice inside a dialog's body whose className leaves
+Notice's own `px-4` on a side in some render: Tailwind emits padding by group (`p`, then `px` and `py`, then one side) and
+within a group by class name, so `px-cap-4`, a later group or a `px` whose name sorts after `px-4` takes the sides (one of
+step 4 or more held to the cap), and `p-cap-4`, `px-3` and Tailwind 4's trailing `!` do not (`designRules.spec.ts`
+compiles the order), and fails a capped key the theme does not define anywhere, scroll padding included; out of its reach
 (review-checked, planted as stated gaps): a class a component receives as a prop, an imported constant, an object of
 recipes, a binding a ternary sets, a class through a helper other than cx()/clsx(), an inset in an inline style or a
 stylesheet or written as an arbitrary property (`[padding:24px]`), a frame drawn without a border utility
@@ -387,9 +395,15 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  never resizes the button or moves what sits beside it. Each row wraps, its label based at its
                  longest word, so where the button is narrower than the spinner beside that word the spinner
                  goes above the label, and the room is never wider than that word with the padding.
-                 RetryButton's "Trying again…" is its one use (tests/unit/button-wrap.spec.tsx holds the cell
-                 and the rows; busyControlsStayFocusable.spec.ts holds RetryButton to reserving the busy text
-                 it shows).
+                 RetryButton's "Trying again…" reserves a longer label. /delete-account's destructive button
+                 passes its shorter "Deleting…" for the row alone (E231): under 200% text its trash icon keeps
+                 its own 32px, beside the label where the label's longest word fits there and above it on the
+                 narrowest phones, where the plain row squeezed it to 14 to 16px beside the label and the
+                 button ran past its card. Nothing extra is reserved, so the button
+                 still narrows to "Deleting…" while it deletes, as it did before
+                 (tests/unit/button-wrap.spec.tsx holds the cell and the rows; busyControlsStayFocusable.spec.ts
+                 holds RetryButton to reserving the busy text it shows; tests/e2e/delete-account-button.spec.ts
+                 holds the delete button inside its card).
 
 Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
                  (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
@@ -625,8 +639,11 @@ Data note mark   <DataNoteMark> (analysis) — the footnote mark: a letter for a
                  and any marked inherited comparison note once; a shared figure/comparison note is named
                  once with its scope. A record-only, unknown or unavailable note is read in the dialog.
                  The separate visual change mark does not repeat the spoken note. Letters are
-                 snapshot-local, review notes first. Data notes counts distinguish values, QoQ, YoY and
-                 annual window comparisons; a missing validation record is never counted as a passed
+                 snapshot-local: the notes that mark a figure first (data notes version 2, in both
+                 producers), then review, unknown and unavailable notes, so a page's first visible letter
+                 is "a"; a snapshot saved under version 1 keeps its stored letters. The data notes count
+                 figures and growth figures apart (the model keeps QoQ, YoY and annual window counts for
+                 the exports); a missing validation record is never counted as a passed
                  check. Preserve every reason, including comparison-only concerns. Full-width status
                  Badges and nowrap labels do not belong in an analysis KPI or metrics cell.
                  Gates: tests/unit/dataNoteMarking.spec.tsx (D-061's rule, rule 12: noteMarksFigure
@@ -663,10 +680,12 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
                  its place: "unavailable" by default, the analysis evidence's word, or the site's own where
                  that would claim more than its data says ("no cohort", "no page", "no role listed",
-                 "name unavailable", "no percentage", "no takeaway", "Not included"). `relative`, so the words stay
-                 inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
-                 missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
-                 formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
+                 "name unavailable", "no percentage", "no takeaway", "Not included"), or "a dash" where the
+                 analysis data notes' fine print shows the token itself ("3 not in our data, shown as —").
+                 `relative`, so the words stay inside a truncating cell or a table's scroll box. A
+                 formatter returns null or '' for a missing value and its caller renders the element
+                 (`fmt(v) ?? <MissingValue />`), so the formatter's string fallback stays for a CSV, a
+                 title or an aria label. Never the token by
                  hand, a hidden dash with no words, or a span pair of one's own.
                  On the metrics table's figure sheet the dash takes the note ink (text-note-light
                  dark:text-note-dark: Lc 75.4 / -80.3 on the sheet) on the figure edge, with an empty
@@ -678,6 +697,28 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  prop of a component it cannot read, an element call; its header names what it cannot
                  read, each planted as a gap) and tests/unit/MissingValue.spec.tsx (the reading, the
                  words a site passes and the positioned clip).
+
+Usage meter      <UsageMeter used limit label className>  (components/ui, E196): a plan's monthly usage as a
+                 bar, on the dashboard's plan card and the pricing page's usage box, each inside a Card that
+                 states the counts in words. A hairline track (h-3, rounded-full, border-border-light
+                 bg-panel-light, dark:border-border-dark dark:bg-background-dark: the card's own fill in light, and
+                 in dark the page's ground, a step below the card) and a fill that never runs past it: the brand's sage below 80% of the limit, warning from 80% and error at
+                 100% (`usageMeterFill`), the status colours on a state, a limit nearly or wholly used. A
+                 `label` names it as a progress bar with its value; without one it is drawn only, beside the
+                 counts. Any bar of a limit's use draws through it, never its classes by hand, and the box
+                 around it is a Card, never a status tint: the pricing page's was an info tint with a blue
+                 meter until E196. While a signed-in reader's usage read is in flight the pricing page's box
+                 holds its place (E226): the card and its label show, still copies of the count line and, for a
+                 Free account, the meter keep their lines (`invisible`, hidden from assistive technology, the
+                 card `aria-busy`), and the answered card is keyed apart, so the meter mounts at its value. A
+                 guest and a failed read hold nothing. Under 200% text the count line sits at its wrap edge at
+                 about 290 to 350px and 518 to 580px, where a count whose figures are narrower or wider than the
+                 copy's "0" takes a line fewer or more, 40px, an exception chief design accepted on #1715.
+                 Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
+                 clamp, the naming), tests/unit/PricingPage.spec.tsx (the usage box and its hold),
+                 tests/e2e/pricing-usage-hold.spec.ts (the plans' place as the count lands) and
+                 tests/unit/statusTintResidue.spec.ts (a hand-drawn meter's warning and error fills are residue
+                 outside components/ui).
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
@@ -949,8 +990,9 @@ Analysis KPI     <KpiStrip> — a definition list whose columns follow its wides
                  a letter in a note mark's (DataNoteMark's NOTE_MARK), measure the advances as the
                  browser paints them, again as fonts load or the text size changes: 0.6em (0.9rem a
                  glyph) until they have, 14px a glyph at 24px where a browser snaps glyphs to whole
-                 pixels, as headless Chrome does under full font hinting (CI's). A glyph Geist Mono
-                 lacks (₩, ₫, U+202F) counts 1.25em, wider than any face found to draw one. So 320px
+                 pixels, as headless Chrome does under full font hinting (CI's). fmtCurrency prints a
+                 currency whose sign Geist Mono lacks by its code (₩, ₫ and the narrow space in "F CFA";
+                 E203), and a glyph the face lacks counts 1.25em, wider than any face found to draw one. So 320px
                  keeps two cards for every dollar value the fixtures carry, and a code-prefixed one
                  that two cards cannot hold ("CHF 22.8B" at 320px, 129.6px at 0.6em, or "CA$968.0M"
                  with a letter at 360px, 138.2px) takes one card, not the card's edge; under 200% text
@@ -996,20 +1038,28 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  that marks a figure (noteMarksFigure), in letter order, “ · ” and its letter as
                  DataNoteMark draws it (an sr-only “Note a: ” before it), its places (the metrics with
                  their periods, “Revenue Q2 2026; Net margin Q2 2026”, or for a note only on growth
-                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and the
-                 first clause of its message (up to the first “: ” or “. ”; a mixed note passes over the
-                 record-only sentence it may open with); then “ · N not in our data, shown as a dash”, never
-                 the dash itself in copy; “ · N figures with no check recorded” and, kept apart, “ · N
-                 growth figures with no check recorded”; “ · N calculated from filed figures”; and, for a
+                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and its
+                 summary words (noteSummary: each reason's clause from provenance.ts REASON_SUMMARIES,
+                 “not yet matched to the filing”, a record-only reason passed over and any other reason on
+                 SUMMARY_FALLBACK, “questioned by an automated check”, each clause once, joined by “; ”; the
+                 backend's data_notes.SUMMARIES and note_summary hold the same words for the exports, which
+                 print none of them yet: their summary line counts the notes until WP3); then “ · N not in our data,
+                 shown as —”, the table's dash itself, alone in a MissingValue whose words are “a dash”;
+                 “ · N figures with no check recorded” and, kept apart, “ · N growth figures with no
+                 check recorded”; “ · N calculated from filed figures”; and, for a
                  live report whose every populated figure passed, “ · No figures need review · N checked”
                  in the ink (sage never colours a number, D-030), independent of concerns on comparisons
                  (decision 9) and never while a record-only note exists, one on a growth figure included.
                  A record-only note (legacy_calculation) appears only in the open detail.
                  Open, the detail lists every note, marked ones first, each an li with its stable id
                  (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
-                 only for a note that marks a figure, the track kept for alignment), then its message,
-                 its metrics and periods, its counts in the data face (figures, then QoQ, YoY and annual
-                 window comparisons, distinct and never added to by a repeated appearance) and
+                 only for a note that marks a figure, the track kept for alignment), then its message (its
+                 reasons' words, the same sentence the dialog, the PDF, the workbook and the chart PNG print,
+                 for one figure or for a note's several, so none names one figure, asks for a selection or
+                 says how a gap is drawn),
+                 its metrics and periods, its counts in the data face (“11 figures; 16 growth figures
+                 built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
+                 figures alone, each distinct and never added to by a repeated appearance) and
                  “Comparisons: …” with their periods; an annual window keeps its recorded range. No note
                  says where on the page it appears: the comparison locators are gone. One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
@@ -1025,7 +1075,30 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  Gates: tests/unit/analysis-source-quality.spec.tsx and narrative-pane.spec.tsx (the
                  summary's words, the counts, the condition on “No figures need review”, the chips),
                  tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
-                 marked letters), tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
+                 marked letters), tests/unit/data-notes.spec.ts and the backend's
+                 tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
+                 summary words held to the shared notes fixture; marked notes lettered first; a reason's
+                 words fail where they match its page-action, drawing or one-figure patterns (“the
+                 figure”, “that value”), while a phrasing the patterns do not match passes and chief design
+                 reviews the words, and no words or summary clause carry a semicolon (the summary and a
+                 chart's footnotes list places with one), each rule tested both ways;
+                 each DATA_NOTES_VERSION's words and letters
+                 pinned by digest, so a change to them takes a new version), the
+                 backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
+                 app/ fails a reason it finds the backend writing with no words; the forms it is known to
+                 miss are named in its docstring and planted in its self-test, and any other form is
+                 unknown, so the reader also names every reason-writing line, and every line that mentions
+                 reasons or a local name tied to them either way (assigned from an expression that
+                 mentions them, or stored into them), in each module where it finds a reason, a site or a
+                 call that binds one, and a traced run of those modules (quarterly_fact_repair and
+                 filing_lineage_repair on in-memory SQLite) fails on a code it gathers with no words, on a
+                 named line no driver executes, and on a code it gathers that the reader did not find;
+                 every other function that mentions reasons is named exempt or read-only; what still
+                 passes is listed by class in its docstring, each class stated as the edge of what the
+                 gate reads, among them a value no driver evaluates in a write a driver runs, such as a
+                 generator's element over an iterable no driver fills, since the run holds lines, not the
+                 values in them),
+                 tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
@@ -1131,6 +1204,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
                  under Solid chip): pending and new on info-status, used and resolved on success, expired
                  and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The summary's Saved chip is `success`, its check-circle in the slot; until E196 (4) it was a
+                 hand-rolled 10% success tint, where the ink falls under 4.5:1 (Badge's header). Badge forwards
+                 its ref, so the chip takes focus when the save that put it there succeeds
+                 (tests/unit/busyControls.filings.spec.tsx).
                  The calendar's status ladder (StatusChip in EventRow, a label alone) is a status, so every
                  rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
                  with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
@@ -1279,8 +1356,9 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  progress indicator in sage with its words in the ink, as the generating card's live-status
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
-                 2026-07-04 to 2026-10-24) and the Copilot rail's "Reading the filing…" (Ask answer); one
-                 remains, AnalysisPageClient's history fetch (E196). Gate: tests/unit/statusTintResidue.spec.ts
+                 2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
+                 analysis page's history fetch (an info Notice until E196 (2)), the last two drawn by
+                 <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info
@@ -1301,7 +1379,41 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  (the waitlist page below lg) its title and description stay at the start with its glyph and
                  its action row, and a caller needs none of its own (WaitlistForm's two text-left went with E120; gate:
                  tests/unit/waitlistSuccessCard.spec.tsx, the two Notices of the form in that column).
+                 A surface of another shape that states what a Notice states takes the Notice's tint by import,
+                 noticeTint(variant) (components/ui/Notice.tsx), never a copy of its classes: the Copilot's error
+                 bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
+                 E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
+                 statusTintResidue.spec.ts's TINT_BORROWED).
+                 GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
+                 tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
+                 draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
+                 on the dropdown's own opaque panel, so the page does not show through its tint (the company
+                 search's failure, E196 (4)). That panel takes the Notice's 12px (`rounded-lg`), not the dropdown's
+                 16px (`rounded-xl`): it has no padding or border of its own, so its edge is the Notice's, and under
+                 a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
+                 results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
+
+Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+                 Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
+                 has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot: the dot marks a
+                 run the reader waits on that nothing else in view shows. The words are in the secondary ink; the dot
+                 is brand-strong in both themes, aria-hidden and static under reduced motion. The dot sits in a box
+                 as tall as the line's text-sm line (h-5 and the line height are both 1.25rem), so it keeps to the
+                 first line when the words wrap, and the words wrap under their own start: the Copilot's "Reading the
+                 filing…" takes two lines in the phone sheet at 320 to 390px under 200% text, the analysis page's
+                 history fetch two on a phone and four or five under 200% text. The line takes no role (the type
+                 refuses one). A status region announces text added to it, never text it was created with. On the
+                 analysis page the coverage region exists before the history fetch's words arrive (it is mounted
+                 until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
+                 card is created with "Reading the filing…" in it, so that line is not announced; the card is a
+                 status region for the plan card's sentence, which replaces the line in the same element. A caller
+                 whose words must be heard mounts its region first (review-checked). Gate:
+                 tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
+                 ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
+                 array literal joined into one string or a class attribute's parts included, wherever the list is
+                 bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -1594,32 +1706,43 @@ Stacking         z-sticky 30 (in-page sticky chrome) · z-consent 32 (the cookie
                  the live example's, which the link shows while registration readiness checks or once it
                  answers closed or unconfirmed), so the nav keeps its place as readiness lands too: in invite
                  mode it moved 4.5px at 1152 and 1440px and 9px at 2304px under 200% text as "See a live
-                 example" became "Request an invite" (E220). The cell holds min-h-10, the md button's height,
-                 so the bar is one height while the check runs and after it, for a guest and a signed-in
-                 reader (E174, E175; gate: tests/e2e/header-covers-nothing.spec.ts holds the check open,
-                 scrolls, and answers it in the compact bar at 1024px and the full bar at 1152 and 1440px, and
-                 under 200% text in the compact bar at 640, 800, 1024 and 1440px and the full bar at 2304px:
-                 the header keeps its height, the full bar's nav its left edge, and a guest's compact bar its
-                 height with either access mode's label; its readiness case holds readiness open and answers
-                 it, and the header keeps its height at 320, 390, 1152 and 1440px and at 640, 1440 and 2304px
-                 under 200% text, and the full bar's nav its left edge (E220); tests/unit/Header.spec.tsx
-                 holds the copy unfocusable, unread and holding, in one grid, every label a guest's live link
-                 can print in either access mode, and tests/unit/publicAccess.spec.tsx every full-bar label
-                 `publicAccessCopy` can print). The wordmark shows from 40rem
-                 (`[@media(min-width:40rem)]:inline`: 640px at the default size, 1280px under 200% text), so
-                 under enlarged text the mark stands alone where a guest's row needs the room. Below about
-                 15rem (480px under 200% text, 360px under 150%) a guest's account link no longer fits beside
-                 the logo as it is, so as it appears its label wraps or it takes a row of its own, and the
-                 compact bar still grows: under 200% text in CI's fonts, a wrapped label (14px) at 360px with
-                 "Sign up" and 390 to 450px with "Request invite", and a whole row at 320px with either label
-                 and at 360 and 375px with "Request invite". Chief design accepts that band, since any
-                 reservation would give every reader the same extra row (#1558, comment 6377073723). A
-                 signed-in reader's bell joins the compact bar as the check settles (E176) and needs less:
-                 below about 10.4rem (332px under 200% text) the bell and the menu button take a row of their
-                 own as it appears, the bar 137 to 225px at 320 and 330px under 200% text, within the same
-                 band (#1565, comment 6380050139); a reader's bar holds one row at 320px at the default size
-                 and from 334px under 200% text (gate: the held-check case's reader-only states at 320px and
-                 at 360 and 390px under 200% text).
+                 example" became "Request an invite" (E220). The compact bar's account link holds its labels the
+                 same way, in one cell inside the link (`accountShortLabels`: the mode's `ctaShort` and the live
+                 example's, the shown one visible and the other `invisible` and `aria-hidden`, so the link's
+                 name stays the shown label; `items-center` and `text-center` keep that label central in the
+                 cell, and the other carries `ph-no-capture`, since PostHog's autocapture records the text of
+                 every span in a clicked link), so the bar keeps its height as readiness lands: under 200% text
+                 at 370 and 450px, "Live example" took one line in the 88px button and "Request invite" two
+                 (102px), and the bar grew 14px (E223, chief design on #1686, comment 6436319684). The controls
+                 cell holds min-h-10, the md button's height, so the bar is one height while the check runs and
+                 after it, for a guest and a signed-in reader (E174, E175; gate:
+                 tests/e2e/header-covers-nothing.spec.ts holds the check open, scrolls, and answers it in the
+                 compact bar at 1024px and the full bar at 1152 and 1440px, and under 200% text in the compact
+                 bar at 640, 800, 1024 and 1440px and the full bar at 2304px: the header keeps its height, the
+                 full bar's nav its left edge, and a guest's compact bar its height with either access mode's
+                 label, the label central in its link; its readiness case holds readiness open and answers it,
+                 and the header keeps its height at 320, 390, 1152 and 1440px and at 320, 370, 450, 640, 1440
+                 and 2304px under 200% text, the full bar's nav its left edge and the compact link's label its
+                 centre (E220, E223); tests/unit/Header.spec.tsx holds the copy unfocusable, unread and holding,
+                 in one grid, every label a guest's live link can print in either access mode, and
+                 tests/unit/publicAccess.spec.tsx every full-bar label `publicAccessCopy` can print, and the
+                 compact link's cell every short label, the shown one alone read and the one a click records in
+                 PostHog). The wordmark shows from 40rem (`[@media(min-width:40rem)]:inline`: 640px at the
+                 default size, 1280px under 200% text), so under enlarged text the mark stands alone where a
+                 guest's row needs the room. Below about 15rem (480px under 200% text, 360px under 150%) a
+                 guest's account link no longer fits beside the logo as it is, so as it appears its label wraps
+                 or it takes a row of its own, and the compact bar still grows: under 200% text in CI's fonts,
+                 every 10px from 320 to 500px, a whole row (88 to 102px) from 320 to 380px and a wrapped label
+                 (14px) from 390 to 440px in either access mode, to 450px in invite mode. The hold sizes a
+                 public build's link to "Live example": "Sign up" alone took a row only at 320 and 330px,
+                 wrapped at 340 to 370px and kept the bar's height from 375px (E223). Chief design accepts that
+                 band, since any reservation would give every reader the same extra row (#1558, comment
+                 6377073723). A signed-in reader's bell joins the compact bar as the check settles (E176) and
+                 needs less: below about 10.4rem (332px under 200% text) the bell and the menu button take a row
+                 of their own as it appears, the bar 137 to 225px at 320 and 330px under 200% text, within the
+                 same band (#1565, comment 6380050139); a reader's bar holds one row at 320px at the default
+                 size and from 334px under 200% text (gate: the held-check case's reader-only states at 320px
+                 and at 360 and 390px under 200% text).
                  A page's own header (SecondaryHeader: pricing, the dashboard, the watchlist, admin) scrolls
                  with the page on an opaque panel; only a table's
                  header cells stick at `top-0`, inside the table's own scroll box, and a table whose headings
@@ -2182,13 +2305,15 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  403, the Pro fair-use 429) is the quiet answer card with role="status" and the server's
                  sentence, plus a lightning “Upgrade to Pro” except for the fair-use cap; the reading card
                  is that status region already, so the sentence is announced when it lands. The error tint
-                 and role="alert" stay for real failures. New Ask-this-Filing responses wait for
+                 (Notice's, by noticeTint) and role="alert" stay for real failures. New Ask-this-Filing responses wait for
                  an admitted completion; failed referenced citations and draft answer text are
                  withheld before reaching this renderer. Numeric/text grouping is not a separate
                  attestation. Never conflate source matching with support for every answer claim.
                  It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error; there is no streaming status, token text or caret.
+                 done or error; there is no streaming status, token text or caret. The reading line is
+                 <ActivityLine> (Activity line), whose dot keeps to the first line when the words wrap in the
+                 phone sheet under 200% text.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
@@ -2392,9 +2517,28 @@ to 120px; chief design chose that over the shift on #1686. A space between the c
 server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it: the closed line
 takes a row more than the checking line at some widths, and holding it would put a closed notice in every visit's
 server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's
-and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 640, 1440 and 2304px
-under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
+and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 370, 450, 640, 1440 and
+2304px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
 answers, and the lines it holds).
+
+**The waitlist page's status** (`WaitlistAccessStatus`, above the waitlist form) holds the same way (E222, chief
+design on #1686, comment 6433704320). The checking line and the counter's pill as it opens (`WaitlistPill` on
+`PILL_LABEL`) share one grid cell, the shown one visible and the other `invisible` and `aria-hidden`, and
+`items-center` keeps the shown one central where the other is taller. As the line became the pill, the form under it
+moved 2px up from 320 to 460px and 18px down from 470 to 1440px, and under 200% text 6 to 86px up, or 34px down from
+900 to 1000px and from 1760px (in CI's fonts, every 10px at the default size and every 20 to 40px under 200% text).
+The cell keeps the taller of the two: the pill sits in the line's room where the line is taller (2px, or 6 to 86px
+under 200% text), and the line, or a closed or unconfirmed one, in the pill's where the pill is (18px, or 34px). The
+held pill is static, so the counter's stats load only once readiness answers open. A closed or unconfirmed answer
+joins the cell when shown and can still grow it. A count of 25 or more takes a label short enough that the cell keeps
+its height, "Join 1,234+ others" (E225, chief design on #1699): "Join 1,234+ others on the waitlist" wrapped under
+200% text where "Join the waitlist" did not, and the cell grew 34px as the count landed at 360, 480 to 560 and 1040
+to 1160px, and at 1200px with 12,345+. The new label is still a character longer than the opening one and takes a
+line more at about 330 to 390px under 200% text; there the checking line is taller still, so the cell holds (chief
+design on #1709). Gates: `tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre
+as readiness answers open, at 390 and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text; the form's
+place as a count lands, at 360, 480, 520, 560, 1040, 1100, 1160 and 1200px under 200% text and at 390 and 1440px)
+and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers).
 
 Muted text on the cream page ground is `text-secondary`;
 `text-tertiary-light` (`#636A77`, 4.9:1 on cream) carries captions, counts and micro-labels on either
@@ -2402,8 +2546,8 @@ ground, with `text-tertiary-dark` (`#9CA3AF`, 7.4:1 on navy) its dark twin (§2)
 read stays secondary (`#D1D5DB` in dark), including the point-of-use AI disclaimer
 (`AiDisclaimer`) and the footer's "Data sourced from SEC EDGAR … Not investment advice" line. Gate:
 `tests/e2e/text-floors.spec.ts` measures every tertiary-ink text on the main routes against its
-rendered ground, in the light theme; the dark twin's floor is held by
-`tests/unit/figureSurfaceInks.spec.ts` (4.5:1 or more on the dark panel and page).
+rendered ground, tints included, in both themes (the dark twin since E202 (1));
+`tests/unit/figureSurfaceInks.spec.ts` also holds the dark twin to 4.5:1 or more on the bare dark panel and page.
 
 **Reflow at 200% text.** The pricing section's billing toggle (a radio group, not the
 SegmentedControl) wraps its two segments whole onto a second row inside its one shell when they do not
@@ -2431,7 +2575,9 @@ anywhere by design (a 358px column; in 326px "Indemnification", 330px, left its 
 and /terms' "EarningsNerd", "Subscriptions,", "MERCHANTABILITY," and "Indemnification", three of them by 1
 to 5px; at 360px "Indemnification" alone.
 Before E131, at 320px under 200% text /security reached 348px on its headings' "Authentication" and
-"Infrastructure" and /terms 362px on "Indemnification". The auth shell's lockup yields to
+"Infrastructure" and /terms 362px on "Indemnification". /delete-account's `<main>` takes the same gutter,
+its query container in the route's layout, so the signed-in card keeps room for its destructive button
+(E231). The auth shell's lockup yields to
 the mark alone below a 12rem viewport (§8). Gate: `tests/e2e/reflow-200.spec.ts` (the toggle's labels
 at 360 and 390px, every line but the last ending at the middot; every form code in the landing's rows and
 its close on one painted line at 320 and 390px under 200% text and at 320px at the default size, and the
@@ -2612,8 +2758,8 @@ Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue�
 alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
 labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
 (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`, color
-with `directionTone()`/`directionTextTone()` from `ui/Chart.tsx`. Chart chrome (grid, axis, labels,
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme`
+carries the gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid, axis, labels,
 crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
 chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark`
@@ -2623,9 +2769,12 @@ follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carrie
 `chartTheme` ink to the tailwind token it copies, per theme. The chart export's secondary ink
 (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`.
-Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
-category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
+Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
+left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
+A value axis whose labels follow the filer's currency takes `width="auto"`, which Recharts measures before
+paint (FundamentalsTrendChart): a currency printed by its code ("CHF 800.0B", "KRW 800.0T"; fmtCurrency prints
+KRW, VND and XOF by code, E203) outgrew the fixed 70px it had.
 The analysis trend charts take each value axis from the chart engine (`features/analysis/lib/charts`,
 `valueAxis`): zero-anchored ticks on its grid, one unit, the filer's currency, every tick printed on
 one line. Cash generation has one axis, the balance sheet draws equity in a panel of its own, and a
@@ -2695,13 +2844,13 @@ Never invert or neutralize by hardcoding concept names in the frontend — consu
 ## 11. Motion — tokens only
 
 Four durations + two curves, defined ONCE (`globals.css` `:root`; JS mirror `lib/motion.ts` for
-Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.**
+timers and rAF loops, which need numbers). **No raw ms or bezier strings anywhere else.**
 
 | Token | Value | Use |
 |-------|-------|-----|
 | `--duration-fast` / `duration-fast` | 150ms | hover + color feedback |
 | `--duration-base` / `duration-base` | 200ms | crossfades, theme switch, skeleton→content — also the bare `transition-*` default |
-| `--duration-slow` / `duration-slow` | 600ms | entrances, draw-ins, count-up |
+| `--duration-slow` / `duration-slow` | 600ms | entrances, count-up |
 | `--duration-ambient` / `duration-ambient` | 1800ms | ambient loops + attention decay: shimmer, pulse, citation-flash |
 | `--ease-standard` | cubic-bezier(0.4, 0, 0.2, 1) | everything |
 | `--ease-pop` | cubic-bezier(0.34, 1.56, 0.64, 1) | the success check-pop ONLY |
@@ -2730,12 +2879,13 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
   spinner becomes its static glyph,
   a skeleton a static bone, an entrance shows at once. A `globals.css` animation class stops itself in a
   `prefers-reduced-motion: reduce` block (citation-flash keeps a static tint). Count-up shows its final
-  value, Recharts takes `lineProps(reduced)`, `scroll-behavior` is `auto`. Gates: the
+  value, the Recharts bars draw without their grow-in (`isAnimationActive`'s default, `'auto'`, reads the
+  preference), `scroll-behavior` is `auto`. Gates: the
   `earningsnerd/no-unguarded-animation` ESLint rule for the utilities; `tests/unit/designRules.spec.ts`
   for the globals.css classes; `tests/e2e/loading-and-motion.spec.ts` finds no animation under reduced
   motion on the home, sign-in and sign-up pages or in the dashboard loading states.
 - **Nothing decorative** — `animate-float` is retired. Signature set: count-up, citation-flash,
-  skeleton→content, sparkline draw-in, check-pop.
+  skeleton→content, check-pop.
 
 ## 12. Definition-of-done for any theme/token change
 

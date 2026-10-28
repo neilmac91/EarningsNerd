@@ -51,7 +51,8 @@ summary-pane branches swap only components that observe no shared query). It can
 !failure.failed`), a gate inside a component under features/ or components/, or a `!isLoading && <Panel />`
 that unmounts a panel instead of replacing the page; review still reads those.
 
-**Evidence**: `frontend/app/dashboard/settings/page.tsx` (`userLoading && !userFailure.failed`). The bound is
+**Evidence**: `frontend/app/dashboard/settings/page.tsx` (`userPending && !userFailure.failed`, as the dashboard
+reads it, since E29 (2): a first read paused offline shows the bones; `userLoading` before). The bound is
 pinned in `frontend/tests/unit/busyControls.settings.spec.tsx` ("SettingsPage over a failed account check"): a
 non-401 `/me` failure renders the page with the billing Notice after at most 2 `/me` calls in 200 ms, with the
 real ProfileForm and BillingPanel mounted. With the old `if (userLoading)` gate it sends 11. The spec renders
