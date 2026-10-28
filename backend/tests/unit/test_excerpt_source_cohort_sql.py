@@ -5,9 +5,11 @@ its first section (``extract_critical_sections``), its recovered windows alone, 
 labels (``assemble_excerpt_from_sections``, ``_SECTION_LAYOUT``) on a row created since that assembler. This gate
 holds the CASE's arms, in order, to those builders: it reads each arm's predicate and label out of the SQL,
 classifies as the SQL does, and runs both real builders over the three real filings the parity test holds (a
-10-Q, a 10-K and a 20-F). It also holds the SQL's marks to the log reader's and to tasks/todo.md's E28 values,
-and its output to counts. Nothing runs the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with
-the SQL file, whose header names it.
+10-Q, a 10-K and a 20-F). It also holds the SQL's marks to the log reader's (the last native eval report and
+#1350's deploy are tasks/todo.md's E28 values; the first all-regex report is the evidence README's), its
+transaction to READ ONLY, its buckets to those marks, its output to counts, and the file to its own step, never
+detection-sql. Nothing runs the SQL in CI; its rehearsal on PostgreSQL is in its PR. Retire it with the SQL file,
+whose header names it.
 """
 from __future__ import annotations
 
@@ -124,6 +126,27 @@ def test_the_marks_are_the_readers_and_e28s():
     assert [mark for _name, mark in reader.MARKS[1:]] == [f"{day.replace(' ', 'T')}:00Z" for day, _ in sql]
     # The reader's size cap is the parse's own.
     assert reader.SIZE_CAP == xbrl_sections._MAX_SECTION_HTML_CHARS
+
+
+def test_the_transaction_is_read_only_and_bounded_and_the_buckets_follow_the_marks():
+    text = SQL.read_text()
+    assert "\nBEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;\n" in text
+    assert "\nSET LOCAL statement_timeout = '120s';\nSET LOCAL lock_timeout = '10s';\n" in text
+    assert text.rstrip().endswith("COMMIT;")
+    for column in ("o.created_at", "o.last_write"):
+        assert (f"CASE WHEN {column} < m.last_native_report THEN '1 before'\n"
+                f"                WHEN {column} < m.first_regex_report THEN '2 onset'\n"
+                f"                WHEN {column} < m.fix_deployed THEN '3 window'\n"
+                "                ELSE '4 after' END") in text
+    assert "COALESCE(c.updated_at, c.created_at) AS last_write" in text
+    assert "EXISTS (SELECT 1 FROM summaries s WHERE s.filing_id = o.filing_id) AS with_summary" in text
+    assert "AND (newer.filing_date, newer.id) > (o.filing_date, o.filing_id)" in text
+
+
+def test_the_cohort_runs_as_its_own_step_never_with_detection_sql():
+    # detection-sql runs every file under ops/detection; this one reads filing_content_cache, outside that loop's
+    # stated read scope, and a failure in it would cut off the loop's other snapshots.
+    assert not [path for path in (ROOT / "ops" / "detection").glob("*.sql") if "critical_excerpt" in path.read_text()]
 
 
 def test_the_output_is_counts_by_group():
