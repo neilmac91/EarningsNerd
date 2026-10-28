@@ -4,7 +4,7 @@ Date: 2026-10-26   Area: test, backend
 
 **Context**: `backend/tests/unit/test_data_note_reasons_have_words.py` (PR #1659) holds that every reason
 code the backend writes has words. It began as an AST reader that follows a string into a `reasons` list.
-Each of seven review rounds found dataflow forms it missed: a method's `self` offset, a loop target, a tuple
+Each of eight review rounds found dataflow forms it missed: a method's `self` offset, a loop target, a tuple
 unpacking and an imported constant in the first; a parameter its own function rebinds (lost by the first
 fix), a list filled by `append` under another name and a parameter's default in the second; a tuple loop
 target over a table (`for code, limit in CHECKS:`) in the third; and in the fourth, that table filled by
@@ -39,8 +39,8 @@ knew.
   - a value written that breaks the rule (here, a code with no words);
   - a named line that no driver executes, so a new branch fails by line until someone drives it;
   - a value a driver writes that the reader did not find in those modules, so a code whose form the reader
-    cannot follow fails wherever a run writes that code (the codes the drivers' inputs produce, not every
-    code an expression can).
+    cannot follow fails wherever a run writes that code where it gathers it (the codes the drivers' inputs
+    produce, not every code an expression can).
 - Test the naming itself: assert the lines the reader names on a planted module (a site, a binding call, a
   literal on a line apart from its site), and that each emitter module has lines to run. Name the line that
   runs, not the line a literal sits on: CPython folds a display of constants into one constant loaded at its
@@ -64,7 +64,7 @@ knew.
   since the run holds the codes its inputs produce.
 - State each class as the edge of what the mechanism reads (the lines it names, the values it gathers),
   not as the forms found so far, and start from what an escape needs (here, a code the reader misses that no
-  gathered value holds). Do not claim the classes are complete: three review rounds each falsified a
+  gathered value holds). Do not claim the classes are complete: two review rounds each falsified a
   "falls in a class by construction" claim with a form outside every class (a generator's element, a code
   built at run time that every driven input resolves to a found one). Say they are the ways known so far.
 - Stop when the remaining escapes are classes no cheap rule closes. Five rounds of "one more form" is the
@@ -73,7 +73,7 @@ knew.
   `test-gates-must-be-as-wide-as-their-rule.md`); the run is the backstop, not a licence for a narrow
   reader.
 
-**Evidence**: PR #1659's review rounds 1 to 7 (2026-10-25 to 27) and their fix commits;
+**Evidence**: PR #1659's review rounds 1 to 8 (2026-10-25 to 27) and their fix commits;
 `backend/tests/unit/test_data_note_reasons_have_words.py` (`read_reasons`, `_drive`, `_executed` and
 `test_the_drivers_reach_every_reason_writing_line_and_write_only_reasons_the_reader_finds`). Its mutation
 proofs: a reconcile branch that writes a worded code the reader misses fails (c), a new branch the drivers
