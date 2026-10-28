@@ -180,6 +180,47 @@ describe('a mutation answer that lands after the account changed (E29)', () => {
     expect(client.getQueryData(queryKeys.notificationPreferences())).toEqual(next)
   })
 
+  it("a star pressed as the account changes, while it waits on its cancel, sends nothing and leaves the next account's watchlist", async () => {
+    api.getCompany.mockResolvedValue(company)
+    api.getCompanyFilings.mockResolvedValue(filings)
+    api.getSummary.mockResolvedValue(null)
+    api.getCurrentUserSafe.mockResolvedValue({ id: 1, email: 'a@example.test' })
+    api.getWatchlist.mockResolvedValue([watchlistItem(2, 'MSFT')])
+    const { client } = renderWithClient(<CompanyPageClient initialCompany={company} initialFilings={filings} />)
+    const star = await screen.findByRole('button', { name: 'Add to watchlist' })
+    await waitFor(() => expect(client.getQueryData<WatchlistItem[]>(queryKeys.watchlist())).toHaveLength(1))
+    api.getWatchlist.mockReturnValue(new Promise(() => {}))
+
+    // No await between them: the press's onMutate is waiting on its cancel when the next account signs in.
+    fireEvent.click(star)
+    const next = [watchlistItem(3, 'GOOG')]
+    act(() => {
+      resetAccountQueries(client)
+      client.setQueryData(queryKeys.currentUser(), { id: 2, email: 'b@example.test' })
+      client.setQueryData(queryKeys.watchlist(), next)
+    })
+    await settle()
+    // Without the assert after the wait, the press added AAPL to the next account's list and sent the add as theirs.
+    expect(api.addToWatchlist).not.toHaveBeenCalled()
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual(next)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it("with the form still on screen, a late save leaves the next account's switches as that account's read set them", async () => {
+    const { client, saved } = await pressPreference()
+    api.getNotificationPreferences.mockReturnValue(new Promise(() => {}))
+    const next = preferences({ notify_10k: false, realtime: true })
+    act(() => {
+      resetAccountQueries(client)
+      client.setQueryData(queryKeys.notificationPreferences(), next)
+    })
+    await act(async () => saved.resolve(preferences({ notify_10q: true })))
+    await settle()
+    // Unfenced, the switches showed the first account's answer: 10-K on and 10-Q on.
+    expect(screen.getByRole('switch', { name: 'Annual reports (10-K)' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: 'Quarterly reports (10-Q)' })).toHaveAttribute('aria-checked', 'false')
+  })
+
   // In the same account the answers still land, so a fence that drops every answer fails here.
   it('in the same account, a star that fails still rolls back and says so', async () => {
     const { client, answer, before } = await pressStar()
