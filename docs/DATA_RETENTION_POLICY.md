@@ -4,7 +4,7 @@ Reviewed **23 October 2026**. This records current source behaviour and remainin
 
 ## 1. Implementation owners
 
-[retention_service.py](../backend/app/services/retention_service.py) owns scheduled cleanup criteria. [user_account_service.py](../backend/app/services/user_account_service.py) owns the database step of account deletion; [the users router](../backend/app/routers/users.py) owns provider requests, the audit event and session-cookie clearing. Treat the implementation as the evidence for these behaviours, rather than the historical schedules this document replaces.
+[retention_service.py](../backend/app/services/retention_service.py) owns scheduled cleanup criteria. [user_account_service.py](../backend/app/services/user_account_service.py) owns the database step of account deletion, which commits the deletion and its `user_deleted` audit row together or neither; [the users router](../backend/app/routers/users.py) owns provider requests and session-cookie clearing. Treat the implementation as the evidence for these behaviours, rather than the historical schedules this document replaces.
 
 ## 2. Scheduled cleanup targets
 

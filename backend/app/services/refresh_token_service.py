@@ -51,7 +51,7 @@ def lock_user_tokens(db: Session, user_id: int) -> None:
     successor. A guarded UPDATE alone would not stop the logout-all case: its bulk UPDATE sees only
     rows committed when it starts, so a successor committed after that survives it. The lock makes
     the second writer wait for the first's commit, and the reads it then makes see that commit (READ
-    COMMITTED). The account's deletion takes it as well (``user_account_service.delete_user``), as its
+    COMMITTED). The account's deletion takes it as well (``user_account_service._lock_account``), as its
     cascade deletes the tokens, and so do a password login and a password change before they check the
     hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``), a
     password reset before it reads the account it writes (``complete_password_reset_by_id``), and an unlink

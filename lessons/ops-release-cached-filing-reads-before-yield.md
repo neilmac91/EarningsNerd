@@ -157,8 +157,8 @@ and flushed on the loop. The export is now one thread-pool unit that builds the 
 row, releases its session and renders the response. The deletion releases the auth lookup's connection
 before its third-party calls, sends PostHog its deletion event in a worker thread (the flush waits up to
 10 s, holding that thread's token), then writes its audit row and deletes the account in one unit that
-rolls a failure back before its release. That unit deletes the account by its id once the lock's own
-query finds the row (`user_account_service.delete_user`; `db.get` would hand back a row the session
+rolls a failure back before its release (one transaction since F19, so a failed delete leaves no audit row). That unit deletes the account by its id once the lock's own
+query finds the row (`user_account_service.delete_account`; `db.get` would hand back a row the session
 loaded before another transaction deleted it): the second of two deletions of one account at once finds
 none there and answers the route's own 500, naming the account in its log line, where the base's re-read
 the expired account in its error log and raised, so the global handler answered (a local PostgreSQL 16
