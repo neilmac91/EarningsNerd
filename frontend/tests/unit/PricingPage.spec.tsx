@@ -714,6 +714,8 @@ describe('PricingPage', () => {
 
     answerUsage({ ...baseUsage, ...usage, is_pro: isPro })
     const box = (await screen.findByText(line)).parentElement!
+    // A new card, not the held one updated: its meter mounts at its value rather than running up from empty.
+    expect(box).not.toBe(held)
     expect(box).not.toHaveAttribute('aria-busy')
     expect(box.querySelectorAll('.invisible')).toHaveLength(0)
     expect(screen.queryByText(copy)).not.toBeInTheDocument()

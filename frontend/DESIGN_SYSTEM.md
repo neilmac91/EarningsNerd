@@ -688,9 +688,15 @@ Usage meter      <UsageMeter used limit label className>  (components/ui, E196):
                  `label` names it as a progress bar with its value; without one it is drawn only, beside the
                  counts. Any bar of a limit's use draws through it, never its classes by hand, and the box
                  around it is a Card, never a status tint: the pricing page's was an info tint with a blue
-                 meter until E196. Gates: tests/unit/UsageMeter.spec.tsx (the fills, the clamp, the naming),
-                 tests/unit/PricingPage.spec.tsx (the usage box) and tests/unit/statusTintResidue.spec.ts (a
-                 hand-drawn meter's warning and error fills are residue outside components/ui).
+                 meter until E196. While a signed-in reader's usage read is in flight the pricing page's box
+                 holds its place (E226): the card and its label show, still copies of the count line and, for a
+                 Free account, the meter keep their lines (`invisible`, hidden from assistive technology, the
+                 card `aria-busy`), and the answered card is keyed apart, so the meter mounts at its value. A
+                 guest and a failed read hold nothing. Gates: tests/unit/UsageMeter.spec.tsx (the fills, the
+                 clamp, the naming), tests/unit/PricingPage.spec.tsx (the usage box and its hold),
+                 tests/e2e/pricing-usage-hold.spec.ts (the plans' place as the count lands) and
+                 tests/unit/statusTintResidue.spec.ts (a hand-drawn meter's warning and error fills are residue
+                 outside components/ui).
 
 Analysis table   <MetricsTable> — equal rem period columns with semantic row headers. The label
                  column sticks only when the scrollport can also show one whole period; otherwise
