@@ -302,6 +302,44 @@ describe('PricingPage', () => {
     expect(screen.queryByRole('button', { name: /create a free account|request an invite/i })).not.toBeInTheDocument()
   })
 
+  // Until the subscription read answers, the identity read names the plan (E227): a Pro identity holds no billing
+  // switch, so a Pro account's plans hold still as the read answers. Where the users row's mirror lags, the read's
+  // answer decides when it lands.
+  it.each([
+    ['a paid subscription', { is_pro: true, status: 'active', plan: 'pro' }, /^current plan$/i, false],
+    ['a trialing subscription', { is_pro: true, status: 'trialing', plan: 'pro' }, /current plan \(trial\)/i, false],
+    ['a Free answer to a lagging mirror', { is_pro: false, status: null, plan: 'free' }, /^current plan$/i, true],
+  ] as const)('a Pro identity holds no billing switch while the subscription read is in flight: %s', async (_, answer, current, switchAfter) => {
+    let answerSubscription: (value: SubscriptionStatus) => void = () => {}
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>((resolve) => { answerSubscription = resolve }))
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    renderPricing()
+    // The subscription read starts only once the identity has answered.
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(1))
+    expect(screen.getAllByRole('button', { name: 'Checking your plan…' })).toHaveLength(2)
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+
+    answerSubscription({ ...baseSub, ...answer })
+    await screen.findByRole('button', { name: current })
+    if (switchAfter) expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
+    else expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+  })
+
+  it('a Pro identity holds no billing switch through a failed subscription read; a Free identity keeps it', async () => {
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: true })
+    mockGetSubscriptionStatus.mockRejectedValue(new Error('Subscription is unavailable'))
+    const pro = renderPricing()
+    await screen.findByText('Subscription is unavailable')
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    pro.unmount()
+
+    mockGetCurrentUserSafe.mockResolvedValue({ id: 1, email: 'u@example.com', is_pro: false })
+    mockGetSubscriptionStatus.mockReturnValue(new Promise<SubscriptionStatus>(() => {}))
+    renderPricing()
+    await waitFor(() => expect(mockGetSubscriptionStatus).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('switch', BILLING_SWITCH)).toBeInTheDocument()
+  })
+
   it('never leaves the Free card stuck on "Processing…"', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
 

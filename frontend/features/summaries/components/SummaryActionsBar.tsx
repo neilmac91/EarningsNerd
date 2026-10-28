@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import analytics from '@/lib/analytics'
+import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { BookmarkSimpleIcon, CheckCircleIcon, CopyIcon, DownloadSimpleIcon, FileArrowDownIcon } from '@/lib/icons'
 
@@ -78,16 +79,17 @@ export function SummaryActionsBar({
         <div>
           {summaryId != null && (
             isSaved ? (
-              // Terminal confirmation — a static success chip (no success Badge variant exists;
-              // DS §9 reserves success for a genuine done-state, which "Saved" is).
-              <span
+              // Terminal confirmation: Badge's success status chip (DS §9 reserves success for a genuine
+              // done-state, which "Saved" is). The chip takes focus when the save that put it here succeeds.
+              <Badge
                 ref={savedRef}
                 tabIndex={-1}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold outline-none bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark"
+                variant="success"
+                icon={<CheckCircleIcon className="h-4 w-4" aria-hidden="true" />}
+                className="outline-none"
               >
-                <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
                 Saved
-              </span>
+              </Badge>
             ) : (
               // Primary treatment (was secondary) so the save affordance is discoverable pre-scroll
               // rather than reading as a low-key optional action — it is the main thing a signed-in

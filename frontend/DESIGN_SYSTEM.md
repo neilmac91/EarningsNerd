@@ -1154,6 +1154,10 @@ Status chip      A row's status pill (admin InviteStatusBadge, FeedbackStatusBad
                  <Badge> of its status set (components/ui/Badge.tsx, BadgeStatusVariant; the Badge entry
                  under Solid chip): pending and new on info-status, used and resolved on success, expired
                  and triaged on warning-status, revoked on neutral-status, the icon in Badge's `icon` slot.
+                 The summary's Saved chip is `success`, its check-circle in the slot; until E196 (4) it was a
+                 hand-rolled 10% success tint, where the ink falls under 4.5:1 (Badge's header). Badge forwards
+                 its ref, so the chip takes focus when the save that put it there succeeds
+                 (tests/unit/busyControls.filings.spec.tsx).
                  The calendar's status ladder (StatusChip in EventRow, a label alone) is a status, so every
                  rung takes the set (E141): "Est." on `tentative`, the set's sixth, a date not yet settled,
                  with no fill in either theme, so the row is its ground (on the admin rows 5.21:1, and 4.90:1
@@ -1329,6 +1333,11 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
                  E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
                  statusTintResidue.spec.ts's TINT_BORROWED).
+                 GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
+                 tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
+                 draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
+                 on the dropdown's own opaque panel, so the page does not show through its tint (the company
+                 search's failure, E196 (4)).
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
