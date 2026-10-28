@@ -141,19 +141,27 @@ def _audit_details(email: str) -> list[dict]:
         db.close()
 
 
+# Each write of the deletion's transaction _failing_db can refuse, and the cause its refusal raises.
+FAILURE_CAUSES = {
+    "audit": "injected audit-insert failure",
+    "account": "injected account-delete failure",
+    "commit": "injected commit failure",
+}
+
+
 def _failing_db(failed_write: str, session_events: list[str]):
     """A ``get_db`` whose session refuses one write of the deletion's transaction: the audit row's insert, the
     account's delete, or the commit once both are flushed. It records the session's rollback and close."""
     def refuse_before_flush(session, flush_context, instances):
         if failed_write == "audit" and any(isinstance(obj, AuditLog) for obj in session.new):
-            raise RuntimeError("injected audit-insert failure")
+            raise RuntimeError(FAILURE_CAUSES["audit"])
         if failed_write == "account" and any(isinstance(obj, User) for obj in session.deleted):
-            raise RuntimeError("injected account-delete failure")
+            raise RuntimeError(FAILURE_CAUSES["account"])
 
     def refuse_after_flush(session, flush_context):
         # The flush has written the audit row and the account's delete; the commit never comes.
         if failed_write == "commit" and any(isinstance(obj, User) for obj in session.deleted):
-            raise RuntimeError("injected commit failure")
+            raise RuntimeError(FAILURE_CAUSES["commit"])
 
     def get_failing_db():
         db = SessionLocal()
@@ -283,7 +291,7 @@ def test_delete_account_audits_deletes_and_clears_session_cookies(client):
 
 
 @pytest.mark.requires_db
-@pytest.mark.parametrize("failed_write", ["audit", "account", "commit"])
+@pytest.mark.parametrize("failed_write", list(FAILURE_CAUSES))
 def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client, failed_write):
     # "audit" is the mandatory audit: before F19 its insert failure was swallowed and the account deleted anyway.
     with _seeded_user() as (uid, email):
@@ -349,13 +357,6 @@ def test_a_listed_subscription_of_another_customer_is_never_cancelled(client, mo
     stripe_api = _delete_account_of_customer(client, monkeypatch, ["trialing"], honour_customer_filter=False)
 
     assert stripe_api.cancelled == ["sub_0_trialing"]
-
-
-FAILURE_CAUSES = {
-    "audit": "injected audit-insert failure",
-    "account": "injected account-delete failure",
-    "commit": "injected commit failure",
-}
 
 
 @pytest.mark.requires_db
