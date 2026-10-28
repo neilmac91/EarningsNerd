@@ -199,7 +199,8 @@ def _selected_balance(xbrl_metrics: Dict[str, Any]) -> Optional[DebtObservation]
         value=float(value),
         instant=current.get("period"),
         currency=current.get("currency"),
-        accn=current.get("accn"),
+        # Not its accn, which standardized entries carry since E184: the grounding line this balance prints alone
+        # names none, as before; printing it would change the prompt, a decision of its own (backend/evals/RUNBOOK.md).
         form=current.get("form"),
     )
 

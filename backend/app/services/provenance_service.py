@@ -655,14 +655,28 @@ def _shows_a_figure(text: Any) -> bool:
     return isinstance(text, str) and _states_a_figure(text)
 
 
-def _same_series_concept(current: dict, fact: dict) -> bool:
-    """Whether a series fact is the current fact's concept on an earlier date, where both name it.
+def _accession(value: Any) -> Optional[str]:
+    """An accession number as one string, its dashes aside (SEC's companyfacts dashes it; a stored one may not), or
+    None where none is recorded."""
+    return (value.replace("-", "").strip() or None) if isinstance(value, str) else None
 
-    Where both record their filing (``accn``), the fact must be this filing's own: an equal value another
-    filing reported proves nothing about this one (E184). A fact that records none is read as before, and
-    gains no source it did not have."""
+
+def _recorded_elsewhere(fact: dict, filing: Any) -> bool:
+    """Whether a filed fact records a filing (``accn``) other than this one (E184): an equal value another filing
+    reported proves nothing about this one's statement. Every fact the filing's own instance yields records its
+    accession, and today's companyfacts path keeps the target's alone; XBRL stored before that may hold others'. A
+    fact, or a filing, that records none is read as before, and gains no source it did not have."""
+    accn, own = _accession(fact.get("accn")), _accession(getattr(filing, "accession_number", None))
+    return accn is not None and own is not None and accn != own
+
+
+def _same_series_concept(current: dict, fact: dict) -> bool:
+    """Whether a series fact is the current fact's concept on an earlier date, where both name it: currency, tag,
+    form and the filing it records (``accn``, E184)."""
     for field in ("currency", "raw_tag", "form", "accn"):
         left, right = current.get(field), fact.get(field)
+        if field == "accn":
+            left, right = _accession(left), _accession(right)
         if left is not None and right is not None and left != right:
             return False
     period, earlier = current.get("period"), fact.get("period")
@@ -670,7 +684,7 @@ def _same_series_concept(current: dict, fact: dict) -> bool:
 
 
 def _filed_prior(
-    entry: dict, key: str, current: dict, shown: str, reporting_currency: Any
+    entry: dict, key: str, current: dict, shown: str, reporting_currency: Any, filing: Any
 ) -> tuple[Optional[dict], bool]:
     """The filed fact a row's shown prior is checked against, and whether a mismatch may be replaced.
 
@@ -679,17 +693,21 @@ def _filed_prior(
     it states counts toward the match, and none leaves the row unchecked, since the summary may mean
     another date, so nothing is replaced. An interim filing's balance-sheet prior is only ever read
     that way: its series holds a quarter end, the year end and last year's quarter end, and without
-    fiscal labels any two of them pass as comparable.
+    fiscal labels any two of them pass as comparable. A fact another filing recorded is neither (E184).
     """
     prior = _filed_fact(entry, "prior")
     interim_instant = key in _INSTANT_KEYS and current.get("form") not in ANNUAL_FORMS
-    if prior is not None and not interim_instant and metric_delta_service.comparable_facts(current, prior):
+    if (
+        prior is not None and not interim_instant and not _recorded_elsewhere(prior, filing)
+        and metric_delta_service.comparable_facts(current, prior)
+    ):
         return prior, True
     if key in _INSTANT_KEYS:
         for fact in entry.get("series") or []:
             if (
                 isinstance(fact, dict)
                 and _filed_fact({"fact": fact}, "fact") is not None
+                and not _recorded_elsewhere(fact, filing)
                 and _same_series_concept(current, fact)
                 and _shows_filed_value(shown, fact, reporting_currency) is True
             ):
@@ -786,6 +804,7 @@ def build_metric_source(
     shown = {field: _figure_text(_row_figure(metric_row, field)) for field in _ROW_PERIOD_FACT}
     if (
         current is None
+        or _recorded_elsewhere(current, filing)
         or abs(current["value"]) < _MIN_VERIFIABLE_XBRL_VALUE
         # A stored number states no scale, so it is never read as a figure to check or to replace.
         or not isinstance(shown["current_period"], str)
@@ -801,7 +820,7 @@ def build_metric_source(
         # out of the tally, never matched on one year.
         if not isinstance(shown["prior_period"], str) or parse_display_number(shown["prior_period"])[0] is None:
             return out
-        prior, replaceable = _filed_prior(entry, key, current, shown["prior_period"], reporting_currency)
+        prior, replaceable = _filed_prior(entry, key, current, shown["prior_period"], reporting_currency, filing)
         if prior is None:
             return out
         filed["prior_period"] = prior

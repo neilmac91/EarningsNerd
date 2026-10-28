@@ -553,8 +553,8 @@ class TestFigureCheck:
         (THIS_FILING, EARLIER_FILING, False),
         # This filing's own comparative, as its companyfacts entries record it: the match stands.
         (THIS_FILING, THIS_FILING, True),
-        # A fact that records no filing (the filing's own instance records none) is read as before: an accession on one
-        # side alone neither proves nor refuses the other's source.
+        # A fact that records no filing (a series stored before E184) is read as before: an accession on one side
+        # alone neither proves nor refuses the other's source, for a filing that records none either.
         (None, EARLIER_FILING, True),
         (THIS_FILING, None, True),
         (None, None, True),
@@ -569,6 +569,75 @@ class TestFigureCheck:
         out = self._check("Total assets", "$331.5B", "$365.0B", quarter)
         assert (out["source_checkable"], out["source_verified"]) == (verified, verified)
         assert "source_mismatched" not in out
+
+    @pytest.mark.parametrize("current_accn, earlier_accn, verified", [
+        (THIS_FILING, EARLIER_FILING, False),
+        (THIS_FILING, THIS_FILING, True),
+        # Held to the filing's own accession, not the current fact's: an earlier instant another filing recorded is
+        # refused beside a current fact that records none, and a current fact another filing recorded is not checked.
+        (None, EARLIER_FILING, False),
+        (EARLIER_FILING, EARLIER_FILING, False),
+        (THIS_FILING, None, True),
+        (None, None, True),
+        # The same filing, its dashes aside (SEC's companyfacts dashes it; a stored accession may not).
+        (THIS_FILING.replace("-", ""), THIS_FILING, True),
+    ])
+    def test_an_earlier_instant_is_held_to_the_filings_own_accession(self, current_accn, earlier_accn, verified):
+        current = {**self.QUARTER["total_assets"]["current"], "raw_tag": "Assets"}
+        earlier = {"period": "2024-09-28", "value": 364_980e6, "form": "10-Q", "currency": "USD", "raw_tag": "Assets"}
+        current = {**current, **({"accn": current_accn} if current_accn else {})}
+        earlier = {**earlier, **({"accn": earlier_accn} if earlier_accn else {})}
+        quarter = {"reporting_currency": "USD", "total_assets": {
+            "current": current, "prior": {**earlier, "fiscal_period": "Q4"}, "series": [current, earlier]}}
+        out = self._check_filed("Total assets", "$331.5B", "$365.0B", quarter, self.THIS_FILING)
+        assert (out["source_checkable"], out["source_verified"]) == (verified, verified)
+        assert "source_mismatched" not in out
+
+    APPLE_10K = "0000320193-25-000079"
+
+    def _check_filed(self, metric, current, prior, xbrl, accession):
+        filing = SimpleNamespace(**vars(_filing()), accession_number=accession)
+        return prov.build_metric_source(
+            {"metric": metric, "current_period": current, "prior_period": prior}, filing, xbrl, None,
+        )
+
+    @staticmethod
+    def _recorded(key, current_accn, prior_accn, xbrl=APPLE):
+        entry = xbrl[key]
+        return {**xbrl, key: {
+            **entry,
+            "current": {**entry["current"], **({"accn": current_accn} if current_accn else {})},
+            "prior": {**entry["prior"], **({"accn": prior_accn} if prior_accn else {})},
+        }}
+
+    @pytest.mark.parametrize("key, metric, current, equal, other", [
+        ("revenue", "Total net sales", "$416.2B", "$391.0B", "$383.3B"),
+        ("operating_income", "Operating income", "$133.1B", "$123.2B", "$114.3B"),
+    ])
+    def test_a_comparable_prior_another_filing_recorded_is_neither_matched_nor_swapped_in(
+        self, key, metric, current, equal, other,
+    ):
+        # The comparable prior (comparable_facts) compares no filing: an annual prior another filing recorded read
+        # "Matches filing" where its value was equal, and was swapped in where it differed (E184's correctness lens).
+        # Neither now: the row is left unchecked, never matched on another filing's figure.
+        elsewhere = self._recorded(key, self.APPLE_10K, self.EARLIER_FILING)
+        for prior in (equal, other):
+            out = self._check_filed(metric, current, prior, elsewhere, self.APPLE_10K)
+            assert (out["source_checkable"], out["source_verified"]) == (False, False), prior
+            assert "source_mismatched" not in out
+        own = self._recorded(key, self.APPLE_10K, self.APPLE_10K)
+        assert self._check_filed(metric, current, equal, own, self.APPLE_10K)["source_verified"] is True
+        assert self._check_filed(metric, current, other, own, self.APPLE_10K)["source_mismatched"] == ["prior_period"]
+
+    def test_a_current_fact_another_filing_recorded_is_not_checked(self):
+        out = self._check_filed("Total net sales", "$416.2B", "—", self._recorded("revenue", self.EARLIER_FILING, None),
+                                self.APPLE_10K)
+        assert (out["source_checkable"], out["source_verified"]) == (False, False)
+
+    def test_a_filing_that_records_no_accession_reads_its_facts_as_before(self):
+        # Characterized, not proven: with no accession of its own to hold them to, a filing's facts read as before.
+        elsewhere = self._recorded("revenue", self.EARLIER_FILING, self.EARLIER_FILING)
+        assert self._check("Total net sales", "$416.2B", "$391.0B", elsewhere)["source_verified"] is True
 
     # A concept's extraction candidates differ in scope (edgar/instance/concepts.py), and the extractor records the
     # winner as raw_tag. A figure is replaced only by the line its label names; one that differs from another line is
@@ -1322,11 +1391,11 @@ class TestScopeTagsHoldTheirSources:
     def recorded_candidates() -> dict[str, set[str]]:
         """Every tag a path may record as ``raw_tag``: the instance extractor's candidates and financial profiles'
         anchors (``xbrl_instance.py`` records a tag for some keys only), and the companyfacts path's candidates: cash,
-        whose tag it records, and revenue, net income and total assets, whose tag it does not today (E184).
-        Classifying each errs on the safe side."""
+        whose tag it records, and the inline lists (revenue, net income, total assets among them), whose tag it does
+        not today (E184). Classifying each errs on the safe side."""
         from app.services.edgar.instance.concepts import DURATION_CONCEPTS, INSTANT_CONCEPTS
         from app.services.edgar.instance.financial_profiles import FINANCIAL_PROFILES
-        from app.services.edgar import xbrl_companyfacts as companyfacts
+        from app.services.edgar.xbrl_companyfacts import CASH_TAG_CANDIDATES
 
         out: dict[str, set[str]] = {}
         for table in (DURATION_CONCEPTS, INSTANT_CONCEPTS):
@@ -1335,14 +1404,38 @@ class TestScopeTagsHoldTheirSources:
         for profile in FINANCIAL_PROFILES:
             for key, anchors, _standard_concept in profile["selectors"]:
                 out.setdefault(key, set()).update(anchors)
-        for key, tags in (
-            ("cash_and_equivalents", companyfacts.CASH_TAG_CANDIDATES),
-            ("revenue", companyfacts.REVENUE_TAG_CANDIDATES),
-            ("net_income", companyfacts.NET_INCOME_TAG_CANDIDATES),
-            ("total_assets", companyfacts.TOTAL_ASSETS_TAG_CANDIDATES),
-        ):
+        out.setdefault("cash_and_equivalents", set()).update(CASH_TAG_CANDIDATES)
+        for key, tags in TestScopeTagsHoldTheirSources.companyfacts_inline_candidates().items():
             out.setdefault(key, set()).update(tags)
         return out
+
+    @staticmethod
+    def companyfacts_inline_candidates() -> dict[str, set[str]]:
+        """The companyfacts path's inline candidate lists, read from its source: each ``append_items(result, accession,
+        "<key>", select_fact_data(us_gaap, accession, [<tags>], ...))`` in ``parse_company_facts``, so a tag added there
+        is classified with no list to keep in step."""
+        import ast
+        import inspect
+
+        from app.services.edgar import xbrl_companyfacts
+
+        out: dict[str, set[str]] = {}
+        for node in ast.walk(ast.parse(inspect.getsource(xbrl_companyfacts.parse_company_facts))):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", None) == "append_items" and len(node.args) == 4):
+                continue
+            key, select = node.args[2], node.args[3]
+            if isinstance(key, ast.Constant) and isinstance(select, ast.Call) and len(select.args) >= 3:
+                tags = select.args[2]
+                assert isinstance(tags, ast.List), f"{key.value}: read its candidates from a literal list"
+                out.setdefault(key.value, set()).update(element.value for element in tags.elts)
+        return out
+
+    def test_the_companyfacts_inline_lists_are_read(self):
+        candidates = self.companyfacts_inline_candidates()
+        assert {"revenue", "net_income", "total_assets"} <= set(candidates)
+        assert candidates["total_assets"] == {"Assets"}
+        assert "RevenueFromContractWithCustomerExcludingAssessedTax" in candidates["revenue"]
+        assert "NetIncomeLoss" in candidates["net_income"]
 
     def test_each_concept_the_check_covers_is_classified(self):
         covered = (set(metric_delta_service._STRICT_XBRL_KEYS.values()) | set(prov._SOURCE_EXTRA_KEYS.values())) - prov._NEVER_CHECKED_KEYS
@@ -1381,9 +1474,10 @@ class TestScopeTagsHoldTheirSources:
         us_gaap = {"Assets": {"units": {"USD": [fact]}},
                    "CashAndCashEquivalentsAtCarryingValue": {"units": {"USD": [fact]}},
                    "RevenueFromContractWithCustomerExcludingAssessedTax": {"units": {"USD": [
-                       {**fact, "start": "2025-03-30"}]}}}
+                       {**fact, "start": "2025-03-30"}]}},
+                   "NetIncomeLoss": {"units": {"USD": [{**fact, "start": "2025-03-30"}]}}}
         parsed = parse_company_facts({"facts": {"us-gaap": us_gaap}}, accn)
-        for key in ("total_assets", "cash_and_equivalents", "revenue"):
+        for key in ("total_assets", "cash_and_equivalents", "revenue", "net_income"):
             [kept] = normalise_series(parsed[key])
             assert kept["accn"] == accn, key
         assert normalise_series(parsed["cash_and_equivalents"])[0]["raw_tag"] == "us-gaap:CashAndCashEquivalentsAtCarryingValue"

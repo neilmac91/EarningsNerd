@@ -10,15 +10,18 @@ XBRL, ``standardized_xbrl``):
 
 - ``transitions``: each row's label under the old check -> under the strict one. The old labels are
   ``matched``, ``unmatched`` (checked, not found) and ``unchecked``; the strict ones add ``replaced`` (a
-  figure that differed is shown as filed).
+  figure that differed is shown as filed). A no-total bank's revenue row, which both checks drop from the
+  page, counts as ``dropped->dropped``.
 - ``swapped_fields``: how many current- and prior-period figures the strict check replaced.
 - ``withheld_takeaways``: takeaways withheld beside a replaced figure.
 - ``unavailable``: summaries with nothing to count, by reason (no filing XBRL, no highlights table);
   ``unreadable``: summaries whose stored data the check could not read, counted, never guessed.
 
 Output is one JSON object of aggregate counts: no filing text, prompt, summary body, identifier or
-setting. Nothing is written and no model is called: every statement the session runs must be a SELECT
-(anything else raises before it reaches the database), and the session is rolled back at the end.
+setting. Nothing is written and no model is called: every statement the session runs must start with
+SELECT (anything else raises before it reaches the database), on PostgreSQL its transaction is also READ
+ONLY, and the session is rolled back at the end. A summary counts whole or not at all: one that cannot be
+read adds nothing but its ``unreadable`` count.
 The script exits 1 when any summary in the cohort was unreadable or missing, so a partial count is
 never read as a whole one.
 
@@ -109,19 +112,53 @@ def guard_read_only(session: Any) -> None:
     """Refuse every statement but a SELECT on this session, before it reaches the database, and any flush.
 
     The guard sits on the connection the session's transaction holds (the session is never committed, so it
-    keeps that connection until it is rolled back), not on the engine other sessions share."""
-    from sqlalchemy import event
+    keeps that connection until it is rolled back), not on the engine other sessions share. The ORM reads
+    here never open with a CTE, so a ``WITH`` (which may carry a write) is refused too; on PostgreSQL the
+    transaction is READ ONLY besides, so the database refuses what the guard might miss."""
+    from sqlalchemy import event, text
+
+    connection = session.connection()
+    if connection.dialect.name == "postgresql":
+        connection.execute(text("SET TRANSACTION READ ONLY"))
 
     def refuse_writes(_conn, _cursor, statement, _parameters, _context, _executemany):
         verb = statement.lstrip().split(None, 1)[0].upper() if statement.strip() else ""
-        if verb not in ("SELECT", "WITH"):
+        if verb != "SELECT":
             raise RuntimeError(f"figure_check_impact is read-only; refused a {verb or 'blank'} statement")
 
     def refuse_flush(*_args):
         raise RuntimeError("figure_check_impact is read-only; refused a flush")
 
-    event.listen(session.connection(), "before_cursor_execute", refuse_writes)
+    event.listen(connection, "before_cursor_execute", refuse_writes)
     event.listen(session, "before_flush", refuse_flush)
+
+
+def _count_summary(block: dict, filing: Any, standardized: Any) -> tuple[Counter, Counter, int]:
+    """One summary's transitions, swapped fields and withheld takeaways; raises on what it cannot read."""
+    from app.services import provenance_service as prov
+
+    if not isinstance(standardized, dict):
+        raise ValueError("standardized XBRL is not a mapping")
+    transitions: Counter = Counter()
+    swapped: Counter = Counter()
+    withheld = 0
+    originals = [copy.deepcopy(row) for row in block["table"] if isinstance(row, dict)]
+    enriched = prov.enrich_financial_highlights(block, filing, standardized)
+    # Rows keep their order. For a no-total bank the page drops a revenue row, as the retired check's enrichment
+    # did (751ce417^), so both labels read dropped.
+    bank = prov._is_no_total_bank(standardized)
+    enriched_rows = iter([row for row in enriched["table"] if isinstance(row, dict)])
+    for original in originals:
+        if bank and (prov.map_metric_to_xbrl_key(original.get("metric")) or (None,))[0] == "revenue":
+            transitions[("dropped", "dropped")] += 1
+            continue
+        row = next(enriched_rows)
+        transitions[(old_label(original, standardized), new_label(row))] += 1
+        for field in (row.get("source_replaced") or {}):
+            if field in _PERIOD_FIELDS:
+                swapped[field] += 1
+        withheld += row.get("commentary_withheld") == "figure_replaced"
+    return transitions, swapped, withheld
 
 
 def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
@@ -129,7 +166,6 @@ def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
     from sqlalchemy.orm import joinedload
 
     from app.models import Summary
-    from app.services import provenance_service as prov
     from app.services.edgar.compat import xbrl_service
 
     wanted = sorted(set(summary_ids))
@@ -155,28 +191,17 @@ def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
                 if filing is None or not filing.xbrl_data:
                     unavailable["no_filing_xbrl"] += 1
                     continue
-                standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
-                if not isinstance(standardized, dict):
-                    raise ValueError("standardized XBRL is not a mapping")
-                originals = [copy.deepcopy(row) for row in block["table"] if isinstance(row, dict)]
-                enriched = prov.enrich_financial_highlights(block, filing, standardized)
-                # Rows keep their order; for a no-total bank the page drops a revenue row, as counted here.
-                bank = prov._is_no_total_bank(standardized)
-                enriched_rows = iter([row for row in enriched["table"] if isinstance(row, dict)])
-                for original in originals:
-                    if bank and (prov.map_metric_to_xbrl_key(original.get("metric")) or (None,))[0] == "revenue":
-                        transitions[(old_label(original, standardized), "dropped")] += 1
-                        continue
-                    row = next(enriched_rows)
-                    transitions[(old_label(original, standardized), new_label(row))] += 1
-                    for field in (row.get("source_replaced") or {}):
-                        if field in _PERIOD_FIELDS:
-                            swapped[field] += 1
-                    withheld += row.get("commentary_withheld") == "figure_replaced"
-                    rows_counted += 1
-                summaries_counted += 1
+                counted = _count_summary(block, filing, xbrl_service.extract_standardized_metrics(filing.xbrl_data))
             except Exception:  # noqa: BLE001 — an unreadable sample is counted, never guessed at
                 unreadable += 1
+                continue
+            # Merged only once the whole summary has been read, so a failure part-way adds no row of it.
+            row_transitions, row_swapped, row_withheld = counted
+            transitions.update(row_transitions)
+            swapped.update(row_swapped)
+            withheld += row_withheld
+            rows_counted += sum(row_transitions.values())
+            summaries_counted += 1
     return {
         "cohort": {"requested": len(wanted), "found": found, "missing": len(wanted) - found},
         "summaries_counted": summaries_counted,
@@ -191,6 +216,8 @@ def count_impact(session: Any, summary_ids: Iterable[int]) -> dict[str, Any]:
 
 def parse_cohort(args: argparse.Namespace) -> list[int]:
     """The explicit, bounded cohort the arguments name; raises ValueError otherwise."""
+    if args.summary_ids and (args.from_id is not None or args.to_id is not None):
+        raise ValueError("name one cohort: --summary-ids, or --from-id with --to-id, not both")
     if args.summary_ids:
         ids = [int(part) for value in args.summary_ids for part in value.split(",") if part.strip()]
     elif args.from_id is not None and args.to_id is not None:
