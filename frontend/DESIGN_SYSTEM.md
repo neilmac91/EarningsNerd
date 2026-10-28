@@ -1315,8 +1315,8 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
                  2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
-                 analysis page's history fetch, whose pulse dot keeps to its first line when the words wrap
-                 (an info Notice until E196 (2)). Gate: tests/unit/statusTintResidue.spec.ts
+                 analysis page's history fetch (an info Notice until E196 (2)), the last two with a pulse dot
+                 kept to the first line when their words wrap. Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info
@@ -2248,7 +2248,9 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  attestation. Never conflate source matching with support for every answer claim.
                  It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error; there is no streaming status, token text or caret.
+                 done or error; there is no streaming status, token text or caret. Under enlarged text the
+                 words wrap in the phone sheet (two lines at 320 to 390px under 200% text), so the dot sits in
+                 a box one text-sm line tall and keeps to the first line, as on the analysis page.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
