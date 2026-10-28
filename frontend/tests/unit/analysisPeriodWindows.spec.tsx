@@ -141,7 +141,7 @@ describe('the demo run on the page', () => {
     expect(windowPrints(document.body)).toEqual([])
     expect(document.body.textContent).toContain('Comparisons: Revenue CAGR (FY2020–FY2025).')
     expect(document.body.textContent).toContain('Revenue CAGR was +8.7% over FY2020–FY2025')
-    expect(screen.getByText('FY2020–FY2025', { selector: '[aria-hidden="true"]' })).toBeInTheDocument()
+    expect(screen.getByText('FY2020–FY2025', { selector: '[aria-hidden="true"] > span' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^Revenue CAGR, FY2020–FY2025: \+8\.7%/ }))
     expect(screen.getByRole('dialog')).toHaveTextContent('Revenue CAGR · FY2020–FY2025')
     expect(windowPrints(document.body)).toEqual([])

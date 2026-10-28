@@ -794,7 +794,16 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  (top-[var(--site-header-h,4rem)], z-sticky, print:hidden, on the panel with the rule
                  outline), mounted only while the rail is stuck at the header's line, the real thead has
                  passed under the header and the table is still below it, and following the table's
-                 scrollLeft. Under an ancestor that clips overflow (the landing demo's mockup frame, a
+                 scrollLeft. The copy leaves out any part of a header marked data-rail-omit, a line of its
+                 own that only the table's own heading row needs, under what the rail keeps: the metrics
+                 table's legend under "Metric" and its CAGR window under "CAGR" (E202). With the rail on,
+                 the headings sit at the top of the row (the th's align-top, the rail cells'
+                 justify-start), so the rail is the row's own first lines: as it takes over nothing
+                 moves, and only the legend and the window pass under it. So under 200% text on a phone,
+                 where the heading row is three lines, 112px, the rail is the quarter headings' two
+                 lines, 80px, in a quarterly run and one line, 48px, in an annual run, under a site
+                 header up to 225px tall; at the default size 40 and 24px where the row is 56px. Under an ancestor that
+                 clips overflow (the landing demo's mockup frame, a
                  locked preview) that box is the rail's scroll container, so the rail never sticks to the
                  page and never shows. The real thead stays the one screen readers read. The rail lets
                  the pointer through, so a wheel or a swipe over it still moves the table under it; in
@@ -804,12 +813,15 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  figure hidden under it, while a key's click, which has no pointer, passes. Over the band
                  the cursor and the row hover still answer to the hidden row. While any of the
                  table is under the header's line and the rail can stick, shown or not, the page
-                 reserves the heading row's measured height as --table-rail-h on <html>
-                 (TABLE_RAIL_HEIGHT_PROPERTY, re-measured on every reflow and removed when no part of the
-                 table is under the line), and the document's scroll-padding-top adds it to the header's
-                 and the section nav's (app/globals.css). So a figure reached by Tab or Shift+Tab, or
+                 reserves the rail's height as --table-rail-h on <html> (TABLE_RAIL_HEIGHT_PROPERTY,
+                 re-measured on every reflow and removed when no part of the table is under the line),
+                 and the document's scroll-padding-top adds it to the header's and the section nav's
+                 (app/globals.css). The rail mounts only while it shows, so its height is read from the
+                 real heading row (railRowHeight): each heading sits in a block as tall as its lines
+                 (data-rail-heading), and the rail is the row's height less what it leaves out of its
+                 tallest heading. So a figure reached by Tab or Shift+Tab, or
                  scrolled into view, lands below the rail, never under it (WCAG 2.2 SC 2.4.11), even
-                 when the rail only appears after the scroll (a row taller than the heading row, focused
+                 when the rail only appears after the scroll (a row taller than the rail, focused
                  while the rail is hidden and scrolled to the nearest edge), and nothing scrolls the page
                  afterwards. Gates: tests/unit/headerOffsetReadsTheVariable.spec.ts (the padding's calc;
                  the rail's offset reads --site-header-h); tests/e2e/analysis-layout.spec.ts “analysis
@@ -819,7 +831,11 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  focused while the rail is hidden lands below its band; a figure focused earlier stays
                  put as the reader scrolls the rail over it; the landing demo's table never shows the
                  rail nor reserves its padding; at 1024px a horizontal wheel over the rail moves the
-                 table).
+                 table; at 390px under 200% text, in a quarterly and an annual run, the rail leaves out
+                 the legend and the window, is 80 and 48px where the row is 112px, the page reserves that
+                 height, a figure reached by Shift+Tab lands below it, and with the row's top 1px past
+                 the header's line each rail line sits where the row's same line was and no line of the
+                 row in view under the rail repeats one).
                  The table's figure controls carry no underline (the KPI value keeps its dotted one): in
                  the readout a rule under every value parted values from their change lines, and dark
                  1x readers gave a period with no change the next column's (four of seven with it, none
