@@ -177,15 +177,15 @@ const sessionCookieLocks = (): LockManager | undefined =>
 export const REFRESH_LOCK_WAIT_MS = 10_000 + REQUEST_TIMEOUT_MS
 
 /**
- * A silent refresh, holding the session cookies' lock exclusive: it waits for every refresh, login and logout queued
- * for the lock before it, in any tab, then goes out with the cookies the last of them set, and every one queued after
- * it waits for its answer. So of two tabs refreshing at once, the second presents the token the first one's answer set,
- * not the one it rotated away, and E96's replay sweep is not met where the browser has a lock manager. Still waiting,
- * it is cancelled by its own signal (refreshSettled's limit, cancelRefresh) and sends nothing. It goes out without the
- * lock after REFRESH_LOCK_WAIT_MS, or at once when the browser refuses the lock: Chromium and Gecko answer a
- * SecurityError where site data is blocked for the origin (the case session.ts's in-memory flag exists for), while the
- * API's cookies may still flow, and a refresh the refusal failed would renew nothing and log nothing out. Its promise
- * settles only once the lock is released.
+ * A silent refresh, holding the session cookies' lock exclusive: it waits for every refresh and post (a login, a
+ * logout, a logout of every session, a password change) queued for the lock before it, in any tab, then goes out with
+ * the cookies the last of them set, and every one queued after it waits for its answer. So of two tabs refreshing at
+ * once, the second presents the token the first one's answer set, not the one it rotated away, and E96's replay sweep
+ * is not met where the browser has a lock manager. Still waiting, it is cancelled by its own signal (refreshSettled's
+ * limit, cancelRefresh) and sends nothing. It goes out without the lock after REFRESH_LOCK_WAIT_MS, or at once when the
+ * browser refuses the lock: Chromium and Gecko answer a SecurityError where site data is blocked for the origin (the
+ * case session.ts's in-memory flag exists for), while the API's cookies may still flow, and a refresh the refusal
+ * failed would renew nothing and log nothing out. Its promise settles only once the lock is released.
  */
 function withSessionCookiesForRefresh(signal: AbortSignal, refresh: () => Promise<void>): Promise<void> {
   const locks = sessionCookieLocks()
@@ -246,17 +246,17 @@ export function ensureRefreshed(): Promise<void> {
 }
 
 /**
- * Settles once the refresh in flight, if any, can no longer set the session cookies: once it has answered, whatever
- * its outcome, or, when `limitMs` passes first, once it is cancelled. A logout waits on it before it posts: the
- * refresh's answer sets the session cookies, and one that lands after the logout's answer sets them again, the access
- * token among them, which keeps the tab signed in until that token expires (E133). A refresh still in flight at the
- * limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the logout either; one
- * still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it too, and so does a
- * password change, which leaves the refresh be at the limit (`atLimit` 'leave'): a refresh cancelled after the API
- * rotated its token leaves the browser holding the token rotated away, which the change's own renewal would then
- * present, and the replay sweep would end every session of the account (E96). It settles 'limit' when the limit came
- * first, else 'settled'. All of them then wait for the refreshes queued for the lock before their own request
- * (withSessionCookiesForPost).
+ * Settles once the refresh in flight, if any, has answered, whatever its outcome, or once `limitMs` passes first, when
+ * it cancels that refresh, so it can no longer set the session cookies, unless `atLimit` is 'leave'. A logout waits on
+ * it before it posts: the refresh's answer sets the session cookies, and one that lands after the logout's answer sets
+ * them again, the access token among them, which keeps the tab signed in until that token expires (E133). A refresh
+ * still in flight at the limit is aborted, and the browser drops a cancelled request's answer, so it cannot outlast the
+ * logout either; one still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it
+ * too, and so does a password change, which leaves the refresh be at the limit (`atLimit` 'leave'): a refresh cancelled
+ * after the API rotated its token leaves the browser holding the token rotated away, which the change's own renewal
+ * would then present, and the replay sweep would end every session of the account (E96). It settles 'limit' when the
+ * limit came first, else 'settled'. All of them then wait for the refreshes queued for the lock before their own
+ * request (withSessionCookiesForPost).
  */
 export function refreshSettled(limitMs: number, atLimit: 'cancel' | 'leave' = 'cancel'): Promise<'settled' | 'limit'> {
   const inFlight = refreshPromise

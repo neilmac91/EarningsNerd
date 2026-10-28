@@ -901,8 +901,10 @@ describe("a password change in one tab and another tab's silent refresh (E29)", 
     tabB.refreshAnswers.push(answer.promise)
     const refreshing = tabB.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
-    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    let settled = false
+    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error).finally(() => { settled = true })
     await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
+    expect(settled).toBe(true)
     expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
     expect(browser.events).toEqual(["B's refresh sent with X"])
 
@@ -1042,11 +1044,22 @@ describe("the identity read after an OAuth sign-in, which no lock can hold, and 
     expect(browser.locks.idle()).toBe(true)
   })
 
-  it('reads nothing on a signal already aborted, and waits for nothing', async () => {
+  it("reads nothing on a signal already aborted, and waits for nothing, another tab's refresh holding the lock", async () => {
+    const answer = hold()
+    tabA.refreshAnswers.push(answer.promise)
+    const refreshing = tabA.client.ensureRefreshed()
+    await settle()
     const abort = new AbortController()
     abort.abort()
-    expect(await tabB.auth.getCurrentUser({ signal: abort.signal }).then(() => 'read', () => 'refused')).toBe('refused')
-    expect(browser.events).toEqual([])
+    let settled = false
+    const reading = tabB.auth.getCurrentUser({ signal: abort.signal }).then(() => 'read', () => 'refused').finally(() => { settled = true })
+    await settle()
+    expect(settled).toBe(true)
+    expect(await reading).toBe('refused')
+    expect(browser.events).toEqual(["A's refresh sent with X"])
+
+    answer.resolve()
+    await refreshing
     expect(browser.locks.idle()).toBe(true)
   })
 })
@@ -1094,8 +1107,10 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     tabB.refreshAnswers.push(stalled.promise)
     const refreshing = tabB.client.ensureRefreshed()
     await vi.advanceTimersByTimeAsync(0)
-    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error)
+    let settled = false
+    const changing = tabB.auth.changePassword('old-password', 'new-password').catch((error: unknown) => error).finally(() => { settled = true })
     await vi.advanceTimersByTimeAsync(tabB.auth.PASSWORD_CHANGE_REFRESH_WAIT_MS)
+    expect(settled).toBe(true)
     expect(await changing).toBeInstanceOf(tabB.client.SessionStillRenewing)
     stalled.resolve()
     await refreshing
