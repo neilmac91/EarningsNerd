@@ -63,8 +63,9 @@ export function resetAccountQueries(
  * way the families go, as a reset's do, and the session generation moves on, so that reader's answers still in flight
  * write nothing (E29 (1)); the new identity stays. A reset in this tab (a logout, a login, a lost session) empties the
  * families itself and writes its null by hand, and a failed logout then puts back the reader it found, so neither
- * counts. The cache calls this inside the update, before any observer hears of it, so no render shows the new identity
- * beside the previous reader's snapshots. */
+ * counts. A cleared cache (`queryClient.clear()`) writes no null, so a /me that answers no one after it drops the
+ * families again, already empty. The cache calls this inside the update, before any observer hears of it, so no render
+ * shows the new identity beside the previous reader's snapshots. */
 function watchReader(queryClient: QueryClient): () => void {
   const identity = hashKey(queryKeys.currentUser())
   const readerOf = (data: unknown) => (data as CurrentUser | null | undefined)?.id ?? null
