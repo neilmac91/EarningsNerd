@@ -3,7 +3,7 @@
 import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
-import { Button, countControlClass, cx, noticeTint } from '@/components/ui'
+import { ActivityLine, Button, countControlClass, cx, noticeTint } from '@/components/ui'
 import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { citationVerificationLabel, SOURCE_MATCH_SCOPE } from './citationVerification'
@@ -456,15 +456,9 @@ export default function CopilotMessage({
     <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
-        // background tool activity is deliberately not surfaced to the user. Under enlarged text in the phone sheet
-        // the words wrap, so the dot sits in a box as tall as the card's text-sm line (h-5 and the line height are
-        // both 1.25rem) and keeps to the first line, as the analysis page's history fetch does.
-        <p className="flex items-start gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <span aria-hidden="true" className="flex h-5 flex-none items-center">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark" />
-          </span>
-          <span className="min-w-0 break-words">Reading the filing…</span>
-        </p>
+        // background tool activity is deliberately not surfaced to the user. The card is the live region, so the
+        // line takes no role of its own.
+        <ActivityLine>Reading the filing…</ActivityLine>
       ) : (
         <>
           <div>
