@@ -945,6 +945,29 @@ for (const [state, mode, rail] of [['legacy', 'quarterly', 80], ['annual', 'annu
         return { top, clear: Math.max(header, rail) }
       })
       expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+      // The rail's arrival: it waits until what is left of the heading row below the header fits under it, so it never
+      // sits over the row's lower lines (the legend, the window, a second "CAGR"). The row's top `past` px past the
+      // header's line, placed again until the page has settled.
+      const arrival = async (past: number) => {
+        await expect.poll(async () => {
+          await page.evaluate((past) => {
+            const head = document.querySelector('[data-analysis-metrics] table thead')!
+            const line = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+            window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - line + past)
+          }, past)
+          await page.waitForTimeout(250)
+          return page.evaluate(() => Math.round(document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+            - document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().top))
+        }, { timeout: 20_000 }).toBe(past)
+        return page.evaluate(() => {
+          const bar = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect()
+          return { shown: !!bar, row: document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().bottom, bar: bar?.bottom ?? 0 }
+        })
+      }
+      expect((await arrival(8)).shown, 'the rail waits while the heading row still runs on below it').toBe(false)
+      const arrived = await arrival(read.head - rail + 4)
+      expect(arrived.shown, 'the rail shows once the rest of the heading row fits under it').toBe(true)
+      expect(arrived.row, 'nothing of the heading row shows below the rail').toBeLessThanOrEqual(arrived.bar + 0.5)
     })
   })
 }

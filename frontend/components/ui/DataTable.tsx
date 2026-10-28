@@ -310,11 +310,11 @@ export function DataTable<T extends Record<string, unknown>>({
     }
   }, [snapColumns, stickyFirstColumn, stickyFits, fixedWidth, startAtEndOnMobile, hasScrollRegion])
 
-  // Page heading rail (pageHeader): the heading row's measured widths, the table's scrollLeft, shown only while the
-  // real <thead> has passed under the site header and some of the table is still below it. Its copy of the headings
-  // mounts only while it shows, so the page holds no second set of heading text until a reader needs one, and its
-  // height is read from the real heading row (railRowHeight); scrolling writes styles, and React renders only when
-  // the rail appears or goes.
+  // Page heading rail (pageHeader): the heading row's measured widths, the table's scrollLeft, shown only once what is
+  // left of the real <thead> below the site header fits under the rail and some of the table is still below it. Its
+  // copy of the headings mounts only while it shows, so the page holds no second set of heading text until a reader
+  // needs one, and its height is read from the real heading row (railRowHeight); scrolling writes styles, and React
+  // renders only when the rail appears or goes.
   const railRef = useRef<HTMLDivElement>(null)
   const railBarRef = useRef<HTMLDivElement>(null)
   const railTrackRef = useRef<HTMLDivElement>(null)
@@ -347,7 +347,10 @@ export function DataTable<T extends Record<string, unknown>>({
       // Stuck at the line: under an ancestor that clips overflow (the landing demo's mockup frame, a locked preview)
       // that box is the rail's scroll container, so it never sticks to the page and must not show or reserve padding.
       const stuck = Math.abs(rail.getBoundingClientRect().top - line) < 1
-      setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + height)
+      // Shown once what is left of the real heading row below the line fits under the rail, so a rail shorter than the
+      // row (one that leaves out a marked part) never sits over the row's lower lines; as tall as the row, it shows as
+      // soon as the row's top passes the line. Hidden again once the table's end is within the rail's height.
+      setRailShown(!!head && stuck && head.bottom < line + height - 0.5 && whole.bottom > line + height)
       // Reserved whenever some of the table is under the line, shown rail or not: a figure focused while the rail is
       // hidden (a row taller than the rail, its table's end just under the header) and scrolled to the nearest edge
       // would otherwise sit under the rail that its own row then brings back.

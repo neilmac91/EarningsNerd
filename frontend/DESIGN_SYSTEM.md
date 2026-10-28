@@ -782,7 +782,9 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  heading row rides a zero-height sticky rail under the site header
                  (top-[var(--site-header-h,4rem)], z-sticky, print:hidden, on the panel with the rule
                  outline), mounted only while the rail is stuck at the header's line, the real thead has
-                 passed under the header and the table is still below it, and following the table's
+                 passed under the header far enough that what is left of it fits under the rail (as soon
+                 as its top passes, where the rail is as tall as the row) and the table is still below
+                 it, and following the table's
                  scrollLeft. The copy leaves out any part of a header marked data-rail-omit, a line of its
                  own that only the table's own heading row needs: the metrics table's legend under
                  "Metric" and its CAGR window over "CAGR" (E202). So under 200% text on a phone, where the
@@ -819,7 +821,8 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  rail nor reserves its padding; at 1024px a horizontal wheel over the rail moves the
                  table; at 390px under 200% text, in a quarterly and an annual run, the rail leaves out
                  the legend and the window, is 80 and 48px where the row is 112px, the page reserves that
-                 height, and a figure reached by Shift+Tab lands below it).
+                 height, a figure reached by Shift+Tab lands below it, and the rail waits while the row
+                 still runs on below it, then leaves nothing of the row showing below it).
                  The table's figure controls carry no underline (the KPI value keeps its dotted one): in
                  the readout a rule under every value parted values from their change lines, and dark
                  1x readers gave a period with no change the next column's (four of seven with it, none
