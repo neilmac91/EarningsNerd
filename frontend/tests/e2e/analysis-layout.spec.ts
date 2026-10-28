@@ -513,13 +513,15 @@ async function stableAnalysisOutsideTable(page: Page) {
 async function assertNotes(page: Page, state: AnalysisState) {
   const expected = EXPECTED_NOTES[state]
   const summary = page.locator(`${NOTES} > details > summary`)
-  // One line of fine print under the table (D-061): the gaps and the calculated figures counted in words, never "—".
-  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as a dash`)
+  // One line of fine print under the table (D-061): the gaps counted beside the table's dash itself, which a screen
+  // reader hears as "a dash" (MissingValue), and the calculated figures counted in words.
+  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as —`)
+  await expect(summary.locator('.sr-only', { hasText: 'a dash' })).toHaveCount(1)
   await expect(summary).toContainText(`${expected.calculated} calculated from filed figures`)
   if (state === 'discrepancy') {
-    // A note that questions the number is named by its letter, places and words.
+    // A note that questions the number is named by its letter, places and summary words (data notes version 2).
     await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
-    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: Available sources disagree on this figure')
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values (the most recent shown)')
   } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
   if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
   // Never while a note needs review, the legacy state's record-only note included.
@@ -1063,11 +1065,19 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
       const table = document.querySelector('[data-analysis-metrics]')!
       const notes = document.querySelector('[data-analysis-data-notes]')!
       const summary = notes.querySelector(':scope > details > summary')!
-      const range = document.createRange(); range.selectNodeContents(summary)
+      // The lines it paints: the sr-only words a screen reader hears in place of a mark or the dash (MissingValue's "a
+      // dash") sit in a clipped 1px box that wraps them onto lines no reader sees, so they are left out.
+      const bottoms = new Set<number>()
+      const walker = document.createTreeWalker(summary, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const rect of range.getClientRects()) if (rect.width && rect.height) bottoms.add(Math.round(rect.bottom))
+      }
       return {
         follows: table.nextElementSibling === notes,
         gap: notes.getBoundingClientRect().top - table.getBoundingClientRect().bottom,
-        lines: new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.bottom))).size,
+        lines: bottoms.size,
       }
     })
     expect(placement.follows, 'the data notes follow the metrics table').toBe(true)

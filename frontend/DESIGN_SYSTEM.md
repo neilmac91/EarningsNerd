@@ -222,7 +222,7 @@ both themes on purpose, listed in its own residue (the logos' forced-dark mode, 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard, Notice, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
+DataTable, Skeleton, GuidanceCard, Notice, ActivityLine, Modal, SegmentedControl, MissingValue) + the copilot answer renderer
 `features/filings/components/copilot/CopilotMessage.tsx` (see "Ask answer" below). Controls expose their applicable interaction and
 availability states; data surfaces supply loading, empty and error treatments as supported by
 their APIs. Passive Card and Badge primitives do not implement the full control-state set.
@@ -396,9 +396,11 @@ Steady loading   <Button loading loadingText="…" reserveLoadingText="…"> kee
                  longest word, so where the button is narrower than the spinner beside that word the spinner
                  goes above the label, and the room is never wider than that word with the padding.
                  RetryButton's "Trying again…" reserves a longer label. /delete-account's destructive button
-                 reserves its shorter "Deleting…" for the row (E231): under 200% text on a phone its trash icon
-                 goes above the label at its own 32px, where the plain row squeezed it to 14px beside the label
-                 and the button ran past its card, and the button keeps its resting size while it deletes
+                 passes its shorter "Deleting…" for the row alone (E231): under 200% text its trash icon keeps
+                 its own 32px, beside the label where the label's longest word fits there and above it on the
+                 narrowest phones, where the plain row squeezed it to 14 to 16px beside the label and the
+                 button ran past its card. Nothing extra is reserved, so the button
+                 still narrows to "Deleting…" while it deletes, as it did before
                  (tests/unit/button-wrap.spec.tsx holds the cell and the rows; busyControlsStayFocusable.spec.ts
                  holds RetryButton to reserving the busy text it shows; tests/e2e/delete-account-button.spec.ts
                  holds the delete button inside its card).
@@ -637,8 +639,11 @@ Data note mark   <DataNoteMark> (analysis) — the footnote mark: a letter for a
                  and any marked inherited comparison note once; a shared figure/comparison note is named
                  once with its scope. A record-only, unknown or unavailable note is read in the dialog.
                  The separate visual change mark does not repeat the spoken note. Letters are
-                 snapshot-local, review notes first. Data notes counts distinguish values, QoQ, YoY and
-                 annual window comparisons; a missing validation record is never counted as a passed
+                 snapshot-local: the notes that mark a figure first (data notes version 2, in both
+                 producers), then review, unknown and unavailable notes, so a page's first visible letter
+                 is "a"; a snapshot saved under version 1 keeps its stored letters. The data notes count
+                 figures and growth figures apart (the model keeps QoQ, YoY and annual window counts for
+                 the exports); a missing validation record is never counted as a passed
                  check. Preserve every reason, including comparison-only concerns. Full-width status
                  Badges and nowrap labels do not belong in an analysis KPI or metrics cell.
                  Gates: tests/unit/dataNoteMarking.spec.tsx (D-061's rule, rule 12: noteMarksFigure
@@ -675,10 +680,12 @@ Missing value    <MissingValue label="…" className="…">  (components/ui, E88
                  em-dash) in the caller's ink, aria-hidden, beside sr-only words a screen reader reads in
                  its place: "unavailable" by default, the analysis evidence's word, or the site's own where
                  that would claim more than its data says ("no cohort", "no page", "no role listed",
-                 "name unavailable", "no percentage", "no takeaway", "Not included"). `relative`, so the words stay
-                 inside a truncating cell or a table's scroll box. A formatter returns null or '' for a
-                 missing value and its caller renders the element (`fmt(v) ?? <MissingValue />`), so the
-                 formatter's string fallback stays for a CSV, a title or an aria label. Never the token by
+                 "name unavailable", "no percentage", "no takeaway", "Not included"), or "a dash" where the
+                 analysis data notes' fine print shows the token itself ("3 not in our data, shown as —").
+                 `relative`, so the words stay inside a truncating cell or a table's scroll box. A
+                 formatter returns null or '' for a missing value and its caller renders the element
+                 (`fmt(v) ?? <MissingValue />`), so the formatter's string fallback stays for a CSV, a
+                 title or an aria label. Never the token by
                  hand, a hidden dash with no words, or a span pair of one's own.
                  On the metrics table's figure sheet the dash takes the note ink (text-note-light
                  dark:text-note-dark: Lc 75.4 / -80.3 on the sheet) on the figure edge, with an empty
@@ -1031,20 +1038,28 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  that marks a figure (noteMarksFigure), in letter order, “ · ” and its letter as
                  DataNoteMark draws it (an sr-only “Note a: ” before it), its places (the metrics with
                  their periods, “Revenue Q2 2026; Net margin Q2 2026”, or for a note only on growth
-                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and the
-                 first clause of its message (up to the first “: ” or “. ”; a mixed note passes over the
-                 record-only sentence it may open with); then “ · N not in our data, shown as a dash”, never
-                 the dash itself in copy; “ · N figures with no check recorded” and, kept apart, “ · N
-                 growth figures with no check recorded”; “ · N calculated from filed figures”; and, for a
+                 figures those, “Revenue QoQ Q4 2023”, at most three metrics, then “and N more”) and its
+                 summary words (noteSummary: each reason's clause from provenance.ts REASON_SUMMARIES,
+                 “not yet matched to the filing”, a record-only reason passed over and any other reason on
+                 SUMMARY_FALLBACK, “questioned by an automated check”, each clause once, joined by “; ”; the
+                 backend's data_notes.SUMMARIES and note_summary hold the same words for the exports, which
+                 print none of them yet: their summary line counts the notes until WP3); then “ · N not in our data,
+                 shown as —”, the table's dash itself, alone in a MissingValue whose words are “a dash”;
+                 “ · N figures with no check recorded” and, kept apart, “ · N growth figures with no
+                 check recorded”; “ · N calculated from filed figures”; and, for a
                  live report whose every populated figure passed, “ · No figures need review · N checked”
                  in the ink (sage never colours a number, D-030), independent of concerns on comparisons
                  (decision 9) and never while a record-only note exists, one on a growth figure included.
                  A record-only note (legacy_calculation) appears only in the open detail.
                  Open, the detail lists every note, marked ones first, each an li with its stable id
                  (analysis-data-note-<letter>) and tabIndex -1, in two columns: the letter (“a.”, shown
-                 only for a note that marks a figure, the track kept for alignment), then its message,
-                 its metrics and periods, its counts in the data face (figures, then QoQ, YoY and annual
-                 window comparisons, distinct and never added to by a repeated appearance) and
+                 only for a note that marks a figure, the track kept for alignment), then its message (its
+                 reasons' words, the same sentence the dialog, the PDF, the workbook and the chart PNG print,
+                 for one figure or for a note's several, so none names one figure, asks for a selection or
+                 says how a gap is drawn),
+                 its metrics and periods, its counts in the data face (“11 figures; 16 growth figures
+                 built on them”, “built on it” after one figure, or “14 growth figures” for a note on growth
+                 figures alone, each distinct and never added to by a repeated appearance) and
                  “Comparisons: …” with their periods; an annual window keeps its recorded range. No note
                  says where on the page it appears: the comparison locators are gone. One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
@@ -1060,7 +1075,30 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  Gates: tests/unit/analysis-source-quality.spec.tsx and narrative-pane.spec.tsx (the
                  summary's words, the counts, the condition on “No figures need review”, the chips),
                  tests/unit/dataNoteMarking.spec.tsx (every note keeps its entry; the summary names only
-                 marked letters), tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
+                 marked letters), tests/unit/data-notes.spec.ts and the backend's
+                 tests/unit/test_analysis_data_notes.py (both reason maps, the record-only list and the
+                 summary words held to the shared notes fixture; marked notes lettered first; a reason's
+                 words fail where they match its page-action, drawing or one-figure patterns (“the
+                 figure”, “that value”), while a phrasing the patterns do not match passes and chief design
+                 reviews the words, and no words or summary clause carry a semicolon (the summary and a
+                 chart's footnotes list places with one), each rule tested both ways;
+                 each DATA_NOTES_VERSION's words and letters
+                 pinned by digest, so a change to them takes a new version), the
+                 backend's tests/unit/test_data_note_reasons_have_words.py (rule 12: a static reader of
+                 app/ fails a reason it finds the backend writing with no words; the forms it is known to
+                 miss are named in its docstring and planted in its self-test, and any other form is
+                 unknown, so the reader also names every reason-writing line, and every line that mentions
+                 reasons or a local name tied to them either way (assigned from an expression that
+                 mentions them, or stored into them), in each module where it finds a reason, a site or a
+                 call that binds one, and a traced run of those modules (quarterly_fact_repair and
+                 filing_lineage_repair on in-memory SQLite) fails on a code it gathers with no words, on a
+                 named line no driver executes, and on a code it gathers that the reader did not find;
+                 every other function that mentions reasons is named exempt or read-only; what still
+                 passes is listed by class in its docstring, each class stated as the edge of what the
+                 gate reads, among them a value no driver evaluates in a write a driver runs, such as a
+                 generator's element over an iterable no driver fills, since the run holds lines, not the
+                 values in them),
+                 tests/e2e/analysis-layout.spec.ts (the summary in each fixture state,
                  the chip opening the note, and “analysis data notes placement”: 8px under the table card
                  at 390 and 1480px, one line closed at 1480px).
                  formatAnalysisPeriod formats quarters as Q2 2026 (Q2 ’26 in compact contexts);
@@ -1319,8 +1357,8 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
                  2026-07-04 to 2026-10-24), the Copilot rail's "Reading the filing…" (Ask answer) and the
-                 analysis page's history fetch, whose pulse dot keeps to its first line when the words wrap
-                 (an info Notice until E196 (2)). Gate: tests/unit/statusTintResidue.spec.ts
+                 analysis page's history fetch (an info Notice until E196 (2)), the last two drawn by
+                 <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
                  written variant, and every `info` Notice call site as a shrink-only table, so a new info
@@ -1355,6 +1393,22 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  a 16px curve the Notice's corners would stand outside it (chief design on #1731). A dropdown's
                  results list and empty state keep 16px, each drawing its own border.
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
+
+Activity line    <ActivityLine role?>  (components/ui) — a run in progress in words beside one sage pulse dot: the
+                 Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
+                 has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
+                 that show only words (the dashboard's "Checking your plan…" among them) take no dot. The words are
+                 in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static under reduced
+                 motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line height are both
+                 1.25rem), so it keeps to the first line when the words wrap, and the words wrap under their own
+                 start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320 to 390px under
+                 200% text, the analysis page's history fetch two on a phone and four or five under 200% text. The
+                 live region is the caller's: role="status" where the line is its own (the history fetch), none where
+                 a container already is one (the Copilot's reading card, the region the plan card's sentence lands
+                 in). Gate: tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list
+                 outside ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a
+                 template, an array literal joined into one string or a class attribute's parts included, wherever
+                 the list is bound; its stated gaps are planted.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
@@ -2252,7 +2306,9 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  attestation. Never conflate source matching with support for every answer claim.
                  It also carries viewer deep-linking, popovers and follow-ups. Its answers arrive whole: the
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
-                 done or error; there is no streaming status, token text or caret.
+                 done or error; there is no streaming status, token text or caret. The reading line is
+                 <ActivityLine> (Activity line), whose dot keeps to the first line when the words wrap in the
+                 phone sheet under 200% text.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a

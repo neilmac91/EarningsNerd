@@ -10,6 +10,9 @@ export {
 export { SegmentedControl, MAX_SEGMENTS, type SegmentedControlProps, type SegmentedOption, type SegmentedControlSize } from './SegmentedControl'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, noticeTint, type NoticeProps, type NoticeVariant } from './Notice'
+// A run in progress in words beside one sage pulse dot: activity is never a Notice (gated by
+// tests/unit/pulsingMarkAllowlist.spec.ts).
+export { ActivityLine, type ActivityLineProps } from './ActivityLine'
 export { Switch, type SwitchProps } from './Switch'
 // A plan's monthly usage as a bar, sage to warning at 80% and error at 100% (E196): the dashboard and pricing pages.
 export { UsageMeter, usageMeterFill, type UsageMeterProps } from './UsageMeter'

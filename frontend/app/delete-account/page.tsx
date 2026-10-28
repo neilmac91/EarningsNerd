@@ -47,7 +47,7 @@ export default function DeleteAccountPage() {
 
   return (
     // The gutter gives way under enlarged text as the legal pages' does (lib/legalPageLayout.ts): narrower than 13em of
-    // the layout's query container, a phone under 200% text, it is px-2, 16px a side where px-4 doubled to 32px, so the
+    // the layout's query container (416px under 200% text), it is px-2, 16px a side where px-4 doubled to 32px, so the
     // signed-in card keeps room for its destructive button (E231).
     <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8 [@container(max-width:13em)]:px-2">
       <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">Delete your account</h1>
@@ -113,8 +113,9 @@ export default function DeleteAccountPage() {
             className="mt-3 text-sm"
           />
           {/* reserveLoadingText lays the label out in Button's wrapping row (E231): where the label's longest word
-              cannot sit beside the trash icon, a phone under 200% text, the icon goes above the label at its own 32px,
-              not squeezed beside it, and the button keeps its resting size while it says "Deleting…". */}
+              cannot sit beside the trash icon (the narrowest phones under 200% text), the icon goes above the label at
+              its own 32px, not squeezed beside it. "Deleting…" is shorter than the label, so nothing extra is
+              reserved. */}
           <Button
             variant="destructive"
             onClick={() => deleteMutation.mutate()}

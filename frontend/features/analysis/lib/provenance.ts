@@ -38,38 +38,65 @@ export function validationLabel(value: QualityValue): string {
   return 'Validation unavailable'
 }
 
-const REASONS: Record<string, string> = {
-  not_in_dataset: 'Not available in this dataset.',
-  legacy_calculation: 'This saved calculation predates the current source checks. Its inputs need review.',
-  source_check_needed: 'A source check remains unresolved. Review the original filing before use.',
-  unsupported_eps_calculation: 'This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure.',
-  legacy_calculation_not_supported: 'This saved calculation could not be reproduced from compatible source inputs and is unavailable.',
-  repair_rolled_back: 'This figure was withdrawn during a data correction and is unavailable.',
+/** Each reason's words, the same strings as the backend's data_notes.REASONS: the shared notes fixture
+ *  (backend/tests/fixtures/analysis_data_notes.json) pins the two maps equal, and the backend's reason gate gives every
+ *  reason the backend writes words here. The same message prints for one figure (the dialog, a workbook comment) and for
+ *  a note's several (the detail, the PDF, the chart footnotes), in exports as on the page, so no sentence names one
+ *  figure, asks for a selection or says how a gap is drawn, and none carries a semicolon, since a chart's footnote lists
+ *  a note's places with "; " before its words (test_analysis_data_notes.py holds both maps to it). */
+export const REASONS: Readonly<Record<string, string>> = {
+  not_in_dataset: 'Not in our data. Never shown as zero.',
+  legacy_calculation: 'Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked.',
+  source_check_needed: 'Not yet matched to the filing by our automated check.',
+  unsupported_eps_calculation: 'Calculated quarterly earnings per share is not supported. Use a reported quarterly EPS figure.',
+  legacy_calculation_not_supported: 'Could not be reproduced from compatible source inputs, so unavailable.',
+  repair_rolled_back: 'Withdrawn during a data correction and unavailable.',
   incompatible_vintages: 'The inputs come from incompatible versions of the company’s filings.',
-  missing_compatible_operand: 'A compatible earlier year-to-date figure is unavailable for this calculation.',
-  negative_calculated_value: 'The calculation produced an invalid negative amount and was withheld.',
-  missing_inputs: 'The source inputs needed for this calculation are unavailable.',
-  missing_input: 'A source input needed for this calculation is unavailable.',
+  missing_compatible_operand: 'No compatible earlier year-to-date figure is available to calculate from.',
+  negative_calculated_value: 'Calculated as an invalid negative amount, so withheld.',
+  missing_inputs: 'Source inputs needed for calculation are unavailable.',
+  missing_input: 'A source input needed for calculation is unavailable.',
   missing_source: 'The original source could not be established.',
-  missing_provenance: 'Detailed source information is unavailable for this figure.',
-  legacy_unverified: 'This saved figure needs a source check before use.',
-  legacy_unreconciled: 'This saved figure needs a source check before use.',
-  legacy_unknown: 'Validation details are unavailable for this saved figure. No verification claim is made.',
-  legacy_provenance_unavailable: 'Detailed source information is unavailable for this saved figure.',
+  missing_provenance: 'Detailed source information is unavailable.',
+  legacy_unverified: 'Needs a source check before use.',
+  legacy_unreconciled: 'Needs a source check before use.',
+  legacy_unknown: 'Validation details are unavailable. No verification claim is made.',
+  legacy_provenance_unavailable: 'Saved without detailed source information.',
   incompatible_inputs: 'The source inputs do not have a compatible reporting basis.',
-  mixed_vintage: 'The calculation combines figures from different filing versions.',
-  mixed_vintages: 'The calculation combines figures from different filing versions.',
+  mixed_vintage: 'Calculated from figures in different filing versions.',
+  mixed_vintages: 'Calculated from figures in different filing versions.',
   unit_mismatch: 'The source inputs use different units or currencies.',
-  period_mismatch: 'The source inputs cover incompatible reporting periods.',
+  period_mismatch: 'Period ends on a different date from its filing’s reporting period.',
   missing_adjacent_period: 'The immediately preceding period is unavailable.',
   eps_not_additive: 'Quarterly earnings per share cannot be obtained by subtracting annual and year-to-date EPS.',
   eps_requires_reported_quarter: 'A reported quarterly earnings-per-share figure is unavailable.',
   rounded_share_count: 'Rounded weighted-average share counts do not establish an exact quarterly EPS figure.',
-  source_conflict: 'Available sources disagree on this figure.',
+  calculation_mismatch: 'Not confirmed by our calculation from the filed inputs.',
+  missing_calculation_inputs: 'Not checked: no compatible inputs in the same filing.',
+  zero_where_prior_nonzero: 'Zero where the previous period was not zero.',
+  magnitude_vs_prior: 'More than ten times the previous period’s value, or less than a tenth of it.',
+  eps_sign_vs_net_income: 'Earnings per share and net income have opposite signs for the period.',
+  diluted_gt_basic: 'Diluted earnings per share is higher than basic earnings per share for the period.',
+  legacy_period_label_mismatch: 'Saved with the wrong fiscal period and replaced by a corrected figure.',
+  rolling_duration_not_fiscal_year: 'Saved as a rolling twelve months, not the company’s fiscal year, so unavailable.',
+  calculation_parent_period_corrected: 'Withdrawn and unavailable: an input was corrected or withdrawn.',
+  source_conflict: 'The company’s filings report different values. We show the most recent filing’s value.',
 }
 
+/** The fine print's words for a note that marks its figure (DataNotes, through noteSummary); any other questioning
+ *  reason reads SUMMARY_FALLBACK. The backend's data_notes.SUMMARIES holds the same strings for the exports, which print
+ *  none of them yet (WP3); the fixture's summaries pins both. A clause has no semicolon: the summary lists places, and
+ *  joins clauses, with "; ". */
+export const REASON_SUMMARIES: Readonly<Record<string, string>> = {
+  source_check_needed: 'not yet matched to the filing',
+  source_conflict: 'the filings report different values (the most recent shown)',
+  calculation_mismatch: 'not confirmed by our calculation from the filed inputs',
+  missing_calculation_inputs: 'no compatible inputs in the same filing, so not checked',
+}
+export const SUMMARY_FALLBACK = 'questioned by an automated check'
+
 export function reasonText(reason: string): string {
-  return REASONS[reason] ?? 'The source or calculation basis needs review. Check the original filing.'
+  return Object.hasOwn(REASONS, reason) ? REASONS[reason] : 'The source or calculation basis needs review. Check the original filing.'
 }
 
 export function qualityReasons(value: QualityValue): string[] {
