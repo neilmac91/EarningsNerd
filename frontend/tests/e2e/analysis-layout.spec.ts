@@ -802,20 +802,22 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
     // obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to the scroll
     // padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
     const placed = await page.evaluate(async () => {
-      const frames = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
+      const reserved = () => document.documentElement.style.getPropertyValue('--table-rail-h')
       const table = document.querySelector('[data-analysis-metrics] table')!
       const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
       // Room below the table to place it. The rail's height is the one the page reserves while the table is under the
-      // header's line, shorter than the heading row where the rail leaves out the Metric legend (E202).
+      // header's line, shorter than the heading row where the rail leaves out the Metric legend (E202); read once the
+      // page has set it, which follows the scroll a frame and a render later.
       document.body.style.paddingBottom = '150vh'
       window.scrollTo(0, table.getBoundingClientRect().top + window.scrollY - header + 8)
-      await frames()
-      const rail = parseFloat(document.documentElement.style.getPropertyValue('--table-rail-h'))
+      for (let i = 0; i < 60 && !reserved(); i += 1) await frame()
+      const rail = parseFloat(reserved())
       const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
       for (const cell of row.cells) cell.style.height = `${header / 2 + rail - 4}px`
-      // The table's bottom 4px inside the rail's height under the header.
+      // The table's bottom 4px inside the rail's height under the header, the rail read once that scroll has rendered.
       window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - rail + 4)
-      await frames()
+      for (let i = 0; i < 6; i += 1) await frame()
       return { rail: !!document.querySelector('[data-table-header-rail] > div'), height: rail }
     })
     expect(placed.height, 'the page reserves the rail while the table is under the header').toBeGreaterThan(0)
