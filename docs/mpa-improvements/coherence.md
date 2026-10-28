@@ -926,6 +926,15 @@ shared notes fixture):
 | `calculation_mismatch` | "not confirmed by our calculation from the filed inputs" |
 | `missing_calculation_inputs` | "no compatible inputs in the same filing, so not checked" |
 
+**Added in E211 (#1667, data notes version 3).** The proxy repair writes two new reasons, worded to the rules above.
+Version 2's words were released with #1659, so new words take a new version (`NOTES_DIGESTS` in
+`backend/tests/unit/test_analysis_data_notes.py`):
+
+| Reason | On main | Shipped |
+|---|---|---|
+| `proxy_statement_value` | not written | "Saved from a proxy or information statement, not an annual or quarterly report, so unavailable." |
+| `proxy_statement_operand` | not written | "Withdrawn and unavailable: an input was saved from a proxy or information statement." |
+
 ### 3.4 Comprehension test
 
 These rounds tested the ring design's words, before the founder's review. Two of their findings

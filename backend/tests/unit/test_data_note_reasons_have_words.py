@@ -890,8 +890,8 @@ def _drive(monkeypatch) -> set[str]:
     dropped, for two): facts/reconcile's soft checks and companyfacts cross-check and facts/lineage's calculation
     checks over one filing's batch (with and without initialize_reported), fact_provenance's legacy projections,
     data_notes' fallbacks, summary words and a citation supplement, quarterly_fact_repair's calendar relabels (pure)
-    and its repair, reported EPS and rollback, and filing_lineage_repair's backfill of each outcome, all on in-memory
-    SQLite databases."""
+    and its repair, its proxy step (proxy_fact_repair, E211), reported EPS and rollback, and filing_lineage_repair's
+    backfill of each outcome, all on in-memory SQLite databases."""
     from collections.abc import Iterator
     from contextlib import contextmanager
     from decimal import Decimal
@@ -975,6 +975,32 @@ def _drive(monkeypatch) -> set[str]:
         {1: rolling, 2: relabelled, 3: child, 4: stored}, [{**relabelled, "fiscal_period": "Q1"}],
         {"calendar_exclusions": [{**exclusion, "reason": "rolling_duration_not_fiscal_year"}]})
     codes |= set().union(*(reasons(state.get("provenance")) for state in updates.values()))
+
+    # The proxy step (E211): a proxy winner retired and the 10-K's inserted, a demoted 10-K row promoted, a margin over
+    # a period only a proxy tags retired with it, a replaced filing row restored and checked again, and a
+    # reannotation that would withhold a shown figure held (tests/unit/test_quarterly_proxy_repair.py's shapes,
+    # planted through the writers as they ran before #1622), before the scenarios below replace the normalizer.
+    from app.database import SessionLocal
+    from sqlalchemy.orm import sessionmaker
+    from tests.unit import test_quarterly_proxy_repair as shapes
+
+    def held(db, monkeypatch, ticker):
+        company, filed, filing = shapes._reconfirmed_with_its_margin(db, monkeypatch, ticker)
+        shapes._with_revenue_withheld(db, filing)
+        return company, filed
+
+    for build in (shapes._unhealed, shapes._demoted, shapes._only_a_proxy_tags_2021, shapes._replaced, held):
+        engine = create_engine("sqlite://")
+        Base.metadata.create_all(engine)
+        db = sessionmaker(**{**SessionLocal.kw, "bind": engine})()  # autoflush off, as the shapes expect
+        try:
+            company, filed, *_filing = build(db, monkeypatch, ticker="PXY")
+            shapes._preview(db, company, filed)
+            shapes._apply(db, company, filed)
+            codes |= set().union(*(reasons(row.provenance) for row in db.query(FinancialFact)))
+        finally:
+            db.close()
+            engine.dispose()
 
     # The repair quarantines a calculation whose inputs a filing proves incompatible, and a rollback leaves what the
     # repair inserted unavailable (tests/unit/test_quarterly_fact_repair.py's scenarios, on their helpers).

@@ -97,13 +97,14 @@ export interface DataNotesTotals {
   total: number
 }
 
-/** Versioned server metadata, admitted once at the API boundary. Version 2 has the same shape as 1: only the reasons'
- *  words and the letter order (marked notes first) differ, and the local grouper writes 2. A saved version 1 envelope
- *  (the landing sample, a report a tab loaded before the server moved) still decodes with its stored words and letters.
- *  A narrative that tab streams after the move does not: its notes are version 2's, so their report prefix is not the
- *  tab's, and the decoder refuses it (EVIDENCE_RECOVERY) until Run analysis reloads the report with them. */
+/** Versioned server metadata, admitted once at the API boundary. Versions 2 and 3 have the same shape as 1: version 2
+ *  changed the reasons' words and the letter order (marked notes first), version 3 added the words of E211's two proxy
+ *  reasons, and the local grouper writes 3. A saved envelope of an older version (the landing sample, a report a tab
+ *  loaded before the server moved) still decodes with its stored words and letters. A narrative that tab streams after
+ *  the move may not: its notes are the newer version's, so where the words or letters moved their report prefix is not
+ *  the tab's, and the decoder refuses it (EVIDENCE_RECOVERY) until Run analysis reloads the report with them. */
 export interface DataNotesWire {
-  version: 1 | 2
+  version: 1 | 2 | 3
   notes: DataNote[]
   totals: DataNotesTotals
 }
@@ -312,5 +313,5 @@ export function groupDataNotes(dataset: DataNotesDataset): DataNotesModel {
     }
   }
 
-  return dataNotesModelFromWire({ version: 2, notes: groups.finish().notes, totals }, dataset.mode)
+  return dataNotesModelFromWire({ version: 3, notes: groups.finish().notes, totals }, dataset.mode)
 }

@@ -81,6 +81,8 @@ export const REASONS: Readonly<Record<string, string>> = {
   rolling_duration_not_fiscal_year: 'Saved as a rolling twelve months, not the company’s fiscal year, so unavailable.',
   calculation_parent_period_corrected: 'Withdrawn and unavailable: an input was corrected or withdrawn.',
   source_conflict: 'The company’s filings report different values. We show the most recent filing’s value.',
+  proxy_statement_value: 'Saved from a proxy or information statement, not an annual or quarterly report, so unavailable.',
+  proxy_statement_operand: 'Withdrawn and unavailable: an input was saved from a proxy or information statement.',
 }
 
 /** The fine print's words for a note that marks its figure (DataNotes, through noteSummary); any other questioning

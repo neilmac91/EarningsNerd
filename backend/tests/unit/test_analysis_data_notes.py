@@ -68,8 +68,8 @@ def test_every_known_reason_has_a_pinned_message_and_supplements_continue_after_
     case = CASES[3]
     assert {note["reasons"][0] for note in case["expected"]["notes"]} == set(REASONS)
     result = citation_data_notes(case["citations"], data_notes(case["dataset"]))
-    # 36 reasons: the 35 that mark take a..ai, the record-only legacy_calculation aj, and the supplements follow.
-    assert [note["letter"] for note in result["notes"][-4:]] == ["aj", "ak", "al", "am"]
+    # 38 reasons: the 37 that mark take a..ak, the record-only legacy_calculation al, and the supplements follow.
+    assert [note["letter"] for note in result["notes"][-4:]] == ["al", "am", "an", "ao"]
     assert result["notes"][-4]["reasons"] == ["legacy_calculation"]
     assert all(not note["values"] and not note["comparisons"] for note in result["notes"][-3:])
 
@@ -352,6 +352,7 @@ NOTES_PROBE_CITATIONS = [
 # yet on main has saved nothing, so its digest is replaced instead. Version 1 predates this gate.
 NOTES_DIGESTS = {
     2: "c5dde3d9257c9c6e14312aaa22aba8ab5764a14849cb1b92eea8a4fe82984fff",
+    3: "e8e7da6491c2ddf92b89e5ccd7e8205df882db7db778319663b2a5e4c75675e6",
 }
 
 
@@ -421,9 +422,10 @@ def test_saved_supported_notes_are_authoritative_and_detached():
 
 
 @pytest.mark.parametrize("present", [
-    None, {}, {"version": True}, {"version": 2}, {"version": 2, "notes": None, "totals": {}},
-    # A well-formed envelope of another version: version 1's words and letters are not this server's.
-    {"version": 1, "notes": [], "totals": {}}, {"version": 3, "notes": [], "totals": {}},
+    None, {}, {"version": True}, {"version": 3}, {"version": 3, "notes": None, "totals": {}},
+    # A well-formed envelope of another version: version 1's or 2's words and letters are not this server's.
+    {"version": 1, "notes": [], "totals": {}}, {"version": 2, "notes": [], "totals": {}},
+    {"version": 4, "notes": [], "totals": {}},
 ])
 def test_present_unusable_notes_never_silently_fall_back(present):
     dataset = {**CASES[0]["dataset"], "data_notes": present}
@@ -482,7 +484,7 @@ def test_built_dataset_carries_notes_for_values_and_inherited_comparisons():
         db.flush()
         dataset = build_dataset(db, company, "annual", "FY2023", "FY2024")
         notes = dataset["data_notes"]
-        assert notes["version"] == DATA_NOTES_VERSION == 2
+        assert notes["version"] == DATA_NOTES_VERSION == 3
         concern = next(note for note in notes["notes"] if note["reasons"] == ["source_conflict"])
         assert {ref["concept"] for ref in concern["values"]} == {"revenue"}
         assert {ref["basis"] for ref in concern["comparisons"]} == {"yoy", "cagr"}

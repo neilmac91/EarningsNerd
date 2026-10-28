@@ -81,13 +81,13 @@ describe('analysis presentation API admission', () => {
     expect(report.series).toBe(dataset.series)
   })
 
-  it('admits a version 2 report envelope, which has the same shape as version 1', async () => {
-    const v2 = { ...notes, version: 2 as const }
-    vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes: v2 } })
-    expect((await getAnalysisDataset('META', range)).data_notes).toEqual(v2)
+  it.each([2, 3] as const)('admits a version %i report envelope, which has the same shape as version 1', async (version) => {
+    const later = { ...notes, version }
+    vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes: later } })
+    expect((await getAnalysisDataset('META', range)).data_notes).toEqual(later)
   })
 
-  it.each([null, undefined, { ...notes, version: 3 }, { ...notes, notes: [] }])(
+  it.each([null, undefined, { ...notes, version: 4 }, { ...notes, notes: [] }])(
     'rejects present malformed report metadata (%j) instead of choosing a clean fallback', async (data_notes) => {
       vi.spyOn(api, 'post').mockResolvedValue({ data: { ...dataset, data_notes } })
       await expect(getAnalysisDataset('META', range)).rejects.toThrow('Invalid analysis data notes')
@@ -117,9 +117,12 @@ describe('analysis presentation API admission', () => {
     expect(reader.cancel).toHaveBeenCalledTimes(1)
   })
 
-  it('admits a version 2 presentation as it admits version 1, so a tab open across the server change keeps working', async () => {
+  it('admits a version 2 or 3 presentation as it admits version 1, so a tab open across a server change keeps working', async () => {
     const v2: NarrativePresentation = { ...presentation, data_notes_version: 2, notes: { ...notes, version: 2 } }
-    for (const [envelope, report] of [[presentation, dataset], [v2, { ...dataset, data_notes: v2.notes }]] as const) {
+    const v3: NarrativePresentation = { ...presentation, data_notes_version: 3, notes: { ...notes, version: 3 } }
+    for (const [envelope, report] of [
+      [presentation, dataset], [v2, { ...dataset, data_notes: v2.notes }], [v3, { ...dataset, data_notes: v3.notes }],
+    ] as const) {
       serve({ type: 'complete', ...completion, narrative_presentation: envelope })
       const handlers = { onToken: vi.fn(), onComplete: vi.fn(), onError: vi.fn() }
       await streamAnalysis('META', range, handlers, undefined, report)
@@ -131,7 +134,7 @@ describe('analysis presentation API admission', () => {
   const invalidEnvelopes = [
     ['missing envelope', null],
     ['unknown version', { ...presentation, format_version: 'analysis-narrative-v2' }],
-    ['unknown data notes version', { ...presentation, data_notes_version: 3 }],
+    ['unknown data notes version', { ...presentation, data_notes_version: 4 }],
     ['different snapshot', { ...presentation, snapshot_id: 'another' }],
     ['incorrect offset encoding', { ...presentation, offset_encoding: 'code-points' }],
     ['altered source text', { ...presentation, evidence: [{ ...presentation.evidence[0], tail: { ...presentation.evidence[0].tail, text: tail + '.' } }] }],

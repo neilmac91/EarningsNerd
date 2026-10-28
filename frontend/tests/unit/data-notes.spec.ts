@@ -29,7 +29,7 @@ describe('server data notes admission', () => {
   it.each(golden.cases)('shares Python memberships, counts, messages and portable identities: $name', (example) => {
     const before = JSON.stringify(example)
     const legacy = groupDataNotes(example.dataset)
-    expect({ version: 2, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
+    expect({ version: 3, notes: legacy.notes, totals: legacy.totals }).toEqual(example.expected)
     const admitted = decodeDataNotes(example.expected, example.dataset)
     expect(admitted).toEqual(example.expected)
     const report = { ...example.dataset, data_notes: admitted }
@@ -38,7 +38,7 @@ describe('server data notes admission', () => {
     expect(resolved.totals).toBe(admitted.totals)
     if (example.citations && example.expected_citation_notes) {
       const combined = groupQualityNotes(example.citations, legacy)
-      expect({ version: 2, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
+      expect({ version: 3, notes: combined.notes, totals: legacy.totals }).toEqual(example.expected_citation_notes)
       const completion = decodeCitationDataNotes(example.expected_citation_notes, report, example.citations)
       expect(completion).toEqual(example.expected_citation_notes)
       const model = qualityNotesModelFromWire(completion.notes)
@@ -47,7 +47,7 @@ describe('server data notes admission', () => {
     expect(JSON.stringify(example)).toBe(before)
   })
 
-  it('holds the same reason words, record-only list and summary words as the backend (data notes version 2)', () => {
+  it('holds the same reason words, record-only list and summary words as the backend (data notes version 3)', () => {
     // The backend's test_analysis_data_notes.py pins its maps to the same fixture, so the two sides cannot drift: case
     // all_known_reason_messages_and_supplements_after_z holds one note for every backend reason, its message the words.
     const known = golden.cases.find((entry) => entry.name === 'all_known_reason_messages_and_supplements_after_z')!
@@ -108,7 +108,7 @@ describe('server data notes admission', () => {
   })
 
   it.each([
-    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 3 }) }],
+    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 4 }) }],
     ['fractional total', (wire: DataNotesWire) => { wire.totals.total = 1.5 }],
     ['unsafe total', (wire: DataNotesWire) => { wire.totals.total = Number.MAX_SAFE_INTEGER + 1 }],
     ['duplicate note', (wire: DataNotesWire) => { wire.notes.push(structuredClone(wire.notes[0])) }],
@@ -124,9 +124,9 @@ describe('server data notes admission', () => {
     expect(() => decodeDataNotes(wire, example.dataset)).toThrow('Invalid analysis data notes')
   })
 
-  it('decodes a version 2 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+  it('decodes a version 2 or 3 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
     const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
-    for (const version of [1, 2] as const) {
+    for (const version of [1, 2, 3] as const) {
       const wire = { ...structuredClone(example.expected), version }
       expect(decodeDataNotes(wire, example.dataset)).toEqual(wire)
       const report = { ...example.dataset, data_notes: wire }
@@ -135,10 +135,10 @@ describe('server data notes admission', () => {
     }
   })
 
-  it('a tab holding a version 1 report refuses a version 2 completion until Run analysis reloads the report', () => {
+  it('a tab holding a version 1 report refuses a later version\'s completion until Run analysis reloads the report', () => {
     // A report loaded before the server moved keeps version 1's words and letters (here one sentence of them); a
-    // narrative streamed after the move carries version 2's, so its report prefix is not the tab's and the page shows
-    // EVIDENCE_RECOVERY (DataNotesWire). Run analysis fetches the report again, which reads the same completion.
+    // narrative streamed after the move carries the later version's, so its report prefix is not the tab's and the page
+    // shows EVIDENCE_RECOVERY (DataNotesWire). Run analysis fetches the report again, which reads the same completion.
     const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
     const tabReport = { ...structuredClone(example.expected), version: 1 as const }
     tabReport.notes[0].message = 'Available sources disagree on this figure.'
