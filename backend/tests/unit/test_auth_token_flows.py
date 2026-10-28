@@ -19,8 +19,8 @@ first sign-in whose session mint fails are pinned beside them:
     verifies, and a user who is already Pro
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
-    login that replaced the refused cookies before the refusal answered keeps them, and its session unless the
-    refusal was a replay of the same account's token, whose sweep ends it until E96 (E121)
+    login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews
+    unless the refusal was a replay of the same account's token, whose sweep revokes it until E96 (E121)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
@@ -527,7 +527,7 @@ def test_refresh_replay_revokes_the_live_chain(client, mail):
         ).count() == 0
 
 
-# ── a refused refresh sets no cookie, so a newer login keeps its session ────────
+# ── a refused refresh sets no cookie, so a newer login keeps its cookies ────────
 
 REFRESH_COOKIE = "earningsnerd_refresh_token"
 _NEVER_VALID = datetime(2000, 1, 1)  # naive, as the refresh token's own expiry is

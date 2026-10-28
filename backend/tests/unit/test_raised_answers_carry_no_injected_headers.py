@@ -11,14 +11,21 @@ Cookies, and any header set on the Response, need an answer of the route's own, 
 ``WWW-Authenticate`` or ``Retry-After``.
 
 The walk reads every function in ``app/`` with a parameter annotated as FastAPI's or Starlette's ``Response``
-(bare, under an import alias, dotted as ``fastapi.Response``, quoted, or inside ``Optional``, ``Annotated`` or
-``| None``) and refuses a block of statements in it, or in a function nested in it, where one statement edits
-that parameter and a later one raises. An edit is a call on the parameter or on one of its attributes
-(``response.headers.update``), a call passed the parameter, an assignment into or deletion of one of its
-attributes, or a call of, or a call passed, a function nested in the route that edits it (a thread-pool unit).
-What it cannot see, left to review: the edit and the raise in different blocks (an edit, then a raise inside a
-later ``if``), a helper defined outside the route that edits and raises in one call, and the parameter under
-another local name.
+(bare, under an import alias, dotted as ``fastapi.Response`` or ``starlette.responses.Response``, quoted, or
+inside ``Optional``, ``Union``, ``Annotated`` or ``| None``) and refuses a block of statements in it, or in a
+function nested in it, where one statement edits that parameter and a later ``raise`` statement follows. An
+edit is a call on the parameter or on one of its attributes (``response.headers.update``), a call passed the
+parameter or its headers, an assignment into or deletion of one of its attributes (in a tuple target too), or
+a call of, or a call passed, a function nested in the route that edits it (a thread-pool unit). An edit counts
+at the statement of the block that holds it, wherever inside that statement it lies, so an edit on an earlier
+branch is refused before a later raise even when that branch returns: raise first, or raise in an ``else``.
+
+What it cannot see, left to review (each pinned in ``PLANTED_GAPS``): a raise inside a later compound statement
+(an edit, then a raise inside a later ``if``); a raise from a later call (``enforce_rate_limit``,
+``enforce_turnstile`` and feedback's ``_check_reader`` raise ``HTTPException`` themselves); a helper defined
+outside the route that edits and raises in one call; the parameter under another local name; a module imported
+under another name (``import fastapi as fa``); and a parameter annotated as a ``Response`` subclass, which
+FastAPI also injects.
 """
 import ast
 from pathlib import Path
@@ -97,14 +104,34 @@ def _edits(statement: ast.stmt, params: set[str], units: set[str]) -> bool:
             if isinstance(node.func, ast.Name) and node.func.id in units:
                 return True
             passed = list(node.args) + [keyword.value for keyword in node.keywords]
+            passed = [value.value if isinstance(value, ast.Starred) else value for value in passed]
             if any(isinstance(value, ast.Name) and value.id in params | units for value in passed):
+                return True
+            if any(_is_headers(value, params) for value in passed):
                 return True
         if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign, ast.Delete)):
             targets = node.targets if isinstance(node, (ast.Assign, ast.Delete)) else [node.target]
-            if any(isinstance(target, (ast.Attribute, ast.Subscript)) and _rooted_at(target, params)
-                   for target in targets):
+            if any(isinstance(leaf, (ast.Attribute, ast.Subscript)) and _rooted_at(leaf, params)
+                   for target in targets for leaf in _target_leaves(target)):
                 return True
     return False
+
+
+def _is_headers(node: ast.AST, params: set[str]) -> bool:
+    """``response.headers`` or ``response.raw_headers``: an attribute a callee can edit. Other attributes passed to a
+    call (``logger.info(response.status_code)``) are reads."""
+    return (isinstance(node, ast.Attribute) and node.attr in {"headers", "raw_headers"}
+            and isinstance(node.value, ast.Name) and node.value.id in params)
+
+
+def _target_leaves(target: ast.AST):
+    if isinstance(target, (ast.Tuple, ast.List)):
+        for element in target.elts:
+            yield from _target_leaves(element)
+    elif isinstance(target, ast.Starred):
+        yield from _target_leaves(target.value)
+    else:
+        yield target
 
 
 def _editing_units(function: ast.AST, params: set[str]) -> set[str]:
@@ -188,6 +215,16 @@ def route(response: Response):
     del response.headers["ETag"]
     raise HTTPException(status_code=412)
 """,
+    "its headers passed to a call": """
+def route(response: Response):
+    apply_no_store(response.headers)
+    raise HTTPException(status_code=400)
+""",
+    "a tuple target": """
+def route(response: Response):
+    response.status_code, body = 202, {}
+    raise RuntimeError(body)
+""",
     "an attribute assignment": """
 def route(response: Response):
     response.status_code = 202
@@ -213,6 +250,11 @@ def route(reply: Response):
     reply.set_cookie("a", "b")
     raise HTTPException(status_code=401)
 """,
+    "a positional-only parameter": """
+def route(response: Response, /):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+""",
     "a keyword-only parameter": """
 def route(*, response: Response):
     response.set_cookie("a", "b")
@@ -224,8 +266,29 @@ def route(response: FastAPIResponse):
     response.set_cookie("a", "b")
     raise HTTPException(status_code=401)
 """,
-    "Optional, Annotated, a union and a quoted annotation": """
+    "Starlette's Response, aliased and dotted": """
+from starlette.responses import Response as StarletteResponse
+def aliased(response: StarletteResponse):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+def dotted(response: starlette.responses.Response):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+""",
+    "fastapi.responses' Response, aliased and dotted": """
+from fastapi.responses import Response as Reply
+def aliased(response: Reply):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+def dotted(response: fastapi.responses.Response):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+""",
+    "Optional, Union, Annotated, a union and a quoted annotation": """
 def optional(response: Optional[Response]):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+def union_of(response: typing.Union[Response, None]):
     response.set_cookie("a", "b")
     raise HTTPException(status_code=401)
 def annotated(response: Annotated[Response, Depends(x)]):
@@ -277,6 +340,13 @@ def route(response: Response):
         _clear_auth_cookie(response)
         raise HTTPException(status_code=401)
 """,
+    "an edit on an earlier branch that returns (the stated over-reach)": """
+def route(response: Response, ok: bool):
+    if ok:
+        _set_auth_cookie(response, "t")
+        return {}
+    raise HTTPException(status_code=401)
+""",
 }
 
 PLANTED_PASSING = {
@@ -314,6 +384,24 @@ def check(resp: Response):
     resp.read()
     raise RuntimeError()
 """,
+    "an attribute read passed to a log": """
+def route(response: Response):
+    logger.info("refusing at %s", response.status_code)
+    raise HTTPException(status_code=401)
+""",
+    "Response in Annotated's metadata, not its type": """
+def route(value: Annotated[Settings, Response]):
+    value.limit = 1
+    raise HTTPException(status_code=401)
+""",
+    "an edit on an earlier branch, raised first": """
+def route(response: Response, ok: bool):
+    if not ok:
+        raise HTTPException(status_code=401)
+    if ok:
+        _set_auth_cookie(response, "t")
+        return {}
+""",
     "a nested definition that edits, never called before the raise": """
 def route(response: Response):
     def later():
@@ -331,7 +419,7 @@ async def route(response: Response):
 
 # The walk's stated gaps: each edits the Response and raises, and passes.
 PLANTED_GAPS = {
-    "the raise in a later block": """
+    "a raise inside a later compound statement": """
 def route(response: Response, ok: bool):
     _clear_auth_cookie(response)
     if not ok:
@@ -345,6 +433,23 @@ def route(response: Response):
 def route(response: Response):
     reply = response
     reply.delete_cookie("a")
+    raise HTTPException(status_code=401)
+""",
+    "a raise from a later call": """
+def route(request: Request, response: Response):
+    _set_auth_cookie(response, "t")
+    enforce_rate_limit(request, LOGIN_LIMITER, "login")
+    return {}
+""",
+    "a module imported under another name": """
+import fastapi as fa
+def route(response: fa.Response):
+    response.set_cookie("a", "b")
+    raise HTTPException(status_code=401)
+""",
+    "a Response subclass": """
+def route(response: JSONResponse):
+    response.set_cookie("a", "b")
     raise HTTPException(status_code=401)
 """,
 }
@@ -364,7 +469,11 @@ def test_no_route_edits_its_injected_response_and_then_raises():
 
 
 def test_the_walk_refuses_the_planted_edits():
-    expected = {name: (4 if name.startswith("Optional") else 1) for name in PLANTED_REFUSED}
+    # One finding per top-level function planted.
+    expected = {
+        name: sum(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) for node in ast.parse(source).body)
+        for name, source in PLANTED_REFUSED.items()
+    }
     assert {name: len(edits_then_raises(source)) for name, source in PLANTED_REFUSED.items()} == expected
 
 
@@ -417,7 +526,8 @@ def _app_that_edits_then_raises() -> FastAPI:
 
 def test_fastapi_drops_the_injected_responses_edits_from_a_raised_answer():
     """The gate's premise, pinned against the installed FastAPI: the edits reach the answer only when the route
-    returns. HTTPException(headers=) is the one way a raised answer carries a header."""
+    returns. Short of an exception handler or middleware of its own, HTTPException(headers=) is how a raised answer
+    carries a header the route chooses."""
     client = TestClient(_app_that_edits_then_raises(), raise_server_exceptions=False)
 
     refused = client.get("/refused")
