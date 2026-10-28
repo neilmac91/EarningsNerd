@@ -394,9 +394,9 @@ describe('account snapshots follow the resolved identity', () => {
 
   it("a /me naming another reader than this tab showed drops the previous reader's snapshots, and no render pairs the new reader with them (E29 (3))", async () => {
     const client = newClient()
+    // The watch starts from the reader the cache already holds.
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
     disposers.push(subscribeAccountQueryReset(client))
-    api.defaults.adapter = async (config) => response(config, makeUser(1))
-    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe })
     const owned = [queryKeys.watchlist(), queryKeys.notifications(), queryKeys.usage.byUser(1), queryKeys.wordingReview.byFiling(7)]
     for (const key of owned) client.setQueryData(key, { owner: 1 })
     client.setQueryData(queryKeys.company('AAPL'), { shared: true })
@@ -409,6 +409,7 @@ describe('account snapshots follow the resolved identity', () => {
     }
     render(<QueryClientProvider client={client}><Pair /></QueryClientProvider>)
     const before = getSessionGeneration()
+    const explicit = getExplicitSessionGeneration()
     // Another tab signed in as the second account; this tab's next /me (the Header's focus read) names it.
     api.defaults.adapter = async (config) => response(config, makeUser(2))
     await act(async () => { await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 }) })
@@ -420,11 +421,13 @@ describe('account snapshots follow the resolved identity', () => {
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
     expect(owned.filter((key) => client.getQueryData(key) !== undefined)).toEqual([])
     expect(client.getQueryData(queryKeys.company('AAPL'))).toEqual({ shared: true })
-    // One move, so the first reader's answers still in flight write nothing (E29 (1)).
+    // One move, so the first reader's answers still in flight write nothing (E29 (1)), and of the session generation
+    // alone, so a login under way in this tab keeps its own.
     expect(getSessionGeneration()).toBe(before + 1)
+    expect(getExplicitSessionGeneration()).toBe(explicit)
   })
 
-  it('a read of the same reader again, and a reset between two readers, drop nothing more (E29 (3))', async () => {
+  it('a read of the same reader again, a reset between two readers, and a stopped watch drop nothing more (E29 (3))', async () => {
     const client = newClient()
     disposers.push(subscribeAccountQueryReset(client))
     api.defaults.adapter = async (config) => response(config, makeUser(1))
@@ -444,6 +447,34 @@ describe('account snapshots follow the resolved identity', () => {
     await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
     expect(client.getQueryData(queryKeys.currentUser())).toEqual(makeUser(2))
     expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+    // Stopped (the providers' cleanup), the watch drops nothing when another reader is named.
+    disposers.splice(0).forEach((dispose) => dispose())
+    api.defaults.adapter = async (config) => response(config, makeUser(3))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 2 })
+    expect(getSessionGeneration()).toBe(start + 1)
+  })
+
+  it("a /me that answers no one between two readers empties nothing, and the next reader still drops the first one's snapshots (E29 (3))", async () => {
+    const client = newClient()
+    client.setQueryData(queryKeys.currentUser(), makeUser(1))
+    disposers.push(subscribeAccountQueryReset(client))
+    client.setQueryData(queryKeys.watchlist(), { owner: 1 })
+    const start = getSessionGeneration()
+    // Another tab logged out, clearing the shared session marker: this tab's /me 401 reads as a guest's, with no
+    // refresh and no lost session, so nothing resets.
+    api.defaults.adapter = async (config) => {
+      throw Object.assign(new Error('guest'), { config, response: { status: 401, data: { detail: 'Not authenticated' } } })
+    }
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.currentUser())).toBeNull()
+    expect(client.getQueryData(queryKeys.watchlist())).toEqual({ owner: 1 })
+    expect(getSessionGeneration()).toBe(start)
+    // That tab then signed in as another account, and this tab's next /me names it.
+    api.defaults.adapter = async (config) => response(config, makeUser(2))
+    await client.fetchQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 0 })
+    expect(client.getQueryData(queryKeys.watchlist())).toBeUndefined()
     expect(getSessionGeneration()).toBe(start + 1)
   })
 

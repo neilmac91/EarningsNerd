@@ -55,22 +55,31 @@ export function resetAccountQueries(
   for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
 }
 
-/** A sign-in in another tab reaches this one only through /me (the Header reads it again on focus), and resets
- * nothing: a read that names another reader than the one this tab last showed, with no reset between them, finds the
- * account families still holding the previous reader's snapshots (E29 (3)). They go, as a reset's do, and the session
- * generation moves on, so the previous reader's answers still in flight write nothing (E29 (1)); the new reader's
- * identity stays. A reset in this tab (a logout, a login, a lost session) publishes null between two readers, and a
- * failed logout puts back the reader it found, so neither counts. The cache calls this inside the update, before any
- * observer hears of it, so no render shows the new reader beside the previous one's snapshots. */
+/** A sign-in in another tab reaches this one only through /me (the Header reads it again on focus, once its last read
+ * is a minute old), and resets nothing: a read that names another reader than the one the account families were read
+ * for, with no reset between them, finds them still holding that reader's snapshots (E29 (3)). They go, as a reset's
+ * do, and the session generation moves on, so that reader's answers still in flight write nothing (E29 (1)); the new
+ * reader's identity stays. A reset in this tab (a logout, a login, a lost session) empties the families and writes
+ * null, by hand; a failed logout then puts back the reader it found. A /me that answers no one empties nothing (a
+ * logout in another tab clears the shared session marker, so this tab's 401 reads as a guest's and resets nothing):
+ * the families keep their reader until another is named. The cache calls this inside the update, before any observer
+ * hears of it, so no render shows the new reader beside the previous one's snapshots. */
 function watchReader(queryClient: QueryClient): () => void {
   const identity = hashKey(queryKeys.currentUser())
   const readerOf = (data: unknown) => (data as CurrentUser | null | undefined)?.id ?? null
-  let reader = readerOf(queryClient.getQueryData(queryKeys.currentUser()))
+  // The reader the account families were read for, since a reset last emptied them.
+  let owner = readerOf(queryClient.getQueryData(queryKeys.currentUser()))
   return queryClient.getQueryCache().subscribe((event) => {
     if (event.type !== 'updated' || event.action.type !== 'success' || event.query.queryHash !== identity) return
-    const previous = reader
-    reader = readerOf(event.query.state.data)
-    if (previous === null || reader === null || previous === reader) return
+    const reader = readerOf(event.query.state.data)
+    if (reader === null) {
+      // A reset's null is written by hand (setQueryData); a /me's is fetched.
+      if (event.action.manual) owner = null
+      return
+    }
+    const previous = owner
+    owner = reader
+    if (previous === null || previous === reader) return
     advanceSessionGeneration('session-loss')
     for (const queryKey of ACCOUNT_QUERY_FAMILIES) void queryClient.cancelQueries({ queryKey })
     for (const queryKey of ACCOUNT_QUERY_FAMILIES) queryClient.removeQueries({ queryKey })
