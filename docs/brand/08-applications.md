@@ -513,7 +513,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
   EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the marks to the page's
-  rule and the fine print to the page's words by `test_export_note_marks.py`; the eval's blinding
+  rule, and the fine print's count clauses, places, detail forms and checks sentence (read from `DataNotes.tsx`), the
+  calculated sentence (from `metrics-table.spec.tsx`) and the Q4 legend (from `MetricsTable.tsx`) to the page's words, by
+  `test_export_note_marks.py`; the eval's blinding
   of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
   backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
   backend's company display name to the page's by one case table,

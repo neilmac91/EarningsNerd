@@ -1093,7 +1093,8 @@ The PDF's key-on-another-page miss becomes fine print under the table, on the sa
 - **PDF.** No dagger after a figure; a letter only where its note questions the number, in the note ink, in the
   grid, the appendix, the citations and the narrative. Above the grid: "Figures are rounded for display.", the
   calculated metrics ("Margins and free cash flow are calculated from filed figures.") and, where the page asks
-  the reader to select a value, "Sources & methods gives each figure's full precision, formula and inputs."; a
+  the reader to select a value, "Sources & methods gives each figure's full precision, with any recorded formula
+  and inputs for a calculated figure."; a
   quarterly run adds the page's legend and its Q4 header †. Under the grid: the summary line with a bold
   "Data notes" lead (no heading, so the outline loses its "Data notes" entry), kept on the grid's last page
   (`break-before: avoid`), every note in the detail and a closing line naming Sources & methods. A citation's
@@ -1102,9 +1103,12 @@ The PDF's key-on-another-page miss becomes fine print under the table, on the sa
   `0.0" pp a"`, and `@" a"` for "n/m"), so the cell stays a number; a chart's value axis carries the figures' own
   format, unlinked, since LibreOffice set a linked axis's letter on every tick. Every note stays a comment,
   naming its letter only where it marks. The Overview prints the fine print ("N not in our data, left blank"),
-  and the Metrics header row ends, one cell past the grid, in the key to the letters its grid prints.
+  and the Metrics header row ends, one cell past the grid, in the key to the letters its grid prints: a note
+  marked only on a YoY or QoQ figure, which the grid does not show, stays out of the key.
 - `backend/tests/unit/test_export_note_marks.py` is the rule-12 gate's export half: over every case of the shared
-  notes fixture, each export draws exactly its marked letters.
+  notes fixture, each export draws exactly its marked letters. It also reads the page's own words from
+  `DataNotes.tsx` (the summary's count clauses, places and detail forms), `metrics-table.spec.tsx` (the calculated
+  sentence) and `MetricsTable.tsx` (the Q4 legend), and fails when the exports' differ.
 
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").

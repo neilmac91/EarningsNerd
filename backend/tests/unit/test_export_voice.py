@@ -179,15 +179,18 @@ def _workbook():
 
 
 def metrics_header_and_key(sheet, labels: list[str]) -> tuple[list[str], str | None]:
-    """The Metrics header row's cells, and its key with each metric label read as a proper noun: the key is the one
-    cell after the last header, without the header fill. None when the grid prints no letter."""
+    """The Metrics header row's cells, and its key with each metric label read as a proper noun. The key is exactly the
+    cell one column past the last header, without the header fill; every other cell of the row reads as a header. None
+    when the grid prints no letter."""
     row = [cell for cell in sheet[1] if cell.value]
-    if not row or row[-1].fill.fill_type is not None:
+    past = max((cell.column for cell in row if cell.fill.fill_type is not None), default=0) + 1
+    key_cell = next((cell for cell in row if cell.column == past and cell.fill.fill_type is None), None)
+    if key_cell is None:
         return [cell.value for cell in row], None
-    key = row[-1].value
+    key = key_cell.value
     for label in sorted(labels, key=len, reverse=True):
         key = key.replace(label, " NAME ")
-    return [cell.value for cell in row[:-1]], key
+    return [cell.value for cell in row if cell is not key_cell], key
 
 
 def _workbook_texts(data: bytes) -> list[str]:
@@ -257,8 +260,8 @@ def test_the_headings_the_exports_own_are_in_sentence_case():
         "workbook sheet names": book.sheetnames,
         "workbook title": [overview["A7"].value],
         "workbook fact labels": [row[0].value for row in overview.iter_rows(min_row=10) if row[1].value],
-        "workbook header rows": [*metrics_header, *(cell.value for sheet in book.worksheets[2:] for cell in sheet[1]
-                                                    if cell.value)],
+        "workbook header rows": [*metrics_header, *(cell.value for sheet in book.worksheets[1:] if sheet.title != "Metrics"
+                                                    for cell in sheet[1] if cell.value)],
         "workbook Metrics key": [key],
     }
     # The data notes are fine print under the grid, with no heading of their own (D-061).
@@ -294,6 +297,10 @@ def test_the_readers_flag_the_forms_this_pr_fixed():
     sheet.cell(1, 3, "Data notes · a Free cash flow FY2024: not yet matched to the filing")
     header, key = metrics_header_and_key(sheet, ["Free cash flow"])
     assert not_sentence_case(header[1]) == "Growth" and not_sentence_case(key) is None
+    # Only that cell: an unfilled cell further along reads as a header, its capitals failing.
+    sheet.cell(1, 5, "Data Notes · a Free cash flow")
+    assert metrics_header_and_key(sheet, ["Free cash flow"]) == (["Metric", "Window Growth", "Data Notes · a Free cash flow"], key)
+    sheet.cell(1, 5).value = None
     for broken, word in (("Data Notes · a Free cash flow FY2024: not yet matched", "Notes"),
                          ("Data notes · a Free cash flow FY2024: Not yet matched", "Not")):
         sheet.cell(1, 3, broken)
