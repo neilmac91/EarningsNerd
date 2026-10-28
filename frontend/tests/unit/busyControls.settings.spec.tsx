@@ -636,16 +636,19 @@ describe('SettingsPage when the session is lost', () => {
       channel: 'email', digest: 'daily', realtime: false, realtime_available: true, eightk_available: false,
     })
     api.deleteUserAccount.mockResolvedValue({ message: 'Account deleted' })
-    renderWithClient(<SettingsPage />)
+    const { client } = renderWithClient(<SettingsPage />)
     fireEvent.click(await screen.findByRole('button', { name: 'Delete my account' }))
     fireEvent.change(screen.getByPlaceholderText('delete my account'), { target: { value: 'delete my account' } })
     // The deleted account's session is gone: the /me the cleared cache reads again answers no user.
     api.getCurrentUserSafe.mockResolvedValue(null)
     fireEvent.click(screen.getByRole('button', { name: 'Delete my account' }))
     await waitFor(() => expect(router.push).toHaveBeenCalledWith('/'))
-    // The cleared cache reads /me again and settles on no user: unguarded, that confirmed guest pushed /login.
-    await waitFor(() => expect(api.getCurrentUserSafe.mock.calls.length).toBeGreaterThan(1))
-    await settle()
+    // The cleared cache reads /me again and settles on no user, a confirmed guest: unguarded, the redirect pushed /login.
+    await waitFor(() => {
+      const read = client.getQueryState(queryKeys.currentUser())
+      expect(read?.data).toBeNull()
+      expect(read?.fetchStatus).toBe('idle')
+    })
     await settle()
     expect(router.push).not.toHaveBeenCalledWith('/login')
   })
