@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
@@ -33,7 +33,9 @@ export default function SettingsPage() {
     queryFn: getCurrentUserSafe,
     retry: false,
   })
-  const { data: user, isLoading: userLoading } = userQuery
+  // isPending, not isLoading, as the dashboard reads it: a first read paused offline is still loading the page, not a
+  // blank one.
+  const { data: user, isPending: userPending } = userQuery
   // A failure holds through any refetch. Read raw, the refetch that BillingPanel and ProfileForm start
   // when they mount over the failed, data-less user (retryOnMount) turned this page back into the
   // spinner, which unmounted them, and the next failure mounted them again: an unbounded /me loop.
@@ -42,10 +44,12 @@ export default function SettingsPage() {
   // The account sections wait for a reader, as the dashboard's do (E29): a confirmed guest, a session lost on this
   // page or a /me that answered no user, leaves for /login, and the page renders none of the sections meanwhile, so a
   // lost session cannot have Connected accounts and Filing alerts read again and show load errors. A read that failed
-  // cannot tell (isConfirmedGuest), so it keeps the page and each section's own error, as before.
+  // cannot tell (isConfirmedGuest), so it keeps the page and each section's own error, as before. A deleted account
+  // leaves for the home page instead: the /me its cleared cache reads again answers no user (`deleted`).
+  const deleted = useRef(false)
   const guest = isConfirmedGuest(userQuery)
   useEffect(() => {
-    if (guest) router.push('/login')
+    if (guest && !deleted.current) router.push('/login')
   }, [guest, router])
 
   const exportMutation = useMutation({
@@ -67,6 +71,7 @@ export default function SettingsPage() {
         analytics.accountDeleted(String(user.id))
       }
       // Logout and redirect to home
+      deleted.current = true
       queryClient.clear()
       router.push('/')
     },
@@ -86,7 +91,7 @@ export default function SettingsPage() {
   }
 
   // The sections crossfade in when they replace the bones below; a cached account paints at once.
-  const enterClass = useContentIn(userLoading && !userFailure.failed)
+  const enterClass = useContentIn(userPending && !userFailure.failed)
 
   // One header for the skeleton and the loaded page, so the flip moves nothing above the sections.
   const header = (
@@ -107,7 +112,7 @@ export default function SettingsPage() {
     </div>
   )
 
-  if (userLoading && !userFailure.failed) {
+  if (userPending && !userFailure.failed) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark">
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
