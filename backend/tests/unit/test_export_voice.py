@@ -301,6 +301,13 @@ def test_the_readers_flag_the_forms_this_pr_fixed():
     sheet.cell(1, 5, "Data Notes · a Free cash flow")
     assert metrics_header_and_key(sheet, ["Free cash flow"]) == (["Metric", "Window Growth", "Data Notes · a Free cash flow"], key)
     sheet.cell(1, 5).value = None
+    # And with no cell one past the headers, an unfilled cell after a gap is no key: it reads as a header.
+    gapped = Workbook().active
+    for column, text in enumerate(["Metric", "Window Growth"], start=1):
+        gapped.cell(1, column, text).fill = PatternFill("solid", start_color="F4F3EE")
+    gapped.cell(1, 4, "Data Notes · a Free cash flow")
+    assert metrics_header_and_key(gapped, ["Free cash flow"]) == (
+        ["Metric", "Window Growth", "Data Notes · a Free cash flow"], None)
     for broken, word in (("Data Notes · a Free cash flow FY2024: not yet matched", "Notes"),
                          ("Data notes · a Free cash flow FY2024: Not yet matched", "Not")):
         sheet.cell(1, 3, broken)
