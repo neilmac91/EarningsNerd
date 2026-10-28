@@ -38,7 +38,7 @@ _FORMULA_LABELS = {
 AUTOMATED_CHECKS = ("Automated checks confirm reported figures come from the company’s filed data (XBRL). "
                     "They are not an audit of the company’s accounts.")
 # What Sources & methods holds for a figure is what was recorded: a reported figure has no formula, an older calculation
-# may have no recorded inputs, and a figure with no provenance has no source link and an unknown method.
+# may have no recorded inputs, and a figure with no provenance may have neither a source link nor a known method.
 EVIDENCE = "Sources & methods gives whatever source, method, formula and inputs are recorded for each figure."
 PDF_CLOSING = f"{EVIDENCE} {AUTOMATED_CHECKS}"
 # The workbook has a cell for a figure in Metrics and on the sheets with charts only (worksheets, each with a chart
