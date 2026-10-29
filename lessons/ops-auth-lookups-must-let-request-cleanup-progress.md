@@ -11,8 +11,8 @@ tool calls and its server claim-repair lookup had the same shape inside the ask-
 generator: with every slot held, the whole instance stalled for the pool timeout, the tool
 returned `tool_failed`, and the figure shipped without its citation. Moving those lookups to the
 loop's default executor was not enough. Login kept its connection checked out while it awaited
-bcrypt through `asyncio.to_thread` (a password change or reset still does; login has released its
-session before bcrypt since 2026-10-20, E121), so lookups holding every default-executor thread and a holder
+bcrypt through `asyncio.to_thread` (a register that validates an invite still does; login has released its
+session before bcrypt since 2026-10-20, and the password reset and change since E121's first route family), so lookups holding every default-executor thread and a holder
 needing one waited on each other until the pool timed out, with the same uncited figure.
 
 **Rule.** The authentication dependencies await their blocking lookup through
@@ -32,8 +32,7 @@ progress; it does not establish safe fleet concurrency or guarantee that every b
 satisfy its timeout. The off-the-loop rule and its gates cover only these sites; the default-executor
 listing covers each `asyncio.to_thread` and positional `run_in_executor(None, …)` call under `app/` and
 in the backend's top-level modules, and its docstring names the forms it cannot see. Other async code still
-makes blocking lookups on the loop (async route bodies such as `register`, `reset_password` and
-`change_password`, and the `/internal` trigger helpers' flag-off jobs, E150; the
+makes blocking lookups on the loop (async route bodies such as `register` and `verify_email`, and the `/internal` trigger helpers' flag-off jobs, E150; the
 `filing_list_service.refresh_company_filings` background task moved its unit into the thread pool in
 E123); those are known and review-checked.
 
@@ -49,8 +48,8 @@ and returns the checked-out connection. For the Copilot, `stream_chat_with_tools
 `backend/app/services/copilot_service.py` awaits `_resolve_answer`, whose claim repair calls
 `run_tool`, the same way. `backend/tests/unit/test_copilot_pool_progress.py` drives the real
 answer path through both lookups against a one-slot QueuePool, with a holder that needs only the
-loop and a holder shaped like a password change that needs the (one-thread) default executor. Running
-the lookups through `asyncio.to_thread` instead fails the change-shaped cases. The companyfacts sync's first
+loop and a holder shaped like a register that validates an invite, which needs the (one-thread) default
+executor. Running the lookups through `asyncio.to_thread` instead fails the cases with that holder. The companyfacts sync's first
 off-loop draft (E129, 2026-10-19) ran its units through `asyncio.to_thread`, the shape this lesson had
 already ruled out, and passed its own tests: `backend/tests/unit/test_companyfacts_sync_off_the_loop.py`
 now holds the sync to its own threads and runs it against a one-slot pool whose holder needs the

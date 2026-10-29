@@ -348,8 +348,9 @@ cards (`p-cap-4`) left their text 92, 132 and 162px at 320, 360 and 390px under 
 threshold stays as it is (a Notice's `px-4` on a page, the KPI strip's `p-3 sm:p-4`; the Trace to Source demo's boxes give
 way by their own rule, §7), unless a measure shows a narrow column still too tight: then it takes the cap too, as the
 invite share panel in the resend dialog caps its `p-3` and its buttons' `px-2.5` (E240), since at 320px under 200% text
-the dialog body's column is about 216px and its WhatsApp button alone 200px at its narrowest. A page's gutter is no
-surface. A Notice is a frame wherever it is written (its recipe draws
+the dialog body's column is about 216px and its WhatsApp button alone 200px at its narrowest, and the bulk invite summary
+its `p-4` and its rows' `px-2.5` (E242), since there a row was 110px, narrower than its Copy link and Share invite buttons
+(129px at their narrowest). A page's gutter is no surface. A Notice is a frame wherever it is written (its recipe draws
 a full border and a radius at `px-4`), so inside a dialog's body its own `px-4` is at the threshold, and its className
 caps it with `px-cap-4`, which the stylesheet emits after Notice's own (E229): the day dialog's holiday line broke
 "Thanksgiving" inside the word at 390px under 200% text until it did, and the verify-email dialog's two failures take it
@@ -1378,7 +1379,27 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  and tests/e2e/admin-invite-chip-reflow.spec.ts (what they paint at 320, 390 and 1440px, at the
                  default size and under a 200% root, in both themes, every address whole and every remove button
                  ending its chip at 320 and 390px under 200%, a short chip on one line at 320px at the default size,
-                 and at every 10px from 320 to 480px under 200%).
+                 and at every 10px from 320 to 480px under 200%). The bulk invite summary (BulkResultSummary) sets
+                 every address whole, as AddressText sets one (a break after its @, `overflow-wrap` for a part
+                 longer than the line): a created row's, a failed row's and each entry of the skipped line. Under
+                 200% text at 320px truncate cut a created row's to 110px, and a failed row's ran out of the row and
+                 took the page to 633px (343px at 320px at the default size). The summary's inset and its rows'
+                 take E120's cap (`p-cap-4`, `px-cap-2.5`, the cap's exception above), so a row there is 172px: its
+                 Copy link and Share invite buttons fit it, and "example.com" keeps its line. A created row's "Share
+                 invite" opens the share options in a dialog shaped like the resend dialog (ShareInvite's
+                 `optionsIn="dialog"`: ui/Modal at md, the address named at its top, the options open on arrival at
+                 the body's width, Done at its foot), since under 200% text they cannot be narrower than their
+                 WhatsApp button and frame, 197px at 320px (chief design on #1784); where the browser has its own
+                 share sheet, that button stays in the row beside "More", and the pair wraps to the end of its line
+                 (`flex-wrap justify-end`), there and in the resend dialog: side by side under 200% text it is 283.5px,
+                 and "More" ran 59 to 111.5px past a row at 390 to 320px and up to 67.9px past the dialog's body (chief
+                 design on #1791). Gates: tests/unit/bulkResultShareDialog.spec.tsx (the dialog, the share sheet's
+                 button in the row, the address's break), tests/unit/shareInviteNames.spec.tsx (every control named by
+                 its words, the dialog's included) and tests/e2e/admin-invite-chip-reflow.spec.ts (at 390, 360 and
+                 320px under 200% text and at 320px, in both themes, with the browser's share sheet and without: every
+                 address inside its row, bob@example.com broken only after its @, the rows' controls inside them, the
+                 page unscrolled, and the dialog holding the options; and the resend dialog's case with the share sheet
+                 too, every control inside its body).
 
 Inline notice    <Notice variant="error|warning|info|success|neutral">  — compact icon + title + message + action
                  for form/auth flows and in-card states: something that happened or stands in the way (a
