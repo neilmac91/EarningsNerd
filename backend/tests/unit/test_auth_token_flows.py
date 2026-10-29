@@ -542,8 +542,8 @@ def test_session_cookie_headers_and_their_order(client, mail):
 
 @pytest.mark.requires_db
 def test_refresh_replay_revokes_the_live_chain(client, mail):
-    """Replaying a rotated token is a theft signal: the revocation of the user's live tokens is
-    committed even though the request is refused."""
+    """Replaying a rotated token is a theft signal: the revocation of the replayed token's chain (here the
+    user's only one) is committed even though the request is refused."""
     email, _ = _register(client, mail)
     _login(client, email)
     replayed = client.cookies.get("earningsnerd_refresh_token")

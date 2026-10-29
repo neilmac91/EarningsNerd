@@ -14,6 +14,7 @@ either lands, the code wins and this file is corrected in that pull request ([AG
 | Consumers | E29 and E157 (browser session transitions), E121 (refused-refresh response), F53 (founder-owned `/security` text) |
 | Accepted policy | Neil, 2026-10-25: chain-scoped replay revocation, single-use tokens, **no grace period** |
 | Base read | `main` at `086de72`; §1's browser sentence and §7's burst wording at `90611cb7` (the backend files cited are unchanged since `086de72`) |
+| Status | The chain-scoped sweep and the refresh limit land with #1722; §1 records the sweep before it. E96-H1 (§5, the schema) and E96-Q1 (the purge guard's owner) are open |
 
 ## 1. What exists today
 
@@ -22,8 +23,9 @@ either lands, the code wins and this file is corrected in that pull request ([AG
   one transaction ([`refresh_token_service.py`](../../../backend/app/services/refresh_token_service.py)
   `rotate_refresh_token`). Rotation is the only writer of `replaced_by_id`
   (`backend/tests/unit/test_replaced_by_id_writers_allowlist.py`).
-- A presented token that is revoked **and** has `replaced_by_id` set is a replay. Today it calls
-  `revoke_all_for_user`: every session of the account, on every device, ends.
+- A presented token that is revoked **and** has `replaced_by_id` set is a replay. Before E96 it called
+  `revoke_all_for_user`: every session of the account, on every device, ended. Since #1722 it revokes that token's
+  chain only (§3).
   [`lessons/arch-only-a-rotated-refresh-token-signals-theft.md`](../../../lessons/arch-only-a-rotated-refresh-token-signals-theft.md)
   keys the sweep on that link and must keep doing so.
 - A token revoked any other way (logout, logout-all, password change or reset, the sweep) is refused and nothing is
@@ -40,8 +42,8 @@ either lands, the code wins and this file is corrected in that pull request ([AG
   Web Lock one at a time, each with the cookies the one before it set. Two tabs still race where the browser has no
   lock manager or refuses the lock, for a refresh that waited past `REFRESH_LOCK_WAIT_MS`, and between two origins
   under the cookie domain (the apex and www), which share the cookies but no lock; and one tab meets the branch alone
-  when the browser drops a refresh's answer after the server committed the rotation. Each of those signs the account
-  out everywhere today.
+  when the browser drops a refresh's answer after the server committed the rotation. Before E96 each of those signed
+  the account out everywhere; since #1722 each ends only the chain the shared cookie belongs to, that browser's.
 
 ## 2. Definitions
 
@@ -237,16 +239,19 @@ missing evidence, not a pass.
    (A), the purge guard in `retention_service.py` (its owner) and the new migration file (E).
 
 The locked anchors keep passing unchanged: `test_auth_flow.py`'s replay case asserts only the 401, and T8,
-`test_refresh_replay.py`, revokes the replayed token's own live successor, which is its descendant. The one
-expectation that changes is the last case of `test_refresh_token_revocation_kinds.py`,
-`test_a_copy_rotated_away_before_a_reset_still_takes_the_user_wide_sweep`. Its docstring says chain scoping "would
-flip the last two assertions", and the E96 pull request flips them and names that as the accepted change.
+`test_refresh_replay.py`, revokes the replayed token's own live successor, which is its descendant. Two
+expectations change, neither a locked anchor:
+- the last case of `test_refresh_token_revocation_kinds.py`, renamed from
+  `test_a_copy_rotated_away_before_a_reset_still_takes_the_user_wide_sweep` to
+  `test_a_copy_rotated_away_before_a_reset_no_longer_ends_the_login_made_after_it`. Its docstring said chain scoping
+  "would flip the last two assertions", and the E96 pull request flips them and names that as the accepted change;
+- the `[replayed-the same account]` case of `test_auth_token_flows.py`'s refused-refresh test (#1761), whose newer
+  login of the same account now renews, as every other case does.
 
 ## 9. What consumers may rely on
 
 - The replay answer, its status, detail and headers are unchanged. E29 and E157 need no new client branch for E96.
-- A refused refresh (any `RefreshTokenError`) sets no cookie today. The injected-`Response` deletions are discarded
-  when the route raises (E121's row in `tasks/todo.md`). E96 does not change that. E121 decides it, after E29 and
-  E157 show a deletion cannot erase a newer login's cookies.
+- A refused refresh (any `RefreshTokenError`) sets no cookie, on purpose: E121 decided it in #1761, since a refusal
+  cannot tell whether the cookies it refused are still the browser's. E96 does not change that.
 - The `/security` page's sentence on reused tokens is founder-owned (F53). E96 makes "a reused token ends that
   session's chain" true; it changes no public copy.

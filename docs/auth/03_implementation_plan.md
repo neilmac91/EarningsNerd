@@ -541,6 +541,9 @@ backend/tests/unit/test_oauth_linking.py
 | 14 | Generate AI summary before email verified | 403 "Please verify your email first" |
 | 15 | Add Google to existing password account | `oauth_accounts` record created; can log in via Google |
 
+Row 13 is the plan as written (2026-06-12). Since E96 a replay ends the replayed token's chain only, and the
+account's other sessions stay signed in ([refresh-chain contract](../audit/contracts/refresh-chain-migration.md)).
+
 ---
 
 ## 3.9 Rollout Strategy
