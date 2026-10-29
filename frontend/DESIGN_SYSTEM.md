@@ -1387,8 +1387,8 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
-                 written variant, and every `info` and `warning` Notice call site as a table, so a new one is
-                 added on purpose and reviewed for state against activity and against guidance.
+                 written variant, and every `info`, `warning` and `neutral` Notice call site as a table, so a new
+                 one is added on purpose and reviewed for state against activity and against guidance.
                  GuidanceCard is a STANDALONE centered panel — never nest it inside a
                  Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
                  centres two actions and sets the second under the first when they do not fit side by

@@ -41,7 +41,8 @@ import { describe, expect, it } from 'vitest'
  *     skipped, even beside a written variant. tsc requires the prop; this catches the spread and dynamic forms it
  *     cannot. Not read: a Notice reached through another module's re-export. Every `info` and every `warning` Notice is
  *     listed, per file at its count (INFO_NOTICES, WARNING_NOTICES): each is a state, reviewed against activity, which
- *     is never a Notice, and against guidance, which is the `neutral` Notice (E196 (2)).
+ *     is never a Notice, and against guidance, which is the `neutral` Notice (E196 (2)). Every `neutral` Notice is
+ *     listed too (NEUTRAL_NOTICES), so a state is never written as guidance to step past the other two tables.
  *
  *  3. NOTICE TINT LENT BY NAME. Notice lends its tint to a surface of another shape that states what a Notice states
  *     through noticeTint(variant) (components/ui/Notice.tsx): the Copilot's error bubble keeps the thread's tail in
@@ -240,6 +241,15 @@ const WARNING_NOTICES: Record<string, number> = {
 }
 const WARNING_NOTICES_MAX = { files: 1, uses: 1 }
 
+/** The `neutral` Notices since E196 (2), per file at their count: each guidance, a pointer that is no state (a sign-in, a
+    plan, an invite). A state written as guidance would step past the two tables above, so a new neutral Notice is
+    added here on purpose too, reviewed for guidance against state (DESIGN_SYSTEM.md §4 › Inline notice). */
+const NEUTRAL_NOTICES: Record<string, number> = {
+  'features/analysis/components/AnalysisPageClient.tsx': 2, // "Log in to see which periods are available": a sign-in; the Pro upsell: a plan
+  'features/auth/components/RegisterForm.tsx': 1, // "EarningsNerd is in private beta": the invite that opens registration
+}
+const NEUTRAL_NOTICES_MAX = { files: 2, uses: 3 }
+
 /** Notice's tint lent by noticeTint(variant) outside components/ui, per file and variant at its count: a surface of
     another shape that states what a Notice states (DESIGN_SYSTEM.md §4 › Inline notice). A new borrower is added here
     on purpose, with the state it shows, and moves TINT_BORROWED_MAX with it. */
@@ -349,6 +359,16 @@ describe('every Notice writes its variant', () => {
     // Equality, not a ceiling (lessons/test-allowlist-caps-are-equalities.md).
     expect(Object.keys(WARNING_NOTICES).length, 'WARNING_NOTICES changed its files: move WARNING_NOTICES_MAX.files with it in the same commit').toBe(WARNING_NOTICES_MAX.files)
     expect(Object.values(WARNING_NOTICES).reduce((sum, n) => sum + n, 0), 'WARNING_NOTICES changed its uses: move WARNING_NOTICES_MAX.uses with it in the same commit').toBe(WARNING_NOTICES_MAX.uses)
+  })
+
+  it('every neutral Notice is listed, at its count: a new one is a deliberate addition, reviewed for guidance against state', () => {
+    expect(
+      unlisted('neutral', NEUTRAL_NOTICES, 'NEUTRAL_NOTICES'),
+      'A neutral Notice is guidance, a pointer that is no state (a sign-in, a plan, an invite); a result, an error, a limit or a mode of the account takes its state\'s variant (DESIGN_SYSTEM.md §4 › Inline notice). Add genuine guidance to NEUTRAL_NOTICES on purpose, with its reason, and move NEUTRAL_NOTICES_MAX with it.',
+    ).toEqual([])
+    // Equality, not a ceiling (lessons/test-allowlist-caps-are-equalities.md).
+    expect(Object.keys(NEUTRAL_NOTICES).length, 'NEUTRAL_NOTICES changed its files: move NEUTRAL_NOTICES_MAX.files with it in the same commit').toBe(NEUTRAL_NOTICES_MAX.files)
+    expect(Object.values(NEUTRAL_NOTICES).reduce((sum, n) => sum + n, 0), 'NEUTRAL_NOTICES changed its uses: move NEUTRAL_NOTICES_MAX.uses with it in the same commit').toBe(NEUTRAL_NOTICES_MAX.uses)
   })
 })
 

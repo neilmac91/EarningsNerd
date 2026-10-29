@@ -129,10 +129,14 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             />
           </div>
 
-          {/* A link anyone can redeem is a risk the sender weighs before sharing: the warning Notice (E196 (2)). */}
+          {/* A link anyone can redeem is a risk the sender weighs before sharing: the warning Notice (E196 (2)). The
+              panel opens inside the resend dialog's body (ResendShareModal), where a Notice's own px-4 is at the
+              dialog's threshold and takes the cap (E229; surface-padding-cap cannot read it across files, so
+              inviteOutcomeEmailed.spec.tsx holds it). On the bulk summary's page the cap bites only below 25rem. */}
           {unbound && (
             <Notice
               variant="warning"
+              className="px-cap-4"
               title="Not bound to an email"
               description="Anyone with this link can redeem it. Share only with the intended person."
             />
