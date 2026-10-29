@@ -1425,17 +1425,22 @@ Inline notice    <Notice variant="error|warning|info|success|neutral">  — comp
                  A Notice or GuidanceCard title is one phrase, no semicolon (gate: noticeTitlesAreOnePhrase.spec.ts).
 
 Activity line    <ActivityLine>  (components/ui) — a run in progress in words beside one sage pulse dot: the
-                 Copilot's "Reading the filing…" and the analysis page's history fetch. A run that reports how far it
-                 has got shows a bar instead, as the summary's generating card does, and the loading lines elsewhere
-                 that show only words (the dashboard's "Checking your plan…" among them) take no dot: the dot marks a
-                 run the reader waits on that nothing else in view shows. The words are in the secondary ink; the dot
-                 is brand-strong in both themes, aria-hidden and static under reduced motion. The dot sits in a box
-                 as tall as the line's text-sm line (h-5 and the line height are both 1.25rem), so it keeps to the
-                 first line when the words wrap, and the words wrap under their own start: the Copilot's "Reading the
-                 filing…" takes two lines in the phone sheet at 320 to 390px under 200% text, the analysis page's
-                 history fetch two on a phone and four or five under 200% text. The line takes no role (the type
-                 refuses one). A status region announces text added to it, never text it was created with. On the
-                 analysis page the coverage region exists before the history fetch's words arrive (it is mounted
+                 Copilot's "Reading the filing…", the analysis page's history fetch, the trend analysis's "Assembling
+                 the numbers…" and "Writing…" as it streams, and /delete-account's "Checking whether you are logged
+                 in…". A run that reports how far it has got shows a bar instead, as the summary's generating card
+                 does, and the loading lines elsewhere that show only words (the dashboard's "Checking your plan…"
+                 among them) take no dot: the dot marks a run the reader waits on that nothing else in view shows.
+                 The words are in the secondary ink; the dot is brand-strong in both themes, aria-hidden and static
+                 under reduced motion. The dot sits in a box as tall as the line's text-sm line (h-5 and the line
+                 height are both 1.25rem), so it keeps to the first line when the words wrap, and the words wrap
+                 under their own start: the Copilot's "Reading the filing…" takes two lines in the phone sheet at 320
+                 to 390px under 200% text, the analysis page's history fetch two on a phone and four or five under
+                 200% text, and the trend analysis's "Assembling the numbers…" and /delete-account's line two each at
+                 320 and 390px under 200% text. Beside a heading the line shares its row only where both fit: on a
+                 phone the trend analysis's "Assembling the numbers…" takes a row of its own under the heading, and
+                 "Writing…" fits beside it at the default size but not under 200% text. The line takes no role (the
+                 type refuses one). A status region announces text added to it, never text it was created with. On
+                 the analysis page the coverage region exists before the history fetch's words arrive (it is mounted
                  until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
                  card is created with "Reading the filing…" in it, so that line is not announced; the card is a
                  status region for the plan card's sentence, which replaces the line in the same element. A caller
@@ -1461,14 +1466,12 @@ Spinner          <CircleNotchIcon aria-hidden="true" className="… animate-spin
                  shrink-only exceptions, which fullPageSpinnerGate pins until bones replace them, each a status
                  region named for its wait; they are not a form to copy. The glyph is aria-hidden: the control's
                  aria-busy, the region's name or the words beside it say what waits. It is static under reduced
-                 motion. A run in progress shown in words is the Activity line, a loading layout is Skeleton bones;
-                 the two lines that still pair their words with a spinner (the trend analysis's "Assembling the
-                 numbers…" and "Writing…", /delete-account's "Checking whether you are logged in…") move to the
-                 Activity line (tasks/todo.md E235). Gate: tests/unit/spinnerAllowlist.spec.ts pins every
-                 animate-spin class list to its file and the wait it marks, reading lists as the pulsing-mark gate
-                 does (tests/unit/classListScan.ts), and fails a spinner glyph that is not aria-hidden, on its
-                 element or on an HTML element around it (a component around it may not pass aria-hidden to the DOM,
-                 so it does not count); its stated gaps are planted where a source can hold them.
+                 motion. A run in progress shown in words is the Activity line, a loading layout is Skeleton bones.
+                 Gate: tests/unit/spinnerAllowlist.spec.ts pins every animate-spin class list to its file and the
+                 wait it marks, reading lists as the pulsing-mark gate does (tests/unit/classListScan.ts), and fails
+                 a spinner glyph that is not aria-hidden, on its element or on an HTML element around it (a component
+                 around it may not pass aria-hidden to the DOM, so it does not count); its stated gaps are planted
+                 where a source can hold them.
 
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
