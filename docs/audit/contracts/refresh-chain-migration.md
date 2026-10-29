@@ -34,8 +34,13 @@ either lands, the code wins and this file is corrected in that pull request ([AG
   ([`20260613_create_refresh_tokens.sql`](../../../backend/migrations/20260613_create_refresh_tokens.sql)).
   The retention purge deletes dead tokens in ascending id order so a predecessor goes before its successor and
   keeps its link (`backend/app/services/retention_service.py` `_purge`).
-- Of two tabs refreshing with one cookie, the second always waits for the first's commit and then meets the replay
-  branch. So today a two-tab race signs the account out everywhere.
+- Two requests that present one refresh cookie at once meet the replay branch: the second waits for the first's
+  commit, then finds its token rotated away. In a browser that is rarer since E29 (4)'s cross-tab hold
+  (`frontend/lib/api/client.ts`, #1739, #1752, #1753), which sends every silent refresh under the session cookies'
+  Web Lock one at a time, each with the cookies the one before it set. Two tabs still race where the browser has no
+  lock manager or refuses the lock, or for a refresh that waited past `REFRESH_LOCK_WAIT_MS`; and one tab meets the
+  branch alone when the browser drops a refresh's answer after the server committed the rotation. Each of those
+  signs the account out everywhere today.
 
 ## 2. Definitions
 
@@ -160,10 +165,14 @@ So the predecessor qualifies no later than its successor whatever the token life
 delete it first or in the same statement. Only a manual row or a clock moved backwards could put a successor first.
 As defence in depth, the refresh-token target's predicate gains a correlated guard: no row that does **not** itself
 qualify references this token, i.e. `NOT EXISTS (SELECT 1 FROM refresh_tokens r WHERE r.replaced_by_id =
-refresh_tokens.id AND NOT <the predicate on r>)`, served by the new index. A plain `NOT EXISTS` on any referencer
-would be wrong. It would hold back every token that still has a predecessor. `_purge` ends at its first short
-batch, so it would then delete one token per chain per run while active sessions add dozens a day. The guard lands
-before or with the foreign-key change, never after it, with a test that purges a long qualifying chain in one run.
+refresh_tokens.id AND NOT COALESCE(<the predicate on r>, FALSE))`, served by the new index. The `COALESCE` matters:
+for a live referencer (`revoked_at` NULL, `expires_at` not yet past) the predicate is NULL, and `NOT NULL` is NULL,
+so without it that row would not count as one that does not qualify, and the successor would be purged under it.
+That row, live with its link set, can only be a manual write: the case the guard exists for. A plain `NOT EXISTS` on
+any referencer would be wrong. It would hold back every token that still has a predecessor. `_purge` ends at its
+first short batch, so it would then delete one token per chain per run while active sessions add dozens a day. The
+guard lands before or with the foreign-key change, never after it, with a test that purges a long qualifying chain
+in one run.
 **Owner to confirm with the CTO**: `retention_service.py` is a job file outside both agents' named lists. Agent A
 supplies the patch and the purge-order tests either way.
 
@@ -188,8 +197,9 @@ supplies the patch and the purge-order tests either way.
   which the consumer obligation below keeps from reading as session loss.
 - **Placement**: before any database work. A limited request takes no pool connection and no row lock.
 - **Answer**: `429` with `Retry-After` and a `detail` string, the existing convention. No cookie is set or deleted.
-- **Threshold**: chosen from a fixture burst of N same-browser tabs waking at once (one refresh per tab, each tab
-  single-flighting its own refreshes in `ensureRefreshed`) plus a shared-NAT allowance, and recorded with the burst
+- **Threshold**: chosen from a fixture burst of N same-browser tabs waking at once (one refresh per tab; since E29
+  (4) they queue on the session cookies' Web Lock and arrive one after another, so the per-IP count per burst is
+  unchanged) plus a shared-NAT allowance, and recorded with the burst
   numbers in the E96 pull request. The proposal to test against is 60 requests per 60 s per IP. A module constant in
   `routers/auth.py` beside the other auth limiters, with no new setting unless measurement shows one is needed. If
   one is needed, Agent E registers it.
@@ -212,15 +222,17 @@ missing evidence, not a pass.
 4. Logout, logout-all, reset, change and deletion keep their scopes and their users-row-first lock (statement spy,
    `lessons/test-pin-a-row-lock-with-a-statement-spy.md`).
 5. Purge and deletion on PostgreSQL under NO ACTION: chains purge in order; a successor whose predecessor survives
-   is held, not failed; an account with a multi-token chain deletes through `delete_user`'s per-row ORM cascade, and
+   is held, not failed, including under a live referencer (`revoked_at` NULL, its link set), the NULL case of §5's
+   guard; an account with a multi-token chain deletes through `delete_user`'s per-row ORM cascade, and
    does so without deadlock beside a concurrent refresh of the same account.
 6. Limiter: a fixture burst of N tabs passes, a sustained loop is limited with `Retry-After`, and a forged
    `X-Forwarded-For` with `TRUSTED_PROXY_HOPS` at its deployed value does not escape the bucket.
 
-7. `backend/tests/unit/test_replaced_by_id_writers_allowlist.py` counts every mention of the column in backend Python,
-   SQL and shell. Each new mention gets its reviewed entry in `ALLOWED_MENTIONS` in the pull request that adds it:
-   the walk in `refresh_token_service.py` (A), the purge guard in `retention_service.py` (its owner) and the new
-   migration file (E).
+7. `backend/tests/unit/test_replaced_by_id_writers_allowlist.py` counts every mention of the column in every Python,
+   SQL, shell and workflow file of the repository but the browser app (`frontend/`) and the test homes: `backend/`,
+   `ops/`, `tasks/`, `.github` and `.claude` included. Each new mention gets its reviewed entry in `ALLOWED_MENTIONS`
+   in the pull request that adds it: the walk in `refresh_token_service.py` (A), the purge guard in
+   `retention_service.py` (its owner) and the new migration file (E).
 
 The locked anchors keep passing unchanged: `test_auth_flow.py`'s replay case asserts only the 401, and T8,
 `test_refresh_replay.py`, revokes the replayed token's own live successor, which is its descendant. The one
