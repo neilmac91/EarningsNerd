@@ -3,10 +3,10 @@
  * literal hex or rgba string, so no var(--…) reaches an SVG attribute and serialising the SVG for the PNG export
  * cannot lose a colour. Only the spec renderer reads these. They mirror Tailwind's chart, text and surface tokens
  * (E195's token fold): the series chart-1…6 and chart-1-dark…6-dark and the grid chart.grid, which the Recharts
- * charts elsewhere (Fundamentals, Peers) take through components/ui/Chart.tsx too, the zero rule chart.ref, and the
- * ticks and the card's notes text.tertiary.light and chart.label.dark. designTokenParity holds every hex here to a
- * token, tests/unit/chart-theme.spec.ts holds each field to the spec's table and its own token, and
- * tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
+ * charts elsewhere take through components/ui/Chart.tsx too (Fundamentals both, Peers the series: it draws no grid),
+ * the zero rule chart.ref, and the ticks and the card's notes text.tertiary.light and chart.label.dark.
+ * designTokenParity holds every hex here to a token, tests/unit/chart-theme.spec.ts holds each field to the spec's
+ * table and its own token, and tests/unit/chart-apca.spec.ts holds each to its contrast floor. Pure and SSR-safe.
  */
 export interface ChartTokens {
   /** Plot background, marker rings, break marks, export fill: the card's panel colour. */

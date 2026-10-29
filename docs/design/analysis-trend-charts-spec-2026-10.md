@@ -350,12 +350,12 @@ says so; everything else follows the spec.
     index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the plot
     and that line over the bottom one, and in the hairline (`chart.axis`, Lc 8.8 on the light card) the light baseline
     would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines' contrast.
-    `chartExport.ts` needed no change: its `EXPORT_TEXT`
-    mirrors `text.primary` and `text.secondary`, which the fold leaves alone, and no Recharts chart exports a PNG.
-    The renderer's PNG takes the card's own inks: its header and notes paint in the legend names' ink. That was
-    `#B8BEC7` on dark while the export's own dark secondary measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS
-    secondary to `#D1D5DB` (−77.3), and since E194 the legend names take it, so on dark the PNG's header and notes
-    paint in the export's own secondary, a step above the card's notes on screen (`#B8BEC7`).
+    `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors `text.primary` and `text.secondary`, which the fold
+    leaves alone, and no Recharts chart exports a PNG. The renderer's PNG takes the card's own inks: its header and
+    notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary measured
+    Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend names take
+    it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the card's notes on
+    screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) documents `chart-1-dark…6-dark` in its frontmatter, as the sidecar's colorMeta does. DS §1
     and §10 (items 4 and 5) name the dark halves, and §10's dark labels are `chart.label.dark` `#B8BEC7`. Of item 5,
     DS §10's paragraph on the renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow
@@ -380,11 +380,12 @@ says so; everything else follows the spec.
   values stop letter, and speak, only the same notes, and the card's Notes chip names the letters its footnotes do
   (an n/m comparison's included, which the Recharts charts never drew). The 16 px band stays reserved: M8 holds a card's
   height to its view and mode, so a chart that gains a letter never grows past the card beside it. Since then no letter
-  takes «t.review» (§3.3's review-kind letters, A5's ink, §4.0's band `ink`, the Vega-Lite colour range): every letter
-  paints in the `note` ink, and E195's token fold retired the token and its §3.8 row. No stored fixture has a note that questions the number or one with
-  no check recorded, so the golden bands are empty, and the sweeps add one synthetic dataset that meets every kind
-  (`withMixedNotes` in `tests/unit/chartPlan.ts`). On it `chart-engine.spec.ts` holds every band letter to
-  `noteMarksFigure`, and `trend-charts-v2.spec.tsx` holds each chip to its footnotes' letters.
+  takes «t.review» (§3.3's review-kind letters, A5's ink, §4.0's band `ink`, the Vega-Lite colour range): every
+  letter paints in the `note` ink, and E195's token fold retired the token and its §3.8 row. No stored fixture has a
+  note that questions the number or one with no check recorded, so the golden bands are empty, and the sweeps add one
+  synthetic dataset that meets every kind (`withMixedNotes` in `tests/unit/chartPlan.ts`). On it
+  `chart-engine.spec.ts` holds every band letter to `noteMarksFigure`, and `trend-charts-v2.spec.tsx` holds each chip
+  to its footnotes' letters.
 - **The gate.** `frontend/tests/unit/chart-engine.spec.ts` runs the model checks M1–M6, M8–M13, M18 and M21, M7,
   M16 and M17 in part, A4 (apart from its planner), A5's letter order and spacing, A7, A13b, G6, L1 for bar labels
   and §3.10's strip, on 19 datasets in `tests/unit/fixtures/chart-datasets.json`
@@ -1047,12 +1048,13 @@ the `chart.value` step #1620 shipped; the founder chose the figure ink. Light ke
 `text.secondary` under the legend values' `text.primary`. Dark could not follow it, since `text.secondary.dark`
 measures −74.0 under the wash, below the printed-value floor of 75. The row above says so; §1 row 10 keeps the audit's
 measurement.)
-(E195 (C), 2026-10-29: the token fold. Tailwind names the token table's values `chart-1…6` with `chart-1-dark…6-dark`,
-`chart.grid`, `chart.ref` and `chart.label.dark`, and the text inks, and the Recharts charts take the series, the grid
-and the dark label too, their x-axis line in the grid's ink (items 1 and 2 below; §0.5, "The tokens"). The `review` row
-is gone: since D-061 no letter takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the
-tooltip's letters) keep `chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason:
-their light half is the tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
+(E195 (C), 2026-10-29: the token fold. Tailwind names the token table's values `chart-1…6` with
+`chart-1-dark…6-dark`, `chart.grid`, `chart.ref` and `chart.label.dark`, and the text inks, and the Recharts charts
+take the series and the dark label too, the fundamentals chart the grid as well, its x-axis line in the grid's ink
+(items 1 and 2 below; §0.5, "The tokens"). The `review` row is gone: since D-061 no letter takes a review ink. The
+card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep `chart.label.dark` rather
+than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the tertiary step, and
+`note-dark` is the secondary step in dark (§0.5, "The tokens").)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

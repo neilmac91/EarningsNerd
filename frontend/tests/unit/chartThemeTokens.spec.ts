@@ -48,7 +48,7 @@ describe('seriesColor', () => {
 /**
  * Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, so the baseline is that
  * line, composited over the gridline when it is translucent. In the hairline (chart.axis, Lc 8.8 on the light card) the
- * light baseline was the quietest rule in the chart once the gridlines took chart.grid's 16.8 (E195's token fold).
+ * light baseline would be the quietest rule in the chart once the gridlines take chart.grid's 16.8 (E195's token fold).
  */
 describe('the Recharts baseline is no quieter than its gridlines', () => {
   const card = colors.panel as Record<string, string>

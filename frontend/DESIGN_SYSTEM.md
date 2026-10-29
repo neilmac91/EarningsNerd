@@ -63,11 +63,12 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 on the same property under the same variants, in the same class list. A twin under a condition, or one
 that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
 Tokens with no dark sibling (`overlay`, and the `-text` and `-emphasis` inks) are not read; the chart
-palette's `chart-1..6` are light halves since E195's token fold gave them `-dark` siblings. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
-directories is read or listed as holding no class list. The same gate refuses the other half bare: a
-colour class on a `-dark` token with no `dark:` variant paints the dark theme's colour in the light theme
-(a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
-both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
+palette's `chart-1..6` are light halves since E195's token fold gave them `-dark` siblings. Its residue is listed per
+file and class, with a cap equal to it, and every file under the scanned directories is read or listed as holding no
+class list. The same gate refuses the other half bare: a colour class on a `-dark` token with no `dark:` variant
+paints the dark theme's colour in the light theme (a stylesheet block whose every selector names `.dark` is the dark
+theme's), except on a surface dark in both themes on purpose, listed in its own residue (the logos' forced-dark mode,
+the debug payload panel).
 
 - **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
   tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
@@ -2806,16 +2807,16 @@ gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart ch
 tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
 Gridlines are `chart.grid`, `#DCD9D0` / `#525C6B`, Lc 16.8 / −15.0 on the card: visible enough to read a value
-across, quieter than the zero rule (the hairline they replaced measured Lc 0). The Recharts baseline takes `chart.grid`
-too: Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, and in the hairline
-(`chart.axis`, Lc 8.8 on the light card) the light baseline was the quietest rule (`chartThemeTokens.spec.ts`). The
-landing page's revenue bars draw their tick rules in `chart.axis`. Axis labels: 11–12px data face +
-tabular-nums; dark labels use `chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a step above the tertiary dark
-ink `#9CA3AF` (−48.6, under the 60 that 11–12px text needs), chrome still quieter than the secondary ink. The tooltip's series names
-follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carries them as `nameInk`
-(`text.secondary`) and `valueInk` (`text.primary`), and `tests/unit/chartThemeTokens.spec.ts` holds every
-`chartTheme` ink to the tailwind token it copies, per theme. The chart export's secondary ink
-(`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
+across, quieter than the zero rule (the hairline they replaced measured Lc 0). The Recharts baseline takes
+`chart.grid` too: Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, and in
+the hairline (`chart.axis`, Lc 8.8 on the light card) the light baseline would have been the quietest rule
+(`chartThemeTokens.spec.ts`). The landing page's revenue bars draw their tick rules in `chart.axis`. Axis labels:
+11–12px data face + tabular-nums; dark labels use `chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a step
+above the tertiary dark ink `#9CA3AF` (−48.6, under the 60 that 11–12px text needs), chrome still quieter than the
+secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme`
+carries them as `nameInk` (`text.secondary`) and `valueInk` (`text.primary`), and
+`tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
+chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`.
 Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
 left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
@@ -2837,13 +2838,13 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
 both themes. Since E195's token fold they name app tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the
-grid `chart.grid`, which the Recharts charts take too; the zero rule `chart.ref`; the ticks and the card's notes
-`text.tertiary` in light and `chart.label.dark` in dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in
-light); and the printed values `text.secondary` in light and the figure ink `text.primary` in dark (D-063). The dark
-notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep `chart.label.dark` rather than the
-figure surfaces' `note-dark` `#D1D5DB`: they take the tertiary step, as light's notes do, and `note-dark` is dark's
-secondary, the legend names' ink. So in dark a note's letter reads `#D1D5DB` in the table and `#B8BEC7` in a chart's
-band, where light gives both `#636A77`.
+grid `chart.grid`, which the Recharts charts take too (the peers chart draws no grid); the zero rule `chart.ref`; the
+ticks and the card's notes `text.tertiary` in light and `chart.label.dark` in dark (the Recharts ticks take
+`chart.label`, the flat `#6B7280` in light); and the printed values `text.secondary` in light and the figure ink
+`text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's and the tooltip's
+letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take the tertiary step,
+as light's notes do, and `note-dark` is dark's secondary, the legend names' ink. So in dark a note's letter reads
+`#D1D5DB` in the table and `#B8BEC7` in a chart's band, where light gives both `#636A77`.
 The review ink is retired: since D-061 no letter takes it. The raw-colour lint rule exempts that
 file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config, `tests/unit/chart-theme.spec.ts` holds
 each field to the spec's table and its own token, and `tests/unit/chart-apca.spec.ts` holds each ink to the spec's
