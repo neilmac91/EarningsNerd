@@ -1,0 +1,1930 @@
+{
+  "description": "MPA WP5a's later-filing evidence on the analysis dataset (docs/mpa-improvements/coherence.md section 1.6 items 2-5), planted in the wire shape the page reads (frontend/features/analysis/api/analysis-api.ts FirstReported, {basis}_first_reported) until the producer (WP5a-B) builds it from stored own-report rows. Values are REGN's as WP5b's test stores them (backend/tests/unit/test_companyfacts_own_report_history.py), plus a planted sign flip and scale factor. Each case's expected holds the later-filing places: values, the figures that carry their own first_reported (reported figures only; a calculated figure's evidence sits on its inputs), and comparisons, those whose {basis}_first_reported is present; both over the dataset's periods only, in series order, then period order, then basis (qoq before yoy in quarterly mode). frontend/tests/unit/later-filings.spec.tsx runs the page's laterFilingPlaces (features/analysis/lib/laterFilings.ts) over every case and renders the pages on them; the backend's twin, when it lands, reads the same cases.",
+  "cases": [
+    {
+      "name": "regn_own_reports_beside_later_comparatives",
+      "about": "WP5b's REGN shape at D1's 0.1%: revenue FY2018 and FY2019 and total assets FY2018 carry their own 10-K's value. Revenue's and net margin's changes FY2018 to FY2020 read n/m across the change of basis; total assets' 0.24% gap moves no growth past 1%. Net margin is calculated: its revenue input carries the evidence (item 5), and it is no figure of the line's (D8: reported figures only).",
+      "dataset": {
+        "ticker": "REGN",
+        "company_name": "Regeneron Pharmaceuticals",
+        "mode": "annual",
+        "period_key": "FY2017..FY2021",
+        "dataset_version": "annual-v1",
+        "snapshot_id": "planted-later-filings-regn",
+        "data_as_of": "2026-10-28",
+        "periods": [
+          {
+            "key": "FY2017",
+            "fiscal_year": 2017,
+            "fiscal_period": "FY",
+            "period_end": "2017-12-31"
+          },
+          {
+            "key": "FY2018",
+            "fiscal_year": 2018,
+            "fiscal_period": "FY",
+            "period_end": "2018-12-31"
+          },
+          {
+            "key": "FY2019",
+            "fiscal_year": 2019,
+            "fiscal_period": "FY",
+            "period_end": "2019-12-31"
+          },
+          {
+            "key": "FY2020",
+            "fiscal_year": 2020,
+            "fiscal_period": "FY",
+            "period_end": "2020-12-31"
+          },
+          {
+            "key": "FY2021",
+            "fiscal_year": 2021,
+            "fiscal_period": "FY",
+            "period_end": "2021-12-31"
+          }
+        ],
+        "series": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "unit": "USD",
+            "percent": false,
+            "tone": "normal",
+            "cagr": 0.2862199593367645,
+            "cagr_window": "FY2017..FY2021",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 5872200000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2017-01-01",
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 5145600000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2018-01-01",
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 0.1428084874493376,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 6710800000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-19-000009",
+                  "filed_at": "2019-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                  "later_filed_at": "2021-02-08",
+                  "disagreement": null
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 6557600000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 0.17175299517196163,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 7863400000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-20-000008",
+                  "filed_at": "2020-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                  "later_filed_at": "2022-02-07",
+                  "disagreement": null
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 8497100000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 0.08058854948241212,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2021",
+                "value": 16071700000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2021-01-01",
+                "period_end": "2021-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2021,
+                "fiscal_period": "FY",
+                "yoy": 0.891433547916348,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "net_income",
+            "label": "Net income",
+            "unit": "USD",
+            "percent": false,
+            "tone": "normal",
+            "cagr": 0.6111284132757937,
+            "cagr_window": "FY2017..FY2021",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 1198500000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2017-01-01",
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 2444400000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2018-01-01",
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": 1.039549436795995,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 2115800000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": -0.13442971690394367,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 3513200000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": 0.660459400699499,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2021",
+                "value": 8075300000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2021-01-01",
+                "period_end": "2021-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2021,
+                "fiscal_period": "FY",
+                "yoy": 1.2985597176363428,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          },
+          {
+            "concept": "net_margin",
+            "label": "Net margin",
+            "unit": "pure",
+            "percent": true,
+            "tone": "normal",
+            "cagr": null,
+            "window_pp": 29.835735331948985,
+            "window_pp_range": "FY2017..FY2021",
+            "window_pp_reconciled": true,
+            "window_pp_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 20.409727189128436,
+                "concept": "net_margin",
+                "unit": "pure",
+                "period_start": "2017-01-01",
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": "100 * net_income / revenue",
+                  "inputs": [
+                    {
+                      "concept": "net_income",
+                      "value": 1198500000.0,
+                      "unit": "USD",
+                      "period_start": "2017-01-01",
+                      "period_end": "2017-12-31",
+                      "accession": "0001532176-20-000008",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    },
+                    {
+                      "concept": "revenue",
+                      "value": 5872200000.0,
+                      "unit": "USD",
+                      "period_start": "2017-01-01",
+                      "period_end": "2017-12-31",
+                      "accession": "0001532176-20-000008",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    }
+                  ],
+                  "calculation_version": "same-period-ratio-v1"
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 47.50466417910448,
+                "concept": "net_margin",
+                "unit": "pure",
+                "period_start": "2018-01-01",
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": "100 * net_income / revenue",
+                  "inputs": [
+                    {
+                      "concept": "net_income",
+                      "value": 2444400000.0,
+                      "unit": "USD",
+                      "period_start": "2018-01-01",
+                      "period_end": "2018-12-31",
+                      "accession": "0001804220-21-000008",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    },
+                    {
+                      "concept": "revenue",
+                      "value": 5145600000.0,
+                      "unit": "USD",
+                      "period_start": "2018-01-01",
+                      "period_end": "2018-12-31",
+                      "accession": "0001804220-21-000008",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      },
+                      "first_reported": {
+                        "value": 6710800000.0,
+                        "unit": "USD",
+                        "form": "10-K",
+                        "accession": "0001532176-19-000009",
+                        "filed_at": "2019-02-07",
+                        "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                        "later_filed_at": "2021-02-08",
+                        "disagreement": null
+                      }
+                    }
+                  ],
+                  "calculation_version": "same-period-ratio-v1"
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": "nm",
+                "yoy_first_reported": 16.015140188829488
+              },
+              {
+                "period": "FY2019",
+                "value": 32.26485299499817,
+                "concept": "net_margin",
+                "unit": "pure",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": "100 * net_income / revenue",
+                  "inputs": [
+                    {
+                      "concept": "net_income",
+                      "value": 2115800000.0,
+                      "unit": "USD",
+                      "period_start": "2019-01-01",
+                      "period_end": "2019-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    },
+                    {
+                      "concept": "revenue",
+                      "value": 6557600000.0,
+                      "unit": "USD",
+                      "period_start": "2019-01-01",
+                      "period_end": "2019-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      },
+                      "first_reported": {
+                        "value": 7863400000.0,
+                        "unit": "USD",
+                        "form": "10-K",
+                        "accession": "0001532176-20-000008",
+                        "filed_at": "2020-02-07",
+                        "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                        "later_filed_at": "2022-02-07",
+                        "disagreement": null
+                      }
+                    }
+                  ],
+                  "calculation_version": "same-period-ratio-v1"
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": "nm",
+                "yoy_first_reported": -9.51793144693572
+              },
+              {
+                "period": "FY2020",
+                "value": 41.34587094420449,
+                "concept": "net_margin",
+                "unit": "pure",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": "100 * net_income / revenue",
+                  "inputs": [
+                    {
+                      "concept": "net_income",
+                      "value": 3513200000.0,
+                      "unit": "USD",
+                      "period_start": "2020-01-01",
+                      "period_end": "2020-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    },
+                    {
+                      "concept": "revenue",
+                      "value": 8497100000.0,
+                      "unit": "USD",
+                      "period_start": "2020-01-01",
+                      "period_end": "2020-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    }
+                  ],
+                  "calculation_version": "same-period-ratio-v1"
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": "nm",
+                "yoy_first_reported": 14.438935013182288
+              },
+              {
+                "period": "FY2021",
+                "value": 50.24546252107742,
+                "concept": "net_margin",
+                "unit": "pure",
+                "period_start": "2021-01-01",
+                "period_end": "2021-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": "100 * net_income / revenue",
+                  "inputs": [
+                    {
+                      "concept": "net_income",
+                      "value": 8075300000.0,
+                      "unit": "USD",
+                      "period_start": "2021-01-01",
+                      "period_end": "2021-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    },
+                    {
+                      "concept": "revenue",
+                      "value": 16071700000.0,
+                      "unit": "USD",
+                      "period_start": "2021-01-01",
+                      "period_end": "2021-12-31",
+                      "accession": "0001804220-22-000007",
+                      "raw_tag": null,
+                      "filed_at": null,
+                      "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                      "provenance": {
+                        "version": 1,
+                        "method": "reported",
+                        "validation": "passed",
+                        "reasons": [],
+                        "formula": null,
+                        "inputs": []
+                      }
+                    }
+                  ],
+                  "calculation_version": "same-period-ratio-v1"
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2021,
+                "fiscal_period": "FY",
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "yoy": 8.899591576872929
+              }
+            ]
+          },
+          {
+            "concept": "total_assets",
+            "label": "Total assets",
+            "unit": "USD",
+            "percent": false,
+            "tone": "neutral",
+            "cagr": 0.21336232952574807,
+            "cagr_window": "FY2017..FY2021",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 11734500000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-19-000009",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 15200100000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": 0.2953342707401252,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 15163800000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-19-000009",
+                  "filed_at": "2019-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                  "later_filed_at": "2020-02-07",
+                  "disagreement": null
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 17163400000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": 0.12916362392352676,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 19994100000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": 0.1649265297085658,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2021",
+                "value": 25434700000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2021-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2021,
+                "fiscal_period": "FY",
+                "yoy": 0.27211027253039655,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ],
+        "inflections": []
+      },
+      "expected": {
+        "values": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2018"
+          },
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2019"
+          },
+          {
+            "concept": "total_assets",
+            "label": "Total assets",
+            "period": "FY2018"
+          }
+        ],
+        "comparisons": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2018",
+            "basis": "yoy"
+          },
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2019",
+            "basis": "yoy"
+          },
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2020",
+            "basis": "yoy"
+          },
+          {
+            "concept": "net_margin",
+            "label": "Net margin",
+            "period": "FY2018",
+            "basis": "yoy"
+          },
+          {
+            "concept": "net_margin",
+            "label": "Net margin",
+            "period": "FY2019",
+            "basis": "yoy"
+          },
+          {
+            "concept": "net_margin",
+            "label": "Net margin",
+            "period": "FY2020",
+            "basis": "yoy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "evidence_with_no_change_of_basis",
+      "about": "Total assets alone: a figure with evidence and no comparison that reads n/m across it.",
+      "dataset": {
+        "ticker": "REGN",
+        "company_name": "Regeneron Pharmaceuticals",
+        "mode": "annual",
+        "period_key": "FY2017..FY2019",
+        "dataset_version": "annual-v1",
+        "snapshot_id": "planted-later-filings-assets",
+        "data_as_of": "2026-10-28",
+        "periods": [
+          {
+            "key": "FY2017",
+            "fiscal_year": 2017,
+            "fiscal_period": "FY",
+            "period_end": "2017-12-31"
+          },
+          {
+            "key": "FY2018",
+            "fiscal_year": 2018,
+            "fiscal_period": "FY",
+            "period_end": "2018-12-31"
+          },
+          {
+            "key": "FY2019",
+            "fiscal_year": 2019,
+            "fiscal_period": "FY",
+            "period_end": "2019-12-31"
+          }
+        ],
+        "series": [
+          {
+            "concept": "total_assets",
+            "label": "Total assets",
+            "unit": "USD",
+            "percent": false,
+            "tone": "neutral",
+            "cagr": 0.21336232952574807,
+            "cagr_window": "FY2017..FY2019",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 11734500000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-19-000009",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 15200100000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": 0.2953342707401252,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 15163800000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-19-000009",
+                  "filed_at": "2019-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                  "later_filed_at": "2020-02-07",
+                  "disagreement": null
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 17163400000.0,
+                "concept": "total_assets",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": 0.12916362392352676,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ],
+        "inflections": []
+      },
+      "expected": {
+        "values": [
+          {
+            "concept": "total_assets",
+            "label": "Total assets",
+            "period": "FY2018"
+          }
+        ],
+        "comparisons": []
+      }
+    },
+    {
+      "name": "a_sign_flip_and_a_scale_factor_count_as_figures",
+      "about": "The exact sign flip and the exact factor of 1,000 carry `disagreement` and a source_conflict note (D2 option A); each is a figure of the line (D8).",
+      "dataset": {
+        "ticker": "REGN",
+        "company_name": "Regeneron Pharmaceuticals",
+        "mode": "annual",
+        "period_key": "FY2019..FY2020",
+        "dataset_version": "annual-v1",
+        "snapshot_id": "planted-later-filings-sign-and-scale",
+        "data_as_of": "2026-10-28",
+        "periods": [
+          {
+            "key": "FY2019",
+            "fiscal_year": 2019,
+            "fiscal_period": "FY",
+            "period_end": "2019-12-31"
+          },
+          {
+            "key": "FY2020",
+            "fiscal_year": 2020,
+            "fiscal_period": "FY",
+            "period_end": "2020-12-31"
+          }
+        ],
+        "series": [
+          {
+            "concept": "financing_cash_flow",
+            "label": "Financing cash flow",
+            "unit": "USD",
+            "percent": false,
+            "tone": "neutral",
+            "cagr": null,
+            "cagr_window": null,
+            "points": [
+              {
+                "period": "FY2019",
+                "value": -500000000.0,
+                "concept": "financing_cash_flow",
+                "unit": "USD",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2020",
+                "value": -1895000000.0,
+                "concept": "financing_cash_flow",
+                "unit": "USD",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": false,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": "nm",
+                "yoy_reconciled": false,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 1895000000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001804220-21-000008",
+                  "filed_at": "2021-02-08",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                  "later_filed_at": "2022-02-07",
+                  "disagreement": "opposite_sign"
+                }
+              }
+            ]
+          },
+          {
+            "concept": "long_term_debt",
+            "label": "Long-term debt",
+            "unit": "USD",
+            "percent": false,
+            "tone": "inverted",
+            "cagr": 0.005041960501851017,
+            "cagr_window": "FY2019..FY2020",
+            "cagr_reconciled": false,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "needs_review",
+              "reasons": [
+                "source_conflict"
+              ],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2019",
+                "value": 5969900000.0,
+                "concept": "long_term_debt",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": false,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": null,
+                "first_reported": {
+                  "value": 5969900.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-20-000008",
+                  "filed_at": "2020-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                  "later_filed_at": "2021-02-08",
+                  "disagreement": "scale"
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 6000000000.0,
+                "concept": "long_term_debt",
+                "unit": "USD",
+                "period_start": null,
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 1004.041960501851,
+                "yoy_reconciled": false,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "needs_review",
+                  "reasons": [
+                    "source_conflict"
+                  ],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ],
+        "inflections": []
+      },
+      "expected": {
+        "values": [
+          {
+            "concept": "financing_cash_flow",
+            "label": "Financing cash flow",
+            "period": "FY2020"
+          },
+          {
+            "concept": "long_term_debt",
+            "label": "Long-term debt",
+            "period": "FY2019"
+          }
+        ],
+        "comparisons": [
+          {
+            "concept": "financing_cash_flow",
+            "label": "Financing cash flow",
+            "period": "FY2020",
+            "basis": "yoy"
+          },
+          {
+            "concept": "long_term_debt",
+            "label": "Long-term debt",
+            "period": "FY2020",
+            "basis": "yoy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "the_window_alone_counts",
+      "about": "A point before the dataset's first period, with evidence and an n/m, is not counted; the periods are the window.",
+      "dataset": {
+        "ticker": "REGN",
+        "company_name": "Regeneron Pharmaceuticals",
+        "mode": "annual",
+        "period_key": "FY2019..FY2020",
+        "dataset_version": "annual-v1",
+        "snapshot_id": "planted-later-filings-window",
+        "data_as_of": "2026-10-28",
+        "periods": [
+          {
+            "key": "FY2019",
+            "fiscal_year": 2019,
+            "fiscal_period": "FY",
+            "period_end": "2019-12-31"
+          },
+          {
+            "key": "FY2020",
+            "fiscal_year": 2020,
+            "fiscal_period": "FY",
+            "period_end": "2020-12-31"
+          }
+        ],
+        "series": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "unit": "USD",
+            "percent": false,
+            "tone": "normal",
+            "cagr": 0.2862199593367645,
+            "cagr_window": "FY2019..FY2020",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2018",
+                "value": 5145600000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2018-01-01",
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 0.1428084874493376,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "first_reported": {
+                  "value": 6710800000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-19-000009",
+                  "filed_at": "2019-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/",
+                  "later_filed_at": "2021-02-08",
+                  "disagreement": null
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 6557600000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "first_reported": {
+                  "value": 7863400000.0,
+                  "unit": "USD",
+                  "form": "10-K",
+                  "accession": "0001532176-20-000008",
+                  "filed_at": "2020-02-07",
+                  "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                  "later_filed_at": "2022-02-07",
+                  "disagreement": null
+                },
+                "yoy_first_reported": 0.17175299517196163,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 8497100000.0,
+                "concept": "revenue",
+                "unit": "USD",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": "nm",
+                "yoy_first_reported": 0.08058854948241212,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ],
+        "inflections": []
+      },
+      "expected": {
+        "values": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2019"
+          }
+        ],
+        "comparisons": [
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2019",
+            "basis": "yoy"
+          },
+          {
+            "concept": "revenue",
+            "label": "Revenue",
+            "period": "FY2020",
+            "basis": "yoy"
+          }
+        ]
+      }
+    },
+    {
+      "name": "no_evidence",
+      "about": "Net income alone: no figure carries evidence, so there is no line.",
+      "dataset": {
+        "ticker": "REGN",
+        "company_name": "Regeneron Pharmaceuticals",
+        "mode": "annual",
+        "period_key": "FY2017..FY2021",
+        "dataset_version": "annual-v1",
+        "snapshot_id": "planted-later-filings-none",
+        "data_as_of": "2026-10-28",
+        "periods": [
+          {
+            "key": "FY2017",
+            "fiscal_year": 2017,
+            "fiscal_period": "FY",
+            "period_end": "2017-12-31"
+          },
+          {
+            "key": "FY2018",
+            "fiscal_year": 2018,
+            "fiscal_period": "FY",
+            "period_end": "2018-12-31"
+          },
+          {
+            "key": "FY2019",
+            "fiscal_year": 2019,
+            "fiscal_period": "FY",
+            "period_end": "2019-12-31"
+          },
+          {
+            "key": "FY2020",
+            "fiscal_year": 2020,
+            "fiscal_period": "FY",
+            "period_end": "2020-12-31"
+          },
+          {
+            "key": "FY2021",
+            "fiscal_year": 2021,
+            "fiscal_period": "FY",
+            "period_end": "2021-12-31"
+          }
+        ],
+        "series": [
+          {
+            "concept": "net_income",
+            "label": "Net income",
+            "unit": "USD",
+            "percent": false,
+            "tone": "normal",
+            "cagr": 0.6111284132757937,
+            "cagr_window": "FY2017..FY2021",
+            "cagr_reconciled": true,
+            "cagr_provenance": {
+              "version": 1,
+              "method": "calculated",
+              "validation": "passed",
+              "reasons": [],
+              "formula": null,
+              "inputs": []
+            },
+            "points": [
+              {
+                "period": "FY2017",
+                "value": 1198500000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2017-01-01",
+                "period_end": "2017-12-31",
+                "form": "10-K",
+                "accession": "0001532176-20-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000153217620000008/",
+                "fiscal_year": 2017,
+                "fiscal_period": "FY",
+                "yoy": null
+              },
+              {
+                "period": "FY2018",
+                "value": 2444400000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2018-01-01",
+                "period_end": "2018-12-31",
+                "form": "10-K",
+                "accession": "0001804220-21-000008",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/",
+                "fiscal_year": 2018,
+                "fiscal_period": "FY",
+                "yoy": 1.039549436795995,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2019",
+                "value": 2115800000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2019-01-01",
+                "period_end": "2019-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2019,
+                "fiscal_period": "FY",
+                "yoy": -0.13442971690394367,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2020",
+                "value": 3513200000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2020,
+                "fiscal_period": "FY",
+                "yoy": 0.660459400699499,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              },
+              {
+                "period": "FY2021",
+                "value": 8075300000.0,
+                "concept": "net_income",
+                "unit": "USD",
+                "period_start": "2021-01-01",
+                "period_end": "2021-12-31",
+                "form": "10-K",
+                "accession": "0001804220-22-000007",
+                "raw_tag": null,
+                "derived": false,
+                "reconciled": true,
+                "provenance": {
+                  "version": 1,
+                  "method": "reported",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                },
+                "source_url": "https://www.sec.gov/Archives/edgar/data/872589/000180422022000007/",
+                "fiscal_year": 2021,
+                "fiscal_period": "FY",
+                "yoy": 1.2985597176363428,
+                "yoy_reconciled": true,
+                "yoy_provenance": {
+                  "version": 1,
+                  "method": "calculated",
+                  "validation": "passed",
+                  "reasons": [],
+                  "formula": null,
+                  "inputs": []
+                }
+              }
+            ]
+          }
+        ],
+        "inflections": []
+      },
+      "expected": {
+        "values": [],
+        "comparisons": []
+      }
+    }
+  ]
+}

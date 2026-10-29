@@ -1,3 +1,5 @@
+import type { FirstReported } from '@/features/analysis/api/analysis-api'
+
 /** Origin and validation are independent: a calculation is not a source discrepancy. */
 export interface FactInput {
   concept: string
@@ -10,6 +12,9 @@ export interface FactInput {
   filed_at?: string | null
   source_url?: string | null
   provenance?: FactProvenance | null
+  /** A calculated figure's input carries its year's own annual report's value as a reported figure does (MPA WP5a
+   *  item 5), where a later filing reports the one used. */
+  first_reported?: FirstReported | null
 }
 
 export interface FactProvenance {

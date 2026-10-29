@@ -3,6 +3,7 @@ import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type { DataNotesWire } from '@/features/analysis/lib/dataNotes'
 import { decodeDataNotes } from '@/features/analysis/lib/dataNotesContract'
+import { decodeLaterFilings } from '@/features/analysis/lib/laterFilings'
 import {
   decodeNarrativePresentation,
   EVIDENCE_RECOVERY,
@@ -46,9 +47,33 @@ export interface AnalysisCoverage {
   limits: { annual: number; quarterly: number }
 }
 
-/** "nm" = the YoY/QoQ comparison crossed zero (a sign flip) and isn't a meaningful percentage —
- *  finance convention "n/m", rendered as such rather than a nonsensical number. */
+/** "nm" = the YoY/QoQ comparison is not a meaningful percentage, finance convention "n/m", rendered as such rather
+ *  than a nonsensical number. It has two causes: the two periods' values change sign through zero, or a later filing
+ *  reports a different value for one or both of them, so the two sit on different bases; only the second carries the
+ *  growth as first reported (`yoy_first_reported`, `qoq_first_reported`). */
 export type GrowthValue = number | 'nm'
+
+/** The value a fiscal year's own annual report gave, on a figure for which a later filing reports another, the one
+ *  shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals or letters. Only an exact
+ *  sign flip or factor of 1,000ⁿ between the two (`disagreement`) is also a note, the producer's `source_conflict`.
+ *  Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings); a point without it renders as
+ *  before. */
+export interface FirstReported {
+  value: number
+  /** The shown figure's unit: the producer sends evidence only in it. */
+  unit: string
+  /** The own report's form ("10-K", "20-F", "10-K/A"), or null where companyfacts names none. */
+  form?: string | null
+  /** The own report's accession, never the shown figure's. */
+  accession: string
+  /** The day the own report was filed (YYYY-MM-DD), or null. */
+  filed_at?: string | null
+  source_url?: string | null
+  /** The day the filing whose value is shown was filed (YYYY-MM-DD), or null. */
+  later_filed_at?: string | null
+  /** What an exact comparison found between the two values, or null for any other difference. */
+  disagreement?: 'opposite_sign' | 'scale' | null
+}
 
 /** Display valence for a series' deltas, shipped by the backend (single source of truth, like
  *  `percent` — trend_analysis_service._SERIES_TONE): "inverted" = an increase reads as a
@@ -76,6 +101,13 @@ export interface AnalysisPoint {
    *  do not treat as relative growth. Every other series: relative growth as a fraction. */
   yoy?: GrowthValue | null
   qoq?: GrowthValue | null
+  /** Present only where `yoy` (or `qoq`) reads "nm" because a later filing reports a different value for one or both
+   *  of its two periods: the growth the two periods' own annual reports give (a number, "nm" where those values change
+   *  sign, null where they give none). Absent for every other comparison, a sign flip's included. */
+  yoy_first_reported?: GrowthValue | null
+  qoq_first_reported?: GrowthValue | null
+  /** The year's own annual report's value, where a later filing reports the one shown (FirstReported). */
+  first_reported?: FirstReported | null
   marker?: string
   fiscal_year?: number
   fiscal_period?: string
@@ -198,7 +230,9 @@ export const getAnalysisDataset = async (
   signal?: AbortSignal,
 ): Promise<AnalysisDataset> => {
   const response = await api.post(`/api/analysis/${encodeURIComponent(ticker)}/dataset`, range, { signal })
-  const dataset = response.data as AnalysisDataset
+  // The later-filing evidence is checked where it enters and the dataset returned as sent: a point without it is
+  // untouched (lib/laterFilings.ts).
+  const dataset = decodeLaterFilings(response.data as AnalysisDataset)
   return Object.hasOwn(dataset, 'data_notes')
     ? { ...dataset, data_notes: decodeDataNotes(dataset.data_notes, dataset) }
     : dataset
