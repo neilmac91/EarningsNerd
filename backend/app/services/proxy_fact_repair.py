@@ -9,7 +9,9 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
 1. Set 4. A filing row the old cross-check replaced with a proxy's figure is restored to its recorded
    ``original_value`` and passed through today's cross-check, as the backfill would store it now. A row
    that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
-   10-K contradicts, refuses the company.
+   10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
+   left so, a current row at the 10-K winner's identity that disagrees with the winner refuses the company
+   (sets 4 and 5 alike).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -25,9 +27,11 @@ writes only into the repair's ``updates`` and its own inserts, so the repair's a
 (``proxy-repair-v1``) and audited rollback carry every change. A case it cannot settle on positive
 evidence refuses the whole company before any write, every reason in one error. The report names, by
 fact id and with the step's verdict, each row the detection file's sets 4 and 5 will still list
-(``detection_listed``), so the apply's done criterion is a comparison. The file's tests (a witness within
-1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric computes them. Temporary: removed
-once the E211 cohort closes (``docs/quarterly-data-repair.md``, "Proxy-statement values (E211)").
+(``detection_listed``), so the apply's done criterion is a comparison; it also names, to be read and never
+checked, each row sets 4 and 5 leave because a report row holds its figure (``left_report_backed``). The
+file's tests (a witness within 1e-6, a scale band of 1%) are computed exactly, as PostgreSQL's numeric
+computes them. Temporary: removed once the E211 cohort closes (``docs/quarterly-data-repair.md``,
+"Proxy-statement values (E211)").
 """
 from __future__ import annotations
 
@@ -304,13 +308,14 @@ def other_kinds(before: dict[int, State], updates: dict[int, State], tagged: set
 
 def totals(blocks: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """A batch's ``proxy_totals``: each counter and each other-correction entry, summed over the
-    companies' ``proxy`` blocks."""
+    companies' ``proxy`` blocks, and how many rows they list in ``left_report_backed``."""
     out: dict[str, Any] = {**dict.fromkeys(COUNTERS, 0), "other_planned_updates": 0,
                            "other_planned_inserts": 0, "other_updates_by_kind": dict.fromkeys(OTHER_KINDS, 0),
-                           "other_inserts_by_concept": {}}
+                           "other_inserts_by_concept": {}, "left_report_backed": 0}
     for block in blocks:
         for name in (*COUNTERS, "other_planned_updates", "other_planned_inserts"):
             out[name] += block[name]
+        out["left_report_backed"] += len(block["left_report_backed"])
         for name in ("other_updates_by_kind", "other_inserts_by_concept"):
             for entry, count in block[name].items():
                 out[name][entry] = out[name].get(entry, 0) + count
@@ -338,13 +343,16 @@ class ProxyPlan:
     rows: list[dict[str, Any]]
     stored_keys: set[tuple] = field(default_factory=set)  # settled in place: no upsert decides them
     verdicts: dict[int, str] = field(default_factory=dict)  # each set 4 and 5 candidate detection may list
+    left: list[dict[str, Any]] = field(default_factory=list)  # the rows sets 4 and 5 leave report-backed
     own: set[tuple] = field(init=False)  # the identities of the step's inserts
 
     def __post_init__(self) -> None:
         self.own = {qfr._identity(qfr._candidate_state(fact)) for fact in self.inserts}
 
     def summary(self, before: dict[int, State], updates: dict[int, State], inserts: list[dict]) -> dict[str, Any]:
-        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies."""
+        """The company's ``proxy`` block; ``other_*`` describe the corrections one approval also applies, and
+        ``left_report_backed`` the rows sets 4 and 5 leave because a report row holds their figure: it informs
+        the reading of the preview, and nothing writes, journals or checks it."""
         others = [fact for fact in inserts if qfr._identity(qfr._candidate_state(fact)) not in self.own]
         return {
             "version": PROXY_REPAIR_VERSION, **self.counts,
@@ -354,6 +362,7 @@ class ProxyPlan:
             "other_inserts_by_concept": dict(sorted(Counter(
                 f"{fact['concept']} {fact['fiscal_period']}" for fact in others).items())),
             "rows": self.rows,
+            "left_report_backed": self.left,
         }
 
     def residual(self, states: list[State], *, twins_at: Iterable[tuple]) -> dict[str, Any]:
@@ -397,6 +406,7 @@ class _Planner:
         self.keys: dict[tuple, int] = {}
         self.stored_keys: set[tuple] = set()
         self.verdicts: dict[int, str] = {}
+        self.left: list[dict[str, Any]] = []
         self.rechecked: dict[tuple, set[str]] = {}  # scope -> the concepts sets 4 and 5 rewrote there
         self.touched: set[int] = set()
         self.counts = dict.fromkeys(COUNTERS, 0)
@@ -420,11 +430,17 @@ class _Planner:
         proxy-form row, current or not."""
         return any(_same(value, witness) for witness in self.witnesses.get((state["concept"], state["period_end"]), ()))
 
-    def _report_backed(self, row_id: int, state: State, value: Any) -> bool:
-        """Set 4's exclusion: another stored report row at the concept and period end, any unit, holds it."""
-        return any(other_id != row_id and _is_report_row(self.before[other_id])
-                   and _same(self.before[other_id]["value"], value)
-                   for other_id in self.by_period[(state["concept"], state["period_end"])])
+    def _backers(self, row_id: int, state: State, value: Any) -> list[int]:
+        """Set 4's exclusion: the other stored report rows at the concept and period end, any unit, that hold it."""
+        return [other_id for other_id in self.by_period[(state["concept"], state["period_end"])]
+                if other_id != row_id and _is_report_row(self.before[other_id])
+                and _same(self.before[other_id]["value"], value)]
+
+    def _winner_at(self, state: State) -> State | None:
+        """The fresh winner whose identity ``state`` holds, or None."""
+        identity = qfr._identity(state)
+        return next((target for target in map(qfr._candidate_state, self.fresh.get(_key(state), ()))
+                     if qfr._identity(target) == identity), None)
 
     def _authority(self, state: State) -> float | None:
         """Today's authority (``extract_authoritative_values``, which skips a proxy's item)."""
@@ -443,13 +459,31 @@ class _Planner:
             "gap": None if gap is None else round(gap, 6), **extra,
         }
 
-    def _left(self, row_id: int, state: State, value: Any) -> bool:
-        """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does."""
-        verdict = ("no_proxy_figure" if not self._witnessed(state, value)
-                   else "report_backed" if self._report_backed(row_id, state, value) else None)
-        if verdict is not None:
-            self.verdicts[row_id] = verdict
-        return verdict is not None
+    def _left(self, row_id: int, state: State, value: Any, number: int) -> bool:
+        """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does.
+        A row left report-backed is listed in ``left_report_backed``. One that is current at the 10-K winner's
+        identity and fails the agreement test with it refuses the company: it is the company's current figure,
+        and the 10-K contradicts it (a report row elsewhere, a year's own report as first reported, may hold the
+        proxy's figure while the 10-K restated it)."""
+        if not self._witnessed(state, value):
+            self.verdicts[row_id] = "no_proxy_figure"
+            return True
+        backers = self._backers(row_id, state, value)
+        if not backers:
+            return False
+        self.verdicts[row_id] = "report_backed"
+        authority = self._authority(state)
+        self.left.append(self._row(row_id, "left_report_backed", state, None, set=number, figure=value,
+                                   authority=authority, backed_by=[{
+                                       "fact_id": other_id, **{name: self.before[other_id][name] for name in (
+                                           "accession", "form", "is_latest", "filing_id", "source")}}
+                                       for other_id in backers]))
+        winner = self._winner_at(state)
+        failed = _disagreements(state, winner) if state["is_latest"] and winner is not None else []
+        if failed:
+            self.refuse(row_id, "a report row holds the proxy figure behind this filing row, which is current at the "
+                                f"10-K's identity and disagrees with the 10-K on: {', '.join(failed)}")
+        return True
 
     def _rewrote(self, row_id: int, state: State, verdict: str) -> None:
         self.write(row_id, state)
@@ -463,7 +497,7 @@ class _Planner:
             if state["filing_id"] is None or state["source"] != "companyfacts":
                 continue
             value = state["value"]
-            if self._left(row_id, state, value):
+            if self._left(row_id, state, value, 4):
                 continue
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
@@ -494,7 +528,7 @@ class _Planner:
                 continue
             check = _authoritative_check(state)
             witness = _number(check.get("authoritative_value"))
-            if check.get("outcome") != "confirmed" or witness is None or self._left(row_id, state, witness):
+            if check.get("outcome") != "confirmed" or witness is None or self._left(row_id, state, witness, 5):
                 continue
             authority = self._authority(state)
             if authority is not None and _same(witness, authority):  # a proxy quoting the 10-K exactly
@@ -710,4 +744,4 @@ def plan(before: dict[int, State], updates: dict[int, State], facts: list[dict],
                                 if is_proxy_form(state["form"]) or _quotes(state, planner.accessions)}
     return ProxyPlan(inserts=list(planner.inserts.values()), tagged=tagged, accessions=planner.accessions,
                      keys=planner.keys, counts=planner.counts, rows=planner.rows,
-                     stored_keys=planner.stored_keys, verdicts=planner.verdicts)
+                     stored_keys=planner.stored_keys, verdicts=planner.verdicts, left=planner.left)
