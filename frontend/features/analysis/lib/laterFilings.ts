@@ -178,3 +178,34 @@ export function disagreementSentence(first: FirstReported, shown: number): strin
   if (steps === null) return null
   return `A later filing reports a value ${fmtCount(1000 ** Math.abs(steps))} times ${steps > 0 ? 'larger' : 'smaller'} than the year’s own annual report.`
 }
+
+export interface LaterFilingRef { concept: string; label: string; period: string }
+export interface LaterFilingComparisonRef extends LaterFilingRef { basis: LaterFilingBasis }
+export interface LaterFilingPlaces {
+  /** The figures that carry their own first-reported value: reported figures only, since a calculated figure's
+   *  evidence sits on its inputs. Each opens a dialog that gives both filings. */
+  values: LaterFilingRef[]
+  /** The comparisons that read n/m across a change of basis. */
+  comparisons: LaterFilingComparisonRef[]
+}
+
+/** Where the run carries later-filing evidence, for the data notes' line (D8): over the window's periods only, in series
+ *  order, then period order, then basis (QoQ before YoY in a quarterly run, as the notes order them). It reads the
+ *  points, not the notes envelope, so the line moves no data notes version. The shared fixture
+ *  backend/tests/fixtures/analysis_later_filings.json holds these places, which the backend's twin computes for the
+ *  exports' line (WP5a-X) from the same cases. */
+export function laterFilingPlaces(dataset: Pick<AnalysisDataset, 'mode' | 'periods' | 'series'>): LaterFilingPlaces {
+  const places: LaterFilingPlaces = { values: [], comparisons: [] }
+  const bases: readonly LaterFilingBasis[] = dataset.mode === 'quarterly' ? ['qoq', 'yoy'] : ['yoy']
+  for (const series of dataset.series) {
+    const points = new Map(series.points.map((point) => [point.period, point]))
+    for (const { key } of dataset.periods) {
+      const point = points.get(key)
+      if (!point) continue
+      const ref = { concept: series.concept, label: series.label, period: key }
+      if (point.first_reported) places.values.push(ref)
+      for (const basis of bases) if (basisChanged(point, basis)) places.comparisons.push({ ...ref, basis })
+    }
+  }
+  return places
+}

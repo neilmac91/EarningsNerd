@@ -14,7 +14,8 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import api from '@/lib/api/client'
 import { getAnalysisDataset, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { decodeLaterFilings, LaterFilingsRejection } from '@/features/analysis/lib/laterFilings'
+import { decodeLaterFilings, laterFilingPlaces, LaterFilingsRejection } from '@/features/analysis/lib/laterFilings'
+import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import KpiStrip from '@/features/analysis/components/KpiStrip'
 import MetricsTable from '@/features/analysis/components/MetricsTable'
@@ -273,5 +274,77 @@ describe('a basis n/m says its cause (D12)', () => {
     expect(model.notesBand).toBeNull()
     const fy2018 = chartReadouts(model, dataset, notes).find((period) => period.period === 'FY2018')!
     expect(fy2018.rows.find((row) => row.label === 'YoY growth')!.text).toBe('n/m · not meaningful')
+  })
+})
+
+/** Every figure, comparison and input with its later-filing fields gone: the run as the page read it before WP5a. */
+function withoutEvidence(dataset: AnalysisDataset): AnalysisDataset {
+  const plain = structuredClone(dataset)
+  const strip = (input: { first_reported?: unknown; provenance?: { inputs: unknown[] } | null }) => {
+    delete input.first_reported
+    input.provenance?.inputs.forEach((operand) => strip(operand as typeof input))
+  }
+  for (const series of plain.series) for (const point of series.points) {
+    strip(point)
+    delete point.yoy_first_reported
+    delete point.qoq_first_reported
+  }
+  return plain
+}
+const LINE = '[data-analysis-later-filings]'
+
+describe('the data notes’ later-filing line (D8)', () => {
+  it.each(CASES.map((entry) => [entry.name, entry]))('finds the places the shared fixture holds: %s', (_, entry) => {
+    expect(laterFilingPlaces(entry.dataset)).toEqual(entry.expected)
+  })
+
+  it('names the reported figures in the open detail, after the notes, and says growth across the change reads n/m', () => {
+    const dataset = planted(REGN)
+    const { container } = render(<DataNotes dataset={dataset} />)
+    const line = container.querySelector(LINE)!
+    expect(line.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m. Select one to see both filings.')
+    // In the open detail, after the notes list and before the legend, never in the closed summary.
+    const detail = container.querySelector('[data-analysis-data-notes] > details > div')!
+    expect(line.parentElement).toBe(detail)
+    expect(line.previousElementSibling?.tagName).toBe('UL')
+    expect(line.nextElementSibling?.textContent).toMatch(/^Select any figure to see its source filing/)
+    expect(container.querySelector('[data-analysis-data-notes] > details > summary')!.querySelector(LINE)).toBeNull()
+  })
+
+  it('leaves the closed summary as it was, “No figures need review” included (D7), and draws no line without evidence', () => {
+    const dataset = planted(REGN)
+    const summary = (input: AnalysisDataset) => {
+      const { container, unmount } = render(<DataNotes dataset={input} />)
+      const text = container.querySelector('[data-analysis-data-notes] > details > summary')!.textContent
+      const line = container.querySelector(LINE)
+      unmount()
+      return { text, line }
+    }
+    const before = summary(withoutEvidence(dataset))
+    const after = summary(dataset)
+    expect(after.text).toBe(before.text)
+    expect(after.text).toMatch(/No figures need review · \d+ checked/)
+    expect(before.line).toBeNull()
+    expect(summary(planted('no_evidence')).line).toBeNull()
+  })
+
+  it('keeps the n/m sentence for a run where growth reads n/m across the change, and counts one figure as one', () => {
+    const { container } = render(<DataNotes dataset={planted('evidence_with_no_change_of_basis')} />)
+    expect(container.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018). Select one to see both filings.')
+    cleanup()
+    // The exact sign flip and the factor of 1,000 are figures of the line too, beside their note (D8).
+    const { container: flipped } = render(<DataNotes dataset={planted(SIGN_AND_SCALE)} />)
+    expect(flipped.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 2 figures (Financing cash flow FY2020; Long-term debt FY2019). Growth across the change reads n/m. Select one to see both filings.')
+  })
+
+  it('keeps its promise: every place it lists opens a dialog that gives both filings', async () => {
+    for (const entry of CASES) {
+      for (const ref of entry.expected.values) {
+        const dialog = await dialogFor(structuredClone(entry.dataset), new RegExp(`^${ref.label}, ${ref.period}: `))
+        expect(dialog, `${entry.name}: ${ref.label} ${ref.period}`).toHaveTextContent('First reported as')
+        expect(within(dialog).getByRole('link', { name: /^Open its own annual report on SEC\.gov/ })).toBeInTheDocument()
+        cleanup()
+      }
+    }
   })
 })

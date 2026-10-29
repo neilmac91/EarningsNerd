@@ -4,6 +4,7 @@ import { MissingValue } from '@/components/ui/MissingValue'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { noteMarksFigure, noteSummary, type DataNote } from '@/features/analysis/lib/dataNotes'
 import { FCF_DEFINITION } from '@/features/analysis/lib/provenance'
+import { laterFilingPlaces } from '@/features/analysis/lib/laterFilings'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { usePrintDetails } from '@/features/analysis/lib/usePrintDetails'
 import { useSourceDate } from '@/features/analysis/lib/useSourceDate'
@@ -77,6 +78,12 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
   const allPopulatedPassed = totals.reviewValues === 0 && totals.unknown === 0 && totals.passed > 0
     && !model.notes.some((note) => note.kind === 'review' && !noteMarksFigure(note))
   const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`
+  // Where a later filing reports a different value (MPA WP5a, D8): evidence, not a note, so the closed summary keeps its
+  // clauses, "No figures need review" among them (D7), and the open detail adds one line after the notes. It counts the
+  // reported figures that carry their year's own annual report's value (each opens a dialog that gives both filings, so
+  // "Select one" holds for every place it lists); its middle sentence stands only where a comparison in the run reads
+  // n/m across the change.
+  const later = laterFilingPlaces(dataset)
   return (
     <section className="min-w-0 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark" data-analysis-data-notes data-analysis-print-scope={printScope}>
       <details>
@@ -94,6 +101,7 @@ export default function DataNotes({ dataset, sample = false }: { dataset: Analys
         </summary>
         <div className="space-y-3 pb-3 pt-1">
           <DataNotesList notes={model.notes} />
+          {later.values.length > 0 && <p data-analysis-later-filings>{`A later filing reports a different value for ${plural(later.values.length, 'figure', 'figures')} (${placesOf(later.values).map(([label, periods]) => `${label} ${periods.join(', ')}`).join('; ')}).${later.comparisons.length ? ' Growth across the change reads n/m.' : ''} Select one to see both filings.`}</p>}
           <p>Select any figure to see its source filing, method and inputs. Automated checks confirm that reported figures come from the company’s filed data (XBRL); they are not an audit of the company’s accounts.</p>
           <details>
             <summary className="cursor-pointer rounded font-medium focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">Sources &amp; methods</summary>
