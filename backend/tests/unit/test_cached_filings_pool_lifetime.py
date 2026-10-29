@@ -1409,8 +1409,8 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
     """The refresh releases its session inside its unit, after the rotation has committed. A close
     whose rollback fails there (a connection that dropped after the unit's last statement) must not
     turn the response into a 500: the old token is already rotated away, so a reader who never
-    receives the new cookie refreshes with the old one next, and the replay sweep signs them out
-    everywhere. The first close drops the real DBAPI connection before it runs, so its rollback
+    receives the new cookie refreshes with the old one next, and the replay sweep ends that token's
+    chain, signing that browser out. The first close drops the real DBAPI connection before it runs, so its rollback
     fails as a dropped connection's does. SQLAlchemy reads that as a disconnect: it invalidates the
     connection and returns its slot, the session lets go of its transaction, the release logs the
     failure, and the route answers with the rotated cookie."""

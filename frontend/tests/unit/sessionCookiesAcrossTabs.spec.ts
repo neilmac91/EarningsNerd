@@ -27,11 +27,12 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a refresh's answer
  * sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears them. The API
  * answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay that ends its
- * chain (each account here holds one, this browser's), and anything else is refused; a logout revokes its session's
- * live token, whichever of its tokens it carries; a password change, which needs a good access token, revokes the
- * account's live token without rotating it, so that token is refused when presented again, and gives the browser a new
- * one. X is the account signed in before; its access token has expired. jsdom has no lock manager of its own, so every
- * other spec runs each tab alone, as an older browser does.
+ * chain (each account here holds one, this browser's; no case replays a token older than a password change, which the
+ * API refuses with nothing left to sweep), and anything else is refused; a logout revokes its session's live token,
+ * whichever of its tokens it carries; a password change, which needs a good access token, revokes the account's live
+ * token without rotating it, so that token is refused when presented again, and gives the browser a new one. X is the
+ * account signed in before; its access token has expired. jsdom has no lock manager of its own, so every other spec
+ * runs each tab alone, as an older browser does.
  */
 
 type LockMode = 'shared' | 'exclusive'
@@ -130,8 +131,8 @@ type Account = 'X' | 'Y'
 type TabName = 'A' | 'B' | 'C'
 type Outcome = 'took' | 'refused'
 /** An account's session as the API holds it: its live refresh token (a serial), whether a logout revoked it or a replay
- * swept the account's sessions, and the tokens a password change revoked without rotating them, which are refused with
- * no sweep (refresh_token_service.rotate_refresh_token). */
+ * ended its chain, and the tokens a password change revoked without rotating them, which are refused with no sweep
+ * (refresh_token_service.rotate_refresh_token). */
 interface ServerSession { tip: number; revoked: boolean; swept: boolean; cut?: number[] }
 /** What the tabs share: the browser's session cookies (whose session, none once a logout clears them, which refresh token,
  * and whether the access token is still good), the API's side of each account's session, what reached the API, in

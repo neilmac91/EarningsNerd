@@ -813,10 +813,10 @@ async def refresh(
     # session. The refusing tab ends the session it knew and clears the session marker every tab reads
     # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
     # succeeds and marks it again (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep
-    # each time it is sent, which revokes every live token of the account until E96 scopes it to the replayed chain
-    # (refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on the injected Response and
-    # then raised; FastAPI answers an exception with a fresh response, so they never reached the browser
-    # (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
+    # each time it is sent, which revokes that token's chain, the live tokens its rotations lead to; the account's other
+    # sessions keep theirs (E96, refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on
+    # the injected Response and then raised; FastAPI answers an exception with a fresh response, so they never reached
+    # the browser (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:

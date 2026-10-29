@@ -20,8 +20,8 @@ first sign-in whose session mint fails are pinned beside them:
     verifies, and a user who is already Pro
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
     (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
-    login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews
-    unless the refusal was a replay of the same account's token, whose sweep revokes it until E96 (E121)
+    login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews,
+    after a replay of the same account's token too: the sweep ends only the replayed token's chain (E121, E96)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
@@ -589,7 +589,7 @@ def _make_refusable(client: TestClient, email: str, kind: str) -> tuple[str, str
 
     Returns the Cookie header a refresh sent at this moment would carry, and the reason the service gives.
     ``revoked`` is a logout of every device (no rotation, so no sweep); ``replayed`` a token rotated away, which
-    the replay sweep answers by revoking the account's live tokens."""
+    the replay sweep answers by revoking its chain, the live tokens its rotations lead to (E96)."""
     assert _login(client, email).status_code == 200
     held = client.cookies.get(REFRESH_COOKIE)
     if kind == "missing":
@@ -640,9 +640,8 @@ def test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies(cli
     with the header taken before, so it is refused after the login and its answer lands on the login's cookies.
     They stay as the login set them, and /me answers the newer account. The refusal's headers are an ordinary
     401's, so no deletion of any kind (Set-Cookie, Clear-Site-Data) rides it. The newer login's refresh token
-    still renews, except after a replay of the same account's token: the replay sweep revokes every live token
-    of the account, the newer login's too, until E96 scopes it to the replayed chain; E96's PR flips that case
-    to renew.
+    still renews, after a replay of the same account's token too: the replay sweep ends the replayed token's
+    chain, and the newer login's token is on a chain of its own (E96).
     """
     first, _ = _register(client, mail)
     sent_with, reason = _make_refusable(client, first, kind)
@@ -668,10 +667,7 @@ def test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies(cli
     me = client.get("/api/auth/me")
     assert me.status_code == 200 and me.json()["email"] == newer_email
     renewed = client.post("/api/auth/refresh")
-    if kind == "replayed" and newer == "the same account":
-        assert renewed.status_code == 401  # the replay sweep ended it (E96 makes this 200)
-    else:
-        assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
+    assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
 
 
 # ── password login and change: what commits, and when ─────────────────────────
