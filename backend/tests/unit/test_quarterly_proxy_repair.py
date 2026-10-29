@@ -2220,10 +2220,14 @@ def test_a_current_left_row_within_1pct_of_the_10k_is_left_whatever_its_labels(m
         return company, payload, filing
 
     with _synced_before_and_since_1682(monkeypatch, build) as states:
-        new, company, payload, _filing_ = states[True]
+        (old, company, payload), new = states[False][:3], states[True][0]
         [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
         assert (row.is_latest, float(row.value), row.period_start.isoformat(), row.fiscal_year) == (
             True, 18_560e6, start, fiscal_year)
+        # Before #1682 set 4's own check refuses it: its recorded original, 17,000, is 8.6% off the 10-K's figure.
+        # Since, the history row backs it, and the refusal disappears (docs, "A refusal can disappear").
+        _refuses(old, company, payload, _refusal(old, (row.id, "the 10-K's figure disagrees with the recorded original "
+                                                               "value by more than 1%, and the filing row holds neither")))
         plan = _preview(new, company, payload)["proxy"]
         assert [(e["fact_id"], e["set"], e["authority"]) for e in plan["left_report_backed"]] == [
             (row.id, 4, 18_600e6)]
@@ -2322,7 +2326,8 @@ def test_the_current_figure_refusal_reads_todays_10k_figure_where_no_winner_is_k
 def _own_figure_scaled_up(db, monkeypatch, ticker, *, backed):
     """The FY2026 10-K's own FY2026, 19,000 million, parsed as 19,000 thousand; P27 quotes the figure, and the backfill
     before the fix scaled the parse up to it (the cross-check's own unit fix). K27 repeats FY2026 unchanged (``backed``:
-    a fixed sync stored it); K28, in the repair's payload only, restates FY2026 as 19,500 million."""
+    a fixed sync stored it). K28 restates FY2026 as 19,500 million: the repair's payload carries it, and the harness's
+    sync stores its row behind the filing row (no local Filing)."""
     company = _company(db, ticker)
     payload = _for(company, _mrk_payload())
     _items(payload).extend([
@@ -2406,3 +2411,118 @@ def test_a_sync_clears_the_current_figure_refusal_only_after_the_later_10ks_fili
             assert [e["fact_id"] for e in _preview(db, company, later)["proxy"]["left_report_backed"]] == [row.id]
         else:
             _refuses(db, company, later, refused)
+
+
+
+@pytest.mark.parametrize(("parsed", "quoted", "refused"), [(18_420e6, 18_254e6, False), (18_380e6, 18_560e6, True)],
+                         ids=["row-within-1pct-witness-off", "row-off-witness-within-1pct"])
+def test_set5s_current_figure_refusal_reads_the_rows_own_value_not_its_witness(monkeypatch, parsed, quoted, refused):
+    # NSB's shape in set 5: the FY2026 10-K's parse of FY2025 was confirmed against P27's figure, which the FY2025 10-K's
+    # own figure, the history row, holds; today's 10-K figure is 18,600. The refusal reads the company's current figure,
+    # the row's own value, not the figure its check was confirmed against: 18,420 (0.97% off) is left and listed though
+    # its witness is 1.86% off; 18,380 (1.18% off) is refused though its witness is 0.2% off.
+    def build(db, monkeypatch):
+        company = _company(db, "S5V")
+        payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=False,
+                                                                 own_fy2025=quoted, quoted=quoted, parsed=parsed)
+        _sync(db, monkeypatch, company, payload)
+        return company, payload, filing
+
+    with _synced_before_and_since_1682(monkeypatch, build) as states:
+        new, company, payload, _filing_ = states[True]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, row.source, float(row.value), _check(row)["outcome"], _check(row)["authoritative_value"]) == (
+            True, "edgar_xbrl", parsed, "confirmed", quoted)
+        if refused:
+            _refuses(new, company, payload, _refusal(new, (row.id, _current_figure("18380000000", "18600000000"))))
+        else:
+            plan = _preview(new, company, payload)["proxy"]
+            assert [(e["fact_id"], e["set"], e["figure"], e["authority"]) for e in plan["left_report_backed"]] == [
+                (row.id, 5, "18254000000", 18_600e6)]
+
+
+@pytest.mark.parametrize("shape", ["mirror_1000", "mirror_1000000", "true_scale_up"])
+def test_a_proxy_tagged_at_the_wrong_scale_over_a_right_parse_is_restored(monkeypatch, shape):
+    # FedEx's real error mirrored: P26 tags FY2025 1,000 or 1,000,000 times the 10-K's figure, and the old cross-check
+    # replaced the FY2025 10-K's right parse (4,092 million) with it. The value is a scale-up of the recorded original,
+    # but today's 10-K sides with the original, so set 4 restores the row, and its filing's chart shows the 10-K's
+    # figure again. Detection's set 4 never listed it (it cannot read the payload's 10-K figure) and lists nothing
+    # after. A true scale-up, a parse read in units that the 10-K's figure, scaled, corrected, stays the old check's
+    # own job: left, unlisted. Alike before and since #1682.
+    scale = {"mirror_1000": 1_000, "mirror_1000000": 1_000_000}.get(shape)
+    parsed, stored = (4_092.0, 4_092e6) if scale is None else (4_092e6, 4_092e6 * scale)
+
+    def build(db, monkeypatch):
+        if scale is None:
+            return _scaled_up(db, monkeypatch, "TSU")
+        return _cross_checked(db, monkeypatch, "MSE", _fdx_with_proxy({2025: 4_092e6 * scale}), 4_092e6)
+
+    with _synced_before_and_since_1682(monkeypatch, build) as states:
+        for db, company, payload, filing in states.values():
+
+            def chart():
+                return {p["period_end"]: p["value"] for c in svc.get_filing_fundamentals(db, filing.id)["concepts"]
+                        if c["concept"] == "net_income" for p in c["points"]}
+
+            row = _filing_row(db, filing)
+            assert (row.source, float(row.value), _check(row)["original_value"]) == ("companyfacts", stored, parsed)
+            assert chart()["2025-05-31"] == stored
+            plan = _preview(db, company, payload)["proxy"]
+            assert (plan["left_report_backed"], plan["detection_listed"]) == ([], [])
+            if shape == "true_scale_up":
+                assert plan["filing_rows_restored"] == 0 and row.id not in {e["fact_id"] for e in plan["rows"]}
+                continue
+            assert plan["filing_rows_restored"] == 1
+            _apply(db, company, payload)
+            row = _filing_row(db, filing)
+            assert (row.source, float(row.value), _check(row)["outcome"]) == ("edgar_xbrl", 4_092e6, "confirmed")
+            assert chart()["2025-05-31"] == 4_092e6
+            found = _detection(db, {company.ticker: payload})
+            assert (found[4], found[5]) == ([], [])
+
+
+def test_the_current_figure_refusal_reads_todays_10k_figure_where_a_winner_differs(monkeypatch):
+    # A pure test of the planner. Where the payload gives both, the refusal reads today's 10-K figure, the authority
+    # every set-4/5 verdict reads, not set 2's fresh winner at the key (the two can differ by tag precedence, or by the
+    # authority's annual band and tie-break): the current row, 18,300 million, is 0.3% off a fresh winner of 18,350 but
+    # 1.6% off the 10-K's 18,600, and the company is refused.
+    row = {**_state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=18_300e6,
+                    accession="K26", source="edgar_xbrl", filing_id=3)[1],
+           "provenance": {"version": 1, "checks": {"authoritative": {"outcome": "confirmed",
+                                                                     "authoritative_value": 18_254e6}}}}
+    backer = {**row, "filing_id": None, "accession": "K25", "source": "companyfacts", "is_latest": False,
+              "value": "18254000000", "provenance": None}
+    proxy_row = {**backer, "form": "DEF 14A", "accession": "P27"}
+    fresh = _state(period_start=date(2025, 1, 1), period_end=date(2025, 12, 31), fiscal_year=2025, value=18_350e6,
+                   accession="K27")[0]
+    payload = _payload({"NetIncomeLoss": {"units": {"USD": [
+        _item(18_600e6, "2025-12-31", start="2025-01-01", accn="K26", fy=2026, filed="2027-02-25")]}}})
+    assert proxy.facts_service.extract_authoritative_values(payload)[("net_income", date(2025, 12, 31))] == 18_600e6
+    with pytest.raises(proxy.ProxyRepairRefused, match=r"^" + re.escape(
+            "Proxy repair refused for this company (1): net_income FY 2025-12-31 (fact 1): "
+            + _current_figure("18300000000", "18600000000")) + "$"):
+        proxy.plan({1: row, 2: backer, 3: proxy_row}, {}, [fresh], {}, payload)
+
+
+def _set5_below_a_later_winner(db, monkeypatch, ticker="S5L"):
+    """S5R's row below a later winner: a sync before the fix stored the proxies' rows, the backfill confirmed the FY2026
+    10-K's parse of FY2025, 18,300 million, against P27's 18,254, and K27, which the harness's sync stores current over
+    P27's row, gives FY2025 as 18,600."""
+    company = _company(db, ticker)
+    payload, filing = _restated_and_quoted_as_first_reported(db, monkeypatch, company, old_sync=True, parsed=18_300e6)
+    return company, _with_k27(company, payload), filing
+
+
+def test_a_set5_row_below_a_later_current_winner_is_refused_before_1682_and_left_since(monkeypatch):
+    # "A refusal can disappear" (docs): set 5's own check refuses the row the 10-K contradicts by 1.6% before #1682;
+    # since, the FY2025 10-K's history row backs the figure it was confirmed against, and the row, not the company's
+    # current figure (K27's is), is left and listed.
+    with _synced_before_and_since_1682(monkeypatch, _set5_below_a_later_winner) as states:
+        (old, company, payload), new = states[False][:3], states[True][0]
+        [row] = [r for r in _rows(new, company, concept="net_income", period_end=date(2025, 12, 31)) if r.filing_id]
+        assert (row.is_latest, float(row.value), _check(row)["authoritative_value"]) == (False, 18_300e6, 18_254e6)
+        _refuses(old, company, payload, _refusal(old, (row.id, "the old cross-check confirmed this filing row against "
+                                                               "a proxy's figure, and the 10-K's figure disagrees with it "
+                                                               "by more than 1%")))
+        plan = _preview(new, company, payload)["proxy"]
+        assert [(e["fact_id"], e["set"]) for e in plan["left_report_backed"]] == [(row.id, 5)]

@@ -11,7 +11,8 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    that already holds the 10-K's figure is kept; one with no recorded original, or whose original the
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
    left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
-   company (sets 4 and 5 alike).
+   company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
+   unit fix and left first, unless today's 10-K agrees with the original, when it is restored.
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -454,7 +455,8 @@ class _Planner:
         }
 
     def _left(self, row_id: int, state: State, value: Any, number: int) -> bool:
-        """Sets 4 and 5's first two cases, with the verdict: no proxy figure holds ``value``, or a report does.
+        """Set 5's first two cases, and set 4's once its scale-up check has passed, with the verdict: no proxy
+        figure holds ``value``, or a report does.
         A row left report-backed is listed in ``left_report_backed`` (its ``figure`` a decimal string, as rows
         carry values). One that is the company's current figure at its key and more than 1% off today's 10-K
         figure (``_authority``, which the rest of sets 4 and 5 read) refuses the company: left, the company's figure
@@ -496,11 +498,15 @@ class _Planner:
             value = state["value"]
             check = _authoritative_check(state)
             original = _number(check.get("original_value"))
-            if _scale_up(value, original):  # the authority scaled up a parse in units: the check's job, backed or
-                continue  # not, and no verdict, since detection never lists it (scaled up is never scaled down)
+            authority = self._authority(state)
+            # The authority scaled up a parse in units: the check's job, backed or not, and no verdict, since
+            # detection never lists it (scaled up is never scaled down). Unless today's 10-K sides with the
+            # original: then the proxy was tagged at the wrong scale over a right parse (FedEx's error mirrored),
+            # and the row is restored below, an error detection's set 4 cannot see without the payload.
+            if _scale_up(value, original) and not (authority is not None and _agrees(original, authority)):
+                continue
             if self._left(row_id, state, value, 4):
                 continue
-            authority = self._authority(state)
             if authority is not None and _same(value, authority):
                 self.verdicts[row_id] = "kept_agrees_with_authority"
                 self.counts["filing_rows_kept"] += 1
