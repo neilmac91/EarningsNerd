@@ -83,8 +83,9 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     ['a later filed day that is a timestamp', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.later_filed_at = '2021-02-08T00:00:00Z' }],
     ['a source link that is not a string', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.source_url = 42 as unknown as string }],
     ['a disagreement the page has no words for', (ds) => { (pointOf(ds, 'revenue', 'FY2018').first_reported as { disagreement: unknown }).disagreement = 'rounding' }],
-    ['a sign flip the two values do not show', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.disagreement = 'opposite_sign' }],
-    ['a factor of 1,000 the two values do not show', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported!.disagreement = 'scale' }],
+    // On total assets FY2018, which no growth as first reported crosses, so only the finding's own check can refuse it.
+    ['a sign flip the two values do not show', (ds) => { pointOf(ds, 'total_assets', 'FY2018').first_reported!.disagreement = 'opposite_sign' }],
+    ['a factor of 1,000 the two values do not show', (ds) => { pointOf(ds, 'total_assets', 'FY2018').first_reported!.disagreement = 'scale' }],
     ['growth as first reported beside a growth that is not n/m', (ds) => { pointOf(ds, 'revenue', 'FY2018').yoy = -0.1237 }],
     ['growth as first reported that is neither a number, n/m nor null', (ds) => { pointOf(ds, 'revenue', 'FY2018').yoy_first_reported = '14.3%' as unknown as number }],
     ['an input’s first-reported value in another unit', (ds) => { pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1].first_reported!.unit = 'EUR' }],
