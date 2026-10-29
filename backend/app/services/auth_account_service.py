@@ -224,6 +224,27 @@ def complete_password_reset(db: Session, user: User, hashed_password: str) -> No
     db.commit()
 
 
+def complete_password_reset_by_id(db: Session, user_id: int, hashed_password: str) -> None:
+    """The reset route's write: the account :func:`find_password_reset_user` found, read again by its id, then
+    :func:`complete_password_reset`. The route releases its session between the two, before the breached-password
+    check and bcrypt, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
+    nothing, when the account has been deleted since, as the token's read would have then.
+
+    The account's users row lock (``refresh_token_service.lock_user_tokens``) comes before the read, which then
+    sees the commit of whoever held it: a deletion holding it when this starts has deleted the row by the time the
+    read runs. Read before the lock, the row was still there, the reset waited at its revocation's lock, and its
+    commit then matched no row and raised.
+
+    The token is not checked again: the read and the write were apart across those waits when the route ran them
+    on the event loop too, so a reset whose token another reset burned meanwhile still writes, as it did there."""
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None:
+        db.rollback()  # releases the lock; nothing was written
+        raise AccountTokenInvalidError()
+    complete_password_reset(db, user, hashed_password)
+
+
 def stage_password_change(
     db: Session, user: User, hashed_password: str, verified_hash: Optional[str]
 ) -> bool:
