@@ -111,15 +111,16 @@ arrives.
      - absent: the request never reached the deletion (its sign-in was refused, or it never arrived), and the
        account is untouched;
      - present, with no `USER DELETION COMPLETED …` or `Error deleting user account …` line after it (provider
-       lines, INFO or ERROR, such as `Cancelled Stripe subscription …`, `Failed to cancel Stripe subscription …` or
-       `Sentry user context cleared …`, may follow): the route is still running, or it was stopped part-way (the
+       lines, INFO, WARNING or ERROR, such as `Cancelled Stripe subscription …`, `Skipped Stripe subscription … of
+       another customer`, `Failed to cancel Stripe subscription …` or `Sentry user context cleared …`, may follow): the route is still running, or it was stopped part-way (the
        matrix's last row). A Stripe brownout can hold it for many minutes: the cancellation can queue for one of the
        eight Stripe threads, and each call waits up to 80 s to connect and 80 s between reads, retried twice
        (`lessons/ops-stripe-calls-wait-on-threads-of-their-own.md`). Search again an hour later; if nothing has
        followed, the route has most likely stopped. Firmer evidence is the end of the instance that wrote the
-       initiated line: uvicorn's `Shutting down` line, then `Waiting for connections to close …`, in Cloud Logging
-       under that line's `labels.instanceId`. A kill without SIGTERM can leave neither, so their absence proves
-       nothing. Then check whether the account still exists; it does unless its unit committed.
+       initiated line: uvicorn's `Shutting down` line in Cloud Logging under that line's `labels.instanceId`,
+       followed by `Waiting for background tasks to complete …` when the request had its 504 or its client went
+       away, or `Waiting for connections to close …` while its response was still pending. A kill without SIGTERM
+       can leave none of them, so their absence proves nothing. Then check whether the account still exists; it does unless its unit committed.
 2. Provider effects already taken stand:
    - The subscriptions named by `Cancelled Stripe subscription …` lines are cancelled, and the customer record kept.
    - PostHog was sent its deletion event.
