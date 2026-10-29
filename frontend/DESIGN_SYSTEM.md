@@ -1378,12 +1378,16 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  `optionsIn="dialog"`: ui/Modal at md, the address named at its top, the options open on arrival at
                  the body's width, Done at its foot), since under 200% text they cannot be narrower than their
                  WhatsApp button and frame, 197px at 320px (chief design on #1784); where the browser has its own
-                 share sheet, that button stays in the row. Gates: tests/unit/bulkResultShareDialog.spec.tsx (the
-                 dialog, the share sheet's button in the row, the address's break), tests/unit/shareInviteNames.spec.tsx
-                 (every control named by its words, the dialog's included) and tests/e2e/admin-invite-chip-reflow.spec.ts
-                 (at 390, 360 and 320px under 200% text and at 320px, in both themes: every address inside its row,
-                 bob@example.com broken only after its @, the rows' controls inside them, the page unscrolled, and the
-                 dialog holding the options).
+                 share sheet, that button stays in the row beside "More", and the pair wraps to the end of its line
+                 (`flex-wrap justify-end`), there and in the resend dialog: side by side under 200% text it is 283.5px,
+                 and "More" ran 59 to 111.5px past a row at 390 to 320px and up to 67.9px past the dialog's body (chief
+                 design on #1791). Gates: tests/unit/bulkResultShareDialog.spec.tsx (the dialog, the share sheet's
+                 button in the row, the address's break), tests/unit/shareInviteNames.spec.tsx (every control named by
+                 its words, the dialog's included) and tests/e2e/admin-invite-chip-reflow.spec.ts (at 390, 360 and
+                 320px under 200% text and at 320px, in both themes, with the browser's share sheet and without: every
+                 address inside its row, bob@example.com broken only after its @, the rows' controls inside them, the
+                 page unscrolled, and the dialog holding the options; and the resend dialog's case with the share sheet
+                 too, every control inside its body).
 
 Inline notice    <Notice variant="error|warning|info|success|neutral">  — compact icon + title + message + action
                  for form/auth flows and in-card states: something that happened or stands in the way (a
