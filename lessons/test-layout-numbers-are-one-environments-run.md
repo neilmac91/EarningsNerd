@@ -37,6 +37,19 @@ text, and the closed line's bands there (chief design's, 960 to 992, 1136 to 121
 sandbox's rows, not CI's). It also put a 74px drop in the compact bar at 390px under 200% text that CI's fonts do not
 show (`lessons/test-record-a-layout-cost-from-a-sweep-of-widths.md`).
 
+**Recurrence (2026-10-29, #1694)**: the alias now fails a gate on main, not only a measurement.
+`frontend/tests/e2e/reflow-200.spec.ts` fails 11 of its 205 cases in the sandbox on `325e1fcc` and passes all 205 in
+CI's fonts (the fontconfig above; the account link's label then paints in the web font, `isCustomFont` true), as CI's
+own e2e runs do. Ten are its "does not scroll sideways at 390px" case, for every route that shows the site header.
+#1694 holds the compact bar's account link at the size of both its labels ("Live example" while readiness checks,
+then the mode's own), so in the sandbox the link keeps, through the visit, the row of its own it took while readiness
+checked: at 390px under 200% text the header measures 225px against one row's worth of 137px (the link 88px tall, its
+top at 112px), where CI's fonts keep one row at 151px. The 74px drop above no longer happens, since the second row
+now stays. The eleventh does not involve the header and failed the same way in a sandbox run on 2026-10-27: at 320px
+under 200% text the cookie settings dialog breaks "authentication," inside the word, as /privacy broke
+"communications," above. Before reading a sandbox failure of a layout gate as a regression, rerun the case in CI's
+fonts.
+
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
 `tasks/analysis-redesign-2026-10/harness/browser-pin.mjs`; the founder's review on #1197 (2026-10-11).
