@@ -1442,9 +1442,10 @@ Activity line    <ActivityLine>  (components/ui) — a run in progress in words 
                  type refuses one). A status region announces text added to it, never text it was created with. On
                  the analysis page the coverage region exists before the history fetch's words arrive (it is mounted
                  until the coverage answer settles, a failed read included), so they are heard. The Copilot's reading
-                 card is created with "Reading the filing…" in it, so that line is not announced; the card is a
-                 status region for the plan card's sentence, which replaces the line in the same element. A caller
-                 whose words must be heard mounts its region first (review-checked). Gate:
+                 card is created with "Reading the filing…" in it, so the card does not announce that line; the
+                 rail's own sr-only status region, mounted before any question, says it, and the card is a status
+                 region for the plan card's sentence, which replaces the line in the same element. A caller whose
+                 words must be heard mounts its region first (review-checked). Gate:
                  tests/unit/pulsingMarkAllowlist.spec.ts: a pulse and a full round in one class list outside
                  ActivityLine and Badge's live dot fail, the two split across a cx() or clsx() call, a template, an
                  array literal joined into one string or a class attribute's parts included, wherever the list is
@@ -2371,7 +2372,13 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  rail takes a message from reading (one pulse dot, "Reading the filing…") straight to
                  done or error; there is no streaming status, token text or caret. The reading line is
                  <ActivityLine> (Activity line), whose dot keeps to the first line when the words wrap in the
-                 phone sheet under 200% text.
+                 phone sheet under 200% text. The card is created with that line in it, so the card never
+                 announces it: the rail's own sr-only status line, mounted before any question, says "Reading the
+                 filing…" when a question is sent and "Answer ready." when the answer completes. The line empties
+                 before each question, so the same words are heard again, on an error, which the card says itself
+                 (its alert, or the plan card's sentence), and on a cancel (a close mid-question), which the card
+                 shows when it is next in view. It lives in the conversation, so in the filing workspace's pane it
+                 is heard only while the Ask tab shows (tasks/todo.md E238).
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a

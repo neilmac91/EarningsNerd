@@ -22,9 +22,11 @@
    coverage region exists before the history fetch's words arrive (it is
    mounted until the coverage answer settles, a failed read included), so they
    are heard. The Copilot's reading card is created with "Reading the filing…"
-   in it, so that line is not announced; the card is a status region for the
-   plan card's sentence, which replaces the line in the same element. A caller
-   whose words must be heard mounts its region first (review-checked).
+   in it, so the card does not announce that line; the rail's own sr-only
+   status region, mounted before any question, says it, and the card is a
+   status region for the plan card's sentence, which replaces the line in the
+   same element. A caller whose words must be heard mounts its region first
+   (review-checked).
 
    A pulsing round mark ships only here and in Badge's live dot:
    tests/unit/pulsingMarkAllowlist.spec.ts fails a class list that draws one
