@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from main import app
 from app.database import Base, get_db
-from app.models import ContactSubmission
+from app.models import ContactSubmission, User
 from app.routers import contact as contact_router
 from app.services import rate_limiter
 from app.services import turnstile
@@ -128,6 +128,49 @@ def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries
     assert message not in user_html
     assert "Your message" not in user_html
     assert PAYLOAD["name"] in user_html  # the greeting is still personal
+
+
+@pytest.mark.parametrize("is_pro,plan_line", [
+    (True, "Pro (an account uses this address; the form does not verify it)"),
+    (False, "Free (an account uses this address; the form does not verify it)"),
+])
+def test_team_notice_names_the_plan_of_the_account_that_uses_the_address(
+    client, session_factory, sent_emails, is_pro, plan_line,
+):
+    """D-050's priority support, kept by hand: the notice to the team names the plan of the account that uses the
+    address the form was given, whatever its case, so a Pro member's message can be answered first. The
+    confirmation to the person who wrote in names no plan."""
+    with session_factory() as s:
+        s.add(User(email="ada@example.com", hashed_password="x", is_pro=is_pro))
+        s.commit()
+    resp = _post(client, IP_A, email="ADA@example.com")
+    assert resp.status_code == 201, resp.text
+
+    admin_html, user_html = sent_emails.bodies
+    assert f'<div class="value">{plan_line}</div>' in admin_html
+    assert "Plan:" not in user_html and "account uses this address" not in user_html
+
+
+def test_team_notice_says_when_no_account_uses_the_address(client, sent_emails):
+    resp = _post(client, IP_A)
+    assert resp.status_code == 201, resp.text
+    admin_html, _user_html = sent_emails.bodies
+    assert '<div class="value">No account uses this address</div>' in admin_html
+
+
+def test_a_failed_plan_read_still_saves_the_submission_and_sends_both_mails(
+    client, session_factory, sent_emails, monkeypatch,
+):
+    def _unreadable(db, email):
+        raise RuntimeError("the users table is unreachable")
+
+    monkeypatch.setattr(contact_router, "sender_plan", _unreadable)
+    resp = _post(client, IP_A)
+    assert resp.status_code == 201, resp.text
+    with session_factory() as s:
+        assert s.query(ContactSubmission).count() == 1
+    assert [to for to, _subject in sent_emails] == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
+    assert '<div class="value">Not read (the lookup failed)</div>' in sent_emails.bodies[0]
 
 
 def test_limit_plus_one_from_one_ip_is_429_with_retry_after_and_other_ip_still_succeeds(client, session_factory):
