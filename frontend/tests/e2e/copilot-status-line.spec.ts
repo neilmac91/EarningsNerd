@@ -7,11 +7,21 @@ import { API_ORIGIN, PANE, answerApi } from './fixtures/filing3Api'
  * told "Answer ready." when it completes. The line used to sit in the Ask panel, which the Filing tab hides with
  * display:none, so nothing was said.
  *
+ * E241: a question that ends otherwise while the Filing tab shows is heard there too. Its card (the alert, or the plan
+ * card's region) is in the hidden Ask panel, so the pane's line says the card's sentence, whole and alone: no button's
+ * label and no prefix.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API is answered inside the browser for a
  * Pro visitor by fixtures/filing3Api.ts, and this spec holds the Ask stream until the Filing tab shows. Playwright's
  * role queries leave out what the accessibility tree leaves out (display:none, aria-hidden), so a status region they
  * find is one a screen reader is given. DOM probes only: this is not a screen-reader test.
  */
+
+interface Reply {
+  status: number
+  contentType: string
+  body: string
+}
 
 // A completed answer with no citations, in the wire shape copilot-api.ts admits.
 const ANSWER = {
@@ -22,10 +32,27 @@ const ANSWER = {
   citations: [],
   followups: [],
 }
+const ANSWERED: Reply = { status: 200, contentType: 'text/event-stream', body: `data: ${JSON.stringify(ANSWER)}\n\n` }
+
+// The two other endings, each said by its card on the Ask tab: a failed answer (the card's alert, with Try again), and
+// a plan gate (the plan card's region), here the Pro fair-use cap in the server's words.
+const FAIR_USE = "You've reached this month's fair-use limit of 1,000 Copilot questions. It resets at the start of next month."
+const ENDINGS: { name: string; reply: Reply; sentence: string }[] = [
+  {
+    name: 'a failed answer',
+    reply: { status: 500, contentType: 'application/json', body: JSON.stringify({ detail: 'Internal Server Error' }) },
+    sentence: 'The answer could not be completed. Please try again.',
+  },
+  {
+    name: 'the fair-use cap',
+    reply: { status: 429, contentType: 'application/json', body: JSON.stringify({ detail: FAIR_USE }) },
+    sentence: FAIR_USE,
+  },
+]
 const LAUNCHER = 'button[aria-label="Source"]'
 
-/** The filing page for a Pro visitor, its Ask stream held until the returned release is called. */
-async function openFiling(page: Page, baseURL: string) {
+/** The filing page for a Pro visitor, its Ask stream held until the returned release is called, then given `reply`. */
+async function openFiling(page: Page, baseURL: string, reply: Reply = ANSWERED) {
   await answerApi(page, baseURL, 'pro')
   let release!: () => void
   const held = new Promise<void>((resolve) => {
@@ -45,9 +72,9 @@ async function openFiling(page: Page, baseURL: string) {
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
       await held
       await route.fulfill({
-        status: 200,
-        headers: { ...cors, 'content-type': 'text/event-stream', 'cache-control': 'no-cache' },
-        body: `data: ${JSON.stringify(ANSWER)}\n\n`,
+        status: reply.status,
+        headers: { ...cors, 'content-type': reply.contentType, 'cache-control': 'no-cache' },
+        body: reply.body,
       })
     },
   )
@@ -67,6 +94,23 @@ async function openFiling(page: Page, baseURL: string) {
 /** The status regions in the accessibility tree that say these words. */
 const statusSaying = (page: Page, words: string) => page.getByRole('status').filter({ hasText: words })
 
+/** Asks a question, then opens the Filing tab while the answer is read. */
+async function askThenOpenFiling(page: Page) {
+  await page.locator(LAUNCHER).click()
+  const composer = page.locator(PANE).getByPlaceholder('Ask about this filing…')
+  await composer.fill('What drove revenue?')
+  await composer.press('Enter')
+  // The question is in flight: it shows in the Ask panel, above its reading card.
+  await expect(page.locator(PANE).getByRole('tabpanel', { name: 'Ask' }).getByText('What drove revenue?')).toBeVisible()
+
+  // The reader opens the filing while the answer is read. The Ask panel hides, the reading card with it, so the
+  // one status region still saying the reading line is the pane's.
+  const filingTab = page.locator(PANE).getByRole('tab', { name: /filing/i })
+  await filingTab.click()
+  await expect(filingTab).toHaveAttribute('aria-selected', 'true')
+  await expect(statusSaying(page, 'Reading the filing…')).toHaveCount(1)
+}
+
 for (const vp of [
   { name: 'desktop 1440x900', width: 1440, height: 900 },
   { name: 'sheet 390x844', width: 390, height: 844 },
@@ -76,23 +120,25 @@ for (const vp of [
 
     test('is heard while the Filing tab shows: the answer completes there as "Answer ready."', async ({ page, baseURL }) => {
       const release = await openFiling(page, baseURL!)
-      await page.locator(LAUNCHER).click()
-      const composer = page.locator(PANE).getByPlaceholder('Ask about this filing…')
-      await composer.fill('What drove revenue?')
-      await composer.press('Enter')
-      // The question is in flight: it shows in the Ask panel, above its reading card.
-      await expect(page.locator(PANE).getByRole('tabpanel', { name: 'Ask' }).getByText('What drove revenue?')).toBeVisible()
-
-      // The reader opens the filing while the answer is read. The Ask panel hides, the reading card with it, so the
-      // one status region still saying the reading line is the pane's.
-      const filingTab = page.locator(PANE).getByRole('tab', { name: /filing/i })
-      await filingTab.click()
-      await expect(filingTab).toHaveAttribute('aria-selected', 'true')
-      await expect(statusSaying(page, 'Reading the filing…')).toHaveCount(1)
+      await askThenOpenFiling(page)
 
       release()
       await expect(statusSaying(page, 'Answer ready.')).toHaveCount(1)
       await expect(statusSaying(page, 'Reading the filing…')).toHaveCount(0)
     })
+
+    for (const ending of ENDINGS) {
+      test(`says ${ending.name} there in the card's sentence, whole and alone`, async ({ page, baseURL }) => {
+        const release = await openFiling(page, baseURL!, ending.reply)
+        await askThenOpenFiling(page)
+
+        release()
+        // The card is in the hidden Ask panel, out of the tree; the pane's line says its sentence, and only that.
+        const said = statusSaying(page, ending.sentence)
+        await expect(said).toHaveCount(1)
+        await expect(said).toHaveText(ending.sentence)
+        await expect(statusSaying(page, 'Reading the filing…')).toHaveCount(0)
+      })
+    }
   })
 }

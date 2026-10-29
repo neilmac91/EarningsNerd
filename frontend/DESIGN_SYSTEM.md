@@ -1377,12 +1377,20 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  ending its chip at 320 and 390px under 200%, a short chip on one line at 320px at the default size,
                  and at every 10px from 320 to 480px under 200%).
 
-Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
+Inline notice    <Notice variant="error|warning|info|success|neutral">  — compact icon + title + message + action
                  for form/auth flows and in-card states: something that happened or stands in the way (a
                  result, an error, a limit, a mode of the account). The variant is written at every call
                  site, never a default (the default-info trap of lessons/frontend-status-colors-for-status-only.md):
-                 `info` is an advisory state in the info ink, `error` takes role="alert", and the action slot
-                 takes a small Button. Activity is never a Notice, of any variant: a run in progress is the
+                 `info` is an advisory state in the info ink; `warning` a state the reader weighs (a limit near or
+                 reached, a risk in what they are about to do: an invite link anyone can redeem) in the warning
+                 ink, its glyph the triangle, where an error's is the circle; `error` takes role="alert"; and the
+                 action slot takes a small Button. Guidance is no state (a sign-in that would show a company's
+                 periods, a plan that unlocks a run, the invite that opens registration), so it is `neutral`: the
+                 hairline alone, no tint, and the info glyph in brand-strong, as a dialog's neutral prompt takes
+                 the brand (E196 (2)). A menu row that names a state (the account menu's and the phone menu's
+                 "Verify your email") is the menu's own row in the primary ink with the warning glyph, the
+                 state's colour on the glyph alone, so the menu still reads as one list. Activity is never a
+                 Notice, of any variant: a run in progress is the
                  progress indicator in sage with its words in the ink, as the generating card's live-status
                  line is ("10-K · Reading the size-8 fine print…", one line of the voice per pipeline stage,
                  chosen per filing, the stalled sentence in its place; it was a blue info Notice from
@@ -1391,8 +1399,8 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  <ActivityLine> (Activity line, below). Gate: tests/unit/statusTintResidue.spec.ts
                  pins every status tint class outside components/ui (a ground, border, ring, gradient stop,
                  divide, outline or shadow; status ink on a sentence or glyph is not a tint), every Notice's
-                 written variant, and every `info` Notice call site as a shrink-only table, so a new info
-                 Notice is added on purpose and reviewed for state against activity.
+                 written variant, and every `info`, `warning` and `neutral` Notice call site as a table, so a new
+                 one is added on purpose and reviewed for state against activity and against guidance.
                  GuidanceCard is a STANDALONE centered panel — never nest it inside a
                  Card; inside a Card, Notice is the right scale. Both action rows wrap: GuidanceCard's
                  centres two actions and sets the second under the first when they do not fit side by
@@ -1412,8 +1420,12 @@ Inline notice    <Notice variant="error|info|success">  — compact icon + title
                  A surface of another shape that states what a Notice states takes the Notice's tint by import,
                  noticeTint(variant) (components/ui/Notice.tsx), never a copy of its classes: the Copilot's error
                  bubble keeps the answer card's shape, with the thread's tail, in the error tint (Ask answer;
-                 E196 (3)). Each borrower is listed with the variant it writes, as a string literal (gate:
-                 statusTintResidue.spec.ts's TINT_BORROWED).
+                 E196 (3)). The warning tint goes to two banners, each keeping its words in the ink and the warning
+                 ink on its glyph alone, as a Notice keeps them (E196 (2)): the verification banner, a strip under
+                 the header, and the dashboard's limit banner, which keeps a banner's shape, its upgrade at its end
+                 from sm and at its full width below, as the trial banner above it does. Each borrower is listed
+                 with the variant it writes, as a string literal (gate: statusTintResidue.spec.ts's
+                 TINT_BORROWED).
                  GuidanceCard's icon well is GuidanceIconWell (components/ui/GuidanceCard.tsx): the variant's
                  tint round its glyph, in the tint's ink, 44px in the card; the alert bell's blocked panel
                  draws its 32px well with it (E196 (4)). A Notice in a dropdown that floats over the page sits
@@ -2383,9 +2395,11 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  whichever tab shows, and below lg it sits inside the sheet's dialog. The rail hands it the words
                  (PaneStatusContext); a rail outside the filing workspace keeps a line of its own, mounted with the
                  conversation before any question. The line empties before each question, so the same words are
-                 heard again; on an error, which the card says itself (its alert, or the plan card's sentence),
-                 heard while the Ask tab shows (tasks/todo.md E241); and on a cancel (a close mid-question), which
-                 the card shows when it is next in view.
+                 heard again; on an error, which the card says itself (its alert, or the plan card's sentence); and
+                 on a cancel (a close mid-question), which the card shows when it is next in view. An error that
+                 lands while the Filing tab shows has its card in the hidden Ask panel, so the pane's line says the
+                 card's sentence instead, politely, whole and alone: the alert's message or the plan card's
+                 sentence, without a button's label or a prefix. A later tab switch says nothing more.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
