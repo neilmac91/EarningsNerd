@@ -896,6 +896,8 @@ const ROW_WIDTHS = {
 test.describe("the hero's checking line takes no more rows than the invite line (E224)", () => {
   for (const doubled of [false, true]) {
     test(`at every width read${doubled ? ', under 200% text' : ''}`, async ({ page, baseURL }) => {
+      // 80 or 107 widths, each a resize, a settle and a read: 8 and 9s locally, so a slower runner gets room.
+      test.setTimeout(60_000)
       await page.addInitScript(() => {
         localStorage.setItem('theme', 'light')
         localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
