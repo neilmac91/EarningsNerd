@@ -1,4 +1,6 @@
+import { fmtCount, formatLocalDate } from '@/lib/format'
 import type { AnalysisDataset, AnalysisPoint, AnalysisSeries, FirstReported, GrowthValue } from '@/features/analysis/api/analysis-api'
+import { compactFigure, exactFigure } from '@/features/analysis/lib/figureDisplay'
 import type { FactInput, FactProvenance } from '@/features/analysis/lib/provenance'
 
 /**
@@ -133,3 +135,40 @@ export const basisChanged = (point: Pick<AnalysisPoint, LaterFilingBasis | `${La
 /** The growth as first reported where `basis` changed (a number, "nm", or null where the own reports give none). */
 export const growthAsFirstReported = (point: Pick<AnalysisPoint, `${LaterFilingBasis}_first_reported`>, basis: LaterFilingBasis): GrowthValue | null =>
   point[`${basis}_first_reported`] ?? null
+
+type Figure = { concept?: string; unit?: string | null }
+
+/** The two values as the sentence prints them: compact, with more decimals where the compact form prints them alike
+ *  (a 0.24% gap reads "$15.16B" and "$15.20B", never "$15.2B" twice), and as stored where none tells them apart. */
+export function distinctFigures(own: number, shown: number, figure: Figure): [string, string] {
+  for (const digits of [undefined, 2, 3, 4]) {
+    const pair: [string, string] = [compactFigure(own, figure, digits), compactFigure(shown, figure, digits)]
+    if (pair[0] !== pair[1]) return pair
+  }
+  return [exactFigure(own, figure), exactFigure(shown, figure)]
+}
+
+/** A filing's form and filed day as the evidence names them, "10-K, filed 7 Feb 2019", each part left out where the
+ *  payload has none: never an invented form or day. */
+export function filingParts(form: string | null | undefined, filedAt: string | null | undefined): string {
+  const filed = formatLocalDate(filedAt, 'd MMM yyyy')
+  return [form, filed && `filed ${filed}`].filter(Boolean).join(', ')
+}
+
+/** The evidence sentence (D11), for a reported figure and for a calculated figure's input alike: the own report's
+ *  value, then the later filing's, the one shown. */
+export function firstReportedSentence(first: FirstReported, shown: number, figure: Figure): string {
+  const [own, later] = distinctFigures(first.value, shown, figure)
+  const ownFiling = filingParts(first.form, first.filed_at)
+  const laterFiled = formatLocalDate(first.later_filed_at, 'd MMM yyyy')
+  return `First reported as ${own} in its own annual report${ownFiling && ` (${ownFiling})`}. A later filing${laterFiled && ` (filed ${laterFiled})`} reports ${later}, shown here.`
+}
+
+/** What the exact comparison found, in words built from the two values (D2): the opposite sign, or the factor of
+ *  1,000ⁿ and which way it runs. Null for any other difference, which says nothing more than the evidence sentence. */
+export function disagreementSentence(first: FirstReported, shown: number): string | null {
+  if (first.disagreement === 'opposite_sign') return 'A later filing reports the opposite sign.'
+  const steps = first.disagreement === 'scale' ? scaleSteps(first.value, shown) : null
+  if (steps === null) return null
+  return `A later filing reports a value ${fmtCount(1000 ** Math.abs(steps))} times ${steps > 0 ? 'larger' : 'smaller'} than the year’s own annual report.`
+}

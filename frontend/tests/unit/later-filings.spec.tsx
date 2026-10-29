@@ -10,9 +10,13 @@
 ============================================================================= */
 import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import api from '@/lib/api/client'
 import { getAnalysisDataset, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { decodeLaterFilings, LaterFilingsRejection } from '@/features/analysis/lib/laterFilings'
+import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
+import MetricsTable from '@/features/analysis/components/MetricsTable'
 
 type Ref = { concept: string; label: string; period: string; basis?: string }
 interface LaterFilingsCase {
@@ -97,5 +101,102 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     expect(() => decodeLaterFilings(dataset)).not.toThrow()
     debt.first_reported!.value = debt.value! * 1_000 * -1
     expect(() => decodeLaterFilings(dataset)).toThrow(LaterFilingsRejection)
+  })
+})
+
+/** The metrics table on `dataset`, and the dialog the figure named `name` (its label, period and figure) opens. */
+async function dialogFor(dataset: AnalysisDataset, name: RegExp) {
+  render(<DataNotesProvider dataset={dataset}><MetricsTable dataset={dataset} /></DataNotesProvider>)
+  await userEvent.click(screen.getByRole('button', { name }))
+  return screen.getByRole('dialog')
+}
+const linkText = (dialog: HTMLElement) => within(dialog).queryAllByRole('link').map((link) => link.textContent)
+
+describe('the evidence dialog gives both filings (D11)', () => {
+  it('states the year’s own annual report’s value, then the later filing’s, the one shown, with a link to each', async () => {
+    const dialog = await dialogFor(planted(REGN), /^Revenue, FY2018: \$5\.1B/)
+    expect(within(dialog).getByRole('heading', { name: 'Source filings' })).toBeInTheDocument()
+    expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
+    // Both values as filed, exactly, in the figure face.
+    const own = within(dialog).getByText('As filed in its own annual report: 6,710,800,000 USD')
+    expect(own).toBeInTheDocument()
+    expect(own.parentElement).toHaveClass('font-figure', 'tabular-nums', 'lining-nums')
+    expect(within(dialog).getByText('As filed in the later filing: 5,145,600,000 USD')).toBeInTheDocument()
+    // Two links, each named for its filing: the visible words carry no figure (brand rule 2), the name adds form and day.
+    expect(linkText(dialog)).toEqual(['Open its own annual report on SEC.gov', 'Open the filing shown on SEC.gov'])
+    expect(linkText(dialog).join(' ')).not.toMatch(/\d/)
+    const ownLink = within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for Revenue, FY2018' })
+    expect(ownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/')
+    const shownLink = within(dialog).getByRole('link', { name: 'Open the filing shown on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })
+    expect(shownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/')
+    expect(dialog).toHaveTextContent('Filing 0001532176-19-000009')
+    expect(dialog).toHaveTextContent('Filing 0001804220-21-000008')
+    // Evidence, not a note (D-061): the checks passed, and no letter or warning ink.
+    expect(dialog).toHaveTextContent('Automated checks passed')
+    expect(dialog.querySelector('[data-note-letter]')).toBeNull()
+    expect(dialog.querySelector('[class*="text-warning"]')).toBeNull()
+  })
+
+  it('keeps a figure without evidence exactly as it was: one filing, one link', async () => {
+    const dialog = await dialogFor(planted(REGN), /^Revenue, FY2017: /)
+    expect(within(dialog).getByRole('heading', { name: 'Source filing' })).toBeInTheDocument()
+    expect(dialog).not.toHaveTextContent(/First reported|As filed|later filing/)
+    expect(linkText(dialog)).toEqual(['Open original SEC filing'])
+    expect(within(dialog).getByRole('link', { name: 'Open original SEC filing for Revenue, FY2017' })).toBeInTheDocument()
+  })
+
+  it('leaves out each part the payload does not carry, never inventing a form or a day', async () => {
+    const dataset = planted(REGN)
+    Object.assign(pointOf(dataset, 'revenue', 'FY2018').first_reported!, { form: null, filed_at: null, later_filed_at: null })
+    const dialog = await dialogFor(dataset, /^Revenue, FY2018: /)
+    expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report. A later filing reports $5.1B, shown here.')
+    expect(dialog).not.toHaveTextContent(/undefined|null|Invalid|filed \(|\(\)/)
+    expect(within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov for Revenue, FY2018' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Open the filing shown on SEC.gov (10-K) for Revenue, FY2018' })).toBeInTheDocument()
+  })
+
+  it('names a 20-F or an amendment as its form, and a filed day without a form', async () => {
+    const dataset = planted(REGN)
+    Object.assign(pointOf(dataset, 'revenue', 'FY2018').first_reported!, { form: '10-K/A' })
+    Object.assign(pointOf(dataset, 'revenue', 'FY2019').first_reported!, { form: null })
+    expect(await dialogFor(dataset, /^Revenue, FY2018: /)).toHaveTextContent('in its own annual report (10-K/A, filed 7 Feb 2019).')
+    cleanup()
+    expect(await dialogFor(dataset, /^Revenue, FY2019: /)).toHaveTextContent('First reported as $7.9B in its own annual report (filed 7 Feb 2020). A later filing (filed 7 Feb 2022) reports $6.6B, shown here.')
+  })
+
+  it('prints two values that round alike with the decimals that tell them apart', async () => {
+    const dialog = await dialogFor(planted(REGN), /^Total assets, FY2018: /)
+    expect(dialog).toHaveTextContent('First reported as $15.16B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 7 Feb 2020) reports $15.20B, shown here.')
+  })
+
+  it('says what an exact comparison found, from the two values: the opposite sign, or the factor and its direction', async () => {
+    const dataset = planted(SIGN_AND_SCALE)
+    const flip = await dialogFor(dataset, /^Financing cash flow, FY2020: /)
+    expect(within(flip).getByText('First reported as $1.9B in its own annual report (10-K, filed 8 Feb 2021). A later filing (filed 7 Feb 2022) reports -$1.9B, shown here.')).toBeInTheDocument()
+    expect(within(flip).getByText('A later filing reports the opposite sign.')).toBeInTheDocument()
+    // The finding is also a note (source_conflict), which marks the figure as any such note does.
+    expect(flip).toHaveTextContent('Needs review · Note a')
+    cleanup()
+    const larger = await dialogFor(dataset, /^Long-term debt, FY2019: /)
+    expect(larger).toHaveTextContent('First reported as $6.0M in its own annual report (10-K, filed 7 Feb 2020). A later filing (filed 8 Feb 2021) reports $6.0B, shown here.')
+    expect(within(larger).getByText('A later filing reports a value 1,000 times larger than the year’s own annual report.')).toBeInTheDocument()
+    cleanup()
+    const smaller = planted(SIGN_AND_SCALE)
+    const debt = pointOf(smaller, 'long_term_debt', 'FY2019')
+    debt.first_reported!.value = debt.value! * 1_000_000
+    expect(within(await dialogFor(smaller, /^Long-term debt, FY2019: /)).getByText('A later filing reports a value 1,000,000 times smaller than the year’s own annual report.')).toBeInTheDocument()
+  })
+
+  it('shows a calculated figure’s input evidence where its input carries it (item 5), and counts no letter for it', async () => {
+    const dialog = await dialogFor(planted(REGN), /^Net margin, FY2018: /)
+    const inputs = within(dialog).getAllByRole('listitem')
+    const revenue = inputs.find((item) => /^revenue/i.test(item.textContent ?? ''))!
+    expect(revenue).toHaveTextContent('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
+    expect(within(revenue).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
+    expect(within(revenue).getByRole('link', { name: 'Open the filing shown on SEC.gov (filed 8 Feb 2021) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
+    const netIncome = inputs.find((item) => /^net income/i.test(item.textContent ?? ''))!
+    expect(netIncome).not.toHaveTextContent('First reported')
+    expect(within(netIncome).getByRole('link', { name: /^Open original SEC filing for net income/ })).toBeInTheDocument()
+    expect(dialog.querySelector('[data-note-letter]')).toBeNull()
   })
 })

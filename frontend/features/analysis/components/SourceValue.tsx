@@ -3,9 +3,10 @@
 import { useId, useState, type ReactNode } from 'react'
 import { Modal, ModalBody, ModalHeader } from '@/components/ui'
 import { formatLocalDate } from '@/lib/format'
-import type { AnalysisPoint } from '@/features/analysis/api/analysis-api'
+import type { AnalysisPoint, FirstReported } from '@/features/analysis/api/analysis-api'
 import { FCF_DEFINITION, needsSourceCheck, qualityReasons, sourceUrl, type FactInput, type QualityValue } from '@/features/analysis/lib/provenance'
 import { compactFigure, exactFigure, formulaWords, substitutedFormula } from '@/features/analysis/lib/figureDisplay'
+import { disagreementSentence, filingParts, firstReportedSentence } from '@/features/analysis/lib/laterFilings'
 import { formatAnalysisPeriod } from '@/features/analysis/lib/periodLabels'
 import { dataNoteIssue, markedNote, noteMarksFigure, type DataNote } from '@/features/analysis/lib/dataNotes'
 import DataNoteMark, { dataNoteDescription } from './DataNoteMark'
@@ -39,10 +40,50 @@ function Checks({ value, note, unavailable = false }: { value: QualityValue; not
   </div>
 }
 
+/** Where a later filing reports another value (MPA WP5a, D-061, D11): the year's own annual report's value beside the
+ *  one shown, both as filed, what an exact comparison found, and a link to each filing whose names carry no figure (brand
+ *  rule 2) and whose accessible names add the form and day. It is evidence, not a note: no letter, no warning ink. A
+ *  part the payload does not carry is left out. A reported figure and a calculated figure's input show it alike. */
+function LaterFilingEvidence({ first, value, figure, form, accession, href, name }: {
+  first: FirstReported
+  value: number
+  figure: { concept?: string; unit?: string | null }
+  /** The shown filing's form, where the point names it. */
+  form?: string | null
+  accession?: string | null
+  href: string | null
+  /** The figure and period the links name, "Revenue, FY2018". */
+  name: string
+}) {
+  const ownHref = sourceUrl(first.source_url)
+  const finding = disagreementSentence(first, value)
+  const ownFiling = filingParts(first.form, first.filed_at)
+  const shownFiling = filingParts(form, first.later_filed_at)
+  return (
+    <div className="space-y-2" data-analysis-later-filing>
+      <p>{firstReportedSentence(first, value, figure)}</p>
+      {finding && <p>{finding}</p>}
+      <div className="space-y-0.5 font-figure tabular-nums lining-nums text-xs">
+        <p>As filed in its own annual report: {exactFigure(first.value, figure)}</p>
+        <p>As filed in the later filing: {exactFigure(value, figure)}</p>
+      </div>
+      <div className="space-y-1">
+        {ownHref && <a href={ownHref} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open its own annual report on SEC.gov${ownFiling && ` (${ownFiling})`} for ${name}`}>Open its own annual report on SEC.gov</a>}
+        <p className="font-data">Filing {first.accession}</p>
+      </div>
+      {(href || accession) && <div className="space-y-1">
+        {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open the filing shown on SEC.gov${shownFiling && ` (${shownFiling})`} for ${name}`}>Open the filing shown on SEC.gov</a>}
+        {accession && <p className="font-data">Filing {accession}</p>}
+      </div>}
+    </div>
+  )
+}
+
 function SourceInput({ input, nested = false }: { input: FactInput; nested?: boolean }) {
   const provenance = input.provenance
   const href = sourceUrl(input.source_url) ?? sourceUrl(provenance?.source_url)
   const calculated = provenance?.method === 'calculated'
+  const name = `${input.concept.replaceAll('_', ' ')}, ${[input.period_start, input.period_end].filter(Boolean).join(' to ') || 'period not recorded'}`
   return (
     <li className="min-w-0 space-y-1 border-t border-border-light pt-2 [overflow-wrap:anywhere] dark:border-white/10">
       <p className="font-medium capitalize">{input.concept.replaceAll('_', ' ')}</p>
@@ -51,8 +92,12 @@ function SourceInput({ input, nested = false }: { input: FactInput; nested?: boo
       <p>{calculated ? (provenance?.inputs.length ? 'Calculated from recorded inputs.' : 'Calculated figure.') : provenance?.method === 'reported' ? 'Reported in the source filing.' : 'Source method is not recorded.'}</p>
       {provenance?.formula && <p>{formulaWords(provenance.formula)}</p>}
       <Checks value={input} unavailable={input.value == null} />
-      {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${input.concept.replaceAll('_', ' ')}, ${[input.period_start, input.period_end].filter(Boolean).join(' to ') || 'period not recorded'}${input.accession ? `, filing ${input.accession}` : ''}`}>Open original SEC filing</a>}
-      {input.accession && <p className="font-data">Filing {input.accession}</p>}
+      {input.first_reported && input.value != null
+        ? <LaterFilingEvidence first={input.first_reported} value={input.value} figure={input} accession={input.accession} href={href} name={name} />
+        : <>
+          {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${name}${input.accession ? `, filing ${input.accession}` : ''}`}>Open original SEC filing</a>}
+          {input.accession && <p className="font-data">Filing {input.accession}</p>}
+        </>}
       {input.raw_tag && <details><summary tabIndex={0} className={sourceLinkClass}>Technical source details</summary><p className="font-data">{input.raw_tag}</p></details>}
       {calculated && !provenance?.inputs.length && <p>{legacyLineage(input.value)}</p>}
       {!!provenance?.inputs.length && <ul className={nested ? 'space-y-2' : 'space-y-2 pl-3'}>{provenance.inputs.map((operand, index) => <SourceInput key={index} input={operand} nested />)}</ul>}
@@ -92,7 +137,7 @@ function inheritedComparisonNote(comparison: SourceComparison) {
 }
 
 export default function SourceValue({ point, label, concept, children, note, comparison, compactMarks = false, largeMarks = false }: {
-  point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value'>
+  point: Pick<AnalysisPoint, 'provenance' | 'reconciled' | 'source_url' | 'derived' | 'period' | 'period_end' | 'accession' | 'raw_tag' | 'unit' | 'value' | 'form' | 'first_reported'>
   label: string
   concept?: string
   children: ReactNode
@@ -111,6 +156,8 @@ export default function SourceValue({ point, label, concept, children, note, com
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
   const arithmetic = substitutedFormula(provenance)
+  // A later filing's value beside the year's own annual report's (MPA WP5a): both filings in the source section.
+  const first = point.value != null ? point.first_reported ?? null : null
   // The name says "calculated" wherever the figure is, and names only the notes whose letters show (D-061): a
   // record-only, unknown or unavailable note is read in the dialog.
   const marked = markedNote(note)
@@ -156,9 +203,13 @@ export default function SourceValue({ point, label, concept, children, note, com
             {arithmetic && point.value != null && <p className="font-figure tabular-nums lining-nums text-xs">{provenance?.validation !== 'passed' && 'Recorded inputs: '}{arithmetic}{provenance?.validation === 'passed' && <> = {exactFigure(point.value, figure)}</>}</p>}
           </section>
           <section className="space-y-2">
-            <h3 className="font-semibold">{calculated ? 'Inputs and source filings' : 'Source filing'}</h3>
-            {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${label}, ${period}`}>Open original SEC filing</a>}
-            {point.accession && <p className="font-data">Filing {point.accession}</p>}
+            <h3 className="font-semibold">{calculated ? 'Inputs and source filings' : first ? 'Source filings' : 'Source filing'}</h3>
+            {first && point.value != null
+              ? <LaterFilingEvidence first={first} value={point.value} figure={figure} form={point.form} accession={point.accession} href={href} name={`${label}, ${period}`} />
+              : <>
+                {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open original SEC filing for ${label}, ${period}`}>Open original SEC filing</a>}
+                {point.accession && <p className="font-data">Filing {point.accession}</p>}
+              </>}
             {point.raw_tag && <details><summary tabIndex={0} className={sourceLinkClass}>Technical source details</summary><p className="font-data">{point.raw_tag}</p></details>}
             {calculated && !provenance?.inputs.length && <p>{legacyLineage(point.value)}</p>}
             {!!provenance?.inputs.length && <ul className="space-y-3">{provenance.inputs.map((input, index) => <SourceInput key={index} input={input} />)}</ul>}
