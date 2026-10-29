@@ -20,6 +20,10 @@ import { answerLegalReadiness } from './fixtures/legalReady'
  *    StreamingSummaryDisplay.tsx) reads the same after longer than two ambient loops (2 x 1800ms, the longest
  *    motion token), with motion allowed too. The line changes only with the backend's stage, never on a timer
  *    (WCAG 2.2.2): the rotating callout it replaced changed on its own.
+ * 5. No bone runs past its container (E233). A bone keeps its rem width, so under 200% text at 320px the settings
+ *    page's own bones ran past the screen while the session read was held (`w-56`, 448px, by 180px) and the password
+ *    form's while the connections read was held (`w-48`, 384px, by 116px), and the page scrolled sideways each time.
+ *    Skeleton stops each bone at its container (skeletonCap.spec.tsx).
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md). The API is answered inside the
  * browser with page.route, and the middleware's session gate is satisfied by its presence cookie, as in
@@ -46,14 +50,16 @@ function hold() {
   return { release, released }
 }
 
-/** Signed in, with /api/auth/me answered once `me` resolves (at once without it). */
-async function signIn(page: Page, baseURL: string, me?: Promise<void>) {
+/** Signed in, with /api/auth/me answered once `me` resolves and /api/auth/connections once `connections` does (each
+ *  at once without it). */
+async function signIn(page: Page, baseURL: string, me?: Promise<void>, connections?: Promise<void>) {
   const origin = new URL(baseURL).origin
   await page.context().addCookies([{ name: 'en_session', value: '1', url: origin }])
   const cors = { 'access-control-allow-origin': origin, 'access-control-allow-credentials': 'true' }
   await page.route((url) => url.origin === API_ORIGIN, async (route) => {
     const pathname = new URL(route.request().url()).pathname
     if (pathname === '/api/auth/me' && me) await me
+    if (pathname === '/api/auth/connections' && connections) await connections
     const body = FIXTURES[pathname]
     return body === undefined
       ? route.fulfill({ status: 404, headers: cors, json: { detail: 'Not found' } })
@@ -73,6 +79,22 @@ const animations = (page: Page) =>
         return `${a.animationName} (${a.playState}) on <${target?.tagName.toLowerCase()} class="${target?.getAttribute('class') ?? ''}">`
       }),
   )
+
+/** The bones on the page (Skeleton's shimmer sweep is their one child), each that ends past its container's content
+ *  box with by how much, and the page's sideways scroll. */
+const sideways = (page: Page) =>
+  page.evaluate(() => {
+    const bones = [...document.querySelectorAll('.animate-shimmer')].map((sweep) => sweep.parentElement!)
+    const past = bones.flatMap((bone) => {
+      const box = bone.parentElement!
+      const style = getComputedStyle(box)
+      const end = box.getBoundingClientRect().right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight)
+      const over = Math.round(bone.getBoundingClientRect().right - end)
+      return over > 0 ? [`${bone.className.match(/(?:^|\s)(w-\S+)/)?.[1] ?? 'a bone'}: ${over}px`] : []
+    })
+    const root = document.scrollingElement!
+    return { bones: bones.length, past, scroll: root.scrollWidth > root.clientWidth ? `${root.scrollWidth}px in ${root.clientWidth}px` : null }
+  })
 
 /** The top of the first card (Card's rounded-xl recipe) at or around the element. */
 const cardTop = (page: Page, selector: string) =>
@@ -229,4 +251,33 @@ test('watchlist insights: the first card lands where its bone stood', async ({ p
   } finally {
     me.release()
   }
+})
+
+test('account settings under 200% text at 320px: no bone runs past its container while each read is held', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 320, height: 844 })
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+  const me = hold()
+  const connections = hold()
+  await signIn(page, baseURL!, me.released, connections.released)
+  try {
+    await page.goto('/dashboard/settings')
+    await expect(page.getByRole('status', { name: 'Loading your settings' })).toBeVisible()
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
+    for (const [held, status] of [['the session read', null], ['the connections read', 'Loading password form']] as const) {
+      if (status) {
+        me.release()
+        await expect(page.getByRole('status', { name: status })).toBeVisible()
+      }
+      const read = await sideways(page)
+      expect(read.bones, `while ${held} is held, bones show`).toBeGreaterThan(0)
+      expect(read.past, `while ${held} is held, no bone runs past its container`).toEqual([])
+      expect(read.scroll, `while ${held} is held, the page does not scroll sideways`).toBeNull()
+    }
+  } finally {
+    me.release()
+    connections.release()
+  }
+  await expect(page.getByRole('status', { name: 'Loading password form' })).toHaveCount(0)
+  expect((await sideways(page)).scroll, 'once both reads answer, the page does not scroll sideways').toBeNull()
 })
