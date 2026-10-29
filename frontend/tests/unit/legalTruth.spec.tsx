@@ -2285,7 +2285,7 @@ const clauseByClause = (sentence: string): string[] => {
     const verbBefore = (at: number) => tokens.slice(subject.end, at).some((_, j) => startsVerbGroup(tokens, subject.end + j))
     const condition = clauses.flatMap((c) => c.conditions).find((c) => c.start >= subject.end && c.start < to && !verbBefore(c.start))
     const verb = condition ? clauseVerbPast(tokens, condition) : -1
-    return condition && verb > 0 && verb < to ? readAlone(reading, from, to, [[condition.start, verb]]) : null
+    return condition && verb > 0 ? readAlone(reading, from, to, [[condition.start, verb]]) : null
   }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
