@@ -36,6 +36,9 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    assistant's background tool activity is never surfaced. There is no
    token-by-token state, so no raw-text view and no caret. */
 
+// The reading card's words while an answer is grounded; the rail's status line says the same (AskCopilotRail.tsx).
+export const READING_LINE = 'Reading the filing…'
+
 export interface CopilotMessageData {
   id: string
   role: 'user' | 'assistant'
@@ -452,13 +455,14 @@ export default function CopilotMessage({
   return (
     // While it reads, the card is a status region: a status region announces text added to it, never text it was
     // created with, so the plan card's sentence (above) is heard because it lands in this element. A done answer
-    // drops the role and is not announced.
+    // drops the role; the rail's status line says "Answer ready." (AskCopilotRail.tsx).
     <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
         // background tool activity is deliberately not surfaced to the user. The card is created with this line in it,
-        // so the line is not announced; the card is the status region for the plan card's sentence, which replaces it.
-        <ActivityLine>Reading the filing…</ActivityLine>
+        // so the card does not announce it (the rail's status line does); the card is the status region for the plan
+        // card's sentence, which replaces it.
+        <ActivityLine>{READING_LINE}</ActivityLine>
       ) : (
         <>
           <div>
