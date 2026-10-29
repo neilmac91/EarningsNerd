@@ -38,9 +38,12 @@ import { ANALYSIS_LINES, ANALYSIS_MONTHLY_CAP, PRO_SUMMARY_MONTHLY_CAP } from '@
  *    not), built from PRO_SUMMARY_MONTHLY_CAP and ANALYSIS_MONTHLY_CAP (which planLimitsLockstep.spec.ts holds to
  *    backend/app/services/entitlements.py), read through proFairUseLine(), placed by the /pricing FAQ and the filing
  *    page's monthly-limit card, and typed nowhere else: no other copy literal names a fair-use ceiling on summaries or
- *    analyses, and no module but lib/planLimits.ts reads either cap, so the numbers reach copy only through the
- *    sentence (a typed count, "300 summary generations", "300 new summaries" or "1,000 analysis generations", is
- *    planLimitsLockstep.spec.ts's to fail). PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the
+ *    analyses, and no module but lib/planLimits.ts reads either cap, nor any module the usage response's
+ *    analysis_limit, so the pages' numbers reach copy only through the sentence (a typed count, "300 summary
+ *    generations", "300 new summaries" or "1,000 analysis generations", is planLimitsLockstep.spec.ts's to fail). One
+ *    route is the backend's: the analysis route's 429 at the ceiling, which the narrative card shows as written
+ *    (analysis-api.ts), names the number in its own words, and backend/tests/unit/test_analysis_stream.py holds the
+ *    number to the sentence's form ("1,000"). PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the
  *    sentence rendered, PricingPage.spec.tsx in both forms.
  * 3. The ceiling counts what the meter counts (Codex on #1395, review comment 4314197512). Every run the usage gate
  *    admits takes a unit of PRO_SUMMARY_MONTHLY_CAP once its provider request is issued, a Pro regeneration (`force`)
@@ -87,8 +90,9 @@ const ANALYSIS_FAIR_USE = /\bfair[- ]use\b[^.]*\banalys|\banalys[^.]*\bfair[- ]u
 const CEILING_CUES = /\bfair[- ]use\b|\b(?:limits?|ceilings?|caps?|capped|allowance|quota)\b|\bup to\b|\b(?:a|per|each|every|this|next) month\b|\bmonth's\b|\bmonthly\b/i
 /** The count the meter does not keep: new summaries, while a regeneration takes a unit too. */
 const NEW_SUMMARIES = /\bnew[- ](?:AI )?summar(?:y|ies)\b/i
-/** The same for the analysis ceiling: new analyses, while a reader's forced refresh takes a unit too. */
-const NEW_ANALYSES = /\bnew[- ](?:AI )?analys[ie]s\b/i
+/** The same for the analysis ceiling: new analyses, while a reader's forced refresh takes a unit too, under the
+    feature's own name among them ("new Multi-Period Analyses"). */
+const NEW_ANALYSES = /\bnew[-\u2010-\u2015\s]+(?:(?:AI|multi[-\u2010-\u2015]period|trend)[-\u2010-\u2015\s]+)*analys[ie]s\b/i
 
 /** Where the summary pipeline reads its force flag today, as code, per module under backend/app: the orchestrator's
  * parameter and its pass-through, the run's field, the stored-summary short-circuit (load_filing), the in-place
@@ -108,8 +112,9 @@ const FORCE_READS: Record<string, number> = {
  * cap gate (a forced run never takes the free path) and its hand-off to the narrative (the keyword and the request's
  * field), and the narrative's run field, its parameters and the run's own copy, its cache read (a forced run never
  * re-serves) and its invalidation mark (a forced run is never marked invalidated, so the route's one exemption never
- * covers it). The meter's other modules (services/analysis_data_access.py, services/subscription_service.py and the
- * rest of services/trend_analysis/) read it nowhere. */
+ * covers it). The meter's other modules (services/analysis_data_access.py, services/subscription_service.py, the
+ * façade the route calls, services/trend_analysis_service.py, and the rest of services/trend_analysis/) read it
+ * nowhere. */
 const ANALYSIS_FORCE_READS: Record<string, number> = {
   'routers/analysis.py': 3,
   'services/trend_analysis/narrative.py': 8,
@@ -299,6 +304,25 @@ describe("Pro's fair-use guardrail is one sentence, read at the FAQ and the limi
       expect(reads, `state Pro's ceilings by placing proFairUseLine(), never by reading ${cap}`).toEqual([])
       expect(capReads(readFileSync(path.join(FRONTEND, 'lib/planLimits.ts'), 'utf8'), 'lib/planLimits.ts', cap).length, `the read finds ${cap}'s declaration`).toBeGreaterThan(0)
     }
+    const usageReads = MODULES.flatMap((rel) =>
+      capReads(readFileSync(path.join(FRONTEND, rel), 'utf8'), rel, USAGE_ANALYSIS_LIMIT).map((line) => `${rel}:${line}`),
+    )
+    expect(usageReads, "state Pro's analysis ceiling by placing proFairUseLine(), never by reading the usage response's analysis_limit").toEqual([])
+  })
+
+  it("reads the usage response's analysis_limit as any read but its type's own member (a self-check on planted forms)", () => {
+    const flagged: Record<string, string> = {
+      'a property': 'export const A = (usage: Usage) => <p>{usage.analysis_limit} a month</p>',
+      'an optional chain': 'export const B = (data?: Usage) => data?.analysis_limit',
+      'a string key': "export const C = (usage: Usage) => usage['analysis_limit']",
+      'a destructured name': 'export const D = ({ analysis_limit: cap }: Usage) => cap',
+    }
+    const passing: Record<string, string> = {
+      "the response type's member": 'export interface Usage {\n  analysis_limit: number\n}',
+      'a comment': '// analysis_limit reaches no page\nexport const E = null',
+    }
+    expect(Object.keys(flagged).filter((name) => capReads(flagged[name], 'probe.tsx', USAGE_ANALYSIS_LIMIT).length === 0), 'a read the check missed').toEqual([])
+    expect(Object.keys(passing).filter((name) => capReads(passing[name], 'probe.tsx', USAGE_ANALYSIS_LIMIT).length > 0), 'a look-alike the check flagged').toEqual([])
   })
 
   it('reads a cap under any name a module gives it, and passes the sentence and a comment (a self-check on planted forms)', () => {
@@ -357,6 +381,7 @@ describe("Pro's ceilings count what the meters count: generations, regenerations
       ["export const P = 'Your new-analysis allowance resets next month.'", true],
       ["export const Q = `Pro's unlimited summaries and Multi-Period Analysis have fair-use ceilings: an account can run up to ${S} summary and ${A} analysis generations a month, regenerations included.`", false],
       ['export const R = `${n} new analyses are ready to read`', false],
+      ['export const T = `Pro accounts can run up to ${A} new Multi-Period Analyses a month.`', true],
       ['export const M = `Up to ${CAP} new ${noun} a month`', 'gap'],
       ["export const N = 'Up to 300 summaries of filings you have not summarized yet, each month.'", 'gap'],
     ]
@@ -392,7 +417,7 @@ describe("Pro's ceilings count what the meters count: generations, regenerations
       .filter((rel) => rel.endsWith('.py'))
     expect(trend.length).toBeGreaterThan(3)
     const reads = Object.fromEntries(
-      ['routers/analysis.py', 'services/analysis_data_access.py', 'services/subscription_service.py', ...trend]
+      ['routers/analysis.py', 'services/analysis_data_access.py', 'services/subscription_service.py', 'services/trend_analysis_service.py', ...trend]
         .map((rel) => [rel, nameReads(readFileSync(path.join(BACKEND_APP, rel), 'utf8'), 'force')] as const)
         .filter(([, count]) => count > 0),
     )
@@ -403,10 +428,13 @@ describe("Pro's ceilings count what the meters count: generations, regenerations
     ).toEqual(ANALYSIS_FORCE_READS)
     // The two sites that keep a forced refresh metered, by what they say: the narrative never marks a forced run
     // invalidated, and the route exempts only an invalidated completion.
+    const restate = 'if a forced refresh can now go unmetered, restate the fair-use sentence (ANALYSIS_LINES.fairUse) in that PR, then move this line'
     const narrative = readFileSync(path.join(BACKEND_APP, 'services/trend_analysis/narrative.py'), 'utf8')
-    expect(narrative).toMatch(/^\s*run\.invalidated = cached is not None and not run\.force$/m)
+    expect(narrative, `narrative.py's invalidation mark changed: ${restate}`).toMatch(/^\s*run\.invalidated = cached is not None and not run\.force$/m)
     const route = readFileSync(path.join(BACKEND_APP, 'routers/analysis.py'), 'utf8')
-    expect(route).toMatch(/^\s*exempt = event\.get\("invalidated"\) and event\.get\("analysis_id"\) is not None$/m)
+    expect(route, `routers/analysis.py's meter exemption changed: ${restate}`).toMatch(
+      /^\s*exempt = event\.get\("invalidated"\) and event\.get\("analysis_id"\) is not None$/m,
+    )
   })
 
   it('reads the flag as code, never in a comment or a docstring (a self-check on planted forms)', () => {
@@ -422,16 +450,21 @@ describe("Pro's ceilings count what the meters count: generations, regenerations
 
 /** Pro's two monthly ceilings, as lib/planLimits.ts mirrors them. */
 const CAPS = ['PRO_SUMMARY_MONTHLY_CAP', 'ANALYSIS_MONTHLY_CAP'] as const
+/** The usage response's analysis ceiling (`Usage.analysis_limit` in features/subscriptions/api/subscriptions-api.ts), the
+ * ceiling's other route to a page. */
+const USAGE_ANALYSIS_LIMIT = 'analysis_limit'
 
 /** The lines on which a module names a cap in code: an identifier (an import under any local name, a reference, a
- * namespace member, a destructured key) or a string key (`plan['PRO_SUMMARY_MONTHLY_CAP']`). A comment is not a read.
- * Out of reach: a name the module computes (`plan[`PRO_${kind}`]`). */
-function capReads(source: string, rel: string, cap: (typeof CAPS)[number]): number[] {
+ * namespace member, a destructured key) or a string key (`plan['PRO_SUMMARY_MONTHLY_CAP']`). A comment is not a read,
+ * nor a type's own member (`analysis_limit: number` in the usage response's type). Out of reach: a name the module
+ * computes (`plan[`PRO_${kind}`]`). */
+function capReads(source: string, rel: string, cap: (typeof CAPS)[number] | typeof USAGE_ANALYSIS_LIMIT): number[] {
   if (!source.includes(cap)) return []
   const sf = ts.createSourceFile(rel, source, ts.ScriptTarget.Latest, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const lines = new Set<number>()
   const visit = (node: ts.Node) => {
-    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && node.text === cap) {
+    const member = node.parent !== undefined && ts.isPropertySignature(node.parent) && node.parent.name === node
+    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) && node.text === cap && !member) {
       lines.add(sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1)
     }
     ts.forEachChild(node, visit)

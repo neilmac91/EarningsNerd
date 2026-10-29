@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 
 from main import app
 from app.database import Base, get_db
-from app.models import ContactSubmission, User
+from app.models import ContactSubmission, Subscription, User
 from app.routers import contact as contact_router
 from app.services import rate_limiter
 from app.services import turnstile
@@ -130,20 +130,25 @@ def test_user_confirmation_never_echoes_the_message_while_the_admin_copy_carries
     assert PAYLOAD["name"] in user_html  # the greeting is still personal
 
 
-@pytest.mark.parametrize("is_pro,plan_line", [
-    (True, "Pro (an account uses this address; the form does not verify it)"),
-    (False, "Free (an account uses this address; the form does not verify it)"),
+@pytest.mark.parametrize("is_pro,status,plan_line", [
+    (True, None, "Pro (an account uses this address; the form does not verify it)"),
+    (False, None, "Free (an account uses this address; the form does not verify it)"),
+    # The subscription row decides before the is_pro mirror (entitlements.get_plan, rule 4).
+    (True, "canceled", "Free (an account uses this address; the form does not verify it)"),
 ])
 def test_team_notice_names_the_plan_of_the_account_that_uses_the_address(
-    client, session_factory, sent_emails, is_pro, plan_line,
+    client, session_factory, sent_emails, is_pro, status, plan_line,
 ):
     """D-050's priority support, kept by hand: the notice to the team names the plan of the account that uses the
-    address the form was given, whatever its case, so a Pro member's message can be answered first. The
-    confirmation to the person who wrote in names no plan."""
+    address the form was given, in whatever case either was written, so a Pro member's message can be answered
+    first. The confirmation to the person who wrote in names no plan."""
     with session_factory() as s:
-        s.add(User(email="ada@example.com", hashed_password="x", is_pro=is_pro))
+        user = User(email="Ada@Example.com", hashed_password="x", is_pro=is_pro)
+        s.add(user)
+        if status is not None:
+            s.add(Subscription(user=user, plan="pro", status=status))
         s.commit()
-    resp = _post(client, IP_A, email="ADA@example.com")
+    resp = _post(client, IP_A, email="aDA@example.COM")
     assert resp.status_code == 201, resp.text
 
     admin_html, user_html = sent_emails.bodies

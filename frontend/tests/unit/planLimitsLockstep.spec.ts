@@ -77,9 +77,16 @@ const ANALYSIS_CAP_LABEL = "Pro's analysis ceiling spelled out"
 const LITERAL_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   // Copy: the caps written out in prose. The summary pattern also reads Pro's ceiling typed, in the fair-use sentence's
   // form ("300 summary generations") or with "new" ("300 new summaries"), and the analysis pattern Pro's other
-  // ceiling, in the sentence's form ("1,000 analysis generations") or as analyses ("1000 new analyses").
+  // ceiling, in the sentence's form ("1,000 analysis generations") or as analyses ("1000 new analyses"), under the
+  // feature's own name ("1,000 Multi-Period Analysis generations"), in words ("a thousand analyses") or spliced in as a
+  // number (`{1000} analyses`). Out of reach, planted as gaps below: another count in words ("ten thousand analyses")
+  // and another word between the count and the noun ("1,000 monthly analyses").
   { label: SUMMARY_CAP_LABEL, pattern: /\b\d+ (?:new )?(?:free )?(?:AI )?summar(?:y|ies)\b/i },
-  { label: ANALYSIS_CAP_LABEL, pattern: /\b\d[\d,]* (?:new )?(?:AI )?analys[ie]s\b/i },
+  {
+    label: ANALYSIS_CAP_LABEL,
+    pattern:
+      /(?:\b\d[\d,]*\}?|\b(?:a|one) thousand)[-\u2010-\u2015\s]+(?:new[-\u2010-\u2015\s]+)?(?:(?:AI|multi[-\u2010-\u2015]period|trend)[-\u2010-\u2015\s]+)*analys[ie]s\b/i,
+  },
   { label: 'free summary cap as a numeric fallback', pattern: /summaries_limit\s*(?:\|\||\?\?)\s*\d+/ },
   { label: 'earnings-alert cap spelled out', pattern: /alerts for \d+ compan|\b\d+ earnings(?:-day)? alerts?\b/i },
   { label: 'free Copilot question taste spelled out', pattern: /\b\d+ (?:free )?Ask this Filing questions?\b|\bFree accounts get \d+ questions?\b/i },
@@ -158,12 +165,18 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       'a Field default': settings('    ANALYSIS_MONTHLY_CAP: int = Field(default=1000, gt=0)'),
       'an Annotated type': settings('    PRO_SUMMARY_MONTHLY_CAP: Annotated[int, Field(gt=0)] = 300'),
       'no annotation': settings('    PRO_SUMMARY_MONTHLY_CAP = 300'),
+      'a lowercase field, which Settings binds to the same variable': settings('    pro_summary_monthly_cap: int = 300'),
+      'an alias': settings("    summary_ceiling: int = Field(default=300, alias='PRO_SUMMARY_MONTHLY_CAP')"),
+      'a validation alias among choices': settings(
+        '    analysis_ceiling: int = Field(default=1000, validation_alias=AliasChoices("analysis_ceiling", "analysis_monthly_cap"))',
+      ),
     }
     const passing: Record<string, string> = {
       'a comment that names it': settings("    # Pro's summary ceiling is a plan fact, entitlements.PRO_SUMMARY_MONTHLY_CAP (D-050)."),
       'another cap': settings('    COPILOT_MONTHLY_QUESTION_CAP: int = 1000'),
       'a longer name': settings('    PRO_SUMMARY_MONTHLY_CAP_NOTE: str = ""'),
       'a read of the constant': settings('    LEGACY: int = entitlements.ANALYSIS_MONTHLY_CAP'),
+      'prose that names it': settings('    NOTE: str = "ANALYSIS_MONTHLY_CAP is a plan constant"'),
     }
     expect(Object.keys(flagged).filter((name) => capSettings(flagged[name]).length !== 1), 'a form the read missed').toEqual([])
     expect(Object.keys(passing).filter((name) => capSettings(passing[name]).length !== 0), 'a look-alike the read flagged').toEqual([])
@@ -193,6 +206,11 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       'Pro accounts can run up to 1000 analyses a month.',
       '1,000 new analyses a month',
       '100 AI analyses',
+      'up to 1,000 Multi-Period Analysis generations a month',
+      '1000 new Multi\u2011Period Analyses a month',
+      '1,000 trend analyses',
+      '<p>Up to {1000} analysis generations a month</p>',
+      'a thousand analyses a month',
     ]) {
       expect(pattern.test(typed), typed).toBe(true)
     }
@@ -202,6 +220,10 @@ describe('free-tier plan limits move in lockstep with the backend', () => {
       'A 10-year analysis of the filed data',
     ]) {
       expect(pattern.test(prose), prose).toBe(false)
+    }
+    // Gaps, review-checked (named above): another count in words, and another word between the count and the noun.
+    for (const gap of ['ten thousand analyses a month', '1,000 monthly analyses']) {
+      expect(pattern.test(gap), gap).toBe(false)
     }
   })
 
@@ -450,21 +472,29 @@ const settingDefault = (name: string): number => {
  * Production runs the Pro ceilings the page states. The /pricing FAQ and the filing page's limit card state
  * PRO_SUMMARY_MONTHLY_CAP and ANALYSIS_MONTHLY_CAP through the mirror (lib/planLimits.ts), which the case above holds to
  * backend/app/services/entitlements.py's plan constants (D-050), and the backend enforces those constants. A Settings
- * field of either name would let an environment value move a ceiling the page states, as PRO_SUMMARY_MONTHLY_CAP's
- * did before E122, so config.py declares neither: any line of it, a comment aside, that names either cap as the
- * subject of a declaration (`NAME:` or `NAME =`) counts, whatever its type or default. Its planted forms score the
- * read. Out of reach: a field of another name that reads either from the environment (an alias), and an environment
- * read outside Settings, which tests/unit/test_os_getenv_allowlist.py bounds on the backend.
+ * field that reads either name from the environment would let an environment value move a ceiling the page states, as
+ * PRO_SUMMARY_MONTHLY_CAP's did before E122, so config.py binds neither: any line of it, a comment aside, that names
+ * either cap in any case (Settings reads the environment without regard to case) as the subject of a declaration
+ * (`NAME:` or `NAME =`), whatever its type or default, or as a whole string (an alias: `alias=`, `validation_alias=`,
+ * `AliasChoices(…)`) counts. Its planted forms score the read. Out of reach: a name built from parts, and an
+ * environment read outside Settings, which tests/unit/test_os_getenv_allowlist.py bounds on the backend. A setting of
+ * another name that the meter read in place of a constant is the backend tests' to fail: test_pro_summary_cap.py and
+ * test_usage_reservation_wiring.py patch the constants to other values and expect the meter to follow.
  */
 const CAPS_STAY_CONSTANTS =
   "The /pricing FAQ and the filing page's limit card state Pro's ceilings as entitlements.py's constants (lib/planLimits.ts " +
-  'mirrors them), so a Settings field of either name lets an environment value move a ceiling the page states. Change ' +
-  'the constant in backend/app/services/entitlements.py, and the mirror follows; never declare it as a setting.'
+  'mirrors them), so a Settings field that reads either name lets an environment value move a ceiling the page states. ' +
+  'Change the constant in backend/app/services/entitlements.py, and the mirror follows; never declare it as a setting.'
 
-/** The lines of a config.py source that declare either of Pro's ceilings as a Settings field, as `config.py:line text`. */
+const CAP_NAME = '(?:PRO_SUMMARY_MONTHLY_CAP|ANALYSIS_MONTHLY_CAP)'
+/** Either ceiling's name, in any case, as a declaration's subject or as a whole string (an alias). */
+const CAP_DECLARED = new RegExp(`^\\s*${CAP_NAME}\\s*[:=]`, 'i')
+const CAP_ALIASED = new RegExp(`(["'])${CAP_NAME}\\1`, 'i')
+
+/** The lines of a config.py source that bind either of Pro's ceilings to the environment, as `config.py:line text`. */
 function capSettings(configSource: string): string[] {
   return configSource.split('\n').flatMap((line, i) =>
-    /^\s*(?:PRO_SUMMARY_MONTHLY_CAP|ANALYSIS_MONTHLY_CAP)\s*[:=]/.test(line) ? [`config.py:${i + 1} ${line.trim()}`] : [],
+    !line.trimStart().startsWith('#') && (CAP_DECLARED.test(line) || CAP_ALIASED.test(line)) ? [`config.py:${i + 1} ${line.trim()}`] : [],
   )
 }
 

@@ -208,11 +208,13 @@ def test_read_side_block_never_reserves_and_serialized_block_is_honoured():
 def test_unlimited_pro_reserves_under_pros_ceiling_and_reports_it_only_on_a_block(monkeypatch):
     """Pro is billing-unlimited, so its run reserves under Pro's fair-use ceiling, a constant the
     pricing page states (D-050): no setting turns the ceiling off. Admitted, the limit reads None
-    (unlimited); blocked, it reads the ceiling."""
+    (unlimited); blocked, it reads the ceiling. The ceiling is patched to a value other than its own,
+    so a reservation that typed the number in place of reading the constant fails here."""
     from types import SimpleNamespace
 
     from app.services import subscription_service as usage
 
+    monkeypatch.setattr(usage, "PRO_SUMMARY_MONTHLY_CAP", 9)
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=None))
     limits = []
 
@@ -222,8 +224,33 @@ def test_unlimited_pro_reserves_under_pros_ceiling_and_reports_it_only_on_a_bloc
 
     monkeypatch.setattr(usage, "_reserve_use", reserve)
     assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (True, 7, None, "tok")
-    assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (False, 7, usage.PRO_SUMMARY_MONTHLY_CAP, None)
-    assert limits == [usage.PRO_SUMMARY_MONTHLY_CAP] * 2
+    assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (False, 7, 9, None)
+    assert limits == [9, 9]
+
+
+def test_the_analysis_check_and_reservation_read_pros_ceiling_from_its_constant(monkeypatch):
+    """The read-side check and the serialized reservation both take Pro's analysis ceiling from
+    ANALYSIS_MONTHLY_CAP, the constant the pricing page states (D-050). The ceiling is patched to a
+    value other than its own, so a read that typed the number fails here."""
+    from types import SimpleNamespace
+
+    from app.services import subscription_service as usage
+
+    monkeypatch.setattr(usage, "ANALYSIS_MONTHLY_CAP", 3)
+    monkeypatch.setattr(usage, "get_user_analysis_count", lambda user_id, month, db: 2)
+    assert usage.check_analysis_limit(SimpleNamespace(id=1), db=None) == (True, 2, 3)
+    monkeypatch.setattr(usage, "get_user_analysis_count", lambda user_id, month, db: 3)
+    assert usage.check_analysis_limit(SimpleNamespace(id=1), db=None) == (False, 3, 3)
+
+    limits = []
+
+    def reserve(user, db, *, kind, month, limit, completed_count):
+        limits.append(limit)
+        return True, 2, "tok"
+
+    monkeypatch.setattr(usage, "_reserve_use", reserve)
+    assert usage.reserve_analysis_use(SimpleNamespace(id=1), db=None) == (True, 2, 3, "tok")
+    assert limits == [3]
 
 
 @pytest.mark.asyncio
