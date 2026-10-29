@@ -28,7 +28,10 @@ its check if nothing stops it, while the first's writes are uncommitted:
   changes: a change writes only while the hash it verified is the account's (E121), so the reset's
   password stands with no live token, and of two changes the first's password and session;
 - two first passwords set at once on an account that had none: the first stands, with its session;
-- two password logins of one account: the second waits for the first's commit, and both mint.
+- two password logins of one account: the second waits for the first's commit, and both mint;
+- two unlinks of one account, one per provider on an account with no password or one provider twice, and
+  an unlink while a first password is set: the unlink counts what committed before it (E121), so the
+  account keeps a sign-in method, the double unlink finds no link, and the new password counts.
 Without the users-row lock each writer takes first, the second request writes on what it read before
 the first's commit: the two refreshes leave two live successors, and a logout, logout-all, reset or
 change leaves the refresh's successor live.
@@ -37,11 +40,11 @@ The account's deletion takes the same lock before its cascade deletes the tokens
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
-writer that waits out a deletion finds its token, or a login, change or reset the account, gone and writes
-nothing (before E121's first route family a reset read the account before the lock, waited at its
-revocation's lock instead, and its commit matched no row). Of two deletions of one account, the second
-waits out the first under the lock and finds the account gone there, even with the account loaded in its
-session before the first committed.
+writer that waits out a deletion finds its token, or a login, change or reset the account, or an unlink
+its links, gone and writes nothing (before E121's reset-and-change slice (#1727) a reset read the account
+before the lock, waited at its revocation's lock instead, and its commit matched no row). Of two deletions
+of one account, the second waits out the first under the lock and finds the account gone there, even with
+the account loaded in its session before the first committed.
 """
 import asyncio
 import os
@@ -59,7 +62,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
-from app.models import OAuthState, RefreshToken, User
+from app.models import OAuthAccount, OAuthState, RefreshToken, User
 from app.routers import auth as auth_module
 from app.services import auth_account_service, oauth_account_service, user_account_service
 from app.services.account_agreement_service import accept_current_agreement
@@ -254,8 +257,11 @@ _OPERATIONS = {
     "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, user_id),
     "delete_loaded_account": lambda db, user_id, raw: _delete_loaded_account(db, user_id),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
+    "unlink_google": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "google"),
+    "unlink_apple": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "apple"),
+    "unlink_google_loaded": lambda db, user_id, raw: _unlink_loaded(db, user_id, "google"),
 }
-_WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens")
+_WRITES = ("INSERT INTO refresh_tokens", "UPDATE refresh_tokens", "DELETE FROM refresh_tokens", "DELETE FROM oauth_accounts")
 
 
 def _delete_loaded_account(db: Session, user_id: int) -> None:
@@ -268,6 +274,14 @@ def _delete_loaded_account(db: Session, user_id: int) -> None:
     account = db.get(User, user_id)
     assert account is not None, "the first deletion committed before the second loaded the account"
     return user_account_service.delete_user(db, user_id)
+
+
+def _unlink_loaded(db: Session, user_id: int, provider: str) -> None:
+    """The unlink route's unit: its session holds the account the auth lookup loaded before the unit began, as
+    ``current_user``. A guard that read the password from that loaded row would see it from before the race."""
+    account = db.get(User, user_id)
+    assert account is not None
+    return oauth_account_service.unlink_oauth_provider(db, user_id, provider)
 
 
 def _password_login(db: Session, user: User) -> Optional[str]:
@@ -298,7 +312,7 @@ def _change_password(
 
 def _race(
     engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
-    password_hash: Optional[str] = OLD_PASSWORD_HASH,
+    password_hash: Optional[str] = OLD_PASSWORD_HASH, links: tuple[str, ...] = (),
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
@@ -307,12 +321,20 @@ def _race(
     ``first`` then waits until ``second`` is blocked on a lock or has written. With
     ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
     carries the new cookie and ``second`` the one before it. ``password_hash`` is the account's at the
-    start; None for one that signs in only through Google or Apple.
+    start; None for one that signs in only through Google or Apple. ``links`` are the providers linked to
+    the account at the start.
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
     records itself instead, and the race fails once both requests have ended."""
     user_id, raw = _signed_in(engine, password_hash)
+    if links:
+        with _session(engine) as db:
+            db.add_all([
+                OAuthAccount(user_id=user_id, provider=provider, provider_account_id=f"{provider}-{uuid.uuid4().hex}")
+                for provider in links
+            ])
+            db.commit()
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
@@ -498,6 +520,57 @@ def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine
     a sign-in finishes while a refresh holds the account's lock."""
     refresh, sign_in, live, released = _race(postgres_engine, "refresh", "sign_in")
     assert (_result(refresh), _kind(sign_in), live, released) == ("rotated", "str", 2, "done")
+
+
+def _links(engine) -> list[str]:
+    """The providers linked to any account in the case's schema, which holds the one account its race made."""
+    with _session(engine) as db:
+        return sorted(provider for (provider,) in db.query(OAuthAccount.provider))
+
+
+def test_two_unlinks_of_an_account_with_no_password_leave_its_last_sign_in_method(postgres_engine):
+    """Google and Apple unlinked at once from an account with no password: two clicks on the settings page, which
+    tracks each provider's request on its own, or two tabs. The second starts once the first has deleted its link,
+    waits at the account's users row lock for the first's commit, then counts one link left and refuses (E121). In
+    the thread pool without the lock, both read two links, both pass the guard, and the account is left with no
+    way to sign in; on the event loop they could not interleave."""
+    first, second, _, released = _race(
+        postgres_engine, "unlink_google", "unlink_apple", password_hash=None, links=("google", "apple"),
+    )
+    assert (_kind(first), _result(second), released, _links(postgres_engine)) == (
+        "NoneType", "LastSignInMethodError", "blocked", ["apple"],
+    )
+
+
+def test_a_second_unlink_of_one_provider_waits_out_the_first_and_finds_it_gone(postgres_engine):
+    """A double click on Unlink: the second request waits at the lock, then finds no link and refuses, so the route
+    answers 404 and writes no second audit row. Without the lock it read the link, deleted it again, matching no
+    row, and answered 200."""
+    first, second, _, released = _race(postgres_engine, "unlink_google", "unlink_google", links=("google",))
+    assert (_kind(first), _result(second), released, _links(postgres_engine)) == (
+        "NoneType", "ProviderNotLinkedError", "blocked", [],
+    )
+
+
+def test_an_unlink_that_waits_out_a_first_password_counts_the_password(postgres_engine):
+    """An account with no password and one link sets its first password while an unlink of that link waits at the
+    lock, its session holding the account as loaded before. The unlink reads the password under the lock, finds
+    it and unlinks; read from the loaded account it would find none and refuse the last sign-in method."""
+    password, unlink, live, released = _race(
+        postgres_engine, "set_first_password", "unlink_google_loaded", password_hash=None, links=("google",),
+    )
+    assert (_kind(password), _kind(unlink), live, released, _links(postgres_engine)) == (
+        "str", "NoneType", 1, "blocked", [],
+    )
+
+
+def test_an_unlink_that_waits_out_an_account_deletion_finds_no_link(postgres_engine):
+    """An unlink while the account is being deleted waits at the lock the deletion holds, then finds the account's
+    links gone with it and refuses: no 200 and no audit row for an account that no longer exists."""
+    deletion, unlink, live, released = _race(postgres_engine, "delete_account", "unlink_google", links=("google",))
+    assert (_kind(deletion), _result(unlink), live, released, _links(postgres_engine)) == (
+        "NoneType", "ProviderNotLinkedError", 0, "blocked", [],
+    )
 
 
 @pytest.mark.parametrize("revocation,result,live_after", [("reset", "NoneType", 0), ("change_password", "str", 1)])

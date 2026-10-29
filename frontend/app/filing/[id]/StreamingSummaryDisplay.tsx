@@ -27,7 +27,7 @@ import { CheckIcon } from '@/lib/icons'
 import { isNonRetryableStreamError, isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { streamErrorCopy } from '@/features/summaries/lib/streamErrorCopy'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { PRO_FAIR_USE_LINE, TRIAL_DAYS } from '@/lib/planLimits'
+import { TRIAL_DAYS, proFairUseLine } from '@/lib/planLimits'
 import { useCountUp } from '@/hooks/useCountUp'
 import { useFocusOnArrival } from '@/hooks/useFocusHandoff'
 import { RetryButton } from '@/hooks/useRetainedFailure'
@@ -433,8 +433,8 @@ export default function StreamingSummaryDisplay({
               {showTrial
                 ? `Your free summaries reset next month. Or go unlimited now with a ${TRIAL_DAYS}-day free trial of Pro: cancel anytime during the trial and you won’t be charged.`
                 : 'Your free summaries reset next month. Or go unlimited now with Pro.'}
-              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts PRO_FAIR_USE_LINE, E58). */}
-              <span className="mt-2 block">{PRO_FAIR_USE_LINE}</span>
+              {/* What "unlimited" holds, stated once app-wide (lib/planLimits.ts proFairUseLine(), E58, D-050). */}
+              <span className="mt-2 block">{proFairUseLine()}</span>
             </>
           }
           action={

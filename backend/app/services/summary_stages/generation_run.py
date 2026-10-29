@@ -184,8 +184,8 @@ class GenerationRun:
     # the client cannot induce: a provider-side failure (the task raises, returns an error
     # payload or the pipeline times out) and, under AI_QUALITY_GATE, a partial verdict — so an
     # honest partial still costs nothing. A result that arrives without the signal (a stand-in
-    # service) is counted on completion. Callers without a lease (the background drain with
-    # current_user=None, and uncapped Pro) keep the completion-time count in the finalize stage.
+    # service) is counted on completion. The caller without a lease (the background drain, with
+    # current_user=None) keeps the completion-time count in the finalize stage.
 
     def begin_charge(self) -> None:
         """Start the lease-to-unit write (at most once). Called from the dispatcher's start
