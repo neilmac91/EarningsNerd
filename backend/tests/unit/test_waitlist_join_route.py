@@ -20,6 +20,7 @@ from app.database import Base, get_db
 from app.models import WaitlistSignup
 from app.routers import watchlist as watchlist_router
 from app.services import turnstile, waitlist_service
+from app.services.email_service import render_welcome_email
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -284,23 +285,20 @@ def test_join_total_signups_position_and_stats_count_existing_rows(client):
     assert stats.json() == {"total_signups": 2}
 
 
-def test_verification_link_verifies_then_404s_once_the_entry_is_gone(client, session_factory, emails):
-    email = _email()
-    assert _join(client, email=email).status_code == 200
-    token = emails["welcome"][0]["verification_link"].rsplit("/", 1)[-1]
+def test_the_welcome_mail_asks_for_no_verification_and_no_route_takes_one(client, emails):
+    """E46 (2): the welcome mail's verification link led to no page, and nothing read the flag it set,
+    so the step is gone: the join hands the mail no link for it, the mail asks for none, and the
+    route that took its token answers as any unknown path does."""
+    assert _join(client, email=_email()).status_code == 200
+    [welcome] = emails["welcome"]
+    assert "verification_link" not in welcome
 
-    ok = client.post(f"/api/waitlist/verify/{token}")
-    assert ok.status_code == 200
-    assert ok.json() == {"success": True, "message": "Email verified."}
-    with session_factory() as s:
-        row = s.query(WaitlistSignup).filter_by(email=email).one()
-        assert row.email_verified is True
-        s.delete(row)
-        s.commit()
+    page, text = render_welcome_email(name=None, position=3, referral_link="https://e.test/r")
+    assert "verif" not in page.lower() and "verif" not in text.lower()
+    assert "secure your place" not in page and "secure your place" not in text
 
-    gone = client.post(f"/api/waitlist/verify/{token}")
-    assert gone.status_code == 404
-    assert gone.json() == {"detail": "Waitlist entry not found."}
+    gone = client.post("/api/waitlist/verify/any-token")
+    assert (gone.status_code, gone.json()) == (404, {"detail": "Not Found"})
 
 
 def _before_first_commit(session_factory, rival_write) -> None:

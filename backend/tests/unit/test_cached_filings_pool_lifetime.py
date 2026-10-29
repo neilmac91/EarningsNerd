@@ -1710,18 +1710,18 @@ async def test_watchlist_routes_release_their_connection_off_the_loop(monkeypatc
         engine.dispose()
 
 
-_WAITLIST_STATUS = {"join_bad_referral": 400, "verify_missing": 404}
+_WAITLIST_STATUS = {"join_bad_referral": 400}
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("case", [
-    "join", "join_referred", "join_existing", "join_bad_referral", "verify", "verify_missing",
+    "join", "join_referred", "join_existing", "join_bad_referral",
 ])
 async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch, tmp_path, case):
-    """The waitlist join and the email verification run their session work in thread-pool units, the
-    join's refusals included, so eight joiners on four slots leave nothing for the finalizer and
-    make no checkout on the loop. The join releases before its mails go out (its own case below)."""
-    from app.services import turnstile, waitlist_service
+    """The waitlist join runs its session work in thread-pool units, its refusals included, so eight
+    joiners on four slots leave nothing for the finalizer and make no checkout on the loop. The join
+    releases before its mails go out (its own case below)."""
+    from app.services import turnstile
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'waitlist-writes.db'}",
@@ -1738,7 +1738,7 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
             # A referrer per joiner, so no two joins credit one row.
             db.add(WaitlistSignup(email=f"referrer-{i}@example.com", referral_code=f"refcode{i}",
                                   position=i + 1, priority_score=0))
-            if case in ("join_existing", "verify"):
+            if case == "join_existing":
                 db.add(WaitlistSignup(email=f"joiner-{i}@example.com", referral_code=f"joincod{i}",
                                       position=i + 9, priority_score=0))
         db.commit()
@@ -1786,9 +1786,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
     async def send(i: int) -> httpx.Response:
         email = f"joiner-{i}@example.com"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            if case.startswith("verify"):
-                token = waitlist_service.create_verification_token(email, f"joincod{i}")
-                return await client.post(f"/api/waitlist/verify/{token}")
             body = {"email": email}
             if case == "join_referred":
                 body["referral_code"] = f"refcode{i}"
@@ -1806,14 +1803,10 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
         elif case == "join_existing":
             assert [(payload["error"], payload["referral_code"]) for payload in payloads] == [
                 ("already_registered", f"joincod{i}") for i in range(8)]
-        elif case == "join_bad_referral":
+        else:
             assert payloads == [{
                 "success": False, "error": "invalid_referral", "message": "Referral code not recognized.",
             }] * 8
-        elif case == "verify":
-            assert payloads == [{"success": True, "message": "Email verified."}] * 8
-        else:
-            assert payloads == [{"detail": "Waitlist entry not found."}] * 8
         assert engine.pool.checkedout() == 0
         # Each unit released its own connection; the dependency's finalizer found nothing open.
         assert [request.open_at_close[-1:] for request in request_sessions] == [[False]] * 8
@@ -1831,8 +1824,6 @@ async def test_waitlist_writes_release_their_connection_off_the_loop(monkeypatch
                 assert [rows[f"referrer-{i}@example.com"].priority_score for i in range(8)] == [1] * 8
             if case == "join_bad_referral":
                 assert sorted(rows) == [f"referrer-{i}@example.com" for i in range(8)]
-            if case == "verify":
-                assert [rows[email].email_verified for email in joiners] == [True] * 8
     finally:
         engine.dispose()
 
