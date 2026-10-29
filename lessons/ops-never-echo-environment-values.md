@@ -183,7 +183,11 @@ list included) and the str of a log's body that is not text only after `before_s
   an except* group's members. One such handler exists: `main.py`'s `RequestValidationError` handler (E97) hands
   `exc.errors()` to `app/services/auth_validation.py::public_validation_errors`, which keeps each error's `type`,
   `loc` and `msg` only, and `backend/tests/unit/test_password_byte_limit.py`'s E97 section holds its answers, log
-  lines and Sentry items free of a refused password. None of the other forms exists today.
+  lines and Sentry items free of a refused password. `backend/tests/unit/test_request_validation_handler.py` holds
+  its answer on other routers and parameters, and fails a second `FastAPI(...)` call in a module, an app mounted in
+  the API at any depth (behind a middleware too), and an app whose registered `RequestValidationError` handler does
+  not name `public_validation_errors`; the task worker's app is listed there until #1711's handoff row E97-R3
+  registers one. None of the other forms exists today.
 - **The repr.** A settings object's `repr()` is `Settings()`, its `str()` is empty, and Sentry's
   serialization of it is `Settings()`.
 - **Messages.** An AST walk over `app/config.py` fails a raise or assert message, in a function or at module
