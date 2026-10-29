@@ -59,7 +59,7 @@ brownout, or PostHog's 10 s flush, can push a deletion past 30 s.
 | The commit fails | 500 | Kept | None | Not cleared | Already done; not undone | `…[commit]` in both tests |
 | The account is already gone (a second deletion at once) | 500 | Gone (the first deletion's) | None from this request; the first deletion's stands | Not cleared | This request's own provider calls ran | `test_a_delete_that_finds_the_account_gone_answers_the_routes_500`; on PostgreSQL, at the service, `test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone` |
 | The route outlasts the request timeout | 504 | Decided later, as the rows above | Decided later, as the rows above | Not cleared | As the rows above, later | No test; the timeout's lesson (`lessons/ops-give-a-long-request-a-timeout-inside-cloud-runs.md`) |
-| The request stops part-way (a cancelled request task, Cloud Run's SIGKILL after SIGTERM) | None, or the client's own timeout | Kept unless the database unit had committed (it rolls back) | None if the unit had not committed | Not cleared | Whatever ran before the stop | No test; the lessons `ops-release-cached-filing-reads-before-yield.md` and `ops-stripe-calls-wait-on-threads-of-their-own.md` |
+| The request stops part-way (a cancelled request task, Cloud Run's SIGKILL after SIGTERM) | None, or the client's own timeout | Deleted if its database unit commits, before or after the stop (a cancel lets a unit a thread has started run to its end; SIGKILL rolls back one that had not committed); otherwise kept | One if the unit commits; otherwise none | Not cleared | Whatever ran before the stop | No test; the lessons `ops-release-cached-filing-reads-before-yield.md` and `ops-stripe-calls-wait-on-threads-of-their-own.md` |
 
 The policy this matrix states is F19's, as its assignment records the founder's approval that an audit failure stops
 the database deletion:
@@ -107,8 +107,14 @@ arrives.
      provider steps ran. Unless the cause is `Account <id> was deleted after its lookup` (see the last case below),
      the account still exists, with no deletion audit row, whether the audit insert, the delete or the commit
      failed (`test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes`, all three);
-   - neither: the request was stopped part-way (the matrix's last row). Check whether the account still exists; it
-     does unless its unit committed.
+   - neither: look for the initiated WARNING `USER DELETION: … account deletion initiated`, the route's first line:
+     - absent: the request never reached the deletion (its sign-in was refused, or it never arrived), and the
+       account is untouched;
+     - present, with nothing after it: the route is still running, or it was stopped part-way (the matrix's last
+       row). A Stripe brownout can hold it for minutes: each call waits up to 80 s to connect and 80 s for each read,
+       and is retried twice (`lessons/ops-stripe-calls-wait-on-threads-of-their-own.md`). Search again an hour later,
+       past the worst its own calls can take for an account with a few subscriptions. If nothing has followed, it
+       was stopped: check whether the account still exists; it does unless its unit committed.
 2. Provider effects already taken stand:
    - The subscriptions named by `Cancelled Stripe subscription …` lines are cancelled, and the customer record kept.
    - PostHog was sent its deletion event.
@@ -143,8 +149,9 @@ account is gone.
 
 - **No automatic correction.** At this commit, the only call in the backend that cancels, refunds or voids anything in
   Stripe is the deletion's cancellation of the account's own billable subscriptions. The gate
-  `backend/tests/unit/test_stripe_money_moves_allowlist.py` holds it there: a new such call fails until it is reviewed
-  and listed. There is no automatic refund, blanket cancellation, orphan sweeper or recurring worker. Any financial
+  `backend/tests/unit/test_stripe_money_moves_allowlist.py` holds it there: a new such call, called or passed in a
+  form the gate's docstring names, fails until it is reviewed and listed, and the forms it names as unseen are left to
+  review. There is no automatic refund, blanket cancellation, orphan sweeper or recurring worker. Any financial
   correction is a manual founder action, taken after review in Stripe's own console. Stripe cancellation outside a
   user's own deletion stays founder-owned (#1176).
 - **Read-only reconciliation.** [F62](../../tasks/todo.md)'s bounded read-only check finds subscriptions billed on a
