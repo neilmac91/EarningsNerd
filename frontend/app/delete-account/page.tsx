@@ -89,7 +89,7 @@ export default function DeleteAccountPage() {
         />
       ) : isLoading ? (
         <div className="mt-6 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Checking whether you are logged in…
+          <CircleNotchIcon aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Checking whether you are logged in…
         </div>
       ) : user ? (
         /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a

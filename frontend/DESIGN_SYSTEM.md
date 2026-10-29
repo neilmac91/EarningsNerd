@@ -1432,6 +1432,31 @@ Activity line    <ActivityLine>  (components/ui) — a run in progress in words 
                  array literal joined into one string or a class attribute's parts included, wherever the list is
                  bound; its stated gaps are planted.
 
+Spinner          <CircleNotchIcon aria-hidden="true" className="… animate-spin motion-reduce:animate-none" />  — a
+                 wait shown by a turning glyph outside Button, whose busy state is <Button loading> (Steady loading),
+                 and Input, whose busy field draws FieldSpinner (Search field). It marks one of two waits. A control
+                 that is not a Button, while its own request runs: the glyph takes the place of the control's icon,
+                 sits before its label or in a select's trailing inset, at about the label's size and in its ink or a
+                 quieter one, and the control carries aria-busy (the watchlist's ticker chips, the invite row's
+                 resend, the feedback row's status select, the resend links on /check-email and in the verification
+                 banner; the alert settings show theirs beside their heading while a switch saves, the switches
+                 busy). A wait whose answer decides which layout shows, so it has no shape to bone: brand-strong, in
+                 a role="status" region whose aria-label and sr-only words name the wait (the filing summary's, h-8,
+                 while its generation is decided) or over the heading that names it (/verify-email's, h-10,
+                 "Verifying your email…"). A page never swaps itself for a full-page spinner (§11 › Loading): a new
+                 page draws its frame over bones. The company, filing and ticker-filings loaders are that rule's
+                 shrink-only exceptions, which fullPageSpinnerGate pins until bones replace them, each a status
+                 region named for its wait; they are not a form to copy. The glyph is aria-hidden: the control's
+                 aria-busy, the region's name or the words beside it say what waits. It is static under reduced
+                 motion. A run in progress shown in words is the Activity line, a loading layout is Skeleton bones;
+                 the two lines that still pair their words with a spinner (the trend analysis's "Assembling the
+                 numbers…" and "Writing…", /delete-account's "Checking whether you are logged in…") move to the
+                 Activity line (tasks/todo.md E235). Gate: tests/unit/spinnerAllowlist.spec.ts pins every
+                 animate-spin class list to its file and the wait it marks, reading lists as the pulsing-mark gate
+                 does (tests/unit/classListScan.ts), and fails a spinner glyph that is not aria-hidden, on its
+                 element or on an HTML element around it (a component around it may not pass aria-hidden to the DOM,
+                 so it does not count); its stated gaps are planted where a source can hold them.
+
 Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
                  a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
                  inputClasses({ leadingIcon: true }). A raw search field with a busy state (v3.4) reserves
