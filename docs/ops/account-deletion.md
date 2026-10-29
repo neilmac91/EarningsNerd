@@ -53,11 +53,11 @@ brownout, or PostHog's 10 s flush, can push a deletion past 30 s.
 | Case | Answer | Account | `user_deleted` audit row | Cookies | Provider effects | Pinned by |
 | --- | --- | --- | --- | --- | --- | --- |
 | Every step succeeds within the timeout | 200 | Deleted | One, with the outcomes | Cleared | As reported | `test_delete_account_audits_deletes_and_clears_session_cookies` |
-| A provider step fails, the database unit succeeds | 200; that provider's outcome is `error: …` | Deleted | One, recording the `error: …` | Cleared | The others ran. The failed one may have done part of its work: the Stripe walk stops at the first failed call, so any subscription it had not reached, and possibly the one whose call failed, may still bill | `test_a_stripe_failure_is_reported_and_the_deletion_still_proceeds` |
+| A provider step fails, the database unit succeeds | 200; that provider's outcome is `error: …` | Deleted | One, recording the `error: …` | Cleared | The others ran, each in its own `try`. The failed one may have done part of its work: the Stripe walk stops at the first failed call, so any subscription it had not reached, and possibly the one whose call failed, may still bill | `test_a_stripe_failure_is_reported_and_the_deletion_still_proceeds` (the cookies cleared, and Sentry's `anonymized` recorded beside the Stripe error; PostHog has no client in the tests, so its step reports `skipped`) |
 | The audit row's insert fails | 500 | Kept | None | Not cleared | Already done; not undone | `test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie[audit]`; after a Stripe cancellation, `test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes[audit]` |
 | The account's delete fails | 500 | Kept | None | Not cleared | Already done; not undone | `…[account]` in both tests |
-| The commit fails | 500 | Kept | None | Not cleared | Already done; not undone | `…[commit]` in both tests |
-| The account is already gone (a second deletion at once) | 500 | Gone (the first deletion's) | None from this request; the first deletion's stands | Not cleared | This request's own provider calls ran | `test_a_delete_that_finds_the_account_gone_answers_the_routes_500`; on PostgreSQL, at the service, `test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone` |
+| The commit fails | 500 | Kept, unless the database applied the commit and only its reply was lost (a dropped connection), which leaves it deleted | None; in that lost-reply case, one | Not cleared | Already done; not undone | `…[commit]` in both tests (a failure before the commit is sent); the lost reply has no test |
+| The account is already gone (a second deletion at once) | 500 | Gone (the first deletion's) | None from this request; the first deletion's stands | Not cleared | This request's own provider steps ran first, as in every deletion (its test stands the first deletion in for its Stripe step) | `test_a_delete_that_finds_the_account_gone_answers_the_routes_500`; on PostgreSQL, at the service, `test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone` |
 | The route outlasts the request timeout | 504 | Decided later, as the rows above | Decided later, as the rows above | Not cleared | As the rows above, later | No test; the timeout's lesson (`lessons/ops-give-a-long-request-a-timeout-inside-cloud-runs.md`) |
 | The request stops part-way (a cancelled request task, Cloud Run's SIGKILL after SIGTERM) | None, or the client's own timeout | Deleted if its database unit commits, before or after the stop (a cancel lets a unit a thread has started run to its end; SIGKILL rolls back one that had not committed); otherwise kept | One if the unit commits; otherwise none | Not cleared | Whatever ran before the stop | No test; the lessons `ops-release-cached-filing-reads-before-yield.md` and `ops-stripe-calls-wait-on-threads-of-their-own.md` |
 
@@ -106,21 +106,26 @@ arrives.
    - the ERROR `Error deleting user account <id>: …`: its cause and its `Third-party deletion results` say which
      provider steps ran. Unless the cause is `Account <id> was deleted after its lookup` (see the last case below),
      the account still exists, with no deletion audit row, whether the audit insert, the delete or the commit
-     failed (`test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes`, all three);
+     failed (`test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes`, all three).
+     The exception is a commit the database applied whose reply was lost (a dropped connection as the cause): the
+     account is then deleted with its audit row. Check whether the account exists before asking for a retry;
    - neither: look for the initiated WARNING `USER DELETION: … account deletion initiated`, the route's first line:
      - absent: the request never reached the deletion (its sign-in was refused, or it never arrived), and the
        account is untouched;
-     - present, with no `USER DELETION COMPLETED …` or `Error deleting user account …` line after it (provider
-       lines, INFO, WARNING or ERROR, such as `Cancelled Stripe subscription …`, `Skipped Stripe subscription … of
-       another customer`, `Failed to cancel Stripe subscription …` or `Sentry user context cleared …`, may follow): the route is still running, or it was stopped part-way (the
-       matrix's last row). A Stripe brownout can hold it for many minutes: the cancellation can queue for one of the
-       eight Stripe threads, and each call waits up to 80 s to connect and 80 s between reads, retried twice
-       (`lessons/ops-stripe-calls-wait-on-threads-of-their-own.md`). Search again an hour later; if nothing has
-       followed, the route has most likely stopped. Firmer evidence is the end of the instance that wrote the
-       initiated line: uvicorn's `Shutting down` line in Cloud Logging under that line's `labels.instanceId`,
-       followed by `Waiting for background tasks to complete …` when the request had its 504 or its client went
-       away, or `Waiting for connections to close …` while its response was still pending. A kill without SIGTERM
-       can leave none of them, so their absence proves nothing. Then check whether the account still exists; it does unless its unit committed.
+     - present, with no `USER DELETION COMPLETED …` or `Error deleting user account …` line after it (provider lines,
+       INFO, WARNING or ERROR, such as `Cancelled Stripe subscription …`, `Skipped Stripe subscription … of another
+       customer`, `Failed to cancel Stripe subscription …` or `Sentry user context cleared …`, may follow): the route is
+       still running, or it was stopped part-way (the matrix's last row). A Stripe brownout can hold it for many
+       minutes: the cancellation can queue for one of the eight Stripe threads, and each call waits up to 80 s to
+       connect and 80 s between reads, retried twice (`lessons/ops-stripe-calls-wait-on-threads-of-their-own.md`).
+       Search again an hour later; if nothing has followed, the route has most likely stopped. Do not wait on uvicorn's
+       shutdown lines in Cloud Logging under the initiated line's `labels.instanceId` (`Shutting down`, then `Waiting
+       for connections to close …` while a response on that instance is pending and `Waiting for background tasks to
+       complete …` while a request's task outlives its connection, as after a 504): uvicorn writes them only when it
+       receives SIGTERM itself, and the image starts it through `/bin/sh -c` (`backend/Dockerfile`'s shell-form `CMD`),
+       which most likely keeps Cloud Run's SIGTERM from it, so the instance ends at SIGKILL with none of them. Even when
+       they appear, any request on that instance can write either `Waiting` line. Their absence proves nothing. Then
+       check whether the account still exists; it does unless its unit committed.
 2. Provider effects already taken stand:
    - The subscriptions named by `Cancelled Stripe subscription …` lines are cancelled, and the customer record kept.
    - PostHog was sent its deletion event.

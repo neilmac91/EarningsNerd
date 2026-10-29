@@ -256,6 +256,12 @@ def _delete_account_of_customer(client, monkeypatch, statuses, stripe_result="su
         # The handler swallows a Stripe failure and reports it here (``error: …``).
         assert re.fullmatch(stripe_result, resp.json()["third_party_deletions"]["stripe"])
         assert not _user_exists(uid)
+        # The other provider steps ran whatever Stripe's outcome: Sentry clears its context, and PostHog, which has
+        # no client here, reports its skip without an error.
+        assert resp.json()["third_party_deletions"]["sentry"] == "anonymized"
+        assert not resp.json()["third_party_deletions"]["posthog"].startswith("error")
+        # The session cookies are cleared after the commit, a Stripe failure or not.
+        assert _clock_free(resp.headers.get_list("set-cookie")) == _clock_free(_cleared_session_cookies())
         # The audit row records the outcomes the response reports, Stripe's included.
         assert [details["third_party_deletions"] for details in _audit_details(email)] == [
             resp.json()["third_party_deletions"]]
