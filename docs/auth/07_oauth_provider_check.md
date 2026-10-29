@@ -82,7 +82,8 @@ Record each field as the console names it on the day.
    - **The consent screen**, which carries the logo, support and policy links, appears only after an account is
      chosen. Choose an account that has never signed in to EarningsNerd, since Google can skip the screen for one
      that has. Read the screen, then press **Cancel**: our callback answers Cancel as a declined sign-in and writes
-     nothing.
+     nothing further. The start already stored a single-use sign-in state row and set its cookie, as every start
+     does.
    - A field the screens did not show is recorded as "not shown at this step", not as a mismatch.
 8. **The button against Google's branding guideline**
    (<https://developers.google.com/identity/branding-guidelines>, read on the day): the surface, border, label font,
@@ -118,8 +119,8 @@ Compare against those.
 
 ## Results
 
-One row per provider per check. The checker sends the filled rows to A, who records them here in a PR. Results are
-sanitized as above.
+One row per provider per check. The checker sends the filled rows to the engineer who owns sign-in, who records them
+here in a PR. Results are sanitized as above.
 
 | Provider | Checked on (UTC date) | By | App name shown | Logo shown | Support contact | Policy links | Console status | Button vs guideline | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
