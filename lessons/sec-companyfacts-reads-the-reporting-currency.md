@@ -241,11 +241,16 @@ which no later sync undoes until the journaled repair recomputes it. A
 sync in USD alone keeps main's convergence gaps (E198): an amendment the per-filing writer stored
 behind its original's companyfacts row stays behind, a newer filing's restatement under a
 lower-priority tag stays behind where the older filings have no Filing rows, and a lagging payload's
-insert replaces a newer row dated by its provenance alone, each for good; the last only where no sync
-since #1682 stored that winner's identity as the year's own-report history row, which keeps the insert
-out. Those history rows (`facts/own_reports.py`) come from the collector's candidates, so a foreign
-filing's convenience translation is never one, and a proven switch writes none; the currency step
-treats one as any stored row, so it is current only where the batch's own winner has its identity.
+insert replaces a newer row dated by its provenance alone, each for good; since #1682 a stored
+own-report history row keeps that insert out only where the lagging winner is the year's own original
+report under the winning tag, so a quarter, a ratio, an amendment's figure and an intermediate filing's
+comparative still take it. Those history rows (`facts/own_reports.py`) come from the collector's
+candidates, so none a sync with the per-filing pick writes is a foreign filing's convenience
+translation (those a sync stored for a switcher from #1682's deploy until #1583 stay, non-current), and
+a proven switch writes none. The currency step treats one as any stored row: current where the batch's
+own winner has its identity, and, protected like any row of a newer filing, the newest protected row
+at a held key in the vote's second window, showing the year's own-report figure until the sync that
+names the later filing.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

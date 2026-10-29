@@ -505,7 +505,9 @@ unused since generation became account-required in #619; kept because migrations
   currency (more of its amount rows in one other currency than in any other, as `_proven_switch`
   counts): on either path it is a convenience translation, as the sync that names the filing reads
   it, so the sync demotes it (`facts/currency.py::_foreign`); outside a switch the batch's own row
-  then holds a period the batch presents, and a period it does not present is a gap. The vote leaves
+  then holds a period the batch presents, and a period it does not present is a gap unless another
+  protected row sits there, whose newest the sync makes current (an older figure, an own-report history
+  row included). The vote leaves
   two windows, each closed by the sync that names the filing. A row in the sync's currency under a
   filing whose payload items read another currency stays current, a wrong number, where the vote
   names no other currency: its stored amount rows tie for the most, or more of them are in the
@@ -513,8 +515,9 @@ unused since generation became account-required in #619; kept because migrations
   period the batch presents it stays so only as the newest protected row there, which the sync makes
   current, or as a row of a filing filed strictly after the batch row's. And the vote reads the per-filing
   writer's per-concept picks (a tie goes to a non-USD code), so where it names another currency than
-  the filing's payload items, the filing's rows in the sync's currency are demoted: a gap at a period
-  the batch does not present, and at one it presents from an older filing, that older figure.
+  the filing's payload items, the filing's rows in the sync's currency are demoted: at a period the
+  batch does not present, the newest other protected row there (an older figure, an own-report history
+  row included) or a gap, and at one it presents from an older filing, that older figure.
   A newer filing in the payload's own currency proves no switch, so a lagging payload still fills
   the periods before it. In every other sync (`facts/currency.py::_promote_batch_rows`), at every
   period the batch presents in an amount or per-share unit that no protected row holds, the batch's
@@ -570,13 +573,19 @@ unused since generation became account-required in #619; kept because migrations
   6,710.8M it gave, never the FY2020 10-K's 5,145.6M, which only the later report's rows carry.
   Like every stored companyfacts row, one stored first at a filing's own identity holds that cell,
   since the per-filing writer skips any stored identity, and stands in for it there.
-  Its candidates are the collector's, which never reads a foreign filing's item (below), so a
-  history row is never a convenience translation, and a sync that a newer report proves stale
-  writes none. The currency step treats it as any stored row, by identity, date and accession: where
-  a payload that lags the later report has the history row's identity as its winner, the upsert
-  skips it, and the step makes that row current only where it would make the batch's row current,
-  with the figure the insert would have carried. A sync in USD alone leaves it non-current, so there
-  the later report's figure stays (the history row keeps the lagging insert out).
+  Its candidates are the collector's, which never reads a foreign filing's item (above), so no
+  history row a sync with the per-filing pick (#1583) writes is a convenience translation (those a
+  sync stored for a switcher from #1682's deploy until #1583 stay, non-current), and a sync that a
+  newer annual report proves predates a currency switch (`_proven_switch`) writes none. The currency
+  step treats a history row as any stored row, by identity, date and accession: where a payload that
+  lags the later report has its identity as the winner, the upsert skips it, and the step makes it
+  current only where it would make the batch's row current, with the figure the insert would have
+  carried; and a history row of a filing newer than the payload is protected like any row, so in the
+  vote's second window (above) it can be the newest protected row at a period the batch does not
+  present, showing that year's own-report figure until the sync that names the later filing. A sync
+  in USD alone never makes one current; there it keeps out only a lagging insert at its own identity,
+  where the lagging winner is the year's own original report under the winning tag, so a quarter, a
+  ratio, an amendment's figure and an intermediate filing's comparative still take that insert (E198).
 - Per-filing reconciliation uses the calendar date of persisted `Filing.period_end_date`;
   missing dates do not invent a mismatch, and prior comparative periods are exempt. This applies
   to newly inserted identities: ordinary backfill skips existing rows and their flags. Optional

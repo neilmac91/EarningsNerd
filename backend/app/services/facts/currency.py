@@ -15,8 +15,8 @@ this module load no Settings, ORM or EDGAR code, at import or at call time. Only
 payload's own view of itself (``payload_view``), import the ORM. The collector's item admission
 (``admitted_items``) and its pick over the companyfacts registries (``companyfacts_currencies``)
 live here too, so the per-filing pick counts exactly the periods ``companyfacts`` keeps and the
-demotion reads the very pick the collector read. So does the form rule admission applies
-(``is_proxy_form``): a proxy or information statement's figures never win a period nor vote.
+demotion reads the very pick the collector read. Admission applies the form rule that lives beside
+``ANNUAL_FORMS`` (``fiscal_naming.is_proxy_form``): a proxy's figures never win a period nor vote.
 
 A sync that involves no currency but USD (``_another_currency``: neither the payload's pick nor a
 stored row of the batch's concepts names another) is main's: nothing is protected and the currency
@@ -421,8 +421,8 @@ def _foreign(accession: Any, currency: str, view: PayloadView, own: Mapping[Any,
     it is protected and the newest protected row at its key, the sync makes it current there. And the
     vote reads the per-filing writer's per-concept picks, which break a tie toward a non-USD code, so
     where it names a currency the payload items do not read the filing in, its rows in ``currency`` are
-    demoted: a gap at a key the batch does not present, and at one it presents from an older filing,
-    that older figure (a wrong number).
+    demoted: at a key the batch does not present, the newest other protected row (a history row too) or a
+    gap, and at one it presents from an older filing, that older figure (each older figure a wrong number).
     """
     return view.own.get(accession, own.get(accession, currency)) != currency
 
