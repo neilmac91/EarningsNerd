@@ -16,6 +16,10 @@ export class ApiError extends Error {
   // Undefined when `detail` is this client's status fallback or axios's message ("Request failed
   // with status code N"), so a surface that shows backend text verbatim reads this, never `detail`.
   backendDetail?: string
+  // The body's machine-readable `code` (E31), set only when it is a code this client knows, sent with its
+  // registered status (parseErrorCode). Undefined for an older server, a newer code or a mismatched status, so a
+  // caller then falls back to status and words as before.
+  code?: KnownErrorCode
 
   constructor(status: number, detail: string) {
     super(detail)
@@ -43,6 +47,36 @@ export function detailMessage(detail: unknown): string | undefined {
     if (typeof msg === 'string' && msg) return msg.replace(/^(?:Value error|Assertion failed), /, '') || msg
   }
   return undefined
+}
+
+/**
+ * The error codes this client knows (E31; `backend/app/error_codes.py` ErrorCode, docs/audit/contracts/error-codes.md
+ * §3), each with the HTTP status it is honoured on and whether a stream's error event may carry it.
+ * `backend/tests/unit/test_api_error_codes.py` holds this table equal to the backend's.
+ */
+export const ERROR_CODES = {
+  auth_required: { status: 401, stream: false },
+  email_verification_required: { status: 403, stream: false },
+  plan_required: { status: 403, stream: false },
+  free_allowance_exhausted: { status: 403, stream: true },
+  pro_fair_use_limit: { status: 429, stream: true },
+  generation_paused: { status: 503, stream: true },
+  earnings_alert_limit: { status: 403, stream: false },
+} as const satisfies Record<string, { status: number; stream: boolean }>
+
+export type KnownErrorCode = keyof typeof ERROR_CODES
+
+/**
+ * A response's `code` as a code this client acts on, or undefined. `on` is where it arrived: the HTTP status of an
+ * error response, or 'stream' for a stream's error event. A code is honoured only where it is registered, so an
+ * unknown code, a known one on another status (a 500 that says `plan_required` is a 500) and a non-stream code on a
+ * stream all read as no code, and the caller's status and word fallbacks decide as they did before codes existed.
+ */
+export function parseErrorCode(value: unknown, on: number | 'stream'): KnownErrorCode | undefined {
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(ERROR_CODES, value)) return undefined
+  const code = value as KnownErrorCode
+  const registered = ERROR_CODES[code]
+  return (on === 'stream' ? registered.stream : registered.status === on) ? code : undefined
 }
 
 // Determine API URL: prefer env var, fallback based on environment
@@ -417,7 +451,7 @@ export function cancelRefresh(): void {
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ detail?: unknown }>) => {
+  async (error: AxiosError<{ detail?: unknown; code?: unknown }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
     const original = error.config as SessionRequestConfig | undefined
@@ -460,14 +494,15 @@ api.interceptors.response.use(
     }
 
     const backendDetail = detailMessage(error.response?.data?.detail)
+    const code = parseErrorCode(error.response?.data?.code, status)
 
-    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
-    if (
-      status === 403 &&
-      backendDetail &&
-      /verify your email/i.test(backendDetail) &&
-      typeof window !== 'undefined'
-    ) {
+    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout). A known code decides; with
+    // none (an older server, or a code this client does not know) the 403's words still do.
+    const verificationRequired =
+      code !== undefined
+        ? code === 'email_verification_required'
+        : status === 403 && !!backendDetail && /verify your email/i.test(backendDetail)
+    if (verificationRequired && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT, { detail: backendDetail }))
     }
 
@@ -497,6 +532,7 @@ api.interceptors.response.use(
     const apiError = new ApiError(status, errorMessage)
     apiError.sessionLossConfirmed = sessionLossConfirmed
     if (typeof backendDetail === 'string' && backendDetail) apiError.backendDetail = backendDetail
+    if (code !== undefined) apiError.code = code
     throw apiError
   }
 )

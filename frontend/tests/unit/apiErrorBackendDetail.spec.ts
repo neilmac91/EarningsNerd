@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
-import { afterEach, describe, expect, it } from 'vitest'
-import api, { ApiError } from '@/lib/api/client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import api, { ApiError, EMAIL_VERIFICATION_REQUIRED_EVENT, parseErrorCode } from '@/lib/api/client'
 
 /**
  * ApiError.backendDetail tells the backend's own words from lib/api/client's. `detail` is always a
@@ -61,5 +61,88 @@ describe('ApiError.backendDetail', () => {
     expect(err).toBeInstanceOf(ApiError)
     expect(err.status).toBe(422)
     expect(err.backendDetail).toBe('x')
+  })
+})
+
+/**
+ * ApiError.code (E31, docs/audit/contracts/error-codes.md): a body's `code` is kept only when this client knows it and
+ * it arrived on its registered status, so an older server (no code), a newer one (a code this client does not know)
+ * and a mismatched status all leave the status and the words to decide, as before codes existed.
+ */
+describe('ApiError.code', () => {
+  afterEach(() => {
+    api.defaults.adapter = original
+  })
+
+  it.each([
+    ['a known code on its status', 403, { detail: 'Words.', code: 'plan_required' }, 'plan_required'],
+    ['no code (an older server)', 403, { detail: 'Words.' }, undefined],
+    ['a code this client does not know (a newer server)', 403, { detail: 'Words.', code: 'brand_new_code' }, undefined],
+    ['a known code on another status', 500, { detail: 'Words.', code: 'plan_required' }, undefined],
+    ['a code that is not a string', 403, { detail: 'Words.', code: ['plan_required'] }, undefined],
+    ["a key of Object's prototype", 403, { detail: 'Words.', code: 'toString' }, undefined],
+  ])('reads %s', async (_name, status, data, code) => {
+    respondWith(status, data)
+    const err = await caught()
+    expect(err.code).toBe(code)
+    // The code changes nothing else the error carries.
+    expect(err.status).toBe(status)
+    expect(err.backendDetail).toBe('Words.')
+    expect(err.isRetryable).toBe(status >= 500)
+  })
+
+  it("never honours a key that reaches ERROR_CODES only through Object's prototype", () => {
+    // A polluted prototype member shaped like a registered code must still read as no code.
+    const proto = Object.prototype as Record<string, unknown>
+    proto.polluted_code = { status: 403, stream: true }
+    try {
+      expect(parseErrorCode('polluted_code', 403)).toBeUndefined()
+      expect(parseErrorCode('polluted_code', 'stream')).toBeUndefined()
+    } finally {
+      delete proto.polluted_code
+    }
+  })
+
+  it('honours a stream code only on a stream, and an HTTP-only code never there', () => {
+    expect(parseErrorCode('free_allowance_exhausted', 'stream')).toBe('free_allowance_exhausted')
+    expect(parseErrorCode('pro_fair_use_limit', 'stream')).toBe('pro_fair_use_limit')
+    expect(parseErrorCode('generation_paused', 'stream')).toBe('generation_paused')
+    expect(parseErrorCode('email_verification_required', 'stream')).toBeUndefined()
+    expect(parseErrorCode('pro_fair_use_limit', 429)).toBe('pro_fair_use_limit')
+    expect(parseErrorCode('pro_fair_use_limit', 403)).toBeUndefined()
+  })
+})
+
+describe('the email-verification prompt', () => {
+  afterEach(() => {
+    api.defaults.adapter = original
+  })
+
+  async function prompted(status: number, data: unknown): Promise<boolean> {
+    const listener = vi.fn()
+    window.addEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, listener)
+    try {
+      respondWith(status, data)
+      await caught()
+    } finally {
+      window.removeEventListener(EMAIL_VERIFICATION_REQUIRED_EVENT, listener)
+    }
+    return listener.mock.calls.length === 1
+  }
+
+  it('opens on the code, whatever the words say', async () => {
+    expect(await prompted(403, { detail: 'Confirm your inbox first.', code: 'email_verification_required' })).toBe(true)
+  })
+
+  it('opens on the words when there is no code (an older server)', async () => {
+    expect(await prompted(403, { detail: 'Verify your email address before you subscribe.' })).toBe(true)
+  })
+
+  it('stays shut when a known code says it is another refusal, whatever the words say', async () => {
+    expect(await prompted(403, { detail: 'Verify your email to unlock Pro.', code: 'plan_required' })).toBe(false)
+  })
+
+  it('falls back to the words for a code this client does not know', async () => {
+    expect(await prompted(403, { detail: 'Verify your email address before you subscribe.', code: 'brand_new_code' })).toBe(true)
   })
 })
