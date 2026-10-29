@@ -375,6 +375,18 @@ capped step, never a numbered one. `tests/e2e/reflow-200.spec.ts` holds what the
 billing and ticker filings cards' Notices keep their Retry and every text run inside their border at 320px under 200%
 text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 
+A control that copies to the clipboard keeps its words and confirms where a screen reader hears it: a
+`role="status"` line beside it, as Copy filing link and Copy receipt have ("Filing link copied."), or, where its
+surface already confirms through the toast region, a success toast, as the invite share panel's Copy message and Copy
+link do ("Invite link copied"). A failed copy says so in the same place. The cue beside the control is a check in
+place of its icon for a moment; its words never flip to "Copied", which renames it (WCAG 2.5.3) and, inside a live
+region such as the bulk invite summary's, is heard on top of the confirmation (chief design on #1789 and #1791: Copy
+link's words flashed to "Copied" under a pinned aria-label, so its name lacked the word shown and a press in the resend
+dialog said nothing a screen reader hears). Gates: `tests/unit/copyConfirmations.spec.ts` (every source file that
+writes to the clipboard confirms through `toast.success` or a `role="status"` line, and none flips a label to "Copied";
+the waitlist's referral Copy is its residue, E244) and `tests/unit/copyLinkButton.spec.tsx` (Copy link's name through a
+press, one toast in the resend dialog and the bulk summary, and no words changed in the summary's live region).
+
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
                  DARK: NAVY-INK label on bg-brand-dark (text-background-dark), hover bg-brand-strong-dark,
