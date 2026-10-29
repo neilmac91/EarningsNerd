@@ -154,6 +154,10 @@ def test_team_notice_names_the_plan_of_the_account_that_uses_the_address(
     admin_html, user_html = sent_emails.bodies
     assert f'<div class="value">{plan_line}</div>' in admin_html
     assert "Plan:" not in user_html and "account uses this address" not in user_html
+    # The subject carries the plan too, so an inbox lists a member's message first; the caveat stays in the body.
+    (_admin, admin_subject), (_user, user_subject) = sent_emails
+    assert admin_subject == f"New Contact Form Submission from {PAYLOAD['name']} ({plan_line.split(' ')[0]})"
+    assert "Pro" not in user_subject and "Free" not in user_subject
 
 
 def test_team_notice_says_when_no_account_uses_the_address(client, sent_emails):
@@ -161,6 +165,7 @@ def test_team_notice_says_when_no_account_uses_the_address(client, sent_emails):
     assert resp.status_code == 201, resp.text
     admin_html, _user_html = sent_emails.bodies
     assert '<div class="value">No account uses this address</div>' in admin_html
+    assert sent_emails[0][1] == f"New Contact Form Submission from {PAYLOAD['name']}"  # no plan, no tag
 
 
 def test_a_failed_plan_read_still_saves_the_submission_and_sends_both_mails(
@@ -176,6 +181,7 @@ def test_a_failed_plan_read_still_saves_the_submission_and_sends_both_mails(
         assert s.query(ContactSubmission).count() == 1
     assert [to for to, _subject in sent_emails] == [[ADMIN_EMAIL], [PAYLOAD["email"]]]
     assert '<div class="value">Not read (the lookup failed)</div>' in sent_emails.bodies[0]
+    assert sent_emails[0][1] == f"New Contact Form Submission from {PAYLOAD['name']}"
 
 
 def test_limit_plus_one_from_one_ip_is_429_with_retry_after_and_other_ip_still_succeeds(client, session_factory):
