@@ -86,7 +86,11 @@ describe('analysis snapshot consistency', () => {
   })
 
   it.each([
-    ['the fair-use 429', "You've reached this month's fair-use limit of 30 analyses. It resets at the start of next month.", false],
+    [
+      'the fair-use 429',
+      "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. It resets at the start of next month.",
+      false,
+    ],
     ['the 403 Pro gate', 'Multi-Period Analysis is a Pro feature. Upgrade to Pro to access this feature.', true],
   ])('answers %s with a plan link only for the Pro gate, and the fair-use sentence once', async (_, message, planLink) => {
     vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)

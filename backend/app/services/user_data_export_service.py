@@ -2,15 +2,27 @@
 
 Read-only: the caller logs the export, writes the ``data_exported`` audit row and builds the
 download response, so a failure here leaves nothing behind.
+
+Every timestamp column the export reads is written one way (F19): the instant in UTC, ISO 8601 with a
+``Z`` suffix and its microseconds when it has any (``2026-07-06T10:52:35.123456Z``), or ``null`` where the
+column holds none. ``_utc`` makes it from whatever the database hands back: SQLite reads a value naive,
+PostgreSQL reads an aware column in the session's time zone, and a naive value is taken as UTC, as every
+writer stores it, should any column read naive. Stored JSON (a section review's ``labels`` and frozen
+``receipt``) is exported as written, its dates in the format they were frozen in.
 """
-from datetime import timezone
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models import AccountAgreement, BillingPayment, SavedSummary, SectionReview, User, UserSearch, UserUsage, Watchlist
 from app.models.feedback import Feedback, FeedbackAttachment
 from app.utils.datetimes import ensure_utc, iso_z, utcnow
+
+
+def _utc(value: Optional[datetime]) -> Optional[str]:
+    """The export's one timestamp representation: the same instant in UTC as ``iso_z``, or ``None``."""
+    return iso_z(ensure_utc(value).astimezone(timezone.utc)) if value is not None else None
 
 
 def _feedback_export(db: Session, owner_id: int) -> list[dict[str, Any]]:
@@ -32,8 +44,8 @@ def _feedback_export(db: Session, owner_id: int) -> list[dict[str, Any]]:
             "height": attachment.height,
             "byte_count": attachment.byte_count,
             "sha256": attachment.checksum,
-            "created_at": iso_z(ensure_utc(attachment.created_at)),
-            "expires_at": iso_z(ensure_utc(attachment.expires_at)) if attachment.expires_at else None,
+            "created_at": _utc(attachment.created_at),
+            "expires_at": _utc(attachment.expires_at),
             "status": "available" if available else "expired" if expired else "unavailable",
             "download_path": f"/api/feedback/attachments/{attachment.id}" if available else None,
         }
@@ -44,7 +56,7 @@ def _feedback_export(db: Session, owner_id: int) -> list[dict[str, Any]]:
         "message": report.message,
         "page_url": report.page_url,
         "status": report.status,
-        "created_at": iso_z(ensure_utc(report.created_at)),
+        "created_at": _utc(report.created_at),
         "attachments": by_report.get(report.id, []),
     } for report in reports]
 
@@ -60,8 +72,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "is_pro": current_user.is_pro,
         "stripe_customer_id": current_user.stripe_customer_id,
         "stripe_subscription_id": current_user.stripe_subscription_id,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-        "updated_at": current_user.updated_at.isoformat() if current_user.updated_at else None,
+        "created_at": _utc(current_user.created_at),
+        "updated_at": _utc(current_user.updated_at),
     }
 
     # Collect search history
@@ -71,7 +83,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": search.id,
             "query": search.query,
             "company_id": search.company_id,
-            "created_at": search.created_at.isoformat() if search.created_at else None,
+            "created_at": _utc(search.created_at),
         }
         for search in searches
     ]
@@ -83,7 +95,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": summary.id,
             "summary_id": summary.summary_id,
             "notes": summary.notes,
-            "created_at": summary.created_at.isoformat() if summary.created_at else None,
+            "created_at": _utc(summary.created_at),
         }
         for summary in saved_summaries
     ]
@@ -94,7 +106,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         {
             "id": item.id,
             "company_id": item.company_id,
-            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "created_at": _utc(item.created_at),
         }
         for item in watchlist
     ]
@@ -106,8 +118,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "id": usage_item.id,
             "month": usage_item.month,
             "summary_count": usage_item.summary_count,
-            "created_at": usage_item.created_at.isoformat() if usage_item.created_at else None,
-            "updated_at": usage_item.updated_at.isoformat() if usage_item.updated_at else None,
+            "created_at": _utc(usage_item.created_at),
+            "updated_at": _utc(usage_item.updated_at),
         }
         for usage_item in usage
     ]
@@ -124,11 +136,8 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "amount_minor": payment.amount_minor,
             "currency": payment.currency,
             "payment_type": payment.payment_type,
-            # SQLite drops timezone metadata; both columns store UTC instants.
-            "paid_at": iso_z(payment.paid_at.replace(tzinfo=timezone.utc) if payment.paid_at.tzinfo is None
-                             else payment.paid_at.astimezone(timezone.utc)),
-            "observed_at": iso_z(payment.observed_at.replace(tzinfo=timezone.utc) if payment.observed_at.tzinfo is None
-                                 else payment.observed_at.astimezone(timezone.utc)),
+            "paid_at": _utc(payment.paid_at),
+            "observed_at": _utc(payment.observed_at),
             "subscription_invoice": payment.subscription_invoice,
             "user_id": payment.user_id,
             "attribution": payment.attribution,
@@ -149,10 +158,10 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "section": review.section,
             "labels": review.labels,
             "engine_version": review.engine_version,
-            "completed_at": review.completed_at.isoformat() if review.completed_at else None,
+            "completed_at": _utc(review.completed_at),
             "receipt": review.receipt,
-            "created_at": review.created_at.isoformat() if review.created_at else None,
-            "updated_at": review.updated_at.isoformat() if review.updated_at else None,
+            "created_at": _utc(review.created_at),
+            "updated_at": _utc(review.updated_at),
         }
         for review in reviews
     ]
@@ -165,8 +174,7 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
             "terms_accepted": agreement.terms_accepted,
             "terms_version": agreement.terms_version,
             "eligibility_version": agreement.eligibility_version,
-            "accepted_at": iso_z(agreement.accepted_at.replace(tzinfo=timezone.utc)
-                                 if agreement.accepted_at.tzinfo is None else agreement.accepted_at),
+            "accepted_at": _utc(agreement.accepted_at),
             "source": agreement.source,
         }
         for agreement in agreements
@@ -183,6 +191,6 @@ def build_user_data_export(db: Session, current_user: User) -> Dict[str, Any]:
         "section_reviews": reviews_data,
         "account_agreements": agreements_data,
         "feedback": _feedback_export(db, current_user.id),
-        "export_timestamp": utcnow().isoformat(),
+        "export_timestamp": _utc(utcnow()),
     }
     return export_data

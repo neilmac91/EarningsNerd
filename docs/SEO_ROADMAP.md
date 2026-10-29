@@ -72,7 +72,7 @@ Trigger-based, not calendar-based. Watch the dashboards in `LAUNCH_CHECKLIST.md`
 | Cloud Run p95 >1.5s or frequent 2-instance saturation | max-instances 3 (check pool math: 3×20 conns needs the DB upgrade first) | +$0–10/mo |
 | `/api/companies/search` abuse in logs | generous per-IP limit (e.g. 120/min) + negative cache for unknown tickers (24h TTL in DB or L1) | $0 |
 | GSC crawl-stats show heavy bot traffic on ISR misses | lengthen revalidate windows (company 30→60min) | $0 |
-| DeepSeek monthly spend >$15 (product traffic; CI eval runs are the larger line item, see `tasks/deepseek-v41-flash-migration-2026-09-10.md` §1.4) | check PRO_SUMMARY_MONTHLY_CAP / batch sizes before paying more | $0 |
+| DeepSeek monthly spend >$15 (product traffic; CI eval runs are the larger line item, see `tasks/deepseek-v41-flash-migration-2026-09-10.md` §1.4) | check batch sizes before paying more (Pro's ceilings are `entitlements.py` constants /pricing states, so lowering one is a plan change) | $0 |
 
 Explicitly **not** planned: Redis in prod (ADR-0004 holds — ISR + DB caches cover the misses),
 multi-region, queues, or any second generation path (CLAUDE.md rule 1).
