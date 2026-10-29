@@ -313,6 +313,7 @@ def _change_password(
 def _race(
     engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
     password_hash: Optional[str] = OLD_PASSWORD_HASH, links: tuple[str, ...] = (),
+    other_chain: Optional[list[str]] = None,
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
@@ -322,7 +323,8 @@ def _race(
     ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
     carries the new cookie and ``second`` the one before it. ``password_hash`` is the account's at the
     start; None for one that signs in only through Google or Apple. ``links`` are the providers linked to
-    the account at the start.
+    the account at the start. Given ``other_chain``, the account first signs in on a second device too, and
+    that session's cookie is appended to the list (E96).
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
@@ -335,6 +337,9 @@ def _race(
                 for provider in links
             ])
             db.commit()
+    if other_chain is not None:
+        with _session(engine) as db:
+            other_chain.append(tokens.mint_refresh_token(db, db.get(User, user_id)))
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
@@ -434,6 +439,16 @@ def _result(outcome: object) -> object:
 def test_two_refreshes_with_one_cookie_rotate_once_and_the_second_meets_the_sweep(postgres_engine):
     first, second, live, released = _race(postgres_engine, "refresh", "refresh")
     assert (_kind(first), _kind(second), live, released) == ("tuple", "RefreshTokenReuseError", 0, "blocked")
+
+
+def test_two_refreshes_with_one_cookie_end_that_chain_and_leave_the_accounts_other_session_live(postgres_engine):
+    """E96: the replay sweep the second refresh meets revokes its cookie's chain, the successor the first minted
+    included, and nothing else, so another device's session of the same account still rotates."""
+    other: list[str] = []
+    first, second, live, released = _race(postgres_engine, "refresh", "refresh", other_chain=other)
+    assert (_kind(first), _kind(second), live, released) == ("tuple", "RefreshTokenReuseError", 1, "blocked")
+    with _session(postgres_engine) as db:
+        assert _kind(tokens.rotate_and_commit(db, other[0])) == "tuple"
 
 
 @pytest.mark.parametrize("first,second", [("refresh", "logout_all"), ("logout_all", "refresh")])

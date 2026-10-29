@@ -80,6 +80,10 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 # the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
 # The same 429 answers every address.
 ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
+# POST /refresh per IP (E96). A browser single-flights its refresh per tab (``ensureRefreshed``), so N open tabs
+# waking at once send N; the cap leaves room for a burst of tabs behind one shared address, and a client looping
+# refreshes is refused within the minute. Checked before the rotation takes a connection or the users row lock.
+REFRESH_LIMITER = RateLimiter(limit=60, window_seconds=60)
 # Every OAuth start persists a single-use state row: bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
@@ -777,6 +781,12 @@ async def refresh(
     db: Session = Depends(get_db),
 ):
     """Exchange a valid refresh token for a new access token (and a rotated refresh token)."""
+    enforce_rate_limit(
+        request,
+        REFRESH_LIMITER,
+        "refresh",
+        error_detail="Too many session refreshes. Try again in a minute.",
+    )
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not raw_token and body is not None:
         raw_token = body.refresh_token
@@ -803,10 +813,10 @@ async def refresh(
     # session. The refusing tab ends the session it knew and clears the session marker every tab reads
     # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
     # succeeds and marks it again (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep
-    # each time it is sent, which revokes every live token of the account until E96 scopes it to the replayed chain
-    # (refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on the injected Response and
-    # then raised; FastAPI answers an exception with a fresh response, so they never reached the browser
-    # (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
+    # each time it is sent, which revokes that token's chain, the live tokens its rotations lead to; the account's other
+    # sessions keep theirs (E96, refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on
+    # the injected Response and then raised; FastAPI answers an exception with a fresh response, so they never reached
+    # the browser (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:

@@ -176,12 +176,12 @@ let loginInFlight: Promise<void> | null = null
 // browser, not the tab: a silent refresh's answer sets them, a login's sets the new session's and a logout's clears
 // them, so a refresh another tab sent before a login answers after it and sets the previous session's cookies over the
 // login's, or one answering after a logout signs the browser in again; and two refreshes sent at once carry the one
-// refresh cookie, so the second presents the token the first rotated away and meets the replay sweep, which signs the
-// account out on every device (E96). Requests for it are granted in the order made. A silent refresh holds it exclusive
-// (withSessionCookiesForRefresh): it waits for every refresh and post queued before it, in any tab, and every one
-// queued after it waits for it, so refreshes go out one at a time, each with the cookies the one before it set. A
-// password login, a logout, a logout of every session and a password change, whose answer mints the session a new
-// refresh token, hold it shared around their post (withSessionCookiesForPost): each waits for the refreshes queued
+// refresh cookie, so the second presents the token the first rotated away and meets the replay sweep, which ends that
+// token's chain, signing this browser out (E96). Requests for it are granted in the order made. A silent refresh holds
+// it exclusive (withSessionCookiesForRefresh): it waits for every refresh and post queued before it, in any tab, and
+// every one queued after it waits for it, so refreshes go out one at a time, each with the cookies the one before it
+// set. A password login, a logout, a logout of every session and a password change, whose answer mints the session a
+// new refresh token, hold it shared around their post (withSessionCookiesForPost): each waits for the refreshes queued
 // before it and holds back those queued after it, but posts in two tabs do not wait for each other, as on main, where
 // they race as the reader's own actions, unless a refresh is queued between them (requests are granted in order). An
 // OAuth sign-in's answer sets the cookies too, but it is a navigation, which cannot hold the lock: the identity read
@@ -288,9 +288,9 @@ export function ensureRefreshed(): Promise<void> {
  * logout either; one still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it
  * too, and so does a password change, which leaves the refresh be at the limit (`atLimit` 'leave'): a refresh cancelled
  * after the API rotated its token leaves the browser holding the token rotated away, which the change's own renewal
- * would then present, and the replay sweep would end every session of the account (E96). It settles 'limit' when the
- * limit came first, else 'settled'. All of them then wait for the refreshes queued for the lock before their own
- * request (withSessionCookiesForPost).
+ * would then present, and the replay sweep would end that token's chain, signing this browser out (E96). It settles
+ * 'limit' when the limit came first, else 'settled'. All of them then wait for the refreshes queued for the lock before
+ * their own request (withSessionCookiesForPost).
  */
 export function refreshSettled(limitMs: number, atLimit: 'cancel' | 'leave' = 'cancel'): Promise<'settled' | 'limit'> {
   const inFlight = refreshPromise
