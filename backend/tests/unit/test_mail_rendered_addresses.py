@@ -178,7 +178,7 @@ COMPANY = "PROVECTUS BIOPHARMACEUTICALS, INC."
 # A link as a caller builds one: a token as secrets.token_urlsafe(32) draws it, 43 characters, here with no
 # hyphen to break at.
 LINK = "https://e.test/reset-password?token=Qm9va3NhbmRjb2ZmZWVhbmRyZWFkaW5nYWxsZGF5MDE"  # gitleaks:allow
-WAITLIST = dict(name=NAME, position=3, referral_link=LINK, verification_link=LINK)
+WAITLIST = dict(name=NAME, position=3, referral_link=LINK)
 REFERRAL = dict(name=NAME, new_position=2, referral_link=LINK)
 FILING = dict(name=NAME, company_name=COMPANY, ticker="PVCT", filing_type="10-K", filing_date="2026-01-01")
 ALERTS = [
@@ -1590,7 +1590,7 @@ def _preheader_line(page: str) -> str:
 # Each mail's line, as the render's inputs give it: the words an inbox lists the mail by. A change to a line is
 # a change to this list, read in review.
 PREHEADER_LINES = {
-    "render_welcome_email": ["You're number 3 on the waitlist. Verify your email to secure your place."],
+    "render_welcome_email": ["You're number 3 on the waitlist."],
     "render_referral_success_email": ["Someone joined with your referral link. You're now number 2."],
     "send_verification_email": ["Confirm your email address. The link works for 24 hours."],
     "send_invite_email": ["Your account invitation. Review the requirements when you sign up. The link works once."] * 2,

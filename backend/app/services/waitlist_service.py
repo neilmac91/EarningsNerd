@@ -4,10 +4,8 @@ import secrets
 import string
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import jwt
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,7 +17,6 @@ from app.services.legal_readiness_service import require_collection_available
 
 REFERRAL_CODE_LENGTH = 8
 REFERRAL_BONUS = 5
-VERIFY_TOKEN_DAYS = 7
 
 # A join reads, then writes: the referrer's priority it bumps, and the highest place held, which its
 # own place follows. On the event loop the join ran them one at a time within the process; in the
@@ -58,27 +55,10 @@ def calculate_waitlist_position(base_position: int, priority_score: int) -> int:
     return max(1, position)
 
 
-def create_verification_token(email: str, referral_code: str) -> str:
-    now = datetime.now(timezone.utc)
-    payload = {
-        "sub": email,
-        "ref": referral_code,
-        "type": "waitlist_verify",
-        "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(days=VERIFY_TOKEN_DAYS)).timestamp()),
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-
-
 def build_referral_link(referral_code: str) -> str:
     """The share link: /waitlist reads ``?ref=`` (WaitlistForm) with WAITLIST_MODE on or off; the homepage does not."""
     base = settings.FRONTEND_URL.rstrip("/")
     return f"{base}/waitlist?ref={referral_code}"
-
-
-def build_verification_link(token: str) -> str:
-    base = settings.FRONTEND_URL.rstrip("/")
-    return f"{base}/api/waitlist/verify/{token}"
 
 
 class WaitlistAlreadyJoined(Exception):
@@ -246,13 +226,3 @@ def mark_welcome_email_sent(db: Session, signup_id: int) -> None:
         raise LookupError(f"Waitlist signup {signup_id} is gone")
     signup.welcome_email_sent = True
     db.commit()
-
-
-def mark_email_verified(db: Session, email: str) -> bool:
-    """False when no signup carries ``email`` (router: 404); nothing is written then."""
-    signup = find_signup_by_email(db, email)
-    if not signup:
-        return False
-    signup.email_verified = True
-    db.commit()
-    return True
