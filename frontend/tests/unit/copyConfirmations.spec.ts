@@ -252,9 +252,13 @@ const PRESSED_BY: Record<string, { spec: string; words: string[] } | null> = {
 
 const files = DIRS.flatMap((dir) => sourcesUnder(join(ROOT, dir)))
 
-/** Whether a source says the words in code, a string or the text of an element, not in a comment. */
+/** Whether a source says the words in code, a string or the text of an element, not in a comment: as a whole phrase,
+    from the text's start or a space to its end or a space, so a writer's words are not found inside its other words
+    ('Invite link copied', the toast's, is not said by 'Invite link copied.', the dialog line's; the tier review on
+    81a323e5), while a sentence that goes on ("Could not copy the link. Try again, …") says its first words. */
 function saysWords(source: string, words: string, fileName = 'source.tsx'): boolean {
-  return contains(parse(fileName, source), (n) => (ts.isStringLiteralLike(n) || ts.isJsxText(n)) && n.text.includes(words))
+  const phrase = new RegExp(`(^|\\s)${words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|$)`)
+  return contains(parse(fileName, source), (n) => (ts.isStringLiteralLike(n) || ts.isJsxText(n)) && phrase.test(n.text))
 }
 
 describe('a clipboard write is said where a screen reader hears it, and its control keeps its words', () => {
@@ -287,6 +291,10 @@ describe('a clipboard write is said where a screen reader hears it, and its cont
     // Words in a comment are no words.
     expect(saysWords("// 'Invite link copied.'\nconst words = 'Copy link'", 'Invite link copied.')).toBe(false)
     expect(saysWords("const words = 'Invite link copied.'", 'Invite link copied.')).toBe(true)
+    // Each word on its own: the toast's words are not said by the dialog line's, which hold them and a stop.
+    expect(saysWords("const words = 'Invite link copied.'", 'Invite link copied')).toBe(false)
+    expect(saysWords("toast.success('Invite link copied')", 'Invite link copied')).toBe(true)
+    expect(saysWords('const line = <p role="alert">Could not copy the link. Try again.</p>', 'Could not copy the link.')).toBe(true)
   })
 
   it('finds each fault in planted sources, write by write, and passes over comments and strings', () => {
