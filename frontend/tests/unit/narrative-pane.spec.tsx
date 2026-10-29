@@ -368,6 +368,18 @@ describe('NarrativePane citation chips', () => {
     expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
   })
 
+  it("says what the run is doing in its heading's group while it streams", () => {
+    const { rerender } = render(<NarrativePane state={{ status: 'streaming', text: '', stage: 'assembling' }} />)
+    const heading = screen.getByRole('heading', { name: 'AI trend analysis' })
+    // The words sit in the heading's group in the header row, beside the heading where both fit (DESIGN_SYSTEM.md §4 ›
+    // Activity line): one of the heading's siblings holds them.
+    const inHeadingGroup = (words: string) =>
+      [...heading.parentElement!.children].some((sibling) => sibling !== heading && sibling.contains(screen.getByText(words)))
+    expect(inHeadingGroup('Assembling the numbers…')).toBe(true)
+    rerender(<NarrativePane state={{ status: 'streaming', text: 'Revenue grew', stage: 'writing' }} />)
+    expect(inHeadingGroup('Writing…')).toBe(true)
+  })
+
   it('does not inject chips while streaming (raw markers stay plain text)', () => {
     render(<NarrativePane state={{ status: 'streaming', text: 'Revenue grew [1]', stage: 'writing' }} />)
     expect(screen.getByText(/\[1\]/)).toBeInTheDocument()
