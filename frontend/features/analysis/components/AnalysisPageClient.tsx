@@ -392,18 +392,21 @@ export default function AnalysisPageClient() {
                 action={<RetryButton failures={[coverageFailure]} focusTarget={companyHeadingRef} size="sm" />}
               />
             )}
-            {coverageQuery.isPending && !coverageFailure.failed ? (
-              <div role="status" aria-label="Loading available periods">
-                <Skeleton className="h-16 w-full rounded-lg" />
-                <span className="sr-only">Loading…</span>
+            {!coverageSettled ? (
+              // One status region until the coverage answer settles: a status region announces text added to it, never text it
+              // was created with, so the history fetch is heard because its words land in the region the load already
+              // was, a failed read on the way included (the region stays, empty, beside the error Notice). The fetch is
+              // activity, never a Notice (DESIGN_SYSTEM.md §4 › Activity line).
+              <div role="status" aria-label={coverageQuery.isPending && !coverageFailure.failed ? 'Loading available periods' : undefined}>
+                {coverageFailure.failed ? null : coverageQuery.isPending ? (
+                  <>
+                    <Skeleton className="h-16 w-full rounded-lg" />
+                    <span className="sr-only">Loading…</span>
+                  </>
+                ) : coverage?.syncing ? (
+                  <ActivityLine>{`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}</ActivityLine>
+                ) : null}
               </div>
-            ) : coverage?.syncing ? (
-              // The history fetch is activity, never a Notice (DESIGN_SYSTEM.md §4 › Inline notice): its own live region.
-              !coverageFailure.failed && (
-                <ActivityLine role="status">
-                  {`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
-                </ActivityLine>
-              )
             ) : unsupported ? (
               <Notice
                 variant="info"

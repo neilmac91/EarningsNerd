@@ -75,6 +75,7 @@ const TRIGGER_LINES: Record<string, number> = {
   'Locked preview': 1,
   'Search option': 1,
   'Segmented ctrl': 1,
+  Spinner: 1,
   'Usage meter': 1,
 }
 

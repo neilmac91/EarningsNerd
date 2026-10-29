@@ -120,7 +120,10 @@ export interface DataTableProps<T> {
   /** Keep the column headings in view while the page scrolls past a tall table. CSS cannot stick a header to the page
    *  from inside the horizontal scroll container, so an aria-hidden copy of the heading row rides a zero-height sticky
    *  rail under the site header (--site-header-h) and follows the table's scrollLeft. The real <thead> stays the one
-   *  screen readers read. Needs layout="fixed". */
+   *  screen readers read. A part of a column's header marked `data-rail-omit`, a line of its own (a legend, a range)
+   *  under what the rail keeps, stays in the real heading row and out of the rail, so the rail can be shorter than the
+   *  row. With the rail on, headings sit at the top of the row, so the rail is the row's own first lines and takes
+   *  over without moving one. Needs layout="fixed". */
   pageHeader?: boolean
   className?: string
 }
@@ -130,6 +133,22 @@ const ROW_BORDER = 'border-t border-border-light dark:border-border-dark'
 /** The page heading rail's height on <html> while it can cover the table: any of it under the header's line (pageHeader).
  *  app/globals.css adds it to scroll-padding-top. */
 export const TABLE_RAIL_HEIGHT_PROPERTY = '--table-rail-h'
+
+/** The heading rail's height, read from the real heading row, since the rail's copy mounts only while it shows: the
+ *  row's height, less what the rail leaves out of its tallest heading. Each heading sits in a block as tall as its
+ *  lines (data-rail-heading), and a part marked data-rail-omit is a line of its own, so it takes its own height. */
+function railRowHeight(head: HTMLTableSectionElement): number {
+  let full = 0
+  let kept = 0
+  for (const heading of head.querySelectorAll<HTMLElement>('[data-rail-heading]')) {
+    const height = heading.getBoundingClientRect().height
+    let omitted = 0
+    for (const part of heading.querySelectorAll<HTMLElement>('[data-rail-omit]')) omitted += part.getBoundingClientRect().height
+    full = Math.max(full, height)
+    kept = Math.max(kept, height - omitted)
+  }
+  return head.getBoundingClientRect().height - full + kept
+}
 
 // The figure sheet (surface="well"): the figures sit on the sheet; the heading row and the row-label column keep the
 // panel surface and the panel's own inks, so the frame of labels reads slightly apart from the data it labels.
@@ -295,15 +314,16 @@ export function DataTable<T extends Record<string, unknown>>({
 
   // Page heading rail (pageHeader): the heading row's measured widths, the table's scrollLeft, shown only while the
   // real <thead> has passed under the site header and some of the table is still below it. Its copy of the headings
-  // mounts only while it shows, so the page holds no second set of heading text until a reader needs one; scrolling
-  // writes styles, and React renders only when the rail appears or goes.
+  // mounts only while it shows, so the page holds no second set of heading text until a reader needs one, and its
+  // height is read from the real heading row (railRowHeight); scrolling writes styles, and React renders only when
+  // the rail appears or goes.
   const railRef = useRef<HTMLDivElement>(null)
   const railBarRef = useRef<HTMLDivElement>(null)
   const railTrackRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const [railWidths, setRailWidths] = useState<number[]>([])
   const [railShown, setRailShown] = useState(false)
-  // The heading row's height, reserved in the page's scroll padding while the rail can cover part of the table.
+  // The rail's height, reserved in the page's scroll padding while the rail can cover part of the table.
   const [railReserve, setRailReserve] = useState(0)
   const railOn = pageHeader && layout === 'fixed'
   const followRail = () => {
@@ -323,16 +343,20 @@ export function DataTable<T extends Record<string, unknown>>({
     const show = () => {
       frame = 0
       const head = table.tHead?.getBoundingClientRect()
+      const height = table.tHead ? railRowHeight(table.tHead) : 0
       const whole = table.getBoundingClientRect()
       const line = parseFloat(getComputedStyle(rail).top) || 0
       // Stuck at the line: under an ancestor that clips overflow (the landing demo's mockup frame, a locked preview)
       // that box is the rail's scroll container, so it never sticks to the page and must not show or reserve padding.
       const stuck = Math.abs(rail.getBoundingClientRect().top - line) < 1
-      setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + head.height)
+      // Shown as soon as the row's top passes the line, while more than the rail's height of the table is below it. The
+      // headings sit at the top of their row (railHeading), so the rail's lines are the row's own first lines: where it
+      // is shorter than the row, nothing moves as it takes over, and only the parts it leaves out pass under it.
+      setRailShown(!!head && stuck && head.top < line - 0.5 && whole.bottom > line + height)
       // Reserved whenever some of the table is under the line, shown rail or not: a figure focused while the rail is
-      // hidden (a row taller than the heading row, its table's end just under the header) and scrolled to the nearest
-      // edge would otherwise sit under the rail that its own row then brings back.
-      setRailReserve(head && stuck && whole.top < line && whole.bottom > line ? Math.ceil(head.height) : 0)
+      // hidden (a row taller than the rail, its table's end just under the header) and scrolled to the nearest edge
+      // would otherwise sit under the rail that its own row then brings back.
+      setRailReserve(head && stuck && whole.top < line && whole.bottom > line ? Math.ceil(height) : 0)
     }
     const queue = () => { if (!frame) frame = requestAnimationFrame(show) }
     const measure = () => {
@@ -391,8 +415,8 @@ export function DataTable<T extends Record<string, unknown>>({
       key={c.key}
       style={{ width: railWidths[index], flex: 'none' }}
       className={cx(
-        inset, d.headerY, 'flex flex-col font-semibold',
-        verticalAlign === 'top' ? 'justify-end' : 'justify-center',
+        // At the top of its cell, as the heading is in the real row (railHeading), so each line sits where the row's was.
+        inset, d.headerY, 'flex flex-col justify-start font-semibold',
         c.className,
         c.align === 'right' && 'items-end text-right',
         corner && (well ? 'border-r border-rule-light dark:border-rule-dark' : 'border-r border-border-light dark:border-border-dark'),
@@ -401,6 +425,9 @@ export function DataTable<T extends Record<string, unknown>>({
       {c.header}
     </div>
   )
+  // With the rail on, each real heading sits in a block as tall as its lines, from which the rail's height is read, at
+  // the top of its cell (the th's align-top below), so the rail's lines are the row's own first lines.
+  const railHeading = (content: ReactNode) => (railOn ? <span className="block" data-rail-heading>{content}</span> : content)
 
   // Skeleton→content handoff: when `loading` flips false, whatever replaces the
   // skeleton rows (data, empty, error) crossfades in; tables that never load
@@ -417,10 +444,11 @@ export function DataTable<T extends Record<string, unknown>>({
     {renderHint && <p id={hintId} aria-hidden={!showHint || undefined} className={cx('mb-2 text-xs text-text-secondary-light dark:text-text-secondary-dark', !showHint && 'invisible')}>{scrollRegion!.hint}</p>}
     {railOn && (
       <div ref={railRef} aria-hidden="true" data-table-header-rail className="pointer-events-none sticky top-[var(--site-header-h,4rem)] z-sticky h-0 print:hidden">
+        {/* The rail leaves out a header's marked parts (data-rail-omit), so it can be shorter than the heading row. */}
         {railShown && <div
           ref={railBarRef}
           className={cx(
-            'flex overflow-hidden', headClass, d.text,
+            'flex overflow-hidden [&_[data-rail-omit]]:hidden', headClass, d.text,
             well ? cx('outline outline-1 outline-rule-light dark:outline-rule-dark', WELL.edge) : 'border-b border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark',
           )}
         >
@@ -514,7 +542,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     inset, 'font-semibold',
                     snapColumns && !isFirstCol && 'snap-start',
                     d.headerY,
-                    verticalAlign === 'top' && 'align-bottom',
+                    railOn ? 'align-top' : verticalAlign === 'top' && 'align-bottom',
                     c.className,
                     c.align === 'right' && 'text-right',
                     stickyHeader && STICKY_TH,
@@ -524,7 +552,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     headerZIndex(isFirstCol, stickyHeader)
                   )}
                 >
-                  {c.sortable && onSort ? (
+                  {railHeading(c.sortable && onSort ? (
                     <button
                       type="button"
                       onClick={() => onSort(c.key)}
@@ -550,7 +578,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     </button>
                   ) : (
                     c.header
-                  )}
+                  ))}
                 </th>
               )
             })}
