@@ -452,7 +452,8 @@ export default function FilingWorkspace({
               {/* The pane's status line, sr-only: between the tabs and the panels, so it is heard whichever tab shows
                   (a hidden panel takes everything in it out of the accessibility tree). The Ask rail says what it is
                   doing here: "Reading the filing…" as a question is sent, "Answer ready." when the answer
-                  completes. */}
+                  completes, and the card's sentence for an error that lands while the Filing tab shows
+                  (AskCopilotRail.tsx). */}
               <p role="status" className="sr-only">{paneStatus}</p>
               <div className="flex min-h-0 flex-1 flex-col" onClickCapture={markPanelActivation}>
                 <div
