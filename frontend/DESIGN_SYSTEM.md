@@ -376,19 +376,26 @@ capped step, never a numbered one. `tests/e2e/reflow-200.spec.ts` holds what the
 billing and ticker filings cards' Notices keep their Retry and every text run inside their border at 320px under 200%
 text, and the cookie dialog's cards break no word at 320, 360 and 390px.
 
-A control that copies to the clipboard keeps its words and confirms where a screen reader hears it: a
-`role="status"` line beside it, as Copy filing link and Copy receipt have ("Filing link copied."), or, where its
-surface already confirms through the toast region, a success toast, as the invite share panel's Copy message and the
-Copy link beside it do ("Invite link copied"). A failed copy says so in the same place. The cue beside the control is a check in
-place of its icon for a moment; its words never flip to "Copied", which renames it (WCAG 2.5.3) and, inside a live
-region such as the bulk invite summary's, is heard on top of the confirmation (chief design on #1789 and #1791: Copy
-link's words flashed to "Copied" under a pinned aria-label, so its name lacked the word shown and a press in the resend
-dialog said nothing a screen reader hears). Gates: `tests/unit/copyConfirmations.spec.ts` (read as TypeScript, each
-clipboard write, after it and outside a catch clause in the function that writes, calls `toast.success` or the setter
-of a state a `role="status"` line reads, and no words in a file that writes read "Copied"; the waitlist's referral Copy
-is its residue, E244) and
-`tests/unit/copyLinkButton.spec.tsx` (Copy link's name through a press, one toast in the resend dialog and the bulk
-summary, and no words changed in the summary's live region).
+A control that copies to the clipboard keeps its words and says a press where a screen reader hears it: a
+`role="status"` line beside it, as Copy filing link, Copy receipt and the invite share options' Copy message have
+("Filing link copied.", "Invite message copied."), or, outside a dialog and where its surface already confirms through
+the toast region, a success toast, as Copy link does in the bulk invite summary ("Invite link copied"). Inside a modal
+dialog the page's toast region lies outside the dialog, and `aria-modal` hides it from VoiceOver, so there a press is
+said in a status line inside the dialog: a control that confirms through a toast takes `onStatus`, the line of the
+dialog it sits in, and the dialog passes it, as the resend dialog does for Copy link and for a share sheet that could
+not open (chief design on #1793). A failed copy says so in the same place. The cue beside the control may be a check in
+place of its icon for a moment; its words never flip to "Copied", which renames it, or under a fixed name leaves the
+shown word out of it (WCAG 2.5.3), and inside a live region such as the bulk invite summary's is heard on top of the
+confirmation (chief design on #1789 and #1791: Copy link's words flashed to "Copied" under a pinned aria-label, so its
+name lacked the word shown and a press in the resend dialog said nothing a screen reader hears). Gates:
+`tests/unit/copyConfirmations.spec.ts` (read as TypeScript: each clipboard write, after it in the function that writes
+and outside a catch clause or a rejection handler, calls the setter of a state a `role="status"` line reads,
+`onStatus`, or `toast.success` with `onStatus` beside it; a dialog passes `onStatus` to each control it renders that
+takes one, and each `onStatus` passed reaches a status line; no words in a file that writes read "Copied"; a reach for
+the clipboard the scan cannot follow fails; and each writer names the spec that presses it and reads its words; the
+waitlist's referral Copy is its residue, E244) and `tests/unit/inviteCopyConfirmations.spec.tsx` (Copy link's name
+through a press; in the bulk summary one toast and no words changed in its live region; in the resend dialog and a
+summary row's share dialog, each press said in a status line inside the dialog and nothing in the toast region).
 
 ```
 Primary button   <Button>  ·  LIGHT: white label on bg-brand, hover bg-brand-strong, active bg-brand-emphasis
