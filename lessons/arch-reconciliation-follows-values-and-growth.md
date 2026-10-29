@@ -41,16 +41,22 @@ letter order takes a new version: `test_analysis_data_notes.py` pins each versio
 already-open browser tab. Nor does a data notes version: a tab that loaded its report under the old
 version still decodes it, but refuses the first narrative it streams after the backend moves (a new
 report prefix, EVIDENCE_RECOVERY) until Run analysis reloads the report; `data-notes.spec.ts` holds
-both halves (2026-10-26). Keep the code-owned operand tail in its existing wire grammar until
-those clients no longer depend on it; compact the reading prose and structured operand values
-separately. Format the PDF's presentation copy without rewriting stored evidence. The shared
-`analysis_legacy_evidence.json` fixture is pinned by the backend producer and consumed by the
-unchanged frontend evidence parser in `narrative-pane.spec.tsx`; restoring whole-observation
-formatting must fail this gate.
+both halves (2026-10-26). A tab whose bundle cannot read the new version refuses the reloaded
+report too, so a version move lands its reader first, in a pull request of its own
+(`arch-a-data-notes-version-lands-its-reader-first.md`, 2026-10-28). Keep the code-owned operand
+tail in its existing wire grammar until those clients no longer depend on it; compact the reading
+prose and structured operand values separately. Format the PDF's presentation copy without
+rewriting stored evidence. The shared `analysis_legacy_evidence.json` fixture is pinned by the
+backend producer and consumed by the unchanged frontend evidence parser in
+`narrative-pane.spec.tsx`; restoring whole-observation formatting must fail this gate.
 
 **Export count evidence (2026-10-11)**: A comparison can lack validation even when all selected
 figures passed their checks. The shared `totals.unknown` counts figures only; PDF and workbook
 summaries separately count unknown comparison memberships instead of implying that this total
 covers both populations. `test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook`
 uses the shared annual-window fixture to check both rendered exports and preserve the source
-dataset and totals unchanged.
+dataset and totals unchanged. Since 2026-10-27 (MPA WP3-B, D-061) both summaries are the page's fine
+print (`analysis_export_metadata.fine_print_summary`): each marked note's places and words, then "N not
+in our data", "N figures with no check recorded" and, apart, "N growth figures with no check recorded",
+"N calculated from filed figures", and "No figures need review · N checked" never beside a record-only
+note; `test_export_note_marks.py` holds both exports' letters to the shared fixture's `marked_letters`.

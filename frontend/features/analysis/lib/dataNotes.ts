@@ -74,7 +74,8 @@ export function noteMarksFigure(note: Pick<DataNote, 'kind' | 'reasons'> | null 
 }
 
 /** A marked note's words in the fine print: each questioning reason's clause (REASON_SUMMARIES, or SUMMARY_FALLBACK),
- *  once, in reason order, joined by "; ". The backend's data_notes.note_summary writes the same, for the exports (WP3). */
+ *  once, in reason order, joined by "; ". The backend's data_notes.note_summary writes the same for the PDF's and the
+ *  workbook's summary line. */
 export function noteSummary(reasons: readonly string[]): string {
   const clauses = reasons.filter((reason) => !RECORD_ONLY_REASONS.has(reason))
     .map((reason) => Object.hasOwn(REASON_SUMMARIES, reason) ? REASON_SUMMARIES[reason] : SUMMARY_FALLBACK)
@@ -98,8 +99,10 @@ export interface DataNotesTotals {
 }
 
 /** Versioned server metadata, admitted once at the API boundary. Versions 2 and 3 have the same shape as 1: version 2
- *  changed the reasons' words and the letter order (marked notes first), version 3 added the words of E211's two proxy
- *  reasons, and the local grouper writes 3. A saved envelope of an older version (the landing sample, a report a tab
+ *  changed the reasons' words and the letter order (marked notes first), and version 3 adds the words of E211's two
+ *  proxy reasons. This page read version 3 ahead of the server writing it (#1769, before E211's #1667), as it read
+ *  version 2 ahead of #1659, so a tab loaded before the server moved still reads what the server sends; the local
+ *  grouper writes 3, as the server does. A saved envelope of an older version (the landing sample, a report a tab
  *  loaded before the server moved) still decodes with its stored words and letters. A narrative that tab streams after
  *  the move may not: its notes are the newer version's, so where the words or letters moved their report prefix is not
  *  the tab's, and the decoder refuses it (EVIDENCE_RECOVERY) until Run analysis reloads the report with them. */

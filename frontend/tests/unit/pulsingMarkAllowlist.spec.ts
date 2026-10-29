@@ -9,27 +9,19 @@
    analysis page and the Copilot wrote the line by hand, and one drifted from
    the other (#1755, #1756), so a hand-rolled copy fails here.
 
-   The scan reads each file's TypeScript AST (comments never count). A mark is
-   a pulse (`animate-pulse` or `animate-ping`, Tailwind's two pulsing
-   animations) and a full round (`rounded-full`) in one class list, behind any
-   variant prefix (motion-safe:, dark:, group-hover:) and with Tailwind's `!`
-   before or after. A site is the innermost list that holds both, counted once
-   (a list, not an element: an element whose ternary picks between two such
-   lists counts two):
-     string — any string literal or template chunk that holds both tokens,
-              wherever it sits (the scan cannot tell a class string from any
-              other, so a title naming both counts too);
-     class  — a list whose parts together hold both: a cx() or clsx() call, a
-              template, an array literal joined into one string (through any
-              filter or map, cast or parenthesis on the way), or a class
-              attribute (className, iconClassName and the like) whatever builds
-              it. A list bound to a const counts where it is written. A
-              ternary's arms count together, so a mark that pulses in one state
-              and is round in the other fails too.
-   Out of reach, stated and planted as gaps: a token held in a binding (a
-   const, an import, a parameter) and split from the other; a helper other than
-   cx() or clsx() outside any class list, and a `+` concatenation; a pulse on an
-   element whose round mark is a child; a round by another name (an arbitrary
+   The scan reads class lists as tests/unit/classListScan.ts states (each
+   file's TypeScript AST, so comments never count). A mark is a pulse
+   (`animate-pulse` or `animate-ping`, Tailwind's two pulsing animations) and a
+   full round (`rounded-full`) in one class list, behind any variant prefix
+   (motion-safe:, dark:, group-hover:) and with Tailwind's `!` before or after.
+   A site is the innermost list that holds both, counted once; any string that
+   holds both counts too, so a title naming both is a site. A ternary's arms
+   count together, so a mark that pulses in one state and is round in the
+   other fails too.
+   Out of reach, stated and planted as gaps: the reader's own (a token held in
+   a binding and split from the other; a helper other than cx() or clsx()
+   outside any class list, and a `+` concatenation); a pulse on an element
+   whose round mark is a child; a round by another name (an arbitrary
    rounded-[…] value, which the design lint refuses as an off-scale radius); a
    pulse by another name (an arbitrary animate-[…] value, a keyframe of the
    app's own); an animation in a stylesheet or an inline style.
@@ -40,8 +32,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
+import { classListSites, sourceFiles } from './classListScan'
 
 const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
@@ -55,101 +47,15 @@ const ALLOW: Record<string, { sites: number; reason: string }> = {
 
 const PULSE = /(?:^|:)!?animate-(?:pulse|ping)!?$/
 const ROUND = /(?:^|:)!?rounded-full!?$/
-const CLASS_ATTRIBUTE = /^\w*[cC]lassName$/
-// The app's two class joiners: components/ui/cx and the clsx package.
-const CLASS_JOINERS = new Set(['cx', 'clsx'])
-const tokensOf = (text: string) => text.split(/\s+/).filter(Boolean)
-const holds = (tokens: string[], token: RegExp) => tokens.some((t) => token.test(t))
-const holdsBoth = (tokens: string[]) => holds(tokens, PULSE) && holds(tokens, ROUND)
+const holdsBoth = (tokens: string[]) => tokens.some((t) => PULSE.test(t)) && tokens.some((t) => ROUND.test(t))
 
-/** The expression under any parentheses, `as`, `satisfies`, `!` or angle-bracket cast. */
-function unwrapped(expr: ts.Expression): ts.Expression {
-  while (
-    ts.isParenthesizedExpression(expr) ||
-    ts.isAsExpression(expr) ||
-    ts.isSatisfiesExpression(expr) ||
-    ts.isNonNullExpression(expr) ||
-    ts.isTypeAssertionExpression(expr)
-  ) {
-    expr = expr.expression
-  }
-  return expr
-}
-
-/** An array literal joined into one string, through any filter, map or cast on the way: [a, b && c].filter(Boolean).join(' '). */
-function joinedArray(node: ts.Node): boolean {
-  if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression) || node.expression.name.text !== 'join') return false
-  let receiver = unwrapped(node.expression.expression)
-  while (ts.isCallExpression(receiver) && ts.isPropertyAccessExpression(receiver.expression)) receiver = unwrapped(receiver.expression.expression)
-  return ts.isArrayLiteralExpression(receiver)
-}
-
-const isLiteralChunk = (n: ts.Node): n is ts.StringLiteralLike | ts.TemplateHead | ts.TemplateMiddle | ts.TemplateTail =>
-  ts.isStringLiteralLike(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)
-
-/** Every string or template chunk under `node`. */
-function literalTexts(node: ts.Node): string[] {
-  const out: string[] = []
-  const visit = (n: ts.Node): void => {
-    if (isLiteralChunk(n)) out.push(n.text)
-    ts.forEachChild(n, visit)
-  }
-  visit(node)
-  return out
-}
-
-function pulsingMarkSites(source: string, fileName: string): number {
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    fileName.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  )
-  // A class list beyond one string: a class attribute (whatever builds it), a joiner's call, a template, or an array
-  // literal joined into one string.
-  const isClassList = (node: ts.Node) =>
-    (ts.isJsxAttribute(node) && !!node.initializer && CLASS_ATTRIBUTE.test(node.name.getText(sourceFile))) ||
-    (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && CLASS_JOINERS.has(node.expression.text)) ||
-    ts.isTemplateExpression(node) ||
-    joinedArray(node)
-  let sites = 0
-  // Whether a mark was counted at or under `node`: a class list counts only when nothing inside it did.
-  const visit = (node: ts.Node): boolean => {
-    if (isLiteralChunk(node)) {
-      if (!holdsBoth(tokensOf(node.text))) return false
-      sites++
-      return true
-    }
-    let inner = false
-    ts.forEachChild(node, (child) => {
-      if (visit(child)) inner = true
-    })
-    if (inner || !isClassList(node) || !holdsBoth(literalTexts(node).flatMap(tokensOf))) return inner
-    sites++
-    return true
-  }
-  visit(sourceFile)
-  return sites
-}
-
-function walk(dir: string, out: string[] = []): string[] {
-  if (!fs.existsSync(dir)) return out
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name)
-    if (entry.isDirectory()) walk(p, out)
-    else if (/\.tsx?$/.test(entry.name)) out.push(p)
-  }
-  return out
-}
+const pulsingMarkSites = (source: string, fileName: string) => classListSites(source, fileName, holdsBoth)
 
 function scan(): Map<string, number> {
   const found = new Map<string, number>()
-  for (const dir of SCAN_DIRS) {
-    for (const file of walk(path.join(ROOT, dir))) {
-      const sites = pulsingMarkSites(fs.readFileSync(file, 'utf8'), file)
-      if (sites > 0) found.set(path.relative(ROOT, file).split(path.sep).join('/'), sites)
-    }
+  for (const file of sourceFiles(ROOT, SCAN_DIRS)) {
+    const sites = pulsingMarkSites(fs.readFileSync(path.join(ROOT, file), 'utf8'), file)
+    if (sites > 0) found.set(file, sites)
   }
   return found
 }

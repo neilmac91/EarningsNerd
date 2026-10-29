@@ -125,6 +125,7 @@ describe('server data notes admission', () => {
   })
 
   it('decodes a version 2 or 3 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+    // Version 3 (E211's two proxy reasons' words) decodes ahead of the server writing it, as version 2 did (#1641).
     const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
     for (const version of [1, 2, 3] as const) {
       const wire = { ...structuredClone(example.expected), version }

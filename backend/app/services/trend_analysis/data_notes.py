@@ -68,10 +68,10 @@ REASONS = {
 # shared notes fixture's record_only_reasons pins both.
 RECORD_ONLY_REASONS = frozenset({"legacy_calculation"})
 # The fine print's words for a note that marks its figure ("Revenue FY2024: not yet matched to the filing"). The page
-# prints them from provenance.ts REASON_SUMMARIES, which the fixture's summaries holds equal to these. No backend
-# surface prints them yet: the PDF's and the workbook's summary line counts the notes
-# (analysis_export_metadata.notes_summary) until WP3 takes these words. A clause has no semicolon of its own, as a
-# sentence has none: the fine print lists a note's places, and joins its clauses, with "; ".
+# prints them from provenance.ts REASON_SUMMARIES, which the fixture's summaries holds equal to these; the PDF and the
+# workbook print them through note_summary, in their summary line (analysis_export_metadata.fine_print_summary). A clause
+# has no semicolon of its own, as a sentence has none: the fine print lists a note's places, and joins its clauses,
+# with "; ".
 SUMMARIES = {
     "source_check_needed": "not yet matched to the filing",
     "source_conflict": "the filings report different values (the most recent shown)",
@@ -133,14 +133,16 @@ def _add(groups: dict, value: Mapping[str, Any]) -> dict | None:
 
 
 def marks_figure(note: Mapping[str, Any]) -> bool:
-    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061)."""
-    reasons = note["reasons"]
-    return note["kind"] == "review" and (not reasons or any(reason not in RECORD_ONLY_REASONS for reason in reasons))
+    """Whether a note puts a mark beside its figure: a review note with a reason that questions the number (D-061).
+    It reads the note's reasons in place: test_data_note_reasons_have_words.py reads an assignment to a name `reasons`
+    as a write, which would make every export that asks this question a reason emitter."""
+    return note["kind"] == "review" and (
+        not note["reasons"] or any(reason not in RECORD_ONLY_REASONS for reason in note["reasons"]))
 
 
 def note_summary(reasons: Iterable[str]) -> str:
     """A marked note's fine-print words, as the page's noteSummary writes them: each questioning reason's clause,
-    once, in reason order. Held for the exports (WP3); the fixture's summaries pins it to the page's."""
+    once, in reason order. The exports' summary line prints it; the fixture's summaries pins it to the page's."""
     clauses = [SUMMARIES.get(reason, SUMMARY_FALLBACK) for reason in reasons if reason not in RECORD_ONLY_REASONS]
     return "; ".join(dict.fromkeys(clauses or [SUMMARY_FALLBACK]))
 

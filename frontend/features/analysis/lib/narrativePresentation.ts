@@ -75,7 +75,8 @@ export function decodeNarrativePresentation(
   dataset?: AnalysisDataset,
 ): NarrativePresentation {
   if (!record(value) || value.format_version !== NARRATIVE_FORMAT_VERSION
-    || value.offset_encoding !== 'utf-16' || (value.data_notes_version !== 1 && value.data_notes_version !== 2 && value.data_notes_version !== 3)
+    || value.offset_encoding !== 'utf-16'
+    || (value.data_notes_version !== 1 && value.data_notes_version !== 2 && value.data_notes_version !== 3)
     || !text(value.snapshot_id) || value.snapshot_id !== completion.snapshot_id
     || !dataset || value.snapshot_id !== dataset.snapshot_id || !Array.isArray(value.evidence)) return invalid()
   if (completion.citations.some((citation) => !record(citation)
