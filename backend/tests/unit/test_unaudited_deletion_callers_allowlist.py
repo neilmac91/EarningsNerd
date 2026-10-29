@@ -34,9 +34,11 @@ counts to the reviewed allowlist below, so a new one fails until it is reviewed 
 The walk is ``test_replaced_by_id_writers_allowlist.py``'s (``_scanned_files``): the whole repository but the browser
 app, the test homes and nested checkouts. Out of reach, stated so nothing is overclaimed (the Python forms each planted
 in ``PLANTED_GAPS``): a name built at run time (``'delete_' + 'user'``); a model or table chosen at run time
-(``getattr(models, name)``, ``delete(target.model)``); a row, model or query reached through a parameter, an attribute,
-an item or a helper's return (``def drop(db, account): db.delete(account)``, ``db.delete(request.state.user)``,
-``def purge(db, model=User)``), unless the module binds that name to one elsewhere, or bound in another module; SQL
+(``getattr(models, name)``, ``delete(target.model)``); a row, model or query reached through a parameter
+(``def drop(db, account): db.delete(account)``, ``def purge(db, model=User)``), unless the module binds that name to
+one elsewhere, through an attribute or an item (``db.delete(request.state.user)``, ``db.delete(users[0])``; an
+attribute of a row, ``user.subscription``, is a child row, not the account), through a helper's return, or bound in
+another module; SQL
 assembled from non-literals (``"DELETE FROM " + table``) or with ``%``, ``.format`` or ``str.join``; SQL quoted in
 Markdown, which is read, not run; and a caller in a folder named ``tests`` outside the test homes
 (``backend/app/tests/``), which the shared walk skips.
@@ -54,8 +56,9 @@ TABLE = "users"
 
 # File -> references to the unaudited deletion and deletes of users rows. Each one is reviewed.
 ALLOWED_REFERENCES = {
-    # delete_account's and delete_user's own calls of the shared lock-and-cascade step, and that step's own
-    # delete of the locked row (``db.delete(db.get(User, user_id))``).
+    # delete_account's and delete_user's own calls of the delete step they share, run under the lock they each take
+    # first (``_delete_locked_account``), and that step's own delete of the locked row
+    # (``db.delete(db.get(User, user_id))``).
     "backend/app/services/user_account_service.py": 3,
     # The verifier's own fixture accounts, created and removed by the verification run (its import and its call).
     "ops/feedback_media/verify_runtime.py": 2,
@@ -171,17 +174,14 @@ class _Names:
         return False
 
     def lookup(self, node: ast.AST) -> bool:
-        """A lookup of the model: a chain holding ``query(User ...)``, ``get(User, ...)``, ``select(User)`` or the
-        like, or starting from a name bound to one (``q.filter(...)``)."""
-        while True:
-            if isinstance(node, ast.Call):
-                if _name(node.func) in _LOOKUPS and any(self.model(arg) or self.lookup(arg) for arg in node.args):
-                    return True  # query(User), get(User, id), select(User), scalar(select(User)), execute(stmt)
-                node = node.func
-            elif isinstance(node, ast.Attribute):
-                node = node.value
-            else:
-                return isinstance(node, ast.Name) and node.id in self.lookups
+        """A lookup of the model: a method chain holding ``query(User ...)``, ``get(User, ...)``, ``select(User)`` or the
+        like, or starting from a name bound to one (``q.filter(...)``). The chain is followed through its calls only:
+        an attribute of a row (``user.subscription``, ``user.id``) is not the row."""
+        while isinstance(node, ast.Call):
+            if _name(node.func) in _LOOKUPS and any(self.model(arg) or self.lookup(arg) for arg in node.args):
+                return True  # query(User), get(User, id), select(User), scalar(select(User)), execute(stmt)
+            node = node.func.value if isinstance(node.func, ast.Attribute) else node.func
+        return isinstance(node, ast.Name) and node.id in self.lookups
 
     def _delete_reference(self, node: ast.AST) -> bool:
         return (isinstance(node, ast.Name) and node.id in self.deletes) or (
@@ -315,6 +315,9 @@ PLANTED_LOOK_ALIKES = {
     "a row on an attribute, then another attribute deleted": (
         "def a(self, db):\n    self.user = db.get(User, 1)\n"
         "def b(self):\n    self.storage.delete(self.key)\n"),
+    "a child row of a looked-up account": "user = db.get(User, 1)\ndb.delete(user.subscription)\n",
+    "a child row's own lookup": "user = db.get(User, 1)\ndb.delete(db.get(NotificationPreference, user.id))\n",
+    "the account's tokens in a loop": "user = db.get(User, 1)\nfor token in user.refresh_tokens:\n    db.delete(token)\n",
     "prose that says truncate, then users": "logger.warning('Refusing to truncate the export for %d users', n)\n",
     "prose that says drop table, then users": "msg = 'cannot drop table rows owned by users'\n",
     "a truncate of another table, then users": "db.execute(text('TRUNCATE companies; SELECT * FROM users'))\n",
@@ -332,6 +335,9 @@ PLANTED_GAPS = {
     "a model got by name": "db.execute(delete(getattr(models, 'User')))\n",
     "a row on an attribute": "db.delete(request.state.user)\n",
     "a row from a helper": "db.delete(_find_account(db, 1))\n",
+    "a row by item": "users = db.query(User).all()\ndb.delete(users[0])\n",
+    "a model bound in another module": "from app.services.accounts import ACCOUNT_MODEL\ndb.execute(delete(ACCOUNT_MODEL))\n",
+    "a table chosen by a run-time name": "db.execute(Base.metadata.tables[name].delete())\n",
 }
 
 
