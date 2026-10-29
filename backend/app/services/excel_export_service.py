@@ -75,9 +75,10 @@ _FOOTNOTE_FONT = Font(color=PALETTE["ink_tertiary"].lstrip("#"), size=9)
 _HAIRLINE = Side(style="thin", color=PALETTE["border"].lstrip("#"))
 _CELL_BORDER = Border(left=_HAIRLINE, right=_HAIRLINE, top=_HAIRLINE, bottom=_HAIRLINE)
 
-# The three line panels from TrendCharts.tsx (the bar panel is built separately — its top-line
-# concept is dataset-dependent). Panels whose concepts are all absent are skipped, mirroring the
-# frontend's collapsing panels (a bank has no gross margin).
+# The workbook's three line panels (the bar panel is built separately — its top-line concept is
+# dataset-dependent). A panel whose concepts are all absent is skipped, since a sheet has no empty
+# chart to show (a bank has no gross margin). The page's chart model keeps every card instead: a
+# chart that does not apply says why at full height (TrendChartsV2.tsx, the charts spec's §3.4).
 _LINE_PANELS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "Margins",
