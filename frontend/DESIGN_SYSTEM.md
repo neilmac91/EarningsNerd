@@ -29,7 +29,7 @@ companion to `DESIGN.md`, not a replacement for the components or the checks bel
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints); on the analysis figure surfaces alone, change text takes `gain.data #166534` / `loss.data #B91C1C` through `dataDirectionText` (§4 Delta text) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy); on the figure surfaces `gain.data-dark #B6E4CE` / `loss.data-dark #FECDD3` | Money/% direction only — never brand |
 | **Figure surface** | `well-light #FCFCFD` (the metrics table's figure sheet) · `rule-light #D9DCE1` / `rule-strong-light #B5BAC2` (its row hairlines and outline / a hovered row's two rules) · `figure-light #1A1A17` (values, metric names) · `note-light #636A77` (note letters, the missing-value dash) | `well-dark #0B1120` · `rule-dark #545E6D` / `rule-strong-dark #768090` · `figure-dark #EAECEF` · `note-dark #D1D5DB` (the same, and a flat change) | The analysis figure surfaces only (MetricsTable's sheet, KpiStrip), each pair at its APCA tier (below); drawn nowhere else (gate: `tests/unit/figureSurfaceInks.spec.ts`) |
 | **Overlay** | `overlay` rgba(11,17,32,0.55) | same | The ONE modal/sheet scrim (`bg-overlay`, v3) — replaces every `bg-slate-950/60` / `bg-black/50` hand-roll |
-| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy); the trend charts' spec renderer pairs them with lighter dark halves of its own (`chart.s1…s6`, APCA Lc ≥ 45 on the dark card; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
+| **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | `chart-1-dark..6-dark`: `#62B2A6` · `#D3A55C` · `#8CA6E3` · `#E8927C` · `#97A6C2` · `#AFA2DE`, lighter halves for the dark card (APCA Lc ≥ 45 there, where the light hexes measure −30 to −37; §10) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
 **Legacy / banned as brand:** `mint-*`, `emerald-*`, `primary-*` (back-compat **alias for mint**),
 `green/blue/sky/teal/cyan/indigo-*` as a primary color, and `shadow-glow-mint*`. The old chart hexes
@@ -62,12 +62,13 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 `-light` token, or on a token beside a `<name>-dark` (`brand-weak`, `gain`), needs a `dark:` colour class
 on the same property under the same variants, in the same class list. A twin under a condition, or one
 that is itself a light token, does not count, and a stylesheet rule block's `@apply` lines are one list.
-Tokens with no dark sibling (the chart palette, `overlay`, and the `-text` and `-emphasis` inks) are not
-read. Its residue is listed per file and class, with a cap equal to it, and every file under the scanned
-directories is read or listed as holding no class list. The same gate refuses the other half bare: a
-colour class on a `-dark` token with no `dark:` variant paints the dark theme's colour in the light theme
-(a stylesheet block whose every selector names `.dark` is the dark theme's), except on a surface dark in
-both themes on purpose, listed in its own residue (the logos' forced-dark mode, the debug payload panel).
+Tokens with no dark sibling (`overlay`, and the `-text` and `-emphasis` inks) are not read; the chart
+palette's `chart-1..6` are light halves since E195's token fold gave them `-dark` siblings. Its residue is listed per
+file and class, with a cap equal to it, and every file under the scanned directories is read or listed as holding no
+class list. The same gate refuses the other half bare: a colour class on a `-dark` token with no `dark:` variant
+paints the dark theme's colour in the light theme (a stylesheet block whose every selector names `.dark` is the dark
+theme's), except on a surface dark in both themes on purpose, listed in its own residue (the logos' forced-dark mode,
+the debug payload panel).
 
 - **A state's colour pairs too, and a bare one is not harmless.** The brand tint's states take the dark
   tokens the §1 table pairs with them: a hover hairline `hover:border-brand-border
@@ -2796,20 +2797,28 @@ native hover titles as the only way to inspect provenance. Dense quarterly chart
 period label inside a keyboard-accessible horizontal viewport; minimum plot width follows the
 period count and axis space, so a narrow screen never overlaps labels or widens the page.
 
-Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue↔yellow axis
-alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
-labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
+Series colors come from **`chart-1..6`**, with **`chart-1-dark..6-dark`** in dark through `seriesColor(i, dark)`
+(E195's token fold: the light hexes measure APCA Lc −30 to −37 on the dark card, under a data mark's 45) — a
+CVD-validated **sequence** (blue↔yellow axis alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5
+series add direct labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
 (direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
-`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme`
-carries the gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid, axis, labels,
-crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
-`useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
-chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark`
-`#9CA3AF`, the tertiary dark ink, chrome kept quieter than the secondary ink. The tooltip's series names
-follow secondary, `#D1D5DB` in dark, and its values primary: `chartTheme` carries them as `nameInk`
-(`text.secondary`) and `valueInk` (`text.primary`), and `tests/unit/chartThemeTokens.spec.ts` holds every
-`chartTheme` ink to the tailwind token it copies, per theme. The chart export's secondary ink
-(`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`; `chartTheme` carries the
+gain and loss inks (`gain`/`loss` marks, `gainText`/`lossText` labels). Chart chrome (grid and baseline, labels,
+crosshair, tooltip) uses the `chart.grid/label/crosshair/ref/tip` sub-tokens — theme-aware via
+`useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less chart unit tests).
+Gridlines are `chart.grid`, `#DCD9D0` / `#525C6B`, Lc 16.8 / −15.0 on the card: visible enough to read a value
+across, quieter than the zero rule (the hairline they replaced measured Lc 0). The Recharts baseline takes
+`chart.grid` too: Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, and in
+the hairline `#E5E7EB` (Lc 8.8 on the light card) the light baseline would have been the quietest rule
+(`chartThemeTokens.spec.ts`). The landing page's revenue bars draw their tick rules in `chart.grid` too, Lc 19.9 /
+−16.8 on their card, where the hairline `chart.axis` measured 11.8 / 0.0 (under APCA's low clip in dark): they are
+the homepage's gridlines, and `chart.axis` is retired (chief design on #1771; `chartThemeTokens.spec.ts`). Axis
+labels: 11–12px data face + tabular-nums; dark labels use `chart.label.dark` `#B8BEC7`, Lc −63.6 on the dark card, a
+step above the tertiary dark ink `#9CA3AF` (−48.6, under the 60 that 11–12px text needs), chrome still quieter than
+the secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dark, and its values primary:
+`chartTheme` carries them as `nameInk` (`text.secondary`) and `valueInk` (`text.primary`), and
+`tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
+chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
 `tests/unit/chart-export.spec.ts`.
 Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
 left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
@@ -2830,14 +2839,19 @@ formats round as the metrics table rounds, half away from zero on the decimal; t
 **The analysis trend charts' spec renderer** (`docs/design/analysis-trend-charts-spec-2026-10.md`; in production
 since E195, D-064) draws those four charts, and only those: filing fundamentals and peers stay on Recharts. It paints the
 engine's plan in literal SVG attributes from `features/analysis/lib/charts/theme.ts`, the spec's §3.8 tokens for
-both themes. They mirror Tailwind's `chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline` and `chart.review`
-pairs and the text and surface tokens: pairs of their own, whose light halves equal `chart-1…6`, `text-tertiary`,
-`text-secondary` and `warning` (the gridline's is new), so no other chart takes their dark halves until E195's token fold.
-The raw-colour lint rule exempts that file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config and
-keeps the pairs' own hexes out of every other mirror, `tests/unit/chart-theme.spec.ts` holds each field to the spec's
-table and its own token and keeps the pairs out of every class, and `tests/unit/chart-apca.spec.ts` holds each ink to
-the spec's APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under
-the column wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
+both themes. Since E195's token fold they name app tokens: the series `chart-1..6` and `chart-1-dark..6-dark` and the
+grid `chart.grid`, which the Recharts charts and the landing page's revenue bars take too (the peers chart draws no
+grid); the zero rule `chart.ref`; the ticks and the card's notes `text.tertiary` in light and `chart.label.dark` in
+dark (the Recharts ticks take `chart.label`, the flat `#6B7280` in light); and the printed values `text.secondary` in
+light and the figure ink `text.primary` in dark (D-063). The dark notes (the subtitle, the footnotes, and the band's
+and the tooltip's letters) keep `chart.label.dark` rather than the figure surfaces' `note-dark` `#D1D5DB`: they take
+the tertiary step, as light's notes do, and `note-dark` is dark's secondary, the legend names' ink. So in dark a
+note's letter reads `#D1D5DB` in the table and `#B8BEC7` in a chart's band, where light gives both `#636A77`.
+The review ink is retired: since D-061 no letter takes it. The raw-colour lint rule exempts that
+file; `tests/unit/designTokenParity.spec.ts` holds its hexes to the config, `tests/unit/chart-theme.spec.ts` holds
+each field to the spec's table and its own token, and `tests/unit/chart-apca.spec.ts` holds each ink to the spec's
+APCA floor (marks and the zero rule 45, text 60, printed values 75, gridlines 10–25) on the card and under the column
+wash. The card's subtitle, legend and footnotes take the same inks inline, and its PNG's header and notes
 take the legend's, so the plot, the card and the image read one source. Its text renders with geometric
 precision, so full font hinting cannot snap Geist Mono's 6.6 px advance to 7 px. Its plots paint once Geist Mono's
 latin and latin-ext faces are in, or 1,500 ms pass (G4): `TrendChartsV2.tsx` loads and checks `11px "Geist Mono"` with

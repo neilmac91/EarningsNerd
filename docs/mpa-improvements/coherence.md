@@ -574,8 +574,8 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
 - **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
-  chart, and its CI job and token fold remain as E195's follow-ups. Step 6's remainder, the notes
-  band on this report's rule (below), landed with E194 on 2026-10-26.
+  chart; its token fold landed with E195 (C), and its CI job remains a follow-up, E195 (G).
+  Step 6's remainder, the notes band on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
   value (unavailable notes included, so "every missing point has a letter"), † for a partly

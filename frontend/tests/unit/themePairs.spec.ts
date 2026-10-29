@@ -20,8 +20,9 @@ import { describe, expect, it } from 'vitest'
  * `hover:bg-brand-weak`'s row, and `dark:bg-brand-dark/15` twins `bg-brand-strong/10`), but it must be a
  * colour that is not itself a light half: a dark token, white, black, transparent, current, a palette step
  * or an arbitrary colour. `dark:text-sm`, `dark:border-0`, `dark:bg-none` or `dark:bg-error-light` is not a
- * twin. Tokens the config gives no dark sibling (the chart palette and overlay, one value in both themes,
- * and `brand-emphasis`, `gain-text`, `loss-text`, `info-text`, `error-emphasis`) are not read.
+ * twin. Tokens the config gives no dark sibling (the overlay, one value in both themes, and
+ * `brand-emphasis`, `gain-text`, `loss-text`, `info-text`, `error-emphasis`) are not read; the chart palette's
+ * `chart-1…6` are light halves since E195's token fold gave them `chart-1-dark…6-dark`.
  *
  * The other half: a colour class on a dark half (every token the config names `-dark`, beside a `-light` or
  * suffixless sibling or not: `brand-fill-dark`, the dark theme's pressed fill, has neither) with no `dark:`
@@ -496,10 +497,10 @@ describe('every theme token is a light/dark pair: a light half has its dark: twi
     // Every token the app pairs is a colour this scan knows, so no twin is refused for a name it lacks.
     expect(['error-light', 'text-secondary-light', 'border-light', 'brand-weak', 'white', 'red-700'].filter((v) => !isColour(v))).toEqual([])
     // The light halves come from the config, the suffixless pairs included.
-    expect(['error-light', 'border-light', 'brand', 'brand-strong', 'brand-weak', 'brand-border', 'gain', 'loss-soft'].filter((v) => !isLightHalf(v))).toEqual([])
-    expect(['brand-dark', 'brand-weak-dark', 'white', 'chart-1', 'brand-emphasis'].filter(isLightHalf)).toEqual([])
+    expect(['error-light', 'border-light', 'brand', 'brand-strong', 'brand-weak', 'brand-border', 'gain', 'loss-soft', 'chart-1'].filter((v) => !isLightHalf(v))).toEqual([])
+    expect(['brand-dark', 'brand-weak-dark', 'white', 'chart-1-dark', 'brand-emphasis'].filter(isLightHalf)).toEqual([])
     // And the dark halves, which a class outside `dark:` must not name.
-    expect(['background-dark', 'brand-dark', 'brand-weak-dark', 'text-primary-dark', 'warning-dark', 'brand-fill-dark'].filter((v) => !isDarkHalf(v))).toEqual([])
+    expect(['background-dark', 'brand-dark', 'brand-weak-dark', 'text-primary-dark', 'warning-dark', 'brand-fill-dark', 'chart-1-dark'].filter((v) => !isDarkHalf(v))).toEqual([])
     expect(['background-light', 'brand', 'white', 'black', 'chart-1', 'brand-emphasis'].filter(isDarkHalf)).toEqual([])
   })
 
