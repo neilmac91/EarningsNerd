@@ -877,3 +877,63 @@ test.describe('the header and the hero keep their place as registration readines
     })
   }
 })
+
+/**
+ * The hero's checking line takes no more rows than the invite line at any width (E224, chief design's option (3) on
+ * #1686, comment 6434019340), so once readiness answers open the invite line fills the cell the two share and leaves no
+ * empty rows under it. The full sentence it replaced, "Checking registration availability. You can explore a live
+ * example.", took a row more from 320 to 460px, and under 200% text one to three rows more (40 to 120px) at most widths
+ * up to 1848px, in CI's fonts. With readiness held, the case reads the rows of each line's text in the hero's cell (its
+ * line boxes, not its cells, which stretch to the tallest) at every 8px across the band where the old line took more at
+ * the narrowest widths, then every 16px on to 1440px, or 1856px under 200% text.
+ */
+const steps = (from: number, to: number, step: number) => Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, i) => from + i * step)
+const ROW_WIDTHS = {
+  default: [...steps(320, 464, 8), ...steps(480, 1440, 16)],
+  doubled: [...steps(320, 480, 8), ...steps(496, 1856, 16)],
+}
+
+test.describe("the hero's checking line takes no more rows than the invite line (E224)", () => {
+  for (const doubled of [false, true]) {
+    test(`at every width read${doubled ? ', under 200% text' : ''}`, async ({ page, baseURL }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem('theme', 'light')
+        localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
+      })
+      // Readiness stays held, so the cell shows the checking line and holds the invite line; both keep their layout.
+      await answerHeld(page, baseURL!, 'guest', 'readiness')
+      await page.setViewportSize({ width: 320, height: 900 })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto('/')
+      const checking = publicAccessCopy('invite', null, true).line
+      const invite = ACCESS_COPY.invite.line
+      await expect(page.locator('main').getByText(checking, { exact: true })).toBeVisible()
+      if (doubled) await doubleText(page)
+      const taller: string[] = []
+      for (const width of doubled ? ROW_WIDTHS.doubled : ROW_WIDTHS.default) {
+        await page.setViewportSize({ width, height: 900 })
+        await settle(page)
+        const rows = await page.evaluate(
+          ({ checking, invite }) => {
+            const line = [...document.querySelectorAll('main p')].find((p) => p.textContent!.includes(checking))
+            if (!line) throw new Error(`no paragraph in main carries the checking line ("${checking}")`)
+            const lineHeight = parseFloat(getComputedStyle(line).lineHeight)
+            // A line box's text fragments share its top; a new row starts more than half a line below the last.
+            const rowsOf = (text: string) => {
+              const cell = [...line.children].find((child) => child.textContent === text)
+              if (!cell) throw new Error(`the hero's access line holds no "${text}"`)
+              const range = document.createRange()
+              range.selectNodeContents(cell)
+              const tops = [...range.getClientRects()].map((rect) => rect.top).sort((a, b) => a - b)
+              return tops.filter((top, i) => i === 0 || top - tops[i - 1] > lineHeight / 2).length
+            }
+            return { checking: rowsOf(checking), invite: rowsOf(invite) }
+          },
+          { checking, invite },
+        )
+        if (rows.checking > rows.invite) taller.push(`${width}px: ${rows.checking} rows, the invite line ${rows.invite}`)
+      }
+      expect(taller, 'the widths where the checking line takes more rows than the invite line').toEqual([])
+    })
+  }
+})

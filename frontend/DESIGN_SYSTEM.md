@@ -2590,19 +2590,27 @@ a line that says what the feed is and nothing the backend's query does not do; n
 registration readiness answers open (E220). The lines it holds (`heldAccessLines`: the checking line it opens on and
 the access mode's own) share one grid cell, the shown one visible and the rest `invisible` and `aria-hidden`, so the
 page under it holds still: as the checking line became the invite line, the page moved up 20px from 320 to 460px and
-40 to 120px under 200% text (120px at 320px; measured in the site's Inter web font, as CI paints it). Where the
-checking line takes more rows than the mode's, the settled line sits over the rows it leaves, the same 20px, or 40
-to 120px; chief design chose that over the shift on #1686. A space between the cells keeps the lines apart in the
-server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it: the closed line
-takes a row more than the checking line at some widths, and holding it would put a closed notice in every visit's
-server HTML. Gates: `tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's
-and a scrolled page's place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 370, 450, 640, 1440 and
-2304px under 200% text) and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed
-answers, and the lines it holds).
+40 to 120px under 200% text (120px at 320px; measured in the site's Inter web font, as CI paints it). The checking
+line, "Checking registration…", takes no more rows than the invite line at any width, so the settled line fills the
+cell (E224, chief design's option (3) on #1686): the full sentence it replaced, "Checking registration availability.
+You can explore a live example.", took more rows than the invite line from 320 to 460px and at most widths up to
+1848px under 200% text, and the settled line sat over the rows it left, the same 20px, or 40 to 120px. The button
+above the line offers the live example the sentence's second half named. A space between the cells keeps the lines
+apart in the server HTML's text. A closed or unconfirmed answer joins the cell when shown and can still grow it, since
+those lines are longer: a closed answer moves the page 20px from 320 to 480px and at 1024px, and under 200% text 40
+or 80px up to 1928px; an unconfirmed one 20 or 40px up to 612px and from 1024 to 1440px, and under 200% text 40 to
+120px up to 2416px. Holding them would put a closed notice in every visit's server HTML. Gates:
+`tests/e2e/header-covers-nothing.spec.ts` (the readiness case: the line's height, the header's and a scrolled page's
+place as readiness answers, at 320, 390, 1152 and 1440px and at 320, 370, 450, 640, 1440 and 2304px under 200% text;
+and the rows case: the checking line takes no more rows than the invite line at every 8px from 320 to 464px and every
+16px to 1440px, and under 200% text at every 8px from 320 to 480px and every 16px to 1856px) and
+`tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers, and the lines it
+holds).
 
 **The waitlist page's status** (`WaitlistAccessStatus`, above the waitlist form) holds the same way (E222, chief
-design on #1686, comment 6433704320). The checking line and the counter's pill as it opens (`WaitlistPill` on
-`PILL_LABEL`) share one grid cell, the shown one visible and the other `invisible` and `aria-hidden`, and
+design on #1686, comment 6433704320). Its own checking sentence (`CHECKING_STATUS`, "Checking registration
+availability. You can explore a live example.", the full sentence the hero's line gave up in E224) and the counter's
+pill as it opens (`WaitlistPill` on `PILL_LABEL`) share one grid cell, the shown one visible and the other `invisible` and `aria-hidden`, and
 `items-center` keeps the shown one central where the other is taller. As the line became the pill, the form under it
 moved 2px up from 320 to 460px and 18px down from 470 to 1440px, and under 200% text 6 to 86px up, or 34px down from
 900 to 1000px and from 1760px (in CI's fonts, every 10px at the default size and every 20 to 40px under 200% text).
@@ -2613,8 +2621,9 @@ joins the cell when shown and can still grow it. A count of 25 or more takes a l
 its height, "Join 1,234+ others" (E225, chief design on #1699): "Join 1,234+ others on the waitlist" wrapped under
 200% text where "Join the waitlist" did not, and the cell grew 34px as the count landed at 360, 480 to 560 and 1040
 to 1160px, and at 1200px with 12,345+. The new label is still a character longer than the opening one and takes a
-line more at about 330 to 390px under 200% text; there the checking line is taller still, so the cell holds (chief
-design on #1709). Gates: `tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre
+line more at about 330 to 390px under 200% text; there the checking sentence is taller still, so the cell holds (chief
+design on #1709). The hero's shorter line would not be: in this cell a landing count would grow the status 34 to 40px
+from 328 to 392px under 200% text (E224's measure), so the status keeps the sentence. Gates: `tests/e2e/legal-readiness.spec.ts` (the form's place and the shown item's centre
 as readiness answers open, at 390 and 1440px and at 320, 390, 640, 960, 1440 and 1800px under 200% text; the form's
 place as a count lands, at 360, 480, 520, 560, 1040, 1100, 1160 and 1200px under 200% text and at 390 and 1440px)
 and `tests/unit/publicAccess.spec.tsx` (the cell through checking, open, closed and unconfirmed answers).

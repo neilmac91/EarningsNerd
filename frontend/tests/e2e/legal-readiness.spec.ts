@@ -191,7 +191,7 @@ test.describe('Public access promises', () => {
         const pending = deferred<Answer>()
         state.respond = () => pending.promise
         await page.goto('/')
-        await expect(page.getByText('Checking registration availability. You can explore a live example.')).toBeVisible()
+        await expect(page.getByText('Checking registration…', { exact: true })).toBeVisible()
         await expect(page.getByRole('link', { name: /Request.*invite|Create a free account|Sign up|Join the waitlist/i })).toHaveCount(0)
         pending.resolve(answer(CLOSED))
         await expect(page.getByText('New registrations are currently closed. Existing members can log in.')).toBeVisible()
