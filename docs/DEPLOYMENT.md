@@ -275,7 +275,7 @@ says only the session's settings and how the count ended. The artifact is not pr
 public repository any signed-in GitHub user can download it while it is kept. The report holds
 counts only; `stderr.txt` holds error output, kept beside the counts and never in the log: a count
 that raises leaves its traceback there, and a failed query's can carry the query's SQL text and
-parameters, the cohort's summary ids among them (a failed connection carries neither).
+parameters, the cohort's summary ids among them (one that cannot connect carries neither).
 The script exits 1, failing the run, when a summary could not be read, so a partial count never
 reads as a whole one; ids the range names but no summary holds are its ordinary gaps, counted as
 `missing`. A run stopped before the count step (a refused cohort, the pre-flight, the sign-in, the

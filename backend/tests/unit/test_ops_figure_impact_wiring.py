@@ -11,21 +11,24 @@ whole, and no shared step a dispatch runs may carry `always()`; none of them may
 workflow but the count names the script, and outside a condition no step of any workflow but the resolve step, the
 validation, the count and the upload names the receipt's folder.
 
-The count step is run here as GitHub runs it, for two cohorts, in its working directory under an empty one, with no
-stdin, the proxy step's exports, the step's own env (its cohort ids the run's) kept off every other name the run sets,
-and a PATH that holds only `mkdir` and stand-ins for `psql`, the script and `gcloud`; any other command it names is
-recorded by bash's `command_not_found_handle`, which the step cannot redefine, even one whose failure it hides or a
-child bash runs; the run fails unless the step's own bash loaded that handler, or if the step's text opens a connection
-of bash's own (`/dev/tcp`, `/dev/udp`), which no stand-in would see, and a host whose bash predates 4.0 and the handler
-(a Mac's own /bin/bash) skips the runs. Each `psql` session and the script's call are recorded with each PG* variable
-and the DATABASE_URL they see, which must be the proxy step's exports and the step's PGOPTIONS, nothing else. Whatever a
-stand-in prints, but the read-back's line, which the step prints to its log, lands in the receipt and nowhere this test
-reads, each session's and the script's error output in order in `stderr.txt`: the step's stdout carries the read-back's
-line, when the session started, and one line of its own, whose one variable part is a failed count's exit code, its
-stderr nothing, and the run's summary, outputs and environment nothing. A session that cannot start, or whose read-back
-is not the step's, stops it before the script, as does a failed read of the summaries' range, and a failed count fails
-it with the script's own exit code. The last step keeps whatever the count step wrote; a run stopped before that step
-has nothing to keep, and the upload then warns.
+The count step is run here as GitHub runs it, for two cohorts, in its working directory, holding only copies of the
+script and of the `app/` it imports, under an otherwise empty one, in which the step must leave no file outside its
+receipt folder added, removed or changed, with no stdin, a HOME as the runner exports one, the proxy step's exports, the
+step's own env (its cohort ids the run's) kept off every other name the run sets, and a PATH that holds only `mkdir` and
+stand-ins for `psql`, the script and `gcloud` (bash scripts that import no function and read no BASH_ENV); any other
+command it names is recorded by bash's `command_not_found_handle`, which the step cannot redefine, even one whose
+failure it hides or a child bash runs; the run fails unless the step's own bash loaded that handler, or if the step's
+text, read without its quotes and backslashes, names `/dev/tcp` or `/dev/udp`, a connection bash opens itself, which no
+stand-in would see, and a host whose bash predates 4.0 and the handler (a Mac's own /bin/bash) skips the runs. Each
+`psql` session and the script's call are recorded with each PG* variable they see, the DATABASE_URL in any letter case
+(the backend's settings read it so), HOME, and any PYTHON* or LD_* variable, which must be the proxy step's exports, the
+step's PGOPTIONS and that HOME, nothing else. Whatever a stand-in prints, but the read-back's line, which the step
+prints to its log, lands in the receipt and nowhere this test reads, each session's and the script's error output in
+order in `stderr.txt`: the step's stdout carries the read-back's line, when the session started, and one line of its
+own, whose one variable part is a failed count's exit code, its stderr nothing, and the run's summary, outputs and
+environment nothing. A session that cannot start, or whose read-back is not the step's, stops it before the script, as
+does a failed read of the summaries' range, and a failed count fails it with the script's own exit code. The last step
+keeps whatever the count step wrote; a run stopped before that step has nothing to keep, and the upload then warns.
 
 The receipt is the run's artifact, which any signed-in GitHub user can download while it is kept (this repository is
 public). That the script's report holds counts only is its own tests' to hold; `stderr.txt` holds the reads' and the
@@ -35,9 +38,9 @@ script, the SEC budgets, and the PGOPTIONS-only session settings, whose scripts 
 test_migration_lock_safety.py (the lock and statement bounds) and test_workflow_dispatch_inputs.py (no input
 interpolated into a script). Review-checked, not gated: the script reached through a name or a path the step's text does
 not spell (a variable, a glob), a command the step runs by an absolute path (or one a variable holds), by `exec`, by
-`command -p` or on a PATH it sets itself, a connection of bash's own whose path its text does not spell (a variable
-naming `/dev/tcp`), a file the step sources, and the receipt's folder reached by a glob, a variable or a quoted
-spelling.
+`command -p` or on a PATH it sets itself, a connection of bash's own whose `/dev/tcp` or `/dev/udp` its text does not
+hold whole, a file the step sources, a file it writes outside the checkout (an installed module the script imports), and
+the receipt's folder reached by a glob, a variable or a quoted spelling.
 """
 import ast
 import json
@@ -80,9 +83,10 @@ POPULATION = "SELECT min(id), max(id), count(*) FROM summaries"
 PROXY_URL = "postgresql://ops:placeholder@127.0.0.1:5432/earningsnerd"
 PROXY_ENV = {"PGHOST": "127.0.0.1", "PGPORT": "5432", "PGDATABASE": "earningsnerd", "PGUSER": "ops",
              "PGPASSWORD": "placeholder", "DATABASE_URL": PROXY_URL}
-# Every PG* variable and the DATABASE_URL each session and the script see: those and the step's guards, nothing
-# else (a PGHOSTADDR or a PGSERVICE would reach another server).
-SEEN = {**PROXY_ENV, "PGOPTIONS": PGOPTIONS}
+HOME = "/home/runner"  # the runner exports a HOME, so the sandbox does: an assignment to it reaches what runs
+# Every recorded variable each session and the script see: the proxy step's exports, the step's guards and that
+# HOME, nothing else (a PGHOSTADDR or a PGSERVICE can reach another server).
+SEEN = {**PROXY_ENV, "PGOPTIONS": PGOPTIONS, "HOME": HOME}
 SAVED = "Figure-check impact counts saved to figure-impact/impact.json (the run's artifact).\n"
 FAILED = "::error::The count failed (exit {}); its report and stderr are in the run's artifact, figure-impact/.\n"
 NO_RANGE = "::error::The summaries' range could not be read; see figure-impact/stderr.txt in the run's artifact.\n"
@@ -125,13 +129,16 @@ def _steps_run(steps=STEPS):
 
 
 def _record(tool: str) -> str:
-    """A stand-in's record of its call: its arguments, then each PG* variable and DATABASE_URL it was given."""
-    return ('{ printf "%s\\n" "$@"; echo ==; for name in $(compgen -e); do case $name in PG*|DATABASE_URL) '
+    """A stand-in's record of its call: its arguments, then each PG* variable it was given, DATABASE_URL in any
+    letter case (the backend's settings read it so), HOME (python's user site follows it), and any PYTHON* or LD_*
+    variable."""
+    return ('{ printf "%s\\n" "$@"; echo ==; for name in $(compgen -e); do case $name in '
+            'PG*|[Dd][Aa][Tt][Aa][Bb][Aa][Ss][Ee]_[Uu][Rr][Ll]|HOME|PYTHON*|LD_*) '
             'printf "%s=%s\\n" "$name" "${!name}" ;; esac; done; echo --; } >> "$RECORDS/' + tool + '"\n')
 
 
 def _calls(records, tool) -> list[tuple[list[str], dict[str, str]]]:
-    """Each call a stand-in recorded: its arguments, and each PG* variable and DATABASE_URL it saw."""
+    """Each call a stand-in recorded: its arguments, and each variable of those `_record` names that it saw."""
     path = records / tool
     calls = []
     for call in path.read_text().split("\n--\n") if path.exists() else []:
@@ -142,10 +149,15 @@ def _calls(records, tool) -> list[tuple[list[str], dict[str, str]]]:
     return calls
 
 
+def _files(root) -> dict[str, bytes]:
+    """Every file under root, by its path from root, with its bytes."""
+    return {path.relative_to(root).as_posix(): path.read_bytes() for path in root.rglob("*") if path.is_file()}
+
+
 def _run_count(tmp_path, readback=EXPECTED, exit_code=0, psql_exit=0, range_exit=0, first="1", last="5000"):
     """The count step's own script, run as GitHub runs it (`bash -e`, with the step's env, the cohort `first` to `last`
     and the proxy step's exports) in its working directory, with a PATH that holds only `mkdir` and the stand-ins.
-    `psql` records each session with each PG* variable and DATABASE_URL it sees; for the read-back it prints
+    `psql` records each session with the variables `_record` names that it sees; for the read-back it prints
     `readback` and SENTINEL marked `read-back` on its stderr, exiting `psql_exit`, and for any other query SENTINEL
     many times and, on its stderr, SENTINEL marked `range`, exiting `range_exit`. The script records its call and the
     same variables, writes SENTINEL many times to its stdout and SENTINEL marked `script` to its stderr, and exits
@@ -153,8 +165,13 @@ def _run_count(tmp_path, readback=EXPECTED, exit_code=0, psql_exit=0, range_exit
     if BASH_MAJOR < 4:
         pytest.skip("the step's runs need bash 4.0 or later (GitHub's Ubuntu runner has 5)")
     bin_dir, records, github, work = (tmp_path / part for part in ("bin", "records", "github", "work"))
-    for directory in (bin_dir, records, github, work / "backend"):
+    for directory in (bin_dir, records, github, work / "backend/scripts"):
         directory.mkdir(parents=True)
+    # What a step could write over before running it: the script, and the modules it imports from app/.
+    shutil.copy(SCRIPT, work / "backend/scripts" / SCRIPT.name)
+    shutil.copytree(ROOT / "backend/app", work / "backend/app", ignore=shutil.ignore_patterns("__pycache__"),
+                    ignore_dangling_symlinks=True)  # an editor's lock link is no file
+    before = _files(work)
     stand_ins = {
         "psql": _record("psql") +
                 'case "$*" in *current_setting*) printf "%s\\n" "$READBACK"; printf "%s read-back\\n" "$SENTINEL" >&2\n'
@@ -166,25 +183,29 @@ def _run_count(tmp_path, readback=EXPECTED, exit_code=0, psql_exit=0, range_exit
         "gcloud": '{ printf "%s\\n" "$@"; echo --; } >> "$RECORDS/gcloud"\nexit 1\n',
     }
     for tool, body in stand_ins.items():
-        (bin_dir / tool).write_text("#!/bin/bash\n" + body)
+        # Privileged mode: a stand-in imports no function and reads no BASH_ENV, so the step cannot change its record.
+        (bin_dir / tool).write_text("#!/bin/bash -p\n" + body)
         (bin_dir / tool).chmod(0o755)
     (bin_dir / "mkdir").symlink_to(shutil.which("mkdir"))
     # Bash reads BASH_ENV before a non-interactive script: any command not on this PATH is recorded, `|| true` or not.
-    # Every bash that loads it marks its parent: the stand-ins are bash too, so the step's own mark is this test's.
-    (bin_dir / "unknown.sh").write_text('printf "%s\\n" "$PPID" >> "$RECORDS/bash-env"\n'
-                                        'command_not_found_handle() { printf "%s\\n" "$1" >> "$RECORDS/unknown"; '
-                                        'return 127; }\nreadonly -f command_not_found_handle\n'
-                                        'export -f command_not_found_handle\n')  # a child bash keeps it
+    # Every bash that loads it marks its parent (a child bash the step runs does too), so the step's own mark is
+    # this test's. It stays off the PATH.
+    handler = tmp_path / "unknown.sh"
+    handler.write_text('printf "%s\\n" "$PPID" >> "$RECORDS/bash-env"\n'
+                       'command_not_found_handle() { printf "%s\\n" "$1" >> "$RECORDS/unknown"; '
+                       'return 127; }\nreadonly -f command_not_found_handle\n'
+                       'export -f command_not_found_handle\n')  # a child bash keeps it
     files = {key: github / key.lower() for key in ("GITHUB_STEP_SUMMARY", "GITHUB_OUTPUT", "GITHUB_ENV", "GITHUB_PATH")}
     for path in files.values():
         path.touch()
     step = BY_NAME[COUNT][1]
-    # Bash opens a /dev/tcp or /dev/udp path itself, as a connection no stand-in sees.
-    assert not re.search(r"/dev/(?:tcp|udp)/", step["run"]), "the step opens a connection of bash's own"
+    # Bash opens a /dev/tcp or /dev/udp path itself, as a connection no stand-in sees; it reads past quotes.
+    assert not re.search(r"/dev/(?:tcp|udp)\b", re.sub(r"[\"'\\]", "", step["run"])), (
+        "the step opens a connection of bash's own")
     sandbox = {**{key: str(path) for key, path in files.items()}, **PROXY_ENV, "PATH": str(bin_dir),
-               "BASH_ENV": str(bin_dir / "unknown.sh"), "RECORDS": str(records), "SENTINEL": SENTINEL,
+               "BASH_ENV": str(handler), "RECORDS": str(records), "SENTINEL": SENTINEL,
                "SENTINELS": "\n".join([SENTINEL] * 50), "READBACK": readback, "EXIT_CODE": str(exit_code),
-               "PSQL_EXIT": str(psql_exit), "RANGE_EXIT": str(range_exit),
+               "PSQL_EXIT": str(psql_exit), "RANGE_EXIT": str(range_exit), "HOME": HOME,
                "SHLVL": "1"}  # past bash's sshd case, which skips BASH_ENV for a socket stdin or an SSH_CLIENT
     assert not set(step["env"]) & set(sandbox), "the step's env sets a name this run replaces"
     env = {**step["env"], **sandbox, "FROM_ID": first, "TO_ID": last}
@@ -196,6 +217,10 @@ def _run_count(tmp_path, readback=EXPECTED, exit_code=0, psql_exit=0, range_exit
     loaded = records / "bash-env"
     assert loaded.exists() and str(os.getpid()) in loaded.read_text().split(), (
         "the step's bash never loaded the unknown-command handler")
+    # It leaves no file outside its receipt folder added, removed or changed: not what it runs, which would run as
+    # left on the runner.
+    assert {path: data for path, data in _files(work).items() if not path.startswith("figure-impact/")} == before, (
+        "the step wrote outside its receipt folder")
     return result, work, github, records
 
 
@@ -315,6 +340,8 @@ def test_a_session_that_is_not_the_step_s_or_a_failed_read_fails_the_step_and_ke
     # The read-back's line, when the session started, and the step's own error line; never a count or an error.
     assert result.stdout == (printed if psql_exit else f"{readback}\n{printed}")
     assert len(_calls(records, "psql")) == sessions and (len(_calls(records, "script")) == 1) is counted
+    # Every session and the script's call, on failure too, see what the cohorts' runs see.
+    assert all(seen == SEEN for _, seen in _calls(records, "psql") + _calls(records, "script"))
     assert _holding(work) == (RECEIPT if counted else ["figure-impact/population.txt", "figure-impact/stderr.txt"]
                               if sessions == 2 else ["figure-impact/stderr.txt"])
     assert [path.name for path in github.iterdir() if path.read_text()] == []
