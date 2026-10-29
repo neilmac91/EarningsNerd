@@ -491,9 +491,16 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   its header row and its Metric and Period columns. The analysis PDF's meta line breaks between its clauses, never inside an
   instant. The workbook's header rows rest in the ink on the
   neutral ground and its labels in the ink. The tertiary ink is its token (#636A77, 4.80:1 on the masthead's tint).
-  "Sources & methods" is in sentence case wherever it is named; the data notes print a clause for
-  each count that is not zero, singular at one, and the passed count only when no figure needs
-  review; a window reads "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
+  "Sources & methods" is in sentence case wherever it is named; the data notes follow the page's fine
+  print (D-061, WP3-B): a letter only where a note questions the number, the summary line naming each
+  marked note's places and words and counting the gaps, the figures with no check recorded and the
+  calculated figures, "No figures need review" never beside a record-only note, and no dagger after a
+  figure. The PDF names the calculated metrics above its grid and sets the fine print under it, with a
+  bold "Data notes" lead and no heading, a full grid printing whole on one page with its summary line;
+  the workbook prints a marked figure's letter through its number format ('#,##0" a"'), so the cell stays
+  a number and its column widens to hold it, names a letter in a comment only where it marks and keys its
+  letters under the Metrics grid. A window reads
+  "FY2022–FY2024 · 3 periods"; an operand's fields read "Accession", "Source
   tag" and "Filed", and its concept reads as words. The masthead's mark is held to the canonical
   outlines, with no transform anywhere in either PDF's stylesheet, by
   `backend/tests/unit/test_pdf_mark_geometry.py`; every export colour value to a token in its role
@@ -512,7 +519,10 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   commands and the marks the gate's fixtures must print to one set of code points), which reads a
   stylesheet as WeasyPrint does, nested and conditional rules included; the rendered copy (no em-dash but
   the null token, no exclamation mark or emoji, the headings the exports own in sentence case, and no
-  EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the eval's blinding
+  EDGAR outside an address, in any case or inside a word) by `test_export_voice.py`; the marks to the page's
+  rule, and the fine print's count clauses, places, detail forms and checks sentence (read from `DataNotes.tsx`), the
+  calculated sentence (from `metrics-table.spec.tsx`) and the Q4 legend (from `MetricsTable.tsx`) to the page's words, by
+  `test_export_note_marks.py`; the eval's blinding
   of the generation date by a case in `test_acceptance_readiness.py` that runs it on a real export; the
   backend's hand-composed wordmarks to the PDF's and the mail's by `wordmarkSingleSource.spec.ts`; and the
   backend's company display name to the page's by one case table,

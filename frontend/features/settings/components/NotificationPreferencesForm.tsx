@@ -108,7 +108,7 @@ export default function NotificationPreferencesForm() {
     <Card className="p-cap-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filing alerts</h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-tertiary-dark" />}
+        {mutation.isPending && <CircleNotchIcon aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.

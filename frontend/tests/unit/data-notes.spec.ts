@@ -108,7 +108,7 @@ describe('server data notes admission', () => {
   })
 
   it.each([
-    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 3 }) }],
+    ['unsupported version', (wire: DataNotesWire) => { Object.assign(wire, { version: 4 }) }],
     ['fractional total', (wire: DataNotesWire) => { wire.totals.total = 1.5 }],
     ['unsafe total', (wire: DataNotesWire) => { wire.totals.total = Number.MAX_SAFE_INTEGER + 1 }],
     ['duplicate note', (wire: DataNotesWire) => { wire.notes.push(structuredClone(wire.notes[0])) }],
@@ -124,9 +124,10 @@ describe('server data notes admission', () => {
     expect(() => decodeDataNotes(wire, example.dataset)).toThrow('Invalid analysis data notes')
   })
 
-  it('decodes a version 2 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+  it('decodes a version 2 or 3 envelope as version 1: the shape is the same, and version 1 still decodes', () => {
+    // Version 3 (E211's two proxy reasons' words) decodes ahead of the server writing it, as version 2 did (#1641).
     const example = golden.cases.find((entry) => entry.citations && entry.expected_citation_notes)!
-    for (const version of [1, 2] as const) {
+    for (const version of [1, 2, 3] as const) {
       const wire = { ...structuredClone(example.expected), version }
       expect(decodeDataNotes(wire, example.dataset)).toEqual(wire)
       const report = { ...example.dataset, data_notes: wire }

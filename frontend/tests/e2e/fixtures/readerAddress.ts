@@ -12,11 +12,18 @@ export const atItsAt = (address: string) => [[address], [address.slice(0, addres
 
 export const addressFit = (scope: Locator, email: string): Promise<AddressFit> =>
   scope.evaluate((root, address): AddressFit => {
-    const holder = [...root.querySelectorAll('span, strong')].find((el) => el.textContent === address)
+    // The address's own element: a span or strong in a sentence, or a paragraph that holds it alone (/check-email,
+    // the settings page's Profile card). A paragraph that sets it in a sentence holds more text, so never matches.
+    const holder = [...root.querySelectorAll('span, strong, p')].find((el) => el.textContent === address)
     if (!holder) return { found: false, past: [], offscreen: [], pieces: [], scrolls: [], page: null }
     const paragraph = holder.closest('p')!.getBoundingClientRect()
     const doc = document.documentElement
-    const boxes = [...holder.getClientRects()]
+    // The boxes the address's text paints, a line each, read through a range over its contents: a paragraph that
+    // holds it alone has one block box, which always lies inside itself and inside its own column (the tier review
+    // on #1764). An empty box (the <wbr>) paints nothing.
+    const contents = document.createRange()
+    contents.selectNodeContents(holder)
+    const boxes = [...contents.getClientRects()].filter((r) => r.width > 0 && r.height > 0)
     const span = (r: DOMRect) => `${Math.round(r.left)}-${Math.round(r.right)}px`
     const past = boxes
       .filter((r) => r.left < paragraph.left - 0.5 || r.right > paragraph.right + 0.5)

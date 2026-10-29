@@ -56,7 +56,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // Chart factories (chartTheme/axis props/ChartTooltip) — no local hexes.
   const dark = useContext(ThemeContext)?.theme === 'dark'
   // De-emphasized peer bars: the theme's neutral grey at partial opacity keeps the
-  // subject (seriesColor(0)) unmistakably THE bar — a magnitude ranking, not deltas.
+  // subject (seriesColor(0, dark)) unmistakably THE bar — a magnitude ranking, not deltas.
   const peerFill = chartTheme(dark).flat
 
   const [metric, setMetric] = useState('revenue')
@@ -182,7 +182,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               />
               <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]} maxBarSize={28}>
                 {chartData.map((entry) => (
-                  <Cell key={entry.ticker} fill={entry.isSubject ? seriesColor(0) : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
+                  <Cell key={entry.ticker} fill={entry.isSubject ? seriesColor(0, dark) : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
                 ))}
               </Bar>
             </BarChart>
