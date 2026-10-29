@@ -14,8 +14,6 @@ class WaitlistSignup(Base):
     referred_by = Column(String(8), index=True, nullable=True)
     source = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    # Nothing writes or reads this since E46 (2) dropped the welcome mail's verification step, whose
-    # link led to no page; the column stays, as dropping one is a schema change of its own.
     email_verified = Column(Boolean, default=False, nullable=False)
     welcome_email_sent = Column(Boolean, default=False, nullable=False)
     position = Column(Integer, nullable=False)

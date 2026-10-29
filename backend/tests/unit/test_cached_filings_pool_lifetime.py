@@ -17,7 +17,7 @@ One rule, three parts in this one module:
   check; the connections list and unlink, their refusals and a failing unlink included, but for an
   unknown provider's 400, which runs no unit and leaves the auth lookup's read for the finalizer), each
   watchlist route and its refusals, each analysis route
-  and a refusal of each, the waitlist join and verification, the contact form and the feedback
+  and a refusal of each, the waitlist join, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
   saved-summary routes, the upcoming calendar, the account routes (the profile edit, the alert

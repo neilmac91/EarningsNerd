@@ -1,4 +1,4 @@
-"""Route tests for POST /api/waitlist/join (E13c), plus the stats and verify routes it feeds.
+"""Route tests for POST /api/waitlist/join (E13c), plus the stats route it feeds.
 
 Per-test in-memory SQLite, ``get_db`` overridden, both email senders monkeypatched on the router
 module (they are imported by name there). Every test uses uuid emails so no two rows can collide
@@ -20,7 +20,6 @@ from app.database import Base, get_db
 from app.models import WaitlistSignup
 from app.routers import watchlist as watchlist_router
 from app.services import turnstile, waitlist_service
-from app.services.email_service import render_welcome_email
 
 # Exercise existing collection behavior with an explicitly published synthetic operator notice.
 pytestmark = pytest.mark.usefixtures("collection_ready")
@@ -285,17 +284,14 @@ def test_join_total_signups_position_and_stats_count_existing_rows(client):
     assert stats.json() == {"total_signups": 2}
 
 
-def test_the_welcome_mail_asks_for_no_verification_and_no_route_takes_one(client, emails):
+def test_the_join_hands_the_mail_no_verification_link_and_no_route_takes_one(client, emails):
     """E46 (2): the welcome mail's verification link led to no page, and nothing read the flag it set,
-    so the step is gone: the join hands the mail no link for it, the mail asks for none, and the
-    route that took its token answers as any unknown path does."""
+    so the step is gone: the join hands the mail no link for it, and the route that took its token
+    answers as any unknown path does. The mail's own words are held by the readiness test and
+    ``PREHEADER_LINES``."""
     assert _join(client, email=_email()).status_code == 200
     [welcome] = emails["welcome"]
     assert "verification_link" not in welcome
-
-    page, text = render_welcome_email(name=None, position=3, referral_link="https://e.test/r")
-    assert "verif" not in page.lower() and "verif" not in text.lower()
-    assert "secure your place" not in page and "secure your place" not in text
 
     gone = client.post("/api/waitlist/verify/any-token")
     assert (gone.status_code, gone.json()) == (404, {"detail": "Not Found"})

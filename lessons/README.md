@@ -84,6 +84,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 
 ## Architecture
 
+- arch-a-backend-link-names-a-page-the-frontend-serves.md — A link the backend builds on FRONTEND_URL names a page the frontend serves, and a step a mail asks for has a page that takes it and a reader of what it records (partly gated by `backend/tests/unit/test_frontend_links_resolve.py`: the link's page, not the step's reader)
 - arch-a-data-notes-version-lands-its-reader-first.md — Teach the page a new data notes version in a pull request of its own, and move `DATA_NOTES_VERSION` only once that reader has deployed (partly gated by `frontend/tests/unit/analysis-presentation-api.spec.ts`, which holds both decoders to the versions `READERS` records and the server's version to one of them; the deploy order is review-checked)
 - arch-a-forced-refresh-keeps-the-summary-and-stores-its-excerpt-only-with-it.md — A forced refresh never deletes the stored summary or clears what it is served with; a forced run keeps the excerpt it builds to itself and finalize stores it only in the commit that writes its summary (`rebuild_excerpt` asks for the current extraction) (partly gated by `backend/tests/unit/test_excerpt_writers_allowlist.py` and `backend/tests/unit/test_summary_delete_sites_allowlist.py`, and pinned by `test_force_regenerate_keeps_xbrl.py`, `test_precompute_service.py` and `test_forced_run_excerpt_is_private.py`; a new up-front clear of another column is review-checked)
 - arch-acquisition-period-withholding-needs-whole-claims.md — Preserve closed authored continuations when withholding ambiguous acquisition-period claims
@@ -258,7 +259,6 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
-- arch-a-backend-link-names-a-page-the-frontend-serves.md — A link the backend builds on FRONTEND_URL names a page the frontend serves — gate: `backend/tests/unit/test_frontend_links_resolve.py`
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`, which requires a clean current-head review and trusted cycle evidence for the ready transition; `ops-merge-after-the-ready-marks-own-codex-review.md`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
