@@ -7,7 +7,9 @@ vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Bar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Cell: () => null,
+  Cell: ({ fill, fillOpacity }: { fill?: string; fillOpacity?: number }) => (
+    <div data-testid="peer-bar" data-fill={fill} data-opacity={fillOpacity} />
+  ),
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
@@ -19,14 +21,18 @@ vi.mock('@/features/peers/api/peers-api', () => ({
 }))
 
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
+import { ThemeContext } from '@/components/ThemeProvider'
+import { chartTheme, seriesColor } from '@/components/ui'
 
-function renderPanel(ticker = 'AAPL') {
+/** Without a theme the panel renders provider-less, as SSR does, and takes the light fallback. */
+function renderPanel(ticker = 'AAPL', theme?: 'light' | 'dark') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(
+  const panel = (
     <QueryClientProvider client={qc}>
       <PeerComparisonPanel ticker={ticker} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+  return render(theme ? <ThemeContext.Provider value={{ theme, toggleTheme: () => {} }}>{panel}</ThemeContext.Provider> : panel)
 }
 
 const peer = (
@@ -75,6 +81,19 @@ describe('PeerComparisonPanel', () => {
     // Clean data → no honesty badge.
     expect(screen.queryByText('Source check needed')).not.toBeInTheDocument()
   })
+
+  it.each([['light', false], ['dark', true]] as const)(
+    'draws the subject in the first series colour, in %s’s half, and the peers in the flat grey',
+    async (theme, dark) => {
+      getPeers.mockResolvedValue(RESP)
+      renderPanel('AAPL', theme)
+      await screen.findByTestId('peers-chart')
+      const bars = screen.getAllByTestId('peer-bar').map((bar) => [bar.dataset.fill, bar.dataset.opacity])
+      // RESP ranks BIGCO, MIDCO and the subject, AAPL, in that order.
+      const grey = [chartTheme(dark).flat, '0.45']
+      expect(bars).toEqual([grey, grey, [seriesColor(0, dark), '1']])
+    },
+  )
 
   it('reads a percentile as an English ordinal', async () => {
     getPeers.mockResolvedValue({ ...RESP, subject: peer('AAPL', 100, true, 3, 21.4) })

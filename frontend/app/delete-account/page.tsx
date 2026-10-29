@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { CONTACT_ADDRESSES, contactMailto } from '@/lib/contactAddresses'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CircleNotchIcon, ShieldWarningIcon, TrashIcon } from '@/lib/icons'
+import { ShieldWarningIcon, TrashIcon } from '@/lib/icons'
 import { getCurrentUserSafe, deleteUserAccount } from '@/features/auth/api/auth-api'
 import AddressText from '@/features/auth/components/AddressText'
-import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
+import { ActivityLine, Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
 const CONFIRM_PHRASE = 'delete my account'
@@ -88,8 +88,8 @@ export default function DeleteAccountPage() {
           }
         />
       ) : isLoading ? (
-        <div className="mt-6 flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 animate-spin motion-reduce:animate-none" /> Checking whether you are logged in…
+        <div className="mt-6">
+          <ActivityLine>Checking whether you are logged in…</ActivityLine>
         </div>
       ) : user ? (
         /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a

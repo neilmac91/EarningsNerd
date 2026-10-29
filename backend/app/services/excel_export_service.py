@@ -16,7 +16,9 @@ Conventions (also stated on the Overview sheet, where users see them):
 - Percent series (margins, YoY growth) are written as TRUE Excel percentages: the cell stores
   the fraction (0.558) and formats as ``0.0%``. Dataset margin values arrive ×100 and are divided
   back down on write; growth ratios arrive as fractions and are written as-is.
-- Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis).
+- Calculated figures carry a cell Comment, never a fill (a fill reads as data emphasis). Every data note is a Comment
+  too, the workbook's evidence dialog; a note that questions the number also sets its letter after the figure through
+  the number format (``#,##0" a"``), so the cell stays a number, and their key sits under the Metrics grid (D-061).
 - Sources & methods carries the output values, calculation operands and source links, plus
   explicit reasons for missing or limited figures. Missing values remain blank numeric cells.
 - Header rows rest in the ink on a neutral fill and the Overview's labels in the ink: sage colours
@@ -48,10 +50,11 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 from app.services.pdf_branding import PALETTE
 from app.services.analysis_export_metadata import (
-    ANALYSIS_DISCLAIMER, FCF_DEFINITION, count_label, display_instant, export_points, formula_text, note_index,
-    notes_summary, operand_records, period_label, point_method, point_notes,
+    ANALYSIS_DISCLAIMER, FCF_DEFINITION, WORKBOOK_CLOSING, SummaryClause, calculated_sentence, derived_q4_sentence,
+    count_label, detail_entries, display_instant, export_points, fine_print_summary, formula_text, note_index,
+    operand_records, period_label, point_method, point_notes,
 )
-from app.services.trend_analysis.data_notes import resolve_data_notes
+from app.services.trend_analysis.data_notes import marks_figure, resolve_data_notes
 from app.utils.company_names import display_company_name
 from app.utils.datetimes import ensure_utc, utcnow
 
@@ -128,17 +131,39 @@ def _number_format(unit: Any, percent: bool) -> str:
     return "#,##0"
 
 
+def _marked_format(number_format: str, note: dict[str, Any] | None) -> str:
+    """A figure's format with its note's letter after it when the note questions the number (D-061): the format prints
+    the letter, so the cell stays a number. A format that ends in a literal takes the letter inside it ('0.00"x a"');
+    a text cell ("n/m") takes it from the text section ('@" a"'). Any other note marks nothing: its comment remains."""
+    if not note or not marks_figure(note):
+        return number_format
+    if number_format == "@":
+        return f'@" {note["letter"]}"'
+    if number_format.endswith('"'):
+        return f'{number_format[:-1]} {note["letter"]}"'
+    return f'{number_format}" {note["letter"]}"'
+
+
+def _figure_length(cell: Any) -> int:
+    """The characters a whole-unit figure prints in its format, with the letter a marked note adds ("60,801,000,000 a"):
+    the one format the grid sets that grows with the figure. Any other cell prints a few characters."""
+    if not isinstance(cell.value, (int, float)) or not cell.number_format.startswith("#,##0"):
+        return 0
+    decimals, _, letter = cell.number_format.removeprefix("#,##0").partition('"')
+    return len(f"{cell.value:,.{max(len(decimals) - 1, 0)}f}") + len(letter.rstrip('"'))
+
+
 def _write_point(
     ws: Worksheet, row: int, col: int, point: dict[str, Any], unit: Any, percent: bool,
     note: dict[str, Any] | None = None,
 ) -> None:
-    """One dataset point → one typed, formatted, bordered cell (comment for derived Q4)."""
+    """One dataset point → one typed, formatted, bordered cell (comment for derived Q4 and for a data note)."""
     cell = ws.cell(row=row, column=col)
     cell.border = _CELL_BORDER
     value = point.get("value")
     if value is not None:
         cell.value = value / 100 if percent else value
-    cell.number_format = _number_format(unit, percent)
+    cell.number_format = _marked_format(_number_format(unit, percent), note)
     notes = point_notes(point, note)
     if notes:
         cell.comment = Comment("\n".join(notes), "EarningsNerd")
@@ -186,10 +211,19 @@ def _has_derived(dataset: dict[str, Any]) -> bool:
     )
 
 
+def _summary_words(clause: SummaryClause) -> str:
+    """A summary clause as a cell prints it: a marked note's letter before its places, and a gap as the empty cell it
+    is in this workbook."""
+    if clause.note:
+        return f"{clause.note['letter']} {clause.words}"
+    return f"{clause.words}, left blank" if clause.gap else clause.words
+
+
 def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetime, envelope: dict) -> None:
     ws.sheet_properties.tabColor = _TAB_COLOR
     ws.sheet_view.showGridLines = False
-    ws.column_dimensions["A"].width = 14
+    # Wide enough for the longest fact label ("Source data as of", bold), which ran into its value at 14 characters.
+    ws.column_dimensions["A"].width = 18
     ws.column_dimensions["B"].width = 100
 
     if _MARK_PNG.exists():
@@ -230,15 +264,26 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
         "Sources & methods preserves raw dataset values: a margin of 55.8% is recorded there as 55.8 with unit percent.",
         FCF_DEFINITION,
     ]
+    if sentence := calculated_sentence(dataset):
+        notes.append(sentence)
+    # The PDF's Q4 header † in words: the workbook has no header to mark, and a current snapshot's comment reads
+    # "Calculated figure." (point_notes), not "Computed Q4.".
+    if sentence := derived_q4_sentence(dataset):
+        notes.append(sentence)
     if _has_derived(dataset):
-        notes.append(
-            "Calculated figures (including computed Q4) carry cell comments; calculation method "
-            "is separate from whether the source checks passed."
-        )
+        # Which figures carry a comment is the closing line's to say (WORKBOOK_CLOSING), once.
+        notes.append("Calculation method is separate from whether the source checks passed.")
+    # The data notes as the page's fine print: the summary line, every note (marked ones first, a letter only where it
+    # marks) and the closing line.
     notes.append("Data notes")
-    if summary := notes_summary(envelope):
+    if summary := " · ".join(map(_summary_words, fine_print_summary(envelope))):
         notes.append(summary)
-    notes.extend(f"Data note {note['letter']}: {note['message']}" for note in envelope["notes"])
+    notes.extend(
+        " ".join(filter(None, (f"{entry['letter']}." if entry["letter"] else "", entry["message"], entry["places"],
+                               entry["counts"], entry["comparisons"])))
+        for entry in detail_entries(envelope["notes"])
+    )
+    notes.append(WORKBOOK_CLOSING)
     row += 1
     for note in notes:
         cell = _write_text(ws, row, 1, note)
@@ -260,8 +305,9 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     ws.row_dimensions[row].height = 78
 
 
-def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> None:
-    """The full grid: one row per series, one typed column per period (+ annual window figures)."""
+def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict, envelope: dict) -> None:
+    """The full grid: one row per series, one typed column per period (+ annual window figures), and under it the key
+    to the letters it prints."""
     ws.sheet_properties.tabColor = _TAB_COLOR
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
     series_list = dataset.get("series", [])
@@ -275,6 +321,7 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
         headers += ["Window growth", "Window"]
     _write_header_row(ws, headers)
 
+    shown: set[str] = set()  # the notes whose letter the grid prints: its values' and its window figures'
     for row_index, series in enumerate(series_list, start=2):
         unit = series.get("unit", "USD")
         percent = bool(series.get("percent"))
@@ -289,6 +336,8 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
         for offset, period in enumerate(periods):
             note = indexed.get((series["concept"], period, "value"))
             _write_point(ws, row_index, 4 + offset, by_period.get(period) or {}, unit, percent, note)
+            if note and marks_figure(note):
+                shown.add(note["key"])
 
         if has_window:
             growth_cell = ws.cell(row=row_index, column=4 + len(periods))
@@ -297,32 +346,53 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
             window_cell.border = _CELL_BORDER
             basis = None
             if percent and series.get("window_pp") is not None:
-                basis = "window_pp"
+                basis, number_format = "window_pp", '0.0" pp"'
                 growth_cell.value = series["window_pp"]
-                growth_cell.number_format = '0.0" pp"'
                 _write_text(ws, row_index, 5 + len(periods), period_label(series.get("window_pp_range")))
             elif series.get("cagr") is not None:
-                basis = "cagr"
+                basis, number_format = "cagr", "0.0%"
                 growth_cell.value = series["cagr"]
-                growth_cell.number_format = "0.0%"
                 _write_text(ws, row_index, 5 + len(periods), period_label(series.get("cagr_window")))
-            quality = series.get(f"{basis}_reconciled")
-            provenance = series.get(f"{basis}_provenance")
-            period = series.get("window_pp_range" if basis == "window_pp" else "cagr_window") or dataset.get("period_key", "")
-            notes = point_notes({"provenance": provenance, "reconciled": quality},
-                                indexed.get((series["concept"], period, basis))) if basis else []
-            if notes:
-                growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
+            if basis:
+                period = series.get("window_pp_range" if basis == "window_pp" else "cagr_window") or dataset.get("period_key", "")
+                note = indexed.get((series["concept"], period, basis))
+                growth_cell.number_format = _marked_format(number_format, note)
+                if note and marks_figure(note):
+                    shown.add(note["key"])
+                notes = point_notes({"provenance": series.get(f"{basis}_provenance"),
+                                     "reconciled": series.get(f"{basis}_reconciled")}, note)
+                if notes:
+                    growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
 
     ws.freeze_panes = "B2"
     ws.column_dimensions["A"].width = 24
     ws.column_dimensions["B"].width = 22
     ws.column_dimensions["C"].width = 11
-    for offset in range(len(periods)):
-        ws.column_dimensions[get_column_letter(4 + offset)].width = 14
+    for column in range(4, 4 + len(periods)):
+        # A period column holds its longest figure, a letter after it included: a figure prints in about one character
+        # less than its length, its commas being narrower than its digits (measured in LibreOffice, whose Carlito shares
+        # Calibri's metrics), and a column narrower than that prints "###" in its place. Never less than 14.
+        longest = max((_figure_length(ws.cell(row, column)) for row in range(2, len(series_list) + 2)), default=0)
+        ws.column_dimensions[get_column_letter(column)].width = max(14, longest - 1)
     if has_window:
         ws.column_dimensions[get_column_letter(4 + len(periods))].width = 14
         ws.column_dimensions[get_column_letter(5 + len(periods))].width = 17
+
+    # The fine print under the grid (coherence §2.4), as the PDF's summary sits under its table: after one blank row, a
+    # cell merged across the grid's columns keys the letters it prints, wrapped, in the footnote font with no fill or
+    # border. Under the grid rather than beside it, the key leaves the sheet as wide as its grid, so the grid prints at
+    # the size it prints with no key. A note marked only on a growth figure the grid does not show (a YoY or QoQ) stays
+    # out of it: the Overview holds the whole fine print. A grid that prints no letter prints no key.
+    marked = [clause for clause in fine_print_summary(envelope) if clause.note and clause.note["key"] in shown]
+    if marked:
+        key = " · ".join(["Data notes", *map(_summary_words, marked)])
+        row = len(series_list) + 3
+        key_cell = _write_text(ws, row, 1, key)
+        key_cell.font = _FOOTNOTE_FONT
+        key_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=len(headers))
+        width = sum(ws.column_dimensions[get_column_letter(column)].width for column in range(1, len(headers) + 1))
+        ws.row_dimensions[row].height = 12 * (len(key) // int(width) + 1)
 
 
 def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> None:
@@ -356,7 +426,9 @@ def _build_sources(ws: Worksheet, dataset: dict[str, Any], indexed: dict) -> Non
                     record.get("period_start"), record.get("period_end"), record.get("accession"),
                     record.get("filed_at") or record_provenance.get("filed_at"), record.get("raw_tag"),
                     record.get("source_url"),
-                    f"Data note {note['letter']}" if note else "",
+                    # The letter where the note marks the figure (D-061), else the note's words: a letter names
+                    # only what the grid marks.
+                    (f"Data note {note['letter']}" if marks_figure(note) else note["message"]) if note else "",
                 ]
                 for column, value in enumerate(values, start=1):
                     # Only the numeric data column is typed as a number. Every source/formula
@@ -411,15 +483,17 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
         growth_cell = ws.cell(row=row_index, column=3)
         growth_cell.border = _CELL_BORDER
         yoy = point.get("yoy")
-        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")},
-                            indexed.get((top["concept"], period, "yoy")))
+        note = indexed.get((top["concept"], period, "yoy"))
+        notes = point_notes({"provenance": point.get("yoy_provenance"), "reconciled": point.get("yoy_reconciled")}, note)
         if notes:
             growth_cell.comment = Comment("\n".join(notes), "EarningsNerd")
         if isinstance(yoy, (int, float)):
             growth_cell.value = yoy
-            growth_cell.number_format = "0.0%"
+            growth_cell.number_format = _marked_format("0.0%", note)
         elif yoy is not None:
             growth_cell.value = "n/m"  # sign-flip sentinel — not a meaningful percentage
+            if note and marks_figure(note):  # the letter from the text section; an unmarked "n/m" keeps General
+                growth_cell.number_format = _marked_format("@", note)
 
     ws.column_dimensions["A"].width = 12
     ws.column_dimensions["B"].width = 18
@@ -433,6 +507,9 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any], indexed: dict) ->
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=1 + len(periods)))
     chart.series[0].graphicalProperties.solidFill = CHART_SERIES[0]
+    # The axis keeps the figures' own format, never linked to its cells': a marked cell's format prints its letter, which
+    # a linked axis set after every tick (LibreOffice: "1,600 a").
+    chart.y_axis.number_format = _number_format(unit, False)
     chart.width, chart.height = 20, 10
     ws.add_chart(chart, _anchor_for(ws, len(headers)))
 
@@ -474,6 +551,7 @@ def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any], indexed: dict)
         chart.add_data(data, titles_from_data=True)
         chart.set_categories(Reference(ws, min_col=1, min_row=2, max_row=1 + len(periods)))
         _style_line_series(chart)
+        chart.y_axis.number_format = _number_format(maps[0][1], maps[0][2])  # unlinked, as the bar chart's
         chart.width, chart.height = 20, 10
         ws.add_chart(chart, _anchor_for(ws, len(headers)))
 
@@ -503,7 +581,7 @@ def build_analysis_workbook(
     _build_overview(overview, dataset, exported, envelope)
     _print_setup(overview, landscape=False)
     metrics = workbook.create_sheet("Metrics")
-    _build_metrics(metrics, dataset, indexed)
+    _build_metrics(metrics, dataset, indexed, envelope)
     # The raw concept keys stay in column B: it is the machine column.
     _print_setup(metrics, landscape=True, title_rows="1:1", title_cols="A:A")
     sources = workbook.create_sheet("Sources & methods")

@@ -90,10 +90,11 @@ export function decodeDataNoteList(value: unknown): DataNote[] {
 
 function decodeEnvelope(value: unknown): DataNotesWire {
   const raw = record(value, 'data_notes')
-  // Version 2 changes only the server's copy and letter order, so both decode alike; a tab opened before the server
-  // moves keeps reading its version 1 report (a completion it streams after the move is a version 2 prefix, which
-  // decodeCitationDataNotes refuses until the report is reloaded).
-  if (raw.version !== 1 && raw.version !== 2) invalid('unsupported version')
+  // Versions 2 and 3 change only the server's copy and letter order, so all three decode alike, version 3 ahead of the
+  // server writing it (E211); a tab opened before the server moves keeps reading its older report (a completion it
+  // streams after the move is the newer version's prefix, which decodeCitationDataNotes refuses where the words or
+  // letters moved, until the report is reloaded).
+  if (raw.version !== 1 && raw.version !== 2 && raw.version !== 3) invalid('unsupported version')
   const totals = record(raw.totals, 'totals')
   return {
     version: raw.version, notes: decodeDataNoteList(raw.notes),

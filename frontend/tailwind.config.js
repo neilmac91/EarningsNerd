@@ -142,7 +142,10 @@ module.exports = {
         //     alternates early; every ADJACENT pair holds ΔE ≥ 41 through 5 series
         //   · chart.2 honey darkened #D99E4A → #B8812F (was 2.1:1 on cream — failed the
         //     3:1 non-text floor); every value is now ≥3:1 vs BOTH cream #F4F3EE and
-        //     navy #0B1120, so one hex per series serves both themes
+        //     navy #0B1120
+        //   · on the dark card #1F2937 those hexes measure APCA Lc −30 to −37, under the 45
+        //     a data mark needs, so each series takes a lighter dark half, chart-N-dark (the
+        //     trend-chart spec's §3.8, E195's token fold): bg-chart-1 dark:bg-chart-1-dark
         //   · known limits: chart.5+6 converge for dichromats (ΔE ~16), chart.6 vs
         //     chart.3 is near-identical for protanopes (ΔE 3) — at ≥5 series color no
         //     longer carries alone: add direct labels, markers, or dash patterns
@@ -155,31 +158,30 @@ module.exports = {
           4: '#CF7159', // coral       — cream 3.1:1 · navy 5.5:1
           5: '#6E7E9C', // slate-blue  — cream 3.7:1 · navy 4.6:1 (non-green — never competes with sage)
           6: '#8B7BC0', // periwinkle  — cream 3.3:1 · navy 5.1:1 (protan-twin of chart.3 — label directly)
-          // ---- Chart chrome sub-tokens (all derived from surface/text/flat tokens) ----
-          grid: { light: 'rgba(229,231,235,0.6)', dark: 'rgba(255,255,255,0.06)' }, // hairline @ 60% — quieter than the axis
-          axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },               // = the hairline itself
+          // Dark halves: APCA Lc on the dark card #1F2937 (tests/unit/chart-apca.spec.ts).
+          '1-dark': '#62B2A6', // teal        — Lc −49.7 (chart-1 is −32.0 there)
+          '2-dark': '#D3A55C', // honey       — Lc −54.2
+          '3-dark': '#8CA6E3', // cornflower  — Lc −50.9
+          '4-dark': '#E8927C', // coral       — Lc −51.9
+          '5-dark': '#97A6C2', // slate-blue  — Lc −50.1
+          '6-dark': '#AFA2DE', // periwinkle  — Lc −52.8
+          // ---- Chart chrome sub-tokens ----
+          // Gridlines: Lc 16.8 / −15.0 on the card, visible enough to read a value across, quieter than the zero rule
+          // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The Recharts baseline and the
+          // landing page's tick rules (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired
+          // (E195's token fold).
+          grid: { light: '#DCD9D0', dark: '#525C6B' },
           // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
-          // the card charts sit on; on bare cream use secondary). Dark = text.TERTIARY, gray-400 #9CA3AF
-          // (7.4:1 on navy), chrome that stays quieter than the secondary ink.
-          label: { light: '#6B7280', dark: '#9CA3AF' },
+          // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
+          // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.
+          label: { light: '#6B7280', dark: '#B8BEC7' },
           crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
           ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
           tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
-          // ---- The trend charts' spec renderer (docs/design/analysis-trend-charts-spec-2026-10.md §3.8) ----
-          // The analysis trend charts' own pairs (in production since E195) until the token fold names them;
-          // features/analysis/lib/charts/theme.ts mirrors them, and no class names them yet. Light/dark pairs of their own, not dark siblings of
-          // chart-1…6 or new chart.label/grid values: those would repaint the landing page's RevenueBars
-          // and today's charts (Chart.tsx). APCA Lc on the card (panel): tests/unit/chart-apca.spec.ts.
-          s1: { light: '#3E8E84', dark: '#62B2A6' }, // = chart-1 · dark Lc −49.7 (chart-1 is −32.0 on the dark card)
-          s2: { light: '#B8812F', dark: '#D3A55C' }, // = chart-2 · dark Lc −54.2
-          s3: { light: '#5B7CC0', dark: '#8CA6E3' }, // = chart-3 · dark Lc −50.9
-          s4: { light: '#CF7159', dark: '#E8927C' }, // = chart-4 · dark Lc −51.9
-          s5: { light: '#6E7E9C', dark: '#97A6C2' }, // = chart-5 · dark Lc −50.1
-          s6: { light: '#8B7BC0', dark: '#AFA2DE' }, // = chart-6 · dark Lc −52.8
-          tick: { light: '#636A77', dark: '#B8BEC7' },     // = text.tertiary · dark Lc −63.6 (tertiary-dark, gray-400, is −48.6)
-          value: { light: '#374151', dark: '#EAECEF' },    // = text.secondary · dark = text.primary, the figure ink (D-063)
-          gridline: { light: '#DCD9D0', dark: '#525C6B' }, // Lc 16.8 / −15.0: visible, quieter than the zero rule
-          review: { light: '#92400E', dark: '#FBBF24' },   // = warning · dark Lc −70.2 (warning-dark is −56.9)
+          // The trend charts' spec renderer (features/analysis/lib/charts/theme.ts, docs/design/analysis-trend-charts-spec-2026-10.md
+          // §3.8) reads these same tokens and the text inks: its series chart-N and chart-N-dark, its grid chart.grid,
+          // its zero rule chart.ref, its ticks and notes text.tertiary.light and chart.label.dark, its printed values
+          // text.secondary.light and text.primary.dark (E195's token fold).
         },
 
         // ---- Text ----

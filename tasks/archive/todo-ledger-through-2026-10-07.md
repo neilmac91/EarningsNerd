@@ -7007,6 +7007,19 @@ Full local and hosted verification plus independent exact-head review precede re
   live. No CODE RED spend; no ledger event; no paid step by any writer on GitHub. No chief defect known, the
   lapses counted from the chief's notes and its own commands; no permission-classifier refusal and no hook
   refusal of the chief's commands in the window. Closure 214.
+- 2026-10-28 (record 64, `runtime/control/DECISIONS-64.md`): PR #1754 (record 63) merged `fdf74198` by
+  the chief's own squash, pinned to its head, on the founder's word (fifty-ninth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step); before it, its fact-check, its reviewer's
+  full pass and the chief's one ready mark, whose own Codex review completed with no finding. Closure 215
+  registers record 63's survey, fact-check and reviewer and pre-registers this record's survey and
+  fact-check and record 65's reviewer. A read-only survey of the window before the record was written. Five
+  main merges, none of them a backend deploy, each push run's deploy job skipping every deploy step; #1703's
+  push run re-run under the shared account, not by the chief, its deploy job green and its health step
+  healthy, so AGENTS.md section 6's hold is met by that job's own read; no job cut off at its time limit; the
+  advisory pip-audit step exited 1, as inferred, in all five main runs; production not read live. No CODE RED
+  spend; no ledger event; three paid steps by another writer on GitHub. No chief defect known, the lapses
+  counted from the chief's notes and its own commands; no permission-classifier refusal and no hook
+  refusal of the chief's commands in the window. Closure 215.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
