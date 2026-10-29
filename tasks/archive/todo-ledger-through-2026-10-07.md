@@ -7020,6 +7020,19 @@ Full local and hosted verification plus independent exact-head review precede re
   spend; no ledger event; three paid steps by another writer on GitHub. No chief defect known, the lapses
   counted from the chief's notes and its own commands; no permission-classifier refusal and no hook
   refusal of the chief's commands in the window. Closure 215.
+- 2026-10-29 (record 65, `runtime/control/DECISIONS-65.md`): PR #1762 (record 64) merged `13034f9e` by
+  the chief's own squash, pinned to its head, on the founder's word (sixtieth deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step); before it, its fact-check, its reviewer's
+  full pass and the chief's one ready mark, whose own Codex review completed with no finding. Closure 216
+  registers record 64's survey, fact-check and reviewer and pre-registers this record's survey and
+  fact-check and record 66's reviewer. A read-only survey of the window before the record was written.
+  Fourteen main merges, three of them backend deploys (#1659's, #1682's and #1720's), each healthy by its
+  own deploy job, the other eleven push runs' deploy jobs skipping every deploy step; #1716 merged into
+  #1706's branch, not main; no job cut off at its time limit; the advisory pip-audit step exited 1, as
+  inferred, in all fourteen main runs; production not read live. No CODE RED spend; no ledger event; eight
+  paid steps by another writer on GitHub. No chief defect known, the lapses counted from the chief's notes
+  and its own commands; no permission-classifier refusal and no hook
+  refusal of the chief's commands in the window. Closure 216.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
