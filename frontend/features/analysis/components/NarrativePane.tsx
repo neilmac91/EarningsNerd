@@ -126,8 +126,10 @@ export function runStageWords(stage?: string): string {
   return stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'
 }
 
-/** A run that ends without enough reported history: the card's notice and the page's status line both say it. */
+/** A run that ends without enough reported history: the card's notice (why, then what to do next), which the page's
+ *  status line says whole. */
 export const NOT_ENOUGH_HISTORY = 'Not enough reported history in the selected range for a meaningful analysis.'
+export const NOT_ENOUGH_HISTORY_NEXT = 'Try widening the period range.'
 
 const SOURCE_BADGE_BASE =
   'Sources identify filed and calculated figures.'
@@ -355,7 +357,7 @@ export default function NarrativePane({
         <Notice
           variant="info"
           title={NOT_ENOUGH_HISTORY}
-          description="Try widening the period range."
+          description={NOT_ENOUGH_HISTORY_NEXT}
         />
       ) : (
         <>

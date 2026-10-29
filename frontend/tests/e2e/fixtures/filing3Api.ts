@@ -10,9 +10,9 @@ import type { Page } from '@playwright/test'
  * user. Shared by filing-source-chip.spec.ts (EN-01), consent-bar-yields.spec.ts (EN-02),
  * citation-chip-keyboard.spec.ts (EN-01 follow-up, which routes the Ask stream on top),
  * filing-reader-wide-tables.spec.ts (EN-04, the `tables` content), prose-links.spec.ts (D-030,
- * which routes an answer with a link) and header-covers-nothing.spec.ts (the pane under the
- * open menu); a spec seeds its own browser
- * state (theme, consent, coachmark) in its own addInitScript.
+ * which routes an answer with a link), header-covers-nothing.spec.ts (the pane under the
+ * open menu) and copilot-status-line.spec.ts (E238, which holds the Ask stream); a spec seeds
+ * its own browser state (theme, consent, coachmark) in its own addInitScript.
  */
 export const API_ORIGIN = new URL(process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').origin
 export const SUMMARY = JSON.parse(readFileSync(path.join(__dirname, 'filing-3-summary.json'), 'utf8')) as Record<string, unknown>

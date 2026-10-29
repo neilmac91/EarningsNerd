@@ -22,14 +22,15 @@
    coverage region exists before the history fetch's words arrive (it is
    mounted until the coverage answer settles, a failed read included), so they
    are heard. The Copilot's reading card is created with "Reading the filing…"
-   in it, so the card does not announce that line; the rail's own sr-only
-   status region, mounted before any question, says it, and the card is a
-   status region for the plan card's sentence, which replaces the line in the
-   same element. The trend analysis's words sit in no live region, so the
-   analysis page's sr-only status region beside Run analysis, mounted before
-   any run, says them, and when the run completes "Analysis ready." (or the
-   card's sentence for a range without enough history). A caller whose words
-   must be heard mounts its region first (review-checked).
+   in it, so the card does not announce that line; the research pane's sr-only
+   status region, between its tabs and its panels, says it (a rail outside the
+   filing workspace keeps a region of its own), and the card is a status region
+   for the plan card's sentence, which replaces the line in the same element.
+   The trend analysis's words sit in no live region, so the analysis page's
+   sr-only status region beside Run analysis, mounted before any run, says
+   them, and when the run completes "Analysis ready." (or the card's notice,
+   whole, for a range without enough history). A caller whose words must be
+   heard mounts its region first (review-checked).
 
    A pulsing round mark ships only here and in Badge's live dot:
    tests/unit/pulsingMarkAllowlist.spec.ts fails a class list that draws one
