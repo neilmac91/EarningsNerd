@@ -341,21 +341,22 @@ says so; everything else follows the spec.
     `chart.grid` `#DCD9D0`/`#525C6B`, the table's. `lib/charts/theme.ts` names those, and the text inks for its ticks
     and notes in light (`text.tertiary.light`) and its printed values (`text.secondary.light`, and the figure ink
     `text.primary.dark` since D-063). The landing page's revenue bars and axis labels and the Recharts charts (filing
-    fundamentals, peers) repaint in dark, and the fundamentals chart's gridlines in both themes (the landing page's
-    tick rules are `chart.axis`, which the fold leaves alone, and the peers chart draws none), so the two gates that
-    kept the pairs off other surfaces are lifted: `designTokenParity`'s renderer-only hexes and `chart-theme.spec.ts`'s
-    class scan.
+    fundamentals, peers) repaint in dark, and the fundamentals chart's gridlines and the landing page's tick rules in
+    both themes (the peers chart draws none), so the two gates that kept the pairs off other surfaces are lifted:
+    `designTokenParity`'s renderer-only hexes and `chart-theme.spec.ts`'s class scan. The tick rules are the homepage's
+    gridlines, so they take `chart.grid` too, and `chart.axis`, the hairline they and the Recharts baseline drew in, is
+    retired (chief design on #1771).
   - Item 2: `Chart.tsx`'s `chartTheme` takes the new grid and dark label, and `seriesColor(i, dark)` the dark series
     halves, held to the tokens by `chartThemeTokens.spec.ts`. The sequences are `Chart.tsx`'s own, so no chart can
-    index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the plot
-    and that line over the bottom one, and in the hairline (`chart.axis`, Lc 8.8 on the light card) the light baseline
-    would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines' contrast.
-    `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors `text.primary` and `text.secondary`, which the fold
-    leaves alone, and no Recharts chart exports a PNG. The renderer's PNG takes the card's own inks: its header and
-    notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary measured
-    Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend names take
-    it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the card's notes on
-    screen (`#B8BEC7`).
+    index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the
+    plot and that line over the bottom one, and in the hairline `#E5E7EB` (Lc 8.8 on the light card) the light
+    baseline would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines'
+    contrast. `chartExport.ts` needed no change: its `EXPORT_TEXT` mirrors `text.primary` and `text.secondary`, which
+    the fold leaves alone, and no Recharts chart exports a PNG. The renderer's PNG takes the card's own inks: its
+    header and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
+    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
+    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the card's
+    notes on screen (`#B8BEC7`).
   - `DESIGN.md` (item 3) documents `chart-1-dark…6-dark` in its frontmatter, as the sidecar's colorMeta does. DS §1
     and §10 (items 4 and 5) name the dark halves, and §10's dark labels are `chart.label.dark` `#B8BEC7`. Of item 5,
     DS §10's paragraph on the renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow
@@ -1050,11 +1051,12 @@ measures −74.0 under the wash, below the printed-value floor of 75. The row ab
 measurement.)
 (E195 (C), 2026-10-29: the token fold. Tailwind names the token table's values `chart-1…6` with
 `chart-1-dark…6-dark`, `chart.grid`, `chart.ref` and `chart.label.dark`, and the text inks, and the Recharts charts
-take the series and the dark label too, the fundamentals chart the grid as well, its x-axis line in the grid's ink
-(items 1 and 2 below; §0.5, "The tokens"). The `review` row is gone: since D-061 no letter takes a review ink. The
-card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep `chart.label.dark` rather
-than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the tertiary step, and
-`note-dark` is the secondary step in dark (§0.5, "The tokens").)
+take the series and the dark label too, the fundamentals chart the grid as well, its x-axis line in the grid's ink.
+The landing page's revenue bars take the first series' dark half, the dark label and the grid, so the hairline
+`chart.axis` is retired (items 1 and 2 below; §0.5, "The tokens"). The `review` row is gone: since D-061 no letter
+takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the tooltip's letters) keep
+`chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason: their light half is the
+tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,

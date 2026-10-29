@@ -167,11 +167,10 @@ module.exports = {
           '6-dark': '#AFA2DE', // periwinkle  — Lc −52.8
           // ---- Chart chrome sub-tokens ----
           // Gridlines: Lc 16.8 / −15.0 on the card, visible enough to read a value across, quieter than the zero rule
-          // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8).
+          // (chart.ref). The old hairline at 60% measured Lc 0 in both themes (spec §3.8). The Recharts baseline and the
+          // landing page's tick rules (RevenueBars) take it too, so chart.axis, the hairline they drew in, is retired
+          // (E195's token fold).
           grid: { light: '#DCD9D0', dark: '#525C6B' },
-          // = the hairline itself: the landing page's tick rules (RevenueBars). The Recharts baseline takes chart.grid,
-          // since Recharts draws it over the plot's bottom gridline (Chart.tsx xAxisProps).
-          axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },
           // Axis labels: 11–12px data face + tabular-nums. Light = the flat ink #6B7280 (4.6:1 on
           // the card charts sit on; on bare cream use secondary). Dark = #B8BEC7, a step above text.TERTIARY:
           // gray-400 #9CA3AF measures Lc −48.6 on the dark card, under the 60 that 11–12 px text needs; #B8BEC7 is −63.6.

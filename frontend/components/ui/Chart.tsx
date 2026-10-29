@@ -153,7 +153,7 @@ const tick = (dark: boolean) => ({
 
 export const xAxisProps = (dark: boolean) => ({
   // The baseline takes the gridlines' ink: Recharts draws a gridline at each edge of the plot and this line over the
-  // bottom one, where the hairline chart.axis (Lc 8.8 on the light card, under the gridlines' 16.8) would leave the
+  // bottom one, where the hairline #E5E7EB (Lc 8.8 on the light card, under the gridlines' 16.8) would leave the
   // light baseline the quietest rule (E195's token fold; tests/unit/chartThemeTokens.spec.ts).
   axisLine: { stroke: chartTheme(dark).grid },
   tickLine: false as const,

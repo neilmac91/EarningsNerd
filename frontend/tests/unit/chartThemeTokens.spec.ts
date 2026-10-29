@@ -1,7 +1,10 @@
 import { createRequire } from 'node:module'
+import { render } from '@testing-library/react'
+import { createElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { chartTheme, gridProps, seriesColor, xAxisProps } from '@/components/ui/Chart'
+import RevenueBars from '@/features/marketing/components/RevenueBars'
 import { apcaLc, over } from './apca'
 
 /**
@@ -47,7 +50,7 @@ describe('seriesColor', () => {
 
 /**
  * Recharts draws a gridline at each edge of the plot and the x-axis line over the bottom one, so the baseline is that
- * line, composited over the gridline when it is translucent. In the hairline (chart.axis, Lc 8.8 on the light card) the
+ * line, composited over the gridline when it is translucent. In the hairline #E5E7EB (Lc 8.8 on the light card) the
  * light baseline would be the quietest rule in the chart once the gridlines take chart.grid's 16.8 (E195's token fold).
  */
 describe('the Recharts baseline is no quieter than its gridlines', () => {
@@ -58,5 +61,21 @@ describe('the Recharts baseline is no quieter than its gridlines', () => {
     const { axisLine } = xAxisProps(dark) as { axisLine: false | { stroke: string } }
     const baseline = !axisLine ? grid : axisLine.stroke.startsWith('rgba') ? over(axisLine.stroke, grid) : axisLine.stroke
     expect(contrast(baseline)).toBeGreaterThanOrEqual(contrast(grid))
+  })
+})
+
+/**
+ * The landing page's revenue bars draw their own rules, one per $100B and the baseline, in plain DOM. They are the
+ * homepage's gridlines, so they take the product's gridline ink, chart.grid, in both themes (chief design on #1771): in
+ * the retired hairline the dark rules sat under APCA's low clip on their card.
+ */
+describe("the landing page's revenue bars rule their ticks in chart.grid", () => {
+  it('in both themes, every rule', () => {
+    const points = [{ period: 'FY2024', value: 391e9 }, { period: 'FY2025', value: 416e9 }]
+    const { container } = render(createElement(RevenueBars, { points }))
+    const rules = [...container.querySelectorAll('span.border-t')]
+    expect(rules).toHaveLength(7) // $0 to $600B, one per $100B: the axis tops out a full tick above $416B
+    const inks = (rule: Element) => [...rule.classList].filter((name) => /^(dark:)?border-(?!t$)/.test(name))
+    expect(rules.map(inks)).toEqual(rules.map(() => ['border-chart-grid-light', 'dark:border-chart-grid-dark']))
   })
 })
