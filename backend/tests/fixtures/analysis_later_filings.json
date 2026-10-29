@@ -1,5 +1,5 @@
 {
-  "description": "MPA WP5a's later-filing evidence on the analysis dataset (docs/mpa-improvements/coherence.md section 1.6 items 2-5), planted in the wire shape the page reads (frontend/features/analysis/api/analysis-api.ts FirstReported, {basis}_first_reported) until the producer (WP5a-B) builds it from stored own-report rows. Values are REGN's as WP5b's test stores them (backend/tests/unit/test_companyfacts_own_report_history.py), plus a planted sign flip and scale factor. Each case's expected holds the later-filing places: values, the figures that carry their own first_reported (reported figures only; a calculated figure's evidence sits on its inputs), and comparisons, those whose {basis}_first_reported is present; both over the dataset's periods only, in series order, then period order, then basis (qoq before yoy in quarterly mode). frontend/tests/unit/later-filings.spec.tsx runs the page's laterFilingPlaces (features/analysis/lib/laterFilings.ts) over every case and renders the pages on them; the backend's twin, when it lands, reads the same cases.",
+  "description": "MPA WP5a's later-filing evidence on the analysis dataset (docs/mpa-improvements/coherence.md section 1.6 items 2-5), planted in the wire shape the page reads (frontend/features/analysis/api/analysis-api.ts FirstReported, yoy_first_reported) until the producer (WP5a-B) builds it from stored own-report rows. Values are REGN's as WP5b's test stores them (backend/tests/unit/test_companyfacts_own_report_history.py), plus a planted sign flip and scale factor. Every case is an annual run: only an annual run carries evidence (D5), and the page refuses it in a quarterly one. Each case's expected holds the later-filing places: values, the figures that carry their own first_reported (reported figures only: the page refuses it on a calculated figure, whose evidence sits on its inputs), and comparisons, the YoY changes whose yoy_first_reported is present; both over the dataset's periods only, in series order, then period order. Across a sign or scale finding on either year, yoy_first_reported is 'nm'. frontend/tests/unit/later-filings.spec.tsx runs the page's laterFilingPlaces (features/analysis/lib/laterFilings.ts) over every case and renders the pages on them; the backend's twin, when it lands, reads the same cases.",
   "cases": [
     {
       "name": "regn_own_reports_beside_later_comparatives",
@@ -1051,38 +1051,32 @@
           {
             "concept": "revenue",
             "label": "Revenue",
-            "period": "FY2018",
-            "basis": "yoy"
+            "period": "FY2018"
           },
           {
             "concept": "revenue",
             "label": "Revenue",
-            "period": "FY2019",
-            "basis": "yoy"
+            "period": "FY2019"
           },
           {
             "concept": "revenue",
             "label": "Revenue",
-            "period": "FY2020",
-            "basis": "yoy"
+            "period": "FY2020"
           },
           {
             "concept": "net_margin",
             "label": "Net margin",
-            "period": "FY2018",
-            "basis": "yoy"
+            "period": "FY2018"
           },
           {
             "concept": "net_margin",
             "label": "Net margin",
-            "period": "FY2019",
-            "basis": "yoy"
+            "period": "FY2019"
           },
           {
             "concept": "net_margin",
             "label": "Net margin",
-            "period": "FY2020",
-            "basis": "yoy"
+            "period": "FY2020"
           }
         ]
       }
@@ -1730,7 +1724,7 @@
                 "fiscal_year": 2020,
                 "fiscal_period": "FY",
                 "yoy": "nm",
-                "yoy_first_reported": 1004.041960501851,
+                "yoy_first_reported": "nm",
                 "yoy_reconciled": false,
                 "yoy_provenance": {
                   "version": 1,
@@ -1765,14 +1759,12 @@
           {
             "concept": "financing_cash_flow",
             "label": "Financing cash flow",
-            "period": "FY2020",
-            "basis": "yoy"
+            "period": "FY2020"
           },
           {
             "concept": "long_term_debt",
             "label": "Long-term debt",
-            "period": "FY2020",
-            "basis": "yoy"
+            "period": "FY2020"
           }
         ]
       }
@@ -1963,14 +1955,12 @@
           {
             "concept": "revenue",
             "label": "Revenue",
-            "period": "FY2019",
-            "basis": "yoy"
+            "period": "FY2019"
           },
           {
             "concept": "revenue",
             "label": "Revenue",
-            "period": "FY2020",
-            "basis": "yoy"
+            "period": "FY2020"
           }
         ]
       }

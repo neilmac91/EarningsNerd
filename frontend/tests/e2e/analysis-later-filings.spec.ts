@@ -53,7 +53,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
     const notes = page.locator('[data-analysis-data-notes]')
     await expect(notes.locator(LINE)).toBeHidden()
     await notes.locator(':scope > details > summary').click()
-    await expect(notes.locator(LINE)).toHaveText('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020). Select one to see both filings.')
+    await expect(notes.locator(LINE)).toHaveText('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018); select one to see both filings. Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020).')
     await expect(notes.locator(':scope > details > summary')).toContainText('No figures need review')
 
     // The chart's footnote names this n/m's cause, never the sign change's.
@@ -68,7 +68,11 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
     await expect(dialog.getByRole('heading', { name: 'Source filings' })).toBeVisible()
     await expect(dialog).toContainText('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
     await expect(dialog.getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for Revenue, FY2018' })).toHaveText('Open its own annual report on SEC.gov')
-    await expect(dialog.getByRole('link', { name: 'Open the filing shown on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })).toHaveText('Open the filing shown on SEC.gov')
+    await expect(dialog.getByRole('link', { name: 'Open the later filing on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })).toHaveText('Open the later filing on SEC.gov')
+    // The "As filed" pair: each value takes its row's right edge, so the two values' digit groups stand under each other.
+    const edges = await dialog.locator('p', { hasText: /^As filed in / }).evaluateAll((rows) => rows.map((row) => Math.round(row.lastElementChild!.getBoundingClientRect().right)))
+    expect(edges).toHaveLength(2)
+    expect(Math.abs(edges[0] - edges[1]), 'the two values end on one edge').toBeLessThanOrEqual(1)
     await expect(dialog).toContainText('Not meaningful: a later filing reports a different value for one or both of the two years.')
     await expect(dialog).toContainText('As first reported: +14.3%')
     await expect(dialog.locator('[data-note-letter]')).toHaveCount(0)
@@ -90,6 +94,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
     await control.click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toContainText('A later filing reports the opposite sign.')
+    await expect(dialog).toContainText('As first reported: n/m')
     await expect(dialog).toContainText('Needs review · Note a')
     expect(await overflow(page), 'nothing scrolls sideways, page or dialog').toEqual({ page: 0, dialog: 0 })
   })

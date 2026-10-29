@@ -808,9 +808,9 @@ Analysis table   <MetricsTable> — equal rem period columns with semantic row h
                  n/m marks a change that is not a meaningful percentage, for one of two causes: its
                  two periods' values change sign through zero (a current and a prior of opposite
                  signs), or a later filing reports a different value for one or both of them, so the
-                 two sit on different bases (MPA WP5a: the producer's "nm" with {basis}_first_reported
-                 beside it; the evidence dialog and the chart's footnote say which, the cell and the
-                 legend do not). n/m stays visible and is announced as “not meaningful”: the visible
+                 two sit on different bases (MPA WP5a, an annual run's YoY only: the producer's "nm"
+                 with yoy_first_reported beside it; the evidence dialog and the chart's footnote say
+                 which, the cell and the legend do not). n/m stays visible and is announced as “not meaningful”: the visible
                  text is aria-hidden beside sr-only words (GrowthText), as in the KPI change and the
                  evidence dialog's comparison.
                  The annual window column (CAGR, or the window's percentage-point change for a percent
@@ -970,7 +970,9 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  note that questions the number, and only that note's status takes warning ink; a
                  record-only figure still reads “Needs review”, never a passed check.
                  Later-filing evidence (MPA WP5a, D11): where a later filing reports a value other
-                 than the one the year's own annual report gave (the point's first_reported), the
+                 than the one the year's own annual report gave (a reported figure's first_reported,
+                 in an annual run only: quarterly evidence is deferred, D5, and a later pull request
+                 adds it with its reader, the decoder refusing it until then), the
                  source section is “Source filings” and, in the section's own secondary ink with no
                  frame (no Notice, so no inset cap engages), reads “First reported as $6.7B in its own
                  annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports
@@ -980,19 +982,23 @@ Analysis evidence <SourceValue> — the shared Modal presents financial display 
                  an exact sign flip or factor of 1,000ⁿ says what was found, from the two values (“A
                  later filing reports the opposite sign.”, “A later filing reports a value 1,000 times
                  larger than the year's own annual report.”, smaller, 1,000,000 times); then the
-                 “As filed” pair, both values exactly, 12px in the figure face; then a link to each
+                 “As filed” pair, both values exactly, 12px in the figure face, as label and value
+                 columns: each row a flex-wrap line whose value takes its right edge (ml-auto), so the
+                 two values' digit groups stand under each other, and a value the row cannot hold
+                 beside its label wraps under it, still at that edge; then a link to each
                  filing, each above its accession: “Open its own annual report on SEC.gov” and “Open
-                 the filing shown on SEC.gov”, whose visible words carry no figure (brand rule 2) and
+                 the later filing on SEC.gov”, whose visible words carry no figure (brand rule 2) and
                  whose accessible names, which begin with those words, add the form, the filed day and
                  the figure and period. A calculated figure's input carries the same block where its
                  input does (item 5). It is evidence, not a note (D-061): no letter, no warning ink,
                  and the Checks as they were. A figure without it keeps “Source filing” and “Open
                  original SEC filing”.
-                 A comparison that reads n/m across that change (the point's {basis}_first_reported,
-                 present only there) says its cause under the n/m, “Not meaningful: a later filing
-                 reports a different value for one or both of the two years.” (two quarters in a
-                 quarterly run), then “As first reported: +14.3%” in the figure face, nothing where
-                 the own reports give no growth; a sign change's n/m keeps no such sentence. Gates:
+                 A YoY that reads n/m across that change (the point's yoy_first_reported, present
+                 only there) says its cause under the n/m, “Not meaningful: a later filing reports a
+                 different value for one or both of the two years.”, then “As first reported: +14.3%”
+                 in the figure face, nothing where the own reports give no growth, and “As first
+                 reported: n/m” across a sign or scale finding on either year, where one of the two
+                 readings rests on the slip; a sign change's n/m keeps no such sentence. Gates:
                  tests/unit/figureSurfaceInks.spec.ts (font-figure allowed in SourceValue.tsx);
                  tests/unit/later-filings.spec.tsx (the strict decoder, the block, the cause, the
                  chart's footnote line and the data notes' line on the shared later-filings fixture);
@@ -1159,19 +1165,21 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  filing reports a value other than the one a year's own annual report gave (MPA WP5a,
                  D8), one p follows the list (data-analysis-later-filings), never a summary clause: “A
                  later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total
-                 assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020;
-                 Net margin FY2018, FY2019, FY2020). Select one to see both filings.”
+                 assets FY2018); select one to see both filings. Growth across the change reads n/m
+                 (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020).”
                  Its first sentence counts the reported figures that carry their own first_reported (a
-                 sign flip or a factor of 1,000 included; a calculated figure's evidence sits on its
-                 inputs, so none is counted), over the run's periods, places as the summary joins them
-                 and periods through formatAnalysisPeriod, from laterFilingPlaces over the points (so no
-                 data notes version moves). The middle sentence names, in the same form, only the
-                 comparisons that read n/m across the change (the point's {basis}_first_reported
+                 sign flip or a factor of 1,000 included; the decoder refuses the field on a calculated
+                 figure, whose evidence sits on its inputs), over the run's periods, places as the
+                 summary joins them and periods through formatAnalysisPeriod, from laterFilingPlaces
+                 over the points (so no data notes version moves), and “select one to see both filings”
+                 follows those places, each of which opens a dialog that gives both filings (chief
+                 design on #1776: a growth's dialog gives its cause, not a second filing, and the clause
+                 no longer runs into the legend's “Select any figure”). The second sentence names, in
+                 the same form, only the YoY changes that read n/m across the change (yoy_first_reported
                  present), so it never names a figure whose gap moved no growth past the n/m rule
                  (REGN's total assets FY2018, 0.24%) or whose growth never turns n/m (EPS, D3), nor a
-                 sign change's n/m; with none the line is the first and last sentences. Every place
-                 the first sentence lists opens a dialog that gives both filings, which
-                 tests/unit/later-filings.spec.tsx holds with the second sentence's places. It is no note: the closed summary keeps its
+                 sign change's n/m; with none the line is its first sentence alone. An annual run alone
+                 carries the line (D5). tests/unit/later-filings.spec.tsx holds both sentences' places. It is no note: the closed summary keeps its
                  clauses, “No figures need review” among them (D7). One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
                  that reported figures come from the company’s filed data (XBRL); they are not an audit

@@ -764,7 +764,7 @@ this order:
    - Revenue & growth: `n/m  Not meaningful: the prior-year figure was zero or of the opposite sign (<runs>).`
    - Revenue & growth (*2026-10-29, MPA WP5a-F1*): `n/m  Not meaningful: a later filing reports a different value for
      one or both years (<runs>).`, for an `nm` beside `yoy_first_reported`; the line above keeps the zero and sign cases
-     alone, so neither names the other's periods (one or both quarters in a quarterly run).
+     alone, so neither names the other's periods. An annual run alone carries it: quarterly evidence is deferred (D5).
    - Revenue & growth, when any growth bar is clipped: `Growth bars beyond the axis are broken; their printed value is the true value.`
    - Margins, when any point is off-scale: `↓↑  Values beyond the axis range are printed in the band at the plot edge.`
    - Balance sheet, when long-term debt is absent: `Long-term debt isn’t in this dataset for this window (not shown as $0).`

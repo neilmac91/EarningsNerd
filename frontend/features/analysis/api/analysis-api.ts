@@ -48,16 +48,17 @@ export interface AnalysisCoverage {
 }
 
 /** "nm" = the YoY/QoQ comparison is not a meaningful percentage, finance convention "n/m", rendered as such rather
- *  than a nonsensical number. It has two causes: the two periods' values change sign through zero, or a later filing
- *  reports a different value for one or both of them, so the two sit on different bases; only the second carries the
- *  growth as first reported (`yoy_first_reported`, `qoq_first_reported`). */
+ *  than a nonsensical number. It has two causes: the two periods' values change sign through zero, or (an annual YoY
+ *  only, MPA WP5a) a later filing reports a different value for one or both of the two years, so the two sit on
+ *  different bases; only the second carries the growth as first reported (`yoy_first_reported`). */
 export type GrowthValue = number | 'nm'
 
-/** The value a fiscal year's own annual report gave, on a figure for which a later filing reports another, the one
- *  shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals or letters. Only an exact
- *  sign flip or factor of 1,000ⁿ between the two (`disagreement`) is also a note, the producer's `source_conflict`.
- *  Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings); a point without it renders as
- *  before. */
+/** The value a fiscal year's own annual report gave, on a reported figure of an annual run for which a later filing
+ *  reports another, the one shown (MPA WP5a, D-061). It is evidence, not a data note: it changes no validation, totals
+ *  or letters. Only an exact sign flip or factor of 1,000ⁿ between the two (`disagreement`) is also a note, the
+ *  producer's `source_conflict`. Strictly decoded where the dataset enters (lib/laterFilings.ts decodeLaterFilings,
+ *  which refuses it in a quarterly run until quarterly evidence lands with its reader, D5); a point without it renders
+ *  as before. */
 export interface FirstReported {
   value: number
   /** The shown figure's unit: the producer sends evidence only in it. */
@@ -101,11 +102,11 @@ export interface AnalysisPoint {
    *  do not treat as relative growth. Every other series: relative growth as a fraction. */
   yoy?: GrowthValue | null
   qoq?: GrowthValue | null
-  /** Present only where `yoy` (or `qoq`) reads "nm" because a later filing reports a different value for one or both
-   *  of its two periods: the growth the two periods' own annual reports give (a number, "nm" where those values change
-   *  sign, null where they give none). Absent for every other comparison, a sign flip's included. */
+  /** Present only where an annual run's `yoy` reads "nm" because a later filing reports a different value for one or
+   *  both of its two years: the growth the two years' own annual reports give (a number; "nm" where those values change
+   *  sign, and always across a sign or scale finding on either year; null where they give none). Absent for every other
+   *  comparison, a sign change's included. */
   yoy_first_reported?: GrowthValue | null
-  qoq_first_reported?: GrowthValue | null
   /** The year's own annual report's value, where a later filing reports the one shown (FirstReported). */
   first_reported?: FirstReported | null
   marker?: string

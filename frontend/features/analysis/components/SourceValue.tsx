@@ -40,9 +40,9 @@ function Checks({ value, note, unavailable = false }: { value: QualityValue; not
   </div>
 }
 
-/** Where a later filing reports another value (MPA WP5a, D-061, D11): the year's own annual report's value beside the
- *  one shown, both as filed, what an exact comparison found, and a link to each filing whose names carry no figure (brand
- *  rule 2) and whose accessible names add the form and day. It is evidence, not a note: no letter, no warning ink. A
+/** Where a later filing reports another value (MPA WP5a, D-061, D11; annual runs only, D5): the year's own annual
+ *  report's value beside the one shown, both as filed, what an exact comparison found, and a link to each filing whose
+ *  names carry no figure (brand rule 2) and whose accessible names add the form and day. It is evidence, not a note: no letter, no warning ink. A
  *  part the payload does not carry is left out. A reported figure and a calculated figure's input show it alike. */
 function LaterFilingEvidence({ first, value, figure, form, accession, href, name }: {
   first: FirstReported
@@ -63,16 +63,18 @@ function LaterFilingEvidence({ first, value, figure, form, accession, href, name
     <div className="space-y-2" data-analysis-later-filing>
       <p>{firstReportedSentence(first, value, figure)}</p>
       {finding && <p>{finding}</p>}
+      {/* Label and value columns: each value takes the row's right edge, so its digit groups stand under the other's,
+          and wraps under its label, still at that edge, where the row cannot hold both. */}
       <div className="space-y-0.5 font-figure tabular-nums lining-nums text-xs">
-        <p>As filed in its own annual report: {exactFigure(first.value, figure)}</p>
-        <p>As filed in the later filing: {exactFigure(value, figure)}</p>
+        <p className="flex flex-wrap gap-x-3"><span>As filed in its own annual report:</span>{' '}<span className="ml-auto">{exactFigure(first.value, figure)}</span></p>
+        <p className="flex flex-wrap gap-x-3"><span>As filed in the later filing:</span>{' '}<span className="ml-auto">{exactFigure(value, figure)}</span></p>
       </div>
       <div className="space-y-1">
         {ownHref && <a href={ownHref} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open its own annual report on SEC.gov${ownFiling && ` (${ownFiling})`} for ${name}`}>Open its own annual report on SEC.gov</a>}
         <p className="font-data">Filing {first.accession}</p>
       </div>
       {(href || accession) && <div className="space-y-1">
-        {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open the filing shown on SEC.gov${shownFiling && ` (${shownFiling})`} for ${name}`}>Open the filing shown on SEC.gov</a>}
+        {href && <a href={href} target="_blank" rel="noopener noreferrer" className={sourceLinkClass} aria-label={`Open the later filing on SEC.gov${shownFiling && ` (${shownFiling})`} for ${name}`}>Open the later filing on SEC.gov</a>}
         {accession && <p className="font-data">Filing {accession}</p>}
       </div>}
     </div>
@@ -159,7 +161,6 @@ export default function SourceValue({ point, label, concept, children, note, com
   const figure = { concept, unit: point.unit }
   const display = compactFigure(point.value, figure)
   const period = formatAnalysisPeriod(point.period)
-  const quarterly = /^\d{4}Q[1-4]$/.test(point.period)
   const arithmetic = substitutedFormula(provenance)
   // A later filing's value beside the year's own annual report's (MPA WP5a): both filings in the source section.
   const first = point.value != null ? point.first_reported ?? null : null
@@ -224,7 +225,7 @@ export default function SourceValue({ point, label, concept, children, note, com
             <p className="relative font-figure tabular-nums lining-nums"><GrowthText text={comparison.display} /></p>
             {/* A basis n/m says its cause, then the growth the two periods' own annual reports give (D12); a sign change's
                 n/m needs no sentence. The checks below stand: the calculation passed. */}
-            {comparison.laterFiling && <p>{`Not meaningful: a later filing reports a different value for one or both of the two ${quarterly ? 'quarters' : 'years'}.`}</p>}
+            {comparison.laterFiling && <p>Not meaningful: a later filing reports a different value for one or both of the two years.</p>}
             {comparison.laterFiling?.asFirstReported && <p className="relative font-figure tabular-nums lining-nums">As first reported: <GrowthText text={comparison.laterFiling.asFirstReported} /></p>}
             <Checks value={comparison} note={comparison.note} />
             {comparison.note && <p>{inheritedComparisonNote(comparison)}</p>}

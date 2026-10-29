@@ -106,7 +106,7 @@ export default function MetricsTable({
         return (
           <div className={FIGURE_CELL}>
             <span className="block">
-              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote, laterFiling: comparisonLaterFiling(point, growthBasis, row.series.percent) } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
+              <SourceValue compactMarks point={{ ...point, unit: point.unit ?? row.series.unit }} label={sourceLabel} concept={row.series.concept} note={note} comparison={growthText ? { label: growthLabel, display: growthText, provenance: growthProvenance, reconciled: growthReconciled, note: growthNote, laterFiling: comparisonLaterFiling(point, row.series.percent) } : undefined}><span className="inline-block font-medium text-figure-light dark:text-figure-dark">{tableFigureText(point.value, row.series, note)}</span></SourceValue>
             </span>
             {growthText && (
               <span className={`flex flex-col items-end text-xs tracking-normal ${dataDirectionText[tone]}`}>

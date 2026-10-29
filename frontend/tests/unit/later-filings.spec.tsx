@@ -3,7 +3,8 @@
    -----------------------------------------------------------------------------
    Where a later filing reports a value other than the one a fiscal year's own annual report gave, the producer
    (WP5a-B) will send the own report's value beside the shown one (`first_reported`) and, where a comparison reads n/m
-   across the change, the growth as first reported (`{basis}_first_reported`). The page reads them before the producer
+   across the change, the growth as first reported (`yoy_first_reported`), in an annual run alone (D5; a quarterly run's
+   evidence refuses the dataset until it lands with its reader). The page reads them before the producer
    writes them. The shared fixture (backend/tests/fixtures/analysis_later_filings.json) plants that wire shape on
    REGN's own-report values (WP5b) and holds the later-filing places both sides compute; the backend's twin of
    laterFilingPlaces reads the same cases when it lands.
@@ -14,7 +15,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import api from '@/lib/api/client'
 import { getAnalysisDataset, type AnalysisDataset } from '@/features/analysis/api/analysis-api'
-import { decodeLaterFilings, laterFilingPlaces, LaterFilingsRejection } from '@/features/analysis/lib/laterFilings'
+import { decodeLaterFilings, laterFilingPlaces, LaterFilingsRejection, scaleSteps } from '@/features/analysis/lib/laterFilings'
 import DataNotes from '@/features/analysis/components/DataNotes'
 import { DataNotesProvider } from '@/features/analysis/components/DataNotesContext'
 import KpiStrip from '@/features/analysis/components/KpiStrip'
@@ -23,7 +24,7 @@ import { buildToplineModel } from '@/features/analysis/lib/charts/model'
 import { chartReadouts } from '@/features/analysis/lib/charts/readout'
 import { resolveDataNotes } from '@/features/analysis/lib/dataNotes'
 
-type Ref = { concept: string; label: string; period: string; basis?: string }
+type Ref = { concept: string; label: string; period: string }
 interface LaterFilingsCase {
   name: string
   about: string
@@ -88,6 +89,22 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     ['growth as first reported that is neither a number, n/m nor null', (ds) => { pointOf(ds, 'revenue', 'FY2018').yoy_first_reported = '14.3%' as unknown as number }],
     ['an input’s first-reported value in another unit', (ds) => { pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1].first_reported!.unit = 'EUR' }],
     ['an input’s first-reported value equal to the input', (ds) => { pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1].first_reported!.value = 5_145_600_000 }],
+    // Reported figures only: a calculated figure's evidence sits on its inputs (item 5).
+    ['a first-reported value on a calculated figure', (ds) => {
+      const margin = pointOf(ds, 'net_margin', 'FY2018')
+      margin.first_reported = { ...pointOf(ds, 'revenue', 'FY2018').first_reported!, value: 36.4248, unit: 'pure' }
+    }],
+    // Every place an input can sit is read: a growth's inputs, an input's own inputs, a window's inputs.
+    ['a growth input’s first-reported value in another unit', (ds) => {
+      pointOf(ds, 'revenue', 'FY2018').yoy_provenance!.inputs = [badInput()]
+    }],
+    ['a first-reported value in another unit two inputs deep', (ds) => {
+      pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1].provenance = { ...pointOf(ds, 'net_margin', 'FY2018').provenance!, inputs: [badInput()] }
+    }],
+    ['a CAGR input’s first-reported value in another unit', (ds) => { seriesOf(ds, 'revenue').cagr_provenance!.inputs = [badInput()] }],
+    ['a window change input’s first-reported value in another unit', (ds) => { seriesOf(ds, 'net_margin').window_pp_provenance!.inputs = [badInput()] }],
+    // A QoQ carries none: a quarterly run has no evidence yet (D5), and an annual run no QoQ.
+    ['a QoQ’s growth as first reported', (ds) => { Object.assign(pointOf(ds, 'revenue', 'FY2018'), { qoq: 'nm', qoq_first_reported: 0.1 }) }],
   ]
   it.each(refusals)('refuses %s, so the page prints nothing false', async (_, edit) => {
     const dataset = planted(REGN)
@@ -95,6 +112,55 @@ describe('the later-filing evidence, decoded where the dataset enters', () => {
     expect(() => decodeLaterFilings(dataset)).toThrow(LaterFilingsRejection)
     vi.spyOn(api, 'post').mockResolvedValue({ data: dataset })
     await expect(getAnalysisDataset('REGN', range)).rejects.toBeInstanceOf(LaterFilingsRejection)
+  })
+
+  /** An input of the shown revenue whose own report's value is in another unit: refused wherever the decoder reads it. */
+  function badInput() {
+    return { concept: 'revenue', value: 5_145_600_000, unit: 'USD', accession: '0001804220-21-000008',
+      first_reported: { value: 6_710_800_000, unit: 'EUR', accession: '0001532176-19-000009', form: '10-K' } }
+  }
+
+  // Annual runs alone carry the evidence (D5): each field refuses a quarterly run, alone in an otherwise plain dataset.
+  const quarterly: Array<[string, (dataset: AnalysisDataset) => void]> = [
+    ['a figure’s first-reported value', (ds) => { pointOf(ds, 'revenue', 'FY2018').first_reported = planted(REGN).series[0].points[1].first_reported }],
+    ['a growth as first reported', (ds) => { Object.assign(pointOf(ds, 'revenue', 'FY2018'), { yoy: 'nm', yoy_first_reported: 0.1428 }) }],
+    ['an input’s first-reported value', (ds) => { pointOf(ds, 'net_margin', 'FY2018').provenance!.inputs[1].first_reported = planted(REGN).series[0].points[1].first_reported }],
+    ['a QoQ’s growth as first reported', (ds) => { Object.assign(pointOf(ds, 'revenue', 'FY2018'), { qoq: 'nm', qoq_first_reported: 0.1 }) }],
+  ]
+  it.each(quarterly)('refuses %s in a quarterly run', (_, add) => {
+    const dataset = withoutEvidence(planted(REGN))
+    add(dataset)
+    // The same field in an annual run is read (a QoQ's aside, which no run carries).
+    if (!/QoQ/.test(_)) expect(() => decodeLaterFilings(dataset)).not.toThrow()
+    expect(() => decodeLaterFilings({ ...dataset, mode: 'quarterly' })).toThrow(LaterFilingsRejection)
+    expect(() => decodeLaterFilings({ ...withoutEvidence(planted(REGN)), mode: 'quarterly' })).not.toThrow()
+  })
+
+  it('refuses a growth as first reported other than n/m across a sign or scale finding on either year', () => {
+    expect(() => decodeLaterFilings(planted(SIGN_AND_SCALE))).not.toThrow()
+    // Financing cash flow FY2020 carries the sign flip; Long-term debt FY2020's year before carries the factor of 1,000.
+    for (const [concept, first] of [['financing_cash_flow', 0.5], ['long_term_debt', 1004.04], ['long_term_debt', null]] as const) {
+      const dataset = planted(SIGN_AND_SCALE)
+      pointOf(dataset, concept, 'FY2020').yoy_first_reported = first
+      expect(() => decodeLaterFilings(dataset), `${concept} ${first}`).toThrow(LaterFilingsRejection)
+    }
+  })
+
+  it('takes a factor of 1,000ⁿ only when exact, and n from 1 to 3 either way', () => {
+    expect(scaleSteps(1, 1_000)).toBe(1)
+    expect(scaleSteps(5_969_900, 5_969_900_000)).toBe(1)
+    expect(scaleSteps(1, 1e6)).toBe(2)
+    expect(scaleSteps(1, 1e9)).toBe(3)
+    expect(scaleSteps(1e9, 1)).toBe(-3)
+    expect(scaleSteps(-2, -2_000)).toBe(1)
+    for (const [own, shown] of [[1, 999.9], [1, 1_001], [1, 999], [1, 1e12], [1e12, 1], [1, 1e15], [1, -1_000], [0, 1_000], [1, 1]]) {
+      expect(scaleSteps(own, shown), `${own} → ${shown}`).toBeNull()
+    }
+    // The decoder holds a scale finding to it: 999.9 times the own value is no factor of 1,000.
+    const dataset = planted(SIGN_AND_SCALE)
+    const debt = pointOf(dataset, 'long_term_debt', 'FY2019')
+    debt.first_reported!.value = debt.value! / 999.9
+    expect(() => decodeLaterFilings(dataset)).toThrow(LaterFilingsRejection)
   })
 
   it('reads a sign flip and a factor of 1,000 from the two values, in either direction', () => {
@@ -122,17 +188,17 @@ describe('the evidence dialog gives both filings (D11)', () => {
     const dialog = await dialogFor(planted(REGN), /^Revenue, FY2018: \$5\.1B/)
     expect(within(dialog).getByRole('heading', { name: 'Source filings' })).toBeInTheDocument()
     expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
-    // Both values as filed, exactly, in the figure face.
-    const own = within(dialog).getByText('As filed in its own annual report: 6,710,800,000 USD')
-    expect(own).toBeInTheDocument()
-    expect(own.parentElement).toHaveClass('font-figure', 'tabular-nums', 'lining-nums')
-    expect(within(dialog).getByText('As filed in the later filing: 5,145,600,000 USD')).toBeInTheDocument()
+    // Both values as filed, exactly, in the figure face, each a label and a value that takes the row's right edge.
+    const rows = [...dialog.querySelectorAll('p')].filter((row) => row.textContent?.startsWith('As filed'))
+    expect(rows.map((row) => row.textContent)).toEqual(['As filed in its own annual report: 6,710,800,000 USD', 'As filed in the later filing: 5,145,600,000 USD'])
+    expect(rows[0].parentElement).toHaveClass('font-figure', 'tabular-nums', 'lining-nums')
+    expect(rows.map((row) => row.lastElementChild?.className)).toEqual(['ml-auto', 'ml-auto'])
     // Two links, each named for its filing: the visible words carry no figure (brand rule 2), the name adds form and day.
-    expect(linkText(dialog)).toEqual(['Open its own annual report on SEC.gov', 'Open the filing shown on SEC.gov'])
+    expect(linkText(dialog)).toEqual(['Open its own annual report on SEC.gov', 'Open the later filing on SEC.gov'])
     expect(linkText(dialog).join(' ')).not.toMatch(/\d/)
     const ownLink = within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for Revenue, FY2018' })
     expect(ownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000153217619000009/')
-    const shownLink = within(dialog).getByRole('link', { name: 'Open the filing shown on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })
+    const shownLink = within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K, filed 8 Feb 2021) for Revenue, FY2018' })
     expect(shownLink).toHaveAttribute('href', 'https://www.sec.gov/Archives/edgar/data/872589/000180422021000008/')
     expect(dialog).toHaveTextContent('Filing 0001532176-19-000009')
     expect(dialog).toHaveTextContent('Filing 0001804220-21-000008')
@@ -157,7 +223,22 @@ describe('the evidence dialog gives both filings (D11)', () => {
     expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report. A later filing reports $5.1B, shown here.')
     expect(dialog).not.toHaveTextContent(/undefined|null|Invalid|filed \(|\(\)/)
     expect(within(dialog).getByRole('link', { name: 'Open its own annual report on SEC.gov for Revenue, FY2018' })).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: 'Open the filing shown on SEC.gov (10-K) for Revenue, FY2018' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Open the later filing on SEC.gov (10-K) for Revenue, FY2018' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['http://www.sec.gov/Archives/edgar/data/872589/000153217619000009/'],
+    ['https://example.com/Archives/edgar/data/872589/000153217619000009/'],
+    ['javascript:alert(1)'],
+  ])('draws no link to the own report from a source that is not https on SEC.gov: %s', async (url) => {
+    const dataset = planted(REGN)
+    pointOf(dataset, 'revenue', 'FY2018').first_reported!.source_url = url
+    const dialog = await dialogFor(dataset, /^Revenue, FY2018: /)
+    expect(linkText(dialog)).toEqual(['Open the later filing on SEC.gov'])
+    expect(dialog.querySelector(`a[href="${url}"]`)).toBeNull()
+    // The sentence and the own report's accession stand.
+    expect(dialog).toHaveTextContent('First reported as $6.7B in its own annual report')
+    expect(dialog).toHaveTextContent('Filing 0001532176-19-000009')
   })
 
   it('names a 20-F or an amendment as its form, and a filed day without a form', async () => {
@@ -198,7 +279,7 @@ describe('the evidence dialog gives both filings (D11)', () => {
     const revenue = inputs.find((item) => /^revenue/i.test(item.textContent ?? ''))!
     expect(revenue).toHaveTextContent('First reported as $6.7B in its own annual report (10-K, filed 7 Feb 2019). A later filing (filed 8 Feb 2021) reports $5.1B, shown here.')
     expect(within(revenue).getByRole('link', { name: 'Open its own annual report on SEC.gov (10-K, filed 7 Feb 2019) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
-    expect(within(revenue).getByRole('link', { name: 'Open the filing shown on SEC.gov (filed 8 Feb 2021) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
+    expect(within(revenue).getByRole('link', { name: 'Open the later filing on SEC.gov (filed 8 Feb 2021) for revenue, 2018-01-01 to 2018-12-31' })).toBeInTheDocument()
     const netIncome = inputs.find((item) => /^net income/i.test(item.textContent ?? ''))!
     expect(netIncome).not.toHaveTextContent('First reported')
     expect(within(netIncome).getByRole('link', { name: /^Open original SEC filing for net income/ })).toBeInTheDocument()
@@ -243,24 +324,20 @@ describe('a basis n/m says its cause (D12)', () => {
     expect(within(flip).getAllByText('not meaningful').every((words) => words.classList.contains('sr-only'))).toBe(true)
   })
 
-  it('keeps the table legend and a quarterly card names quarters', async () => {
+  it('keeps the table legend, and an annual card’s window growth carries no cause (D5)', async () => {
     const dataset = planted(REGN)
     const { container } = render(<DataNotesProvider dataset={dataset}><KpiStrip dataset={dataset} /><MetricsTable dataset={dataset} /></DataNotesProvider>)
     expect(container).toHaveTextContent('n/m means not meaningful.')
-    // An annual card's change is the window's growth, which carries no evidence yet (D5).
     await userEvent.click(within(container.querySelector('[data-analysis-kpi]') as HTMLElement).getByRole('button'))
     expect(screen.getByRole('dialog')).not.toHaveTextContent(/one or both/)
-    cleanup()
-    const quarterly: AnalysisDataset = {
-      ...planted('no_evidence'), mode: 'quarterly', period_key: '2025Q4',
-      periods: [{ key: '2025Q4', fiscal_year: 2025, fiscal_period: 'Q4', period_end: '2025-12-31' }],
-      series: [{ concept: 'revenue', label: 'Revenue', unit: 'USD', percent: false, cagr: null, points: [
-        { period: '2025Q4', value: 4_000_000_000, unit: 'USD', yoy: 'nm', yoy_first_reported: 0.05 },
-      ] }],
-    }
-    render(<DataNotesProvider dataset={quarterly}><KpiStrip dataset={quarterly} /></DataNotesProvider>)
-    await userEvent.click(screen.getByRole('button', { name: /^Revenue, Q4 2025: / }))
-    expect(comparisonOf(screen.getByRole('dialog'))).toHaveTextContent('Not meaningful: a later filing reports a different value for one or both of the two quarters.As first reported: +5.0%')
+  })
+
+  it('in the dialog: no growth as first reported across a sign or scale finding, only n/m', async () => {
+    // Long-term debt FY2020's year before carries a factor of 1,000: the growth from its own report would measure the
+    // slip, so it reads n/m.
+    const debt = comparisonOf(await dialogFor(planted(SIGN_AND_SCALE), /^Long-term debt, FY2020: /))
+    expect(debt).toHaveTextContent(`${CAUSE}As first reported: n/mnot meaningful`)
+    expect(debt).not.toHaveTextContent('%')
   })
 
   it('in the chart: a footnote line of its own for those periods, never the sign change’s, no letter, the tooltip as it was', () => {
@@ -287,7 +364,6 @@ function withoutEvidence(dataset: AnalysisDataset): AnalysisDataset {
   for (const series of plain.series) for (const point of series.points) {
     strip(point)
     delete point.yoy_first_reported
-    delete point.qoq_first_reported
   }
   return plain
 }
@@ -303,7 +379,7 @@ describe('the data notes’ later-filing line (D8)', () => {
     const { container } = render(<DataNotes dataset={dataset} />)
     const line = container.querySelector(LINE)!
     // Total assets FY2018's 0.24% gap moved no growth past the n/m rule: a figure of the first sentence, never the second's.
-    expect(line.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020). Select one to see both filings.')
+    expect(line.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018); select one to see both filings. Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020).')
     // In the open detail, after the notes list and before the legend, never in the closed summary.
     const detail = container.querySelector('[data-analysis-data-notes] > details > div')!
     expect(line.parentElement).toBe(detail)
@@ -331,21 +407,21 @@ describe('the data notes’ later-filing line (D8)', () => {
 
   it('drops the n/m sentence where no growth reads n/m across the change, a sign change’s n/m included, and counts one figure as one', () => {
     const { container } = render(<DataNotes dataset={planted('evidence_with_no_change_of_basis')} />)
-    expect(container.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018). Select one to see both filings.')
+    expect(container.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018); select one to see both filings.')
     cleanup()
     // Net income's n/m here comes from a change of sign, which carries no growth as first reported: not the line's.
     const { container: signChange } = render(<DataNotes dataset={planted('a_sign_change_n_m_is_no_change_of_basis')} />)
-    expect(signChange.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018). Select one to see both filings.')
+    expect(signChange.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018); select one to see both filings.')
     cleanup()
     // With every growth as first reported taken away, the REGN run keeps its figures and loses the sentence.
     const regn = planted(REGN)
     for (const series of regn.series) for (const point of series.points) delete point.yoy_first_reported
     const { container: none } = render(<DataNotes dataset={regn} />)
-    expect(none.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Select one to see both filings.')
+    expect(none.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018); select one to see both filings.')
     cleanup()
     // The exact sign flip and the factor of 1,000 are figures of the line too, beside their note (D8).
     const { container: flipped } = render(<DataNotes dataset={planted(SIGN_AND_SCALE)} />)
-    expect(flipped.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 2 figures (Financing cash flow FY2020; Long-term debt FY2019). Growth across the change reads n/m (Financing cash flow FY2020; Long-term debt FY2020). Select one to see both filings.')
+    expect(flipped.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 2 figures (Financing cash flow FY2020; Long-term debt FY2019); select one to see both filings. Growth across the change reads n/m (Financing cash flow FY2020; Long-term debt FY2020).')
   })
 
   it.each(CASES.map((entry) => [entry.name, entry]))('names in its n/m sentence exactly the comparisons that read n/m across the change: %s', (_, entry) => {

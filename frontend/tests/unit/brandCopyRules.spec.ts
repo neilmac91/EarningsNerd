@@ -1631,7 +1631,7 @@ function accessStep(key: ts.Expression): Step {
 const FIGURE_FIELDS = new Set([
   // Formatted figures, growths (a number, or "nm") and numbers.
   'display', 'change_display', 'current_period', 'prior_period', 'currentPeriod', 'priorPeriod', 'value', 'arithmetic',
-  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'yoy_first_reported', 'qoq_first_reported', 'n', 'marker', 'markers',
+  'window_pp_range', 'cagr_window', 'yoy', 'qoq', 'yoy_first_reported', 'n', 'marker', 'markers',
   // Numbers a reader reads as one.
   'accession', 'accession_no', 'accession_number', 'superseded_by_accession', 'cik', 'sic', 'dataset_version',
   'app_version',

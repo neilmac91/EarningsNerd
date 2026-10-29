@@ -15,7 +15,6 @@ import GrowthText from './GrowthText'
 import SourceValue from './SourceValue'
 import { useDataNotes } from './DataNotesContext'
 import { markedNote, type DataNote } from '@/features/analysis/lib/dataNotes'
-import { comparisonLaterFiling } from '@/features/analysis/lib/laterFilings'
 import type { FactProvenance } from '@/features/analysis/lib/provenance'
 import type {
   AnalysisDataset,
@@ -41,8 +40,6 @@ interface Kpi {
   growthReconciled?: boolean | null
   growthProvenance?: FactProvenance | null
   growthLabel: string
-  /** A quarterly YoY that reads n/m across a change of basis (laterFilings.ts); an annual card's window growth has none. */
-  growthLaterFiling?: { asFirstReported: string | null }
   /** Basis-window tooltip ("Computed over FY2016–FY2025") — annual cards only. */
   growthTitle?: string
 }
@@ -58,7 +55,7 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
         {kpi.label}
       </dt>
       <dd data-kpi-value className="min-w-0 font-figure text-2xl font-semibold tabular-nums lining-nums tracking-normal text-figure-light dark:text-figure-dark">
-        <SourceValue largeMarks point={kpi.point} label={kpi.label} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote, laterFiling: kpi.growthLaterFiling } : undefined}>{animated}</SourceValue>
+        <SourceValue largeMarks point={kpi.point} label={kpi.label} concept={kpi.concept} note={kpi.note} comparison={text ? { label: kpi.growthLabel, display: text, provenance: kpi.growthProvenance, reconciled: kpi.growthReconciled, note: kpi.growthNote } : undefined}>{animated}</SourceValue>
       </dd>
       <dd className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 self-start font-figure text-xs tabular-nums lining-nums tracking-normal">
         <span className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -130,7 +127,6 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
         ? (win.isPercent ? series.window_pp_provenance : series.cagr_provenance)
         : point.yoy_provenance,
       growthLabel: isAnnual ? win.label : 'YoY',
-      growthLaterFiling: isAnnual ? undefined : comparisonLaterFiling(point, 'yoy', series.percent),
       growthTitle: isAnnual && window ? `Computed over ${formatAnalysisPeriod(window)}` : undefined,
     })
   }

@@ -213,7 +213,7 @@ function growthOf(ds: AnalysisDataset, series: AnalysisSeries): { points: ModelP
     }
     const priorKey = yearEarlier(key)
     const prior = byPeriod.get(priorKey)
-    const state: GrowthState = point?.yoy === 'nm' ? (basisChanged(point, 'yoy') ? 'nm-basis' : 'nm-sign')
+    const state: GrowthState = point?.yoy === 'nm' ? (basisChanged(point) ? 'nm-basis' : 'nm-sign')
       : point?.value != null && prior?.value === 0 ? 'nm-zero'
         : point?.value != null && priorKey < first ? 'structural' : 'unavailable'
     states.push(state)
@@ -423,7 +423,7 @@ export function buildToplineModel(ds: AnalysisDataset, notes: DataNotesModel = r
   const growthNotes: Footnote[] = [
     ...(dashed.length ? [{ mark: '—', text: `YoY growth needs the same period a year earlier; none for ${periodRuns(ds, dashed)}.` }] : []),
     ...(notMeaningful.length ? [{ mark: 'n/m', text: `Not meaningful: the prior-year figure was zero or of the opposite sign (${periodRuns(ds, notMeaningful)}).` }] : []),
-    ...(laterFiling.length ? [{ mark: 'n/m', text: `Not meaningful: a later filing reports a different value for one or both ${ds.mode === 'quarterly' ? 'quarters' : 'years'} (${periodRuns(ds, laterFiling)}).` }] : []),
+    ...(laterFiling.length ? [{ mark: 'n/m', text: `Not meaningful: a later filing reports a different value for one or both years (${periodRuns(ds, laterFiling)}).` }] : []),
     ...(growthMark.points.some((point) => point.offscale) ? [{ mark: '', text: 'Growth bars beyond the axis are broken; their printed value is the true value.' }] : []),
   ]
   return {
