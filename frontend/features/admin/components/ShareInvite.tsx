@@ -182,7 +182,9 @@ export default function ShareInvite({ link, email, defaultMessage, optionsIn = '
 
   return (
     <div className="inline-flex flex-col items-end gap-2">
-      <div className="inline-flex items-center gap-2">
+      {/* The pair wraps: beside the browser's own share sheet, "Share invite" and "More" side by side ran past a bulk
+          summary row and the resend dialog's body under 200% text (E242, chief design on #1791). */}
+      <div className="inline-flex flex-wrap items-center justify-end gap-2">
         {canNativeShare && (
           <Button
             type="button"

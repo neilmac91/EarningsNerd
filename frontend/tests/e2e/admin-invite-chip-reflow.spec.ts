@@ -33,10 +33,13 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  *
  * The resend dialog's share options (features/admin/components/ShareInvite.tsx, opened in ResendShareModal.tsx) fit the
  * dialog at 390, 360 and 320px under the browser's own 200% text setting, in both themes (E240): no element inside the
- * dialog scrolls sideways, the dialog's own scroller included, the share panel ends inside the dialog body's content
- * box, and the page does not scroll sideways. Its minimum width once held it at 512px, wider than the dialog, and below
- * 390px "Copy for DM/LinkedIn" (unbroken) and the WhatsApp button inside uncapped insets still did. These cases set the
- * browser's text size (CDP), as email-verification-resend does, since the dialog's measure is the viewport's.
+ * dialog scrolls sideways, the dialog's own scroller included, the share panel and every button and link in the body
+ * end inside its content box, and the page does not scroll sideways. Its minimum width once held it at 512px, wider
+ * than the dialog, and below 390px "Copy for DM/LinkedIn" (unbroken) and the WhatsApp button inside uncapped insets
+ * still did. These cases set the browser's text size (CDP), as email-verification-resend does, since the dialog's
+ * measure is the viewport's. Each runs again with the browser's own share sheet (an init script defines
+ * navigator.share and canShare), where ShareInvite's "Share invite" button stands beside "More": side by side under
+ * 200% text the pair ran past the body until it wrapped (E242, chief design on #1791).
  *
  * The bulk summary (features/admin/components/BulkResultSummary.tsx), after a send that creates two invites, fails one
  * and skips two entries, holds its addresses and its rows at 390, 360 and 320px under the browser's 200% text setting
@@ -47,7 +50,9 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * 320px without the text setting; and the row's Copy link and Share invite buttons, 129px at their narrowest, ran 20px
  * into the row's inset. Then "Share invite" in a created row opens the share options in a dialog, chief design's ruling
  * on #1784, since under 200% text they cannot fit the row: the dialog names the address, nothing in it scrolls
- * sideways, and the share panel ends inside its body.
+ * sideways, and the share panel and every control end inside its body. Each case runs again with the browser's own
+ * share sheet, where a created row's "Share invite" button stands beside "More", which opens the dialog: the pair
+ * wraps inside the row, where side by side under 200% text "More" ran 59 to 112px past it (chief design on #1791).
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
@@ -290,7 +295,8 @@ async function measureSummary(summary: Locator) {
 }
 
 /** Every element in the dialog that scrolls sideways (its scroll width past its client width), the share panel's box
- *  against the dialog body's content box, and the page's widths. */
+ *  against the dialog body's content box, how far each button and link in the body runs past that box, and the page's
+ *  widths. */
 async function measureShareOptions(dialog: Locator) {
   return dialog.evaluate((d) => {
     const scrolling = [d, ...d.querySelectorAll('*')]
@@ -302,12 +308,26 @@ async function measureShareOptions(dialog: Locator) {
     const body = sharePanel.closest('.px-cap-6.py-4')!
     const style = getComputedStyle(body)
     const outer = body.getBoundingClientRect()
+    const content = { left: outer.left + parseFloat(style.paddingLeft), right: outer.right - parseFloat(style.paddingRight) }
     return {
       scrolling,
       panel: { left: panel.left, right: panel.right, width: panel.width },
-      body: { left: outer.left + parseFloat(style.paddingLeft), right: outer.right - parseFloat(style.paddingRight) },
+      body: content,
+      controls: [...body.querySelectorAll('button, a')].map((control) => {
+        const r = control.getBoundingClientRect()
+        return { name: control.textContent!.trim(), past: Math.max(content.left - r.left, r.right - content.right) }
+      }),
       page: { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth },
     }
+  })
+}
+
+/** Gives the browser its own share sheet, as a phone's has: ShareInvite then offers its "Share invite" button beside
+ *  "More" (More share options), which opens the share options. */
+async function offerShareSheet(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true })
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true })
   })
 }
 
@@ -463,75 +483,92 @@ for (const theme of ['light', 'dark'] as const) {
   })
 
   test.describe(`the resend dialog's share options, ${theme} theme`, () => {
-    for (const width of [390, 360, 320]) {
-      test(`at ${width}px under 200% text nothing in the dialog scrolls sideways, and the share panel ends inside its body (E240)`, async ({ page, baseURL }) => {
-        await page.setViewportSize({ width, height: 900 })
-        const cdp = await page.context().newCDPSession(page)
-        await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
-        await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
-        expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
-        await page.getByRole('button', { name: /Resend/ }).first().click()
-        const dialog = page.getByRole('dialog')
-        await dialog.getByRole('button', { name: 'Share invite', expanded: false }).click()
-        await expect(dialog.getByText('Not bound to an email')).toBeVisible()
-        await page.evaluate(() => document.fonts.ready)
-        const m = await measureShareOptions(dialog)
-        const label = `${width}px, 200% text, ${theme}`
-        expect(m.scrolling, `${label}: an element in the dialog scrolls sideways`).toEqual([])
-        expect(m.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(m.body.left - 0.5)
-        expect(m.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(m.body.right + 0.5)
-        expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
-      })
+    // With the browser's own share sheet, its "Share invite" button stands beside "More", and the pair wraps to fit the
+    // dialog's body: side by side under 200% text they ran 6 to 68px past it (E242, chief design on #1791).
+    for (const sheet of [false, true]) {
+      const opener = sheet ? 'More share options' : 'Share invite'
+      for (const width of [390, 360, 320]) {
+        test(`at ${width}px under 200% text${sheet ? ", with the browser's share sheet," : ''} nothing in the dialog scrolls sideways, and the share panel and every control end inside its body (E240${sheet ? ', E242' : ''})`, async ({ page, baseURL }) => {
+          await page.setViewportSize({ width, height: 900 })
+          const cdp = await page.context().newCDPSession(page)
+          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+          if (sheet) await offerShareSheet(page)
+          await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+          expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
+          await page.getByRole('button', { name: /Resend/ }).first().click()
+          const dialog = page.getByRole('dialog')
+          await dialog.getByRole('button', { name: opener, expanded: false }).click()
+          await expect(dialog.getByText('Not bound to an email')).toBeVisible()
+          await page.evaluate(() => document.fonts.ready)
+          const m = await measureShareOptions(dialog)
+          const label = `${width}px, 200% text, ${sheet ? 'the share sheet, ' : ''}${theme}`
+          expect(m.scrolling, `${label}: an element in the dialog scrolls sideways`).toEqual([])
+          expect(m.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(m.body.left - 0.5)
+          expect(m.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(m.body.right + 0.5)
+          for (const control of m.controls) expect(control.past, `${label}: "${control.name}" runs past the dialog body's content box`).toBeLessThanOrEqual(0.5)
+          expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+        })
+      }
     }
   })
 
   test.describe(`the bulk summary, ${theme} theme`, () => {
-    for (const [width, doubled] of [[390, true], [360, true], [320, true], [320, false]] as const) {
-      const text = doubled ? '200% text' : 'the default text size'
-      test(`at ${width}px under ${text} every address shows whole in its row, the rows' controls fit them, and the share options open in a dialog that holds them (E242)`, async ({ page, baseURL }) => {
-        await page.setViewportSize({ width, height: 900 })
-        if (doubled) {
-          const cdp = await page.context().newCDPSession(page)
-          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
-        }
-        await openAdmin(page, baseURL!, theme, '/admin/invites')
-        await answerSends(page, baseURL!)
-        expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe(doubled ? '32px' : '16px')
-        await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
-        const field = page.getByLabel('Email addresses')
-        await field.fill([SHORT_VALID, LONG, FAILS, INVITED, INVALID].join(', '))
-        await field.press('Enter')
-        await page.getByRole('button', { name: 'Send invites' }).click()
-        const summary = page.locator('div[aria-live="polite"]', { hasText: 'already invited or invalid' })
-        await expect(summary.getByText('1 failed')).toBeVisible()
-        await expect(summary.getByRole('listitem')).toHaveCount(3)
-        await page.evaluate(() => document.fonts.ready)
-        const label = `${width}px, ${text}, ${theme}`
+    // With the browser's own share sheet, a created row's "Share invite" button stands beside "More", which opens the
+    // dialog, and the pair wraps inside the row: side by side under 200% text "More" ran 59 to 112px past it (chief
+    // design on #1791).
+    for (const sheet of [false, true]) {
+      const opener = sheet ? 'More share options' : 'Share invite'
+      for (const [width, doubled] of [[390, true], [360, true], [320, true], [320, false]] as const) {
+        const text = doubled ? '200% text' : 'the default text size'
+        test(`at ${width}px under ${text}${sheet ? ", with the browser's share sheet," : ''} every address shows whole in its row, the rows' controls fit them, and the share options open in a dialog that holds them (E242)`, async ({ page, baseURL }) => {
+          await page.setViewportSize({ width, height: 900 })
+          if (doubled) {
+            const cdp = await page.context().newCDPSession(page)
+            await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+          }
+          if (sheet) await offerShareSheet(page)
+          await openAdmin(page, baseURL!, theme, '/admin/invites')
+          await answerSends(page, baseURL!)
+          expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe(doubled ? '32px' : '16px')
+          await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
+          const field = page.getByLabel('Email addresses')
+          await field.fill([SHORT_VALID, LONG, FAILS, INVITED, INVALID].join(', '))
+          await field.press('Enter')
+          await page.getByRole('button', { name: 'Send invites' }).click()
+          const summary = page.locator('div[aria-live="polite"]', { hasText: 'already invited or invalid' })
+          await expect(summary.getByText('1 failed')).toBeVisible()
+          await expect(summary.getByRole('listitem')).toHaveCount(3)
+          // The share sheet is found after mount: "More" shows in both created rows before anything is read.
+          if (sheet) await expect(summary.getByRole('button', { name: 'More share options' })).toHaveCount(2)
+          await page.evaluate(() => document.fonts.ready)
+          const label = `${width}px, ${text}, ${sheet ? 'the share sheet, ' : ''}${theme}`
 
-        const m = await measureSummary(summary)
-        expect(m.rows.map((row) => row.address.text).sort(), `${label}: the rows`).toEqual([SHORT_VALID, LONG, FAILS].sort())
-        for (const { address, controls } of m.rows) {
-          expect(address.past, `${label}: characters of ${address.text} painted outside its row`).toBe('')
-          for (const control of controls) expect(control.past, `${label}: "${control.name}" in the row of ${address.text} runs past the row`).toBeLessThanOrEqual(0.5)
-        }
-        // An address of a common length breaks only after its @: the row keeps room for "example.com" (both caps).
-        const short = m.rows.find((row) => row.address.text === SHORT_VALID)!.address
-        const [local, domain] = SHORT_VALID.split('@')
-        expect([[SHORT_VALID], [`${local}@`, domain]], `${label}: ${SHORT_VALID} breaks inside a part, as ${short.lines.join(' / ')}`).toContainEqual(short.lines)
-        expect(m.skipped.text, `${label}: the skipped line`).toBe(`${INVALID}, ${INVITED}: already invited or invalid.`)
-        expect(m.skipped.past, `${label}: characters of the skipped line painted outside the summary`).toBe('')
-        expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+          const m = await measureSummary(summary)
+          expect(m.rows.map((row) => row.address.text).sort(), `${label}: the rows`).toEqual([SHORT_VALID, LONG, FAILS].sort())
+          for (const { address, controls } of m.rows) {
+            expect(address.past, `${label}: characters of ${address.text} painted outside its row`).toBe('')
+            for (const control of controls) expect(control.past, `${label}: "${control.name}" in the row of ${address.text} runs past the row`).toBeLessThanOrEqual(0.5)
+          }
+          // An address of a common length breaks only after its @: the row keeps room for "example.com" (both caps).
+          const short = m.rows.find((row) => row.address.text === SHORT_VALID)!.address
+          const [local, domain] = SHORT_VALID.split('@')
+          expect([[SHORT_VALID], [`${local}@`, domain]], `${label}: ${SHORT_VALID} breaks inside a part, as ${short.lines.join(' / ')}`).toContainEqual(short.lines)
+          expect(m.skipped.text, `${label}: the skipped line`).toBe(`${INVALID}, ${INVITED}: already invited or invalid.`)
+          expect(m.skipped.past, `${label}: characters of the skipped line painted outside the summary`).toBe('')
+          expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
 
-        await summary.getByRole('listitem').filter({ hasText: SHORT_VALID }).getByRole('button', { name: 'Share invite', expanded: false }).click()
-        const dialog = page.getByRole('dialog', { name: 'Share invite' })
-        await expect(dialog.getByText(`The invite link for ${SHORT_VALID} works once`)).toBeVisible()
-        await expect(dialog.getByRole('textbox', { name: 'Message' })).toBeVisible()
-        const d = await measureShareOptions(dialog)
-        expect(d.scrolling, `${label}: an element in the share dialog scrolls sideways`).toEqual([])
-        expect(d.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(d.body.left - 0.5)
-        expect(d.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(d.body.right + 0.5)
-        expect(d.page.scrollWidth, `${label}: the page scrolls sideways with the dialog open`).toBe(d.page.clientWidth)
-      })
+          await summary.getByRole('listitem').filter({ hasText: SHORT_VALID }).getByRole('button', { name: opener, expanded: false }).click()
+          const dialog = page.getByRole('dialog', { name: 'Share invite' })
+          await expect(dialog.getByText(`The invite link for ${SHORT_VALID} works once`)).toBeVisible()
+          await expect(dialog.getByRole('textbox', { name: 'Message' })).toBeVisible()
+          const d = await measureShareOptions(dialog)
+          expect(d.scrolling, `${label}: an element in the share dialog scrolls sideways`).toEqual([])
+          expect(d.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(d.body.left - 0.5)
+          expect(d.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(d.body.right + 0.5)
+          for (const control of d.controls) expect(control.past, `${label}: "${control.name}" runs past the dialog body's content box`).toBeLessThanOrEqual(0.5)
+          expect(d.page.scrollWidth, `${label}: the page scrolls sideways with the dialog open`).toBe(d.page.clientWidth)
+        })
+      }
     }
   })
 
