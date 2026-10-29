@@ -258,6 +258,7 @@ by prefix: `arch-*`, `sec-*`, `test-*`, `frontend-*`, `evals-*`, `ops-*`. Entrie
 
 The rule is checked by the named gate; open the lesson only when that gate fails or you change it.
 
+- arch-a-backend-link-names-a-page-the-frontend-serves.md — A link the backend builds on FRONTEND_URL names a page the frontend serves — gate: `backend/tests/unit/test_frontend_links_resolve.py`
 - arch-sweep-dead-integration-consumers.md — When an integration is declared dead, sweep every consumer in the same pass — gate: `backend/tests/unit/test_dead_integrations_allowlist.py`
 - ops-a-review-you-triggered-is-a-review-you-wait-for.md — A review you triggered is a review you wait for; merging inside it discards what you asked for — gate: `.github/workflows/review-gate.yml` (required status check `review-gate`, which requires a clean current-head review and trusted cycle evidence for the ready transition; `ops-merge-after-the-ready-marks-own-codex-review.md`)
 - ops-deploy-detector-mirrors-the-image-context.md — Make the deploy change detector exclude exactly what `.dockerignore` excludes, and gate it with a test — gate: `backend/tests/unit/test_backend_deploy_scope.py`
