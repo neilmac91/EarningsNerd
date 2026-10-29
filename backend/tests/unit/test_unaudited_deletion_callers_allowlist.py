@@ -1,61 +1,86 @@
-"""Gate: only reviewed callers delete an account without its audit row (F19).
+"""Gate: only reviewed callers reach the unaudited account deletion (F19).
 
 ``user_account_service.delete_account`` is the account's own deletion (``DELETE /api/users/me``): it commits the
-account's removal with its ``user_deleted`` audit row, or neither. ``user_account_service.delete_user`` deletes with
-no audit row, for accounts no person asked to delete: the feedback-media verifier's fixture accounts. A route or job
-that called ``delete_user`` for a person's own deletion would delete them unaudited, which F19 forbids. This gate
-counts every reference to ``delete_user`` outside its own module and the test homes, per file, and holds the counts
-to the reviewed allowlist below: a new caller fails until it is reviewed and listed.
+account's removal with its ``user_deleted`` audit row, or neither. ``delete_user`` deletes with no audit row, for
+accounts no person asked to delete (the feedback-media verifier's fixtures), and both go through the private
+``_delete_locked_account``. A route or job that reached either unaudited path for a person's own deletion would
+delete them unaudited, which F19 forbids. So this gate counts, per file, every reference to ``delete_user`` or
+``_delete_locked_account`` (a name, an attribute, an import, or the name as a string constant, as ``getattr`` and
+``vars()`` take it), and every direct ORM delete of ``User`` rows (``query(User)...delete()`` or ``delete(User)``),
+in every Python file the repository holds outside the browser app and the test homes, the defining module included,
+and holds the counts to the reviewed allowlist below: a new one fails until it is reviewed and listed.
 
-The walk reads every Python file under ``backend/`` (the app, the entrypoints, ``scripts/``) and ``ops/`` through
-``ast`` and counts each name, attribute or import named ``delete_user``. It cannot see the function reached by a
-computed name (``getattr`` with a built string) or through an alias assigned at run time; review covers those.
+The walk is ``test_replaced_by_id_writers_allowlist.py``'s (``_scanned_files``), Python files only. What it cannot
+see, left to review (each planted in ``PLANTED_GAPS``): the name built at run time (``'delete_' + 'user'``), and an
+instance delete through the session (``db.delete(account)``), which reads like any other row's delete.
 """
 import ast
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[3]
-DEFINING_MODULE = "backend/app/services/user_account_service.py"
-SCANNED_ROOTS = ("backend", "ops")
+from tests.unit.test_replaced_by_id_writers_allowlist import REPO_DIR, _scanned_files
 
-# File -> references to delete_user. Each entry is a deletion no person asked for.
+GUARDED = {"delete_user", "_delete_locked_account"}
+
+# File -> references to the unaudited deletion. Each one is reviewed.
 ALLOWED_REFERENCES = {
-    # The verifier's own fixture accounts, created and removed by the verification run.
+    # delete_account's and delete_user's own calls of the shared lock-and-cascade step.
+    "backend/app/services/user_account_service.py": 2,
+    # The verifier's own fixture accounts, created and removed by the verification run (its import and its call).
     "ops/feedback_media/verify_runtime.py": 2,
 }
+
+
+def _query_of_user(node: ast.AST) -> bool:
+    """Whether an expression chain holds a ``.query(User ...)`` call (``db.query(User).filter(...)``)."""
+    while True:
+        if isinstance(node, ast.Call):
+            func = node.func
+            if (isinstance(func, ast.Attribute) and func.attr == "query"
+                    and any(isinstance(arg, ast.Name) and arg.id == "User" for arg in node.args)):
+                return True
+            node = func
+        elif isinstance(node, ast.Attribute):
+            node = node.value
+        else:
+            return False
 
 
 def references(source: str) -> int:
     count = 0
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Name) and node.id == "delete_user":
+        if isinstance(node, ast.Name) and node.id in GUARDED:
             count += 1
-        elif isinstance(node, ast.Attribute) and node.attr == "delete_user":
+        elif isinstance(node, ast.Attribute) and node.attr in GUARDED:
             count += 1
         elif isinstance(node, ast.ImportFrom):
-            count += sum(1 for alias in node.names if alias.name == "delete_user")
+            count += sum(1 for alias in node.names if alias.name in GUARDED)
+        elif isinstance(node, ast.Constant) and node.value in GUARDED:
+            count += 1
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "delete":
+            if _query_of_user(node.func.value):
+                count += 1
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "delete":
+            if any(isinstance(arg, ast.Name) and arg.id == "User" for arg in node.args):
+                count += 1
     return count
 
 
-def _scanned_files():
-    for root in SCANNED_ROOTS:
-        for path in sorted((REPO / root).rglob("*.py")):
-            relative = path.relative_to(REPO).as_posix()
-            parts = set(path.relative_to(REPO).parts)
-            if relative == DEFINING_MODULE or "tests" in parts or "__pycache__" in parts:
-                continue
-            yield relative, path
+def _python_files():
+    for path in _scanned_files():
+        if path.suffix == ".py":
+            yield path.relative_to(REPO_DIR).as_posix(), path
 
 
-def test_only_reviewed_callers_delete_an_account_without_its_audit_row():
+def test_only_reviewed_callers_reach_the_unaudited_deletion():
     found = {}
-    for relative, path in _scanned_files():
-        count = references(path.read_text(encoding="utf-8"))
+    for relative, path in _python_files():
+        count = references(path.read_text(encoding="utf-8-sig"))
         if count:
             found[relative] = count
     assert found == ALLOWED_REFERENCES, (
-        "A new reference to user_account_service.delete_user deletes an account with no audit row. A person's own "
-        "deletion goes through delete_account (F19); list a deliberate unaudited deletion here after review."
+        "A reference to the unaudited account deletion (user_account_service.delete_user, _delete_locked_account, or "
+        "a direct ORM delete of User rows) is new or gone. A person's own deletion goes through delete_account (F19); "
+        "list a deliberate unaudited deletion here after review."
     )
 
 
@@ -64,23 +89,39 @@ PLANTED_COUNTED = {
     "an imported name": "from app.services.user_account_service import delete_user\ndelete_user(db, 1)\n",
     "an import alias": "from app.services.user_account_service import delete_user as drop\ndrop(db, 1)\n",
     "a reference passed on": "run_in_threadpool(user_account_service.delete_user, db, 1)\n",
+    "the private step": "user_account_service._delete_locked_account(db, 1)\n",
+    "getattr with the name": "getattr(user_account_service, 'delete_user')(db, 1)\n",
+    "vars() with the name": "vars(user_account_service)['_delete_locked_account'](db, 1)\n",
+    "a query delete of User rows": "db.query(User).filter(User.id == 1).delete()\n",
+    "a core delete of User": "db.execute(delete(User).where(User.id == 1))\n",
 }
-PLANTED_NOT_COUNTED = {
+PLANTED_LOOK_ALIKES = {
     "the audited deletion": "user_account_service.delete_account(db, 1, third_party_results={})\n",
-    "a computed name (a stated gap)": "getattr(user_account_service, 'delete_' + 'user')(db, 1)\n",
+    "another table's query delete": "db.query(RefreshToken).filter(RefreshToken.user_id == 1).delete()\n",
+    "another table's core delete": "db.execute(delete(RefreshToken).where(RefreshToken.user_id == 1))\n",
+    "a name that only contains it": "undelete_user_cache.clear()\n",
+}
+# The walk's stated gaps: each reaches the unaudited deletion, and it counts none of them.
+PLANTED_GAPS = {
+    "a name built at run time": "getattr(user_account_service, 'delete_' + 'user')(db, 1)\n",
+    "an instance delete through the session": "db.delete(account)\ndb.commit()\n",
 }
 
 
-def test_the_walk_counts_the_planted_references():
-    assert {name: references(source) > 0 for name, source in PLANTED_COUNTED.items()} == dict.fromkeys(
-        PLANTED_COUNTED, True
-    )
-    assert {name: references(source) for name, source in PLANTED_NOT_COUNTED.items()} == dict.fromkeys(
-        PLANTED_NOT_COUNTED, 0
+def test_the_walk_counts_the_planted_forms_and_states_its_gaps():
+    assert {name: references(source) for name, source in PLANTED_COUNTED.items()} == {
+        # An imported name counts at its import and its call; an alias at its import only.
+        name: (2 if name == "an imported name" else 1) for name in PLANTED_COUNTED
+    }
+    assert {name: references(source) for name, source in {**PLANTED_LOOK_ALIKES, **PLANTED_GAPS}.items()} == dict.fromkeys(
+        {**PLANTED_LOOK_ALIKES, **PLANTED_GAPS}, 0
     )
 
 
 def test_the_walk_reads_the_files_it_guards():
-    scanned = {relative for relative, _path in _scanned_files()}
-    assert {"backend/app/routers/users.py", "ops/feedback_media/verify_runtime.py", "backend/main.py"} <= scanned
-    assert DEFINING_MODULE not in scanned
+    scanned = {relative for relative, _path in _python_files()}
+    assert {
+        "backend/app/routers/users.py", "backend/app/services/user_account_service.py",
+        "ops/feedback_media/verify_runtime.py", "backend/main.py",
+    } <= scanned
+    assert not any(part == "tests" for relative in scanned for part in Path(relative).parts)

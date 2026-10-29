@@ -55,8 +55,9 @@ def delete_account(db: Session, user_id: int, *, third_party_results: Mapping[st
 def delete_user(db: Session, user_id: int) -> None:
     """Delete an account no person asked to delete, with no audit row, and commit: the feedback-media
     verifier's fixture accounts (``ops/feedback_media/verify_runtime.py``) and the feedback-media tests'.
-    ``tests/unit/test_unaudited_deletion_callers_allowlist.py`` holds its callers outside the tests to that
-    list. The lock and the cascade are ``delete_account``'s."""
+    ``tests/unit/test_unaudited_deletion_callers_allowlist.py`` holds its callers, and those of the
+    ``_delete_locked_account`` step it shares with ``delete_account``, to that list outside the tests. The lock and
+    the cascade are ``delete_account``'s."""
     _lock_account(db, user_id)
     _delete_locked_account(db, user_id)
 
