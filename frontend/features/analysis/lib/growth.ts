@@ -4,7 +4,9 @@ import type { AnalysisSeries, GrowthValue } from '@/features/analysis/api/analys
 
 /**
  * Render a YoY/QoQ delta consistently everywhere it appears (metrics table, KPI strip): "n/m"
- * for a sign-flip crossing (flat tone — it isn't a real up/down move), percentage points for a
+ * for a change that is not a meaningful percentage, whether its values change sign through zero or a
+ * later filing reports a different value for one or both of its periods (flat tone — it isn't a real
+ * up/down move; the evidence dialog and the chart's footnote say which), percentage points for a
  * `percent`-unit series (margins — the value is already pp, never ×100), relative percentage
  * for everything else.
  */
