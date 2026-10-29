@@ -514,8 +514,10 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  and a field that styles itself, on any page, takes it with a DS ring and its dark twin (gate: the
                  app-wide field describe in tests/unit/siteChromeFocusRing.spec.ts). Every Tab stop
                  in the site chrome carries it (the skip link the same triple on `focus:`). The same gate
-                 covers raw controls in check-email, settings, invites and watchlist pages and their feature
-                 modules, plus the shared Switch; field recipes retain their app-wide gates: gate
+                 covers the raw controls of every route's page and the feature modules it reaches, plus the
+                 shared Switch, but for a residue that only shrinks (RING_RESIDUE: Markdown and chart
+                 renderers' props spreads, and one control of the filing page's sweep); field recipes retain
+                 their app-wide gates: gate
                  tests/unit/siteChromeFocusRing.spec.ts reads the AST of every chrome file, discovered from
                  app/layout.tsx, every route layout, template or error boundary under app/ (the admin
                  nav, global-error's fallback), AuthShell and SecondaryHeader through their imports (a lazy
@@ -525,9 +527,14 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  plus every control a page passes into SecondaryHeader's `actions` slot (the dashboard's
                  "Log out"; write them inline, as a variable or
                  a component of their own the scan cannot read them); `buttonVariants(…)` composes it; a
-                 className it cannot read fails (it reads `cx(…)` by its static arguments), and so does a
-                 props spread, except a component's own rest props passed to the element that takes its
-                 className. An <iframe> in the Tab order (`tabIndex={-1}` takes it out), <audio> or
+                 className it cannot read fails. It reads what a className holds: `cx(…)` by its static
+                 arguments, a template or a `+` join as the string it builds, a condition by the classes both
+                 its branches carry, a `const` the file declares or imports by name from another of the app's
+                 modules (FilingIdentity's `IDENTITY_LINK`), and the count control's, the trace chip's and the
+                 field's recipes by calling them. A props spread fails too, except a component's own rest
+                 props passed to the element that takes its className, and a plain object the file declares
+                 as a `const`, of named entries none of which decides focus, that nothing writes after it is
+                 made (CitationChip's trigger handlers). An <iframe> in the Tab order (`tabIndex={-1}` takes it out), <audio> or
                  <video> with `controls` and a <details> with no <summary> of its own fail outright: the
                  browser focuses the frame's document, its own media controls or its own "Details"
                  summary, which no class reaches (Chromium 141). A
@@ -535,8 +542,7 @@ Focus ring       focus-visible:outline-none focus-visible:shadow-ring-brand dark
                  no control); Sonner's Toaster takes the ring
                  through `toastOptions.classNames` with `!` on the shadow, since Sonner's own injected
                  :focus-visible shadow matches or outranks a utility class, and the gate pins every slot. It is
-                 the rule's one gate; a page's other controls (the filing identity strip's breadcrumb) carry the
-                 recipe but sit outside it.
+                 the rule's one gate.
 
 Card / panel     bg-panel-light dark:bg-panel-dark + border + shadow-e2 dark:shadow-none
                  (e1 chips · e2 cards · e3 hero/featured · e4/e5 menus & overlays)
