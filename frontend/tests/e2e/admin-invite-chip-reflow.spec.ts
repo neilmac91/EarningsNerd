@@ -390,7 +390,7 @@ for (const theme of ['light', 'dark'] as const) {
         expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe('32px')
         await page.getByRole('button', { name: /Resend/ }).first().click()
         const dialog = page.getByRole('dialog')
-        await dialog.getByRole('button', { name: 'Show share options' }).click()
+        await dialog.getByRole('button', { name: 'Share invite', expanded: false }).click()
         await expect(dialog.getByText('Not bound to an email')).toBeVisible()
         await page.evaluate(() => document.fonts.ready)
         const m = await measureShareOptions(dialog)
