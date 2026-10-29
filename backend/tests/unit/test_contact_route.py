@@ -154,9 +154,10 @@ def test_team_notice_names_the_plan_of_the_account_that_uses_the_address(
     admin_html, user_html = sent_emails.bodies
     assert f'<div class="value">{plan_line}</div>' in admin_html
     assert "Plan:" not in user_html and "account uses this address" not in user_html
-    # The subject carries the plan too, so an inbox lists a member's message first; the caveat stays in the body.
+    # The subject carries the plan too, before the name the sender typed, so the inbox list shows a member's plan
+    # without opening the mail and no name can fake it; the caveat stays in the body.
     (_admin, admin_subject), (_user, user_subject) = sent_emails
-    assert admin_subject == f"New Contact Form Submission from {PAYLOAD['name']} ({plan_line.split(' ')[0]})"
+    assert admin_subject == f"New Contact Form Submission ({plan_line.split(' ')[0]}) from {PAYLOAD['name']}"
     assert "Pro" not in user_subject and "Free" not in user_subject
 
 
@@ -166,6 +167,19 @@ def test_team_notice_says_when_no_account_uses_the_address(client, sent_emails):
     admin_html, _user_html = sent_emails.bodies
     assert '<div class="value">No account uses this address</div>' in admin_html
     assert sent_emails[0][1] == f"New Contact Form Submission from {PAYLOAD['name']}"  # no plan, no tag
+
+
+def test_a_name_that_spells_a_plan_cannot_pass_for_a_member(client, session_factory, sent_emails):
+    """The tag stands before the name the sender typed, so a stranger who types "Bob (Pro)" as a name sends a
+    subject a Pro member named Bob never gets."""
+    with session_factory() as s:
+        s.add(User(email="bob@example.com", hashed_password="x", is_pro=True))
+        s.commit()
+    assert _post(client, IP_A, name="Bob", email="bob@example.com").status_code == 201
+    assert _post(client, IP_B, name="Bob (Pro)", email="stranger@example.com").status_code == 201
+    member, stranger = sent_emails[0][1], sent_emails[2][1]
+    assert member == "New Contact Form Submission (Pro) from Bob"
+    assert stranger == "New Contact Form Submission from Bob (Pro)"
 
 
 def test_a_failed_plan_read_still_saves_the_submission_and_sends_both_mails(

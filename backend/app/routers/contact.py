@@ -126,9 +126,9 @@ async def submit_contact_form(
 
 def _plan_notes(db: Session, email: str) -> tuple[str, str]:
     """The team notice's plan for the address the form was given (D-050's priority support, kept by hand): a
-    tag for its subject, so an inbox shows a member's message first ("" unless an account's plan was read),
-    and a line for its body, which carries the caveat. Best-effort: the submission is saved by now, so a
-    failed read says so rather than failing it."""
+    tag for its subject, so the inbox list shows a member's plan without opening the mail ("" unless an
+    account's plan was read), and a line for its body, which carries the caveat. Best-effort: the submission
+    is saved by now, so a failed read says so rather than failing it."""
     try:
         plan = sender_plan(db, email)
     except Exception:  # noqa: BLE001 - the row is committed; the notice still goes out
@@ -144,7 +144,7 @@ async def send_contact_notifications(
     submission: ContactSubmissionCreate,
     submission_id: int,
     plan_line: str,
-    plan_tag: str = "",
+    plan_tag: str,
 ):
     """Send email notifications for contact form submission"""
     # Escape all user-provided data to prevent HTML injection
@@ -154,7 +154,8 @@ async def send_contact_notifications(
     safe_message = html.escape(submission.message)
 
     # Email to admin
-    admin_subject = f"New Contact Form Submission from {safe_name}{plan_tag}"
+    # The plan tag stands before the name the sender typed, so no name can fake it ("Bob (Pro)").
+    admin_subject = f"New Contact Form Submission{plan_tag} from {safe_name}"
     admin_html = f"""
     <html>
       <head>
