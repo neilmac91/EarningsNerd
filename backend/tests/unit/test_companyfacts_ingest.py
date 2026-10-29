@@ -3890,7 +3890,7 @@ class TestProxyStatementItems:
         "def 14a", " DEF  14A ", "DEF 14A/A",
     ])
     def test_every_schedule_14a_and_14c_form_is_a_proxy(self, form):
-        from app.services.facts.currency import is_proxy_form
+        from app.services.facts.fiscal_naming import is_proxy_form
 
         assert is_proxy_form(form)
 
@@ -3903,7 +3903,7 @@ class TestProxyStatementItems:
         "N-14AE", "N-14AE/A", "N-14 8C", "N-14 8C/A", "N-CSR", "ARS", "SC 14D9/A",
     ])
     def test_reports_and_other_schedules_stay_admitted(self, form):
-        from app.services.facts.currency import is_proxy_form
+        from app.services.facts.fiscal_naming import is_proxy_form
 
         assert not is_proxy_form(form)
 

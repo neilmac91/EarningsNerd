@@ -1,6 +1,6 @@
 """The detection SQL reads a proxy form exactly as ``is_proxy_form`` does, in every one of its sets.
 
-``ops/detection/proxy_form_winners.sql`` copies ``facts/currency.py``'s ``_PROXY_FORM`` into each
+``ops/detection/proxy_form_winners.sql`` copies ``facts/fiscal_naming.py``'s ``_PROXY_FORM`` into each
 statement's params, anchored as ``fullmatch`` anchors it and with ``(/A)?`` for ``(?:/A)?``
 (PostgreSQL's regular expressions have no non-capturing group), and normalizes the form first as
 ``is_proxy_form`` does: whitespace collapsed to one space, trimmed, upper-cased. This gate holds every
@@ -10,7 +10,7 @@ SQL file, whose header names it.
 import re
 from pathlib import Path
 
-from app.services.facts.currency import _PROXY_FORM
+from app.services.facts.fiscal_naming import _PROXY_FORM
 
 SQL = Path(__file__).resolve().parents[3] / "ops" / "detection" / "proxy_form_winners.sql"
 SETS = 4  # each statement declares its own params
