@@ -120,6 +120,15 @@ export interface NarrativeState {
   error?: string
 }
 
+/** What a streaming run is doing, in words: the pane's Activity line and the page's status line (AnalysisPageClient)
+ *  both say these, so the two cannot drift. */
+export function runStageWords(stage?: string): string {
+  return stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'
+}
+
+/** A run that ends without enough reported history: the card's notice and the page's status line both say it. */
+export const NOT_ENOUGH_HISTORY = 'Not enough reported history in the selected range for a meaningful analysis.'
+
 const SOURCE_BADGE_BASE =
   'Sources identify filed and calculated figures.'
 
@@ -271,7 +280,7 @@ export default function NarrativePane({
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
-            <ActivityLine>{state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}</ActivityLine>
+            <ActivityLine>{runStageWords(state.stage)}</ActivityLine>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
             <Badge title={SAMPLE_NOTE}>
@@ -345,7 +354,7 @@ export default function NarrativePane({
       ) : notEnoughData ? (
         <Notice
           variant="info"
-          title="Not enough reported history in the selected range for a meaningful analysis."
+          title={NOT_ENOUGH_HISTORY}
           description="Try widening the period range."
         />
       ) : (
