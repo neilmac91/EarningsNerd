@@ -3,7 +3,7 @@
 import { CollectionGate } from '@/features/legal/components/CollectionGate'
 import type { LegalReadiness } from '@/features/legal/api/legal-api'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
@@ -37,6 +37,9 @@ const unknownReferralDescription = 'Check the link with whoever shared it.'
 // Wrapping pills (DESIGN_SYSTEM.md, Wrapping button): at 200% text "Share on WhatsApp" is wider than the card, and
 // "Join without the code" than its Notice.
 const pillLinkClass = buttonVariants({ variant: 'secondary', size: 'sm', wrap: true, className: 'max-w-full' })
+// What the referral box's status line says after a press of Copy: the link sits above the line at every width.
+const referralCopyWords = (state: 'copied' | 'failed') =>
+  state === 'copied' ? 'Referral link copied.' : 'Could not copy the link. Select it above instead.'
 
 function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & { recheck: () => Promise<LegalReadiness | null> }) {
   const searchParams = useSearchParams()
@@ -52,7 +55,17 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
   // The code "Join without the code" dropped (joinWithoutCode), so a submit before the URL loses it sends none.
   const [droppedReferral, setDroppedReferral] = useState<string | null>(null)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
-  const [copied, setCopied] = useState(false)
+  // The referral box's status line (see handleCopy), and the words it last said, kept as a render-time update of state
+  // so they are there in the render that empties the line (as ResendShareModal keeps its own).
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [heldCopyState, setHeldCopyState] = useState<'copied' | 'failed' | null>(null)
+  if (copyState !== 'idle' && copyState !== heldCopyState) setHeldCopyState(copyState)
+  // A check in place of Copy's icon for a moment after a copy; its words stay.
+  const [showCheck, setShowCheck] = useState(false)
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (checkTimer.current) clearTimeout(checkTimer.current)
+  }, [])
 
   // Derived during render from the URL: the code is only ever submitted, never typed. Guard on the raw param so a
   // blank ref stays null. A code the reader dropped is not sent, even while the URL still holds it.
@@ -87,7 +100,6 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
     if (isSubmitting || tokenPending) return
     setError(null)
     setReferralRefused(false)
-    setCopied(false)
 
     if (!email.trim()) {
       setError('Please enter a valid email address.')
@@ -165,14 +177,21 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
     emailRef.current?.focus()
   }
 
+  // Copy keeps its words, so its name is what it shows (WCAG 2.5.3), and says a press in the referral box's status line
+  // (4.1.3): its words flashed to "Copied" and nothing was heard (E244). The line is emptied first, so a second press
+  // that says the same is said again.
   const handleCopy = async () => {
     if (!referralLink) return
+    setCopyState('idle')
     try {
       await navigator.clipboard.writeText(referralLink)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      setCopyState('copied')
+      setShowCheck(true)
+      if (checkTimer.current) clearTimeout(checkTimer.current)
+      checkTimer.current = setTimeout(() => setShowCheck(false), 1500)
     } catch {
-      setCopied(false)
+      setCopyState('failed')
+      setShowCheck(false)
     }
   }
 
@@ -215,12 +234,20 @@ function OpenWaitlistForm({ source = 'homepage', recheck }: WaitlistFormProps & 
               variant="secondary"
               size="sm"
               onClick={handleCopy}
-              leftIcon={copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+              leftIcon={showCheck ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               className="shrink-0"
             >
-              {copied ? 'Copied' : 'Copy'}
+              Copy
             </Button>
           </div>
+          {/* In place with the card, so the line is a live region before a press fills it; empty before a first press, it
+              takes no room. While a repeat press empties it, it keeps the words it last said, invisible and hidden from
+              the accessibility tree, so it holds its room and the card holds still. */}
+          <p role="status" className={cx('text-sm text-text-secondary-light dark:text-text-secondary-dark', heldCopyState && 'mt-2')}>
+            {copyState !== 'idle'
+              ? referralCopyWords(copyState)
+              : heldCopyState && <span aria-hidden="true" className="invisible">{referralCopyWords(heldCopyState)}</span>}
+          </p>
         </div>
 
         <div className="mt-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">

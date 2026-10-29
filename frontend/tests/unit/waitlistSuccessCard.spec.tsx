@@ -9,6 +9,7 @@ import settle from 'axios/unsafe/core/settle.js'
 import client, { ApiError } from '@/lib/api/client'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
+import { changesOf, saidBy, saidTwice } from './statusLines'
 
 /**
  * The waitlist success card (audit pub/F02, BG-10): the heading confirms waitlist membership, not access;
@@ -23,6 +24,9 @@ import { REFERRAL_BONUS } from '@/features/waitlist/lib/referral'
  * A Ctrl or Cmd click opens the link in a new tab and leaves this one as it was. A Turnstile token verifies
  * once, so a join that does not land renews the widget, and the next submit carries a new token. While a token
  * comes, the button keeps focus and is aria-disabled, never natively disabled, and a press sends nothing.
+ * The link's Copy keeps its words and says a press in a status line under it (E244): "Referral link copied.", or that
+ * it could not copy and where the link is. A repeat press is said again, the line holding its room, and a check stands
+ * in for its icon for a moment. tests/unit/copyConfirmations.spec.ts names this spec as the Copy's.
  */
 
 const api = vi.hoisted(() => ({ joinWaitlist: vi.fn() }))
@@ -205,6 +209,94 @@ describe('waitlist success card', () => {
       expect(classes, name).toEqual(expect.arrayContaining(['whitespace-normal', 'max-w-full']))
       expect(classes, name).not.toContain('whitespace-nowrap')
     }
+  })
+})
+
+// fireEvent, not user-event: user-event's setup puts its own clipboard in place of the one installed here.
+describe("the referral link's Copy", () => {
+  const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+  const installClipboard = (writeText = vi.fn().mockResolvedValue(undefined)) => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    return writeText
+  }
+  afterEach(() => {
+    vi.useRealTimers()
+    if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard)
+    else Reflect.deleteProperty(navigator, 'clipboard')
+  })
+  const follows = (first: Node, next: Node) => !!(first.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING)
+
+  it('keeps its words through a press, which copies the link and says so in a status line under it', async () => {
+    const writeText = installClipboard()
+    await join("You're on the waitlist.")
+    const button = screen.getByRole('button', { name: 'Copy' })
+    const line = screen.getByRole('status')
+    expect(line, 'the line is in place, empty, before a press').toHaveTextContent(/^$/)
+    // Under the link and its Copy, before the referral sentence.
+    expect(follows(screen.getByText(link), button) && follows(button, line)).toBe(true)
+    expect(follows(line, screen.getByText(/^Each person who joins with your link/))).toBe(true)
+
+    fireEvent.click(button)
+    await waitFor(() => expect(saidBy(line)).toBe('Referral link copied.'))
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(link)
+    expect(button).toHaveAccessibleName('Copy')
+    expect(button).toHaveTextContent(/^Copy$/)
+  })
+
+  it('says a second press again, the line holding its room while it is emptied', async () => {
+    installClipboard()
+    await join("You're on the waitlist.")
+    const button = screen.getByRole('button', { name: 'Copy' })
+    const line = screen.getByRole('status')
+    const changes = changesOf(line)
+    fireEvent.click(button)
+    await waitFor(() => expect(saidBy(line)).toBe('Referral link copied.'))
+    fireEvent.click(button)
+    await waitFor(() => expect(changes).toEqual(saidTwice('Referral link copied.')))
+  })
+
+  it('says a failed copy in the same line, pointing to the link above it, and a second one again', async () => {
+    installClipboard(vi.fn().mockRejectedValue(new Error('denied')))
+    await join("You're on the waitlist.")
+    const button = screen.getByRole('button', { name: 'Copy' })
+    const line = screen.getByRole('status')
+    const changes = changesOf(line)
+    fireEvent.click(button)
+    await waitFor(() => expect(saidBy(line)).toBe('Could not copy the link. Select it above instead.'))
+    fireEvent.click(button)
+    await waitFor(() => expect(changes).toEqual(saidTwice('Could not copy the link. Select it above instead.')))
+    expect(button).toHaveTextContent(/^Copy$/)
+  })
+
+  it('shows a check in place of its icon for a moment from the latest copy, and none after a failed one', async () => {
+    const writeText = installClipboard()
+    await join("You're on the waitlist.")
+    const button = screen.getByRole('button', { name: 'Copy' })
+    const icon = () => button.querySelector('svg')?.outerHTML
+    const resting = icon()
+    expect(resting, 'the copy icon').toBeDefined()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const press = () => act(async () => {
+      fireEvent.click(button)
+    })
+    const later = (ms: number) => act(() => {
+      vi.advanceTimersByTime(ms)
+    })
+
+    await press()
+    expect(icon(), 'a check in place of the copy icon').not.toBe(resting)
+    later(1000)
+    await press()
+    later(1000)
+    expect(icon(), 'the check lasts a moment from the latest copy').not.toBe(resting)
+    later(500)
+    expect(icon(), 'the copy icon again').toBe(resting)
+
+    await press()
+    writeText.mockRejectedValueOnce(new Error('denied'))
+    await press()
+    expect(icon(), 'no check after a failed copy').toBe(resting)
+    expect(button).toHaveTextContent(/^Copy$/)
   })
 })
 
