@@ -110,7 +110,8 @@ arrives.
      the account still exists, with no deletion audit row, whether the audit insert, the delete or the commit
      failed (`test_a_deletion_that_fails_after_stripe_cancelled_keeps_the_account_and_logs_the_outcomes`, all three).
      The exception is a commit the database applied whose reply was lost (a dropped connection as the cause): the
-     account is then deleted with its audit row. Check whether the account exists before asking for a retry;
+     account is then deleted with its audit row. Check whether the account exists before asking for a retry; if it
+     is gone, tell the user so: the 500 cleared no cookies, so the browser's next read is refused as signed out;
    - neither: look for the initiated WARNING `USER DELETION: … account deletion initiated`, the route's first line:
      - absent: the request never reached the deletion (its sign-in was refused, or it never arrived), and the
        account is untouched;
@@ -161,9 +162,11 @@ account is gone.
 ## 5. Provider cleanup
 
 - **No automatic correction.** At this commit, the only call in the backend that cancels, refunds or voids anything in
-  Stripe is the deletion's cancellation of the account's own billable subscriptions. The gate
-  `backend/tests/unit/test_stripe_money_moves_allowlist.py` holds it there: a new such call, called or passed in a
-  form the gate's docstring names, fails until it is reviewed and listed, and the forms it names as unseen are left to
+  Stripe is the deletion's cancellation of the account's own billable subscriptions. (The checkout's card-required trial
+  lets Stripe cancel, on its own, a trial that ends with no card on file, by the terms the checkout sets: the code
+  cancels nothing there, and the gate leaves such terms outside its rule.) The gate
+  `backend/tests/unit/test_stripe_money_moves_allowlist.py` holds it there: a new such call, called or passed in a form
+  the gate's docstring names, fails until it is reviewed and listed, and the forms it names as unseen are left to
   review. There is no automatic refund, blanket cancellation, orphan sweeper or recurring worker. Any financial
   correction is a manual founder action, taken after review in Stripe's own console. Stripe cancellation outside a
   user's own deletion stays founder-owned (#1176).

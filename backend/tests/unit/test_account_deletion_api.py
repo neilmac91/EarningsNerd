@@ -1,20 +1,20 @@
 """DELETE /api/users/me: account deletion (GDPR Art. 17), characterized over HTTP.
 
-Pins what is observable over HTTP: the ``user_deleted`` audit row commits with the account's
-deletion, in one transaction, and records the provider outcomes the response reports; a failed audit
-insert, deletion or commit leaves neither behind, so the account stays and no failed deletion is
-audited as a success (F19), except a commit the database applied whose reply was lost, which answers
-the same 500 over a deleted, audited account; on success the Set-Cookie headers equal the
-logout helpers' output in call order (access + session-presence, then refresh); and a failed delete
-rolls the session back before it closes, keeps the account and sends no Set-Cookie at all. Whether
-the cookies are cleared before or after the delete is not observable here: when the handler raises
-HTTPException, FastAPI builds the 500 without the headers set on the injected ``response``. The
-failure is injected inside the request's own session (flush listeners), not by
-patching a function, so the test holds wherever the delete code lives. A delete that finds the
-account already gone, as the second of two deletions at once does, answers that 500 too, names the
-account in its log line and stages no audit row; there the first deletion is played inside the
-Stripe step. A failure after Stripe cancelled keeps the account: the cancellation is not undone, and
-the failure's log line carries the outcomes the audit row would have held.
+Pins what is observable over HTTP: the ``user_deleted`` audit row commits with the account's deletion,
+in one transaction, and records the provider outcomes the response reports; a failed audit insert,
+deletion or commit leaves neither behind, so the account stays and no failed deletion is audited as a
+success (F19), except a commit the database applied whose reply was lost, which answers the same 500
+over a deleted, audited account; on success the Set-Cookie headers equal the logout helpers' output in
+call order (access + session-presence, then refresh); and a failed delete rolls the session back before
+it closes, keeps the account and sends no Set-Cookie at all. Whether the cookies are cleared before or
+after the delete is not observable here: when the handler raises HTTPException, FastAPI builds the 500
+without the headers set on the injected ``response``. The failure is injected inside the request's own
+session (flush listeners), or at the database driver's commit for a commit whose reply was lost, not by
+patching a function, so the test holds wherever the delete code lives. A delete that finds the account
+already gone, as the second of two deletions at once does, answers that 500 too, names the account in
+its log line and stages no audit row; there the first deletion is played inside the Stripe step. A
+failure after Stripe cancelled keeps the account: the cancellation is not undone, and the failure's log
+line carries the outcomes the audit row would have held.
 
 The Stripe step is pinned on the wire for the same reason. A fake ``requests`` session inside the
 real ``stripe.RequestsClient`` plays Stripe's subscription list and cancel endpoints, so the list
@@ -25,6 +25,7 @@ reaches, as it would on Stripe.
 import json
 import logging
 import re
+import sqlite3
 import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -35,10 +36,9 @@ import stripe
 from fastapi import Depends, Response
 from fastapi.testclient import TestClient
 from sqlalchemy import event
-from sqlalchemy.exc import OperationalError
 
 from main import app
-from app.database import SessionLocal, get_db
+from app.database import SessionLocal, engine, get_db
 from app.models import AuditLog, User
 from app.routers import users
 from app.routers.auth import _clear_auth_cookie, _clear_refresh_cookie, get_current_user
@@ -261,7 +261,7 @@ def _delete_account_of_customer(client, monkeypatch, statuses, stripe_result="su
         # Sentry's step runs whatever Stripe's outcome; PostHog's is skipped, as it has no client here.
         assert resp.json()["third_party_deletions"]["sentry"] == "anonymized"
         assert resp.json()["third_party_deletions"]["posthog"] == "skipped"
-        # The session cookies are cleared after the commit, a Stripe failure or not.
+        # On a 200 the session cookies are cleared, a Stripe failure or not.
         assert _clock_free(resp.headers.get_list("set-cookie")) == _clock_free(_cleared_session_cookies())
         # The audit row records the outcomes the response reports, Stripe's included.
         assert [details["third_party_deletions"] for details in _audit_details(email)] == [
@@ -320,34 +320,36 @@ def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client, faile
 
 
 @pytest.mark.requires_db
-def test_a_commit_whose_reply_was_lost_answers_500_over_a_deleted_audited_account(client, caplog):
-    # The one exception to the rollback (F18's matrix): the database applied the commit and only its reply was lost,
-    # so the route's rollback undoes nothing. ``after_commit`` fires once the DBAPI commit has returned; raising there
-    # plays the dropped connection.
-    def lose_the_reply(session):
-        raise OperationalError("COMMIT", {}, Exception("server closed the connection unexpectedly"))
+def test_a_commit_whose_reply_was_lost_answers_500_over_a_deleted_audited_account(client, monkeypatch, caplog):
+    # The one exception to the rollback (F18's matrix): the database applied the commit and only its reply was lost.
+    # The DBAPI commit runs and then raises, as a dropped connection does, so the session never records the commit,
+    # the route's rollback undoes nothing, and the logged cause is the lost reply's own error.
+    dialect = engine.dialect
+    real_commit = dialect.do_commit
+    armed = []
 
-    def get_db_losing_the_reply():
-        db = SessionLocal()
-        event.listen(db, "after_commit", lose_the_reply)
-        try:
-            yield db
-        finally:
-            db.close()
+    def commit_then_lose_the_reply(dbapi_connection):
+        real_commit(dbapi_connection)
+        if armed:
+            armed.clear()
+            raise sqlite3.OperationalError("server closed the connection unexpectedly")
 
     with _seeded_user() as (uid, email):
-        app.dependency_overrides[get_db] = get_db_losing_the_reply
         mark = _last_audit_id()
+        monkeypatch.setattr(dialect, "do_commit", commit_then_lose_the_reply)
+        armed.append(True)  # the request's next commit is the deletion's
         with caplog.at_level(logging.ERROR, logger="app.routers.users"):
             resp = client.delete("/api/users/me")
 
+        assert not armed
         assert resp.status_code == 500
         assert resp.json() == {"detail": FAILED_DETAIL}
         assert resp.headers.get_list("set-cookie") == []
         assert not _user_exists(uid)
         assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
         assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
-        assert f"Error deleting user account {uid}: " in caplog.text
+        assert (f"Error deleting user account {uid}: (sqlite3.OperationalError) server closed the connection "
+                "unexpectedly") in caplog.text
 
 
 @pytest.mark.requires_db

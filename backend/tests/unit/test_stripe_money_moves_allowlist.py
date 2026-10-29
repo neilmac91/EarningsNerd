@@ -18,15 +18,18 @@ its nested service, whose `create` posts to it), and called or passed uncalled, 
 objects have, count on any receiver, and so do the nested-resource request helpers (`stripe.Customer.sources_request`),
 which send any method to any URL. A service's pair counts only when the service is reached as an attribute
 (`client.v1.customers.update`): a bare lowercase name is a local value (`billing_revenue_service.py`'s set of
-`customers`), and a service bound to a name is a gap below. What it cannot see, left to review: an instance's other
-method on a name, an attribute or an item (`subscription.cancel()`, `event.data.object.cancel()`,
-`page.data[0].delete()`), which reads like any other object's `delete` (a session's, for one), or on the result of a
-call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class or a service bound to a name
-(`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a customer created with a balance through the resource
-class (`stripe.Customer.create(balance=-500)`, a credit), since by name it is also the checkout's own customer
-(`routers/subscriptions.py`); a fetched object changed and saved (`s.cancel_at_period_end = True; s.save()`); a call
-made through `getattr` or a name computed at run time; and a request sent through `raw_request`, the SDK's private
-`_static_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
+`customers`). Matching by name fails closed: an attribute or a `list_*` result under a listed service's name counts
+whatever it holds (a dict's `update` included), and so does a class named like a resource; such a hit is reviewed and
+listed, or renamed. What it cannot see, left to review: an instance's other method on a name, an attribute or an item
+(`subscription.cancel()`, `event.data.object.cancel()`, `page.data[0].delete()`), which reads like any other object's
+`delete` (a session's, for one), or on the result of a call it does not read as a fetch (one handed to
+`run_on_stripe_threads`); a resource class or a service bound to a name, the service's own name included (`Sub =
+stripe.Subscription`, `customers = client.v1.customers`), or returned by a call (`_subscriptions(client).cancel(x)`); a
+customer created with a balance through the resource class (`stripe.Customer.create(balance=-500)`, a credit), since by
+name it is also the checkout's own customer (`routers/subscriptions.py`); a fetched object changed and saved
+(`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name computed at run time; and a request
+sent through `raw_request`, the SDK's private `_static_request` or an object's `_request`, or raw HTTP. Each is planted
+in the self-check's `stated_gaps`. The rule's own exclusions are planted in `outside_the_rule`, uncounted.
 """
 import ast
 from pathlib import Path
@@ -39,12 +42,17 @@ SKIP = {"tests", "evals", ".venv", "venv", "node_modules", "__pycache__"}
 # funds; None matches every method (a read included, which fails closed). An update or create counts where its
 # parameters can do one of those: a subscription's or schedule's cancellation or end, an item's quantity at 0, a
 # negative balance, invoice item, invoice line or added invoice item, a credit grant or its expiry, an invoice paid out
-# of band or forgiven, a usage event cancelled. The platform's own money counts as well (payouts, top-ups, transfers,
-# Treasury's flows, a climate order), which the app never moves, so any such call would be new. Outside the rule, left
-# to review: a pricing change that lowers what a customer pays (a coupon, promotion code, price, plan, trial offer, or a
-# discount on an invoice or quote), a capture of less than was authorized, a payment method detached, a payment or
-# refund made elsewhere and recorded (`attach_payment`, `report_refund`), a Connect account ended, and the calls that
-# charge.
+# of band or forgiven, a usage event cancelled. Cancelling or reversing the platform's own movements counts as well (a
+# payout, top-up, transfer, Treasury flow or climate order), which the app never does, so any such call would be new;
+# creating one is outside the rule. So are, left to review: a pricing change that lowers what a customer pays (a coupon,
+# promotion code, price, plan, trial offer, or a discount on an invoice or quote); the trial terms a checkout session or
+# payment link sets for the subscription it creates (`subscription_data.trial_settings`, which can have Stripe cancel a
+# trial that ends with no card on file, as the app's own card-required trial does in `routers/subscriptions.py`: Stripe
+# applies the subscription's terms, the code cancels nothing); a capture of less than was authorized; a payment method
+# detached; a payment or refund made elsewhere and recorded (`attach_payment`, `report_refund`); a Connect account
+# ended; and the calls that charge.
+# A void (`void_invoice`, `void_grant`, `void_credit_note`) and `mark_uncollectible` are STRIPE_ONLY_METHODS below,
+# counted on any receiver, so they need no row.
 MONEY_MOVES = {
     ("Subscription", "create"), ("Subscription", "delete"), ("Subscription", "cancel"), ("Subscription", "modify"),
     ("Subscription", "pause"),
@@ -55,15 +63,12 @@ MONEY_MOVES = {
     ("subscription_schedules", "create"), ("subscription_schedules", "cancel"), ("subscription_schedules", "update"),
     ("Refund", None), ("refunds", None), ("ApplicationFee", "create_refund"), ("ApplicationFee", "refund"),
     ("CreditNote", None), ("credit_notes", None),
-    ("CreditGrant", "create"), ("CreditGrant", "modify"), ("CreditGrant", "void_grant"), ("CreditGrant", "expire"),
-    ("credit_grants", "create"), ("credit_grants", "update"), ("credit_grants", "void_grant"),
-    ("credit_grants", "expire"),
+    ("CreditGrant", "create"), ("CreditGrant", "modify"), ("CreditGrant", "expire"),
+    ("credit_grants", "create"), ("credit_grants", "update"), ("credit_grants", "expire"),
     ("MeterEventAdjustment", "create"), ("meter_event_adjustments", "create"),
     ("Meter", "deactivate"), ("meters", "deactivate"),
     ("Customer", "create_balance_transaction"), ("balance_transactions", "create"), ("Customer", "modify"),
     ("Customer", "delete"), ("customers", "create"), ("customers", "update"), ("customers", "delete"),
-    ("Invoice", "void_invoice"), ("Invoice", "mark_uncollectible"),
-    ("invoices", "void_invoice"), ("invoices", "mark_uncollectible"),
     ("Invoice", "pay"), ("invoices", "pay"), ("Invoice", "delete"), ("invoices", "delete"),
     ("Invoice", "add_lines"), ("Invoice", "update_lines"), ("Invoice", "remove_lines"),
     ("invoices", "add_lines"), ("invoices", "update_lines"), ("invoices", "remove_lines"),
@@ -181,12 +186,16 @@ def test_the_reader_sees_each_spelling_and_nothing_else():
     planted = '''
 import functools
 import stripe
+from stripe import Refund
 from stripe import Subscription as Sub
+from stripe import Subscription as sub
 def resource_forms():
     stripe.Subscription.delete("sub_1")
     stripe.Refund.create(payment_intent="pi_1")
     stripe.Customer.delete("cus_1")
     Sub.delete("sub_1")
+    Refund.create(charge="ch_1")
+    sub.cancel("sub_1")
 def client_forms(client):
     client.subscriptions.cancel("sub_1")
     client.v1.refunds.create(params={})
@@ -275,6 +284,49 @@ def the_swept_surface(client):
     stripe.Transfer.list_reversals("tr_1").create()
     stripe.Subscription._cls_cancel("sub_1")
     await_later = stripe.Invoice._cls_void_invoice_async("in_1")
+def each_other_row(client):
+    stripe.ApplicationFee.refund("fee_1")
+    stripe.billing.CreditGrant.expire("credgr_1")
+    stripe.billing.CreditGrant.void_grant("credgr_1")
+    stripe.CreditNote.create(invoice="in_1")
+    stripe.treasury.CreditReversal.create(received_credit="rc_1")
+    stripe.Customer.create_balance_transaction("cus_1", amount=-500, currency="usd")
+    stripe.Invoice.delete("in_1")
+    stripe.Invoice.mark_uncollectible("in_1")
+    stripe.InvoiceItem.delete("ii_1")
+    stripe.treasury.OutboundTransfer.cancel("obt_1")
+    stripe.PaymentIntent.cancel("pi_1")
+    stripe.Payout.cancel("po_1")
+    stripe.Payout.reverse("po_1")
+    stripe.terminal.Reader.refund_payment("tmr_1")
+    stripe.Subscription.modify("sub_1", cancel_at_period_end=True)
+    stripe.Subscription.pause("sub_1")
+    stripe.SubscriptionItem.delete("si_1")
+    stripe.Transfer.create_reversal("tr_1")
+    client.v1.credit_notes.create(params={"invoice": "in_1"})
+    client.v1.customers.delete("cus_1")
+    client.v1.treasury.debit_reversals.create(params={"received_debit": "rd_1"})
+    client.v1.disputes.close("dp_1")
+    client.v1.treasury.inbound_transfers.cancel("ibt_1")
+    client.v1.invoice_items.delete("ii_1")
+    client.v1.invoices.mark_uncollectible("in_1")
+    client.v1.treasury.outbound_payments.cancel("obp_1")
+    client.v1.payment_intents.cancel("pi_1")
+    client.v1.payouts.cancel("po_1")
+    client.v1.payouts.reverse("po_1")
+    client.v1.subscriptions.update("sub_1", params={"cancel_at_period_end": True})
+    stripe.Customer.tax_ids_request("post", "/v1/customers/cus_1/tax_ids")
+    stripe.Customer.cash_balance_transactions_request("get", "/v1/customers/cus_1/cash_balance_transactions")
+    stripe.PaymentIntent.amount_details_line_items_request("get", "/v1/payment_intents/pi_1/amount_details_line_items")
+    stripe.Account.capabilitys_request("post", "/v1/accounts/acct_1/capabilities/card_payments")
+    stripe.Account.external_accounts_request("delete", "/v1/accounts/acct_1/external_accounts/ba_1")
+    stripe.Account.login_links_request("post", "/v1/accounts/acct_1/login_links")
+    stripe.Account.persons_request("delete", "/v1/accounts/acct_1/persons/person_1")
+    stripe.billing.Meter.event_summarys_request("get", "/v1/billing/meters/mtr_1/event_summaries")
+    stripe.Product.features_request("post", "/v1/products/prod_1/features")
+    stripe.Invoice.lines_request("post", "/v1/invoices/in_1/lines")
+    stripe.Charge.refunds_request("post", "/v1/charges/ch_1/refunds")
+    stripe.Transfer.reversals_request("post", "/v1/transfers/tr_1/reversals")
 def reads(client, db, row):
     stripe.Subscription.list(customer="cus_1")
     stripe.Subscription.retrieve("sub_1")
@@ -285,6 +337,15 @@ def reads(client, db, row):
     customers = {"cus_1"}
     customers.update({"cus_2"})
     stripe.Customer.list_balance_transactions("cus_1")
+def outside_the_rule(client):
+    stripe.checkout.Session.create(mode="subscription", subscription_data={
+        "trial_period_days": 7, "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}}})
+    stripe.Coupon.create(percent_off=50)
+    client.v1.promotion_codes.create(params={"coupon": "co_1"})
+    stripe.Topup.create(amount=100, currency="usd")
+    stripe.PaymentIntent.capture("pi_1", amount_to_capture=50)
+    stripe.PaymentMethod.detach("pm_1")
+    client.v1.invoices.attach_payment("in_1", params={"payment_record": "pr_1"})
 async def stated_gaps(client, subscription):
     subscription.cancel()
     subscription.delete()
@@ -296,6 +357,9 @@ async def stated_gaps(client, subscription):
     Bound.delete("sub_1")
     subs = client.v1.subscriptions
     subs.cancel("sub_1")
+    customers = client.v1.customers
+    customers.update("cus_1", params={"balance": -500})
+    _subscriptions(client).cancel("sub_1")
     stripe.Customer.create(balance=-500)
     fetched = stripe.Subscription.retrieve("sub_1")
     fetched.cancel_at_period_end = True
@@ -303,11 +367,13 @@ async def stated_gaps(client, subscription):
     getattr(stripe.Subscription, "del" + "ete")("sub_1")
     client.raw_request("delete", "/v1/subscriptions/sub_1")
     stripe.Subscription._static_request("delete", "/v1/subscriptions/sub_1")
+    stripe.Subscription.retrieve("sub_1")._request("delete", "/v1/subscriptions/sub_1")
     httpx.delete("https://api.stripe.com/v1/subscriptions/sub_1")
 '''
     assert _money_moves(planted) == [
         ("resource_forms", "Subscription.delete"), ("resource_forms", "Refund.create"),
         ("resource_forms", "Customer.delete"), ("resource_forms", "Subscription.delete"),
+        ("resource_forms", "Refund.create"), ("resource_forms", "Subscription.cancel"),
         ("client_forms", "subscriptions.cancel"), ("client_forms", "refunds.create"),
         ("client_forms", "invoices.void_invoice"),
         ("async_forms", "Subscription.cancel"), ("async_forms", "Customer.delete"),
@@ -355,6 +421,48 @@ async def stated_gaps(client, subscription):
         ("the_swept_surface", "balance_transactions.create"), ("the_swept_surface", "refunds.create"),
         ("the_swept_surface", "reversals.create"),
         ("the_swept_surface", "Subscription.cancel"), ("the_swept_surface", "Invoice.void_invoice"),
+        ("each_other_row", "ApplicationFee.refund"),
+        ("each_other_row", "CreditGrant.expire"),
+        ("each_other_row", "CreditGrant.void_grant"),
+        ("each_other_row", "CreditNote.create"),
+        ("each_other_row", "CreditReversal.create"),
+        ("each_other_row", "Customer.create_balance_transaction"),
+        ("each_other_row", "Invoice.delete"),
+        ("each_other_row", "Invoice.mark_uncollectible"),
+        ("each_other_row", "InvoiceItem.delete"),
+        ("each_other_row", "OutboundTransfer.cancel"),
+        ("each_other_row", "PaymentIntent.cancel"),
+        ("each_other_row", "Payout.cancel"),
+        ("each_other_row", "Payout.reverse"),
+        ("each_other_row", "Reader.refund_payment"),
+        ("each_other_row", "Subscription.modify"),
+        ("each_other_row", "Subscription.pause"),
+        ("each_other_row", "SubscriptionItem.delete"),
+        ("each_other_row", "Transfer.create_reversal"),
+        ("each_other_row", "credit_notes.create"),
+        ("each_other_row", "customers.delete"),
+        ("each_other_row", "debit_reversals.create"),
+        ("each_other_row", "disputes.close"),
+        ("each_other_row", "inbound_transfers.cancel"),
+        ("each_other_row", "invoice_items.delete"),
+        ("each_other_row", "invoices.mark_uncollectible"),
+        ("each_other_row", "outbound_payments.cancel"),
+        ("each_other_row", "payment_intents.cancel"),
+        ("each_other_row", "payouts.cancel"),
+        ("each_other_row", "payouts.reverse"),
+        ("each_other_row", "subscriptions.update"),
+        ("each_other_row", "Customer.tax_ids_request"),
+        ("each_other_row", "Customer.cash_balance_transactions_request"),
+        ("each_other_row", "PaymentIntent.amount_details_line_items_request"),
+        ("each_other_row", "Account.capabilitys_request"),
+        ("each_other_row", "Account.external_accounts_request"),
+        ("each_other_row", "Account.login_links_request"),
+        ("each_other_row", "Account.persons_request"),
+        ("each_other_row", "Meter.event_summarys_request"),
+        ("each_other_row", "Product.features_request"),
+        ("each_other_row", "Invoice.lines_request"),
+        ("each_other_row", "Charge.refunds_request"),
+        ("each_other_row", "Transfer.reversals_request"),
     ]
 
 
