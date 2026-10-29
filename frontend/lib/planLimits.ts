@@ -10,6 +10,7 @@
  * fails when a value diverges from the backend or a bare literal reappears in copy.
  */
 import { ENABLE_ANALYSIS, ENABLE_FPI_FILINGS } from './featureFlags'
+import { fmtCount } from './format'
 
 export const FREE_SUMMARY_LIMIT = 5
 export const FREE_EARNINGS_ALERT_LIMIT = 3
@@ -32,20 +33,23 @@ export const TRIAL_DAYS = 7
 export const FREE_COPILOT_QUESTIONS = 3
 
 /**
- * Pro's summary fair-use ceiling, mirrored from backend/app/config.py (PRO_SUMMARY_MONTHLY_CAP's default; the
- * lockstep spec holds it, and fails on a workflow that sets the variable, so production runs this default).
- * Pro's summaries are unlimited as a plan, and this guardrail bounds the summary generations one account runs in a
- * calendar month (UTC). Every run the usage gate admits takes a unit when its provider request is issued, a Pro
- * regeneration among them, so the copy counts generations, regenerations included, never new summaries. A provider
- * failure, the pipeline's timeout or a partial verdict under the quality gate gives the unit back, and a run the
- * reader leaves after the request is issued keeps it; a stored summary served or a run joined in flight never takes
- * one (tests/unit/summaryPlanClaims.spec.ts holds the copy to this). It is stated once, in PRO_FAIR_USE_LINE, which the
- * /pricing FAQ and the filing page's monthly-limit card read (E58, D-046), while the plan cards, the dashboard strip,
- * BillingPanel, the upgrade dialog and the signup gate keep "Unlimited" (D-040). The filing page's card at the
- * ceiling (features/summaries/lib/streamErrorCopy.ts) names the same unit.
+ * Pro's two monthly fair-use ceilings, mirrored from backend/app/services/entitlements.py's plan constants of the same
+ * names (D-050). The lockstep spec holds both, and fails if backend/app/config.py declares a setting of either name, so
+ * no deploy can move a ceiling the page states. Pro's summaries and Multi-Period Analysis are unlimited as a plan, and
+ * these bound the generations one account runs in a calendar month (UTC), regenerations included, so the copy counts
+ * generations, never new summaries or analyses. Every summary run the usage gate admits takes a unit when its provider
+ * request is issued, a Pro regeneration among them; a provider failure, the pipeline's timeout or a partial verdict
+ * under the quality gate gives the unit back, and a run the reader leaves after the request is issued keeps it; a
+ * stored summary served or a run joined in flight never takes one. An analysis run takes a unit when its fresh
+ * narrative completes, a reader's forced refresh among them; a cached re-serve, and a regeneration the system starts
+ * after new facts or a prompt change, never take one (tests/unit/summaryPlanClaims.spec.ts holds the copy to both).
+ * Both are stated once, in proFairUseLine() below, which the /pricing FAQ and the filing page's monthly-limit card
+ * place (E58, D-046), while the plan cards, the dashboard strip, BillingPanel, the upgrade dialog and the signup gate
+ * keep "Unlimited" (D-040). The filing page's card at the summary ceiling (features/summaries/lib/streamErrorCopy.ts)
+ * names the same unit.
  */
 export const PRO_SUMMARY_MONTHLY_CAP = 300
-export const PRO_FAIR_USE_LINE = `Pro's unlimited summaries have a fair-use ceiling: an account can run up to ${PRO_SUMMARY_MONTHLY_CAP} summary generations a month, regenerations included.`
+export const ANALYSIS_MONTHLY_CAP = 1000
 
 /**
  * Multi-Period Analysis period caps, mirrored from `backend/app/config.py` (ANALYSIS_MAX_ANNUAL_PERIODS,
@@ -86,9 +90,11 @@ export function shipped(lines: readonly PlanLine[]): string[] {
 /**
  * Every plan line the analysis flag decides, typed once: the lines that name Multi-Period Analysis (the
  * upgrade dialog's sentence, the /pricing Pro card, the landing's plan table and the /pricing Product
- * JSON-LD) and the Pro exports line, whose Excel workbook is the analysis export. The landing's table gives
- * the feature a row of its own (D-045): `landingRow` is the row's label, and `landingFree` and `landingPro`
- * are its two cells, which the label already names. The feature ships behind NEXT_PUBLIC_ENABLE_ANALYSIS
+ * JSON-LD), Pro's fair-use sentence, which states the analysis ceiling beside the summary one
+ * (proFairUseLine() reads it), and the Pro exports line, whose Excel workbook is the analysis export. The
+ * landing's table gives the feature a row of its own (D-045): `landingRow` is the row's label, and
+ * `landingFree` and `landingPro` are its two cells, which the label already names. The feature ships behind
+ * NEXT_PUBLIC_ENABLE_ANALYSIS
  * (its route 404s while the flag is off), so each list takes these entries and reads them through
  * shipped(). tests/unit/analysis-route-hidden.spec.tsx renders every list both ways and fails on a string
  * or JSX text naming the feature outside this declaration, the route's own files and a short reasoned list.
@@ -100,8 +106,22 @@ export const ANALYSIS_LINES = {
   landingPro: { text: 'Unlimited', flag: 'analysis' },
   landingFree: { text: 'Demo (locked)', flag: 'analysis' },
   productJsonLd: { text: 'multi-period analysis', flag: 'analysis' },
+  fairUse: {
+    text: `Pro's unlimited summaries and Multi-Period Analysis have fair-use ceilings: an account can run up to ${PRO_SUMMARY_MONTHLY_CAP} summary and ${fmtCount(ANALYSIS_MONTHLY_CAP)} analysis generations a month, regenerations included.`,
+    flag: 'analysis',
+    off: `Pro's unlimited summaries have a fair-use ceiling: an account can run up to ${PRO_SUMMARY_MONTHLY_CAP} summary generations a month, regenerations included.`,
+  },
   exports: { text: 'PDF, CSV and Excel exports', flag: 'analysis', off: 'PDF and CSV exports' },
 } as const satisfies Record<string, PlanLine>
+
+/**
+ * Pro's fair-use sentence (E58, D-050), the one place copy states Pro's monthly ceilings: both while the analysis flag
+ * ships the feature, the summary ceiling alone while not. The /pricing FAQ and the filing page's monthly-limit card
+ * place it (tests/unit/summaryPlanClaims.spec.ts).
+ */
+export function proFairUseLine(): string {
+  return shipped([ANALYSIS_LINES.fairUse])[0]
+}
 
 /**
  * The filing forms the Free plan names: 20-F only while NEXT_PUBLIC_ENABLE_FPI_FILINGS mirrors the API's

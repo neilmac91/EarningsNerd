@@ -9,7 +9,7 @@ from app.utils.datetimes import utcnow
 # FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
 # (redundant alias = intentional re-export) so existing
 # `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
-from app.services.entitlements import get_entitlements
+from app.services.entitlements import ANALYSIS_MONTHLY_CAP, PRO_SUMMARY_MONTHLY_CAP, get_entitlements
 from app.services.entitlements import FREE_TIER_SUMMARY_LIMIT as FREE_TIER_SUMMARY_LIMIT
 from app.config import settings
 
@@ -74,20 +74,17 @@ def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]
     """Check if user can generate more summaries. Returns (can_generate, current_count, limit).
 
     Free tier is a visible billing cap. Pro is billing-unlimited (``monthly_summary_limit is None``)
-    but still subject to an INVISIBLE fair-use ceiling (``PRO_SUMMARY_MONTHLY_CAP``) that bounds
-    runaway spend from a compromised/scripted account — same philosophy as ``check_qa_limit``. On a
-    Pro block the returned ``limit`` is the fair-use cap; the caller renders a generic message (not
-    an upsell) so the ceiling stays invisible.
+    under Pro's fair-use ceiling (``PRO_SUMMARY_MONTHLY_CAP``, which the pricing page states), a
+    bound on runaway spend from a compromised or scripted account, as ``check_qa_limit``'s is. On a
+    Pro block the returned ``limit`` is the ceiling, and the caller answers with its fair-use
+    message, never an upsell.
     """
     month = get_current_month()
     limit = get_entitlements(user).monthly_summary_limit
     if limit is None:
-        cap = settings.PRO_SUMMARY_MONTHLY_CAP
-        if not cap:  # 0/None disables the ceiling → truly unlimited
-            return True, 0, None
         current_count = get_user_usage_count(user.id, month, db)
-        if current_count >= cap:
-            return False, current_count, cap
+        if current_count >= PRO_SUMMARY_MONTHLY_CAP:
+            return False, current_count, PRO_SUMMARY_MONTHLY_CAP
         return True, current_count, None
 
     current_count = get_user_usage_count(user.id, month, db)
@@ -162,17 +159,13 @@ def reserve_summary_use(user: User, db: Session) -> tuple[bool, int, Optional[in
     ``check_usage_limit`` is a plain read, so concurrent requests could all pass the cap and
     each complete; this is the serialized decision (see ``_reserve_use``). Returns
     ``(admitted, completed_count, limit, token)`` with the same limit semantics as
-    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block; truly
-    unlimited Pro returns no token). The caller converts or releases the token. No historical
-    duplicate repair; Redis is not involved.
+    ``check_usage_limit`` (Free cap visible; Pro fair-use cap reported only on a block). The caller
+    converts or releases the token. No historical duplicate repair; Redis is not involved.
     """
     limit = get_entitlements(user).monthly_summary_limit
     unlimited = limit is None
     if unlimited:
-        cap = settings.PRO_SUMMARY_MONTHLY_CAP
-        if not cap:
-            return True, 0, None, None
-        limit = cap
+        limit = PRO_SUMMARY_MONTHLY_CAP
     month = get_current_month()
     admitted, completed, token = _reserve_use(
         user, db, kind=SUMMARY_RESERVATION_KIND, month=month, limit=limit,
@@ -216,7 +209,7 @@ def reserve_qa_taste_use(user: User, db: Session) -> tuple[bool, int, int, Optio
 def reserve_analysis_use(user: User, db: Session) -> tuple[bool, int, int, Optional[str]]:
     """Admit one fresh Multi-Period Analysis generation under the monthly fair-use cap (E07b
     slice 2). Returns ``(admitted, completed_count, cap, token)``."""
-    cap = settings.ANALYSIS_MONTHLY_CAP
+    cap = ANALYSIS_MONTHLY_CAP
     month = get_current_month()
     admitted, completed, token = _reserve_use(
         user, db, kind=ANALYSIS_RESERVATION_KIND, month=month, limit=cap,
@@ -359,7 +352,7 @@ def check_analysis_limit(user: User, db: Session) -> tuple[bool, int, int]:
     soft limit (``ANALYSIS_MONTHLY_CAP``) behind the ``can_analyze_trends`` entitlement — cached
     re-serves are never metered, so this only bounds fresh AI generations.
     """
-    cap = settings.ANALYSIS_MONTHLY_CAP
+    cap = ANALYSIS_MONTHLY_CAP
     month = get_current_month()
     current_count = get_user_analysis_count(user.id, month, db)
     return current_count < cap, current_count, cap

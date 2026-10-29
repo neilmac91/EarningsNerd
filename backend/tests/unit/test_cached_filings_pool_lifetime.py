@@ -1550,7 +1550,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
     from app.config import settings
     from app.models import Subscription, User, UserUsage
     from app.routers import auth
-    from app.services.entitlements import get_entitlements
+    from app.services.entitlements import ANALYSIS_MONTHLY_CAP, get_entitlements
     from app.services.subscription_service import get_current_month
 
     engine = create_engine(
@@ -1630,7 +1630,7 @@ async def test_subscription_reads_release_their_connection_off_the_loop(monkeypa
                 "summaries_used": i, "summaries_limit": plan.monthly_summary_limit, "is_pro": with_row,
                 "month": month, "qa_used": 10 + i, "qa_limit": settings.COPILOT_MONTHLY_QUESTION_CAP,
                 "copilot_free_taste_used": i % 3, "copilot_free_taste_total": plan.copilot_free_taste,
-                "analysis_used": 20 + i, "analysis_limit": settings.ANALYSIS_MONTHLY_CAP,
+                "analysis_used": 20 + i, "analysis_limit": ANALYSIS_MONTHLY_CAP,
             } for i in range(8)]
         else:
             assert [(payload["plan"], payload["stripe_customer_id"], payload["status"]) for payload in payloads] == [

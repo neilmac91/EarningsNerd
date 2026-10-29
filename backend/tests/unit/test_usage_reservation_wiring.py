@@ -205,14 +205,25 @@ def test_read_side_block_never_reserves_and_serialized_block_is_honoured():
             assert summary_pipeline._check_usage_and_plan(user, db) == (True, 0, 5, False, "tok")
 
 
-def test_unlimited_pro_without_a_cap_reserves_nothing(monkeypatch):
+def test_unlimited_pro_reserves_under_pros_ceiling_and_reports_it_only_on_a_block(monkeypatch):
+    """Pro is billing-unlimited, so its run reserves under Pro's fair-use ceiling, a constant the
+    pricing page states (D-050): no setting turns the ceiling off. Admitted, the limit reads None
+    (unlimited); blocked, it reads the ceiling."""
     from types import SimpleNamespace
 
     from app.services import subscription_service as usage
 
     monkeypatch.setattr(usage, "get_entitlements", lambda user: SimpleNamespace(monthly_summary_limit=None))
-    monkeypatch.setattr(usage.settings, "PRO_SUMMARY_MONTHLY_CAP", 0)
-    assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (True, 0, None, None)
+    limits = []
+
+    def reserve(user, db, *, kind, month, limit, completed_count):
+        limits.append(limit)
+        return (True, 7, "tok") if len(limits) == 1 else (False, 7, None)
+
+    monkeypatch.setattr(usage, "_reserve_use", reserve)
+    assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (True, 7, None, "tok")
+    assert usage.reserve_summary_use(SimpleNamespace(id=1), db=None) == (False, 7, usage.PRO_SUMMARY_MONTHLY_CAP, None)
+    assert limits == [usage.PRO_SUMMARY_MONTHLY_CAP] * 2
 
 
 @pytest.mark.asyncio

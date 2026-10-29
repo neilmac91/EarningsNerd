@@ -173,7 +173,6 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
 | `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
-| `PRO_SUMMARY_MONTHLY_CAP` | `300` | Pro's fair-use ceiling on summary generations per calendar month (UTC), regenerations included: a run takes a unit when its provider request is issued, a run that fails, or comes back partial under `AI_QUALITY_GATE`, gives it back, and reading a stored summary never counts; 0 disables; billing remains unlimited. Published: the /pricing FAQ and the filing page's limit card state this default through `frontend/lib/planLimits.ts`, so change it here and the mirror follows, and never set it in a deploy map (`planLimitsLockstep.spec.ts` holds the mirror to this default and fails on any workflow line that names the variable). A value set by hand on the Cloud Run service is outside that gate, and the page overstates a lowered ceiling until the default changes. |
 | `STARTUP_SCHEMA_DEADLINE_SECONDS` | `60` | Deadline for each schema step the serving container runs at startup (`create_all`, additive columns); 1 through 600 s. A step that exceeds it fails the start (Cloud Run keeps the last healthy revision) instead of hanging until the platform's startup timeout. Additive-column ALTERs also wait at most 5 s for their table lock on PostgreSQL. |
 | `USAGE_COUNTER_LOCK_TIMEOUT_MS` | `3000` | PostgreSQL transaction-local lock waits for monthly counter writes; whole milliseconds from 1 through 10000. Does not bound total transaction/network duration. |
 | `DELIVERY_CLAIM_TTL_SECONDS` | `60` | E11b-1: how long a worker's preparation claim on a delivery batch (`earningsnerd_delivery_batches`, status `claimed`) lasts before another worker may reclaim it; 1 through 600. |
@@ -191,7 +190,6 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `COPILOT_HISTORY_TURNS` | `6` | Prior conversation turns retained for follow-ups. |
 | `COPILOT_HISTORY_MAX_ITEMS` | `50` | Maximum accepted history array length. |
 | `COPILOT_HISTORY_ITEM_CHAR_CAP` | `8000` | Maximum characters per history item. |
-| `ANALYSIS_MONTHLY_CAP` | `100` | Monthly fresh analysis narrative cap; cached re-serves are free. |
 | `ANALYSIS_MAX_TOKENS` | `3200` | Maximum analysis narrative completion tokens. |
 | `ANALYSIS_MAX_ANNUAL_PERIODS` | `10` | Maximum annual periods selectable. |
 | `ANALYSIS_MAX_QUARTERLY_PERIODS` | `12` | Maximum quarterly periods selectable. |
@@ -202,6 +200,17 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `STREAM_HEARTBEAT_INTERVAL` | `3` | SSE heartbeat cadence, seconds. |
 | `STREAM_TIMEOUT` | `600` | SSE timeout, seconds. |
 | `STREAM_SECTION_REVEAL` | `false` | Progressive section previews with non-streaming fallback; CI enables on the service. |
+
+**Pro's fair-use ceilings (not Settings fields).** `PRO_SUMMARY_MONTHLY_CAP` (300 summary generations a
+month) and `ANALYSIS_MONTHLY_CAP` (1,000 analysis generations a month) are constants in
+`backend/app/services/entitlements.py` (D-050), so an environment value of either name changes nothing. Each
+bounds one Pro account's generations in a calendar month (UTC), regenerations included, while billing stays
+unlimited. A summary run takes a unit when its provider request is issued and gives it back if it fails or
+comes back partial under `AI_QUALITY_GATE`; reading a stored summary takes none. An analysis run takes a unit
+when its fresh narrative completes, a reader's forced refresh among them; a cached re-serve, and a regeneration
+the system starts after new facts or a prompt change, take none. The /pricing FAQ and the filing page's limit
+card state both through `frontend/lib/planLimits.ts`. `planLimitsLockstep.spec.ts` holds that mirror to the
+constants, and fails if `config.py` declares a setting of either name again.
 
 **Library-read SEC budget (not a Settings field).** edgartools paces its own EDGAR HTTP (submissions,
 filing objects, XBRL) with a second process-global limiter, a sliding window read once at import:
@@ -264,7 +273,6 @@ TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark
 INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
 
 # Multi-Period Analysis (Pro flagship)
-ANALYSIS_MONTHLY_CAP=100          # Fair-use cap on fresh AI narratives/month (cached re-serves free)
 ANALYSIS_MAX_TOKENS=3200
 ANALYSIS_MAX_ANNUAL_PERIODS=10
 ANALYSIS_MAX_QUARTERLY_PERIODS=12
