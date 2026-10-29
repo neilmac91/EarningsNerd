@@ -44,13 +44,15 @@ passes on `4a026332`, the same frontend. Ten of the failures are the case "does 
 for each route that shows the site header. E223's hold (#1694) sizes the compact bar's account link to both its
 labels, "Live example" and the mode's own. In the sandbox, at 390px under 200% text, that link takes a row of its own
 with its label on one line, and keeps it once readiness lands and "Request invite" shows. The header is then 225px.
-The spec's one-row limit is the bar's tallest item plus its padding and border: 137px for that 88px link. In CI's
-fonts the link stays beside the logo with its label on two lines, and the header is one row at 151px. Before the
-hold, the sandbox's bar took the second row only while readiness checked, the 74px drop above; now the row stays. The
-eleventh failure does not involve the header: at 320px under 200% text the cookie settings dialog breaks
-"authentication," inside the word, as /privacy broke "communications," above. Before reading a sandbox failure of a
-layout gate as a regression, rerun the case in CI's fonts. A case that passes there failed on the alias; a case that
-still fails there is a regression.
+The spec's one-row limit is the bar's tallest item plus its padding and border, so it follows the link: 137px for
+that 88px link, which the 225px header fails. In CI's fonts the link stays beside the logo with its label on two
+lines, 102px, so the limit is 151px and the header is one row at 151px. Before the hold, the sandbox's bar took the
+second row only while readiness checked, the 74px drop above; now the row stays. The eleventh failure does not
+involve the header: at 320px under 200% text the cookie settings dialog breaks "authentication," inside the word, as
+/privacy broke "communications," above. Before reading a sandbox failure of a layout gate as a regression, rerun the
+case in CI's fonts. A case that passes there failed because of the alias. A case that still fails there is not
+explained by the alias: treat it as a regression unless CI's own e2e run on the same frontend passes it, and if CI
+passes it, the machines differ by more than the alias, so note that beside the run.
 
 **Evidence**: `tasks/analysis-redesign-2026-10/astra-prompt.md` (Track A's done line);
 `docs/design/analysis-data-notes-redesign-2026-10.md` §11 ("Font-dependent widths");
