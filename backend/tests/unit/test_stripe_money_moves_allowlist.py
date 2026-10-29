@@ -9,21 +9,24 @@ file, function and call. A new one fails here until it is reviewed and listed.
 
 It matches the SDK's two spellings by name: the resource classes (`stripe.Subscription.delete`, `stripe.Refund.create`)
 and the client services (`client.subscriptions.cancel`, `client.v1.refunds.create`), each with or without the SDK's
-`_async` suffix, under a name a `from stripe import ... as ...` binds, on an instance built from its class
-(`stripe.Subscription(sid).delete()`) or fetched in the same expression (`stripe.Subscription.retrieve(x).delete()`,
-`client.v1.subscriptions.retrieve(x).delete()`, awaited or not; a service's fetch is read as its resource class's
-instance), and called or passed uncalled, as the app hands Stripe calls to `run_on_stripe_threads`. `void_invoice`,
-`mark_uncollectible`, `void_credit_note` and `void_grant`, which only Stripe's objects have, count on any receiver. What
-it cannot see, left to review: an instance's other method on a name, an attribute or an item (`subscription.cancel()`,
-`event.data.object.cancel()`, `page.data[0].delete()`), which reads like any other object's `delete` (a session's, for
-one), or on the result of a call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class
-or a service bound to a name (`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a customer's balance set
-through the customer service's update or through a create (`client.v1.customers.update(cus, params={"balance": -500})`,
-`stripe.Customer.create(balance=-500)`, a credit either way), since by name the update is also a Python set's or dict's
-(`billing_revenue_service.py` holds a set of customers) and the create is also the checkout's own customer
-(`routers/subscriptions.py`), though `stripe.Customer.modify` is seen; a fetched object changed and saved
-(`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name computed at run time; and a request
-sent through `raw_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
+`_async` suffix or its private `_cls_` prefix, under a name a `from stripe import ... as ...` binds, on an instance
+built from its class (`stripe.Subscription(sid).delete()`) or fetched in the same expression
+(`stripe.Subscription.retrieve(x).delete()`, `client.v1.subscriptions.retrieve(x).delete()`, awaited or not; a service's
+fetch is read as its resource class's instance, and a nested list, `stripe.Customer.list_balance_transactions(c)`, as
+its nested service, whose `create` posts to it), and called or passed uncalled, as the app hands Stripe calls to
+`run_on_stripe_threads`. `void_invoice`, `mark_uncollectible`, `void_credit_note` and `void_grant`, which only Stripe's
+objects have, count on any receiver, and so do the nested-resource request helpers (`stripe.Customer.sources_request`),
+which send any method to any URL. A service's pair counts only when the service is reached as an attribute
+(`client.v1.customers.update`): a bare lowercase name is a local value (`billing_revenue_service.py`'s set of
+`customers`), and a service bound to a name is a gap below. What it cannot see, left to review: an instance's other
+method on a name, an attribute or an item (`subscription.cancel()`, `event.data.object.cancel()`,
+`page.data[0].delete()`), which reads like any other object's `delete` (a session's, for one), or on the result of a
+call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class or a service bound to a name
+(`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a customer created with a balance through the resource
+class (`stripe.Customer.create(balance=-500)`, a credit), since by name it is also the checkout's own customer
+(`routers/subscriptions.py`); a fetched object changed and saved (`s.cancel_at_period_end = True; s.save()`); a call
+made through `getattr` or a name computed at run time; and a request sent through `raw_request`, the SDK's private
+`_static_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
 """
 import ast
 from pathlib import Path
@@ -32,28 +35,36 @@ REPO = Path(__file__).resolve().parents[3]
 ROOTS = [REPO / "backend", REPO / "ops"]
 SKIP = {"tests", "evals", ".venv", "venv", "node_modules", "__pycache__"}
 
-# (resource, method) pairs that cancel, refund, void, credit or end a billing relationship; None matches every
-# method. An update or create counts where its parameters can cancel or credit (a subscription's or schedule's
-# cancellation, an item's quantity at 0, a customer's negative balance, a negative invoice item or invoice line,
-# a credit grant).
-# The last rows end disputes, payouts and transfers, which the app never calls, so any such call would be new.
-# Calls that charge (an invoice's pay, a payment intent's or charge's capture) are outside the rule.
+# (resource, method) pairs that cancel, pause or end billing, refund, void, write off, credit, or reverse a movement of
+# funds; None matches every method (a read included, which fails closed). An update or create counts where its
+# parameters can do one of those: a subscription's or schedule's cancellation or end, an item's quantity at 0, a
+# negative balance, invoice item, invoice line or added invoice item, a credit grant or its expiry, an invoice paid out
+# of band or forgiven, a usage event cancelled. The platform's own money counts as well (payouts, top-ups, transfers,
+# Treasury's flows, a climate order), which the app never moves, so any such call would be new. Outside the rule, left
+# to review: a pricing change that lowers what a customer pays (a coupon, promotion code, price, plan, trial offer, or a
+# discount on an invoice or quote), a capture of less than was authorized, a payment method detached, a payment or
+# refund made elsewhere and recorded (`attach_payment`, `report_refund`), a Connect account ended, and the calls that
+# charge.
 MONEY_MOVES = {
-    ("Subscription", "delete"), ("Subscription", "cancel"), ("Subscription", "modify"), ("Subscription", "pause"),
-    ("subscriptions", "cancel"), ("subscriptions", "update"), ("subscriptions", "pause"),
+    ("Subscription", "create"), ("Subscription", "delete"), ("Subscription", "cancel"), ("Subscription", "modify"),
+    ("Subscription", "pause"),
+    ("subscriptions", "create"), ("subscriptions", "cancel"), ("subscriptions", "update"), ("subscriptions", "pause"),
     ("SubscriptionItem", "delete"), ("SubscriptionItem", "modify"),
     ("subscription_items", "delete"), ("subscription_items", "update"),
-    ("SubscriptionSchedule", "cancel"), ("SubscriptionSchedule", "modify"),
-    ("subscription_schedules", "cancel"), ("subscription_schedules", "update"),
+    ("SubscriptionSchedule", "create"), ("SubscriptionSchedule", "cancel"), ("SubscriptionSchedule", "modify"),
+    ("subscription_schedules", "create"), ("subscription_schedules", "cancel"), ("subscription_schedules", "update"),
     ("Refund", None), ("refunds", None), ("ApplicationFee", "create_refund"), ("ApplicationFee", "refund"),
     ("CreditNote", None), ("credit_notes", None),
-    ("CreditGrant", "create"), ("CreditGrant", "void_grant"), ("CreditGrant", "expire"),
-    ("credit_grants", "create"), ("credit_grants", "void_grant"), ("credit_grants", "expire"),
+    ("CreditGrant", "create"), ("CreditGrant", "modify"), ("CreditGrant", "void_grant"), ("CreditGrant", "expire"),
+    ("credit_grants", "create"), ("credit_grants", "update"), ("credit_grants", "void_grant"),
+    ("credit_grants", "expire"),
+    ("MeterEventAdjustment", "create"), ("meter_event_adjustments", "create"),
+    ("Meter", "deactivate"), ("meters", "deactivate"),
     ("Customer", "create_balance_transaction"), ("balance_transactions", "create"), ("Customer", "modify"),
-    ("Customer", "delete"), ("customers", "delete"),
+    ("Customer", "delete"), ("customers", "create"), ("customers", "update"), ("customers", "delete"),
     ("Invoice", "void_invoice"), ("Invoice", "mark_uncollectible"),
     ("invoices", "void_invoice"), ("invoices", "mark_uncollectible"),
-    ("Invoice", "delete"), ("invoices", "delete"),
+    ("Invoice", "pay"), ("invoices", "pay"), ("Invoice", "delete"), ("invoices", "delete"),
     ("Invoice", "add_lines"), ("Invoice", "update_lines"), ("Invoice", "remove_lines"),
     ("invoices", "add_lines"), ("invoices", "update_lines"), ("invoices", "remove_lines"),
     ("InvoiceLineItem", "modify"), ("line_items", "update"),
@@ -64,6 +75,12 @@ MONEY_MOVES = {
     ("Dispute", "close"), ("disputes", "close"),
     ("Transfer", "create_reversal"), ("reversals", "create"),
     ("Payout", "cancel"), ("Payout", "reverse"), ("payouts", "cancel"), ("payouts", "reverse"),
+    ("Topup", "cancel"), ("topups", "cancel"), ("Order", "cancel"), ("orders", "cancel"),
+    ("OutboundPayment", "cancel"), ("outbound_payments", "cancel"),
+    ("OutboundTransfer", "cancel"), ("outbound_transfers", "cancel"),
+    ("InboundTransfer", "cancel"), ("inbound_transfers", "cancel"),
+    ("CreditReversal", "create"), ("credit_reversals", "create"),
+    ("DebitReversal", "create"), ("debit_reversals", "create"),
 }
 
 ALLOWED = {
@@ -73,7 +90,14 @@ ALLOWED = {
 
 
 # Methods only Stripe's objects have: a call of one moves money whatever the receiver, an instance on a name included.
-STRIPE_ONLY_METHODS = {"void_invoice", "mark_uncollectible", "void_credit_note", "void_grant"}
+# The nested-resource request helpers send any method to any URL with the app's key, so each counts too.
+NESTED_REQUEST_HELPERS = {
+    "balance_transactions_request", "cash_balance_transactions_request", "sources_request", "tax_ids_request",
+    "refunds_request", "reversals_request", "lines_request", "amount_details_line_items_request",
+    "features_request", "capabilitys_request", "external_accounts_request", "login_links_request", "persons_request",
+    "event_summarys_request",
+}
+STRIPE_ONLY_METHODS = {"void_invoice", "mark_uncollectible", "void_credit_note", "void_grant"} | NESTED_REQUEST_HELPERS
 
 # A client service's fetch returns its resource class's instance, whose methods are the class's
 # (`client.v1.subscriptions.retrieve(x).delete()` deletes, though the service has no delete).
@@ -82,15 +106,17 @@ SERVICE_RESOURCES = {
     "subscription_schedules": "SubscriptionSchedule", "invoices": "Invoice", "invoice_items": "InvoiceItem",
     "payment_intents": "PaymentIntent", "customers": "Customer", "refunds": "Refund", "credit_notes": "CreditNote",
     "credit_grants": "CreditGrant", "application_fees": "ApplicationFee", "disputes": "Dispute", "payouts": "Payout",
-    "transfers": "Transfer", "readers": "Reader",
+    "transfers": "Transfer", "readers": "Reader", "topups": "Topup", "meters": "Meter", "orders": "Order",
+    "outbound_payments": "OutboundPayment", "outbound_transfers": "OutboundTransfer",
+    "inbound_transfers": "InboundTransfer", "credit_reversals": "CreditReversal", "debit_reversals": "DebitReversal",
 }
 
 
 def _resource(owner: ast.AST, aliases: dict[str, str]):
     """The resource a method is reached on: `stripe.Subscription`, `client.v1.subscriptions`, a name a
-    `from stripe import` binds, an instance built from its class (`stripe.Subscription(sid)`), or the resource a
+    `from stripe import` binds, an instance built from its class (`stripe.Subscription(sid)`), the resource a
     same-expression fetch returns (`stripe.Subscription.retrieve(x)`, `client.v1.subscriptions.retrieve(x)`, awaited
-    or not)."""
+    or not), or the nested service a nested list posts to (`stripe.Customer.list_balance_transactions(c)`)."""
     if isinstance(owner, ast.Await):
         owner = owner.value
     if isinstance(owner, ast.Call):
@@ -99,6 +125,8 @@ def _resource(owner: ast.AST, aliases: dict[str, str]):
             return aliases.get(func.id, func.id)
         if isinstance(func, ast.Attribute) and func.attr[:1].isupper():
             return func.attr
+        if isinstance(func, ast.Attribute) and func.attr.removesuffix("_async").startswith("list_"):
+            return func.attr.removesuffix("_async").removeprefix("list_")  # a nested list posts to its service
         if isinstance(func, ast.Attribute):
             fetched = _resource(func.value, aliases)
             return SERVICE_RESOURCES.get(fetched, fetched)
@@ -128,9 +156,12 @@ def _money_moves(source: str) -> list[tuple[str, str]]:
                 visit(child, child.name)
                 continue
             if isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
-                method = child.attr.removesuffix("_async")
+                method = child.attr.removesuffix("_async").removeprefix("_cls_")
                 resource = _resource(child.value, aliases)
-                if ((resource, method) in MONEY_MOVES or (resource, None) in MONEY_MOVES
+                # A bare lowercase name that no `from stripe import` binds is a local value, not a service.
+                local = (isinstance(child.value, ast.Name) and child.value.id not in aliases
+                         and not child.value.id[:1].isupper())
+                if ((not local and ((resource, method) in MONEY_MOVES or (resource, None) in MONEY_MOVES))
                         or method in STRIPE_ONLY_METHODS):
                     found.append((function, f"{resource}.{method}"))
             visit(child, function)
@@ -212,14 +243,48 @@ def cancel_or_credit_by_update(client):
     client.v1.invoices.remove_lines("in_1", params={"lines": [{"id": "il_1", "behavior": "delete"}]})
     stripe.InvoiceLineItem.modify("in_1", "il_1", amount=-500)
     client.v1.invoices.line_items.update("in_1", "il_1", params={"amount": -500})
+    client.v1.customers.update("cus_1", params={"balance": -500})
+    client.v1.customers.create(params={"balance": -500})
+def the_swept_surface(client):
+    stripe.Subscription.create(customer="cus_1", add_invoice_items=[{"price_data": {"unit_amount": -500}}])
+    client.v1.subscriptions.create(params={"customer": "cus_1", "cancel_at_period_end": True})
+    stripe.SubscriptionSchedule.create(customer="cus_1", end_behavior="cancel")
+    client.v1.subscription_schedules.create(params={"customer": "cus_1", "end_behavior": "cancel"})
+    stripe.Invoice.pay("in_1", forgive=True)
+    client.v1.invoices.pay("in_1", params={"paid_out_of_band": True})
+    stripe.billing.CreditGrant.modify("credgr_1", expires_at=1)
+    client.v1.billing.credit_grants.update("credgr_1", params={"expires_at": ""})
+    stripe.billing.MeterEventAdjustment.create(event_name="api_calls", type="cancel")
+    client.v2.billing.meter_event_adjustments.create(params={"type": "cancel"})
+    stripe.billing.Meter.deactivate("mtr_1")
+    client.v1.billing.meters.deactivate("mtr_1")
+    stripe.climate.Order.cancel("climorder_1")
+    client.v1.climate.orders.cancel("climorder_1")
+    stripe.Topup.cancel("tu_1")
+    client.v1.topups.cancel("tu_1")
+    stripe.treasury.OutboundPayment.cancel("obp_1")
+    client.v1.treasury.outbound_transfers.cancel("obt_1")
+    stripe.treasury.InboundTransfer.cancel("ibt_1")
+    client.v1.treasury.credit_reversals.create(params={"received_credit": "rc_1"})
+    stripe.treasury.DebitReversal.create(received_debit="rd_1")
+    client.v1.topups.retrieve("tu_1").cancel()
+    stripe.Customer.sources_request("delete", "/v1/subscriptions/sub_1")
+    stripe.Customer.balance_transactions_request("post", "/v1/customers/cus_1/balance_transactions")
+    stripe.Customer.list_balance_transactions("cus_1").create(amount=-500, currency="usd")
+    stripe.ApplicationFee.list_refunds("fee_1").create(amount=100)
+    stripe.Transfer.list_reversals("tr_1").create()
+    stripe.Subscription._cls_cancel("sub_1")
+    await_later = stripe.Invoice._cls_void_invoice_async("in_1")
 def reads(client, db, row):
     stripe.Subscription.list(customer="cus_1")
     stripe.Subscription.retrieve("sub_1")
     client.customers.retrieve("cus_1")
     run_on_stripe_threads(stripe.Customer.retrieve, "cus_1")
     client.v1.subscriptions.retrieve("sub_1").items
-    client.v1.invoices.pay("in_1")
     db.delete(row)
+    customers = {"cus_1"}
+    customers.update({"cus_2"})
+    stripe.Customer.list_balance_transactions("cus_1")
 async def stated_gaps(client, subscription):
     subscription.cancel()
     subscription.delete()
@@ -231,14 +296,13 @@ async def stated_gaps(client, subscription):
     Bound.delete("sub_1")
     subs = client.v1.subscriptions
     subs.cancel("sub_1")
-    client.v1.customers.update("cus_1", params={"balance": -500})
     stripe.Customer.create(balance=-500)
-    client.v1.customers.create(params={"balance": -500})
     fetched = stripe.Subscription.retrieve("sub_1")
     fetched.cancel_at_period_end = True
     fetched.save()
     getattr(stripe.Subscription, "del" + "ete")("sub_1")
     client.raw_request("delete", "/v1/subscriptions/sub_1")
+    stripe.Subscription._static_request("delete", "/v1/subscriptions/sub_1")
     httpx.delete("https://api.stripe.com/v1/subscriptions/sub_1")
 '''
     assert _money_moves(planted) == [
@@ -273,6 +337,24 @@ async def stated_gaps(client, subscription):
         ("cancel_or_credit_by_update", "Invoice.update_lines"), ("cancel_or_credit_by_update", "invoices.update_lines"),
         ("cancel_or_credit_by_update", "Invoice.remove_lines"), ("cancel_or_credit_by_update", "invoices.remove_lines"),
         ("cancel_or_credit_by_update", "InvoiceLineItem.modify"), ("cancel_or_credit_by_update", "line_items.update"),
+        ("cancel_or_credit_by_update", "customers.update"), ("cancel_or_credit_by_update", "customers.create"),
+        ("the_swept_surface", "Subscription.create"), ("the_swept_surface", "subscriptions.create"),
+        ("the_swept_surface", "SubscriptionSchedule.create"), ("the_swept_surface", "subscription_schedules.create"),
+        ("the_swept_surface", "Invoice.pay"), ("the_swept_surface", "invoices.pay"),
+        ("the_swept_surface", "CreditGrant.modify"), ("the_swept_surface", "credit_grants.update"),
+        ("the_swept_surface", "MeterEventAdjustment.create"),
+        ("the_swept_surface", "meter_event_adjustments.create"),
+        ("the_swept_surface", "Meter.deactivate"), ("the_swept_surface", "meters.deactivate"),
+        ("the_swept_surface", "Order.cancel"), ("the_swept_surface", "orders.cancel"),
+        ("the_swept_surface", "Topup.cancel"), ("the_swept_surface", "topups.cancel"),
+        ("the_swept_surface", "OutboundPayment.cancel"), ("the_swept_surface", "outbound_transfers.cancel"),
+        ("the_swept_surface", "InboundTransfer.cancel"), ("the_swept_surface", "credit_reversals.create"),
+        ("the_swept_surface", "DebitReversal.create"), ("the_swept_surface", "Topup.cancel"),
+        ("the_swept_surface", "Customer.sources_request"),
+        ("the_swept_surface", "Customer.balance_transactions_request"),
+        ("the_swept_surface", "balance_transactions.create"), ("the_swept_surface", "refunds.create"),
+        ("the_swept_surface", "reversals.create"),
+        ("the_swept_surface", "Subscription.cancel"), ("the_swept_surface", "Invoice.void_invoice"),
     ]
 
 

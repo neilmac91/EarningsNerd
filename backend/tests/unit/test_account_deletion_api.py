@@ -3,7 +3,8 @@
 Pins what is observable over HTTP: the ``user_deleted`` audit row commits with the account's
 deletion, in one transaction, and records the provider outcomes the response reports; a failed audit
 insert, deletion or commit leaves neither behind, so the account stays and no failed deletion is
-audited as a success (F19); on success the Set-Cookie headers equal the
+audited as a success (F19), except a commit the database applied whose reply was lost, which answers
+the same 500 over a deleted, audited account; on success the Set-Cookie headers equal the
 logout helpers' output in call order (access + session-presence, then refresh); and a failed delete
 rolls the session back before it closes, keeps the account and sends no Set-Cookie at all. Whether
 the cookies are cleared before or after the delete is not observable here: when the handler raises
@@ -34,6 +35,7 @@ import stripe
 from fastapi import Depends, Response
 from fastapi.testclient import TestClient
 from sqlalchemy import event
+from sqlalchemy.exc import OperationalError
 
 from main import app
 from app.database import SessionLocal, get_db
@@ -315,6 +317,37 @@ def test_failed_delete_rolls_back_keeps_account_and_sets_no_cookie(client, faile
         assert _user_exists(uid)
         assert _audit_rows(email) == []  # before F19 the success row had committed ahead of the delete
         assert _deletion_audits_since(mark) == []
+
+
+@pytest.mark.requires_db
+def test_a_commit_whose_reply_was_lost_answers_500_over_a_deleted_audited_account(client, caplog):
+    # The one exception to the rollback (F18's matrix): the database applied the commit and only its reply was lost,
+    # so the route's rollback undoes nothing. ``after_commit`` fires once the DBAPI commit has returned; raising there
+    # plays the dropped connection.
+    def lose_the_reply(session):
+        raise OperationalError("COMMIT", {}, Exception("server closed the connection unexpectedly"))
+
+    def get_db_losing_the_reply():
+        db = SessionLocal()
+        event.listen(db, "after_commit", lose_the_reply)
+        try:
+            yield db
+        finally:
+            db.close()
+
+    with _seeded_user() as (uid, email):
+        app.dependency_overrides[get_db] = get_db_losing_the_reply
+        mark = _last_audit_id()
+        with caplog.at_level(logging.ERROR, logger="app.routers.users"):
+            resp = client.delete("/api/users/me")
+
+        assert resp.status_code == 500
+        assert resp.json() == {"detail": FAILED_DETAIL}
+        assert resp.headers.get_list("set-cookie") == []
+        assert not _user_exists(uid)
+        assert _audit_rows(email) == [("user_deleted", str(uid), "success")]
+        assert _deletion_audits_since(mark) == [(email, str(uid), "success")]
+        assert f"Error deleting user account {uid}: " in caplog.text
 
 
 @pytest.mark.requires_db
