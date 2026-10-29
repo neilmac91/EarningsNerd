@@ -38,6 +38,16 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * 390px "Copy for DM/LinkedIn" (unbroken) and the WhatsApp button inside uncapped insets still did. These cases set the
  * browser's text size (CDP), as email-verification-resend does, since the dialog's measure is the viewport's.
  *
+ * The bulk summary (features/admin/components/BulkResultSummary.tsx), after a send that creates two invites, fails one
+ * and skips two entries, holds its addresses and its rows at 390, 360 and 320px under the browser's 200% text setting
+ * and at 320px without it, in both themes (E242): every character of every address is painted inside its row (the
+ * skipped line's inside the summary), each created row's controls end inside the row, and the page does not scroll
+ * sideways. A created row's address was cut to 110px by truncate at 320px under 200% text; a failed row's ran out of the
+ * row and scrolled the page to 633px, and to 343px at 320px without the text setting; and the row's Copy link and Share
+ * invite buttons, 129px at their narrowest, ran 20px into the row's inset. Then "Share invite" in a created row opens the
+ * share options in a dialog, chief design's ruling on #1784, since under 200% text they cannot fit the row: the dialog
+ * names the address, nothing in it scrolls sideways, and the share panel ends inside its body.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
  * middleware's session gate is satisfied by its non-credential presence cookie.
@@ -205,6 +215,71 @@ const LINK_ONLY_ANSWERS = {
   '/api/admin/invites/7/resend': {
     id: 8, email: null, invite_link: 'https://earningsnerd.io/register?invite=abc123', expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta', revoked_invite_id: 7,
   },
+}
+
+/** A long address the bulk send fails (the API answers 409). */
+const FAILS = 'jacqueline.worthington-smythe@example-enterprise.com'
+
+/** Answers each invite the form sends: FAILS with a 409, any other address with a fresh link it did not email. Routes
+ *  added later run first, so every other request falls back to openAdmin's answers. */
+async function answerSends(page: Page, baseURL: string) {
+  const cors = { 'access-control-allow-origin': new URL(baseURL).origin, 'access-control-allow-credentials': 'true' }
+  let minted = 0
+  await page.route(`${API_ORIGIN}/api/admin/invites`, (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    const { email } = route.request().postDataJSON() as { email: string }
+    if (email === FAILS) return route.fulfill({ status: 409, headers: cors, json: { detail: 'An active invite already exists for this address.' } })
+    minted += 1
+    return route.fulfill({
+      status: 200,
+      headers: cors,
+      json: { id: 100 + minted, email, invite_link: `https://earningsnerd.io/register?invite=sent${minted}`, expires_at: '2026-11-08T00:00:00Z', emailed: false, cohort: 'beta' },
+    })
+  })
+}
+
+/** In the bulk summary: where each character of each row's address and of the skipped line is painted, against the
+ *  row's content box (the summary's for the skipped line), each created row's controls, and the page's widths. */
+async function measureSummary(summary: Locator) {
+  return summary.evaluate((el) => {
+    const content = (node: Element) => {
+      const style = getComputedStyle(node)
+      const r = node.getBoundingClientRect()
+      return { left: r.left + parseFloat(style.paddingLeft), right: r.right - parseFloat(style.paddingRight) }
+    }
+    const outside = (node: Element, box: { left: number; right: number }) => {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+      const range = document.createRange()
+      let text = ''
+      let past = ''
+      for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
+        for (let i = 0; i < t.data.length; i++) {
+          range.setStart(t, i)
+          range.setEnd(t, i + 1)
+          const r = range.getBoundingClientRect()
+          text += t.data[i]
+          if (r.left < box.left - 0.5 || r.right > box.right + 0.5) past += t.data[i]
+        }
+      }
+      return { text, past }
+    }
+    const rows = [...el.querySelectorAll('li')].map((li) => {
+      const box = content(li)
+      return {
+        address: outside(li.firstElementChild!, box),
+        controls: [...li.querySelectorAll('button, a')].map((control) => {
+          const r = control.getBoundingClientRect()
+          return { name: control.textContent!.trim(), past: Math.max(box.left - r.left, r.right - box.right) }
+        }),
+      }
+    })
+    const skipped = [...el.querySelectorAll('p')].find((p) => p.textContent!.endsWith('already invited or invalid.'))!
+    return {
+      rows,
+      skipped: outside(skipped, content(el)),
+      page: { scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth },
+    }
+  })
 }
 
 /** Every element in the dialog that scrolls sideways (its scroll width past its client width), the share panel's box
@@ -399,6 +474,52 @@ for (const theme of ['light', 'dark'] as const) {
         expect(m.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(m.body.left - 0.5)
         expect(m.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(m.body.right + 0.5)
         expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+      })
+    }
+  })
+
+  test.describe(`the bulk summary, ${theme} theme`, () => {
+    for (const [width, doubled] of [[390, true], [360, true], [320, true], [320, false]] as const) {
+      const text = doubled ? '200% text' : 'the default text size'
+      test(`at ${width}px under ${text} every address shows whole in its row, the rows' controls fit them, and the share options open in a dialog that holds them (E242)`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 })
+        if (doubled) {
+          const cdp = await page.context().newCDPSession(page)
+          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+        }
+        await openAdmin(page, baseURL!, theme, '/admin/invites')
+        await answerSends(page, baseURL!)
+        expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), 'the text setting took').toBe(doubled ? '32px' : '16px')
+        await expect(page.getByRole('table').getByText(INVITED)).toBeVisible()
+        const field = page.getByLabel('Email addresses')
+        await field.fill([SHORT_VALID, LONG, FAILS, INVITED, INVALID].join(', '))
+        await field.press('Enter')
+        await page.getByRole('button', { name: 'Send invites' }).click()
+        const summary = page.locator('div[aria-live="polite"]', { hasText: 'already invited or invalid' })
+        await expect(summary.getByText('1 failed')).toBeVisible()
+        await expect(summary.getByRole('listitem')).toHaveCount(3)
+        await page.evaluate(() => document.fonts.ready)
+        const label = `${width}px, ${text}, ${theme}`
+
+        const m = await measureSummary(summary)
+        expect(m.rows.map((row) => row.address.text).sort(), `${label}: the rows`).toEqual([SHORT_VALID, LONG, FAILS].sort())
+        for (const { address, controls } of m.rows) {
+          expect(address.past, `${label}: characters of ${address.text} painted outside its row`).toBe('')
+          for (const control of controls) expect(control.past, `${label}: "${control.name}" in the row of ${address.text} runs past the row`).toBeLessThanOrEqual(0.5)
+        }
+        expect(m.skipped.text, `${label}: the skipped line`).toBe(`${INVALID}, ${INVITED}: already invited or invalid.`)
+        expect(m.skipped.past, `${label}: characters of the skipped line painted outside the summary`).toBe('')
+        expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)
+
+        await summary.getByRole('listitem').filter({ hasText: SHORT_VALID }).getByRole('button', { name: 'Share invite', expanded: false }).click()
+        const dialog = page.getByRole('dialog', { name: 'Share invite' })
+        await expect(dialog.getByText(`The invite link for ${SHORT_VALID} works once`)).toBeVisible()
+        await expect(dialog.getByRole('textbox', { name: 'Message' })).toBeVisible()
+        const d = await measureShareOptions(dialog)
+        expect(d.scrolling, `${label}: an element in the share dialog scrolls sideways`).toEqual([])
+        expect(d.panel.left, `${label}: the share panel starts before the dialog body's content box`).toBeGreaterThanOrEqual(d.body.left - 0.5)
+        expect(d.panel.right, `${label}: the share panel ends past the dialog body's content box`).toBeLessThanOrEqual(d.body.right + 0.5)
+        expect(d.page.scrollWidth, `${label}: the page scrolls sideways with the dialog open`).toBe(d.page.clientWidth)
       })
     }
   })

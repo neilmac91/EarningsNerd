@@ -12,6 +12,8 @@ import ShareInvite from '@/features/admin/components/ShareInvite'
  * the platform's own share button, extends its name with a hidden tail
  * (lessons/frontend-hidden-name-tails-bring-their-own-space.md). For each control the case reads the words it shows
  * (its text, less what is hidden from assistive tech and the hidden tail) and holds its whole name to begin with them.
+ * In a dialog of their own (a bulk summary row's, E242) the options and Done are held the same way; the dialog's ✕,
+ * ui/Modal's, shows no words, so its name ("Close") is its label.
  */
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -35,14 +37,16 @@ function controls(container: HTMLElement) {
   }))
 }
 
-function expectEachNameBeginsWithItsWords(container: HTMLElement) {
-  const all = controls(container)
+/** `except` holds a control that shows no words, a dialog's ✕, which its aria-label names. */
+function expectEachNameBeginsWithItsWords(container: HTMLElement, except: HTMLElement[] = []) {
+  const all = controls(container).filter(({ control }) => !except.includes(control))
   expect(all.length).toBeGreaterThan(0)
   for (const { control, words } of all) {
     expect(words, 'every share control shows words').not.toBe('')
     expect(control, `"${words}" begins its control's name`).toHaveAccessibleName(new RegExp(`^${escape(words)}`))
   }
-  expect(container.querySelectorAll('[aria-label]'), 'no control replaces its words with an aria-label').toHaveLength(0)
+  const labelled = [...container.querySelectorAll('[aria-label]')].filter((element) => !except.includes(element as HTMLElement))
+  expect(labelled, 'no control replaces its words with an aria-label').toHaveLength(0)
 }
 
 afterEach(() => {
@@ -74,5 +78,15 @@ describe("the invite share panel's controls are named by the words they show (E2
     await userEvent.setup().click(more)
     expect(more).toHaveAttribute('aria-expanded', 'true')
     expectEachNameBeginsWithItsWords(container)
+  })
+
+  it('in a dialog of their own: the opener, the options and Done are named by their words', async () => {
+    const { container } = render(<ShareInvite link={LINK} email="ann@example.com" optionsIn="dialog" />)
+    expectEachNameBeginsWithItsWords(container)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Share invite', expanded: false }))
+    const dialog = screen.getByRole('dialog', { name: 'Share invite' })
+    for (const name of ['WhatsApp', 'Messages', 'Email']) expect(within(dialog).getByRole('link', { name })).toBeInTheDocument()
+    for (const name of ['Copy for DM/LinkedIn', 'Copy message', 'Done']) expect(within(dialog).getByRole('button', { name })).toBeInTheDocument()
+    expectEachNameBeginsWithItsWords(dialog, [within(dialog).getByRole('button', { name: 'Close' })])
   })
 })
