@@ -7,7 +7,7 @@ another override raises the plain HTTPException it replaces, so the comparison h
 every middleware the app runs (CORS, the security headers, the correlation id), the coded answer keeps the plain
 one's status and headers, and its body is the plain body plus ``code``. The other two cases §6 names, an unknown
 code and a known code on the wrong status, cannot be raised through ``CodedHTTPException``: ``test_api_error_codes.py``
-refuses the first and pins each code's status, on an app of its own.
+refuses the first and pins each code's status on the exception itself.
 """
 import pytest
 from fastapi import HTTPException
@@ -32,8 +32,7 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def _fresh(client):
-    client.cookies.clear()
+def _fresh():
     yield
     main.app.dependency_overrides.pop(get_current_user, None)
 
@@ -66,9 +65,17 @@ def test_a_coded_refusal_answers_as_the_plain_one_did_plus_its_code(client):
     assert coded.headers["www-authenticate"] == "Bearer"
 
 
+# A producer raises with no headers (most do) or with some (get_current_user's 401 carries WWW-Authenticate). Each
+# code's answer is the plain HTTPException's at its status, with the same headers, plus its code. Each exception gets
+# headers of its own, so a handler that edits them in place cannot also edit what its answer is compared with.
+@pytest.mark.parametrize("probe", [None, "e31h1"], ids=["no-headers", "a-header"])
 @pytest.mark.parametrize("code", list(ErrorCode), ids=lambda code: code.value)
-def test_every_code_answers_at_its_registered_status_with_its_headers(client, code):
-    resp = _answer(client, CodedHTTPException(code, "Words.", headers={"Retry-After": "30"}))
-    assert resp.status_code == REGISTERED_STATUS[code]
-    assert resp.json() == {"detail": "Words.", "code": code.value}
-    assert resp.headers["retry-after"] == "30"
+def test_every_code_answers_as_its_plain_refusal_did_plus_its_code(client, code, probe):
+    def headers():
+        return {"X-Probe": probe} if probe else None
+    plain = _answer(client, HTTPException(REGISTERED_STATUS[code], "Words.", headers=headers()))
+    coded = _answer(client, CodedHTTPException(code, "Words.", headers=headers()))
+    assert plain.status_code == coded.status_code == REGISTERED_STATUS[code]
+    assert coded.json() == {**plain.json(), "code": code.value}
+    assert _without_length(coded) == _without_length(plain)
+    assert coded.headers.get("x-probe") == probe
