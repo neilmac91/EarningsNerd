@@ -54,6 +54,15 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * share sheet, where a created row's "Share invite" button stands beside "More", which opens the dialog: the pair
  * wraps inside the row, where side by side under 200% text "More" ran 59 to 112px past it (chief design on #1791).
  *
+ * A repeat press in the resend dialog moves nothing (chief design on #1793): at 1440px and at 390px under 200% text, in
+ * both themes, Copy link pressed twice and then the share options' Copy message pressed twice hold the dialog's box,
+ * the pressed button's and Done's still in every frame, from the second press until its line says it again. Each press
+ * empties its status line so the same words are said again, and the emptied line took its words and its margin with it:
+ * the centred dialog shrank and grew back for a frame or two, 12 to 32px, the button under the pointer with it, and
+ * where the dialog was at full height Done moved 80px. The clipboard here holds the second press's write open until
+ * three frames have read the emptied line, so the read does not hang on the frames' pace. With the browser's share sheet, a share that ends with nothing to say leaves the dialog's
+ * box as it was before any press: the line gives up its room.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
  * middleware's session gate is satisfied by its non-credential presence cookie.
@@ -333,6 +342,115 @@ async function offerShareSheet(page: Page) {
   })
 }
 
+/** A clipboard that answers a write after 100ms, as a real one can take a moment, or, while `__clipboardHeld` is set, only
+ *  when `__clipboardRelease` is called: a repeat press's read holds the write open until it has seen the emptied line in
+ *  several frames, since on a loaded runner frames can come more than 100ms apart and miss it (a CI run on `0b3f75f9`). */
+async function slowClipboard(page: Page) {
+  await page.addInitScript(() => {
+    const held = window as unknown as { __clipboardHeld?: boolean; __clipboardRelease?: () => void }
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: () =>
+          new Promise<void>((resolve) => {
+            if (held.__clipboardHeld) held.__clipboardRelease = resolve
+            else setTimeout(resolve, 100)
+          }),
+      },
+      configurable: true,
+    })
+  })
+}
+
+/** Waits until no finite animation in the page is running: the dialog's entrance (ui/Modal's animate-fadeIn) moves its
+ *  box as it plays. One cancelled on the way (a hover's transition cut short) ends there. */
+async function settle(page: Page) {
+  await page.evaluate(async () => {
+    for (;;) {
+      const running = document.getAnimations().filter((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)
+      if (!running.length) return
+      await Promise.all(running.map((a) => a.finished.catch(() => undefined)))
+    }
+  })
+}
+
+type Frame = { dialog: number[]; control: number[]; done: number[]; said: string }
+
+/**
+ * Presses `control` once, then again, reading in every animation frame from just before the second press until its
+ * status line says `words` again, and five frames more: the top and bottom of the dialog, of the pressed control and of
+ * Done, and what the line says (its text outside aria-hidden parts). The second press's write is held open (see
+ * slowClipboard) until three frames have read the emptied line, then released, so the emptied line is read whatever the
+ * frames' pace.
+ */
+async function framesOfRepeatPress(dialog: Locator, control: Locator, line: Locator, words: string): Promise<Frame[]> {
+  await control.click()
+  await expect(line).toHaveText(words)
+  await settle(dialog.page())
+  const elements = {
+    dialog: await dialog.elementHandle(),
+    control: await control.elementHandle(),
+    line: await line.elementHandle(),
+    done: await dialog.getByRole('button', { name: 'Done' }).elementHandle(),
+  }
+  return dialog.page().evaluate(({ dialog, control, line, done, words }) => {
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return [r.top, r.bottom]
+    }
+    const said = (node: Node): string =>
+      node instanceof Element && node.getAttribute('aria-hidden') === 'true'
+        ? ''
+        : node.nodeType === Node.TEXT_NODE
+          ? (node.textContent ?? '')
+          : [...node.childNodes].map(said).join('')
+    const frames: Frame[] = []
+    const held = window as unknown as { __clipboardHeld?: boolean; __clipboardRelease?: () => void }
+    const release = () => {
+      held.__clipboardHeld = false
+      held.__clipboardRelease?.()
+      held.__clipboardRelease = undefined
+    }
+    return new Promise<Frame[]>((resolve) => {
+      let emptied = 0
+      let after = -1
+      const tick = () => {
+        const frame = { dialog: box(dialog!), control: box(control!), done: box(done!), said: said(line!) }
+        frames.push(frame)
+        if (frame.said === '') emptied += 1
+        // The emptied line read in three frames, or no emptying in sixty: the write answers.
+        if (held.__clipboardHeld && (emptied >= 3 || frames.length > 60)) release()
+        if (emptied && frame.said === words && after < 0) after = 0
+        if (after >= 0) after += 1
+        // A read that never sees the words again ends at 180 frames and fails below.
+        if (after > 5 || frames.length > 180) {
+          release()
+          resolve(frames)
+        } else requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(() => {
+        tick()
+        held.__clipboardHeld = true
+        ;(control as HTMLElement).click()
+        requestAnimationFrame(tick)
+      })
+    })
+  }, { ...elements, words })
+}
+
+/** Every frame holds the first frame's boxes, and the line went empty and said `words` again. */
+function expectStill(frames: Frame[], words: string, label: string) {
+  const said = frames.map((frame) => frame.said)
+  expect(said, `${label}: the line was not emptied, so a repeat press is not said again`).toContain('')
+  expect(said.at(-1), `${label}: the line did not say it again`).toBe(words)
+  const [first] = frames
+  for (const [i, frame] of frames.entries()) {
+    for (const part of ['dialog', 'control', 'done'] as const) {
+      const moved = frame[part].map((edge, j) => Math.abs(edge - first[part][j]))
+      expect(Math.max(...moved), `${label}: ${part === 'control' ? 'the pressed button' : part === 'done' ? 'Done' : 'the dialog'} moved in frame ${i} ("${frame.said}")`).toBeLessThanOrEqual(0.5)
+    }
+  }
+}
+
 /** The document's width and the viewport's once the root font is set (figure-receipt-reflow's 200% method). */
 async function pageWidth(page: Page, rootFont: string) {
   return page.evaluate((size) => {
@@ -512,6 +630,66 @@ for (const theme of ['light', 'dark'] as const) {
         })
       }
     }
+  })
+
+  test.describe(`the resend dialog's status lines, ${theme} theme`, () => {
+    /** Opens the resend dialog of a link-only invite at `width`, under 200% text if `doubled`, with a slow clipboard. */
+    const openResend = async (page: Page, baseURL: string, width: number, doubled: boolean) => {
+      await page.setViewportSize({ width, height: 900 })
+      if (doubled) {
+        const cdp = await page.context().newCDPSession(page)
+        await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+      }
+      await slowClipboard(page)
+      await openAdmin(page, baseURL, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+      await page.getByRole('button', { name: /Resend/ }).first().click()
+      await page.evaluate(() => document.fonts.ready)
+      return page.getByRole('dialog')
+    }
+    for (const [width, doubled] of [[1440, false], [390, true]] as const) {
+      const text = doubled ? '200% text' : 'the default text size'
+      const label = `${width}px, ${text}, ${theme}`
+      test(`at ${width}px under ${text} a repeat press of Copy link moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
+        const dialog = await openResend(page, baseURL!, width, doubled)
+        const line = dialog.getByRole('status')
+        await expect(line, 'the resend dialog has one status line').toHaveCount(1)
+        const frames = await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy link' }), line, 'Invite link copied.')
+        expectStill(frames, 'Invite link copied.', `${label}, Copy link`)
+      })
+
+      test(`at ${width}px under ${text} a repeat press of the share options' Copy message moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
+        const dialog = await openResend(page, baseURL!, width, doubled)
+        await dialog.getByRole('button', { name: 'Share invite', expanded: false }).click()
+        // The options' line: neither the warning Notice (a status too) nor the resend dialog's line.
+        const line = dialog.getByRole('status').filter({ hasNotText: 'Not bound to an email' }).first()
+        const frames = await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy message' }), line, 'Invite message copied.')
+        expectStill(frames, 'Invite message copied.', `${label}, Copy message`)
+      })
+    }
+
+    test("with the browser's share sheet, a share that ends with nothing to say gives up the line's room", async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await slowClipboard(page)
+      await offerShareSheet(page)
+      await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+      await page.getByRole('button', { name: /Resend/ }).first().click()
+      const dialog = page.getByRole('dialog')
+      await page.evaluate(() => document.fonts.ready)
+      await settle(page)
+      const rest = (await dialog.boundingBox())!
+      const line = dialog.getByRole('status').first()
+      await dialog.getByRole('button', { name: 'Copy link' }).click()
+      await expect(line).toHaveText('Invite link copied.')
+      expect((await dialog.boundingBox())!.height, 'the line takes room once it says something').toBeGreaterThan(rest.height + 10)
+
+      await dialog.getByRole('button', { name: 'Share invite' }).click()
+      await expect(line).toHaveText('')
+      await expect(async () => {
+        const box = (await dialog.boundingBox())!
+        const moved = Math.max(Math.abs(box.y - rest.y), Math.abs(box.height - rest.height))
+        expect(moved, `${theme}: the dialog keeps the emptied line's room`).toBeLessThanOrEqual(0.5)
+      }).toPass({ timeout: 5000 })
+    })
   })
 
   test.describe(`the bulk summary, ${theme} theme`, () => {
