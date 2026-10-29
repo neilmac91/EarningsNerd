@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('@/features/auth/api/auth-api', () => ({ getCurrentUserSafe: async () => ({ id: 1 }) }))
@@ -534,6 +534,89 @@ describe('AskCopilotRail', () => {
     expect(signal.aborted).toBe(true)
     act(() => captured.onComplete({ answer: 'LATE ANSWER', citations: [], grounded: 0, kind: 'answer', followups: [] }))
     expect(analytics.copilotAnswerCompleted).not.toHaveBeenCalled()
+  })
+
+  it('says what the Copilot is doing in a status line of its own, there before any question', async () => {
+    const requests: CopilotHandlers[] = []
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { requests.push(handlers) })
+    const user = userEvent.setup()
+    renderRail({ open: true })
+    // Before any question the rail's line is the only status region, and it is empty.
+    const line = screen.getByRole('status')
+    expect(line).toBeEmptyDOMElement()
+    // Every change to the line, in order: what a screen reader is given.
+    const said: string[] = []
+    const observer = new MutationObserver(() => said.push(line.textContent ?? ''))
+    observer.observe(line, { childList: true, characterData: true, subtree: true })
+    const ask = async (question: string) => {
+      await user.type(screen.getByLabelText(/ask about this filing/i), `${question}{Enter}`)
+      // The reading card is created with its words, so the card never says them: the line does, a frame later.
+      await waitFor(() => expect(line).toHaveTextContent('Reading the filing…'))
+    }
+
+    await ask('What changed?')
+    act(() => requests[0].onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    await ask('And margins?')
+    act(() => requests[1].onError('The answer could not be checked.'))
+    await waitFor(() => expect(said).toEqual([
+      'Reading the filing…', 'Answer ready.',
+      // The next question empties the line first, so the same words are heard again.
+      '', 'Reading the filing…',
+      // An error empties it: the card's alert says what went wrong.
+      '',
+    ]))
+    observer.disconnect()
+    expect(screen.getByRole('alert')).toHaveTextContent('The answer could not be checked.')
+    expect(line).toBeInTheDocument()
+  })
+
+  it("empties its status line on a cancel and on a plan gate, whose sentence stays the reading card's", async () => {
+    const requests: CopilotHandlers[] = []
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { requests.push(handlers) })
+    const user = userEvent.setup()
+    const rail = renderRail({ open: true })
+    const line = () => screen.getAllByRole('status').find((region) => region.classList.contains('sr-only'))!
+    const ask = async (question: string) => {
+      await user.type(screen.getByLabelText(/ask about this filing/i), `${question}{Enter}`)
+      await waitFor(() => expect(line()).toHaveTextContent('Reading the filing…'))
+    }
+
+    // Closing the sheet mid-question cancels it: the reopened rail's line is empty, and the card shows the cancel.
+    await ask('What changed?')
+    rail.rerenderRail({ open: false })
+    rail.rerenderRail({ open: true })
+    expect(line()).toBeEmptyDOMElement()
+    expect(screen.getByRole('alert')).toHaveTextContent('The question was cancelled. Please try again.')
+
+    // A plan gate: the reading card's own region takes the plan card's sentence, so the line says nothing over it.
+    await ask('And margins?')
+    act(() => requests[1].onError('This is a Pro feature.'))
+    expect(line()).toBeEmptyDOMElement()
+    expect(screen.getAllByRole('status').find((region) => region !== line())).toHaveTextContent('This is a Pro feature.')
+  })
+
+  it.each([
+    ['an answer', 'Answer ready.'],
+    ['an error', ''],
+    ['a cancel', ''],
+  ])('drops the reading words still a frame away when %s comes first', async (ending, expected) => {
+    let captured!: CopilotHandlers
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { captured = handlers })
+    const rail = renderRail({ open: true })
+    // Asked and ended in one task, so the frame that would say "Reading the filing…" has not run yet.
+    fireEvent.change(screen.getByLabelText(/ask about this filing/i), { target: { value: 'What changed?' } })
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }))
+    if (ending === 'an answer') {
+      act(() => captured.onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    } else if (ending === 'an error') {
+      act(() => captured.onError('The answer could not be checked.'))
+    } else {
+      rail.rerenderRail({ open: false })
+      rail.rerenderRail({ open: true })
+    }
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    // The line is the one status region: a done answer has no role, an error or a cancel is the card's alert.
+    expect(screen.getByRole('status').textContent).toBe(expected)
   })
 
 })
