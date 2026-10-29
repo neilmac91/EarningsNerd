@@ -703,6 +703,21 @@ class TestStreamRouteMetering:
         assert metered == []
         assert released == []
 
+    def test_over_cap_429_states_the_ceiling_as_pricing_does(self, monkeypatch):
+        # The narrative card shows this detail as written (analysis-api.ts), so it states the ceiling as
+        # /pricing's fair-use sentence does: the number as fmtCount prints it ("1,000", never "1000"),
+        # counted in what the meter counts, a reader's forced refresh among them (E122, D-050).
+        from app.routers import analysis as analysis_router
+
+        client, _metered, _released = self._client(monkeypatch, [], allowed=False)
+        monkeypatch.setattr(analysis_router, "check_analysis_limit", lambda user, db: (False, 1000, 1000))
+        response = client.post("/api/analysis/TST/stream", json=self.BODY)
+        assert response.status_code == 429
+        assert response.json()["detail"] == (
+            "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. "
+            "It resets at the start of next month."
+        )
+
     def test_reservation_block_429s_after_read_side_admits(self, monkeypatch):
         # The unserialized read admits, the serialized lease refuses (a parallel request took
         # the last unit): the user sees the same 429 and nothing is held afterwards.

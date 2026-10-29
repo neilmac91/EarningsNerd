@@ -1208,9 +1208,30 @@ const statusLineInCard = (heading: Locator) =>
     return { text: (line.textContent ?? '').replace(/\s+/g, ' ').trim(), card: px(c), line: px(box), outside }
   })
 
+/** The lines the generating card's first step paints its form code on, read through the step's text runs: one, since
+    the code is one nowrap run, as the live-status line's is (E230). At 390px under 200% text the step broke "10-" over
+    "K from SEC.gov" before; a code the runs no longer hold whole reads as no line. */
+const formCodeLines = (heading: Locator) =>
+  heading.evaluate((h2) => {
+    const card = h2.closest('.rounded-xl')!
+    const row = [...card.querySelectorAll('li')].find((li) => (li.textContent ?? '').startsWith('Fetching the'))
+    if (!row) return { text: null, lines: 0 }
+    const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.textContent ?? '').indexOf('10-K')
+      if (at < 0) continue
+      const range = document.createRange()
+      range.setStart(node, at)
+      range.setEnd(node, at + '10-K'.length)
+      return { text: row.textContent, lines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size }
+    }
+    return { text: row.textContent, lines: 0 }
+  })
+
 /** The generating card at 320px at the default text size and at 390px under 200% text: the page does not scroll
-    sideways, and the live-status line lies inside the card. The header row wraps and the percent moves beneath the
-    heading where the two do not fit (StreamingSummaryDisplay.spec.tsx pins the classes); this reads the painted boxes. */
+    sideways, the live-status line lies inside the card, and the first step paints its form code on one line. The header
+    row wraps and the percent moves beneath the heading where the two do not fit (StreamingSummaryDisplay.spec.tsx pins
+    the classes); this reads the painted boxes. */
 for (const state of [
   { width: 320, height: 640, doubled: false },
   { width: 390, height: 844, doubled: true },
@@ -1218,7 +1239,7 @@ for (const state of [
   const at = `${state.width}px${state.doubled ? ' and 200% text' : ' at the default text size'}`
   test.describe(`a ${state.width}px phone${state.doubled ? ' at 200% text' : ''}, a summary in flight`, () => {
     test.use({ viewport: { width: state.width, height: state.height }, isMobile: true, hasTouch: true })
-    test(`filing (/filing/3) keeps the generating card's status line inside the card and does not scroll sideways at ${at}`, async ({ page, baseURL }) => {
+    test(`filing (/filing/3) keeps the generating card's status line inside the card, its first step's form code on one line, and does not scroll sideways at ${at}`, async ({ page, baseURL }) => {
       await page.addInitScript(() => {
         try {
           localStorage.setItem('theme', 'light')
@@ -1230,7 +1251,7 @@ for (const state of [
       await page.goto('/filing/3')
       const heading = page.getByRole('heading', { level: 2, name: 'Generating the summary' })
       await expect(heading).toBeVisible()
-      await expect(page.getByText('Writing the summary', { exact: true })).toBeVisible()
+      await expect(page.getByText('Writing the summary and checking figures against the filing', { exact: true })).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
       if (state.doubled) await doubleText(page)
       // The line crossfades in on mount (animate-fadeIn; the span is inline, so only its opacity leg applies): its box is read once that has finished.
@@ -1240,6 +1261,8 @@ for (const state of [
       const line = await statusLineInCard(heading)
       expect(line.text, `${at}: the card is at its first stage`).toBe('10-K · Opening the filing…')
       expect(line.outside, `${at}: the status line (${line.line}) lies inside the card (${line.card})`).toEqual([])
+      const code = await formCodeLines(heading)
+      expect(code.lines, `${at}: the first step ("${code.text}") paints its form code, 10-K, on one line`).toBe(1)
       const widths = await measure(page)
       expect(widths.scrollWidth, `/filing/3 with a summary in flight at ${at}: ${why(widths)}`).toBeLessThanOrEqual(widths.clientWidth)
     })
@@ -2738,82 +2761,84 @@ for (const width of [390, 360, 320]) {
 }
 
 
-// UX07 / E181: run against a server built with NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true,
-// and pass the same variable to Playwright. CI's default build leaves this existing flag off;
-// the rendered-state contract is always covered by summary-quality-badge.spec.tsx.
-test.describe('summary coverage disclosure', () => {
-  test.skip(process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE !== 'true', 'Requires the quality-enabled build used in production')
-  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
-  for (const theme of ['light', 'dark'] as const) {
-    for (const demo of [false, true]) {
-      for (const tier of ['partial', 'full', 'unknown'] as const) {
-        test(`${tier} coverage in the ${demo ? 'example' : 'ordinary'} view, ${theme}, stays readable and opens by keyboard and touch at 200%`, async ({ page, baseURL }, testInfo) => {
-          await page.addInitScript(chosen => {
-            localStorage.setItem('theme', chosen)
-            // The independent first-use coachmark must not cover the disclosure capture.
-            localStorage.setItem('en:copilot-coachmark-v1', '1')
-            localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
-            localStorage.setItem('en_session_active', '1')
-          }, theme)
-          await answerApi(page, baseURL!, 'pro')
-          const quality = tier === 'unknown' ? undefined : {
-            tier, covered_count: tier === 'partial' ? 3 : 4, total_count: 9,
-            reasons: tier === 'partial' ? [
-              'financial figures not grounded in SEC XBRL data',
-              'filing grounding unavailable: no usable excerpt or numeric XBRL data',
-              'only 3/9 sections populated',
-              '123 summary figure(s) not traceable to filing data',
-            ] : [],
-          }
-          await page.route(`${API_ORIGIN}/api/summaries/filing/3`, route => route.fulfill({
-            status: 200,
-            headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
-            json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), quality } },
-          }))
-          await page.goto(`/filing/3${demo ? '?demo=1' : ''}`, { waitUntil: 'domcontentloaded' })
-          const coverage = page.getByRole('group', { name: 'Summary coverage' })
-          await expect(coverage.getByText(tier === 'partial' ? 'Partial coverage' : tier === 'full' ? 'Full summary' : 'Coverage unknown', { exact: true })).toBeVisible()
-          expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
-          await doubleText(page)
-          const disclosure = coverage.locator('details')
-          const trigger = disclosure.locator('summary')
-          await trigger.focus()
-          await expect(trigger).toBeFocused()
-          expect(await trigger.evaluate(el => el.tabIndex)).toBe(0)
-          await page.keyboard.press('Enter')
-          await expect(disclosure).toHaveAttribute('open', '')
-          await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeVisible()
-          if (tier === 'partial') await expect(disclosure.getByRole('listitem')).toHaveCount(4)
-          await trigger.tap()
-          await expect(disclosure).not.toHaveAttribute('open')
-          await trigger.tap()
-          await expect(disclosure).toHaveAttribute('open', '')
-          // Read actual painted characters as well as scroll width: nowrap text can escape
-          // a shrinking flex child's box without widening the document.
-          const escaped = await coverage.evaluate(group => {
-            const box = group.getBoundingClientRect()
-            const failures: string[] = []
-            const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT)
-            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-              for (let i = 0; i < (node.textContent ?? '').length; i++) {
-                const range = document.createRange()
-                range.setStart(node, i)
-                range.setEnd(node, i + 1)
-                const rect = range.getBoundingClientRect()
-                if (rect.width && (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.right > innerWidth + 1)) failures.push(node.textContent ?? '')
-              }
+// UX07 / E181: these need a server built with NEXT_PUBLIC_ENABLE_QUALITY_BADGE=true, as CI's e2e build is, since
+// production shows the badge. On a build without it they fail rather than skip, so CI cannot lose them unseen; the
+// rendered-state contract is also covered by summary-quality-badge.spec.tsx. Every label fits down to a 320px phone
+// under 200% text, so Badge keeps its one-line contract.
+for (const width of [390, 360, 320]) {
+  test.describe(`summary coverage disclosure, a ${width}px phone`, () => {
+    test.use({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true })
+    for (const theme of ['light', 'dark'] as const) {
+      for (const demo of [false, true]) {
+        for (const tier of ['partial', 'full', 'unknown'] as const) {
+          test(`${tier} coverage in the ${demo ? 'example' : 'ordinary'} view, ${theme}, stays readable and opens by keyboard and touch at 200%`, async ({ page, baseURL }, testInfo) => {
+            await page.addInitScript(chosen => {
+              localStorage.setItem('theme', chosen)
+              // The independent first-use coachmark must not cover the disclosure capture.
+              localStorage.setItem('en:copilot-coachmark-v1', '1')
+              localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: new Date().toISOString() }))
+              localStorage.setItem('en_session_active', '1')
+            }, theme)
+            await answerApi(page, baseURL!, 'pro')
+            const quality = tier === 'unknown' ? undefined : {
+              tier, covered_count: tier === 'partial' ? 3 : 4, total_count: 9,
+              reasons: tier === 'partial' ? [
+                'financial figures not grounded in SEC XBRL data',
+                'filing grounding unavailable: no usable excerpt or numeric XBRL data',
+                'only 3/9 sections populated',
+                '123 summary figure(s) not traceable to filing data',
+              ] : [],
             }
-            return [...new Set(failures)]
+            await page.route(`${API_ORIGIN}/api/summaries/filing/3`, route => route.fulfill({
+              status: 200,
+              headers: { 'access-control-allow-origin': new URL(baseURL!).origin, 'access-control-allow-credentials': 'true' },
+              json: { ...SUMMARY, raw_summary: { ...(SUMMARY.raw_summary as object), quality } },
+            }))
+            await page.goto(`/filing/3${demo ? '?demo=1' : ''}`, { waitUntil: 'domcontentloaded' })
+            const coverage = page.getByRole('group', { name: 'Summary coverage' })
+            await expect(coverage.getByText(tier === 'partial' ? 'Partial coverage' : tier === 'full' ? 'Full summary' : 'Coverage unknown', { exact: true })).toBeVisible()
+            expect(await page.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(theme === 'dark')
+            await doubleText(page)
+            const disclosure = coverage.locator('details')
+            const trigger = disclosure.locator('summary')
+            await trigger.focus()
+            await expect(trigger).toBeFocused()
+            expect(await trigger.evaluate(el => el.tabIndex)).toBe(0)
+            await page.keyboard.press('Enter')
+            await expect(disclosure).toHaveAttribute('open', '')
+            await expect(disclosure.getByText('Coverage does not verify every claim. Check the cited sources and the original filing.')).toBeVisible()
+            if (tier === 'partial') await expect(disclosure.getByRole('listitem')).toHaveCount(4)
+            await trigger.tap()
+            await expect(disclosure).not.toHaveAttribute('open')
+            await trigger.tap()
+            await expect(disclosure).toHaveAttribute('open', '')
+            // Read actual painted characters as well as scroll width: nowrap text can escape
+            // a shrinking flex child's box without widening the document.
+            const escaped = await coverage.evaluate(group => {
+              const box = group.getBoundingClientRect()
+              const failures: string[] = []
+              const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT)
+              for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                for (let i = 0; i < (node.textContent ?? '').length; i++) {
+                  const range = document.createRange()
+                  range.setStart(node, i)
+                  range.setEnd(node, i + 1)
+                  const rect = range.getBoundingClientRect()
+                  if (rect.width && (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.right > innerWidth + 1)) failures.push(node.textContent ?? '')
+                }
+              }
+              return [...new Set(failures)]
+            })
+            expect(escaped, 'every painted coverage label and reason stays in its own column').toEqual([])
+            const widths = await measure(page)
+            expect(widths.scrollWidth, why(widths)).toBeLessThanOrEqual(widths.clientWidth)
+            if (tier === 'partial') {
+              await coverage.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 180, behavior: 'instant' }))
+              await page.screenshot({ path: testInfo.outputPath('coverage-200.png') })
+            }
           })
-          expect(escaped, 'every painted coverage label and reason stays in its own column').toEqual([])
-          const widths = await measure(page)
-          expect(widths.scrollWidth, why(widths)).toBeLessThanOrEqual(widths.clientWidth)
-          if (tier === 'partial') {
-            await coverage.evaluate(el => window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 180, behavior: 'instant' }))
-            await page.screenshot({ path: testInfo.outputPath('coverage-200.png') })
-          }
-        })
+        }
       }
     }
-  }
-})
+  })
+}

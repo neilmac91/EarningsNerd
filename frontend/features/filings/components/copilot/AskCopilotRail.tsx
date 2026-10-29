@@ -13,9 +13,10 @@ import {
 } from '@/features/filings/api/copilot-api'
 import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import { Badge, Button } from '@/components/ui'
-import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
+import CopilotMessage, { READING_LINE, errorSentence, type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
+import { usePaneStatus } from './PaneStatusContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
@@ -118,6 +119,32 @@ export default function AskCopilotRail({
     setMessages(next)
   }
 
+  // The rail's status line, sr-only. The reading card is created with its words in it, so the card never says them;
+  // the line says READING_LINE when a question is sent and "Answer ready." when the answer completes. It empties
+  // before each question, so the same words are heard again; on an error, which the card says itself (its alert, or
+  // the plan card's sentence in its region); and on a cancel (a close mid-question), whose card shows it when the rail
+  // is next in view. In the filing workspace the line is the pane's (PaneStatusContext), between the tabs and the
+  // panels, so it is heard whichever tab shows; elsewhere the rail keeps one of its own, mounted with the conversation
+  // before any question. An error that lands while the Filing tab shows has its card in the hidden Ask panel, so the
+  // pane's line says the card's sentence instead, whole and alone (errorSentence); a later tab switch says nothing more.
+  const setPaneStatus = usePaneStatus()
+  const [ownStatus, setOwnStatus] = useState('')
+  const setStatusLine = setPaneStatus ?? setOwnStatus
+  // A question's words, set a frame after the line empties: an answer, an error or a cancel before then drops them.
+  const statusFrame = useRef<number | null>(null)
+  const sayStatus = useCallback((words: string) => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    statusFrame.current = null
+    setStatusLine(words)
+  }, [setStatusLine])
+  // An unmount drops the pending words, then empties the line: the pane's outlives the rail (another filing's rail,
+  // or the summary gone and back), and a new conversation never sits under the last one's words. Words still a frame
+  // away would land after the emptying, so the frame goes first.
+  useEffect(() => () => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    setStatusLine('')
+  }, [setStatusLine])
+
   // Abort any in-flight stream when the panel closes or the component unmounts.
   const abortStream = useCallback((clearPending = false) => {
     const controller = abortRef.current
@@ -133,8 +160,9 @@ export default function AskCopilotRail({
       messagesRef.current = next
       setMessages(next)
       setIsStreaming(false)
+      sayStatus('')
     }
-  }, [])
+  }, [sayStatus])
   useEffect(() => {
     if (!open) abortStream(true)
   }, [open, abortStream])
@@ -202,6 +230,12 @@ export default function AskCopilotRail({
   // focus, and the hidden container can't take focus anyway). Standalone overlay is always "active".
   const viewer = useFilingViewer()
   const isCopilotActive = !embedded || (viewer?.activeView ?? 'copilot') === 'copilot'
+  // Read when an error lands: the tab showing then decides whether the pane's line says it, not the tab its question
+  // was sent from (the status line, above).
+  const copilotActiveRef = useRef(isCopilotActive)
+  useEffect(() => {
+    copilotActiveRef.current = isCopilotActive
+  }, [isCopilotActive])
 
   // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
   // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
@@ -303,6 +337,11 @@ export default function AskCopilotRail({
       { id: assistantId, role: 'assistant', content: '', status: 'reading' },
     ])
     setIsStreaming(true)
+    sayStatus('')
+    statusFrame.current = requestAnimationFrame(() => {
+      statusFrame.current = null
+      setStatusLine(READING_LINE)
+    })
     analytics.copilotQuestionAsked({ filingId, ticker, filingType })
 
     const controller = new AbortController()
@@ -331,6 +370,7 @@ export default function AskCopilotRail({
             followups: c.followups,
             status: 'done',
           })
+          sayStatus('Answer ready.')
           analytics.copilotAnswerCompleted({
             filingId,
             ticker,
@@ -354,6 +394,9 @@ export default function AskCopilotRail({
             content: '', citations: [], followups: [], grounded: undefined, kind: undefined,
             status: 'error', error: msg,
           })
+          // The card says it where it shows. While the Filing tab shows, the card is in the hidden Ask panel, so the
+          // pane's line says its sentence, politely like the rest of the line; otherwise the line empties.
+          sayStatus(setPaneStatus && !copilotActiveRef.current ? errorSentence(msg) : '')
           analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
@@ -424,6 +467,14 @@ export default function AskCopilotRail({
     // 192px, so a sheet the consent bar and a bottom inset have shortened still fits the composer above
     // the bar (tests/e2e/consent-bar-yields.spec.ts).
     <div ref={columnRef} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {/* The rail's own status line, outside the filing workspace (whose pane holds the line there). The column clips,
+          so a positioned box inside it holds the line's sr-only box; nothing else in the column changes its
+          containing block (lessons/frontend-sr-only-needs-a-positioned-clip.md). */}
+      {!setPaneStatus && (
+        <div className="relative">
+          <p role="status" className="sr-only">{ownStatus}</p>
+        </div>
+      )}
       {/* Messages / empty state */}
       <div ref={scrollRef} className="min-h-[min(40vh,12rem)] flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (

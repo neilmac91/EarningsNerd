@@ -52,7 +52,12 @@ export const ACCESS_COPY: Record<AccessMode, AccessCopy> = {
 /** The account action while readiness is checking, closed or unconfirmed: the live example. */
 const EXAMPLE_ACCOUNT = { cta: 'See a live example', ctaShort: 'Live example' } as const
 
-const CHECKING_LINE = 'Checking registration availability. You can explore a live example.'
+/** The access line while registration readiness checks, under the hero's "See a live example" button, which offers the
+ *  example itself. In the site's Inter it takes no more rows than the invite line at any width, so the settled line
+ *  leaves no empty rows in its cell: the full sentence ("Checking registration availability. You can explore a live
+ *  example.") left 20px from 320 to 460px and, under 200% text, 40 to 120px up to 1848px (E224; chief design's option
+ *  (3) on #1686, comment 6434019340). The waitlist page's status keeps that sentence (WaitlistAccessStatus). */
+export const CHECKING_LINE = 'Checking registration…'
 
 /** Registration policy does not imply collection readiness. Never use this display state as authorization. */
 export function publicAccessCopy(mode: AccessMode, readiness: LegalReadiness | null, loading: boolean): AccessCopy {
@@ -81,6 +86,6 @@ export const accountShortLabels = (mode: AccessMode): readonly string[] => [ACCE
 
 /** The access lines the hero's line keeps the height of: the checking line it opens on and the mode's own, so the page
  *  under it holds still as readiness answers open. A closed or unconfirmed answer joins the cell when shown and can
- *  grow it: the closed line takes a row more than the checking line at some widths, and holding it would put a closed
- *  notice in every visit's server HTML (E220; chief design on #1686). */
+ *  grow it, by up to three rows under 200% text, since those lines are longer than the checking line; holding them would
+ *  put a closed notice in every visit's server HTML (E220; chief design on #1686). */
 export const heldAccessLines = (mode: AccessMode): readonly string[] => [CHECKING_LINE, ACCESS_COPY[mode].line]

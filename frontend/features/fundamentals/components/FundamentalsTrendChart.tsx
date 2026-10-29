@@ -12,7 +12,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtDecimal, fmtPercent, sentenceCase } from '@/lib/format'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
+import { Card, seriesColor, CHART_SERIES_COUNT, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton, inputClasses } from '@/components/ui'
 import { needsSourceCheck } from '@/features/analysis/lib/provenance'
 import SourceCheckBadge from '@/features/fundamentals/components/SourceCheckBadge'
 import SourceChecks from '@/features/analysis/components/SourceChecks'
@@ -113,7 +113,7 @@ export default function FundamentalsTrendChart({
   // seriesColor's ">6 series" dev warning (that targets simultaneous series; here one
   // shows at a time and cycling is intentional). -1 (unfound) guards to color 1 (teal).
   const activeIndex =
-    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES.length
+    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES_COUNT
 
   const chartData = useMemo(() => {
     if (!data || !activeKey) return []
@@ -188,7 +188,9 @@ export default function FundamentalsTrendChart({
               <XAxis dataKey="year" {...xAxisProps(dark)} />
               <YAxis
                 {...yAxisProps(dark)}
-                width={70 /* currency tick labels outgrow the factory's 44px */}
+                // The widest tick label sets the width (Recharts measures it before paint): a currency printed by
+                // its code ("CHF 800.0B", "KRW 800.0T", E203) outgrew the fixed 70px this axis had.
+                width="auto"
                 tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
               />
               <Tooltip
@@ -203,7 +205,7 @@ export default function FundamentalsTrendChart({
               <Bar
                 dataKey="value"
                 name={active?.label ?? 'Value'}
-                fill={seriesColor(activeIndex)}
+                fill={seriesColor(activeIndex, dark)}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={56}
               />

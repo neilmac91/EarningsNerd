@@ -14,7 +14,7 @@ import TrendCharts from '@/features/analysis/components/TrendCharts'
 import '@/features/analysis/components/TrendChartsV2'
 import type { AnalysisCitation, AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { groupDataNotes, noteMarksFigure, RECORD_ONLY_REASONS, type DataNoteQuality, type DataNotesDataset, type DataNotesWire } from '@/features/analysis/lib/dataNotes'
-import type { FactProvenance } from '@/features/analysis/lib/provenance'
+import { reasonText, type FactProvenance } from '@/features/analysis/lib/provenance'
 import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay'
 
 /**
@@ -32,7 +32,8 @@ import { SOURCE_OPERANDS_PREFIX } from '@/features/analysis/lib/narrativeDisplay
  *    raised at every period by its values stop, or that stop's spoken "data note x", the fold's "figures carry notes x"), set in the fine print's summary, the open
  *    lists' letter column or a chart's footnotes (which its PNG prints) is one of its marked letters, and each marked
  *    letter shows somewhere. A site that bypasses the helper shows the
- *    record-only a, the unknown d or the gap's e. The same render holds the notation's two other clauses at their full
+ *    record-only c, the unknown d or the gap's e (marked notes take the first letters, data notes version 2). The same
+ *    render holds the notation's two other clauses at their full
  *    width: no † anywhere in an annual report (a † marks only a period: the Q4 header, the period picker), the fold's
  *    derived row included, and no drawn, listed or charted letter in warning ink.
  * 3. Every note stays. Each note keeps its entry in the open data notes (the report's) or under the sources (a citation
@@ -52,7 +53,7 @@ interface GoldenCase {
   marked_letters: string[]
 }
 const golden: { cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
-const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string>; chart: { review: Record<string, string> } } } } }).theme.extend.colors
+const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string> } } } }).theme.extend.colors
 const notesOf = (example: GoldenCase) => (example.expected_citation_notes ?? example.expected).notes
 const allNotes = golden.cases.flatMap(notesOf)
 
@@ -82,7 +83,7 @@ const report: AnalysisDataset = {
     ...series, unit: series.percent ? 'pure' : 'USD', cagr: series.cagr ?? null, points: series.points.map((point) => ({ ...point })),
   })) as AnalysisDataset['series'],
 }
-// The case's two citations (the record-only note a, and the mixed supplement f), then a figure with no check recorded
+// The case's two citations (the record-only note c, and the mixed supplement f), then a figure with no check recorded
 // (note d) and a passed one, so the narrative's four operands fold under a summary that names its letters. The third is
 // derived, a calculated figure in the fold and the sources list, where a dagger once stood beside it.
 const cited = ['operating_margin', 'free_cash_flow', 'net_income', 'net_income'] as const
@@ -169,7 +170,7 @@ describe('every surface marks and names only the notes that question the number 
 
     const stray = [...seen].filter(([letter]) => !example.marked_letters.includes(letter)).map(([letter, where]) => `${letter}: ${[...where].join(', ')}`)
     expect(stray, 'a letter shown or named for a note that marks nothing').toEqual([])
-    // The fixture's marked letters all show: b on the KPI card, the table and the cash chart, c on the table and the
+    // The fixture's marked letters all show: a on the KPI card, the table and the cash chart, b on the table and the
     // balance sheet, f on its citation chip.
     expect([...seen.keys()].sort()).toEqual([...example.marked_letters].sort())
     for (const where of ['a drawn letter', 'a chart band letter', 'a Notes chip', 'an accessible name', 'the fold summary', 'the data notes summary', 'the open data notes', 'a chart chip', 'a chart tooltip', 'a chart value text', 'a chart footnote']) {
@@ -202,7 +203,7 @@ describe('every surface marks and names only the notes that question the number 
     // from, or on anything inside it that could draw its glyph. Out of reach: ink a stylesheet rule sets by another
     // selector, since the unit tests load no stylesheet.
     const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
-    const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
+    const warningHexes = Object.values(colors.warning)
     const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
     const letters = {
       drawn: [...container.querySelectorAll('[data-note-letter]')],
@@ -214,7 +215,7 @@ describe('every surface marks and names only the notes that question the number 
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
     const inked = (element: Element) => ['fill', 'stroke', 'color'].some((ink) => warningInks.has((element.getAttribute(ink) ?? '').toUpperCase())
       || warningInks.has((element as HTMLElement).style?.getPropertyValue(ink) ?? ''))
-    const warningClass = ['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')
+    const warningClass = ['text', 'fill', 'stroke'].map((ink) => `[class*="${ink}-warning"]`).join(', ')
     const sources = (letter: Element) => { const chain = [...letter.querySelectorAll('*')]; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
     const inWarning = Object.values(letters).flat().filter((letter) => sources(letter).some((element) => element.matches(warningClass) || inked(element)))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])
@@ -232,17 +233,17 @@ describe('every surface marks and names only the notes that question the number 
     }
     const legacy = example.expected.notes.find((note) => note.reasons.every((reason) => RECORD_ONLY_REASONS.has(reason)))!
     expect(document.getElementById(legacy.id)).toHaveTextContent('Operating margin (FY2023, FY2024)')
-    expect(document.getElementById(legacy.id)).toHaveTextContent('2 figures · 1 YoY comparison.')
+    expect(document.getElementById(legacy.id)).toHaveTextContent('2 figures; 1 growth figure built on them.')
     // Every populated figure that is not legacy, missing its record or the conflict passed: still never "No figures
     // need review" while the record-only note stands.
     expect(fine.querySelector('summary')).not.toHaveTextContent('No figures need review')
-    // The mixed note b marks for its other reason: the summary gives that clause, never the record-only sentence its
-    // words open with.
-    const mixed = example.expected.notes.find((note) => note.letter === 'b')!
+    // The mixed note a marks for its other reason: the summary gives that reason's words (noteSummary), never the
+    // record-only sentence its message opens with.
+    const mixed = example.expected.notes.find((note) => note.letter === 'a')!
     expect(mixed.reasons).toEqual(['legacy_calculation', 'source_check_needed'])
-    expect(mixed.message).toMatch(/^This saved calculation predates the current source checks\. .*A source check remains unresolved\./)
-    expect(fine.querySelector('summary')).toHaveTextContent('Note b: b Free cash flow FY2024: A source check remains unresolved')
-    expect(fine.querySelector('summary')).not.toHaveTextContent('predates the current source checks')
+    expect(mixed.message).toBe(`${reasonText('legacy_calculation')} ${reasonText('source_check_needed')}`)
+    expect(fine.querySelector('summary')).toHaveTextContent('Note a: a Free cash flow FY2024: not yet matched to the filing')
+    expect(fine.querySelector('summary')).not.toHaveTextContent('Calculated before 10 October 2026')
 
     const figure = within(container.querySelector<HTMLElement>('[data-analysis-metrics]')!).getByRole('button', { name: /^Operating margin, FY2024: .*, calculated\. View source/ })
     expect(figure.querySelector('[data-note-letter]')).toBeNull()

@@ -201,9 +201,10 @@ async def admit(run: GenerationRun) -> AsyncIterator[dict]:
 
         can_generate, current_count, limit, user_is_unlimited, run.usage_reservation_token = await run.run_sync_db(check_usage_sync)
         if not can_generate:
-            # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
-            # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
-            # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
+            # A Pro user is billing-unlimited, so a block here means Pro's fair-use ceiling
+            # (entitlements.PRO_SUMMARY_MONTHLY_CAP, which the pricing page states) tripped — answer
+            # with the pause below, never an upsell, and skip the paywall funnel event (a Pro user
+            # isn't paywalled).
             if request_evidence is not None:
                 request_evidence.reason = "fair_use" if user_is_unlimited else "monthly_quota"
             if user_is_unlimited:

@@ -250,13 +250,16 @@ def _isolate_account_mail_limiter():
     """The account-mail cap (``routers/auth.py`` ``ACCOUNT_MAIL_LIMITER``) is one budget per process, so every
     test that posts forgot-password or resend-verification draws on it. Each test starts with it empty, as
     ``_isolate_summary_limiter`` does for its limiter; the per-caller auth limiters stay with the suites' own
-    resets (``test_auth_flow.py``'s is a locked contract test)."""
+    resets (``test_auth_flow.py``'s is a locked contract test). ``REFRESH_LIMITER`` is cleared here too (E96):
+    every test client posts from one address, so a worker's refreshes across the suite share its bucket, and
+    the locked suite's own reset predates it."""
     def clear_loaded_limiter():
         auth = sys.modules.get("app.routers.auth")
-        limiter = getattr(auth, "ACCOUNT_MAIL_LIMITER", None)
-        if limiter is not None:
-            with limiter._lock:
-                limiter._hits.clear()
+        for name in ("ACCOUNT_MAIL_LIMITER", "REFRESH_LIMITER"):
+            limiter = getattr(auth, name, None)
+            if limiter is not None:
+                with limiter._lock:
+                    limiter._hits.clear()
 
     clear_loaded_limiter()
     yield

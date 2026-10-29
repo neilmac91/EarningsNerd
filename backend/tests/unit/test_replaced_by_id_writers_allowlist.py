@@ -1,7 +1,7 @@
 """Structural gate: only refresh-token rotation writes ``RefreshToken.replaced_by_id``.
 
-``refresh_token_service.rotate_refresh_token`` revokes every live token of the user when a revoked
-token with ``replaced_by_id`` set is presented, reading the link as proof that the token was rotated
+``refresh_token_service.rotate_refresh_token`` revokes the live tokens of a presented token's chain when
+that token is revoked with ``replaced_by_id`` set, reading the link as proof that the token was rotated
 away and that someone else holds its successor. That reading is sound only while rotation is the one
 writer. A revocation path or a session transfer that set the link would send its tokens down the
 theft sweep again, which is the bug ``test_refresh_token_revocation_kinds.py`` pins for the writers
@@ -130,12 +130,13 @@ TABLE = "refresh_tokens"
 
 # Every mention of the successor link, as (path from the repository root, scope, kind) -> how many
 # times. The count matters: a second write inside an already-listed scope is a new mention too.
-# Rotation is the only writer. Its own presence check reads it, and so does a logout's walk from a
-# token refreshes rotated away to its chain's live tip (E127); the model defines the column.
+# Rotation is the only writer. Its own presence check reads it, and so does the chain walk both a replay's
+# sweep and a logout use (``_live_descendants``, E96: the recursive query's seed, its recursive term, its join, the
+# rows it reads back and its check of the links it did not follow); the model defines the column.
 ALLOWED_MENTIONS = {
     ("backend/app/services/refresh_token_service.py", "rotate_refresh_token", "read"): 1,
     ("backend/app/services/refresh_token_service.py", "rotate_refresh_token", "write"): 1,
-    ("backend/app/services/refresh_token_service.py", "revoke_refresh_token", "read"): 2,
+    ("backend/app/services/refresh_token_service.py", "_live_descendants", "read"): 7,
     ("backend/app/models/refresh_token.py", "RefreshToken", "definition"): 1,
     # Dynamic-name sinks in a module that names RefreshToken (the model registry imports it): they
     # read Filing's two URL columns by a name from _FILING_URL_FIELDS (getattr, and the attribute

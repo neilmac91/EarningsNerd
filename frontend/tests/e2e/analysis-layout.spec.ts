@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { AnalysisDataset } from '../../features/analysis/api/analysis-api'
 import { MIN_SLOT } from '../../features/analysis/lib/charts/layout'
-import { KPI_FACE_GLYPHS, KPI_MISSING_GLYPHS } from '../../features/analysis/lib/kpiStripLayout'
+import { DATA_FACE_GLYPHS, DATA_FACE_MISSING } from '../../lib/format'
 import { EXPECTED_KPI_LETTERS, EXPECTED_KPI_VALUES, EXPECTED_NOTES, EXPECTED_TABLE_CELL_NOTES, EXPECTED_TABLE_COMPARISON_REVIEWS, EXPECTED_TABLE_REVIEWS, METRICS, PERIODS, UNAVAILABLE_CELLS, openAnalysis, type AnalysisState, type AnalysisTheme, type AnalysisGeometryState } from './fixtures/analysisLayoutApi'
 import { drawnCharts, readAxes, readSlots, readTextOutsideSvg, readTicksAndShapes, tickText } from './fixtures/trendChartDom'
 
@@ -513,13 +513,15 @@ async function stableAnalysisOutsideTable(page: Page) {
 async function assertNotes(page: Page, state: AnalysisState) {
   const expected = EXPECTED_NOTES[state]
   const summary = page.locator(`${NOTES} > details > summary`)
-  // One line of fine print under the table (D-061): the gaps and the calculated figures counted in words, never "—".
-  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as a dash`)
+  // One line of fine print under the table (D-061): the gaps counted beside the table's dash itself, which a screen
+  // reader hears as "a dash" (MissingValue), and the calculated figures counted in words.
+  await expect(summary).toContainText(`${expected.unavailable} not in our data, shown as —`)
+  await expect(summary.locator('.sr-only', { hasText: 'a dash' })).toHaveCount(1)
   await expect(summary).toContainText(`${expected.calculated} calculated from filed figures`)
   if (state === 'discrepancy') {
-    // A note that questions the number is named by its letter, places and words.
+    // A note that questions the number is named by its letter, places and summary words (data notes version 2).
     await expect(summary.locator('[data-note-letter]')).toHaveText(['a'])
-    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: Available sources disagree on this figure')
+    await expect(summary).toContainText('Revenue Q2 2026; Operating margin Q2 2026; Net margin Q2 2026: the filings report different values (the most recent shown)')
   } else await expect(summary.locator('[data-note-letter]')).toHaveCount(0)
   if (state === 'clean') await expect(summary).toContainText(`No figures need review · ${expected.passed} checked`)
   // Never while a note needs review, the legacy state's record-only note included.
@@ -798,20 +800,29 @@ for (const theme of THEMES) test.describe(`analysis heading rail / ${theme}`, ()
   test('a figure focused while the rail is hidden lands below the band the rail then takes', async ({ page, baseURL }) => {
     test.setTimeout(60_000)
     await openAnalysis(page, baseURL!, 'legacy', theme, 1)
-    // A last row taller than the heading row, its figure under the site header while the rail is hidden. Chromium
-    // centres an obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to
-    // the scroll padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
-    const placed = await page.evaluate(() => {
+    // A last row taller than the rail, its figure under the site header while the rail is hidden. Chromium centres an
+    // obscured focus target, but an engine (or a script) that scrolls it to the nearest edge aligns it to the scroll
+    // padding; the rest of the row then brings the rail back, so the padding must already hold the rail.
+    const placed = await page.evaluate(async () => {
+      const frame = () => new Promise(resolve => requestAnimationFrame(resolve))
+      const reserved = () => document.documentElement.style.getPropertyValue('--table-rail-h')
       const table = document.querySelector('[data-analysis-metrics] table')!
       const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
-      const head = table.querySelector('thead')!.getBoundingClientRect().height
-      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
-      for (const cell of row.cells) cell.style.height = `${header / 2 + head - 4}px`
-      // Room below the table to place it, and its bottom 4px inside the heading row's height under the header.
+      // Room below the table to place it. The rail's height is the one the page reserves while the table is under the
+      // header's line, shorter than the heading row where the rail leaves out the Metric legend (E202); read once the
+      // page has set it, which follows the scroll a frame and a render later.
       document.body.style.paddingBottom = '150vh'
-      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - head + 4)
-      return { rail: !!document.querySelector('[data-table-header-rail] > div'), bottom: table.getBoundingClientRect().bottom - header - head }
+      window.scrollTo(0, table.getBoundingClientRect().top + window.scrollY - header + 8)
+      for (let i = 0; i < 60 && !reserved(); i += 1) await frame()
+      const rail = parseFloat(reserved())
+      const row = table.querySelector<HTMLTableRowElement>('tbody tr:last-child')!
+      for (const cell of row.cells) cell.style.height = `${header / 2 + rail - 4}px`
+      // The table's bottom 4px inside the rail's height under the header, the rail read once that scroll has rendered.
+      window.scrollTo(0, table.getBoundingClientRect().bottom + window.scrollY - header - rail + 4)
+      for (let i = 0; i < 6; i += 1) await frame()
+      return { rail: !!document.querySelector('[data-table-header-rail] > div'), height: rail }
     })
+    expect(placed.height, 'the page reserves the rail while the table is under the header').toBeGreaterThan(0)
     expect(placed.rail, 'the rail is hidden before the focus moves').toBe(false)
     // The reserve follows the scroll a frame later; the focus move waits for it, as a reader's key press would.
     await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--table-rail-h'))).toMatch(/^\d+px$/)
@@ -889,6 +900,112 @@ test.describe('analysis heading rail / 1024px', () => {
     await expect.poll(() => scroller.evaluate(el => el.scrollLeft), 'the wheel reached the table through the rail').not.toBe(before)
   })
 })
+
+/** Under 200% text on a phone the heading row is three lines, 112px, in either mode (the Metric cell's legend under
+ *  "Metric"; in an annual run the window over "CAGR" too), under a site header already 225px tall. The rail leaves out
+ *  what only the table's own heading row needs (data-rail-omit): the legend and the window. It is the quarter headings'
+ *  two lines in a quarterly run and one line in an annual run, and the page reserves that height, not the row's (E202). */
+for (const [state, mode, rail] of [['legacy', 'quarterly', 80], ['annual', 'annual', 48]] as const) {
+  test.describe(`analysis heading rail / 390px under 200% text / ${mode}`, () => {
+    test.use({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
+    test('the rail leaves out the legend and the window, the page reserves its height, and a figure reached by Shift+Tab lands below it', async ({ page, baseURL }) => {
+      test.setTimeout(90_000)
+      await openAnalysis(page, baseURL!, state, 'light', 2)
+      const rows = page.locator(`${TABLE} tbody tr`)
+      // Row 6's top just under the site header, placed again until the page has settled and the rail shows.
+      await expect.poll(async () => {
+        await rows.nth(6).evaluate(row => {
+          const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          window.scrollTo(0, row.getBoundingClientRect().top + window.scrollY - header - 8)
+        })
+        await page.waitForTimeout(250)
+        return page.locator('[data-table-header-rail] > div').count()
+      }, { timeout: 20_000 }).toBe(1)
+      const read = await page.evaluate(() => {
+        const head = document.querySelector('[data-analysis-metrics] table thead')!
+        const bar = document.querySelector('[data-table-header-rail] > div')!
+        return {
+          head: head.getBoundingClientRect().height,
+          bar: bar.getBoundingClientRect().height,
+          reserve: document.documentElement.style.getPropertyValue('--table-rail-h'),
+          inRow: [...head.querySelectorAll('[data-rail-omit]')].map(part => getComputedStyle(part).display),
+          inRail: [...bar.querySelectorAll('[data-rail-omit]')].map(part => getComputedStyle(part).display),
+        }
+      })
+      expect(read.head, 'the heading row is three lines').toBe(112)
+      expect(read.bar, `the rail is ${rail}px`).toBe(rail)
+      expect(read.reserve, 'the page reserves the rail, not the heading row').toBe(`${rail}px`)
+      expect(read.inRow, 'the heading row shows the legend, and the window in an annual run').toEqual(mode === 'annual' ? ['block', 'block'] : ['block'])
+      expect(read.inRail, 'the rail leaves them out').toEqual(read.inRow.map(() => 'none'))
+      // Tab into the row below, then back up: focus lands on row 6's last figure, which the page must scroll clear.
+      await rows.nth(7).locator('button[aria-label$="View source and calculation"]').first().focus()
+      await page.keyboard.press('Shift+Tab')
+      const focused = page.locator(':focus')
+      await expect(focused).toHaveAttribute('aria-label', /View source and calculation$/)
+      const place = await focused.evaluate(button => {
+        const top = button.getBoundingClientRect().top
+        const header = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+        const rail = document.querySelector('[data-table-header-rail] > div')?.getBoundingClientRect().bottom ?? 0
+        return { top, clear: Math.max(header, rail) }
+      })
+      expect(place.top, 'the focused figure clears the site header and the rail').toBeGreaterThanOrEqual(place.clear - 1)
+      // The switch (chief design on #1763): the headings sit at the top of their row, so the rail is the row's own first
+      // lines. With the row's top 1px past the header's line the rail shows, each of its lines sits where the row's same
+      // line was as the row met the line, and no line of the row still in view under the rail repeats one of the rail's:
+      // only the legend and the window pass under it. Placed again until the page has settled.
+      await expect.poll(async () => {
+        await page.evaluate(() => {
+          const head = document.querySelector('[data-analysis-metrics] table thead')!
+          const line = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          window.scrollTo(0, head.getBoundingClientRect().top + window.scrollY - line + 1)
+        })
+        await page.waitForTimeout(250)
+        return page.evaluate(() => Math.round(document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom
+          - document.querySelector('[data-analysis-metrics] table thead')!.getBoundingClientRect().top))
+      }, { timeout: 20_000 }).toBe(1)
+      const switched = await page.evaluate(() => {
+        // The lines a cell paints: each text node outside the screen-reader copy, by its first box (a part the rail leaves
+        // out paints none there).
+        const lines = (cell: Element) => {
+          const out: { text: string; top: number }[] = []
+          const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const text = node.textContent!.trim()
+            if (!text || node.parentElement!.closest('.sr-only')) continue
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            const box = [...range.getClientRects()].find((r) => r.width && r.height)
+            if (box) out.push({ text, top: box.top })
+          }
+          return out
+        }
+        const bar = document.querySelector('[data-table-header-rail] > div')
+        const head = document.querySelector('[data-analysis-metrics] table thead')!
+        if (!bar) return null
+        const past = document.querySelector('[data-site-header]')!.getBoundingClientRect().bottom - head.getBoundingClientRect().top
+        const band = bar.getBoundingClientRect()
+        const railCells = [...bar.querySelectorAll<HTMLElement>(':scope > div, :scope > div > div > div')].filter((cell) => cell.style.width)
+        const rowCells = [...head.querySelectorAll('th')]
+        const moved: string[] = []
+        const twice: string[] = []
+        railCells.forEach((cell, index) => {
+          const kept = lines(cell)
+          const row = lines(rowCells[index])
+          for (const line of kept) {
+            const same = row.find((other) => other.text === line.text)
+            if (!same || Math.abs(line.top - same.top - past) > 1) moved.push(`${line.text}: ${same ? `${Math.round(line.top - same.top - past)}px` : 'not in the row'}`)
+          }
+          for (const line of row) if (line.top >= band.bottom - 0.5 && kept.some((other) => other.text === line.text)) twice.push(line.text)
+        })
+        return { cells: railCells.length, columns: rowCells.length, moved, twice }
+      })
+      expect(switched, 'the rail shows with the heading row 1px past the line').not.toBeNull()
+      expect(switched!.cells, 'a rail cell for each column').toBe(switched!.columns)
+      expect(switched!.moved, 'each rail line sits where the same line of the row was').toEqual([])
+      expect(switched!.twice, 'no line of the row in view under the rail repeats a rail line').toEqual([])
+    })
+  })
+}
 
 /** Three whole periods beside the metric names on a phone, 375px included: the 2px each mark keeps grew a phone column to
  *  4.375rem, so below md, in the band where that cost the third period, the metric column gives up to 6px (MetricsTable).
@@ -1063,11 +1180,19 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
       const table = document.querySelector('[data-analysis-metrics]')!
       const notes = document.querySelector('[data-analysis-data-notes]')!
       const summary = notes.querySelector(':scope > details > summary')!
-      const range = document.createRange(); range.selectNodeContents(summary)
+      // The lines it paints: the sr-only words a screen reader hears in place of a mark or the dash (MissingValue's "a
+      // dash") sit in a clipped 1px box that wraps them onto lines no reader sees, so they are left out.
+      const bottoms = new Set<number>()
+      const walker = document.createTreeWalker(summary, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node.parentElement?.closest('.sr-only')) continue
+        const range = document.createRange(); range.selectNodeContents(node)
+        for (const rect of range.getClientRects()) if (rect.width && rect.height) bottoms.add(Math.round(rect.bottom))
+      }
       return {
         follows: table.nextElementSibling === notes,
         gap: notes.getBoundingClientRect().top - table.getBoundingClientRect().bottom,
-        lines: new Set([...range.getClientRects()].filter(rect => rect.width && rect.height).map(rect => Math.round(rect.bottom))).size,
+        lines: bottoms.size,
       }
     })
     expect(placement.follows, 'the data notes follow the metrics table').toBe(true)
@@ -1272,10 +1397,11 @@ test.describe('analysis KPI strip, long values', () => {
   })
   test.describe('the figure face', () => {
     test.use({ viewport: { width: 390, height: 900 }, colorScheme: theme, reducedMotion: 'reduce', serviceWorkers: 'block' })
-    // kpiValueGlyphs counts ASCII and KPI_FACE_GLYPHS at the face's one advance, which the strip measures as painted
+    // kpiValueGlyphs counts ASCII and DATA_FACE_GLYPHS at the face's one advance, which the strip measures as painted
     // (0.6em, or whole pixels where the browser snaps glyphs), and anything else at 1.25em. Each glyph is measured in
     // the value's own faces with a serif after them, not the monospace fallback, so a glyph Geist Mono lacks cannot pass
-    // at a fallback's advance; KPI_MISSING_GLYPHS shows the probe tells the two apart.
+    // at a fallback's advance; DATA_FACE_MISSING shows the probe tells the two apart. The list is the one fmtCurrency and
+    // the trend charts' moneyPrefix print signs from (E203), so this holds it to the faces the build fetched.
     test('draws ASCII and every glyph the width counts as its own at the one advance the strip measures', async ({ page, baseURL }) => {
       test.setTimeout(60_000)
       await openAnalysis(page, baseURL!, 'annual', theme, 1)
@@ -1295,14 +1421,14 @@ test.describe('analysis KPI strip, long values', () => {
         const strip = value.closest('dl')!
         return { size: parseFloat(style.fontSize), advance: parseFloat(strip.style.getPropertyValue('--kpi-figure')), measured }
       }, glyphs)
-      const own = await measure(ascii + KPI_FACE_GLYPHS)
-      expect(own.measured).toHaveLength(95 + [...KPI_FACE_GLYPHS].length)
+      const own = await measure(ascii + DATA_FACE_GLYPHS)
+      expect(own.measured).toHaveLength(95 + [...DATA_FACE_GLYPHS].length)
       // The strip measured its advance, within a pixel's rounding of the face's 0.6em.
       expect(Math.abs(own.advance - 0.6 * own.size), `the strip's advance (${own.advance}px) at ${own.size}px`).toBeLessThanOrEqual(0.5)
       expect(own.measured.filter(({ px }) => Math.abs(px - own.advance) > 0.01), `glyphs the width counts at the strip's advance (${own.advance}px), off it`).toEqual([])
       // The control depends on the fallback: where glyphs snap, a serif glyph within half a pixel of the advance would
       // round to it. Liberation Serif's ₩ (1em) and ₫ (0.51em) and Chromium's 0.3em narrow space are far from it.
-      const missing = await measure(KPI_MISSING_GLYPHS)
+      const missing = await measure(DATA_FACE_MISSING)
       expect(missing.measured.filter(({ px }) => Math.abs(px - own.advance) <= 0.01), 'glyphs Geist Mono lacks, measured at its advance').toEqual([])
     })
   })

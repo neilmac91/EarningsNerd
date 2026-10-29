@@ -283,9 +283,11 @@ API ([verification](verification/heuristic-rescore-transcripts.md#set-z--prototy
 companyfacts for 59 large filers, read through the app's own transport and grouped exactly as
 ingest groups it. That gave 8,616 cells (company × concept × fiscal year, newest ten years). Its
 output is [verification/restatement-census.md](verification/restatement-census.md), whose header
-holds the run's time and every definition it used. The script, `backend/scripts/restatement_census.py`,
-was written on a WP5 branch that was never pushed, and it went with its session, so this repository
-cannot rerun it; WP5 commits a rerunnable census with its evidence (E206).
+holds the run's time and every definition it used. The script behind that run went with its session.
+WP5b (#1682) commits a rerunnable one, `backend/scripts/restatement_census.py`, which picks the year's
+own report by ingest's own rule (`facts/own_reports.py`), so its within-tag cells are the history rows a
+sync stores. That rule leaves out an own item for another span than the winner's, which the first run
+sorted last instead, so a rerun's counts can differ slightly from the figures below.
 - **At a 1% tolerance,** a later filing's value differs from the year's own report in 438 cells
   (5.1%), at 52 of the 59 companies.
 - **Noise.** Every rounding difference sits below 0.1%.
@@ -533,7 +535,8 @@ There is almost nothing to key, so there is no key beside every mark:
 - **Fine print.** Its summary line names each marked letter with its places and words. Its open
   detail lists every note.
 - **Exports.** The PDF puts the same line under its table, on the same page. The workbook puts it
-  on the Metrics header row.
+  under the Metrics grid (planned for its header row; WP3-B moved it under the grid, where it leaves
+  the printed grid its size).
 
 ### 2.5 Per-surface rules
 
@@ -545,7 +548,7 @@ There is almost nothing to key, so there is no key beside every mark:
 | Narrative and sources | A citation chip carries a letter only for a marked note. In the source list, "Calculated figure" and "Calculated from recorded inputs" become "calculated from filed figures" and "calculated before we kept its inputs". "Sources identify filed figures or calculated figures (marked †)" becomes "Sources identify filed and calculated figures". Raw precision belongs to the analysis plan (§7). |
 | Data notes | One line of fine print under the table (§3). |
 | PDF | No dagger after each value (`export_service.py:349`). As on the page, the calculated sentence sits above the table and the fine print under it, on the same page. Letters for marked notes only, with the page's reason sentences. |
-| Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The fine print goes on the Metrics header row. |
+| Excel | Every note stays as a cell comment, which is the workbook's evidence dialog. A marked note also shows its letter in the grid through the number format (`#,##0" a"`), so the cell stays numeric. No warning-ink fonts. The key to the grid's letters goes under the Metrics grid (planned for its header row; see §2.4). |
 | Chart PNG | The period range in the subtitle ("REGN · Margins · FY2016–FY2025"). The footer names marked letters only. |
 
 ### 2.6 Reconciling with the sibling plans
@@ -571,8 +574,10 @@ WP1 builds on main, where #1606 landed; they share 21 files (§6).
   its records (`#1611`); step 5, reading a chart (E193, `#1617`); step 6's gates (E194: `#1620`,
   `#1624`, `#1631`); the data face's fallback and the plots' font wait (E199, `#1636`).
 - **Step 7** (E195): since the founder's switch (F66, D-064) the spec renderer draws every trend
-  chart, and its CI job and token fold remain as E195's follow-ups. Step 6's remainder, the notes
-  band on this report's rule (below), landed with E194 on 2026-10-26.
+  chart; its token fold landed with E195 (C), and since E195 (G) CI's e2e job reads every script
+  the built route loads to draw its charts and fails on a Recharts class name in any script
+  (`frontend/tests/e2e/charts-v2.spec.ts`).
+  Step 6's remainder, the notes band on this report's rule (below), landed with E194 on 2026-10-26.
 - **The spec.** `docs/design/analysis-trend-charts-spec-2026-10.md` §3.3 (A5) takes note marks off
   the plot and puts them in a band under the period axis: a letter for every note on a plotted
   value (unavailable notes included, so "every missing point has a letter"), † for a partly
@@ -859,6 +864,73 @@ Each sentence promises only what the code enforces:
   one found "the company's filings disagree" alarming and both found it unresolved, so that
   sentence names what is shown and how to compare.
 
+**As shipped (WP2, #1659).** A reason's words print on every surface: the page's detail, the
+dialog, the PDF, the workbook and the chart PNG. They are read for one figure (the dialog, a
+workbook cell's comment) and once for all of a note's figures (the detail, the PDF's and the
+workbook's lists, the chart footnotes). So each sentence:
+- names no one figure. "Different values for this figure" printed above three places in the open
+  detail (chief design's review of #1659), and "The figure's period ends …" above "(4 figures)" in
+  the PDF (the third review round). Every sentence reads alike above one figure and above many: a
+  fragment that names nothing ("Zero where the previous period was not zero."), a plural, or
+  "calculation" as a mass noun;
+- asks for nothing only the page does. "Select it to compare" stops `source_conflict` and
+  `source_check_needed` short: nothing can be selected in an export. On the page, the detail's
+  closing line ("Select any figure to see its source filing, method and inputs") and the dialog
+  give the way to compare;
+- says nothing of how a gap is drawn, which differs by surface: a dash in the table, the PDF's
+  tables and the page's and PNG's bar charts, a break in a line chart, an empty cell and an empty
+  chart slot in the workbook, "Unavailable" in the PDF's Sources & methods. So "shown as —" stays
+  in the page's summary line ("3 not in our data, shown as —"), drawn beside the table's own dash,
+  and the voice rule keeps "—" out of a sentence anyway.
+
+Neither a sentence nor a summary clause has a semicolon of its own, since the summary and a chart's
+footnotes list places with "; " ("Revenue FY2021; Net income FY2023: Not in our data. Never shown as
+zero."). `backend/tests/unit/test_analysis_data_notes.py` fails the phrasings its patterns for the first three
+rules match and any semicolon, each rule tested both ways; a phrasing the patterns do not match passes, and chief
+design reviews the words. WP5's
+"select it to see both filings" therefore belongs to the page, not to a reason's sentence.
+
+The final words, beside main's (`data_notes.REASONS` and `provenance.ts` REASONS, held equal by the
+shared notes fixture):
+
+| Reason | On main | Shipped |
+|---|---|---|
+| `not_in_dataset` | "Not available in this dataset." | "Not in our data. Never shown as zero." |
+| `legacy_calculation` | "This saved calculation predates the current source checks. Its inputs need review." | "Calculated before 10 October 2026, when we began keeping each calculation’s inputs. Shown as stored, with its inputs not linked." |
+| `source_check_needed` | "A source check remains unresolved. Review the original filing before use." | "Not yet matched to the filing by our automated check." |
+| `unsupported_eps_calculation` | "This quarterly earnings-per-share calculation is not supported. Use a reported quarterly EPS figure." | "Calculated quarterly earnings per share is not supported. Use a reported quarterly EPS figure." |
+| `legacy_calculation_not_supported` | "This saved calculation could not be reproduced from compatible source inputs and is unavailable." | "Could not be reproduced from compatible source inputs, so unavailable." |
+| `repair_rolled_back` | "This figure was withdrawn during a data correction and is unavailable." | "Withdrawn during a data correction and unavailable." |
+| `missing_compatible_operand` | "A compatible earlier year-to-date figure is unavailable for this calculation." | "No compatible earlier year-to-date figure is available to calculate from." |
+| `negative_calculated_value` | "The calculation produced an invalid negative amount and was withheld." | "Calculated as an invalid negative amount, so withheld." |
+| `missing_inputs` | "The source inputs needed for this calculation are unavailable." | "Source inputs needed for calculation are unavailable." |
+| `missing_input` | "A source input needed for this calculation is unavailable." | "A source input needed for calculation is unavailable." |
+| `missing_provenance` | "Detailed source information is unavailable for this figure." | "Detailed source information is unavailable." |
+| `legacy_unverified` | "This saved figure needs a source check before use." | "Needs a source check before use." |
+| `legacy_unreconciled` | "This saved figure needs a source check before use." | "Needs a source check before use." |
+| `legacy_unknown` | "Validation details are unavailable for this saved figure. No verification claim is made." | "Validation details are unavailable. No verification claim is made." |
+| `legacy_provenance_unavailable` | "Detailed source information is unavailable for this saved figure." | "Saved without detailed source information." |
+| `mixed_vintage` | "The calculation combines figures from different filing versions." | "Calculated from figures in different filing versions." |
+| `mixed_vintages` | "The calculation combines figures from different filing versions." | "Calculated from figures in different filing versions." |
+| `period_mismatch` | "The source inputs cover incompatible reporting periods." | "Period ends on a different date from its filing’s reporting period." |
+| `calculation_mismatch` | the generic sentence | "Not confirmed by our calculation from the filed inputs." |
+| `missing_calculation_inputs` | the generic sentence | "Not checked: no compatible inputs in the same filing." |
+| `zero_where_prior_nonzero` | the generic sentence | "Zero where the previous period was not zero." |
+| `magnitude_vs_prior` | the generic sentence | "More than ten times the previous period’s value, or less than a tenth of it." |
+| `eps_sign_vs_net_income` | the generic sentence | "Earnings per share and net income have opposite signs for the period." |
+| `diluted_gt_basic` | the generic sentence | "Diluted earnings per share is higher than basic earnings per share for the period." |
+| `legacy_period_label_mismatch` | the generic sentence | "Saved with the wrong fiscal period and replaced by a corrected figure." |
+| `rolling_duration_not_fiscal_year` | the generic sentence | "Saved as a rolling twelve months, not the company’s fiscal year, so unavailable." |
+| `calculation_parent_period_corrected` | the generic sentence | "Withdrawn and unavailable: an input was corrected or withdrawn." |
+| `source_conflict` | "Available sources disagree on this figure." | "The company’s filings report different values. We show the most recent filing’s value." |
+
+| Summary clause | Shipped |
+|---|---|
+| `source_check_needed` | "not yet matched to the filing" |
+| `source_conflict` | "the filings report different values (the most recent shown)" |
+| `calculation_mismatch` | "not confirmed by our calculation from the filed inputs" |
+| `missing_calculation_inputs` | "no compatible inputs in the same filing, so not checked" |
+
 ### 3.4 Comprehension test
 
 These rounds tested the ring design's words, before the founder's review. Two of their findings
@@ -1021,6 +1093,35 @@ openpyxl and Pillow. The full pass/fail table is in
 
 The PDF's key-on-another-page miss becomes fine print under the table, on the same page.
 
+**As built (WP3-B, 2026-10-27, after WP2's #1659).** Both exports take the page's fine print from one port
+(`analysis_export_metadata.fine_print_summary` and `detail_entries`) and mark through `data_notes.marks_figure`:
+- **PDF.** No dagger after a figure; a letter only where its note questions the number, in the note ink, in the
+  grid, the appendix, the citations and the narrative. Above the grid: "Figures are rounded for display.", the
+  calculated metrics ("Margins and free cash flow are calculated from filed figures.") and, where the page asks
+  the reader to select a value, "Sources & methods gives each figure's full precision, with any recorded formula
+  and inputs for a calculated figure."; a
+  quarterly run adds the page's legend and its Q4 header †. Under the grid: the summary line with a bold
+  "Data notes" lead (no heading, so the outline loses its "Data notes" entry), on the grid's page: the grid's
+  rows take a tighter pitch, so a full grid of 20 or 22 metrics prints whole on one page with the lines above it
+  and the summary line, and a longer grid's summary stays on its last page (`break-before: avoid`). Then every
+  note in the detail and a closing line naming Sources & methods. A citation's
+  own notes list under Narrative sources ("Data notes for narrative sources").
+- **Workbook.** A marked figure's letter is set by its number format (`#,##0" a"`, `0.0%" a"`, `0.00"x a"`,
+  `0.0" pp a"`, and `@" a"` for "n/m"), so the cell stays a number; a chart's value axis carries the figures' own
+  format, unlinked, since LibreOffice set a linked axis's letter on every tick. Every note stays a comment,
+  naming its letter only where it marks. The Overview prints the fine print ("N not in our data, left blank"),
+  and a quarterly run's Overview names, beside the calculated sentence, the Q4 columns the PDF marks with its †
+  ("Some flow figures in Q4 2023, Q4 2024 and Q4 2025 are calculated from annual totals less the first nine
+  months."; both files read one test, `derived_quarters`), since a current snapshot's comment on such a figure
+  reads "Calculated figure.". The Metrics grid has under it, after a blank row and merged across its columns, the key to the letters it
+  prints, so the printed grid keeps the size it prints at with no key: a note marked only on a YoY or QoQ figure,
+  which the grid does not show, stays out of the key. A period column widens to hold its longest figure, a letter
+  included, where 14 characters printed "60,801,000,000 a" as "###".
+- `backend/tests/unit/test_export_note_marks.py` is the rule-12 gate's export half: over every case of the shared
+  notes fixture, each export draws exactly its marked letters. It also reads the page's own words from
+  `DataNotes.tsx` (the summary's count clauses, places and detail forms), `metrics-table.spec.tsx` (the calculated
+  sentence) and `MetricsTable.tsx` (the Q4 legend), and fails when the exports' differ.
+
 Theme behaviour is consistent but undocumented. The PDF and workbook are always light; the PNG
 follows the page. Keep that, and say so in the export menu ("Image matches your theme").
 
@@ -1079,8 +1180,8 @@ unresolved conflict.
 | 2 | **WP1** quiet notation: routine tier | Nothing open: it builds on main, where #1606 merged | No dagger on figures. A neutral letter only where a note questions the number. Data notes as fine print under the table |
 | 3 | **WP2** data-notes words and **WP5** later-filing evidence, one after the other (they share `data_notes.py` and its test) | WP1 (they share its notes files and its marking rule) | The fine print's words come from the backend, so the exports match. REGN's FY2018–FY2019 revenue shows both filings in its dialog, its growth across the change reads n/m, and one line in the fine print's detail counts and places it |
 | 4a | **WP3-png** (`chartExport.ts`) | #1609 (merged) | Chart marks only for notes in question; the PNG states its period range |
-| 4b | **WP3-xlsx** (`excel_export_service.py`) | WP1 | A letter in the workbook grid for figures in question |
-| 4c | **WP3-pdf** (`export_service.py`) | WP1 (#1601 has merged) | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
+| 4b | **WP3-xlsx** (`excel_export_service.py`; built with 4c as WP3-B, §5) | WP1 | A letter in the workbook grid for figures in question |
+| 4c | **WP3-pdf** (`export_service.py`; the name and dates in #1621, the rest in WP3-B, §5) | WP1 (#1601 has merged) | Formatted company name and readable dates. Fine print on the table's page. No per-value dagger |
 | 5 | **WP4** surfaces and results header | WP1 (it moves the KPI strip, under the heading rail #1606 landed) | Results header, quieter control card, the Feedback launcher clear of the KPIs |
 
 4a, 4b and 4c can run in parallel. Step 1 shares no file with steps 2–5 except `tasks/todo.md`,
@@ -1133,7 +1234,8 @@ These came out of this evaluation but sit in the sibling areas.
   captures.** Production's own page could not be opened without a Pro session.
 - **The variant test (§2.8) had two readers per design.** They were model instances, not
   subscribers, and they saw a static page with no hover and no dialog. Its restatement note was
-  planted locally. Production carries none until WP5. Read it as directional. It is still the
+  planted locally. Production shows no such note until WP5's reader (WP5a) lands; the own-report
+  rows it will read are stored from WP5b (#1682) on. Read it as directional. It is still the
   only test that put the four designs side by side on one data state.
 - **Each heuristic set had one evaluator.** The comprehension test is one model instance per round,
   not a panel of subscribers, so it shows misreadings, not their rates.

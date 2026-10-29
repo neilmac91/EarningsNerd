@@ -524,12 +524,12 @@ class TestUpsertFactsBulk:
         db = SessionLocal()
         cid = _new_company(db).id
         first = [_fact_dict(cid), _fact_dict(cid, concept="net_income", value=20.0)]
-        assert svc.upsert_facts_bulk(db, first) == {"inserted": 2, "skipped": 0, "demoted": 0}
-        assert svc.upsert_facts_bulk(db, first) == {"inserted": 0, "skipped": 2, "demoted": 0}
+        assert svc.upsert_facts_bulk(db, first) == {"inserted": 2, "skipped": 0, "demoted": 0, "history": 0}
+        assert svc.upsert_facts_bulk(db, first) == {"inserted": 0, "skipped": 2, "demoted": 0, "history": 0}
 
         # Restatement: same period under a new accession demotes the old row.
         restated = [_fact_dict(cid, accession="K23A", value=110.0)]
-        assert svc.upsert_facts_bulk(db, restated) == {"inserted": 1, "skipped": 0, "demoted": 1}
+        assert svc.upsert_facts_bulk(db, restated) == {"inserted": 1, "skipped": 0, "demoted": 1, "history": 0}
         rows = {r.accession: r for r in db.query(FinancialFact).filter_by(
             company_id=cid, concept="revenue").all()}
         assert rows["K23"].is_latest is False

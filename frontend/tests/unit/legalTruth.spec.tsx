@@ -2393,8 +2393,21 @@ function literals(rel: string): string[] {
   return found
 }
 
-/** A case that parses every module under the scan directories: the default 5s times out on a loaded machine. */
+/** A case that parses every module under the scan directories, or walks every Python module of backend/app
+    (backendModules): the default 5s times out on a loaded machine (the audit-log walk, 1.3s alone, at 10.7s in a
+    full local run). */
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
+
+/** A case that reads every planted form of its families through their readers. The reuse and session-end families'
+    self-check (385 rows since E162 stage 4c, #1688) takes 3.5s alone, and the default 5s timed out in a full local
+    run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
+    0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
+const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
+
+/** A case that renders every legal page and reads its text, with the security and waitlist modules' copy, through
+    every removed claim: 0.8s alone, and 4.4s of the default 5s in this spec under twenty-four busy loops on four
+    cores. */
+const READS_EVERY_LEGAL_PAGE = { timeout: 30_000 }
 
 const copyModules = () =>
   execFileSync('git', ['ls-files', '--', ...SCAN_DIRS], { cwd: FRONTEND, encoding: 'utf8' })
@@ -2934,7 +2947,7 @@ const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, first: 1, tw
 const numberOf = (word: string) => (/^\d+$/.test(word) ? Number(word) : NUMBER_WORDS[word.toLowerCase()])
 
 describe("/security says what the code and the hosting do (D-046)", () => {
-  it('names none of the claims D-046 removed, and neither do /privacy, /terms or the waitlist page', () => {
+  it('names none of the claims D-046 removed, and neither do /privacy, /terms or the waitlist page', READS_EVERY_LEGAL_PAGE, () => {
     const { container, unmount } = render(<SecurityPage />)
     const text = pageText(container)
     const page = claimsInTree('/security', container)
@@ -2962,7 +2975,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     ]).toEqual([])
   })
 
-  it('reads each claim’s family through the page’s own render and splitter, and passes the new sentences (a self-check on planted forms)', () => {
+  it('reads each claim’s family through the page’s own render and splitter, and passes the new sentences (a self-check on planted forms)', READS_EVERY_PLANTED_FORM, () => {
     const planted: Array<[string, boolean | 'gap']> = [
       // Main's sentences.
       ['<p>Our Redis cache is configured with authentication and access controls to prevent unauthorized access.</p>', true],
@@ -3903,7 +3916,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(sentence, 'the PostHog line scopes the consent to the browser').toBeDefined()
   })
 
-  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', () => {
+  it('promises nothing of refresh tokens or logging out that the code does not enforce, whatever the todo records (a self-check on planted forms)', READS_EVERY_PLANTED_FORM, () => {
     const { container, unmount } = render(<SecurityPage />)
     const blocks = blockTexts(container)
     unmount()
@@ -4515,7 +4528,7 @@ describe("/security says what the code and the hosting do (D-046)", () => {
     expect(notify(doc, '9')).toEqual(['r.md §3 has no step 9']) // a cited step that is not there
   })
 
-  it('the audit-log item names only what an audit_logs row records (a self-check on planted items and modules)', () => {
+  it('the audit-log item names only what an audit_logs row records (a self-check on planted items and modules)', SCANS_EVERY_MODULE, () => {
     const { container, unmount } = render(<SecurityPage />)
     const item = [...container.querySelectorAll('li')].map((li) => (li.textContent ?? '').replace(/\s+/g, ' ').trim()).find((t) => /\baudit log\b/.test(t))
     unmount()
@@ -4832,7 +4845,7 @@ describe('the account events have a sentence of their own, true of the API (D-05
     expect(typed).toEqual([])
   })
 
-  it('each example it gives stands on events the API sends with the account id, whatever the reader chose (a self-check on planted modules)', () => {
+  it('each example it gives stands on events the API sends with the account id, whatever the reader chose (a self-check on planted modules)', SCANS_EVERY_MODULE, () => {
     const examples = examplesOf(ACCOUNT_EVENTS_DISCLOSURE)
     expect(exampleFaults(examples, eventsSent(backendModules()))).toEqual([])
     expect(examples, 'EVENTS_BY_EXAMPLE lists the examples the sentence gives, no more').toEqual(Object.keys(EVENTS_BY_EXAMPLE))

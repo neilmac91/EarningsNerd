@@ -9,6 +9,11 @@
    whimsy line sat in that tint for three months. Activity (a run in progress) is
    no Notice of any variant (DESIGN_SYSTEM.md §4 › Inline notice, §9).
 
+   Four variants are states, each in its own tint: error, warning (a limit
+   near or reached, a risk the reader weighs), info and success. `neutral` is
+   guidance, not a state: the hairline alone, no tint, and the info glyph in
+   the brand's ink, as a dialog's neutral prompt takes the brand (E196 (2)).
+
    NESTING RULE (codified v2.2): GuidanceCard is a STANDALONE centered panel —
    never nest it inside a Card. Inside a Card or a form flow, this inline
    icon + message + action pattern is the right scale.
@@ -16,7 +21,7 @@
    A Notice is static — it has no interactive states of its own; the `action`
    slot takes a <Button> (usually secondary/ghost, size="sm"), which carries
    hover/active/focus-visible. role="alert" for error (interrupts the reader);
-   role="status" for info/success. Both themes audited: title = primary ink,
+   role="status" for the others. Both themes audited: title = primary ink,
    message = secondary/secondary-dark, icons ≥3:1 inside their tints.
 
    The row wraps. The text column's basis is 9rem (about 20 characters), so
@@ -34,14 +39,19 @@
 ============================================================================= */
 
 import { type ReactNode } from 'react'
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon, WarningIcon } from '@/lib/icons'
 import { cx } from './cx'
 
-export type NoticeVariant = 'error' | 'info' | 'success'
+export type NoticeVariant = 'error' | 'warning' | 'info' | 'success' | 'neutral'
 
 const WRAP: Record<NoticeVariant, string> = {
   error: cx(
     'border-error-light/25 bg-error-light/[0.06]',
     'dark:border-error-dark/25 dark:bg-error-dark/10',
+  ),
+  warning: cx(
+    'border-warning-light/25 bg-warning-light/[0.06]',
+    'dark:border-warning-dark/25 dark:bg-warning-dark/10',
   ),
   info: cx(
     'border-info-light/25 bg-info-light/[0.06]',
@@ -51,49 +61,51 @@ const WRAP: Record<NoticeVariant, string> = {
     'border-success-light/25 bg-success-light/[0.06]',
     'dark:border-success-dark/25 dark:bg-success-dark/10',
   ),
+  // Guidance is no state, so it takes no state's tint: the hairline alone, on whatever ground it sits.
+  neutral: 'border-border-light dark:border-white/10',
+}
+
+/** The variant's tint, its hairline and ground, for a surface of another shape that states the same thing: the
+    Copilot's error bubble keeps the thread's tail in the error tint (E196 (3)), and the dashboard's limit banner and
+    the verification banner keep a banner's shape in the warning tint (E196 (2)). The tint stays the primitive's, so a
+    change to it reaches those surfaces too. Each borrower is listed, with the variant it writes, in
+    tests/unit/statusTintResidue.spec.ts's TINT_BORROWED. */
+export function noticeTint(variant: NoticeVariant): string {
+  return WRAP[variant]
 }
 
 const ICON: Record<NoticeVariant, string> = {
   error: 'text-error-light dark:text-error-dark',
+  warning: 'text-warning-light dark:text-warning-dark',
   // The glyph is a graphic (3:1 floor) — info.light holds 4.3:1 inside the
   // tint. Text at this size would need info.text (see Badge).
   info: 'text-info-light dark:text-info-dark',
   success: 'text-success-light dark:text-success-dark',
+  // The brand never signals a state, so guidance's glyph takes it (a dialog's neutral prompt does too).
+  neutral: 'text-brand-strong dark:text-brand-strong-dark',
 }
 
-/** Outline glyphs matched to Phosphor regular weight (same set as GuidanceCard). */
+/** The variant's glyph, Phosphor's from lib/icons at regular weight, the system's weight wherever its stroke holds a
+    device pixel (DESIGN.md › Icons), 18px in the variant's ink (ICON): the warning circle for an error, the warning
+    triangle for a warning, the info circle for info and for guidance, the check circle for a success. */
+const GLYPH: Record<NoticeVariant, typeof InfoIcon> = {
+  error: WarningCircleIcon,
+  warning: WarningIcon,
+  info: InfoIcon,
+  success: CheckCircleIcon,
+  neutral: InfoIcon,
+}
+
 function DefaultIcon({ variant }: { variant: NoticeVariant }) {
-  if (variant === 'error') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-        <path d="M12 7.5v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        <circle cx="12" cy="16.4" r="1" fill="currentColor" />
-      </svg>
-    )
-  }
-  if (variant === 'success') {
-    return (
-      <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-        <path d="m8.2 12.3 2.6 2.6 5-5.4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    )
-  }
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M12 11v5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="12" cy="7.6" r="1" fill="currentColor" />
-    </svg>
-  )
+  const Glyph = GLYPH[variant]
+  return <Glyph className="h-[18px] w-[18px]" aria-hidden="true" />
 }
 
 export interface NoticeProps {
-  /** Written at every call site, never a default: `info` is an advisory state in the info ink; activity is no
-   * Notice (gate: tests/unit/statusTintResidue.spec.ts). */
+  /** Written at every call site, never a default: `info` and `warning` are advisory states in their inks, guidance
+   * is `neutral`, and activity is no Notice (gate: tests/unit/statusTintResidue.spec.ts). */
   variant: NoticeVariant
-  /** Defaults per variant (alert / info / check circles). Pass null to remove. */
+  /** Defaults per variant (GLYPH). Pass null to remove. */
   icon?: ReactNode
   title: ReactNode
   /** Supporting copy under the title. */

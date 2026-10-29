@@ -56,8 +56,12 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // Chart factories (chartTheme/axis props/ChartTooltip) — no local hexes.
   const dark = useContext(ThemeContext)?.theme === 'dark'
   // De-emphasized peer bars: the theme's neutral grey at partial opacity keeps the
-  // subject (seriesColor(0)) unmistakably THE bar — a magnitude ranking, not deltas.
+  // subject (seriesColor(0, dark)) unmistakably THE bar — a magnitude ranking, not deltas.
   const peerFill = chartTheme(dark).flat
+  // A bar's paint: its Cell draws it, and the tooltip's swatch repeats it. Recharts gives a tooltip row the Bar's own
+  // fill, which these bars leave to their Cells, so without swatchOf a peer's swatch would take the subject's colour.
+  const paintOf = (isSubject: boolean) =>
+    isSubject ? { color: seriesColor(0, dark), opacity: 1 } : { color: peerFill, opacity: 0.45 }
 
   const [metric, setMetric] = useState('revenue')
   const { data, isLoading, isError } = useQuery<PeerComparisonResponse>({
@@ -178,12 +182,19 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               <YAxis type="category" dataKey="ticker" {...yAxisProps(dark)} width={64 /* tickers outgrow the factory's 44px */} />
               <Tooltip
                 cursor={barCursorProps(dark)}
-                content={<ChartTooltip dark={dark} formatValue={(v) => formatValue(Number(v), kind, currency)} />}
+                content={
+                  <ChartTooltip
+                    dark={dark}
+                    formatValue={(v) => formatValue(Number(v), kind, currency)}
+                    swatchOf={(entry) => paintOf(Boolean((entry as (typeof chartData)[number] | undefined)?.isSubject))}
+                  />
+                }
               />
               <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]} maxBarSize={28}>
-                {chartData.map((entry) => (
-                  <Cell key={entry.ticker} fill={entry.isSubject ? seriesColor(0) : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
-                ))}
+                {chartData.map((entry) => {
+                  const paint = paintOf(entry.isSubject)
+                  return <Cell key={entry.ticker} fill={paint.color} fillOpacity={paint.opacity} />
+                })}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
