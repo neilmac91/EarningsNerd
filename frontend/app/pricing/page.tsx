@@ -593,10 +593,11 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               </p>
             </div>
             {/* Pro's fair-use guardrails, stated once app-wide (lib/planLimits.ts proFairUseLine(), E58, D-050):
-                the plan cards keep "Unlimited", and this answer says what bounds it. */}
+                the plan cards keep "Unlimited", and this answer says what bounds it, so the question asks what the
+                cards' word means, in both states of the analysis flag (chief design on #1790). */}
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                Are Pro summaries unlimited?
+                What does “Unlimited” mean on Pro?
               </h3>
               <p className="text-text-secondary-light dark:text-text-secondary-dark">{proFairUseLine()}</p>
             </div>

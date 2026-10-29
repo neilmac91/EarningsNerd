@@ -541,7 +541,7 @@ describe('PricingPage', () => {
     const sentence = analysis ? ANALYSIS_LINES.fairUse.text : ANALYSIS_LINES.fairUse.off
     expect(proFairUseLine()).toBe(sentence)
     const answer = await screen.findByText(sentence)
-    expect(answer.previousElementSibling).toHaveTextContent('Are Pro summaries unlimited?')
+    expect(answer.previousElementSibling).toHaveTextContent('What does “Unlimited” mean on Pro?')
   })
 
   it('a confirmed guest keeps registration routing on both cards', async () => {
