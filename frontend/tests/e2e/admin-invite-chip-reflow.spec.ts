@@ -41,12 +41,13 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * The bulk summary (features/admin/components/BulkResultSummary.tsx), after a send that creates two invites, fails one
  * and skips two entries, holds its addresses and its rows at 390, 360 and 320px under the browser's 200% text setting
  * and at 320px without it, in both themes (E242): every character of every address is painted inside its row (the
- * skipped line's inside the summary), each created row's controls end inside the row, and the page does not scroll
- * sideways. A created row's address was cut to 110px by truncate at 320px under 200% text; a failed row's ran out of the
- * row and scrolled the page to 633px, and to 343px at 320px without the text setting; and the row's Copy link and Share
- * invite buttons, 129px at their narrowest, ran 20px into the row's inset. Then "Share invite" in a created row opens the
- * share options in a dialog, chief design's ruling on #1784, since under 200% text they cannot fit the row: the dialog
- * names the address, nothing in it scrolls sideways, and the share panel ends inside its body.
+ * skipped line's inside the summary), an address of a common length breaks only after its @, each created row's
+ * controls end inside the row, and the page does not scroll sideways. A created row's address was cut to 110px by
+ * truncate at 320px under 200% text; a failed row's ran out of the row and scrolled the page to 633px, and to 343px at
+ * 320px without the text setting; and the row's Copy link and Share invite buttons, 129px at their narrowest, ran 20px
+ * into the row's inset. Then "Share invite" in a created row opens the share options in a dialog, chief design's ruling
+ * on #1784, since under 200% text they cannot fit the row: the dialog names the address, nothing in it scrolls
+ * sideways, and the share panel ends inside its body.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
@@ -239,7 +240,8 @@ async function answerSends(page: Page, baseURL: string) {
 }
 
 /** In the bulk summary: where each character of each row's address and of the skipped line is painted, against the
- *  row's content box (the summary's for the skipped line), each created row's controls, and the page's widths. */
+ *  row's content box (the summary's for the skipped line), the address's text line by line, each created row's
+ *  controls, and the page's widths. */
 async function measureSummary(summary: Locator) {
   return summary.evaluate((el) => {
     const content = (node: Element) => {
@@ -252,6 +254,7 @@ async function measureSummary(summary: Locator) {
       const range = document.createRange()
       let text = ''
       let past = ''
+      const lines: Array<{ top: number; text: string }> = []
       for (let t = walker.nextNode() as Text | null; t; t = walker.nextNode() as Text | null) {
         for (let i = 0; i < t.data.length; i++) {
           range.setStart(t, i)
@@ -259,9 +262,12 @@ async function measureSummary(summary: Locator) {
           const r = range.getBoundingClientRect()
           text += t.data[i]
           if (r.left < box.left - 0.5 || r.right > box.right + 0.5) past += t.data[i]
+          const line = lines.find((l) => Math.abs(l.top - r.top) < 2)
+          if (line) line.text += t.data[i]
+          else lines.push({ top: r.top, text: t.data[i] })
         }
       }
-      return { text, past }
+      return { text, past, lines: lines.map((l) => l.text) }
     }
     const rows = [...el.querySelectorAll('li')].map((li) => {
       const box = content(li)
@@ -507,6 +513,10 @@ for (const theme of ['light', 'dark'] as const) {
           expect(address.past, `${label}: characters of ${address.text} painted outside its row`).toBe('')
           for (const control of controls) expect(control.past, `${label}: "${control.name}" in the row of ${address.text} runs past the row`).toBeLessThanOrEqual(0.5)
         }
+        // An address of a common length breaks only after its @: the row keeps room for "example.com" (both caps).
+        const short = m.rows.find((row) => row.address.text === SHORT_VALID)!.address
+        const [local, domain] = SHORT_VALID.split('@')
+        expect([[SHORT_VALID], [`${local}@`, domain]], `${label}: ${SHORT_VALID} breaks inside a part, as ${short.lines.join(' / ')}`).toContainEqual(short.lines)
         expect(m.skipped.text, `${label}: the skipped line`).toBe(`${INVALID}, ${INVITED}: already invited or invalid.`)
         expect(m.skipped.past, `${label}: characters of the skipped line painted outside the summary`).toBe('')
         expect(m.page.scrollWidth, `${label}: the page scrolls sideways`).toBe(m.page.clientWidth)

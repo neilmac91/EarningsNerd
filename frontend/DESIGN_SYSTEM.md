@@ -1382,7 +1382,8 @@ Admin pages      A list's table (/admin/invites, /admin/feedback) scrolls inside
                  dialog, the share sheet's button in the row, the address's break), tests/unit/shareInviteNames.spec.tsx
                  (every control named by its words, the dialog's included) and tests/e2e/admin-invite-chip-reflow.spec.ts
                  (at 390, 360 and 320px under 200% text and at 320px, in both themes: every address inside its row,
-                 the rows' controls inside them, the page unscrolled, and the dialog holding the options).
+                 bob@example.com broken only after its @, the rows' controls inside them, the page unscrolled, and the
+                 dialog holding the options).
 
 Inline notice    <Notice variant="error|warning|info|success|neutral">  — compact icon + title + message + action
                  for form/auth flows and in-card states: something that happened or stands in the way (a
