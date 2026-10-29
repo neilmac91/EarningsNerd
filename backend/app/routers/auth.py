@@ -795,11 +795,21 @@ async def refresh(
         finally:
             filing_list_service.release_request_session(db)
 
+    # A refusal sets no cookie, on purpose (E121). It cannot tell whether the cookies it refused are still the
+    # browser's: the request carries the cookies of the moment it was sent, and a login in another tab, an OAuth
+    # sign-in's redirect or another tab's refresh can have replaced them before this answer lands, so a deletion here
+    # could end that newer session. With nothing newer set, the browser keeps the refused cookies, en_session included,
+    # so the edge guard (frontend/middleware.ts) still lets it reach a protected page, whose /me read then finds no
+    # session. The refusing tab ends the session it knew and clears the session marker every tab reads
+    # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
+    # succeeds and marks it again (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep
+    # each time it is sent, which revokes every live token of the account until E96 scopes it to the replayed chain
+    # (refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on the injected Response and
+    # then raised; FastAPI answers an exception with a fresh response, so they never reached the browser
+    # (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
-        _clear_refresh_cookie(response)
-        _clear_auth_cookie(response)
         logger.warning(f"Refresh reuse detected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -807,8 +817,6 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except RefreshTokenError as exc:
-        _clear_refresh_cookie(response)
-        _clear_auth_cookie(response)
         logger.info(f"Refresh rejected: {exc}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

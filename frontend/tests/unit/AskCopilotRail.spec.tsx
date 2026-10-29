@@ -62,6 +62,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
 import { analytics } from '@/lib/analytics'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
+import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
+import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import { PANE_PANEL_IDS } from '@/features/filings/components/copilot/SecondaryPaneTabs'
 
 const baseProps = {
   filingId: 42,
@@ -619,4 +622,135 @@ describe('AskCopilotRail', () => {
     expect(screen.getByRole('status').textContent).toBe(expected)
   })
 
+})
+
+describe("AskCopilotRail in the filing workspace's pane", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(askFilingStream).mockReset()
+    mockGetUsage.mockReset()
+    mockGetUsage.mockResolvedValue(PRO_USAGE)
+    window.localStorage.clear()
+  })
+
+  /** The filing page's research pane, open on the Ask tab, with the rail embedded in it as the page mounts it: keyed
+   *  by its filing, so `showFiling` mounts another filing's rail in the same pane. */
+  function renderInPane() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    queryClient.setQueryData(queryKeys.currentUser(), { id: 1 })
+    const page = (filingId: number) => (
+      <QueryClientProvider client={queryClient}>
+        <FilingViewerProvider>
+          <FilingWorkspace
+            open
+            onOpenChange={vi.fn()}
+            summaryAvailable
+            secUrl="https://www.sec.gov/Archives/edgar/data/320193/"
+            copilotBody={<AskCopilotRail key={filingId} {...baseProps} filingId={filingId} open onOpenChange={vi.fn()} embedded />}
+            filingBody={<div>The filing</div>}
+          >
+            <div>The summary</div>
+          </FilingWorkspace>
+        </FilingViewerProvider>
+      </QueryClientProvider>
+    )
+    const utils = render(page(baseProps.filingId))
+    return { ...utils, showFiling: (filingId: number) => utils.rerender(page(filingId)) }
+  }
+
+  it("says what it is doing in the pane's line, between the tabs and the panels, heard while the Filing tab shows", async () => {
+    const requests: CopilotHandlers[] = []
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { requests.push(handlers) })
+    const user = userEvent.setup()
+    renderInPane()
+    // One status line, the pane's, and the rail keeps none of its own: in the shell, after the tabs and before both
+    // panels, so hiding a panel never hides it.
+    const line = screen.getByRole('status')
+    expect(line).toHaveClass('sr-only')
+    expect(line).toBeEmptyDOMElement()
+    expect(line.parentElement).toBe(screen.getByRole('complementary', { name: 'Filing source and Ask' }))
+    expect(line.compareDocumentPosition(screen.getByRole('tablist')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    for (const panel of screen.getAllByRole('tabpanel')) {
+      expect(line.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    // Every change to the line, in order: what a screen reader is given.
+    const said: string[] = []
+    const observer = new MutationObserver(() => said.push(line.textContent ?? ''))
+    observer.observe(line, { childList: true, characterData: true, subtree: true })
+
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'What changed?{Enter}')
+    await waitFor(() => expect(line).toHaveTextContent('Reading the filing…'))
+    // The reader opens the filing while the answer is read. The Ask panel hides, and everything in it leaves the
+    // accessibility tree; the line is in neither panel, so the answer is still heard.
+    await user.click(screen.getByRole('tab', { name: /filing/i }))
+    const askPanel = document.getElementById(PANE_PANEL_IDS.copilot)!
+    expect(askPanel).toHaveClass('hidden')
+    act(() => requests[0].onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    expect(line).toHaveTextContent('Answer ready.')
+    expect(line.closest('.hidden, [hidden], [aria-hidden="true"]')).toBeNull()
+
+    // Back on the Ask tab, the next question empties the line first, so the same words are heard again, and an error
+    // empties it: the card's alert says what went wrong.
+    await user.click(screen.getByRole('tab', { name: 'Ask' }))
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'And margins?{Enter}')
+    await waitFor(() => expect(line).toHaveTextContent('Reading the filing…'))
+    act(() => requests[1].onError('The answer could not be checked.'))
+    await waitFor(() => expect(said).toEqual(['Reading the filing…', 'Answer ready.', '', 'Reading the filing…', '']))
+    observer.disconnect()
+    expect(screen.getByRole('alert')).toHaveTextContent('The answer could not be checked.')
+    expect(screen.getAllByRole('status')).toEqual([line])
+  })
+
+  it("empties the pane's line when the rail leaves, so another filing's conversation never sits under its words", async () => {
+    const requests: CopilotHandlers[] = []
+    vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => { requests.push(handlers) })
+    const user = userEvent.setup()
+    const pane = renderInPane()
+    await user.type(screen.getByLabelText(/ask about this filing/i), 'What changed?{Enter}')
+    act(() => requests[0].onComplete({ answer: 'Revenue grew.', citations: [], grounded: 0, kind: 'answer', followups: [] }))
+    const line = screen.getByRole('status')
+    expect(line).toHaveTextContent('Answer ready.')
+    // The pane stays; the rail is the filing's, so another filing mounts a new one, with an empty conversation.
+    pane.showFiling(43)
+    expect(screen.queryByText('Revenue grew.')).toBeNull()
+    expect(screen.getByRole('status')).toBe(line)
+    expect(line).toBeEmptyDOMElement()
+  })
+
+  it('drops a question\'s words still a frame away when the rail leaves, so they never land under the next rail', async () => {
+    vi.mocked(askFilingStream).mockImplementation(async () => {})
+    const pane = renderInPane()
+    const line = screen.getByRole('status')
+    // Asked and left in one task, so the frame that would say "Reading the filing…" has not run yet.
+    fireEvent.change(screen.getByLabelText(/ask about this filing/i), { target: { value: 'What changed?' } })
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }))
+    pane.showFiling(43)
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    expect(screen.getByRole('status')).toBe(line)
+    expect(line.textContent).toBe('')
+  })
+
+  it("puts the pane's line inside the sheet's dialog below lg, where everything outside the dialog is unheard", () => {
+    const matchMedia = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(max-width: 1023.98px)',
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          onchange: null,
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    )
+    try {
+      renderInPane()
+      const sheet = screen.getByRole('dialog', { name: 'Filing source and Ask' })
+      expect(sheet).toHaveAttribute('aria-modal', 'true')
+      expect(sheet).toContainElement(screen.getByRole('status'))
+    } finally {
+      matchMedia.mockRestore()
+    }
+  })
 })

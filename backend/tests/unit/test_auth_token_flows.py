@@ -18,7 +18,9 @@ first sign-in whose session mint fails are pinned beside them:
   - the reverse trial granted on verification: the grant and its event, a failed grant that still
     verifies, and a user who is already Pro
   - the exact Set-Cookie headers, in order, of every session-issuing or session-clearing endpoint
-    (cookie values and expiry stamps redacted)
+    (cookie values and expiry stamps redacted); a refused refresh sets none, whatever it refused, so a
+    login that replaced the refused cookies before the refusal answered keeps them, and its refresh token renews
+    unless the refusal was a replay of the same account's token, whose sweep revokes it until E96 (E121)
   - the OAuth callbacks when the refresh-token write loses a race (IntegrityError at the flush):
     the conflict redirect, no session cookie, nothing persisted; likewise when a first sign-in's
     new-account insert loses a concurrent create for the same email, with the router's warning
@@ -496,8 +498,7 @@ def test_session_cookie_headers_and_their_order(client, mail):
     assert unknown.status_code == 401
     assert unknown.json() == {"detail": "Your session has ended. Log in again."}
     assert unknown.headers["www-authenticate"] == "Bearer"
-    # The handler clears both cookies on the injected Response, but FastAPI renders an HTTPException
-    # as a fresh response, so a refused refresh carries no Set-Cookie at all.
+    # A refused refresh sets no cookie, on purpose (the refusal tests below).
     assert _cookies(unknown) == []
 
     replay = client.post("/api/auth/refresh", json={"refresh_token": first_refresh})
@@ -524,6 +525,120 @@ def test_refresh_replay_revokes_the_live_chain(client, mail):
         assert db.query(RefreshToken).filter(
             RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
         ).count() == 0
+
+
+# ── a refused refresh sets no cookie, so a newer login keeps its cookies ────────
+
+REFRESH_COOKIE = "earningsnerd_refresh_token"
+_NEVER_VALID = datetime(2000, 1, 1)  # naive, as the refresh token's own expiry is
+
+
+def _header_names(resp) -> set[str]:
+    return {name.decode().lower() for name, _value in resp.headers.raw}
+
+
+def _jar(client: TestClient) -> list[tuple[str, str, str]]:
+    """The browser's cookies: every cookie the client holds, with its path and value."""
+    return sorted((cookie.name, cookie.path, cookie.value) for cookie in client.cookies.jar)
+
+
+def _sent_with(client: TestClient, refresh: Optional[str]) -> str:
+    """A Cookie header carrying the client's cookies of this moment, its refresh cookie replaced by ``refresh``
+    (left out when None). Sent explicitly, it overrides the jar: the request carries what it was sent with."""
+    held = {name: value for name, _path, value in _jar(client) if name != REFRESH_COOKIE}
+    if refresh is not None:
+        held[REFRESH_COOKIE] = refresh
+    return "; ".join(f"{name}={value}" for name, value in held.items())
+
+
+def _make_refusable(client: TestClient, email: str, kind: str) -> tuple[str, str]:
+    """Sign ``email`` in on ``client`` and make the refresh cookie it holds one /refresh refuses for ``kind``.
+
+    Returns the Cookie header a refresh sent at this moment would carry, and the reason the service gives.
+    ``revoked`` is a logout of every device (no rotation, so no sweep); ``replayed`` a token rotated away, which
+    the replay sweep answers by revoking the account's live tokens."""
+    assert _login(client, email).status_code == 200
+    held = client.cookies.get(REFRESH_COOKIE)
+    if kind == "missing":
+        return _sent_with(client, None), "Missing refresh token"
+    if kind == "unknown":
+        return _sent_with(client, "not-a-real-token"), "Unknown refresh token"
+    sent_with = _sent_with(client, held)
+    if kind == "revoked":
+        assert client.post("/api/auth/logout-all").status_code == 200
+        return sent_with, "Refresh token has been revoked"
+    if kind == "replayed":
+        assert client.post("/api/auth/refresh").status_code == 200
+        return sent_with, "Refresh token has already been used"
+    if kind == "expired":
+        with SessionLocal() as db:
+            user_id = db.query(User.id).filter(User.email == email).scalar()
+            db.query(RefreshToken).filter(
+                RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None)
+            ).update({RefreshToken.expires_at: _NEVER_VALID})
+            db.commit()
+        return sent_with, "Refresh token has expired"
+    assert kind == "inactive"
+    _update_user(email, is_active=False)
+    return sent_with, "User is no longer active"
+
+
+@pytest.mark.requires_db
+@pytest.mark.parametrize(
+    ("kind", "newer"),
+    [
+        ("missing", "another account"),
+        ("unknown", "another account"),
+        ("revoked", "another account"),
+        ("revoked", "the same account"),
+        ("replayed", "another account"),
+        ("replayed", "the same account"),
+        ("expired", "another account"),
+        ("expired", "the same account"),
+        ("inactive", "another account"),
+    ],
+)
+def test_a_refused_refresh_sets_no_cookie_so_a_newer_login_keeps_its_cookies(client, mail, caplog, kind, newer):
+    """A refused refresh answers 401 with no Set-Cookie header at all, whatever it refused (E121).
+
+    The refusal cannot prove the cookies it refused are still the browser's: the request carries the cookies of
+    the moment it was sent, and a login can replace them before its answer lands. Here the Cookie header is taken
+    from the first account's session, a login then sets the newer session's cookies, and the refresh goes out
+    with the header taken before, so it is refused after the login and its answer lands on the login's cookies.
+    They stay as the login set them, and /me answers the newer account. The refusal's headers are an ordinary
+    401's, so no deletion of any kind (Set-Cookie, Clear-Site-Data) rides it. The newer login's refresh token
+    still renews, except after a replay of the same account's token: the replay sweep revokes every live token
+    of the account, the newer login's too, until E96 scopes it to the replayed chain; E96's PR flips that case
+    to renew.
+    """
+    first, _ = _register(client, mail)
+    sent_with, reason = _make_refusable(client, first, kind)
+    newer_email = first if newer == "the same account" else _register(client, mail)[0]
+
+    client.cookies.clear()
+    assert _login(client, newer_email).status_code == 200
+    held = _jar(client)
+
+    with caplog.at_level(logging.INFO, logger=auth_module.logger.name):
+        refused = client.post("/api/auth/refresh", headers={"Cookie": sent_with})
+    assert refused.status_code == 401
+    assert refused.json() == {"detail": "Your session has ended. Log in again."}
+    assert refused.headers["www-authenticate"] == "Bearer"
+    assert [k for k, _v in refused.headers.raw if k.lower() == b"set-cookie"] == []
+    assert "clear-site-data" not in refused.headers
+    # An ordinary 401 from the same app (a request with no session) carries the same header names.
+    ordinary = client.get("/api/auth/me", headers={"Cookie": ""})
+    assert ordinary.status_code == 401 and _header_names(refused) == _header_names(ordinary)
+    assert reason in caplog.text  # refused for the reason the case set up, not another
+
+    assert _jar(client) == held
+    me = client.get("/api/auth/me")
+    assert me.status_code == 200 and me.json()["email"] == newer_email
+    renewed = client.post("/api/auth/refresh")
+    if kind == "replayed" and newer == "the same account":
+        assert renewed.status_code == 401  # the replay sweep ended it (E96 makes this 200)
+    else:
+        assert renewed.status_code == 200 and _cookies(renewed) == SESSION_ISSUED
 
 
 # ── password login and change: what commits, and when ─────────────────────────
