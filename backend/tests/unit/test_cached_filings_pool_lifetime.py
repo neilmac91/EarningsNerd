@@ -3312,7 +3312,7 @@ async def _account_record_request(transport: httpx.ASGITransport, method: str, i
 # with nothing left for the finalizer.
 _ACCOUNT_RECORD_FAILS = {
     "export_fails": ("app.services.user_data_export_service", "build_user_data_export"),
-    "delete_fails": ("app.services.user_account_service", "delete_user"),
+    "delete_fails": ("app.services.user_account_service", "delete_account"),
 }
 
 
@@ -3369,11 +3369,12 @@ async def test_account_export_and_deletion_release_their_connection_off_the_loop
         with sessions() as db:
             accounts = db.query(User.id).count()
             audit = [action for (action,) in db.query(AuditLog.action)]
-        # The export's audit row follows its payload, and the deletion's precedes the account's deletion, so a
-        # failed delete keeps its row (pre-existing; test_account_deletion_api.py pins it over HTTP).
+        # The export's audit row follows its payload. The deletion's is written inside delete_account, which the
+        # failing case replaces, so none is left: the route writes none outside it (test_account_deletion_api.py
+        # pins over HTTP that the row commits with the deletion or not at all, F19).
         assert accounts == (0 if case == "delete" else 8)
         assert audit == {"export": ["data_exported"] * 8, "delete": ["user_deleted"] * 8,
-                         "export_fails": [], "delete_fails": ["user_deleted"] * 8}[case]
+                         "export_fails": [], "delete_fails": []}[case]
     finally:
         engine.dispose()
 

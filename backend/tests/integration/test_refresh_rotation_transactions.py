@@ -62,7 +62,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
-from app.models import OAuthAccount, OAuthState, RefreshToken, User
+from app.models import AuditLog, OAuthAccount, OAuthState, RefreshToken, User
 from app.routers import auth as auth_module
 from app.services import auth_account_service, oauth_account_service, user_account_service
 from app.services.account_agreement_service import accept_current_agreement
@@ -236,6 +236,14 @@ def _live_tokens(engine, user_id: int) -> int:
         ).count()
 
 
+def _deletion_audits(engine) -> int:
+    with _session(engine) as db:
+        return db.query(AuditLog).filter(AuditLog.action == "user_deleted").count()
+
+
+# The route's outcomes when no provider is configured; the deletion's audit row records them (F19).
+_NO_PROVIDER_CALLS = {"stripe": "skipped", "posthog": "skipped", "sentry": "skipped"}
+
 _OPERATIONS = {
     "refresh": lambda db, user_id, raw: tokens.rotate_and_commit(db, raw),
     "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw) is not None,
@@ -254,7 +262,9 @@ _OPERATIONS = {
         db, db.get(User, user_id), "another first password's hash", verified_hash=None,
     ),
     "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
-    "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, user_id),
+    "delete_account": lambda db, user_id, raw: user_account_service.delete_account(
+        db, user_id, third_party_results=_NO_PROVIDER_CALLS,
+    ),
     "delete_loaded_account": lambda db, user_id, raw: _delete_loaded_account(db, user_id),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
     "unlink_google": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "google"),
@@ -273,7 +283,7 @@ def _delete_loaded_account(db: Session, user_id: int) -> None:
     route held ``current_user``, but its audit row's commit had expired it by then)."""
     account = db.get(User, user_id)
     assert account is not None, "the first deletion committed before the second loaded the account"
-    return user_account_service.delete_user(db, user_id)
+    return user_account_service.delete_account(db, user_id, third_party_results=_NO_PROVIDER_CALLS)
 
 
 def _unlink_loaded(db: Session, user_id: int, provider: str) -> None:
@@ -523,11 +533,13 @@ def test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone(
     """The second deletion starts once the first holds the account's lock, loads the account while the first
     has not committed, then waits at the lock; once the first commits, the lock's own query finds no row and
     the deletion raises, so the route answers its own 500 (the deletion-failure policy is F18's). Checked
-    before the lock, or through the loaded row, it would find the account and delete nothing, answering 200."""
+    before the lock, or through the loaded row, it would find the account and delete nothing, answering 200.
+    The first deletion's audit row commits with it, and the second, refused, commits none: one row (F19)."""
     first, second, live, released = _race(
         postgres_engine, "delete_account", "delete_loaded_account", second_starts="after_first_lock",
     )
     assert (_kind(first), _result(second), live, released) == ("NoneType", "LookupError", 0, "blocked")
+    assert _deletion_audits(postgres_engine) == 1
 
 
 def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine):
