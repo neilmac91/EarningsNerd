@@ -229,6 +229,26 @@ corrections against a baseline: a plain preview of the same tickers on the commi
 saved before it merged. A company only set 5 names is first known after the merge (set 5 is new with
 the step), so it has no baseline: read its `other_*` corrections row by row in `changes` instead.
 
+**A company synced since #1682.** A sync since #1682 was deployed (2026-10-28 23:13Z) also stores, for
+each year a later report restated, the year's own report's figure as a non-current history row at that
+report's accession (`facts/own_reports.py`). The history writer reads no proxy's item and stores a row
+only where no row holds the identity, so a history row is never a proxy's figure and never takes a filing
+row's identity, and the step never writes one: its inserts and promotions, its journal, the detection
+listing and the rollback are those the same sync would leave without history rows. A fresh winner lands on
+a history row's identity only where the later reports' items for its year are gone from the payload; the
+step then promotes that row in place, as it promotes a demoted winner, and journals it, so the rollback
+restores it. A history row is a report row, though, as a demoted winner is, so it changes the plan in one way. Where it holds the figure
+the old cross-check took from a proxy (a proxy that quotes a year as first reported, which a later report
+then restated), sets 4 and 5 leave the filing row that holds that figure or was confirmed against it, and
+the detection file leaves it unlisted too: a re-recorded check stays as it was, and a replaced figure
+stays, or, on the row that holds the 10-K winner's identity, disagrees with the winner and refuses the
+company. Neither `rows` nor `detection_listed` names a row left this way. So read a company synced since
+the deploy against its own fresh dry run: beside a preview from before its sync, its
+`filing_rows_restored` and `filing_rows_reconfirmed` can be lower, and a refusal can appear. The other
+corrections never select a history row (the calendar correction reads current rows, the computed-metric
+correction calculations). Tests: `backend/tests/unit/test_quarterly_proxy_repair.py`, section "A sync
+since #1682".
+
 **The journal.** The apply journals the step's rows with the rest of the run, under
 `calculation_version` `proxy-repair-v1`: the rows it wrote or left to the computed-metric correction,
 its inserts, and every row that is or quotes a proxy row. The run's other rows keep `quarterly-v2`, so
