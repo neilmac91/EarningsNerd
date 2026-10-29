@@ -11,8 +11,9 @@ in every Python file the repository holds outside the browser app and the test h
 and holds the counts to the reviewed allowlist below: a new one fails until it is reviewed and listed.
 
 The walk is ``test_replaced_by_id_writers_allowlist.py``'s (``_scanned_files``), Python files only. What it cannot
-see, left to review (each planted in ``PLANTED_GAPS``): the name built at run time (``'delete_' + 'user'``), and an
-instance delete through the session (``db.delete(account)``), which reads like any other row's delete.
+see, left to review: the name built at run time (``'delete_' + 'user'``), and an instance delete through the session
+(``db.delete(account)``), which reads like any other row's delete, each planted in ``PLANTED_GAPS``; and a caller in a
+folder named ``tests`` outside the test homes (``backend/app/tests/``), which the shared walk skips.
 """
 import ast
 from pathlib import Path
