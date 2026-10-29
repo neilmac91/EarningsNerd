@@ -59,8 +59,8 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * the pressed button's and Done's still in every frame, from the second press until its line says it again. Each press
  * empties its status line so the same words are said again, and the emptied line took its words and its margin with it:
  * the centred dialog shrank and grew back for a frame or two, 12 to 32px, the button under the pointer with it, and
- * where the dialog was at full height Done moved 80px. The clipboard here answers after 100ms, so the emptied line is
- * painted for several frames. With the browser's share sheet, a share that ends with nothing to say leaves the dialog's
+ * where the dialog was at full height Done moved 80px. The clipboard here holds the second press's write open until
+ * three frames have read the emptied line, so the read does not hang on the frames' pace. With the browser's share sheet, a share that ends with nothing to say leaves the dialog's
  * box as it was before any press: the line gives up its room.
  *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
@@ -342,12 +342,20 @@ async function offerShareSheet(page: Page) {
   })
 }
 
-/** A clipboard that answers a write after 100ms, as a real one can take a moment: a status line emptied for the write is
- *  then painted for several frames, where an instant one may paint it for none (chief design measured one or two). */
+/** A clipboard that answers a write after 100ms, as a real one can take a moment, or, while `__clipboardHeld` is set, only
+ *  when `__clipboardRelease` is called: a repeat press's read holds the write open until it has seen the emptied line in
+ *  several frames, since on a loaded runner frames can come more than 100ms apart and miss it (a CI run on `0b3f75f9`). */
 async function slowClipboard(page: Page) {
   await page.addInitScript(() => {
+    const held = window as unknown as { __clipboardHeld?: boolean; __clipboardRelease?: () => void }
     Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: () => new Promise<void>((resolve) => setTimeout(resolve, 100)) },
+      value: {
+        writeText: () =>
+          new Promise<void>((resolve) => {
+            if (held.__clipboardHeld) held.__clipboardRelease = resolve
+            else setTimeout(resolve, 100)
+          }),
+      },
       configurable: true,
     })
   })
@@ -370,7 +378,9 @@ type Frame = { dialog: number[]; control: number[]; done: number[]; said: string
 /**
  * Presses `control` once, then again, reading in every animation frame from just before the second press until its
  * status line says `words` again, and five frames more: the top and bottom of the dialog, of the pressed control and of
- * Done, and what the line says (its text outside aria-hidden parts).
+ * Done, and what the line says (its text outside aria-hidden parts). The second press's write is held open (see
+ * slowClipboard) until three frames have read the emptied line, then released, so the emptied line is read whatever the
+ * frames' pace.
  */
 async function framesOfRepeatPress(dialog: Locator, control: Locator, line: Locator, words: string): Promise<Frame[]> {
   await control.click()
@@ -394,21 +404,32 @@ async function framesOfRepeatPress(dialog: Locator, control: Locator, line: Loca
           ? (node.textContent ?? '')
           : [...node.childNodes].map(said).join('')
     const frames: Frame[] = []
+    const held = window as unknown as { __clipboardHeld?: boolean; __clipboardRelease?: () => void }
+    const release = () => {
+      held.__clipboardHeld = false
+      held.__clipboardRelease?.()
+      held.__clipboardRelease = undefined
+    }
     return new Promise<Frame[]>((resolve) => {
-      let emptied = false
+      let emptied = 0
       let after = -1
       const tick = () => {
         const frame = { dialog: box(dialog!), control: box(control!), done: box(done!), said: said(line!) }
         frames.push(frame)
-        if (frame.said === '') emptied = true
+        if (frame.said === '') emptied += 1
+        // The emptied line read in three frames, or no emptying in sixty: the write answers.
+        if (held.__clipboardHeld && (emptied >= 3 || frames.length > 60)) release()
         if (emptied && frame.said === words && after < 0) after = 0
         if (after >= 0) after += 1
-        // Two seconds at most, so a line that never says the words again ends the read and fails below.
-        if (after > 5 || frames.length > 120) resolve(frames)
-        else requestAnimationFrame(tick)
+        // A read that never sees the words again ends at 180 frames and fails below.
+        if (after > 5 || frames.length > 180) {
+          release()
+          resolve(frames)
+        } else requestAnimationFrame(tick)
       }
       requestAnimationFrame(() => {
         tick()
+        held.__clipboardHeld = true
         ;(control as HTMLElement).click()
         requestAnimationFrame(tick)
       })
