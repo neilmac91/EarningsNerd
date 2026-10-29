@@ -37,9 +37,11 @@ The account's deletion takes the same lock before its cascade deletes the tokens
 once a token writer holds the lock, and hold the writer there until the deletion is blocked or has
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
-writer that waits out a deletion finds its token, or a login or change the account, gone and writes
-nothing. Of two deletions of one account, the second waits out the first under the lock and finds the
-account gone there, even with the account loaded in its session before the first committed.
+writer that waits out a deletion finds its token, or a login, change or reset the account, gone and writes
+nothing (before E121's first route family a reset read the account before the lock, waited at its
+revocation's lock instead, and its commit matched no row). Of two deletions of one account, the second
+waits out the first under the lock and finds the account gone there, even with the account loaded in its
+session before the first committed.
 """
 import asyncio
 import os
@@ -235,8 +237,8 @@ _OPERATIONS = {
     "refresh": lambda db, user_id, raw: tokens.rotate_and_commit(db, raw),
     "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw) is not None,
     "logout_all": lambda db, user_id, raw: tokens.revoke_all_and_commit(db, user_id),
-    "reset": lambda db, user_id, raw: auth_account_service.complete_password_reset(
-        db, db.get(User, user_id), "a new password's hash",
+    "reset": lambda db, user_id, raw: auth_account_service.complete_password_reset_by_id(
+        db, user_id, "a new password's hash",
     ),
     "change_password": lambda db, user_id, raw: _change_password(db, db.get(User, user_id)),
     "change_password_again": lambda db, user_id, raw: _change_password(
@@ -285,7 +287,10 @@ def _change_password(
     """The change-password route's writes, for a current password that matched ``verified_hash`` before
     the race (None: an account with no password sets its first): the new hash and every token revoked,
     then the acting device's new session minted, all in the mint's one commit; or None when the change
-    is refused. The account is loaded first, as the route's session holds it from ``get_current_user``."""
+    is refused. The account is loaded first, which the route's change unit does not do (the release before
+    its waits leaves its session empty and the user detached): a re-read that does not refresh the loaded
+    account would then see the hash from before the race, so the case also holds the service to its
+    ``populate_existing``."""
     if not auth_account_service.stage_password_change(db, user, new_hash, verified_hash):
         return None
     return tokens.mint_refresh_token(db, user)
@@ -423,7 +428,7 @@ def test_a_refresh_and_a_logout_all_leave_no_live_token(postgres_engine, first, 
 def test_a_refresh_and_a_password_reset_leave_no_live_token(postgres_engine, first, second):
     """Account recovery signs out every session, a successor minted by a racing refresh included. The
     reset's own users UPDATE reaches the database only at its commit, after its bulk revoke, so the lock
-    its revocation takes first is what makes it wait for the refresh."""
+    it takes before it reads the account is what makes it wait for the refresh."""
     first_outcome, second_outcome, live, released = _race(postgres_engine, first, second)
     refresh, reset = (first_outcome, second_outcome) if first == "refresh" else (second_outcome, first_outcome)
     expected = "rotated" if first == "refresh" else "RefreshTokenError"
@@ -468,7 +473,7 @@ def test_an_account_deletion_waits_for_a_token_writer_holding_the_lock(postgres_
 
 @pytest.mark.parametrize("writer,result", [
     ("refresh", "RefreshTokenError"), ("logout", False), ("logout_all", 0), ("password_login", None),
-    ("change_password", None),
+    ("change_password", None), ("reset", "AccountTokenInvalidError"),
 ])
 def test_a_token_writer_that_waits_out_an_account_deletion_writes_nothing(postgres_engine, writer, result):
     deletion, second, live, released = _race(postgres_engine, "delete_account", writer)

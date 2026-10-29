@@ -12,7 +12,9 @@ One rule, three parts in this one module:
   in the thread pool, and a throttled generate-stream request must be refused before its admission reads a
   filing or summary; each auth session route (logout signed in, with only the refresh cookie and
   with a dead one, logout-all, refresh, and a password login with the right password and a wrong
-  one, which also holds no connection while it hashes), each watchlist route and its refusals, each analysis route
+  one, which also holds no connection while it hashes; the password reset and change, their refusals
+  and a failing write included, which hold none while they hash or wait for the breached-password
+  check), each watchlist route and its refusals, each analysis route
   and a refusal of each, the waitlist join and verification, the contact form and the feedback
   submit, the usage and subscription-status reads, Stripe checkout and the billing portal, the
   company lookup, search and trending list (eight racers for one new company's row included), the
@@ -983,6 +985,202 @@ async def test_password_login_releases_its_connection_before_bcrypt_and_off_the_
         engine.dispose()
 
 
+# Each request session's closes, in order, by whether the session still held a transaction: a unit's
+# release, then the dependency's finalizer, which must find nothing. A unit whose last statement was a
+# commit releases nothing open; one that read, or failed after its first query, releases its transaction.
+_PASSWORD_CLOSES = {
+    "reset": [True, False, False],  # the token's read, then the committed reset
+    "reset_unknown": [True, False],  # the token's read, refused
+    "reset_fails": [True, True, False],
+    "change": [True, False, False],  # the auth lookup's read, then the committed change
+    "change_wrong": [True, False],  # the auth lookup's read; refused at bcrypt, before any write
+    "change_throttled": [True, False],  # the auth lookup's read, released before the rate limit refuses
+    "change_fails": [True, True, False],
+}
+# The waits a request makes, and the connections out during each, for one request alone.
+_PASSWORD_WAITS = {
+    "reset": [("pwned", 0), ("hash", 0)],
+    "reset_unknown": [],
+    "reset_fails": [("pwned", 0), ("hash", 0)],
+    "change": [("verify", 0), ("pwned", 0), ("hash", 0)],
+    "change_wrong": [("verify", 0)],
+    "change_throttled": [],
+    "change_fails": [("verify", 0), ("pwned", 0), ("hash", 0)],
+}
+_PASSWORD_ANSWERS = {
+    "reset": (200, {"message": "Password updated. You can now log in with your new password."}),
+    "reset_unknown": (400, {"detail": "Invalid or expired reset link."}),
+    "change": (200, {"message": "Password updated."}),
+    "change_wrong": (400, {"detail": "Current password is incorrect."}),
+    "change_throttled": (429, {"detail": "Too many password change attempts. Try again later."}),
+}
+# Each failing case's write, made to raise after its first query: the unit's release rolls it back.
+_PASSWORD_UNIT_FAILS = {"reset_fails": "complete_password_reset_by_id", "change_fails": "stage_password_change"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", list(_PASSWORD_CLOSES))
+async def test_password_reset_and_change_release_their_connection_before_their_waits_and_off_the_loop(
+    monkeypatch, tmp_path, case,
+):
+    """The password reset reads its token's account in one thread-pool unit and resets it in a second; the
+    password change releases its auth lookup's read in one, before its rate limit, and changes the password
+    and mints this device's session in a second. Each unit is released before what follows it, so one request
+    alone has no connection out while bcrypt checks the current password, the breached-password check waits
+    or bcrypt hashes the new one, and nine requests on four slots make no checkout, statement or release on
+    the loop and leave nothing for the finalizer, their refusals and a failing write included. On the loop
+    each route read and wrote there, waited there for the account's users row lock, and kept its
+    connection checked out across bcrypt and the breach check (E121). A reset sets each account's password,
+    burns its link, confirms its email and revokes its session; a change sets its password, revokes its
+    session and leaves one new one, the cookie's; a refusal or a failed write leaves every account as it was.
+    The fakes stand in for bcrypt (a blocking call in its worker thread) and HaveIBeenPwned (an await);
+    the links carry no expiry, which SQLite would hand back without its zone."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import auth_account_service, refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'passwords.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    emails = [f"password-{i}@example.com" for i in range(9)]
+    with sessions() as db:
+        accounts = [
+            User(email=email, is_active=True, hashed_password="the stored hash", email_verified=False,
+                 password_reset_token=auth_account_service._hash_token(f"reset-link-{i}"))
+            for i, email in enumerate(emails)
+        ]
+        db.add_all(accounts)
+        db.flush()
+        for account in accounts:
+            refresh_token_service.create_refresh_token(db, account)
+        db.commit()
+        account_ids = {account.email: account.id for account in accounts}
+
+    request_sessions: list[Session] = []
+
+    class RequestSession(Session):
+        """Records, at each close, whether the session still held a transaction (a pooled connection)."""
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.open_at_close: list[bool] = []
+            request_sessions.append(self)
+
+        def close(self) -> None:
+            self.open_at_close.append(self.in_transaction())
+            super().close()
+
+    loop_thread = threading.get_ident()
+    on_loop: dict[str, list[bool]] = {"checkouts": [], "statements": [], "checkins": []}
+    event.listen(engine, "checkout", lambda *_: on_loop["checkouts"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "before_cursor_execute",
+                 lambda *_: on_loop["statements"].append(threading.get_ident() == loop_thread))
+    event.listen(engine, "checkin", lambda *_: on_loop["checkins"].append(threading.get_ident() == loop_thread))
+    waits: list[tuple[str, int]] = []
+    bcrypt_on_loop: list[bool] = []
+
+    def verify(plain: str, hashed: str) -> bool:
+        waits.append(("verify", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)  # bcrypt's cost, blocking its worker thread
+        return plain == current and hashed == "the stored hash"
+
+    def hash_password(plain: str) -> str:
+        waits.append(("hash", engine.pool.checkedout()))
+        bcrypt_on_loop.append(threading.get_ident() == loop_thread)
+        time.sleep(0.02)
+        return f"the hash of {plain}"
+
+    async def pwned(_password: str) -> bool:
+        waits.append(("pwned", engine.pool.checkedout()))
+        await asyncio.sleep(0.02)  # HaveIBeenPwned's round trip
+        return False
+
+    if case in _PASSWORD_UNIT_FAILS:
+        def fails_after_its_first_query(db: Session, *_args: Any, **_kwargs: Any) -> None:
+            db.query(User.id).first()
+            raise RuntimeError("the unit failed after its first query")
+
+        monkeypatch.setattr(auth_account_service, _PASSWORD_UNIT_FAILS[case], fails_after_its_first_query)
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=RequestSession))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "verify_password", verify)
+    monkeypatch.setattr(auth, "get_password_hash", hash_password)
+    monkeypatch.setattr(auth, "is_password_pwned", pwned)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=0 if case == "change_throttled" else 100,
+                                                           window_seconds=60))
+    route = "reset" if case.startswith("reset") else "change"
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+
+    async def send(i: int) -> httpx.Response:
+        if route == "reset":
+            headers = {}
+            body = {"token": "never-issued" if case == "reset_unknown" else f"reset-link-{i}", "new_password": new}
+        else:
+            headers = {"Authorization": f"Bearer {auth.create_access_token({'sub': emails[i]})}"}
+            body = {"current_password": "not-the-password" if case == "change_wrong" else current,  # gitleaks:allow
+                    "new_password": new}
+        async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=headers) as client:
+            return await client.post(f"/api/auth/{route}-password", json=body)
+
+    try:
+        # One request alone first: no connection is out while it hashes or waits for the breach check.
+        responses = [await send(0)]
+        assert waits == _PASSWORD_WAITS[case]
+        responses += await asyncio.gather(*[send(i) for i in range(1, 9)])
+        # Every checkout, the auth lookup's included, waited in the thread pool, and every statement and
+        # release ran there: none on the loop (read before this test's own reads below).
+        assert on_loop["checkouts"] and on_loop["checkouts"] == [False] * len(on_loop["checkouts"])
+        assert on_loop["statements"] and on_loop["statements"] == [False] * len(on_loop["statements"])
+        assert on_loop["checkins"] and on_loop["checkins"] == [False] * len(on_loop["checkins"])
+        assert bcrypt_on_loop == [False] * len(bcrypt_on_loop)
+        assert engine.pool.checkedout() == 0
+        # Each unit released its session once; the dependency's finalizer found nothing open.
+        assert [request.open_at_close for request in request_sessions] == [_PASSWORD_CLOSES[case]] * 9
+        status, payload = _PASSWORD_ANSWERS.get(case, (500, None))
+        assert [response.status_code for response in responses] == [status] * 9
+        if payload is not None:
+            assert [response.json() for response in responses] == [payload] * 9
+        with sessions() as db:
+            stored = [(user.hashed_password, user.password_reset_token is None, user.email_verified)
+                      for user in db.query(User).order_by(User.id)]
+            originals = db.query(RefreshToken).filter(RefreshToken.id <= 9).order_by(RefreshToken.id).all()
+            minted = db.query(RefreshToken).filter(RefreshToken.id > 9).all()
+            revoked = [token.revoked_at is not None for token in originals]
+        if case == "reset":
+            # Reset never signs the reader in.
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [(f"the hash of {new}", True, True)] * 9
+            assert (revoked, minted) == ([True] * 9, [])
+        elif case == "change":
+            # Each response carries the session minted for its own account, the only one that account has live.
+            assert stored == [(f"the hash of {new}", False, False)] * 9
+            assert revoked == [True] * 9
+            owner_by_hash = {token.token_hash: token.user_id for token in minted if token.revoked_at is None}
+            assert [
+                owner_by_hash.get(refresh_token_service._hash_token(response.cookies[settings.REFRESH_COOKIE_NAME]))
+                for response in responses
+            ] == [account_ids[email] for email in emails]
+            assert len(minted) == 9
+        else:
+            assert [response.headers.get_list("set-cookie") for response in responses] == [[]] * 9
+            assert stored == [("the stored hash", False, False)] * 9
+            assert (revoked, minted) == ([False] * 9, [])
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.asyncio
 async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypatch, tmp_path, caplog):
     """The refresh releases its session inside its unit, after the rotation has committed. A close
@@ -1048,6 +1246,83 @@ async def test_refresh_keeps_its_rotation_when_the_early_release_fails(monkeypat
             original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
         # The reader holds the rotated token, so the next refresh is no replay.
         assert original.revoked_at is not None and original.replaced_by_id == replacement.id
+        assert refresh_token_service._hash_token(
+            response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_password_change_keeps_its_commit_when_the_release_after_it_fails(monkeypatch, tmp_path, caplog):
+    """The change's second unit releases its session after the mint's commit. A close that fails there must be
+    logged, not raised: the new password, the revocation of every other session and this device's new token
+    have committed, so a 500 would sign the reader out everywhere, this device included, and a retry with the
+    password they had would be refused as wrong. No transaction is open after that commit, so no dropped
+    connection can fail this close as one fails the refresh's above; the second close raises instead, once its
+    own close has run, and the route answers with the new session's cookie."""
+    from app.config import settings
+    from app.models import RefreshToken, User
+    from app.routers import auth
+    from app.services import refresh_token_service
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'change-release.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=QueuePool,
+        pool_size=4,
+        max_overflow=0,
+        pool_timeout=1.0,
+    )
+    for model in (User, RefreshToken):
+        model.__table__.create(engine)
+    sessions = sessionmaker(bind=engine)
+    with sessions() as db:
+        user = User(email="failed-close@example.com", is_active=True, hashed_password="the stored hash")
+        db.add(user)
+        db.flush()
+        refresh_token_service.create_refresh_token(db, user)
+        db.commit()
+
+    at_close: list[bool] = []
+
+    class FailingSecondClose(Session):
+        """Records, at each close, whether the session held a transaction; the second close, the change
+        unit's release after the mint's commit, raises once it has closed."""
+
+        def close(self) -> None:
+            at_close.append(self.in_transaction())
+            super().close()
+            if len(at_close) == 2:
+                raise OperationalError("ROLLBACK", {}, Exception("the server went away"))
+
+    current, new = "OldStr0ngPassw0rd!", "BrandNewPassw0rd!"  # gitleaks:allow - test fixtures, not credentials
+    monkeypatch.setattr(database, "SessionLocal", sessionmaker(bind=engine, class_=FailingSecondClose))
+    monkeypatch.setattr(app, "dependency_overrides", {})
+    monkeypatch.setattr(auth, "sentry_sdk", None)
+    monkeypatch.setattr(auth, "LOGIN_LIMITER", RateLimiter(limit=100, window_seconds=60))
+    monkeypatch.setattr(auth, "verify_password", lambda plain, hashed: (plain, hashed) == (current, "the stored hash"))
+    monkeypatch.setattr(auth, "get_password_hash", lambda plain: f"the hash of {plain}")
+    token = auth.create_access_token({"sub": "failed-close@example.com"})
+    try:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False), base_url="http://test",
+            headers={"Authorization": f"Bearer {token}"},
+        ) as client:
+            response = await client.post(
+                "/api/auth/change-password", json={"current_password": current, "new_password": new},
+            )
+        assert response.status_code == 200 and response.json() == {"message": "Password updated."}
+        # The lookup's read released before the waits, the failed close after the commit, and the finalizer's.
+        assert at_close == [True, False, False]
+        [logged] = [record for record in caplog.records
+                    if "Releasing the request session failed" in record.getMessage()]
+        assert isinstance(logged.exc_info[1], OperationalError)
+        assert engine.pool.checkedout() == 0
+        with sessions() as db:
+            stored = db.query(User.hashed_password).scalar()
+            original, replacement = db.query(RefreshToken).order_by(RefreshToken.id).all()
+        assert stored == f"the hash of {new}"
+        assert original.revoked_at is not None and replacement.revoked_at is None
         assert refresh_token_service._hash_token(
             response.cookies[settings.REFRESH_COOKIE_NAME]) == replacement.token_hash
     finally:
@@ -3919,8 +4194,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
 
     ("app/routers/auth.py", "apple_start"): 1,
 
-    ("app/routers/auth.py", "change_password"): 2,
-
     ("app/routers/auth.py", "google_callback"): 6,
 
     ("app/routers/auth.py", "google_login"): 1,
@@ -3930,8 +4203,6 @@ ON_LOOP_CEILINGS: dict[tuple[str, str], int] = {
     ("app/routers/auth.py", "list_connections"): 1,
 
     ("app/routers/auth.py", "register"): 5,
-
-    ("app/routers/auth.py", "reset_password"): 2,
 
     ("app/routers/auth.py", "unlink_connection"): 2,
 
