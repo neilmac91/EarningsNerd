@@ -5,6 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field, StrictBool, StrictStr, field_validator, model_validator
 from typing import Optional
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
@@ -361,6 +362,7 @@ def issue_session(
     *,
     refresh_token: Optional[str] = None,
     commit: bool = True,
+    email: Optional[str] = None,
 ) -> str:
     """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
 
@@ -371,9 +373,11 @@ def issue_session(
     ``auth_account_service.record_password_login`` mints under the account's lock, the ``/refresh``
     endpoint, and the OAuth callbacks, whose ``oauth_account_service.mint_oauth_refresh_token`` turns a
     concurrent first-login ``IntegrityError`` into the conflict redirect. Returns the raw access token
-    (body responses echo it).
+    (body responses echo it). Pass ``email=`` when the caller read the address before a commit that
+    expired ``user``, as the OAuth callbacks do before their mint's: the access token then reads nothing
+    after that commit, so no failure there can turn a committed sign-in into an error (E121).
     """
-    access_token = create_access_token(data={"sub": user.email})
+    access_token = create_access_token(data={"sub": email if email is not None else user.email})
     _set_auth_cookie(response, access_token)
     if refresh_token is None:
         refresh_token = refresh_token_service.mint_refresh_token(
@@ -540,7 +544,17 @@ async def _send_account_exists_email_safe(user: User) -> None:
         logger.warning("Account-exists email not sent: %s", e.__class__.__name__)
 
 
-async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
+@dataclass(frozen=True)
+class _SignedIn:
+    """What an OAuth callback's sign-in unit leaves the route once it has released its session: the account's
+    address and name for the linked-account notice, read before the unit's commits expired them (E121)."""
+
+    email: str
+    full_name: Optional[str]
+    linked_existing: bool
+
+
+async def _send_oauth_linked_email_safe(user: _SignedIn, provider: str) -> None:
     """Notify a user that a social identity was linked to their existing account.
 
     Best-effort: a federated identity attaching to a pre-existing account is exactly the event
@@ -1194,45 +1208,54 @@ async def google_callback(
     if not google_sub or not email:
         return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
 
-    # Existing link → existing verified account (linked) → new account through the invite gate;
-    # stages the link and last_login_at for the commit below.
+    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
+    user_agent, client_ip, hashed_ip = request.headers.get("user-agent"), _client_ip(request), _hashed_client_ip(request)
+
+    def sign_in() -> _SignedIn:
+        # One unit in the thread pool, released before the route awaits the linked-account notice (E121).
+        try:
+            # Existing link → existing verified account (linked) → new account through the invite gate;
+            # stages the link and last_login_at for the commit below.
+            user, linked_existing, created = oauth_account_service.resolve_google_user(
+                db,
+                subject=google_sub,
+                email=email,
+                email_verified=email_verified_by_google,
+                full_name=full_name,
+                invite_code_hash=invite_code_hash,
+                agreement=agreement,
+            )
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
+            user_id, signed_in = user.id, _SignedIn(user.email, user.full_name, linked_existing)
+            # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
+            refresh_token = oauth_account_service.mint_oauth_refresh_token(
+                db, user, user_agent=user_agent, ip=client_ip
+            )
+            issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
+            if created:
+                # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
+                # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
+                audit_service.log_register(db, user_id, signed_in.email, ip_address=hashed_ip)
+            audit_service.log_oauth_login(db, user_id, signed_in.email, provider="google", ip_address=hashed_ip)
+            if linked_existing:
+                # Security-relevant: a federated identity was just attached to a pre-existing account.
+                audit_service.log_oauth_linked(db, user_id, signed_in.email, provider="google", ip_address=hashed_ip)
+            return signed_in
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user, linked_existing, created = oauth_account_service.resolve_google_user(
-            db,
-            subject=google_sub,
-            email=email,
-            email_verified=email_verified_by_google,
-            full_name=full_name,
-            invite_code_hash=invite_code_hash,
-            agreement=agreement,
-        )
+        signed_in = await run_in_threadpool(sign_in)
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
             logger.warning("%s OAuth IntegrityError creating account", "google")
         return RedirectResponse(f"{frontend_url}/login?error={refused.error_code}", status_code=302)
-
-    redirect = RedirectResponse(url=frontend_url, status_code=302)
-    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    try:
-        # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
-        refresh_token = oauth_account_service.mint_oauth_refresh_token(
-            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request)
-        )
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-    issue_session(db, user, redirect, request, refresh_token=refresh_token, commit=False)
-
-    hashed_ip = _hashed_client_ip(request)
-    if created:
-        # A sign-up as well as a login: the register row a password sign-up writes, so the log tells
-        # this sign-up from a later login (D-054). Written only now, after the sign-in committed.
-        audit_service.log_register(db, user.id, user.email, ip_address=hashed_ip)
-    audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
-    if linked_existing:
-        # Security-relevant: a federated identity was just attached to a pre-existing account.
-        audit_service.log_oauth_linked(db, user.id, user.email, provider="google", ip_address=hashed_ip)
-        await _send_oauth_linked_email_safe(user, "Google")
+    if signed_in.linked_existing:
+        await _send_oauth_linked_email_safe(signed_in, "Google")
     return redirect
 
 
@@ -1360,41 +1383,50 @@ async def apple_callback(
         except (ValueError, AttributeError, KeyError):
             pass
 
-    # Resolve user: existing oauth link → existing verified account → new account
+    redirect = _apple_redirect(frontend_url)
+    user_agent, client_ip, hashed_ip = request.headers.get("user-agent"), _client_ip(request), _hashed_client_ip(request)
+
+    def sign_in() -> _SignedIn:
+        # One unit in the thread pool, released before the route awaits the linked-account notice (E121).
+        try:
+            # Resolve user: existing oauth link → existing verified account → new account
+            user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
+                db,
+                subject=apple_sub,
+                email=email,
+                email_verified=email_verified_by_apple,
+                full_name=full_name,
+                invite_code_hash=invite_code_hash,
+                agreement=agreement,
+            )
+            # Read before the mint's commit expires the user: nothing after that commit reads it.
+            user_id, signed_in = user_obj.id, _SignedIn(user_obj.email, user_obj.full_name, linked_existing)
+            # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
+            refresh_token = oauth_account_service.mint_oauth_refresh_token(
+                db, user_obj, user_agent=user_agent, ip=client_ip
+            )
+            issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False, email=signed_in.email)
+            if created:
+                # As for Google: the sign-up's register row, after the sign-in committed (D-054).
+                audit_service.log_register(db, user_id, signed_in.email, ip_address=hashed_ip)
+            audit_service.log_oauth_login(db, user_id, signed_in.email, provider="apple", ip_address=hashed_ip)
+            if linked_existing:
+                audit_service.log_oauth_linked(db, user_id, signed_in.email, provider="apple", ip_address=hashed_ip)
+            return signed_in
+        finally:
+            filing_list_service.release_request_session(db)
+
     try:
-        user_obj, linked_existing, created = oauth_account_service.resolve_apple_user(
-            db,
-            subject=apple_sub,
-            email=email,
-            email_verified=email_verified_by_apple,
-            full_name=full_name,
-            invite_code_hash=invite_code_hash,
-            agreement=agreement,
-        )
+        signed_in = await run_in_threadpool(sign_in)
     except oauth_account_service.OAuthSignInRefused as refused:
         if refused.lost_create_race:
             logger.warning("%s OAuth IntegrityError creating account", "apple")
         return _apple_redirect(f"{frontend_url}/login?error={refused.error_code}")
-
-    redirect = _apple_redirect(frontend_url)
-    try:
-        # Commits the sign-in with its refresh token; a lost first-sign-in race is rolled back.
-        refresh_token = oauth_account_service.mint_oauth_refresh_token(
-            db, user_obj, user_agent=request.headers.get("user-agent"), ip=_client_ip(request)
-        )
     except oauth_account_service.OAuthAccountConflictError:
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return _apple_redirect(f"{frontend_url}/login?error=apple_account_conflict")
-    issue_session(db, user_obj, redirect, request, refresh_token=refresh_token, commit=False)
-
-    hashed_ip = _hashed_client_ip(request)
-    if created:
-        # As for Google: the sign-up's register row, after the sign-in committed (D-054).
-        audit_service.log_register(db, user_obj.id, user_obj.email, ip_address=hashed_ip)
-    audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
-    if linked_existing:
-        audit_service.log_oauth_linked(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
-        await _send_oauth_linked_email_safe(user_obj, "Apple")
+    if signed_in.linked_existing:
+        await _send_oauth_linked_email_safe(signed_in, "Apple")
     return redirect
 
 
