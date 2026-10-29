@@ -11,9 +11,7 @@
    shrink-only exceptions, pinned as they stand. A run in progress shown in
    words is the Activity line, a loading layout is Skeleton bones. Each site
    is pinned here, by file, with the wait it marks, so a new spinner fails
-   until its author names which of the two it is; the two lines that still
-   pair their words with a spinner are pinned until they move to the Activity
-   line (E235).
+   until its author names which of the two it is.
 
    Sites: the scan reads class lists as tests/unit/classListScan.ts states,
    and a site is the innermost list holding `animate-spin`, behind any variant
@@ -44,11 +42,10 @@ const ROOT = path.join(__dirname, '../..')
 const SCAN_DIRS = ['app', 'components', 'features', 'hooks', 'lib']
 // Equal to the list (lessons/test-allowlist-caps-are-equalities.md): lower it when an entry goes; a new entry raises
 // it in the same change, its reason naming the wait it marks.
-const MAX_ALLOWLIST_SIZE = 14
+const MAX_ALLOWLIST_SIZE = 12
 const CONTROL = "a control's own request:"
 const LAYOUT = 'a wait whose answer decides the layout:'
 const EXCEPTION = "a full-page loader, one of §11's shrink-only exceptions:"
-const WORDS = 'words beside a spinner, until they move to the Activity line (tasks/todo.md E235):'
 const ALLOW: Record<string, { sites: number; reason: string }> = {
   'components/ui/Button.tsx': { sites: 1, reason: "the busy Button's spinner, <Button loading> (Steady loading)" },
   'components/ui/Input.tsx': { sites: 1, reason: "FieldSpinner, a busy field's spinner in its trailing inset (Search field)" },
@@ -79,11 +76,6 @@ const ALLOW: Record<string, { sites: number; reason: string }> = {
     reason: `${EXCEPTION} the /filing/<TICKER> loader, a status region named for the wait (fullPageSpinnerGate pins it until bones replace it)`,
   },
   'app/verify-email/page.tsx': { sites: 1, reason: `${LAYOUT} over the heading "Verifying your email…", which names the wait` },
-  'features/analysis/components/NarrativePane.tsx': {
-    sites: 1,
-    reason: `${WORDS} "Assembling the numbers…" and "Writing…" as the trend analysis streams`,
-  },
-  'app/delete-account/page.tsx': { sites: 1, reason: `${WORDS} "Checking whether you are logged in…"` },
 }
 
 const SPIN = /(?:^|:)!?animate-spin!?$/

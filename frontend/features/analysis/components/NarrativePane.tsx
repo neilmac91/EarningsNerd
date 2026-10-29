@@ -5,8 +5,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Button, Card, Notice, countControlClass, cx } from '@/components/ui'
-import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
+import { ActivityLine, Badge, Button, Card, Notice, countControlClass, cx } from '@/components/ui'
+import { ArrowClockwiseIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
 import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
@@ -271,10 +271,7 @@ export default function NarrativePane({
             AI trend analysis
           </h2>
           {state.status === 'streaming' && (
-            <span className="flex items-center gap-1.5 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-              <CircleNotchIcon className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-              {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
-            </span>
+            <ActivityLine>{state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}</ActivityLine>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
             <Badge title={SAMPLE_NOTE}>
