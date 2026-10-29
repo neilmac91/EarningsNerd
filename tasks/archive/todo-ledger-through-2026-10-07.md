@@ -7060,6 +7060,23 @@ Full local and hosted verification plus independent exact-head review precede re
   by another writer on GitHub. No chief defect known, the lapses counted from the chief's notes and its own
   commands; one hook refusal and one permission-classifier refusal of the chief's commands in the window,
   the second followed by the chief's question to the founder, answered in the window. Closure 218.
+- 2026-10-29 (record 68, `runtime/control/DECISIONS-68.md`): PR #1792 (record 67) merged `2ed5078c` by
+  the chief's own squash, pinned to its head, on the founder's word (sixty-third deploy-skip proof: its
+  main run succeeded and its deploy job skipped every deploy step); before it, its fact-check, its reviewer's
+  full pass, whose one should-fix a fourth commit took, the same reviewer's clean check of that commit,
+  which a container restart interrupted and the same context finished, and the chief's one ready mark,
+  whose own Codex review completed with no finding. Closure 219 registers record 67's survey, fact-check
+  and reviewer and pre-registers this record's survey and fact-check and record 69's reviewer. A
+  read-only survey of the window before the record was written. Fifteen main merges, ten of them backend
+  deploys, each healthy by its own deploy job, every other push run's deploy job skipping every deploy
+  step; no job cut off at its time limit; the advisory pip-audit step exited 1, as inferred, in all fifteen
+  main runs; production not read live; after the stamp eight more main merges, five of them
+  backend deploys, four healthy by their own deploy jobs and #1732's then in progress, and the
+  dnspython bump in #1698 ending the advisory pip-audit step's exit 1 on main.
+  No CODE RED spend; no ledger event; twenty-one paid steps on other writers' heads on GitHub; four
+  balance readouts dispatched under the shared account, none by the chief. No chief defect known, the
+  lapses counted from the chief's notes and its own commands; no hook refusal and no permission-classifier
+  refusal of the chief's commands in the window. Closure 219.
 - [x] Founder (record 21): confirm the single writer — confirmed in the second session at about 23:00Z ("the earlier session
       is the chief"), as that session relayed; the second session stood down to read-only; overrule only if wanted.
 - [ ] Founder (optional; recommended, record 20): set the repository's squash default to "Pull request title and
