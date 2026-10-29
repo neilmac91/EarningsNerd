@@ -7055,7 +7055,8 @@ Full local and hosted verification plus independent exact-head review precede re
   Eleven main merges, one a backend deploy, #1761's, healthy by its own deploy job, every other push run's
   deploy job skipping every deploy step; no job cut off at its time limit; the advisory pip-audit step
   exited 1, as inferred, in all eleven main runs; production not read live; after the stamp #1733 and
-  #1727 deployed, each healthy by its own deploy job. No CODE RED spend; no ledger event; three paid steps
+  #1727 deployed before its commit and #1729, #1737 and #1790 after its push, each healthy by its
+  own deploy job. No CODE RED spend; no ledger event; three paid steps
   by another writer on GitHub. No chief defect known, the lapses counted from the chief's notes and its own
   commands; one hook refusal and one permission-classifier refusal of the chief's commands in the window,
   the second followed by the chief's question to the founder, answered in the window. Closure 218.
