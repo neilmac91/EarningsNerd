@@ -218,7 +218,7 @@ From `backend/`, with `REFRESH_CONCURRENCY_TEST_DATABASE_URL` naming a disposabl
 missing evidence, not a pass.
 
 1. Two chains, one account: a replay of an ancestor in chain A revokes A's tip and is refused, and chain B's live
-   token then rotates. Mutation proof: today's `revoke_all_for_user` call fails this case.
+   token then rotates. Mutation proof: restoring the pre-E96 `revoke_all_for_user` call fails this case.
 2. Concurrent use of one cookie on PostgreSQL: exactly one successor exists afterwards and it is revoked, and the
    second answer is the replay 401.
 3. Malformed links (cross-user, backward, self-cycle, dangling): no token authorized, nothing outside the walk's
