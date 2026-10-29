@@ -406,7 +406,7 @@ export default function AnalysisPageClient() {
         {/* Signed-out: the picker needs auth for real coverage — invite sign-in, show the sample below. */}
         {ticker && authResolved && !user && (
           <Notice
-            variant="info"
+            variant="neutral"
             className="mt-4"
             title={
               <>
@@ -491,7 +491,7 @@ export default function AnalysisPageClient() {
       {isPro && datasetError && <Notice variant="error" title={datasetError} />}
       {isPro && proRequired && (
         <Notice
-          variant="info"
+          variant="neutral"
           title={narrative.error}
           description={
             <Link href="/pricing" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">

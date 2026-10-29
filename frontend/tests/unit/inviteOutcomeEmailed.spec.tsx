@@ -101,6 +101,19 @@ describe('bulk invites report created and emailed, never "sent" (ADM-01, ADM-02)
   })
 })
 
+describe("the share panel's warning for a link-only invite (E196 (2))", () => {
+  it('is the warning Notice, its inset capped in the dialog body as a frame there must be (E229)', async () => {
+    render(<ResendShareModal link="https://earningsnerd.io/invite/fresh" email={null} emailed={false} onClose={() => {}} />)
+    const dialog = screen.getByRole('dialog')
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Show share options' }))
+    const notice = within(dialog).getByText('Not bound to an email').closest('[role="status"]') as HTMLElement
+    expect(notice).toHaveTextContent('Not bound to an emailAnyone with this link can redeem it. Share only with the intended person.')
+    expect(notice.classList).toContain('border-warning-light/25')
+    // surface-padding-cap reads a Notice in a dialog's body only in the dialog's own file, so this call site is held here.
+    expect(notice.classList).toContain('px-cap-4')
+  })
+})
+
 describe('the resend dialog claims a re-send only when the invite was emailed (ADM-03)', () => {
   const link = 'https://earningsnerd.io/invite/fresh'
 

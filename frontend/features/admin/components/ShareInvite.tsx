@@ -8,11 +8,11 @@ import {
   EnvelopeSimpleIcon,
   LinkedinLogoIcon,
   ShareNetworkIcon,
-  WarningIcon,
   WhatsappLogoIcon,
 } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { Notice } from '@/components/ui/Notice'
 import {
   DEFAULT_INVITE_MESSAGE,
   buildInviteMessage,
@@ -129,14 +129,17 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             />
           </div>
 
+          {/* A link anyone can redeem is a risk the sender weighs before sharing: the warning Notice (E196 (2)). The
+              panel opens inside the resend dialog's body (ResendShareModal), where a Notice's own px-4 is at the
+              dialog's threshold and takes the cap (E229; surface-padding-cap cannot read it across files, so
+              inviteOutcomeEmailed.spec.tsx holds it). On the bulk summary's page the cap bites only below 25rem. */}
           {unbound && (
-            <p className="flex items-start gap-1.5 rounded border border-warning-light/40 bg-warning-light/10 px-2.5 py-1.5 text-xs text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark">
-              <WarningIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-              <span>
-                Not bound to an email: anyone with this link can redeem it. Share only with the
-                intended person.
-              </span>
-            </p>
+            <Notice
+              variant="warning"
+              className="px-cap-4"
+              title="Not bound to an email"
+              description="Anyone with this link can redeem it. Share only with the intended person."
+            />
           )}
 
           <div className="flex flex-wrap gap-2">

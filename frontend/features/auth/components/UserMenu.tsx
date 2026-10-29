@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { CalendarDotsIcon, CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
+import { CalendarDotsIcon, CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningIcon } from '@/lib/icons'
 import { logout } from '@/features/auth/api/auth-api'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import { logoutAndResetAccount } from '@/features/auth/lib/accountQueryState'
@@ -117,9 +117,11 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               href={`/check-email?email=${encodeURIComponent(user.email)}`}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light/10 dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-warning-light dark:text-warning-dark transition-colors hover:bg-warning-light/20 dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+              // A step the account still needs: the menu's own row in the primary ink, the state's colour on its glyph
+              // alone, as a warning Notice keeps it (E196 (2)). The dot on the account button marks the same state.
+              className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              <WarningCircleIcon className="h-4 w-4" />
+              <WarningIcon aria-hidden="true" className="h-4 w-4 text-warning-light dark:text-warning-dark" />
               Verify your email
             </Link>
           )}
