@@ -333,29 +333,41 @@ says so; everything else follows the spec.
     `fixed` now rounds as the table does, so PLUG's 2024Q2 revenue reads "$143.4M" in its tooltip as in the table,
     and the values on a half in five of the golden plans moved away from zero (REGN's FY2025 free cash flow,
     $4,080.5M, reads "$4.081B"). The Recharts tooltips and axes took the same formats until E195.
-- **The tokens (step 6, E194).** §3.8's Token change list was taken as far as it left production as it was until
-  F66; since the switch (D-064) the rest is E195's follow-up (C), the fold:
-  - Tailwind holds the renderer's colours as pairs of their own: `chart.s1…s6` (light halves `chart-1…6`, dark halves
-    the table's), `chart.tick` (`#636A77`, and `#B8BEC7`, the table's `chart.label.dark`), `chart.value` (`#374151`
-    and, since D-063, `#EAECEF`, the figure ink), `chart.gridline` (`#DCD9D0`/`#525C6B`, its
-    `chart.grid`) and `chart.review` (`#92400E`/`#FBBF24`). Item 1's dark siblings of `chart-1…6` would make
-    `themePairs` require `dark:bg-chart-1-dark` on the landing page's `RevenueBars`, and its new `chart.label` and
-    `chart.grid` values would repaint that page's axis labels and leave `components/ui/Chart.tsx`'s mirror behind:
-    surfaces outside /analysis, which F66's preview did not show. Until the fold two gates keep the pairs off them:
-    `designTokenParity` admits a hex only the pairs hold in `lib/charts/theme.ts` alone, and `chart-theme.spec.ts`
-    fails any class that names a pair. E195's follow-up (C) folds the pairs into item 1's names.
-  - Item 2 waits too: `Chart.tsx` and the shared `chartExport.ts` text mirror keep today's values, since the
-    Fundamentals and Peers charts stay on Recharts. The renderer's PNG takes the card's own inks instead: its header
-    and notes paint in the legend names' ink. That was `#B8BEC7` on dark while the export's own dark secondary
-    measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS secondary to `#D1D5DB` (−77.3), and since E194 the legend
-    names take it, so on dark the PNG's header and notes paint in the export's own secondary, a step above the
-    card's notes on screen (`#B8BEC7`).
-  - `DESIGN.md` (item 3) records the pairs as omitted from its frontmatter until the token fold; the sidecar
-    copies that frontmatter. DS §1 and §10 name the pairs (item 4). Of item 5, DS §10's paragraph on the
-    renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow markers, the halos and the keyboard
-    stop), and the crosshair and "dark labels use `secondary`" lines stay for the Recharts charts that remain (filing
-    fundamentals and peers); the font-loader note came with the loader (item 6, E199: "Fonts (E199)" below). Item 7
-    came with E195.
+- **The tokens (step 6, E194; the fold, E195 (C)).** §3.8's Token change list was taken as far as it left production
+  as it was until F66; since the switch (D-064) E195's follow-up (C) folded the rest (2026-10-29):
+  - The renderer's own Tailwind pairs (`chart.s1…s6`, `chart.tick`, `chart.value`, `chart.gridline`, `chart.review`)
+    are gone. Each series has its dark half, `chart-1-dark…6-dark` (the table's dark values), so the landing page's
+    `RevenueBars` takes `dark:bg-chart-1-dark`, as `themePairs` asks; `chart.label.dark` is `#B8BEC7` and
+    `chart.grid` `#DCD9D0`/`#525C6B`, the table's. `lib/charts/theme.ts` names those, and the text inks for its ticks
+    and notes in light (`text.tertiary.light`) and its printed values (`text.secondary.light`, and the figure ink
+    `text.primary.dark` since D-063). The landing page's revenue bars and axis labels and the Recharts charts (filing
+    fundamentals, peers) repaint in dark, and the fundamentals chart's gridlines in both themes (the landing page's
+    tick rules are `chart.axis`, which the fold leaves alone, and the peers chart draws none), so the two gates that
+    kept the pairs off other surfaces are lifted: `designTokenParity`'s renderer-only hexes and `chart-theme.spec.ts`'s
+    class scan.
+  - Item 2: `Chart.tsx`'s `chartTheme` takes the new grid and dark label, and `seriesColor(i, dark)` the dark series
+    halves, held to the tokens by `chartThemeTokens.spec.ts`. The sequences are `Chart.tsx`'s own, so no chart can
+    index the light one in dark. Its x-axis line takes the grid too: Recharts draws a gridline at each edge of the plot
+    and that line over the bottom one, and in the hairline (`chart.axis`, Lc 8.8 on the light card) the light baseline
+    would have been the quietest rule; `chartThemeTokens.spec.ts` holds the baseline to the gridlines' contrast.
+    `chartExport.ts` needed no change: its `EXPORT_TEXT`
+    mirrors `text.primary` and `text.secondary`, which the fold leaves alone, and no Recharts chart exports a PNG.
+    The renderer's PNG takes the card's own inks: its header and notes paint in the legend names' ink. That was
+    `#B8BEC7` on dark while the export's own dark secondary measured Lc −48.6 (`#9CA3AF`); #1606 raised the DS
+    secondary to `#D1D5DB` (−77.3), and since E194 the legend names take it, so on dark the PNG's header and notes
+    paint in the export's own secondary, a step above the card's notes on screen (`#B8BEC7`).
+  - `DESIGN.md` (item 3) documents `chart-1-dark…6-dark` in its frontmatter, as the sidecar's colorMeta does. DS §1
+    and §10 (items 4 and 5) name the dark halves, and §10's dark labels are `chart.label.dark` `#B8BEC7`. Of item 5,
+    DS §10's paragraph on the renderer states its inks; E195 rewrote its Recharts trend-chart contract (the hollow
+    markers, the halos and the keyboard stop); the font-loader note came with the loader (item 6, E199: "Fonts
+    (E199)" below). Item 7 came with E195.
+  - The chart's dark `note` ink stays `chart.label.dark` `#B8BEC7`, not the table's `note-dark` `#D1D5DB` (chief
+    design on #1655: fold it, or record why). The card's notes and the band's letters take the tertiary step in both
+    themes: light's `note` is the light tertiary `#636A77`, and dark's tertiary `#9CA3AF` measures −48.6, under the 60
+    their 11–12 px text needs, so its step is `chart.label.dark`. `note-dark` is the secondary step in dark: it would
+    lift the dark footnotes to the legend names' ink, flattening in dark the step light keeps between them. The
+    table's marks take `note-dark` as a figure-surface ink of their own (DS §1), so in dark a note's letter reads
+    `#D1D5DB` in the table and `#B8BEC7` in the chart's band, where light gives both `#636A77`.
   - `tests/unit/chart-apca.spec.ts` recomputes every Lc the tables print, the Source column's included, and holds
     every token to its floor in both themes, on the card and under the column wash (`cursor`, which the table leaves
     unmeasured). The narrowest clear their floors by less than half a point, on the dark wash: the tick ink at
@@ -367,8 +379,9 @@ says so; everything else follows the spec.
   (PGR: `Premiums earned Q4 ’24, Q4 ’25`), and fully calculated series keep footnote line 3. The tooltip and the
   values stop letter, and speak, only the same notes, and the card's Notes chip names the letters its footnotes do
   (an n/m comparison's included, which the Recharts charts never drew). The 16 px band stays reserved: M8 holds a card's
-  height to its view and mode, so a chart that gains a letter never grows past the card beside it. `chart.review` now
-  paints nothing, and E195's token fold retires it. No stored fixture has a note that questions the number or one with
+  height to its view and mode, so a chart that gains a letter never grows past the card beside it. Since then no letter
+  takes «t.review» (§3.3's review-kind letters, A5's ink, §4.0's band `ink`, the Vega-Lite colour range): every letter
+  paints in the `note` ink, and E195's token fold retired the token and its §3.8 row. No stored fixture has a note that questions the number or one with
   no check recorded, so the golden bands are empty, and the sweeps add one synthetic dataset that meets every kind
   (`withMixedNotes` in `tests/unit/chartPlan.ts`). On it `chart-engine.spec.ts` holds every band letter to
   `noteMarksFigure`, and `trend-charts-v2.spec.tsx` holds each chip to its footnotes' letters.
@@ -982,17 +995,16 @@ band. Negative offsets, `overflow: visible` text and `textLength` are forbidden.
 | Token | Use | Light | Lc / WCAG | Dark | Lc / WCAG | Source |
 |---|---|---|---|---|---|---|
 | `surface` | Plot background, marker rings, break marks, export fill | `#FBFAF6` | — | `#1F2937` | — | DS |
-| `grid` | Non-zero gridlines, 1 px | `#DCD9D0` | 16.8 / 1.35 | `#525C6B` | −15.0 / 2.17 | final (today Lc 0 in both themes) |
+| `grid` | Non-zero gridlines, 1 px | `#DCD9D0` | 16.8 / 1.35 | `#525C6B` | −15.0 / 2.17 | final (the hairline it replaced measured Lc 0 in both themes) |
 | `zero` | The zero tick's gridline, every panel, 1 px | `#6B7280` | 70.5 / 4.63 | `#9CA3AF` | −48.6 / 5.78 | DS `chart.ref` |
-| `tick` | Tick labels, x labels, captions, band neutral glyphs, `—`, `n/m`, "Notes", strip row labels, off-scale edge rule, absent-series swatch | `#636A77` | 74.1 / 5.21 | **`#B8BEC7`** (new `chart.label.dark`) | −63.6 / 7.85 | C, final hex (today's dark `#9CA3AF` is −48.6) |
+| `tick` | Tick labels, x labels, captions, band neutral glyphs, `—`, `n/m`, "Notes", strip row labels, off-scale edge rule, absent-series swatch | `#636A77` | 74.1 / 5.21 | `#B8BEC7` (`chart.label.dark`) | −63.6 / 7.85 | C, final hex (the tertiary dark `#9CA3AF` is −48.6) |
 | `value` | Bar labels, A13b labels, off-scale values, strip cells | `#374151` | 90.9 / 9.87 | `#EAECEF` | −91.8 / 12.40 | DS text secondary/primary |
-| `review` | Review-kind band letters | `#92400E` | 80.9 / 6.79 | **`#FBBF24`** (new) | −70.2 / 8.79 | B, fixed (DS `#F59E0B` is −56.9, below 60) |
-| `s1` teal | Series 1 | `#3E8E84` | 63.0 / 3.72 | **`#62B2A6`** | −49.7 / 5.90 | C (today's dark −32.0) |
-| `s2` honey | Series 2 | `#B8812F` | 58.0 / 3.23 | **`#D3A55C`** | −54.2 / 6.51 | C (today's dark −37.1) |
-| `s3` cornflower | Series 3 | `#5B7CC0` | 65.2 / 3.95 | **`#8CA6E3`** | −50.9 / 6.07 | C (today's dark −29.9) |
-| `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | **`#E8927C`** | −51.9 / 6.17 | final (today's dark −36.9) |
-| `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | **`#97A6C2`** | −50.1 / 5.98 | final (today's dark −30.0) |
-| `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | **`#AFA2DE`** | −52.8 / 6.32 | final (today's dark −33.7) |
+| `s1` teal | Series 1 | `#3E8E84` | 63.0 / 3.72 | `#62B2A6` (`chart-1-dark`) | −49.7 / 5.90 | C (on the dark card the light hex is −32.0) |
+| `s2` honey | Series 2 | `#B8812F` | 58.0 / 3.23 | `#D3A55C` (`chart-2-dark`) | −54.2 / 6.51 | C (on the dark card the light hex is −37.1) |
+| `s3` cornflower | Series 3 | `#5B7CC0` | 65.2 / 3.95 | `#8CA6E3` (`chart-3-dark`) | −50.9 / 6.07 | C (on the dark card the light hex is −29.9) |
+| `s4` coral | Series 4 (not used by these charts) | `#CF7159` | 58.2 / 3.26 | `#E8927C` (`chart-4-dark`) | −51.9 / 6.17 | final (on the dark card the light hex is −36.9) |
+| `s5` slate-blue | Series 5 (not used) | `#6E7E9C` | 65.1 / 3.92 | `#97A6C2` (`chart-5-dark`) | −50.1 / 5.98 | final (on the dark card the light hex is −30.0) |
+| `s6` periwinkle | Series 6 (not used) | `#8B7BC0` | 61.4 / 3.53 | `#AFA2DE` (`chart-6-dark`) | −52.8 / 6.32 | final (on the dark card the light hex is −33.7) |
 | `cursor` | Hover/focus column wash (specified, not yet verified) | rgba(62,142,132,.08) | — | rgba(62,142,132,.16) | — | DS `barCursorProps` |
 | `tip` | Tooltip surface and border (specified, not yet verified) | DS `chart.tip` | | DS `chart.tip` | | DS |
 
@@ -1035,6 +1047,12 @@ the `chart.value` step #1620 shipped; the founder chose the figure ink. Light ke
 `text.secondary` under the legend values' `text.primary`. Dark could not follow it, since `text.secondary.dark`
 measures −74.0 under the wash, below the printed-value floor of 75. The row above says so; §1 row 10 keeps the audit's
 measurement.)
+(E195 (C), 2026-10-29: the token fold. Tailwind names the token table's values `chart-1…6` with `chart-1-dark…6-dark`,
+`chart.grid`, `chart.ref` and `chart.label.dark`, and the text inks, and the Recharts charts take the series, the grid
+and the dark label too, their x-axis line in the grid's ink (items 1 and 2 below; §0.5, "The tokens"). The `review` row
+is gone: since D-061 no letter takes a review ink. The card's notes (the subtitle, the footnotes, and the band's and the
+tooltip's letters) keep `chart.label.dark` rather than the table's `note-dark` `#D1D5DB`, for the E194 note's reason:
+their light half is the tertiary step, and `note-dark` is the secondary step in dark (§0.5, "The tokens").)
 
 **CVD.** Dark series pairs 1–2 / 1–3 / 2–3 measure deutan 49 / 31 / 80 and protan 41 / 35 / 77 ΔE76. Light measures
 deutan 56 / 37 / 93 and protan 49 / 40 / 89. The weakest pair, teal–cornflower, occurs only in three-series charts,
@@ -1046,27 +1064,31 @@ serialisation cannot lose them.
 **Token change list** (the gates that must move together):
 
 1. `tailwind.config.js` `chart.*`:
-   - add `chart-1-dark`…`chart-6-dark`, `chart.label.dark` (`#B8BEC7`), `chart.grid` (light `#DCD9D0`, dark
-     `#525C6B`) and `chart.review.dark` (`#FBBF24`);
+   - add `chart-1-dark`…`chart-6-dark`, `chart.label.dark` (`#B8BEC7`) and `chart.grid` (light `#DCD9D0`, dark
+     `#525C6B`), and delete the renderer's own pairs; `review` is retired rather than given a dark half, since no
+     letter takes it after D-061;
    - add `dark:bg-chart-1-dark` to `features/marketing/components/RevenueBars.tsx`, because a `-dark` sibling makes
      `themePairs.spec.ts` require the twin.
-2. The `components/ui/Chart.tsx` `ChartTheme` mirror and the `features/analysis/lib/chartExport.ts` mirror, gated by
-   `designTokenParity`.
+2. The `components/ui/Chart.tsx` `ChartTheme` mirror, with the dark series through `seriesColor(i, dark)`, gated by
+   `designTokenParity` and `chartThemeTokens.spec.ts`. The `features/analysis/lib/chartExport.ts` mirror needed no
+   change: it holds the text inks only.
 3. `DESIGN.md` and `.impeccable/design.json`, gated by `designSnapshotParity`.
 4. DS §1: the chart row "same hexes".
 5. DS §10:
    - rewrite the hollow-marker paragraph as the band;
-   - change crosshair to column wash for line charts (when it is built);
-   - change "dark labels use secondary" to `chart.label.dark`, for SVG text and for the chart card's HTML subtitle,
-     legend names and footnotes;
-   - in charts, † marks calculated periods in the band only; fully calculated series get a footnote sentence;
+   - change crosshair to column wash for line charts (when it is built): moot, since the renderer draws every trend
+     chart (E195) and no Recharts line chart remains;
+   - change "dark labels use secondary" to `chart.label.dark`, for SVG text and for the chart card's HTML subtitle
+     and footnotes (its legend names take `text.secondary` since E194);
+   - in charts, † marks calculated periods in the band only; fully calculated series get a footnote sentence:
+     superseded by D-061, under which no chart prints †;
    - add the font-loader note.
 6. `app/fonts.ts`: G1.
 7. Retire or rewrite the tests `trend-charts-annotation`, `trend-charts-legend` (dual-axis and "(right)" cases) and
    `chart-note-layout`. Delete `features/analysis/lib/chartNoteLayout.ts`.
 
-**Status.** Items 6 (E199) and 7 (E195) are done, and of item 5 the band's paragraph and the font-loader note: E195
-rewrote DS §10's Recharts trend-chart contract. Items 1 to 4 and the rest of item 5 are the fold, E195's follow-up (C).
+**Status.** Every item is done: 6 (E199) and 7 (E195), and 1 to 5 with E195's token fold (C), 2026-10-29. Of item 5,
+E195 rewrote DS §10's Recharts trend-chart contract and the fold its dark labels.
 
 ### 3.9 Tooltip and interaction states
 
@@ -1698,7 +1720,7 @@ strip.
 | B: "bar length rank 1–2" | **Corrected.** Length is rank 3; bar end is position (rank 1). |
 | B: FY caption wrong in 34/37 quarterly datasets | **Fixed.** A9 reads the latest FY or Q4 row. |
 | B: not-applicable copy hard-codes banks | **Fixed.** A12, reason-specific. |
-| B: dark review ink `#F59E0B` at Lc −56.9 | **Fixed.** `#FBBF24`, Lc −70.2. |
+| B: dark review ink `#F59E0B` at Lc −56.9 | **Fixed.** `#FBBF24`, Lc −70.2; retired with the review ink after D-061 (E195's token fold). |
 | B: ±1 pp margins met in 27/59 even expanded | **Fixed.** Strip, 59/59. |
 | C: PLUG/q clip on a knife edge (ratio 1.001); RIVN FY2022 hidden | **Rule not adopted** (A3: PLUG/q and RIVN FY2022 on scale). |
 | C: colours move between companies | **Accepted trade-off** (§0.2), owner option 6. |

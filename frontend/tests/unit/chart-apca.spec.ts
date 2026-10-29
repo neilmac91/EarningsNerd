@@ -41,7 +41,7 @@ describe('the APCA formula is apca-w3’s (0.0.98G-4g)', () => {
 describe('every Lc the spec’s §3.8 tables print is the formula’s on the card', () => {
   const token = rows('| `').filter((cells) => HEX.test(cells[3]) && /\d/.test(cells[4]))
   it('reads the token table', () => expect(token.map((cells) => cells[1])).toEqual(
-    ['`grid`', '`zero`', '`tick`', '`value`', '`review`', '`s1` teal', '`s2` honey', '`s3` cornflower', '`s4` coral', '`s5` slate-blue', '`s6` periwinkle'],
+    ['`grid`', '`zero`', '`tick`', '`value`', '`s1` teal', '`s2` honey', '`s3` cornflower', '`s4` coral', '`s5` slate-blue', '`s6` periwinkle'],
   ))
   it.each(token.map((cells) => [cells[1], cells]))('%s', (_, cells) => {
     const [light, dark] = [cells[3], cells[5]].map((cell) => HEX.exec(cell)![0])
@@ -56,11 +56,11 @@ describe('every Lc the spec’s §3.8 tables print is the formula’s on the car
     expect(round(apcaLc(HEX.exec(cells[4])![0], CHART_TOKENS.dark.surface))).toBe(lc(cells[5]))
   })
 
-  // The Source column's figures for what each token replaces, on the dark card: a hex it names ("DS `#F59E0B` is
-  // −56.9"), or today's dark series, which is its light hex ("today's dark −32.0").
-  const sources = token.flatMap((cells) => [...cells[7].matchAll(/(?:`(#[0-9A-Fa-f]{6})` is|today's dark) (−?\d+\.\d)/g)]
+  // The Source column's figures for what each token replaces, on the dark card: a hex it names ("the tertiary dark
+  // `#9CA3AF` is −48.6"), or a series' light hex ("on the dark card the light hex is −32.0").
+  const sources = token.flatMap((cells) => [...cells[7].matchAll(/(?:`(#[0-9A-Fa-f]{6})` is|the light hex is) (−?\d+\.\d)/g)]
     .map((match) => [`${cells[1]}: ${match[0]}`, match[1] ?? HEX.exec(cells[3])![0], match[2]] as const))
-  it('reads the Source column’s figures', () => expect(sources).toHaveLength(8))
+  it('reads the Source column’s figures', () => expect(sources).toHaveLength(7))
   it.each(sources)('%s', (_, hex, printed) => {
     expect(round(apcaLc(hex, CHART_TOKENS.dark.surface))).toBe(lc(printed))
   })
@@ -84,7 +84,6 @@ const FLOORS: Record<Exclude<keyof ChartTokens, 'surface' | 'cursor'>, { low: nu
   zero: MARKS,
   series: MARKS,
   tick: TEXT,
-  review: TEXT,
   note: TEXT,
   name: TEXT,
   value: VALUES,

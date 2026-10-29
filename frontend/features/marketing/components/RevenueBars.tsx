@@ -20,7 +20,7 @@ const AXIS_LABEL = 'font-data tnum text-data-xs leading-none text-chart-label-li
  * billions"). Deliberately NOT TrendCharts: that component pulls the chart renderer into the route, and the
  * landing page carries a JS budget the marketing screens must not spend. Server-safe: no hooks,
  * no theme context; chart chrome uses the chart.axis / chart.label tokens, the single series uses
- * chart-1 (the first colour of the sequence, DESIGN_SYSTEM §10).
+ * chart-1 and, in dark, its dark half chart-1-dark (the first colour of the sequence, DESIGN_SYSTEM §10).
  *
  * The axis tops out one full tick above the tallest bar so its value label never collides with
  * the top of the plot: ticks every $100B up to (ceil(max / 100) + 1) * 100.
@@ -78,7 +78,7 @@ export default function RevenueBars({ points }: { points: ReadonlyArray<RevenueP
                 <span className="mb-1 whitespace-nowrap font-data tnum text-data-xs leading-none text-text-secondary-light dark:text-text-secondary-dark">
                   {bar.label}
                 </span>
-                <div className="w-full rounded-t-sm bg-chart-1" style={{ height: `${bar.heightPct}%` }} />
+                <div className="w-full rounded-t-sm bg-chart-1 dark:bg-chart-1-dark" style={{ height: `${bar.heightPct}%` }} />
               </div>
             ))}
           </div>

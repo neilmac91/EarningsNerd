@@ -53,7 +53,7 @@ interface GoldenCase {
   marked_letters: string[]
 }
 const golden: { cases: GoldenCase[] } = JSON.parse(readFileSync('../backend/tests/fixtures/analysis_data_notes.json', 'utf8'))
-const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string>; chart: { review: Record<string, string> } } } } }).theme.extend.colors
+const colors = (createRequire(import.meta.url)('../../tailwind.config.js') as { theme: { extend: { colors: { warning: Record<string, string> } } } }).theme.extend.colors
 const notesOf = (example: GoldenCase) => (example.expected_citation_notes ?? example.expected).notes
 const allNotes = golden.cases.flatMap(notesOf)
 
@@ -203,7 +203,7 @@ describe('every surface marks and names only the notes that question the number 
     // from, or on anything inside it that could draw its glyph. Out of reach: ink a stylesheet rule sets by another
     // selector, since the unit tests load no stylesheet.
     const rgb = (hex: string) => { const probe = document.createElement('i'); probe.style.color = hex; return probe.style.color }
-    const warningHexes = [colors.warning, colors.chart.review].flatMap((pair) => Object.values(pair))
+    const warningHexes = Object.values(colors.warning)
     const warningInks = new Set([...warningHexes.map((hex) => hex.toUpperCase()), ...warningHexes.map(rgb)])
     const letters = {
       drawn: [...container.querySelectorAll('[data-note-letter]')],
@@ -215,7 +215,7 @@ describe('every surface marks and names only the notes that question the number 
     for (const [kind, found] of Object.entries(letters)) expect(found.length, `no ${kind} letter was read: the scan went blind`).toBeGreaterThan(0)
     const inked = (element: Element) => ['fill', 'stroke', 'color'].some((ink) => warningInks.has((element.getAttribute(ink) ?? '').toUpperCase())
       || warningInks.has((element as HTMLElement).style?.getPropertyValue(ink) ?? ''))
-    const warningClass = ['text', 'fill', 'stroke'].flatMap((ink) => [`[class*="${ink}-warning"]`, `[class*="${ink}-chart-review"]`]).join(', ')
+    const warningClass = ['text', 'fill', 'stroke'].map((ink) => `[class*="${ink}-warning"]`).join(', ')
     const sources = (letter: Element) => { const chain = [...letter.querySelectorAll('*')]; for (let at: Element | null = letter; at; at = at.parentElement) chain.push(at); return chain }
     const inWarning = Object.values(letters).flat().filter((letter) => sources(letter).some((element) => element.matches(warningClass) || inked(element)))
     expect(inWarning.map((letter) => letter.outerHTML), 'a letter in warning ink').toEqual([])

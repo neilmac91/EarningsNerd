@@ -7,8 +7,10 @@
    Tooltip content component.
 
    RULES (seriesColor and the chrome tokens encode 1 and 3; 2 and 4 are the charts' to keep):
-     1. Series color comes from CHART_SERIES positionally, 1→N, never skipped
-        or re-sorted. seriesColor(i) is the only sanctioned lookup.
+     1. Series color comes from CHART_SERIES (CHART_SERIES_DARK in dark)
+        positionally, 1→N, never skipped or re-sorted. seriesColor(i, dark) is
+        the only lookup: the sequences are this module's own, so no chart can
+        index the light one in dark.
      2. gain/loss mark DIRECTION only. They are never categorical series
         colors, so "green line" can only ever mean "went up". Direction
         VOCABULARY is the app's ('up' | 'down' | 'flat', owned by
@@ -19,13 +21,15 @@
         labels, markers, or dash patterns (chart.5/6 converge for dichromats).
 
    All values mirror `chart.*` in tailwind.config.js. CVD-validated
-   (deuteranopia/protanopia) and ≥3:1 vs both cream #F4F3EE and navy #0B1120.
+   (deuteranopia/protanopia) and ≥3:1 vs both cream #F4F3EE and navy #0B1120;
+   in dark each series takes its chart-N-dark half, APCA Lc ≥ 45 on the dark
+   card where the light hexes measure −30 to −37 (E195's token fold).
 ============================================================================= */
 
 import { type ReactNode } from 'react'
 
 /** Categorical sequence — teal, honey, cornflower, coral, slate-blue, periwinkle. */
-export const CHART_SERIES = [
+const CHART_SERIES = [
   '#3E8E84', // 1 teal
   '#B8812F', // 2 honey
   '#5B7CC0', // 3 cornflower
@@ -34,15 +38,29 @@ export const CHART_SERIES = [
   '#8B7BC0', // 6 periwinkle
 ] as const
 
-/** Positional series color — 0-indexed. Charts should never need more than 6. */
-export function seriesColor(index: number): string {
+/** The same sequence's dark halves, chart-1-dark…6-dark. */
+const CHART_SERIES_DARK = [
+  '#62B2A6', // 1 teal
+  '#D3A55C', // 2 honey
+  '#8CA6E3', // 3 cornflower
+  '#E8927C', // 4 coral
+  '#97A6C2', // 5 slate-blue
+  '#AFA2DE', // 6 periwinkle
+] as const
+
+/** How many colours the sequence has, for a chart that cycles one series through them (FundamentalsTrendChart). */
+export const CHART_SERIES_COUNT = CHART_SERIES.length
+
+/** Positional series color — 0-indexed, in the theme's half. Charts should never need more than 6. */
+export function seriesColor(index: number, dark: boolean): string {
   if (process.env.NODE_ENV !== 'production' && index >= CHART_SERIES.length) {
     console.warn(`seriesColor(${index}): >6 series; collapse categories or facet the chart.`)
   }
   // Safe modulo — a negative index (reversed loops, delta math) must never
   // return undefined and silently break every stroke in the chart.
-  const n = CHART_SERIES.length
-  return CHART_SERIES[((index % n) + n) % n]
+  const series = dark ? CHART_SERIES_DARK : CHART_SERIES
+  const n = series.length
+  return series[((index % n) + n) % n]
 }
 
 /** Data face for every number a chart renders — mirrors fontFamily.data.
@@ -54,7 +72,6 @@ export const CHART_FONT =
 
 export interface ChartTheme {
   grid: string
-  axis: string
   label: string
   crosshair: string
   /** Bar-hover FILL wash (Tooltip cursor on bar charts) — chart.1 teal @ 8% / 16%. */
@@ -74,13 +91,12 @@ export interface ChartTheme {
   lossText: string
 }
 
-/** Chrome sub-tokens per theme. Mirrors chart.{grid,axis,label,crosshair,ref,tip}. */
+/** Chrome sub-tokens per theme. Mirrors chart.{grid,label,crosshair,ref,tip}. */
 export function chartTheme(dark: boolean): ChartTheme {
   return dark
     ? {
-        grid: 'rgba(255,255,255,0.06)',
-        axis: 'rgba(255,255,255,0.10)',
-        label: '#9CA3AF', // text.tertiary.dark, chart chrome's de-emphasised ink (the light label is the flat ink)
+        grid: '#525C6B', // chart.grid.dark, Lc −15.0 on the card
+        label: '#B8BEC7', // chart.label.dark, Lc −63.6 on the card, a step above text.tertiary.dark (−48.6) for 11–12 px text
         crosshair: 'rgba(156,163,175,0.4)',
         cursorFill: 'rgba(62,142,132,0.16)',
         ref: '#9CA3AF',
@@ -96,8 +112,7 @@ export function chartTheme(dark: boolean): ChartTheme {
         lossText: '#FB7185',
       }
     : {
-        grid: 'rgba(229,231,235,0.6)',
-        axis: '#E5E7EB',
+        grid: '#DCD9D0', // chart.grid.light, Lc 16.8 on the card
         label: '#6B7280', // the flat ink (text.tertiary was this value until #636A77) — 4.6:1 on the card charts sit on
         crosshair: 'rgba(107,114,128,0.45)',
         cursorFill: 'rgba(62,142,132,0.08)',
@@ -122,7 +137,7 @@ export function chartTheme(dark: boolean): ChartTheme {
      <XAxis dataKey="year" {...xAxisProps(dark)} />
      <YAxis {...yAxisProps(dark)} tickFormatter={fmtBillions} />
      <Tooltip cursor={barCursorProps(dark)} content={<ChartTooltip dark={dark} />} />
-     <Bar dataKey="value" fill={seriesColor(0)} />
+     <Bar dataKey="value" fill={seriesColor(0, dark)} />
 --------------------------------------------------------------------------- */
 
 export const gridProps = (dark: boolean) => ({
@@ -137,7 +152,10 @@ const tick = (dark: boolean) => ({
 })
 
 export const xAxisProps = (dark: boolean) => ({
-  axisLine: { stroke: chartTheme(dark).axis },
+  // The baseline takes the gridlines' ink: Recharts draws a gridline at each edge of the plot and this line over the
+  // bottom one, where the hairline chart.axis (Lc 8.8 on the light card, under the gridlines' 16.8) made the light
+  // baseline the quietest rule (E195's token fold; tests/unit/chartThemeTokens.spec.ts).
+  axisLine: { stroke: chartTheme(dark).grid },
   tickLine: false as const,
   tick: tick(dark),
   tickMargin: 8,
@@ -209,7 +227,7 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span
               aria-hidden="true"
-              style={{ width: 8, height: 8, borderRadius: 2, background: row.color ?? seriesColor(i), flex: 'none' }}
+              style={{ width: 8, height: 8, borderRadius: 2, background: row.color ?? seriesColor(i, dark), flex: 'none' }}
             />
             <span style={{ fontSize: 12, color: t.nameInk, flex: 1 }}>{row.name}</span>
             <span
