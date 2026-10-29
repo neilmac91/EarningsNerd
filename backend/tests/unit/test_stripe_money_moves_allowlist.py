@@ -17,12 +17,13 @@ instance), and called or passed uncalled, as the app hands Stripe calls to `run_
 it cannot see, left to review: an instance's other method on a name, an attribute or an item (`subscription.cancel()`,
 `event.data.object.cancel()`, `page.data[0].delete()`), which reads like any other object's `delete` (a session's, for
 one), or on the result of a call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class
-or a service bound to a name (`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); the customer service's
-update (`client.v1.customers.update(cus, params={"balance": -500})`, a credit), whose name a Python set's or dict's
-`update` shares (`billing_revenue_service.py` holds a set of customers), though `stripe.Customer.modify` is seen; a
-fetched object changed and saved (`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name
-computed at run time; and a request sent through `raw_request` or raw HTTP. Each is planted in the self-check's
-`stated_gaps`.
+or a service bound to a name (`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a customer's balance set
+through the customer service's update or through a create (`client.v1.customers.update(cus, params={"balance": -500})`,
+`stripe.Customer.create(balance=-500)`, a credit either way), since by name the update is also a Python set's or dict's
+(`billing_revenue_service.py` holds a set of customers) and the create is also the checkout's own customer
+(`routers/subscriptions.py`), though `stripe.Customer.modify` is seen; a fetched object changed and saved
+(`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name computed at run time; and a request
+sent through `raw_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
 """
 import ast
 from pathlib import Path
@@ -33,7 +34,8 @@ SKIP = {"tests", "evals", ".venv", "venv", "node_modules", "__pycache__"}
 
 # (resource, method) pairs that cancel, refund, void, credit or end a billing relationship; None matches every
 # method. An update or create counts where its parameters can cancel or credit (a subscription's or schedule's
-# cancellation, an item's quantity at 0, a customer's negative balance, a negative invoice item, a credit grant).
+# cancellation, an item's quantity at 0, a customer's negative balance, a negative invoice item or invoice line,
+# a credit grant).
 # The last rows end disputes, payouts and transfers, which the app never calls, so any such call would be new.
 # Calls that charge (an invoice's pay, a payment intent's or charge's capture) are outside the rule.
 MONEY_MOVES = {
@@ -52,7 +54,11 @@ MONEY_MOVES = {
     ("Invoice", "void_invoice"), ("Invoice", "mark_uncollectible"),
     ("invoices", "void_invoice"), ("invoices", "mark_uncollectible"),
     ("Invoice", "delete"), ("invoices", "delete"),
-    ("InvoiceItem", "create"), ("InvoiceItem", "delete"), ("invoice_items", "create"), ("invoice_items", "delete"),
+    ("Invoice", "add_lines"), ("Invoice", "update_lines"), ("Invoice", "remove_lines"),
+    ("invoices", "add_lines"), ("invoices", "update_lines"), ("invoices", "remove_lines"),
+    ("InvoiceLineItem", "modify"), ("line_items", "update"),
+    ("InvoiceItem", "create"), ("InvoiceItem", "modify"), ("InvoiceItem", "delete"),
+    ("invoice_items", "create"), ("invoice_items", "update"), ("invoice_items", "delete"),
     ("PaymentIntent", "cancel"), ("payment_intents", "cancel"),
     ("Reader", "refund_payment"), ("readers", "refund_payment"),
     ("Dispute", "close"), ("disputes", "close"),
@@ -196,6 +202,16 @@ def cancel_or_credit_by_update(client):
     stripe.Customer.modify("cus_1", balance=-500)
     stripe.InvoiceItem.create(customer="cus_1", amount=-500)
     client.v1.invoice_items.create(params={"customer": "cus_1", "amount": -500})
+    stripe.InvoiceItem.modify("ii_1", amount=-500)
+    client.v1.invoice_items.update("ii_1", params={"amount": -500})
+    stripe.Invoice.add_lines("in_1", lines=[{"amount": -500}])
+    client.v1.invoices.add_lines("in_1", params={"lines": [{"amount": -500}]})
+    stripe.Invoice.update_lines("in_1", lines=[{"id": "il_1", "amount": -500}])
+    client.v1.invoices.update_lines("in_1", params={"lines": [{"id": "il_1", "amount": -500}]})
+    stripe.Invoice.remove_lines("in_1", lines=[{"id": "il_1", "behavior": "delete"}])
+    client.v1.invoices.remove_lines("in_1", params={"lines": [{"id": "il_1", "behavior": "delete"}]})
+    stripe.InvoiceLineItem.modify("in_1", "il_1", amount=-500)
+    client.v1.invoices.line_items.update("in_1", "il_1", params={"amount": -500})
 def reads(client, db, row):
     stripe.Subscription.list(customer="cus_1")
     stripe.Subscription.retrieve("sub_1")
@@ -216,6 +232,8 @@ async def stated_gaps(client, subscription):
     subs = client.v1.subscriptions
     subs.cancel("sub_1")
     client.v1.customers.update("cus_1", params={"balance": -500})
+    stripe.Customer.create(balance=-500)
+    client.v1.customers.create(params={"balance": -500})
     fetched = stripe.Subscription.retrieve("sub_1")
     fetched.cancel_at_period_end = True
     fetched.save()
@@ -250,6 +268,11 @@ async def stated_gaps(client, subscription):
         ("cancel_or_credit_by_update", "CreditGrant.create"), ("cancel_or_credit_by_update", "credit_grants.create"),
         ("cancel_or_credit_by_update", "Customer.modify"), ("cancel_or_credit_by_update", "InvoiceItem.create"),
         ("cancel_or_credit_by_update", "invoice_items.create"),
+        ("cancel_or_credit_by_update", "InvoiceItem.modify"), ("cancel_or_credit_by_update", "invoice_items.update"),
+        ("cancel_or_credit_by_update", "Invoice.add_lines"), ("cancel_or_credit_by_update", "invoices.add_lines"),
+        ("cancel_or_credit_by_update", "Invoice.update_lines"), ("cancel_or_credit_by_update", "invoices.update_lines"),
+        ("cancel_or_credit_by_update", "Invoice.remove_lines"), ("cancel_or_credit_by_update", "invoices.remove_lines"),
+        ("cancel_or_credit_by_update", "InvoiceLineItem.modify"), ("cancel_or_credit_by_update", "line_items.update"),
     ]
 
 

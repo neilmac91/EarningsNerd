@@ -39,7 +39,9 @@ records is the founder's, through the founder's own consoles; see [Provider clea
 3. **Only after that commit**, the response clears the access, presence and refresh cookies and answers 200.
 
 A failure anywhere in step 2 is rolled back before the session is released. The answer is 500 with "We could not
-delete your account. Contact support.", and no `Set-Cookie`.
+delete your account. Contact support.", and no `Set-Cookie`. The one exception is a commit the database applied whose
+reply was lost (a dropped connection): the rollback then undoes nothing, so the account is deleted with its audit row
+though the answer is the same 500 (the matrix's commit row).
 
 **The request timeout.** The request-timeout middleware (`main.py`, `request_timeout_middleware`; 30 s for this
 route) answers 504 "Request timed out after 30.0s" when the route has not finished. That 504 does not stop the route
@@ -82,7 +84,7 @@ wherever it is.
 | Case | Database | Logs (for as long as Cloud Logging keeps them) |
 | --- | --- | --- |
 | Success, with or without a provider failure | The `user_deleted` row: account id, email, each provider's outcome, a UTC timestamp | WARNING `USER DELETION: … account deletion initiated` (account id, email, Stripe customer); one INFO `Cancelled Stripe subscription …` per cancellation and a WARNING `Skipped Stripe subscription … of another customer` per one skipped; each provider's INFO or ERROR line; INFO `USER DELETION COMPLETED … Third-party deletion results: …` |
-| A database or audit failure | Nothing new: the account and its rows as they were | The initiated WARNING; the cancellation and provider lines; ERROR `Error deleting user account <id>: <cause>. Third-party deletion results: …` |
+| A database or audit failure | Nothing new: the account and its rows as they were; after a commit whose reply was lost, the account is gone and its `user_deleted` row stands | The initiated WARNING; the cancellation and provider lines; ERROR `Error deleting user account <id>: <cause>. Third-party deletion results: …` |
 | The account already gone | The first deletion's row | The same ERROR, its cause `Account <id> was deleted after its lookup` |
 | A 504 | As the route later ended | As the route later ended: the COMPLETED INFO line or the ERROR line, after the 504 |
 | A stop part-way | As far as the unit got (all or nothing) | The lines written before the stop |
