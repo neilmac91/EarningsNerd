@@ -102,9 +102,10 @@ It runs these passes, in this order; the sets are those of `ops/detection/proxy_
    proxy tags), restored to the original with the local gate's verdict and no authoritative check, as the
    backfill stores it with no authority. Refused when no original was recorded (a replacement before
    #1191), or when the original is more than 1% off the 10-K's figure. A row left because a report row
-   holds its figure that is the current row at the 10-K winner's identity and fails the agreement test
-   (below) with that winner also refuses the company: left, the company's figure would stay the proxy's
-   where the 10-K contradicts it.
+   holds its figure refuses the company where it is the company's current figure at its key (`is_latest`)
+   and fails the agreement test (below) with the fresh 10-K winner at that key, whatever the winner's
+   identity: left, the company's figure would stay the proxy's where the 10-K contradicts it. A left row
+   that is not current, or that agrees with the winner within the test, stays left and listed.
 2. **Set 5: filing rows the old cross-check confirmed against a proxy's figure** (a filing row of another
    source whose recorded check confirmed it against an `authoritative_value` a proxy figure holds). Left
    alone when a stored report row holds that figure (the confirmation may have come from it), listed and
@@ -162,7 +163,7 @@ positive evidence, with every reason in one error: `Proxy repair refused for thi
 | `a stored report row (fact N) has no fresh winner to agree with` | no fresh winner, but a stored report gives a figure |
 | `the winner's row (fact N) was rolled back; a reviewed reapplication is required` | as for any rolled-back identity (below) |
 | `the filing row holding the 10-K's identity (fact N) disagrees with the 10-K on: …` | the agreement test, naming each failing clause: `value`, `start`, `fiscal year` |
-| `a report row holds the proxy figure behind this filing row, which is current at the 10-K's identity and disagrees with the 10-K on: …` | sets 4 and 5: a row left because a report row holds its figure, current at the winner's identity, fails the agreement test |
+| `a report row holds the proxy figure behind the filing row, which is the company's current figure and disagrees with the 10-K on: …` | sets 4 and 5: a row left because a report row holds its figure is the company's current figure at its key (`is_latest`) and fails the agreement test with the fresh 10-K winner at that key, at any identity, naming each failing clause |
 | `a row outside the repair's scope is built on a proxy figure` | set 3: a filing's calculation or a reported row |
 
 A postcondition then holds on the plan, before any write, and again on the apply's rows after its
@@ -214,12 +215,19 @@ reason, and decide each refused row from its filing (founder, 2026-10-26).
   10-K exactly), or `report_backed` (a report row held its figure before the apply, and another
   correction of the same run changed that row). `unclassified` would be a defect of the step: report it.
 - `left_report_backed`: each row sets 4 and 5 leave because another stored report row holds its figure,
-  in the shape of a `rows` entry (action `left_report_backed`) with its `set`, the `figure` (set 4: its
-  value; set 5: the figure its check confirmed it against), today's 10-K figure (`authority`) and
-  `backed_by`, each backing row's fact id, accession, form, `is_latest`, `filing_id` and source. It is for
-  reading only: the step writes and journals nothing for these rows, and no counter, `detection_listed` or
-  residual counts them. Read each against its filing: a backing row at another accession (a demoted
-  winner, or a history row, below) may hold another report's figure, not this filing's.
+  in the shape of a `rows` entry (action `left_report_backed`) with its `set`, the `figure` as a decimal
+  string, as `rows` carries values (set 4: its value; set 5: the figure its check confirmed it against),
+  today's 10-K figure (`authority`) and `backed_by`, each backing row's fact id, accession, form,
+  `is_latest`, `filing_id` and source. The listing is for reading only: it writes, journals and checks
+  nothing, and no counter or residual counts its entries. The rows it names are not out of the step's
+  reach, though. Set 2 still promotes a listed row in place where it holds the 10-K winner's identity and
+  a proxy row is retired at its key: the row is then written (`is_latest` only), journaled under
+  `proxy-repair-v1` and counted in `promoted`. And every row `detection_listed` names with the verdict
+  `report_backed` is listed here too. A listed row is not the company's current figure at its key, or
+  agrees with the 10-K winner there within the agreement test, or has no winner there (a year only a proxy
+  tags); otherwise the company is refused.
+  Read each against its filing: a backing row at another accession (a demoted winner, or a history row,
+  below) may hold another report's figure, not this filing's.
 
 The CLI's report adds `proxy_totals`, each counter and each `other_*` entry summed over the companies
 that succeeded, and `left_report_backed`, how many rows their blocks list there. Read each company's
@@ -245,7 +253,7 @@ each year a later report restated, the year's own report's figure as a non-curre
 report's accession (`facts/own_reports.py`). The history writer reads no proxy's item and stores a row
 only where no row holds the identity, so a history row is never a proxy's figure and never takes a filing
 row's identity. Beside history rows elsewhere in a company the step plans, writes, journals, lists and
-rolls back as without them, but they change its plan in three ways:
+rolls back as without them, but they change its plan in these ways:
 
 - **A history row is a report row**, as a demoted winner is. Where it holds the figure the old
   cross-check took from a proxy (a proxy that quotes a year as first reported, which a later report then
@@ -253,9 +261,18 @@ rolls back as without them, but they change its plan in three ways:
   the detection file leaves it unlisted too: a re-recorded check stays as it was, and a replaced figure
   stays. `left_report_backed` lists each such row with the history row behind it. A history row holding
   another figure backs nothing.
-- **The refusal at the winner's identity.** Where such a row is the year's current row at the 10-K
-  winner's identity and disagrees with the winner, the company is refused, whether or not a proxy row is
-  current at the key.
+- **A refusal can appear.** Where a row left so is the company's current figure at its key and disagrees
+  with the fresh 10-K winner there, at any identity, the current-figure refusal (the table above) refuses
+  the company: the row may hold the winner's identity (NSB), or sit at its own while the year's winner
+  sits at a later 10-K's, stored behind it or only in the payload (LXC). Where a proxy row is current at
+  the key instead, the row is not current, and set 2's agreement test refuses the company when it would
+  promote the row at the winner's identity and the row disagrees with the winner.
+- **A refusal can disappear.** A row the step refused before the sync, for want of a recorded original,
+  for an original the 10-K contradicts or for a set-5 figure the 10-K contradicts, is left and listed
+  once a history row holds its proxy figure, where it is not the company's current figure (a set-5 row
+  below a later 10-K's current winner) or where its value agrees with the 10-K winner at its key within
+  the agreement test (a set-4 row the proxy put within 1% of the winner, though its recorded original is
+  contradicted).
 - **Adoption.** A fresh winner lands on a history row's identity only where the later reports' items for
   its year are gone from the payload. The step then promotes that row in place, as it promotes a demoted
   winner, and journals it, so the rollback restores it: the preview's `inserted` for that key becomes
@@ -263,7 +280,9 @@ rolls back as without them, but they change its plan in three ways:
 
 So read a company synced since the deploy against its own fresh dry run. Beside a preview from before its
 sync, `filing_rows_restored` and `filing_rows_reconfirmed` can be lower, with the rows they leave in
-`left_report_backed`; an `inserted` count can move to `promoted`; and a refusal can appear. The other
+`left_report_backed`; an `inserted` count can move to `promoted`; and a refusal can appear or disappear.
+Read every listed row against its filing, as above: none is the company's current figure where a 10-K
+winner contradicts it, but a non-current one may still be the figure a filing's own chart shows. The other
 corrections otherwise read current rows (the calendar correction) and calculations (the computed-metric
 correction), but the calendar correction admits its replacement winner as the step does, by its identity
 among every stored row, so where the same withdrawn items put that winner on a history row it corrects and
