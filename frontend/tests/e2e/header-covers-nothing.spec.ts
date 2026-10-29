@@ -901,37 +901,35 @@ test.describe("the hero's checking line takes no more rows than the invite line 
         localStorage.setItem('cookie_consent', JSON.stringify({ essential: true, analytics: false, sessionRecording: false, timestamp: '2026-10-10T00:00:00Z', version: 2 }))
       })
       // Readiness stays held, so the cell shows the checking line and holds the invite line; both keep their layout.
+      // The line is found by the invite line it holds, so the case reads whatever the checking line says.
       await answerHeld(page, baseURL!, 'guest', 'readiness')
       await page.setViewportSize({ width: 320, height: 900 })
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.goto('/')
-      const checking = publicAccessCopy('invite', null, true).line
-      const invite = ACCESS_COPY.invite.line
-      await expect(page.locator('main').getByText(checking, { exact: true })).toBeVisible()
+      await expect(page.getByRole('banner').getByRole('link', { name: EXAMPLE_LINK }), 'the account link offers the live example while readiness is held').toHaveCount(1)
       if (doubled) await doubleText(page)
+      const invite = ACCESS_COPY.invite.line
       const taller: string[] = []
       for (const width of doubled ? ROW_WIDTHS.doubled : ROW_WIDTHS.default) {
         await page.setViewportSize({ width, height: 900 })
         await settle(page)
-        const rows = await page.evaluate(
-          ({ checking, invite }) => {
-            const line = [...document.querySelectorAll('main p')].find((p) => p.textContent!.includes(checking))
-            if (!line) throw new Error(`no paragraph in main carries the checking line ("${checking}")`)
-            const lineHeight = parseFloat(getComputedStyle(line).lineHeight)
-            // A line box's text fragments share its top; a new row starts more than half a line below the last.
-            const rowsOf = (text: string) => {
-              const cell = [...line.children].find((child) => child.textContent === text)
-              if (!cell) throw new Error(`the hero's access line holds no "${text}"`)
-              const range = document.createRange()
-              range.selectNodeContents(cell)
-              const tops = [...range.getClientRects()].map((rect) => rect.top).sort((a, b) => a - b)
-              return tops.filter((top, i) => i === 0 || top - tops[i - 1] > lineHeight / 2).length
-            }
-            return { checking: rowsOf(checking), invite: rowsOf(invite) }
-          },
-          { checking, invite },
-        )
-        if (rows.checking > rows.invite) taller.push(`${width}px: ${rows.checking} rows, the invite line ${rows.invite}`)
+        const rows = await page.evaluate((invite) => {
+          const held = [...document.querySelectorAll('main p > [aria-hidden="true"]')].find((cell) => cell.textContent === invite)
+          if (!held) throw new Error(`no paragraph in main holds the invite line ("${invite}") while readiness is held`)
+          const line = held.parentElement!
+          const shown = [...line.children].filter((cell) => !cell.hasAttribute('aria-hidden'))
+          if (shown.length !== 1) throw new Error(`the hero's access line shows ${shown.length} lines while readiness is held`)
+          const lineHeight = parseFloat(getComputedStyle(line).lineHeight)
+          // A line box's text fragments share its top; a new row starts more than half a line below the last.
+          const rowsOf = (cell: Element) => {
+            const range = document.createRange()
+            range.selectNodeContents(cell)
+            const tops = [...range.getClientRects()].map((rect) => rect.top).sort((a, b) => a - b)
+            return tops.filter((top, i) => i === 0 || top - tops[i - 1] > lineHeight / 2).length
+          }
+          return { text: shown[0].textContent, checking: rowsOf(shown[0]), invite: rowsOf(held) }
+        }, invite)
+        if (rows.checking > rows.invite) taller.push(`${width}px: "${rows.text}" ${rows.checking} rows, the invite line ${rows.invite}`)
       }
       expect(taller, 'the widths where the checking line takes more rows than the invite line').toEqual([])
     })
