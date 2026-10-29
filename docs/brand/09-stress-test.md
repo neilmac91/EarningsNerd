@@ -54,6 +54,11 @@ The captures establish neither production behaviour nor full accessibility compl
 
 2026-10-23, after this pass: D-058 retires the catch card that T3 and T6 cite, for "Follow one figure to the filing"
 (#1530). Their scores stand as recorded, from captures that predate it; the next stress test rescores T3 and T6.
+2026-10-29, after this pass: E122 makes Pro's analysis ceiling a constant in `backend/app/services/entitlements.py`,
+1,000 a month, and states it beside the summary ceiling in the fair-use sentence the /pricing FAQ and the filing page's
+limit card place (`proFairUseLine()` in `frontend/lib/planLimits.ts`, which replaced `PRO_FAIR_USE_LINE`), while the
+analysis flag ships the feature. The homepage plan table's "Unlimited" (`landingPro`) still names no ceiling beside it.
+T9's score stands as recorded, from captures that predate the change; the next stress test rescores T9.
 
 ## 3. The three weakest points, fixed
 
