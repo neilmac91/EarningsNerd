@@ -1,6 +1,6 @@
 # Measure a Copilot change on the source production uses, and record which source it was
 
-Date: 2026-10-16   Area: evals
+Date: 2026-10-16, updated 2026-10-29 (E80)   Area: evals
 
 **Context**: #1111 (2026-10-07) added three quotation-guidance lines to the Copilot's system prompt. Its
 copilot-eval draws passed, but every one prepared its sources from the regex fallback. SEC had begun refusing
@@ -24,7 +24,11 @@ scripts). Gate: `backend/tests/unit/test_copilot_prompt_revisions.py` fails when
 retry bytes have no row in the table, a row has no measured source or no existing evidence path, or an owned rejection
 class makes the chooser send a retry message that no column hashes. For eval-baseline,
 #1347 added a native-section share floor (`backend/evals/regression_gate.py`: HARD below 0.90, WARN below 0.95) in an
-advisory job, so its gate result and the note's list of non-native filings still have to be read. Review checks the
-rest: a copilot-eval draw's prepared sources until E80 in `tasks/todo.md` lands, what a row says, a row overwritten in
-both the table and the test's list, and the model-facing bytes that have no row (the context message, tool schemas
-and generation options).
+advisory job, so its gate result and the note's list of non-native filings still have to be read. For copilot-eval,
+E80's preflight (`backend/evals/copilot_runner.py::validate_preparation`) refuses, before any provider call, a source
+whose excerpt builder record differs from the excerpt source its golden case declares, supplies a declared section
+under the length the native assembler reads as the filing's own, or names other prepared artifacts or another excerpt
+than the Copilot is handed (`backend/tests/unit/test_copilot_gate.py`, and `test_copilot_bootstrap.py` across the real
+builder). Review checks the rest: what a row says, a row overwritten in both the table and the test's list, a golden
+case's declared excerpt source, and the model-facing bytes that have no row (the context message, tool schemas and
+generation options).
