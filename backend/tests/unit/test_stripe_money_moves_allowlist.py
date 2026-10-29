@@ -9,12 +9,15 @@ function and call. A new one fails here until it is reviewed and listed.
 
 It matches the SDK's two spellings by name: the resource classes (`stripe.Subscription.delete`, `stripe.Refund.create`)
 and the client services (`client.subscriptions.cancel`, `client.v1.refunds.create`), each with or without the SDK's
-`_async` suffix, under a name a `from stripe import ... as ...` binds, on a resource fetched in the same expression
-(`stripe.Subscription.retrieve(x).delete()`, awaited or not), and called or passed uncalled, as the app hands Stripe
-calls to `run_on_stripe_threads`. `void_invoice` and `mark_uncollectible`, which only Stripe's invoices have, count
-on any receiver. What it cannot see, left to review: an instance's `cancel()` or `delete()` on a name
-(`subscription.cancel()`), which reads like any other object's `delete` (a session's, for one); a service bound to a
-name (`subs = client.v1.subscriptions`, then `subs.cancel(...)`); a fetched object changed and saved
+`_async` suffix, under a name a `from stripe import ... as ...` binds, on an instance built from its class
+(`stripe.Subscription(sid).delete()`) or fetched in the same expression (`stripe.Subscription.retrieve(x).delete()`,
+`client.v1.subscriptions.retrieve(x).delete()`, awaited or not; a service's fetch is read as its resource class's
+instance), and called or passed uncalled, as the app hands Stripe calls to `run_on_stripe_threads`. `void_invoice`,
+`mark_uncollectible`, `void_credit_note` and `void_grant`, which only Stripe's objects have, count on any receiver.
+What it cannot see, left to review: an instance's other method on a name (`subscription.cancel()`,
+`subscription.pause()`), which reads like any other object's `delete` (a session's, for one), or on the result of a
+call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class or a service bound to a name
+(`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a fetched object changed and saved
 (`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name computed at run time; and a
 request sent through `raw_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
 """
@@ -25,8 +28,9 @@ REPO = Path(__file__).resolve().parents[3]
 ROOTS = [REPO / "backend", REPO / "ops"]
 SKIP = {"tests", "evals", ".venv", "venv", "node_modules", "__pycache__"}
 
-# (resource, method) pairs that move money or end a billing relationship; None matches every method. The last rows
-# are Connect's: the app holds no connected account, so any such call would be new.
+# (resource, method) pairs that cancel, refund, void, credit or end a billing relationship; None matches every
+# method. The last rows end disputes, payouts and transfers, which the app never calls, so any such call would be new.
+# Calls that charge (an invoice's pay, a payment intent's or charge's capture) are outside the rule.
 MONEY_MOVES = {
     ("Subscription", "delete"), ("Subscription", "cancel"), ("Subscription", "modify"), ("Subscription", "pause"),
     ("subscriptions", "cancel"), ("subscriptions", "update"), ("subscriptions", "pause"),
@@ -34,12 +38,14 @@ MONEY_MOVES = {
     ("SubscriptionSchedule", "cancel"), ("subscription_schedules", "cancel"),
     ("Refund", None), ("refunds", None), ("ApplicationFee", "create_refund"), ("ApplicationFee", "refund"),
     ("CreditNote", None), ("credit_notes", None),
-    ("CreditGrant", "void_grant"), ("credit_grants", "void_grant"),
+    ("CreditGrant", "void_grant"), ("credit_grants", "void_grant"), ("CreditGrant", "expire"), ("credit_grants", "expire"),
     ("Customer", "create_balance_transaction"), ("balance_transactions", "create"),
     ("Customer", "delete"), ("customers", "delete"),
     ("Invoice", "void_invoice"), ("Invoice", "mark_uncollectible"),
     ("invoices", "void_invoice"), ("invoices", "mark_uncollectible"),
+    ("Invoice", "delete"), ("invoices", "delete"), ("InvoiceItem", "delete"), ("invoice_items", "delete"),
     ("PaymentIntent", "cancel"), ("payment_intents", "cancel"),
+    ("Reader", "refund_payment"), ("readers", "refund_payment"),
     ("Dispute", "close"), ("disputes", "close"),
     ("Transfer", "create_reversal"), ("reversals", "create"),
     ("Payout", "cancel"), ("Payout", "reverse"), ("payouts", "cancel"), ("payouts", "reverse"),
@@ -51,18 +57,37 @@ ALLOWED = {
 }
 
 
-# Invoice methods only Stripe has: a call of either moves money whatever the receiver.
-STRIPE_ONLY_METHODS = {"void_invoice", "mark_uncollectible"}
+# Methods only Stripe's objects have: a call of one moves money whatever the receiver, an instance on a name included.
+STRIPE_ONLY_METHODS = {"void_invoice", "mark_uncollectible", "void_credit_note", "void_grant"}
+
+# A client service's fetch returns its resource class's instance, whose methods are the class's
+# (`client.v1.subscriptions.retrieve(x).delete()` deletes, though the service has no delete).
+SERVICE_RESOURCES = {
+    "subscriptions": "Subscription", "subscription_items": "SubscriptionItem",
+    "subscription_schedules": "SubscriptionSchedule", "invoices": "Invoice", "invoice_items": "InvoiceItem",
+    "payment_intents": "PaymentIntent", "customers": "Customer", "refunds": "Refund", "credit_notes": "CreditNote",
+    "credit_grants": "CreditGrant", "application_fees": "ApplicationFee", "disputes": "Dispute", "payouts": "Payout",
+    "transfers": "Transfer", "readers": "Reader",
+}
 
 
 def _resource(owner: ast.AST, aliases: dict[str, str]):
     """The resource a method is reached on: `stripe.Subscription`, `client.v1.subscriptions`, a name a
-    `from stripe import` binds, or the resource a same-expression fetch returns (`stripe.Subscription.retrieve(x)`,
-    or `await stripe.Subscription.retrieve_async(x)`)."""
+    `from stripe import` binds, an instance built from its class (`stripe.Subscription(sid)`), or the resource a
+    same-expression fetch returns (`stripe.Subscription.retrieve(x)`, `client.v1.subscriptions.retrieve(x)`, awaited
+    or not)."""
     if isinstance(owner, ast.Await):
         owner = owner.value
-    if isinstance(owner, ast.Call) and isinstance(owner.func, ast.Attribute):
-        owner = owner.func.value
+    if isinstance(owner, ast.Call):
+        func = owner.func
+        if isinstance(func, ast.Name):
+            return aliases.get(func.id, func.id)
+        if isinstance(func, ast.Attribute) and func.attr[:1].isupper():
+            return func.attr
+        if isinstance(func, ast.Attribute):
+            fetched = _resource(func.value, aliases)
+            return SERVICE_RESOURCES.get(fetched, fetched)
+        return None
     if isinstance(owner, ast.Attribute):
         return owner.attr
     return aliases.get(owner.id, owner.id) if isinstance(owner, ast.Name) else None
@@ -124,10 +149,16 @@ async def async_forms(client):
     await client.v1.subscriptions.cancel_async("sub_1")
     await stripe.Invoice.void_invoice_async("in_1")
     await (await stripe.Subscription.retrieve_async("sub_1")).cancel_async()
-def fetched_then_moved(invoice):
+    await (await client.v1.subscriptions.retrieve_async("sub_1")).delete_async()
+def fetched_then_moved(client, invoice, grant):
     stripe.Subscription.retrieve("sub_1").delete()
+    client.v1.subscriptions.retrieve("sub_1").delete()
     invoice.void_invoice()
     invoice.mark_uncollectible_async()
+    grant.void_grant()
+def constructed(client):
+    stripe.Subscription("sub_1").delete()
+    Sub("sub_1").cancel()
 async def handed_over(client):
     await run_on_stripe_threads(stripe.Subscription.delete, "sub_1")
     await run_in_threadpool(stripe.Refund.create, charge="ch_1")
@@ -140,15 +171,24 @@ def sdk_16_moves(client):
     client.v1.subscription_items.delete("si_1")
     client.v1.customers.balance_transactions.create("cus_1", params={"amount": -500, "currency": "usd"})
     stripe.Dispute.close("dp_1")
+    client.v1.billing.credit_grants.expire("credgr_1")
+    client.v1.invoices.delete("in_1")
+    client.v1.terminal.readers.refund_payment("tmr_1")
 def reads(client, db, row):
     stripe.Subscription.list(customer="cus_1")
     stripe.Subscription.retrieve("sub_1")
     client.customers.retrieve("cus_1")
     run_on_stripe_threads(stripe.Customer.retrieve, "cus_1")
+    client.v1.subscriptions.retrieve("sub_1").items
+    client.v1.invoices.pay("in_1")
     db.delete(row)
-def stated_gaps(client, subscription):
+async def stated_gaps(client, subscription):
     subscription.cancel()
     subscription.delete()
+    subscription.pause()
+    (await run_on_stripe_threads(stripe.Subscription.retrieve, "sub_1")).delete()
+    Bound = stripe.Subscription
+    Bound.delete("sub_1")
     subs = client.v1.subscriptions
     subs.cancel("sub_1")
     fetched = stripe.Subscription.retrieve("sub_1")
@@ -166,14 +206,18 @@ def stated_gaps(client, subscription):
         ("async_forms", "Subscription.cancel"), ("async_forms", "Customer.delete"),
         ("async_forms", "subscriptions.cancel"), ("async_forms", "Invoice.void_invoice"),
         ("async_forms", "Subscription.cancel"),
-        ("fetched_then_moved", "Subscription.delete"), ("fetched_then_moved", "invoice.void_invoice"),
-        ("fetched_then_moved", "invoice.mark_uncollectible"),
+        ("async_forms", "Subscription.delete"),
+        ("fetched_then_moved", "Subscription.delete"), ("fetched_then_moved", "Subscription.delete"),
+        ("fetched_then_moved", "invoice.void_invoice"), ("fetched_then_moved", "invoice.mark_uncollectible"),
+        ("fetched_then_moved", "grant.void_grant"),
+        ("constructed", "Subscription.delete"), ("constructed", "Subscription.cancel"),
         ("handed_over", "Subscription.delete"), ("handed_over", "Refund.create"),
         ("handed_over", "subscription_schedules.cancel"),
         ("sdk_16_moves", "SubscriptionSchedule.cancel"), ("sdk_16_moves", "credit_grants.void_grant"),
         ("sdk_16_moves", "ApplicationFee.create_refund"), ("sdk_16_moves", "subscriptions.pause"),
         ("sdk_16_moves", "subscription_items.delete"), ("sdk_16_moves", "balance_transactions.create"),
-        ("sdk_16_moves", "Dispute.close"),
+        ("sdk_16_moves", "Dispute.close"), ("sdk_16_moves", "credit_grants.expire"),
+        ("sdk_16_moves", "invoices.delete"), ("sdk_16_moves", "readers.refund_payment"),
     ]
 
 
