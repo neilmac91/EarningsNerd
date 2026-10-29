@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ANALYSIS_LINES, shipped } from '@/lib/planLimits'
+import { PRICING_HINT_BOOTSTRAP } from '@/features/subscriptions/lib/pricingHint'
 import { PRO_PRICING } from './prices'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -58,6 +59,8 @@ export default function PricingLayout({ children }: { children: React.ReactNode 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml() }} />
+      {/* Before the plans, so it runs before they paint: it marks a returning reader's plan (E228). */}
+      <script dangerouslySetInnerHTML={{ __html: PRICING_HINT_BOOTSTRAP }} />
       {children}
     </>
   )

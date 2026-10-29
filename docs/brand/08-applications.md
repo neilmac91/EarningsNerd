@@ -534,7 +534,9 @@ carries each change. The stress test on the result is [09-stress-test.md](09-str
   mail asks "Verify your email address to subscribe to Pro.", what verifying gates (checkout), where it
   said "and you can start reading", which nothing waits on (E46); the OAuth-linked mail says "login" and
   "log in"; the filing alert's last line points at the filing ("The summary links to the filing, so you
-  can check it."), where it said "so you don't have to read the whole filing".
+  can check it."), where it said "so you don't have to read the whole filing"; and the waitlist welcome
+  mail no longer asks its reader to verify their address "to secure your place", a step no page took
+  (E46 (2)).
 - **Toasts** (`frontend/app/providers.tsx`): every toast is a panel card on the tokens, on the
   overlay step of the elevation ladder (`e4`), in the theme the reader chose on the site rather than
   the OS setting; a status toast (success, error, warning, info) keeps the panel

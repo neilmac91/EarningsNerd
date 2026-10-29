@@ -80,6 +80,10 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 # the service's two, and a flood costs that hour's reset and verification mail instead of the whole queue.
 # The same 429 answers every address.
 ACCOUNT_MAIL_LIMITER = RateLimiter(limit=60, window_seconds=3600)
+# POST /refresh per IP (E96). A browser single-flights its refresh per tab (``ensureRefreshed``), so N open tabs
+# waking at once send N; the cap leaves room for a burst of tabs behind one shared address, and a client looping
+# refreshes is refused within the minute. Checked before the rotation takes a connection or the users row lock.
+REFRESH_LIMITER = RateLimiter(limit=60, window_seconds=60)
 # Every OAuth start persists a single-use state row: bound the
 # unauthenticated writers per IP. Sized for a person retrying a sign-in, not a script.
 OAUTH_START_LIMITER = RateLimiter(limit=20, window_seconds=60)
@@ -777,6 +781,12 @@ async def refresh(
     db: Session = Depends(get_db),
 ):
     """Exchange a valid refresh token for a new access token (and a rotated refresh token)."""
+    enforce_rate_limit(
+        request,
+        REFRESH_LIMITER,
+        "refresh",
+        error_detail="Too many session refreshes. Try again in a minute.",
+    )
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
     if not raw_token and body is not None:
         raw_token = body.refresh_token
@@ -803,10 +813,10 @@ async def refresh(
     # session. The refusing tab ends the session it knew and clears the session marker every tab reads
     # (notifySessionLost, frontend/lib/api/session.ts); no tab then silently renews a newer login until a /me read
     # succeeds and marks it again (getCurrentUser). A kept refresh cookie that was rotated away meets the replay sweep
-    # each time it is sent, which revokes every live token of the account until E96 scopes it to the replayed chain
-    # (refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on the injected Response and
-    # then raised; FastAPI answers an exception with a fresh response, so they never reached the browser
-    # (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
+    # each time it is sent, which revokes that token's chain, the live tokens its rotations lead to; the account's other
+    # sessions keep theirs (E96, refresh_token_service.rotate_refresh_token). Before E121 this route set deletions on
+    # the injected Response and then raised; FastAPI answers an exception with a fresh response, so they never reached
+    # the browser (tests/unit/test_raised_answers_carry_no_injected_headers.py pins that and refuses the form).
     try:
         access_token = await run_in_threadpool(rotate_and_issue)
     except RefreshTokenReuseError as exc:
@@ -1058,12 +1068,12 @@ def _apple_redirect(url: str) -> RedirectResponse:
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
-async def _start_google(
-    request: Request, db: Session, invite: Optional[str],
-    agreement: AcceptedAccountAgreement | None = None,
-) -> tuple[str, str]:
-    """Rate limit, save the state (with the invite's hash when the invite is live) and build
-    Google's consent URL. Returns ``(url, state)``; the caller sets the state cookie."""
+def _google_authorize_url(request: Request) -> tuple[str, str]:
+    """Answer 503 when Google is not configured, rate limit, then mint a state and build Google's
+    consent URL for it. Returns ``(url, state)``. The route saves the state
+    (``oauth_account_service.save_google_state``, with the invite's hash when the invite is live) in
+    the thread pool before it answers, then sets the state cookie: it hands its session to the thread
+    pool itself, and to nothing on the event loop (E121)."""
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Google is not available.")
     enforce_rate_limit(
@@ -1071,9 +1081,6 @@ async def _start_google(
         error_detail="Too many login attempts. Try again shortly.",
     )
     state = secrets.token_urlsafe(32)
-    # Signup assent and any live invite are bound to this single-use state. Plain login also
-    # consumes state but needs no signup evidence for an existing account.
-    await run_in_threadpool(oauth_account_service.save_google_state, db, state, invite, agreement)
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
         "redirect_uri": settings.GOOGLE_REDIRECT_URI,
@@ -1100,7 +1107,9 @@ async def google_login(request: Request, db: Session = Depends(get_db)):
     An invited sign-up starts through ``POST /api/auth/google/start`` instead, so the raw invite
     token never appears in a request URL (request logs record query strings).
     """
-    url, state = await _start_google(request, db, None)
+    url, state = _google_authorize_url(request)
+    # Plain login consumes its state too, but needs no signup evidence for an existing account.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_google_state_cookie(redirect, state)
     return redirect
@@ -1117,7 +1126,9 @@ async def google_start(body: OAuthStartRequest, request: Request, db: Session = 
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state = await _start_google(request, db, body.invite, agreement)
+    url, state = _google_authorize_url(request)
+    # Signup assent and any live invite are bound to this single-use state.
+    await run_in_threadpool(oauth_account_service.save_google_state, db, state, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_google_state_cookie(response, state)
     return response
@@ -1227,13 +1238,12 @@ async def google_callback(
 
 # ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
 
-async def _start_apple(
-    request: Request, db: Session, invite: Optional[str],
-    agreement: AcceptedAccountAgreement | None = None,
-) -> tuple[str, str]:
-    """Rate limit, save the nonce row (with the invite's hash when the invite is live) and build
-    Apple's consent URL. Returns ``(url, state)``; the row is committed before the caller returns
-    the URL and sets the browser-binding cookie."""
+def _apple_authorize_url(request: Request) -> tuple[str, str, str]:
+    """Answer 503 when Apple is not configured, rate limit, then mint a state and a nonce and build
+    Apple's consent URL for them. Returns ``(url, state, raw_nonce)``. The route saves the nonce row
+    (``oauth_account_service.save_apple_state``, with the invite's hash when the invite is live) in the
+    thread pool, committed before it returns the URL and sets the browser-binding cookie: it hands its
+    session to the thread pool itself, and to nothing on the event loop (E121)."""
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Logging in with Apple is not available.")
     enforce_rate_limit(
@@ -1243,7 +1253,6 @@ async def _start_apple(
 
     state = secrets.token_urlsafe(32)
     raw_nonce = secrets.token_urlsafe(32)
-    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, invite, agreement)
 
     # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
     params = {
@@ -1255,7 +1264,7 @@ async def _start_apple(
         "state": state,
         "nonce": hashlib.sha256(raw_nonce.encode()).hexdigest(),
     }
-    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state
+    return f"{_APPLE_AUTH_URL}?{urlencode(params)}", state, raw_nonce
 
 
 def _set_apple_state_cookie(response: Response, state: str) -> None:
@@ -1274,7 +1283,8 @@ def _set_apple_state_cookie(response: Response, state: str) -> None:
 async def apple_login(request: Request, db: Session = Depends(get_db)):
     """Redirect the browser to Apple's consent screen (plain sign-in: no invite). An invited
     sign-up starts through ``POST /api/auth/apple/start`` so the token never rides in a URL."""
-    url, state = await _start_apple(request, db, None)
+    url, state, raw_nonce = _apple_authorize_url(request)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, None, None)
     redirect = RedirectResponse(url=url, status_code=302)
     _set_apple_state_cookie(redirect, state)
     return redirect
@@ -1287,7 +1297,8 @@ async def apple_start(body: OAuthStartRequest, request: Request, db: Session = D
     agreement = body.accepted_agreement()
     if agreement is not None:
         _require_new_collection()
-    url, state = await _start_apple(request, db, body.invite, agreement)
+    url, state, raw_nonce = _apple_authorize_url(request)
+    await run_in_threadpool(oauth_account_service.save_apple_state, db, state, raw_nonce, body.invite, agreement)
     response = JSONResponse({"url": url})
     _set_apple_state_cookie(response, state)
     return response

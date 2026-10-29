@@ -21,6 +21,7 @@ import { RetryButton, useRetainedFailure } from '@/hooks/useRetainedFailure'
 import { PRO_PRICING } from './prices'
 import { billingCycleFromQuery, pricingHref, type BillingCycle } from '@/features/subscriptions/lib/pricingRoute'
 import { takeCarriedReturnNotice, useCarryReturnNotice } from '@/features/subscriptions/lib/returnNotice'
+import { rememberPricingPlan } from '@/features/subscriptions/lib/pricingHint'
 import { registerHrefWithRedirect, stashPostAuthRedirect } from '@/lib/postAuthRedirect'
 import { useLegalReadiness } from '@/features/legal/hooks/useLegalReadiness'
 import Link from 'next/link'
@@ -145,6 +146,13 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
   // refetch until data replaces it.
   const identityFailure = useRetainedFailure(identityQuery, queryKeys.currentUser())
   const subscriptionFailure = useRetainedFailure(subscriptionQuery, queryKeys.subscription.byUser(currentUser?.id))
+  // Until the identity read answers, the usage card and the billing switch take the plan a script marked before the
+  // first paint from a returning reader's session flag and the plan this page last named (E228); unmarked, the card
+  // shows nothing, as for a guest. A failed identity read holds nothing. Its answer is recorded for the next load.
+  const planHinted = !identityResolved && !identityFailure.failed
+  useEffect(() => {
+    if (currentUser !== undefined) rememberPricingPlan(currentUser)
+  }, [currentUser])
 
   // Account readiness for plan labels and the buy action. A guest is fully resolved; a known
   // user needs a subscription snapshot. Retained same-account data counts: a failed refresh
@@ -422,7 +430,7 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
               text), the yearly label on a centred line of its own; on one line it pushed
               "Monthly" past the screen's left edge. */}
           {showBillingSwitch && (
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <div className={cx('mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2', planHinted && '[[data-pricing-hint=pro]_&]:hidden')}>
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-white' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
@@ -452,14 +460,29 @@ function PricingContent({ billingCycle, setBillingCycle, billingResolved, checko
             so the plans below stay put as the count lands. Under 200% text, at the count line's wrap edges (about 290 to
             350px and 518 to 580px), a count whose figures are narrower or wider than the copy's "0" takes a line fewer
             or more (chief design on #1715). The two cards are keyed apart, so the meter mounts at its value rather than
-            running up from empty. */}
-        {usageHeld ? (
-          <Card key="usage-held" aria-busy="true" className="mx-auto mb-8 max-w-2xl p-cap-5">
+            running up from empty. Before the identity read answers, the same card shows only where a script marked a
+            returning reader's plan before the first paint, a Pro mark leaving out the meter (E228), and the identity's
+            answer keeps it, the same element, at the plan it names. */}
+        {usageHeld || planHinted ? (
+          <Card
+            key="usage-held"
+            aria-busy="true"
+            className={cx('mx-auto mb-8 max-w-2xl p-cap-5', planHinted && 'hidden [[data-pricing-hint]_&]:block')}
+          >
             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Current usage</p>
             <p aria-hidden="true" className="invisible text-sm">
-              0 / {currentUser?.is_pro ? '∞' : FREE_SUMMARY_LIMIT} summaries used this month
+              0 /{' '}
+              {planHinted ? (
+                <>
+                  <span className="[[data-pricing-hint=pro]_&]:hidden">{FREE_SUMMARY_LIMIT}</span>
+                  <span className="hidden [[data-pricing-hint=pro]_&]:inline">∞</span>
+                </>
+              ) : currentUser?.is_pro ? '∞' : FREE_SUMMARY_LIMIT}{' '}
+              summaries used this month
             </p>
-            {!currentUser?.is_pro && <UsageMeter className="invisible mt-3" used={0} limit={FREE_SUMMARY_LIMIT} />}
+            {(planHinted || !currentUser?.is_pro) && (
+              <UsageMeter className={cx('invisible mt-3', planHinted && '[[data-pricing-hint=pro]_&]:hidden')} used={0} limit={FREE_SUMMARY_LIMIT} />
+            )}
           </Card>
         ) : usage && !usageError && (
           <Card key="usage" className="mx-auto mb-8 max-w-2xl p-cap-5">

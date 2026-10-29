@@ -62,7 +62,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.schema import CreateSchema, DropSchema
 
 from app.database import Base, SessionLocal
-from app.models import OAuthAccount, OAuthState, RefreshToken, User
+from app.models import AuditLog, OAuthAccount, OAuthState, RefreshToken, User
 from app.routers import auth as auth_module
 from app.services import auth_account_service, oauth_account_service, user_account_service
 from app.services.account_agreement_service import accept_current_agreement
@@ -236,6 +236,14 @@ def _live_tokens(engine, user_id: int) -> int:
         ).count()
 
 
+def _deletion_audits(engine) -> int:
+    with _session(engine) as db:
+        return db.query(AuditLog).filter(AuditLog.action == "user_deleted").count()
+
+
+# The route's outcomes when no provider is configured; the deletion's audit row records them (F19).
+_NO_PROVIDER_CALLS = {"stripe": "skipped", "posthog": "skipped", "sentry": "skipped"}
+
 _OPERATIONS = {
     "refresh": lambda db, user_id, raw: tokens.rotate_and_commit(db, raw),
     "logout": lambda db, user_id, raw: tokens.revoke_and_commit(db, raw) is not None,
@@ -254,7 +262,9 @@ _OPERATIONS = {
         db, db.get(User, user_id), "another first password's hash", verified_hash=None,
     ),
     "password_login": lambda db, user_id, raw: _password_login(db, db.get(User, user_id)),
-    "delete_account": lambda db, user_id, raw: user_account_service.delete_user(db, user_id),
+    "delete_account": lambda db, user_id, raw: user_account_service.delete_account(
+        db, user_id, third_party_results=_NO_PROVIDER_CALLS,
+    ),
     "delete_loaded_account": lambda db, user_id, raw: _delete_loaded_account(db, user_id),
     "sign_in": lambda db, user_id, raw: tokens.mint_refresh_token(db, db.get(User, user_id)),
     "unlink_google": lambda db, user_id, raw: oauth_account_service.unlink_oauth_provider(db, user_id, "google"),
@@ -273,7 +283,7 @@ def _delete_loaded_account(db: Session, user_id: int) -> None:
     route held ``current_user``, but its audit row's commit had expired it by then)."""
     account = db.get(User, user_id)
     assert account is not None, "the first deletion committed before the second loaded the account"
-    return user_account_service.delete_user(db, user_id)
+    return user_account_service.delete_account(db, user_id, third_party_results=_NO_PROVIDER_CALLS)
 
 
 def _unlink_loaded(db: Session, user_id: int, provider: str) -> None:
@@ -313,6 +323,7 @@ def _change_password(
 def _race(
     engine, first: str, second: str, *, second_starts: str = "after_first_write", second_cookie_behind: bool = False,
     password_hash: Optional[str] = OLD_PASSWORD_HASH, links: tuple[str, ...] = (),
+    other_chain: Optional[list[str]] = None,
 ) -> tuple[object, object, int, str]:
     """Run ``first`` and ``second`` on one user's token, and return each one's result (or the exception it
     raised), the user's live tokens after both, and what let ``first`` commit: ``"blocked"`` (``second``
@@ -322,7 +333,8 @@ def _race(
     ``second_cookie_behind``, another tab has rotated the token once before either starts: ``first``
     carries the new cookie and ``second`` the one before it. ``password_hash`` is the account's at the
     start; None for one that signs in only through Google or Apple. ``links`` are the providers linked to
-    the account at the start.
+    the account at the start. Given ``other_chain``, the account first signs in on a second device too, and
+    that session's cookie is appended to the list (E96).
 
     Those waits run inside engine events, which must not raise: an exception there would leave the first
     request's transaction, and its locks, on the pooled connection. A wait that outlasts the hang guard
@@ -335,6 +347,9 @@ def _race(
                 for provider in links
             ])
             db.commit()
+    if other_chain is not None:
+        with _session(engine) as db:
+            other_chain.append(tokens.mint_refresh_token(db, db.get(User, user_id)))
     # Production's session settings, bound to this case's engine. An autoflushing session would flush a
     # pending write at the request's next query, where production waits for its commit, and could
     # serialize two requests that production does not.
@@ -436,6 +451,16 @@ def test_two_refreshes_with_one_cookie_rotate_once_and_the_second_meets_the_swee
     assert (_kind(first), _kind(second), live, released) == ("tuple", "RefreshTokenReuseError", 0, "blocked")
 
 
+def test_two_refreshes_with_one_cookie_end_that_chain_and_leave_the_accounts_other_session_live(postgres_engine):
+    """E96: the replay sweep the second refresh meets revokes its cookie's chain, the successor the first minted
+    included, and nothing else, so another device's session of the same account still rotates."""
+    other: list[str] = []
+    first, second, live, released = _race(postgres_engine, "refresh", "refresh", other_chain=other)
+    assert (_kind(first), _kind(second), live, released) == ("tuple", "RefreshTokenReuseError", 1, "blocked")
+    with _session(postgres_engine) as db:
+        assert _kind(tokens.rotate_and_commit(db, other[0])) == "tuple"
+
+
 @pytest.mark.parametrize("first,second", [("refresh", "logout_all"), ("logout_all", "refresh")])
 def test_a_refresh_and_a_logout_all_leave_no_live_token(postgres_engine, first, second):
     first_outcome, second_outcome, live, released = _race(postgres_engine, first, second)
@@ -508,11 +533,13 @@ def test_a_second_deletion_of_one_account_waits_out_the_first_and_finds_it_gone(
     """The second deletion starts once the first holds the account's lock, loads the account while the first
     has not committed, then waits at the lock; once the first commits, the lock's own query finds no row and
     the deletion raises, so the route answers its own 500 (the deletion-failure policy is F18's). Checked
-    before the lock, or through the loaded row, it would find the account and delete nothing, answering 200."""
+    before the lock, or through the loaded row, it would find the account and delete nothing, answering 200.
+    The first deletion's audit row commits with it, and the second, refused, commits none: one row (F19)."""
     first, second, live, released = _race(
         postgres_engine, "delete_account", "delete_loaded_account", second_starts="after_first_lock",
     )
     assert (_kind(first), _result(second), live, released) == ("NoneType", "LookupError", 0, "blocked")
+    assert _deletion_audits(postgres_engine) == 1
 
 
 def test_a_sign_in_does_not_wait_for_a_rotation_holding_the_lock(postgres_engine):
