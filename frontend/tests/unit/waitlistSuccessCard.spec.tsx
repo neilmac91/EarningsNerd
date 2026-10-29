@@ -243,16 +243,23 @@ describe("the referral link's Copy", () => {
     expect(button).toHaveTextContent(/^Copy$/)
   })
 
-  it('says a second press again, the line holding its room while it is emptied', async () => {
-    installClipboard()
+  it('says a second press again, the line holding its words and its margin while it is emptied', async () => {
+    const writeText = installClipboard()
     await join("You're on the waitlist.")
     const button = screen.getByRole('button', { name: 'Copy' })
     const line = screen.getByRole('status')
     const changes = changesOf(line)
     fireEvent.click(button)
     await waitFor(() => expect(saidBy(line)).toBe('Referral link copied.'))
+    const room = line.className
+    // The second write waits until the case lets it go, so the emptied line can be read.
+    let release!: () => void
+    writeText.mockImplementationOnce(() => new Promise<void>((resolve) => (release = () => resolve())))
     fireEvent.click(button)
-    await waitFor(() => expect(changes).toEqual(saidTwice('Referral link copied.')))
+    await waitFor(() => expect(saidBy(line)).toBe(''))
+    expect(line.className, 'the emptied line keeps its margin, so the card holds still').toBe(room)
+    await act(async () => release())
+    expect(changes).toEqual(saidTwice('Referral link copied.'))
   })
 
   it('says a failed copy in the same line, pointing to the link above it, and a second one again', async () => {
