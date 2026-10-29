@@ -1115,14 +1115,19 @@ Data notes strip <DataNotes> — the data notes are fine print, no longer a stri
                  filing reports a value other than the one a year's own annual report gave (MPA WP5a,
                  D8), one p follows the list (data-analysis-later-filings), never a summary clause: “A
                  later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total
-                 assets FY2018). Growth across the change reads n/m. Select one to see both filings.”
-                 It counts the reported figures that carry their own first_reported (a sign flip or a
-                 factor of 1,000 included; a calculated figure's evidence sits on its inputs, so none is
-                 counted), over the run's periods, places as the summary joins them and periods through
-                 formatAnalysisPeriod, from laterFilingPlaces over the points (so no data notes version
-                 moves). The middle sentence stands only where a comparison in the run reads n/m across
-                 the change. Every place it lists opens a dialog that gives both filings, which
-                 tests/unit/later-filings.spec.tsx holds. It is no note: the closed summary keeps its
+                 assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020;
+                 Net margin FY2018, FY2019, FY2020). Select one to see both filings.”
+                 Its first sentence counts the reported figures that carry their own first_reported (a
+                 sign flip or a factor of 1,000 included; a calculated figure's evidence sits on its
+                 inputs, so none is counted), over the run's periods, places as the summary joins them
+                 and periods through formatAnalysisPeriod, from laterFilingPlaces over the points (so no
+                 data notes version moves). The middle sentence names, in the same form, only the
+                 comparisons that read n/m across the change (the point's {basis}_first_reported
+                 present), so it never names a figure whose gap moved no growth past the n/m rule
+                 (REGN's total assets FY2018, 0.24%) or whose growth never turns n/m (EPS, D3), nor a
+                 sign change's n/m; with none the line is the first and last sentences. Every place
+                 the first sentence lists opens a dialog that gives both filings, which
+                 tests/unit/later-filings.spec.tsx holds with the second sentence's places. It is no note: the closed summary keeps its
                  clauses, “No figures need review” among them (D7). One legend follows:
                  “Select any figure to see its source filing, method and inputs. Automated checks confirm
                  that reported figures come from the company’s filed data (XBRL); they are not an audit

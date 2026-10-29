@@ -53,7 +53,7 @@ for (const theme of THEMES) for (const width of [390, 1480]) test.describe(`anal
     const notes = page.locator('[data-analysis-data-notes]')
     await expect(notes.locator(LINE)).toBeHidden()
     await notes.locator(':scope > details > summary').click()
-    await expect(notes.locator(LINE)).toHaveText('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m. Select one to see both filings.')
+    await expect(notes.locator(LINE)).toHaveText('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020). Select one to see both filings.')
     await expect(notes.locator(':scope > details > summary')).toContainText('No figures need review')
 
     // The chart's footnote names this n/m's cause, never the sign change's.

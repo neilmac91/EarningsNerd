@@ -298,11 +298,12 @@ describe('the data notes’ later-filing line (D8)', () => {
     expect(laterFilingPlaces(entry.dataset)).toEqual(entry.expected)
   })
 
-  it('names the reported figures in the open detail, after the notes, and says growth across the change reads n/m', () => {
+  it('names the reported figures in the open detail, after the notes, and the growths that read n/m across the change', () => {
     const dataset = planted(REGN)
     const { container } = render(<DataNotes dataset={dataset} />)
     const line = container.querySelector(LINE)!
-    expect(line.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m. Select one to see both filings.')
+    // Total assets FY2018's 0.24% gap moved no growth past the n/m rule: a figure of the first sentence, never the second's.
+    expect(line.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Growth across the change reads n/m (Revenue FY2018, FY2019, FY2020; Net margin FY2018, FY2019, FY2020). Select one to see both filings.')
     // In the open detail, after the notes list and before the legend, never in the closed summary.
     const detail = container.querySelector('[data-analysis-data-notes] > details > div')!
     expect(line.parentElement).toBe(detail)
@@ -328,13 +329,46 @@ describe('the data notes’ later-filing line (D8)', () => {
     expect(summary(planted('no_evidence')).line).toBeNull()
   })
 
-  it('keeps the n/m sentence for a run where growth reads n/m across the change, and counts one figure as one', () => {
+  it('drops the n/m sentence where no growth reads n/m across the change, a sign change’s n/m included, and counts one figure as one', () => {
     const { container } = render(<DataNotes dataset={planted('evidence_with_no_change_of_basis')} />)
     expect(container.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018). Select one to see both filings.')
     cleanup()
+    // Net income's n/m here comes from a change of sign, which carries no growth as first reported: not the line's.
+    const { container: signChange } = render(<DataNotes dataset={planted('a_sign_change_n_m_is_no_change_of_basis')} />)
+    expect(signChange.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 1 figure (Total assets FY2018). Select one to see both filings.')
+    cleanup()
+    // With every growth as first reported taken away, the REGN run keeps its figures and loses the sentence.
+    const regn = planted(REGN)
+    for (const series of regn.series) for (const point of series.points) delete point.yoy_first_reported
+    const { container: none } = render(<DataNotes dataset={regn} />)
+    expect(none.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 3 figures (Revenue FY2018, FY2019; Total assets FY2018). Select one to see both filings.')
+    cleanup()
     // The exact sign flip and the factor of 1,000 are figures of the line too, beside their note (D8).
     const { container: flipped } = render(<DataNotes dataset={planted(SIGN_AND_SCALE)} />)
-    expect(flipped.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 2 figures (Financing cash flow FY2020; Long-term debt FY2019). Growth across the change reads n/m. Select one to see both filings.')
+    expect(flipped.querySelector(LINE)!.textContent).toBe('A later filing reports a different value for 2 figures (Financing cash flow FY2020; Long-term debt FY2019). Growth across the change reads n/m (Financing cash flow FY2020; Long-term debt FY2020). Select one to see both filings.')
+  })
+
+  it.each(CASES.map((entry) => [entry.name, entry]))('names in its n/m sentence exactly the comparisons that read n/m across the change: %s', (_, entry) => {
+    // The places as the fixture lists them, grouped by metric in order here, apart from the page's own helper.
+    const grouped = (refs: Ref[]) => {
+      const byLabel = new Map<string, string[]>()
+      for (const ref of refs) byLabel.set(ref.label, [...new Set([...(byLabel.get(ref.label) ?? []), ref.period])])
+      return [...byLabel].map(([label, periods]) => `${label} ${periods.join(', ')}`).join('; ')
+    }
+    const { container } = render(<DataNotes dataset={structuredClone(entry.dataset)} />)
+    const text = container.querySelector(LINE)?.textContent ?? null
+    if (!entry.expected.values.length) return expect(text).toBeNull()
+    const sentence = /Growth across the change reads n\/m \(([^)]*)\)\./.exec(text!)
+    if (!entry.expected.comparisons.length) {
+      expect(text).not.toMatch(/Growth across the change/)
+      return
+    }
+    expect(sentence?.[1]).toBe(grouped(entry.expected.comparisons))
+    // A figure with evidence whose own growth did not turn n/m is never named there.
+    const changed = new Set(entry.expected.comparisons.map((ref) => `${ref.label} ${ref.period}`))
+    for (const ref of entry.expected.values.filter((value) => !changed.has(`${value.label} ${value.period}`))) {
+      expect(sentence![1].split('; ').some((place) => place.startsWith(`${ref.label} `) && place.slice(ref.label.length + 1).split(', ').includes(ref.period)), `${ref.label} ${ref.period}`).toBe(false)
+    }
   })
 
   it('keeps its promise: every place it lists opens a dialog that gives both filings', async () => {
