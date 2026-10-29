@@ -41,10 +41,10 @@ once a token writer holds the lock, and hold the writer there until the deletion
 deleted something: taking the lock last, the deletion would delete the tokens first, and the writer's
 token write and the deletion's own row delete would wait on each other until PostgreSQL aborted one. A
 writer that waits out a deletion finds its token, or a login, change or reset the account, or an unlink
-its links, gone and writes nothing (before E121's first route family a reset read the account before the
-lock, waited at its revocation's lock instead, and its commit matched no row). Of two deletions of one
-account, the second waits out the first under the lock and finds the account gone there, even with the
-account loaded in its session before the first committed.
+its links, gone and writes nothing (before E121's reset-and-change slice (#1727) a reset read the account
+before the lock, waited at its revocation's lock instead, and its commit matched no row). Of two deletions
+of one account, the second waits out the first under the lock and finds the account gone there, even with
+the account loaded in its session before the first committed.
 """
 import asyncio
 import os

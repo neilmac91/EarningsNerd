@@ -12,7 +12,8 @@ generator: with every slot held, the whole instance stalled for the pool timeout
 returned `tool_failed`, and the figure shipped without its citation. Moving those lookups to the
 loop's default executor was not enough. Login kept its connection checked out while it awaited
 bcrypt through `asyncio.to_thread` (a register that validates an invite still does; login has released its
-session before bcrypt since 2026-10-20, and the password reset and change since E121's first route family), so lookups holding every default-executor thread and a holder
+session before bcrypt since 2026-10-20, E121; the password reset and change since #1727, E121's reset-and-change
+slice), so lookups holding every default-executor thread and a holder
 needing one waited on each other until the pool timed out, with the same uncited figure.
 
 **Rule.** The authentication dependencies await their blocking lookup through
