@@ -218,8 +218,9 @@ const LINK_ONLY_ANSWERS = {
   },
 }
 
-/** A long address the bulk send fails (the API answers 409). */
-const FAILS = 'jacqueline.worthington-smythe@example-enterprise.com'
+/** A long address the bulk send fails (the API answers 409). Its local part has no hyphen, so unbroken it cannot wrap
+ *  before its domain's: at 320px it ran out of its row at the default text size too. */
+const FAILS = 'bartholomew.featherstonehaugh@example-enterprise.com'
 
 /** Answers each invite the form sends: FAILS with a 409, any other address with a fresh link it did not email. Routes
  *  added later run first, so every other request falls back to openAdmin's answers. */
