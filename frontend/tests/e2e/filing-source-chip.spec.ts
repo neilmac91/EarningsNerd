@@ -270,7 +270,8 @@ for (const theme of ['light', 'dark'] as const) {
           const scrollY = await page.evaluate(() => window.scrollY)
           release!(recovered === 'empty' ? 'empty' : 'text')
           if (recovered === 'empty') {
-            const status = pane.getByRole('status')
+            // The Filing panel's own status region: the pane's status line sits beside the panels (E238).
+            const status = pane.getByRole('tabpanel', { name: 'Filing', exact: true }).getByRole('status')
             await expect(status).toContainText('The full filing text is not available to view in-app yet.')
             await expect(status).toBeFocused()
           } else {

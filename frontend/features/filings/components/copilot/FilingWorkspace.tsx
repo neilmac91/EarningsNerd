@@ -7,6 +7,7 @@ import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPane
 import CopilotCoachmark from './CopilotCoachmark'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
+import { PaneStatusContext } from './PaneStatusContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useConsentLayer } from '@/hooks/useConsentLayer'
@@ -115,6 +116,8 @@ export default function FilingWorkspace({
   children,
 }: FilingWorkspaceProps) {
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH)
+  // The pane's status line (PaneStatusContext), whose words the Ask rail sets.
+  const [paneStatus, setPaneStatus] = useState('')
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
   const shellRef = useRef<HTMLDivElement>(null)
@@ -446,6 +449,11 @@ export default function FilingWorkspace({
                 onClose={() => onOpenChange(false)}
                 sourceLabel={sourceLabel}
               />
+              {/* The pane's status line, sr-only: between the tabs and the panels, so it is heard whichever tab shows
+                  (a hidden panel takes everything in it out of the accessibility tree). The Ask rail says what it is
+                  doing here: "Reading the filing…" as a question is sent, "Answer ready." when the answer
+                  completes. */}
+              <p role="status" className="sr-only">{paneStatus}</p>
               <div className="flex min-h-0 flex-1 flex-col" onClickCapture={markPanelActivation}>
                 <div
                   id={PANE_PANEL_IDS.copilot}
@@ -453,7 +461,7 @@ export default function FilingWorkspace({
                   aria-labelledby={PANE_TAB_IDS.copilot}
                   className={activeView === 'copilot' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
                 >
-                  {copilotBody}
+                  <PaneStatusContext.Provider value={setPaneStatus}>{copilotBody}</PaneStatusContext.Provider>
                 </div>
                 <div
                   id={PANE_PANEL_IDS.filing}
