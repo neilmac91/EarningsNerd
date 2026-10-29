@@ -40,6 +40,11 @@ import CitationChip, { isHttpUrl } from './CitationChip'
 // in the filing workspace the line is the pane's).
 export const READING_LINE = 'Reading the filing…'
 
+// An errored answer's sentence as its card prints it: the alert's message, or the plan card's sentence as the server
+// wrote it, never a button's label. In the filing workspace the pane's status line says the same when the error lands
+// while the Filing tab shows, the card then in the hidden Ask panel (AskCopilotRail.tsx).
+export const errorSentence = (error: string | undefined): string => error || 'Something went wrong.'
+
 export interface CopilotMessageData {
   id: string
   role: 'user' | 'assistant'
@@ -379,7 +384,8 @@ export default function CopilotMessage({
   // the error tint or role="alert" (CopilotMessage.spec.tsx, statusTintsOnlyForStatus). The server's
   // sentence says what happened; upgrading cannot lift the fair-use cap, so that card has no button. The
   // rail turns the reading card into this one, and React keeps the element, so the reading card is already
-  // this status region and a screen reader announces the sentence when it arrives (below).
+  // this status region and a screen reader announces the sentence when it arrives (below). While the filing workspace's
+  // Filing tab hides the card, the pane's line says the sentence (errorSentence).
   if (message.status === 'error' && isPaywallError) {
     const fairUse = isCopilotFairUseLimit(message.error || '')
     return (
@@ -400,7 +406,7 @@ export default function CopilotMessage({
   if (message.status === 'error') {
     return (
       <div role="alert" className={cx('rounded-xl rounded-bl-sm border px-4 py-3 text-sm', noticeTint('error'))}>
-        <p className="font-medium text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
+        <p className="font-medium text-error-light dark:text-error-dark">{errorSentence(message.error)}</p>
         <div className="mt-2.5">
           {onRetry && (
             <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>

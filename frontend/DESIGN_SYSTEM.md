@@ -2371,9 +2371,11 @@ Ask answer       <CopilotMessage>: the SHIPPED copilot contract: status reading|
                  whichever tab shows, and below lg it sits inside the sheet's dialog. The rail hands it the words
                  (PaneStatusContext); a rail outside the filing workspace keeps a line of its own, mounted with the
                  conversation before any question. The line empties before each question, so the same words are
-                 heard again; on an error, which the card says itself (its alert, or the plan card's sentence),
-                 heard while the Ask tab shows (tasks/todo.md E241); and on a cancel (a close mid-question), which
-                 the card shows when it is next in view.
+                 heard again; on an error, which the card says itself (its alert, or the plan card's sentence); and
+                 on a cancel (a close mid-question), which the card shows when it is next in view. An error that
+                 lands while the Filing tab shows has its card in the hidden Ask panel, so the pane's line says the
+                 card's sentence instead, politely, whole and alone: the alert's message or the plan card's
+                 sentence, without a button's label or a prefix. A later tab switch says nothing more.
                  Its links print what the model wrote: an answer's own links take the prose links' rule
                  (`.copilot-answer`) and keep their weight, and a source's locator ("Item 7. MD&A")
                  composes countControlClass('link') with the new-tab icon, "(opens in a new tab)" for a
