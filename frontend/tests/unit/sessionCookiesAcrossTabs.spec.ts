@@ -7,7 +7,7 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * So a refresh one tab sent before another tab's login that answers after it puts the previous account's cookies over
  * the login's (the browser is that account while the tab shows the new one), one that answers after another tab's
  * logout signs the browser in again, and two refreshes sent at once carry the one refresh cookie, so the second
- * presents the token the first rotated away and meets the replay sweep, which ends every session of the account (E96).
+ * presents the token the first rotated away and meets the replay sweep, which ends that token's chain (E96).
  * Each silent refresh holds the session cookies' Web Lock exclusive, and a login, a logout and a logout of every
  * session hold it shared around their post (lib/api/client.ts), requests granted in the order made: refreshes go out
  * one at a time, a post waits for the refreshes queued before it, within the one wait it already had, and the refreshes
@@ -26,12 +26,12 @@ import { CanceledError, type InternalAxiosRequestConfig } from 'axios'
  * (FakeLockManager), localStorage (the session marker) and the session cookies, modelled for two accounts as
  * loginWaitsForRefresh.spec.ts models them: a request carries the cookies of the moment it is sent, a refresh's answer
  * sets again the session it was sent with, a login that took sets Y's, and a logout's answer clears them. The API
- * answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay that ends
- * every session of its account, and anything else is refused; a logout revokes its session's live token, whichever of
- * its tokens it carries; a password change, which needs a good access token, revokes the account's live token without
- * rotating it, so that token is refused when presented again, and gives the browser a new one. X is the account signed
- * in before; its access token has expired. jsdom has no lock manager of its own, so every other spec runs each tab
- * alone, as an older browser does.
+ * answers a refresh as it arrives (Browser.server): the live token rotates, one rotated away is a replay that ends its
+ * chain (each account here holds one, this browser's), and anything else is refused; a logout revokes its session's
+ * live token, whichever of its tokens it carries; a password change, which needs a good access token, revokes the
+ * account's live token without rotating it, so that token is refused when presented again, and gives the browser a new
+ * one. X is the account signed in before; its access token has expired. jsdom has no lock manager of its own, so every
+ * other spec runs each tab alone, as an older browser does.
  */
 
 type LockMode = 'shared' | 'exclusive'
@@ -205,7 +205,7 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
     postAnswers: [],
   }
   // Sent with the cookies of the moment (axios sends none for a cancelled request), it reaches the API at once, which
-  // rotates a live token, sweeps the account's sessions on one rotated away (E96) and refuses anything else; its answer
+  // rotates a live token, ends the chain of one rotated away (E96) and refuses anything else; its answer
   // comes when the case lets it, setting the rotated session's cookies, fresh. Cancelled first, its answer is dropped.
   refresh.mockImplementation((_url, signal) => {
     if (signal?.aborted) return Promise.reject(new CanceledError())
@@ -217,7 +217,7 @@ async function openTab(name: TabName, shared: Browser): Promise<Tab> {
       // Revoked without rotation by a password change: refused, below, with no sweep.
     } else if (account && token < account.tip) {
       Object.assign(account, { revoked: true, swept: true })
-      shared.events.push(`${name}'s refresh replays ${session}'s rotated token, and every session of ${session} ends`)
+      shared.events.push(`${name}'s refresh replays ${session}'s rotated token, and ${session}'s chain ends`)
     } else if (account && token === account.tip && !account.revoked) {
       account.tip += 1
       rotated = account.tip
@@ -475,7 +475,7 @@ describe("silent refreshes across tabs: one at a time (E96's two-tab trigger)", 
 
     await vi.advanceTimersByTimeAsync(1)
     expect(browser.events).toEqual([
-      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and every session of X ends", "B's refresh refused",
+      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and X's chain ends", "B's refresh refused",
     ])
     expect(await waiting).toMatchObject({ response: { status: 401 } })
     expect(browser.server.X.swept).toBe(true)
@@ -1140,7 +1140,7 @@ describe('with no navigator.locks (an older browser, a non-secure context)', () 
     first.resolve()
     await Promise.all(refreshing)
     expect(browser.events).toEqual([
-      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and every session of X ends",
+      "A's refresh sent with X", "B's refresh sent with X", "B's refresh replays X's rotated token, and X's chain ends",
       "B's refresh refused", "A's refresh answered for X",
     ])
     expect(browser.server.X.swept).toBe(true)
