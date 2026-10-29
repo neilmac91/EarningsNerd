@@ -54,9 +54,10 @@ its full selector, a rule inside @media or @supports, @font-face, and @page's ma
    symbols faces carry them, roman and italic, and "≈" (the 20-F and 6-K prompts ask for "≈US$X" beside a
    convenience translation) and the won and rupee signs; the data face's stack falls back to Inter before
    the system's monospace, and a nested list takes the disc (•, in Inter's latin subset) instead of
-   WeasyPrint's circle. Over both fixtures, an analysis whose narrative (roman and an em), grid and count
-   line print the marks (its nested operand list prints the disc), and a 20-F summary that prints "≈", "₩"
-   and "₹" in prose, a figure column and a quote, each with a mark, a space and a mark, the two fixtures
+   WeasyPrint's circle. Over both fixtures, an analysis whose narrative (roman and an em) prints the marks (its
+   grid prints none since D-061, and its nested operand list prints the disc), and a 20-F summary that prints
+   "≈", "₩" and "₹" in prose, a figure column and a quote, and the marks in its figure column, each with a mark,
+   a space and a mark, the two fixtures
    printing every mark in MARKS between them: WeasyPrint logs no .notdef;
    every font each render embeds, whatever kind of program, is of a vendored face's family (Inter Var, Inter
    Var Symbols or Geist Mono) and encoded by Identity-H; every glyph a composite font's text map pairs with
@@ -490,11 +491,15 @@ def embedded_fonts(pdf: bytes) -> list[tuple[str, bool, bool]]:
 
 
 def _pdfs() -> dict[str, str]:
-    analysis = export_fixtures.TestAnalysisPdfHtml()
+    fixtures = export_fixtures.TestAnalysisPdfHtml()
+    # A note that questions a figure, so the grid and the fine print draw its letter, a link in the note ink (D-061).
+    analysis = fixtures._analysis()
+    analysis.dataset_json["series"][0]["points"][0]["provenance"] = {
+        "method": "reported", "validation": "needs_review", "reasons": ["source_conflict"]}
     summary, filing = export_fixtures._make_summary_and_filing(export_fixtures._full_sections())
     return {
         "filing summary": ExportService().generate_pdf_html(summary, filing),
-        "analysis": ExportService().generate_analysis_pdf_html(analysis._analysis(), analysis._company()),
+        "analysis": ExportService().generate_analysis_pdf_html(analysis, fixtures._company()),
     }
 
 
@@ -892,8 +897,8 @@ def list_markers(html: str) -> dict[int, set[str]]:
 
 def _every_mark_analysis() -> str:
     """The analysis PDF with each mark the latin subsets lack in reach: an arrow in the narrative (the trend
-    detectors join a move with " → "), a calculated figure, whose dagger follows it in the grid's data face
-    and in the data notes' count line, and an operand with an operand of its own, a list in the methods list."""
+    detectors join a move with " → "), and an operand with an operand of its own, a list in the methods list. A
+    calculated figure carries no dagger since D-061: the 20-F summary prints a mark in the data face."""
     analysis = export_fixtures.TestAnalysisPdfHtml()._analysis()
     # A mark, a space and a mark keep the space in the marks' run (Pango), in roman and in italic (an em). The
     # thin space comes first: WeasyPrint's text map keeps the first text a glyph draws, so the reader reads the
@@ -907,7 +912,7 @@ def _every_mark_analysis() -> str:
             "inputs": [{"concept": "product_revenue", "value": 2000, "unit": "USD"}]}}],
     }
     html = ExportService().generate_analysis_pdf_html(analysis, export_fixtures.TestAnalysisPdfHtml()._company())
-    assert "→" in html and '$1,500 †</td>' in html and "calculated †" in html and '<ul class="operands">' in html
+    assert "→" in html and '<td class="num">$1,500</td>' in html and '<ul class="operands">' in html
     assert "<em>Moved 20.0% → 24.3%, † ‡.</em>" in html and "Marked †\u2009‡ and † ‡. Back ← and ◦ open." in html
     return html
 
@@ -977,20 +982,20 @@ def test_every_glyph_prints_in_a_vendored_face(tmp_path):
         assert (notdef, glyph_problems(shaped, pdf)) == ([], []), body
 
     # Planted: the same PDF without the symbols face sets the dagger and the arrow in DejaVu; with the data
-    # face's stack as it was, the grid's dagger takes the system's monospace; without the disc rule a nested
-    # list prints WeasyPrint's circle.
+    # face's stack as it was, the 20-F summary's figure-column marks take the system's monospace (the analysis
+    # grid prints no mark since D-061); without the disc rule a nested list prints WeasyPrint's circle.
     every_mark = pdfs["analysis with every mark"]
-    no_symbols = _SYMBOLS_FACE.sub("", every_mark)
-    old_stack = every_mark.replace("'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace", "'Geist Mono', monospace")
-    no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
-    assert no_symbols != every_mark and old_stack != every_mark and no_disc != every_mark
-    assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
     summary = pdfs["20-F summary with every mark"]
+    no_symbols = _SYMBOLS_FACE.sub("", every_mark)
+    old_stack = summary.replace("'Geist Mono', 'Inter Var', 'Inter Var Symbols', monospace", "'Geist Mono', monospace")
+    no_disc = every_mark.replace("ul ul { list-style-type: disc; }", "")
+    assert no_symbols != every_mark and old_stack != summary and no_disc != every_mark
+    assert foreign_fonts(no_symbols) and foreign_fonts(old_stack), "a fallback face must read as foreign"
     assert foreign_fonts(_SYMBOLS_FACE.sub("", summary)), "≈, ₩ and ₹ need the symbols faces"
     assert foreign_fonts(no_disc) == [] and list_markers(no_disc)[2] == {"◦ "}  # the face covers ◦: only the marker reads it
 
     # Planted: the symbols face declared as a second 'Inter Var' normal face, its first form, merges with the
-    # latin one, whichever registers first. Latin first: the analysis grid drew "†" with a latin glyph, the
+    # latin one, whichever registers first. Latin first: the analysis drew "†" with a latin glyph, the
     # 20-F summary "₩" as "A". Symbols first (a mark is the first text at its size): "ALIBABA" from the
     # symbols program.
     merge = ("font-family: 'Inter Var Symbols';", "font-family: 'Inter Var';")

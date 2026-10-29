@@ -53,4 +53,8 @@ figures passed their checks. The shared `totals.unknown` counts figures only; PD
 summaries separately count unknown comparison memberships instead of implying that this total
 covers both populations. `test_comparison_only_unknown_status_is_counted_in_pdf_and_workbook`
 uses the shared annual-window fixture to check both rendered exports and preserve the source
-dataset and totals unchanged.
+dataset and totals unchanged. Since 2026-10-27 (MPA WP3-B, D-061) both summaries are the page's fine
+print (`analysis_export_metadata.fine_print_summary`): each marked note's places and words, then "N not
+in our data", "N figures with no check recorded" and, apart, "N growth figures with no check recorded",
+"N calculated from filed figures", and "No figures need review · N checked" never beside a record-only
+note; `test_export_note_marks.py` holds both exports' letters to the shared fixture's `marked_letters`.
