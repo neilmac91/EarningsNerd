@@ -383,8 +383,9 @@ place of its icon for a moment; its words never flip to "Copied", which renames 
 region such as the bulk invite summary's, is heard on top of the confirmation (chief design on #1789 and #1791: Copy
 link's words flashed to "Copied" under a pinned aria-label, so its name lacked the word shown and a press in the resend
 dialog said nothing a screen reader hears). Gates: `tests/unit/copyConfirmations.spec.ts` (read as TypeScript, each
-clipboard write confirms through a `toast.success` in the function that writes or a `role="status"` line in its file,
-and no words in a file that writes read "Copied"; the waitlist's referral Copy is its residue, E244) and
+clipboard write, after it and outside a catch clause in the function that writes, calls `toast.success` or the setter
+of a state a `role="status"` line reads, and no words in a file that writes read "Copied"; the waitlist's referral Copy
+is its residue, E244) and
 `tests/unit/copyLinkButton.spec.tsx` (Copy link's name through a press, one toast in the resend dialog and the bulk
 summary, and no words changed in the summary's live region).
 
