@@ -35,7 +35,7 @@ import { exportFilename } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
-import NarrativePane, { NOT_ENOUGH_HISTORY, runStageWords, type NarrativeState } from './NarrativePane'
+import NarrativePane, { NOT_ENOUGH_HISTORY, NOT_ENOUGH_HISTORY_NEXT, runStageWords, type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, optionsFor, type PeriodRange } from './PeriodPicker'
 import ResultsHeader from './ResultsHeader'
 import TrendCharts from './TrendCharts'
@@ -111,8 +111,8 @@ export default function AnalysisPageClient() {
   // The run's status line, sr-only, beside Run analysis before any run. The pane's words sit in no live region, and a
   // status region announces text added to it, never text it was created with, so this line says the run: the first
   // stage's words as it starts (Run analysis or Refresh analysis), "Writing…" at the turn, and at the end "Analysis
-  // ready." or, for a range without enough history, the card's sentence saying so. An error empties it, since an alert
-  // says what went wrong (the card's, or the page's when the figures cannot be built), and so does a reset.
+  // ready." or, for a range without enough history, the card's notice whole. An error empties it, since an alert says
+  // what went wrong (the card's, or the page's when the figures cannot be built), and so does a reset.
   const [statusLine, setStatusLine] = useState('')
   // A run's first words, set a frame after the line empties: an ending or a reset before then drops them.
   const statusFrame = useRef<number | null>(null)
@@ -237,7 +237,9 @@ export default function AnalysisPageClient() {
           },
           onComplete: (completion) => {
             if (!isCurrent()) return
-            if (expectedSnapshot && completion.snapshot_id !== expectedSnapshot) {
+            // Only an analysis carries commentary, and with it the snapshot it was written over. A completion with too
+            // little history carries neither (the stream's contract), so it ends the run as it is.
+            if (expectedSnapshot && completion.kind === 'analysis' && completion.snapshot_id !== expectedSnapshot) {
               setNarrative({ status: 'error', text: '', error: 'Source data changed while this analysis was running. Run analysis again to refresh the figures and commentary together.' })
               setRunning(false)
               sayStatus('')
@@ -245,9 +247,9 @@ export default function AnalysisPageClient() {
             }
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
-            sayStatus(completion.kind === 'not_enough_data' ? NOT_ENOUGH_HISTORY : 'Analysis ready.')
-            // A fresh generation consumed quota — keep the settings usage meter honest.
-            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
+            sayStatus(completion.kind === 'not_enough_data' ? `${NOT_ENOUGH_HISTORY} ${NOT_ENOUGH_HISTORY_NEXT}` : 'Analysis ready.')
+            // A fresh generation consumed quota — keep the settings usage meter honest. Only an analysis is metered.
+            if (completion.kind === 'analysis' && !completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
           },
           onError: (message) => {
             if (!isCurrent()) return
