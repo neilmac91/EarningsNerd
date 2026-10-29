@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AnalysisPageClient from '@/features/analysis/components/AnalysisPageClient'
 import { queryKeys } from '@/lib/queryKeys'
@@ -65,8 +65,32 @@ describe('analysis snapshot consistency', () => {
     expect(screen.queryByRole('button', { name: 'Export PDF' })).not.toBeInTheDocument()
   })
 
+  it('ends a run over too little history with its own notice, since that completion carries no snapshot', async () => {
+    vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)
+    // The stream's not_enough_data completion carries no snapshot_id and no commentary (backend narrative.py's contract).
+    vi.mocked(streamAnalysis).mockImplementation(async (_ticker, _range, handlers) => handlers.onComplete({ kind: 'not_enough_data', analysis_id: null, narrative: '', citations: [], grounded: 0, cached: false, n_periods: 1 }))
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
+    client.setQueryData(queryKeys.currentUser(), { id: 7 })
+    client.setQueryData(queryKeys.subscription.byUser(7), { is_pro: true })
+    client.setQueryData(queryKeys.analysisCoverage('META'), { ticker: 'META', company_name: 'Meta', supported: true, annual: dataset.periods.map((period) => ({ ...period, has_core: true })), quarterly: [], limits: { annual: 10, quarterly: 12 } })
+    render(<QueryClientProvider client={client}><AnalysisPageClient /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Select Meta' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run analysis' }))
+    const card = (await screen.findByRole('heading', { name: 'AI trend analysis' })).closest('section')!
+    expect(await within(card).findByText('Not enough reported history in the selected range for a meaningful analysis.')).toBeInTheDocument()
+    expect(screen.queryByText(/Source data changed while this analysis was running/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // Nothing was written, so there is nothing to export or refresh.
+    expect(screen.queryByRole('button', { name: 'Export PDF' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Refresh analysis' })).not.toBeInTheDocument()
+  })
+
   it.each([
-    ['the fair-use 429', "You've reached this month's fair-use limit of 30 analyses. It resets at the start of next month.", false],
+    [
+      'the fair-use 429',
+      "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. It resets at the start of next month.",
+      false,
+    ],
     ['the 403 Pro gate', 'Multi-Period Analysis is a Pro feature. Upgrade to Pro to access this feature.', true],
   ])('answers %s with a plan link only for the Pro gate, and the fair-use sentence once', async (_, message, planLink) => {
     vi.mocked(getAnalysisDataset).mockResolvedValue(dataset)

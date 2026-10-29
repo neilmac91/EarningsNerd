@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.models import InviteCode, User
 from app.services import invite_service, login_lockout
+from app.services.auth_validation import is_valid_unicode
 from app.services.account_agreement_service import (
     AcceptedAccountAgreement, require_current_agreement, stage_account_agreement,
 )
@@ -47,6 +48,11 @@ def _generate_token() -> tuple[str, str]:
 
 
 def _hash_token(raw: str) -> str:
+    # A token that is not valid text (a lone surrogate) is no token this module minted (``_generate_token`` makes
+    # URL-safe ASCII), so a verification or reset lookup refuses it as unknown instead of raising from the encode,
+    # which answered 500 (E97).
+    if not is_valid_unicode(raw):
+        raise AccountTokenInvalidError()
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -124,10 +130,13 @@ def record_password_login(
     *,
     user_agent: Optional[str] = None,
     ip: Optional[str] = None,
-) -> Optional[Tuple[User, str]]:
+) -> Optional[Tuple[User, str, str]]:
     """Finish a password login whose password matched ``verified_hash``: reset the account's lockout,
     stamp ``last_login_at`` and mint the session's refresh token, committed together (see
-    ``login_lockout.clear_failures``). Returns the user and the raw refresh token.
+    ``login_lockout.clear_failures``). Returns the user, the raw refresh token and the account's stored
+    address, read before the commit expires the user: the caller builds the access token and the audit row
+    from it, so no read after the commit can fail a login that committed (E121). It is the stored row's
+    value; a login's typed address is lowercased and matched exactly, so the two are the same string.
 
     Under the account's users row lock (``refresh_token_service.lock_user_tokens``), and only while that
     hash is still the account's and the account active: a password reset or change revokes every
@@ -144,8 +153,9 @@ def record_password_login(
     login_lockout.clear_failures(db, email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
     _, refresh_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
+    stored_email = user.email
     db.commit()
-    return user, refresh_token
+    return user, refresh_token, stored_email
 
 
 def verify_email_token(db: Session, raw_token: str) -> User:
@@ -222,6 +232,27 @@ def complete_password_reset(db: Session, user: User, hashed_password: str) -> No
     # can't outlive the reset. The attacker is evicted; the legitimate owner logs in fresh.
     revoke_all_for_user(db, user.id)
     db.commit()
+
+
+def complete_password_reset_by_id(db: Session, user_id: int, hashed_password: str) -> None:
+    """The reset route's write: the account :func:`find_password_reset_user` found, read again by its id, then
+    :func:`complete_password_reset`. The route releases its session between the two, before the breached-password
+    check and bcrypt, so it keeps the id, not the row (E121). Raises :class:`AccountTokenInvalidError`, writing
+    nothing, when the account has been deleted since, as the token's read would have then.
+
+    The account's users row lock (``refresh_token_service.lock_user_tokens``) comes before the read, which then
+    sees the commit of whoever held it: a deletion holding it when this starts has deleted the row by the time the
+    read runs. Read before the lock, the row was still there, the reset waited at its revocation's lock, and its
+    commit then matched no row and raised.
+
+    The token is not checked again: the read and the write were apart across those waits when the route ran them
+    on the event loop too, so a reset whose token another reset burned meanwhile still writes, as it did there."""
+    lock_user_tokens(db, user_id)
+    user = db.query(User).filter(User.id == user_id).populate_existing().first()
+    if user is None:
+        db.rollback()  # releases the lock; nothing was written
+        raise AccountTokenInvalidError()
+    complete_password_reset(db, user, hashed_password)
 
 
 def stage_password_change(

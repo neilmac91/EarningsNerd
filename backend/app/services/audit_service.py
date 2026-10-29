@@ -6,7 +6,7 @@ important user actions and system events.
 """
 import logging
 from typing import Optional, Dict, Any
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import iso_z, utcnow
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
@@ -26,9 +26,16 @@ def create_audit_log(
     details: Optional[Dict[str, Any]] = None,
     status: str = "success",
     error_message: Optional[str] = None,
+    *,
+    mandatory: bool = False,
 ) -> AuditLog:
     """
     Create an audit log entry.
+
+    Best effort by default: the row commits on its own, and a failure is logged and swallowed. With
+    ``mandatory`` the row is the caller's to commit (F19): it is added to the caller's session and not
+    committed, so the caller's commit writes it with the change it records or not at all, and a failure
+    raises.
 
     Args:
         db: Database session
@@ -42,6 +49,7 @@ def create_audit_log(
         details: Additional context as a dictionary (will be stored as JSON)
         status: Status of the action ("success", "failed", "partial")
         error_message: Error message if status is "failed"
+        mandatory: Add the row to the caller's transaction, uncommitted, and raise on failure
 
     Returns:
         The created AuditLog instance
@@ -73,6 +81,8 @@ def create_audit_log(
         )
 
         db.add(audit_log)
+        if mandatory:
+            return audit_log
         db.commit()
         db.refresh(audit_log)
 
@@ -84,6 +94,8 @@ def create_audit_log(
         return audit_log
 
     except Exception as e:
+        if mandatory:
+            raise
         logger.error(f"Failed to create audit log: {str(e)}")
         db.rollback()
         # Don't raise - audit logging should never break the main flow
@@ -92,14 +104,17 @@ def create_audit_log(
 
 # Convenience functions for common audit events
 
-def log_user_deletion(
+def stage_user_deletion(
     db: Session,
     user_id,
     user_email: str,
     third_party_results: Dict[str, str],
     ip_address: Optional[str] = None,
 ) -> AuditLog:
-    """Log a user account deletion."""
+    """Stage an account deletion's audit row in the deletion's own transaction, uncommitted (F19).
+
+    This audit is mandatory, unlike the best-effort events: the caller's commit writes the row with the
+    deletion it records, and a failed insert fails that commit, so the two commit together or neither does."""
     return create_audit_log(
         db=db,
         action="user_deleted",
@@ -110,9 +125,10 @@ def log_user_deletion(
         ip_address=ip_address,
         details={
             "third_party_deletions": third_party_results,
-            "timestamp": utcnow().isoformat(),
+            "timestamp": iso_z(utcnow()),
         },
         status="success",
+        mandatory=True,
     )
 
 

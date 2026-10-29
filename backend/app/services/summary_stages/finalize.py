@@ -341,7 +341,7 @@ async def finalize(run: GenerationRun) -> AsyncIterator[dict]:
         run.charged_month = None
         run.charge_future = None  # nothing left to settle: the unit is owed
     elif user_id and count_usage and run.usage_reservation_token is None:
-        # No lease was held (background drain, uncapped Pro): the historical
+        # No lease was held (the background drain): the historical
         # completion-time count, full results only. A lease still held here was left
         # uncharged on purpose (an unsignalled timeout fallback); `release` releases it.
         def track_usage_sync():

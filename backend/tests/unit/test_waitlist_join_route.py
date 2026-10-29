@@ -1,4 +1,4 @@
-"""Route tests for POST /api/waitlist/join (E13c), plus the stats and verify routes it feeds.
+"""Route tests for POST /api/waitlist/join (E13c), plus the stats route it feeds.
 
 Per-test in-memory SQLite, ``get_db`` overridden, both email senders monkeypatched on the router
 module (they are imported by name there). Every test uses uuid emails so no two rows can collide
@@ -284,23 +284,17 @@ def test_join_total_signups_position_and_stats_count_existing_rows(client):
     assert stats.json() == {"total_signups": 2}
 
 
-def test_verification_link_verifies_then_404s_once_the_entry_is_gone(client, session_factory, emails):
-    email = _email()
-    assert _join(client, email=email).status_code == 200
-    token = emails["welcome"][0]["verification_link"].rsplit("/", 1)[-1]
+def test_the_join_hands_the_mail_no_verification_link_and_no_route_takes_one(client, emails):
+    """E46 (2): the welcome mail's verification link led to no page, and nothing read the flag it set,
+    so the step is gone: the join hands the mail no link for it, and the route that took its token
+    answers as any unknown path does. The mail's own words are held by the readiness test and
+    ``PREHEADER_LINES``."""
+    assert _join(client, email=_email()).status_code == 200
+    [welcome] = emails["welcome"]
+    assert "verification_link" not in welcome
 
-    ok = client.post(f"/api/waitlist/verify/{token}")
-    assert ok.status_code == 200
-    assert ok.json() == {"success": True, "message": "Email verified."}
-    with session_factory() as s:
-        row = s.query(WaitlistSignup).filter_by(email=email).one()
-        assert row.email_verified is True
-        s.delete(row)
-        s.commit()
-
-    gone = client.post(f"/api/waitlist/verify/{token}")
-    assert gone.status_code == 404
-    assert gone.json() == {"detail": "Waitlist entry not found."}
+    gone = client.post("/api/waitlist/verify/any-token")
+    assert (gone.status_code, gone.json()) == (404, {"detail": "Not Found"})
 
 
 def _before_first_commit(session_factory, rival_write) -> None:

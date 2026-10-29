@@ -35,7 +35,7 @@ import { exportFilename } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
-import NarrativePane, { type NarrativeState } from './NarrativePane'
+import NarrativePane, { NOT_ENOUGH_HISTORY, NOT_ENOUGH_HISTORY_NEXT, runStageWords, type NarrativeState } from './NarrativePane'
 import PeriodPicker, { defaultRange, optionsFor, type PeriodRange } from './PeriodPicker'
 import ResultsHeader from './ResultsHeader'
 import TrendCharts from './TrendCharts'
@@ -108,6 +108,31 @@ export default function AnalysisPageClient() {
   const rangeOwnerRef = useRef<{ ticker: string | null; mode: AnalysisMode } | null>(null)
   const queryClient = useQueryClient()
 
+  // The run's status line, sr-only, beside Run analysis before any run. The pane's words sit in no live region, and a
+  // status region announces text added to it, never text it was created with, so this line says the run: the first
+  // stage's words as it starts (Run analysis or Refresh analysis), "Writing…" at the turn, and at the end "Analysis
+  // ready." or, for a range without enough history, the card's notice whole. An error empties it, since an alert says
+  // what went wrong (the card's, or the page's when the figures cannot be built), and so does a reset.
+  const [statusLine, setStatusLine] = useState('')
+  // A run's first words, set a frame after the line empties: an ending or a reset before then drops them.
+  const statusFrame = useRef<number | null>(null)
+  const sayStatus = useCallback((words: string) => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+    statusFrame.current = null
+    setStatusLine(words)
+  }, [])
+  // The line empties first, so a screen reader hears the first words for every run, the same words included.
+  const sayRunStarted = useCallback(() => {
+    sayStatus('')
+    statusFrame.current = requestAnimationFrame(() => {
+      statusFrame.current = null
+      setStatusLine(runStageWords('assembling'))
+    })
+  }, [sayStatus])
+  useEffect(() => () => {
+    if (statusFrame.current != null) cancelAnimationFrame(statusFrame.current)
+  }, [])
+
   // Tri-state auth: undefined = resolving, null = guest, object = signed in (Header's contract).
   // Keys come from the F1 registry so this page shares the Header's auth/subscription cache and can
   // never drift into a split-brain key.
@@ -156,7 +181,8 @@ export default function AnalysisPageClient() {
     setDatasetError(null)
     setNarrative({ status: 'idle', text: '' })
     setRunning(false)
-  }, [])
+    sayStatus('')
+  }, [sayStatus])
 
   // The first report is the link the page opened with. A later, different one is a navigation that kept
   // the page mounted, so the page starts over from it: no pick, no results, the new link (or none), as
@@ -186,6 +212,8 @@ export default function AnalysisPageClient() {
   const startNarrative = useCallback(
     (force: boolean, report = dataset) => {
       if (!ticker || !range) return
+      // A forced run is Refresh analysis, a run of its own; Run analysis said its first words at the press.
+      if (force) sayRunStarted()
       const expectedSnapshot = report?.snapshot_id
       abortRef.current?.abort()
       const controller = new AbortController()
@@ -198,7 +226,10 @@ export default function AnalysisPageClient() {
         { mode, start_period: range.start, end_period: range.end, force },
         {
           onProgress: (stage) => {
-            if (isCurrent()) setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
+            if (!isCurrent()) return
+            setNarrative((s) => (s.status === 'streaming' ? { ...s, stage } : s))
+            // The same words again (a retry's "verifying" still reads "Writing…") change nothing, so nothing is heard.
+            sayStatus(runStageWords(stage))
           },
           onToken: (text) => {
             // Keep commentary private until its completed snapshot matches the displayed figures.
@@ -206,27 +237,32 @@ export default function AnalysisPageClient() {
           },
           onComplete: (completion) => {
             if (!isCurrent()) return
-            if (expectedSnapshot && completion.snapshot_id !== expectedSnapshot) {
+            // Only an analysis carries commentary, and with it the snapshot it was written over. A completion with too
+            // little history carries neither (the stream's contract), so it ends the run as it is.
+            if (expectedSnapshot && completion.kind === 'analysis' && completion.snapshot_id !== expectedSnapshot) {
               setNarrative({ status: 'error', text: '', error: 'Source data changed while this analysis was running. Run analysis again to refresh the figures and commentary together.' })
               setRunning(false)
+              sayStatus('')
               return
             }
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
-            // A fresh generation consumed quota — keep the settings usage meter honest.
-            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
+            sayStatus(completion.kind === 'not_enough_data' ? `${NOT_ENOUGH_HISTORY} ${NOT_ENOUGH_HISTORY_NEXT}` : 'Analysis ready.')
+            // A fresh generation consumed quota — keep the settings usage meter honest. Only an analysis is metered.
+            if (completion.kind === 'analysis' && !completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage.all() })
           },
           onError: (message) => {
             if (!isCurrent()) return
             setNarrative({ status: 'error', text: '', error: message })
             setRunning(false)
+            sayStatus('')
           },
         },
         controller.signal,
         report ?? undefined,
       )
     },
-    [ticker, range, mode, queryClient, dataset]
+    [ticker, range, mode, queryClient, dataset, sayStatus, sayRunStarted]
   )
 
   const run = useCallback(async () => {
@@ -240,6 +276,7 @@ export default function AnalysisPageClient() {
     setRunning(true)
     setDatasetError(null)
     setNarrative({ status: 'idle', text: '' })
+    sayRunStarted()
     analytics.analysisRun({ ticker, mode, start: range.start, end: range.end })
     try {
       const result = await getAnalysisDataset(ticker, {
@@ -257,8 +294,9 @@ export default function AnalysisPageClient() {
       setDatasetError(
         err instanceof ApiError ? err.detail : 'Could not build the dataset. Please try again.'
       )
+      sayStatus('')
     }
-  }, [ticker, range, mode, running, startNarrative])
+  }, [ticker, range, mode, running, startNarrative, sayRunStarted, sayStatus])
 
   // Cancel either phase of the request on unmount.
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -368,7 +406,7 @@ export default function AnalysisPageClient() {
         {/* Signed-out: the picker needs auth for real coverage — invite sign-in, show the sample below. */}
         {ticker && authResolved && !user && (
           <Notice
-            variant="info"
+            variant="neutral"
             className="mt-4"
             title={
               <>
@@ -438,6 +476,7 @@ export default function AnalysisPageClient() {
                     <Button onClick={run} loading={running} disabled={!range || running}>
                       Run analysis
                     </Button>
+                    <p role="status" className="sr-only">{statusLine}</p>
                   </div>
                 )}
               </div>
@@ -452,7 +491,7 @@ export default function AnalysisPageClient() {
       {isPro && datasetError && <Notice variant="error" title={datasetError} />}
       {isPro && proRequired && (
         <Notice
-          variant="info"
+          variant="neutral"
           title={narrative.error}
           description={
             <Link href="/pricing" className="font-semibold rounded underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark">

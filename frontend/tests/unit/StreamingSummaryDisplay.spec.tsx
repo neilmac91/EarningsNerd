@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import StreamingSummaryDisplay from '@/app/filing/[id]/StreamingSummaryDisplay'
 import { GuidanceCard } from '@/components/ui'
 import type { Filing } from '@/features/filings/api/filings-api'
-import { PRO_FAIR_USE_LINE } from '@/lib/planLimits'
+import { proFairUseLine } from '@/lib/planLimits'
 
 // The trial ships behind ENABLE_PRO_TRIAL (flipped with the backend's PRO_TRIAL_DAYS); a live flag lets a
 // case turn it on without re-importing the component.
@@ -500,8 +500,8 @@ describe('StreamingSummaryDisplay focus around a failed generation', () => {
     await settle()
     expect(document.activeElement).toBe(heading("You've hit this month's free limit"))
     expect(screen.getByRole('link', { name: 'Upgrade to Pro' })).not.toHaveFocus()
-    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046).
-    expect(screen.getByText(PRO_FAIR_USE_LINE)).toBeInTheDocument()
+    // What "go unlimited" holds, in the one sentence lib/planLimits.ts builds (E58, D-046, D-050).
+    expect(screen.getByText(proFairUseLine())).toBeInTheDocument()
   })
 
   it('its Try again hands focus to the progress heading when its press restarts the run', async () => {

@@ -180,21 +180,27 @@ export const barCursorProps = (dark: boolean) => ({
 
 /* ---------------------------------------------------------------------------
    ChartTooltip — Recharts custom `content`. Panel + hairline + e2 (light) /
-   shadow none (dark); values in the data face with tabular numerals.
+   shadow none (dark); values in the data face with tabular numerals. A row's
+   swatch is its mark's paint: the row's `color`, else the series colour of its
+   position. Recharts gives a row its series' own `fill`, so a chart whose bars
+   take their paint from Cells (the peers chart) passes `swatchOf`, which paints
+   each row's swatch as its bar.
 --------------------------------------------------------------------------- */
 
 export interface ChartTooltipProps {
   dark?: boolean
   active?: boolean
   label?: ReactNode
-  payload?: Array<{ name?: string; value?: number | string; color?: string }>
+  payload?: Array<{ name?: string; value?: number | string; color?: string; payload?: unknown }>
   /** Format a row value — defaults to String(). The row's series `name` is passed as the
    *  second argument so mixed-scale panels (money bars + a % growth line) can route by series
    *  instead of guessing from the value's magnitude. */
   formatValue?: (value: number | string | undefined, name?: string) => string
+  /** A row's swatch paint from its data entry (Recharts' `row.payload`), for marks painted one by one. */
+  swatchOf?: (entry: unknown) => { color: string; opacity?: number }
 }
 
-export function ChartTooltip({ dark = false, active, label, payload, formatValue }: ChartTooltipProps) {
+export function ChartTooltip({ dark = false, active, label, payload, formatValue, swatchOf }: ChartTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const t = chartTheme(dark)
   const fmt = formatValue ?? ((v: number | string | undefined) => String(v ?? ''))
@@ -223,26 +229,29 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
         {label}
       </div>
       <div style={{ display: 'grid', gap: 4 }}>
-        {payload.map((row, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              aria-hidden="true"
-              style={{ width: 8, height: 8, borderRadius: 2, background: row.color ?? seriesColor(i, dark), flex: 'none' }}
-            />
-            <span style={{ fontSize: 12, color: t.nameInk, flex: 1 }}>{row.name}</span>
-            <span
-              style={{
-                fontFamily: CHART_FONT,
-                fontVariantNumeric: 'tabular-nums',
-                fontSize: 12,
-                fontWeight: 500,
-                color: t.valueInk,
-              }}
-            >
-              {fmt(row.value, row.name)}
-            </span>
-          </div>
-        ))}
+        {payload.map((row, i) => {
+          const paint = swatchOf?.(row.payload)
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                aria-hidden="true"
+                style={{ width: 8, height: 8, borderRadius: 2, background: paint?.color ?? row.color ?? seriesColor(i, dark), opacity: paint?.opacity, flex: 'none' }}
+              />
+              <span style={{ fontSize: 12, color: t.nameInk, flex: 1 }}>{row.name}</span>
+              <span
+                style={{
+                  fontFamily: CHART_FONT,
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: t.valueInk,
+                }}
+              >
+                {fmt(row.value, row.name)}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

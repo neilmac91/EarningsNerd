@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightIcon, ListIcon, SignOutIcon, XIcon } from '@/lib/icons'
+import { ArrowRightIcon, ListIcon, SignOutIcon, WarningIcon, XIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/features/auth/components/UserMenu'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
@@ -415,8 +415,11 @@ export default function Header({
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                      // A step the account still needs: the menu's own row in the primary ink, the state's colour on
+                      // its glyph alone, as the account menu's row (E196 (2)).
+                      className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:text-text-primary-dark dark:hover:bg-white/5 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                     >
+                      <WarningIcon aria-hidden="true" className="h-4 w-4 flex-none text-warning-light dark:text-warning-dark" />
                       Verify your email
                     </Link>
                   )}

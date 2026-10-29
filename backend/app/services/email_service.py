@@ -271,26 +271,19 @@ def render_welcome_email(
     name: str | None,
     position: int,
     referral_link: str,
-    verification_link: str,
 ) -> tuple[str, str]:
     greeting = _greeting(name)
     html_body = f"""
     <p style="margin:0 0 16px;{_BREAK_ANYWHERE}">{greeting}</p>
     <p style="margin:0 0 16px;">You're on the EarningsNerd waitlist.</p>
-    <p style="margin:0 0 16px;">Your current position: <strong>#{position}</strong></p>
-    <p style="margin:0 0 24px;">
-      Please verify your email to secure your place:
-      <a href="{verification_link}" style="color:#3C6650;font-weight:600;">Verify email</a>
-    </p>
+    <p style="margin:0;">Your current position: <strong>#{position}</strong></p>
     """
     text_body = (
         f"{_greeting_text(name)}\n\n"
         "You're on the EarningsNerd waitlist.\n"
-        f"Your current position: #{position}\n\n"
-        "Please verify your email to secure your place:\n"
-        f"Verify email: {verification_link}"
+        f"Your current position: #{position}"
     )
-    preheader = f"You're number {position} on the waitlist. Verify your email to secure your place."
+    preheader = f"You're number {position} on the waitlist."
     return _wrap_html(html_body, footer=_WAITLIST_FOOTER, preheader=preheader), _wrap_text(text_body, _WAITLIST_FOOTER)
 
 
@@ -329,13 +322,11 @@ async def send_waitlist_welcome_email(
     name: str | None,
     position: int,
     referral_link: str,
-    verification_link: str,
 ) -> None:
     page, text = render_welcome_email(
         name=name,
         position=position,
         referral_link=referral_link,
-        verification_link=verification_link,
     )
     await send_email(to=[to_email], subject="You're on the EarningsNerd waitlist", html=page, text=text)
 

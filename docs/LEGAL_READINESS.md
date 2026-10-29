@@ -23,7 +23,7 @@ notice. Neither switch enables new checkout or promotional mail. Those capabilit
 unavailable until the offer/assent, checkout/deletion coordination, marketing permission,
 unsubscribe and suppression work is implemented and verified. There is no temporary configuration
 bypass for those missing controls. Requested account messages and existing billing management
-continue to work; the waitlist confirmation contains only the requested confirmation/verification.
+continue to work; the waitlist confirmation contains only the requested confirmation.
 
 While collection is closed, the unavailable contact form directs readers to the existing support
 and privacy contact channels. Keep those channels maintained for account assistance and rights

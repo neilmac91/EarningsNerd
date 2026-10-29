@@ -573,10 +573,15 @@ def test_oauth_start_is_rate_limited_per_ip(client, monkeypatch, public_mode, pr
     for _ in range(limit - 1):
         assert client.get(f"/api/auth/{provider}", follow_redirects=False).status_code == 302
     assert client.post(f"/api/auth/{provider}/start", json={}).status_code == 200
+    with SessionLocal() as db:
+        stored = db.query(OAuthState).count()
     blocked = client.get(f"/api/auth/{provider}", follow_redirects=False)
     assert blocked.status_code == 429
     assert "Retry-After" in blocked.headers
     assert client.post(f"/api/auth/{provider}/start", json={"invite": "x"}).status_code == 429
+    # A refused start writes no state: the limit comes before the save, so a client over it cannot fill the table.
+    with SessionLocal() as db:
+        assert db.query(OAuthState).count() == stored
 
 
 def test_oauth_start_get_handlers_take_no_invite_parameter():

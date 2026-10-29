@@ -36,6 +36,15 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    assistant's background tool activity is never surfaced. There is no
    token-by-token state, so no raw-text view and no caret. */
 
+// The reading card's words while an answer is grounded; the Copilot's status line says the same (AskCopilotRail.tsx;
+// in the filing workspace the line is the pane's).
+export const READING_LINE = 'Reading the filing…'
+
+// An errored answer's sentence as its card prints it: the alert's message, or the plan card's sentence as the server
+// wrote it, never a button's label. In the filing workspace the pane's status line says the same when the error lands
+// while the Filing tab shows, the card then in the hidden Ask panel (AskCopilotRail.tsx).
+export const errorSentence = (error: string | undefined): string => error || 'Something went wrong.'
+
 export interface CopilotMessageData {
   id: string
   role: 'user' | 'assistant'
@@ -375,12 +384,13 @@ export default function CopilotMessage({
   // the error tint or role="alert" (CopilotMessage.spec.tsx, statusTintsOnlyForStatus). The server's
   // sentence says what happened; upgrading cannot lift the fair-use cap, so that card has no button. The
   // rail turns the reading card into this one, and React keeps the element, so the reading card is already
-  // this status region and a screen reader announces the sentence when it arrives (below).
+  // this status region and a screen reader announces the sentence when it arrives (below). While the filing workspace's
+  // Filing tab hides the card, the pane's line says the sentence (errorSentence).
   if (message.status === 'error' && isPaywallError) {
     const fairUse = isCopilotFairUseLimit(message.error || '')
     return (
       <div role="status" className={ANSWER_CARD}>
-        <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.error}</p>
+        <p className="text-text-secondary-light dark:text-text-secondary-dark">{errorSentence(message.error)}</p>
         {!fairUse && onUpgrade && (
           <div className="mt-2.5">
             <Button size="sm" onClick={onUpgrade} leftIcon={<LightningIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
@@ -396,7 +406,7 @@ export default function CopilotMessage({
   if (message.status === 'error') {
     return (
       <div role="alert" className={cx('rounded-xl rounded-bl-sm border px-4 py-3 text-sm', noticeTint('error'))}>
-        <p className="font-medium text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
+        <p className="font-medium text-error-light dark:text-error-dark">{errorSentence(message.error)}</p>
         <div className="mt-2.5">
           {onRetry && (
             <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
@@ -452,13 +462,14 @@ export default function CopilotMessage({
   return (
     // While it reads, the card is a status region: a status region announces text added to it, never text it was
     // created with, so the plan card's sentence (above) is heard because it lands in this element. A done answer
-    // drops the role and is not announced.
+    // drops the role; the Copilot's status line says "Answer ready." (AskCopilotRail.tsx).
     <div role={isReading ? 'status' : undefined} className={ANSWER_CARD}>
       {isReading ? (
         // A single calm indicator while the answer is grounded: the assistant's
         // background tool activity is deliberately not surfaced to the user. The card is created with this line in it,
-        // so the line is not announced; the card is the status region for the plan card's sentence, which replaces it.
-        <ActivityLine>Reading the filing…</ActivityLine>
+        // so the card does not announce it (the Copilot's status line does); the card is the status region for the
+        // plan card's sentence, which replaces it.
+        <ActivityLine>{READING_LINE}</ActivityLine>
       ) : (
         <>
           <div>

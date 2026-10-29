@@ -97,8 +97,8 @@ stream_filing_summary(filing_id, ...)
                                          a partial verdict refunds the unit
   f. Persist Summary + FilingContentCache (settles the unit; a provider-side failure before
                                          this refunds it, a client disconnect never does;
-                                         lease-less callers — the background drain, uncapped
-                                         Pro — count full results here instead)
+                                         the lease-less caller — the background drain —
+                                         counts full results here instead)
   → events: progress → chunk → (partial|complete) | error
 ```
 
@@ -174,7 +174,7 @@ frontend/
 | `summary_pipeline.py` + `summary_stages/` | THE summary orchestrator (see above): the stage map, its stages and the patch seams the tests rely on |
 | `summary_generation_service.py` | Headless drain for batch callers + quality verdict helpers (`assess_quality`, `calculate_section_coverage`) + the progress row: a run's write (`record_progress`, one upsert) and the progress poll's answer (`progress_poll_answer`, whose stale mark is one conditional UPDATE) |
 | `openai_service.py` | Façade over `app/services/ai/*` — orchestration core (`summarize_filing`, `generate_structured_summary`) stays here |
-| `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` |
+| `entitlements.py` | **Single source of truth** for plan gates (Free vs Pro); defines `FREE_TIER_SUMMARY_LIMIT = 5` and Pro's summary and analysis fair-use ceilings (`PRO_SUMMARY_MONTHLY_CAP`, `ANALYSIS_MONTHLY_CAP`, D-050) |
 | `subscription_service.py` | Completed-use SQL counter increments; absent monthly buckets lock/re-read the parent User before creation; transaction-local lock waits; re-exports entitlement limits |
 | `login_lockout.py` | Atomic failed-login upserts keyed by peppered email hash; existing reset/lock windows; success clear stays in the caller transaction |
 | `subscription_sync.py` | Stripe identity/state mapping and event-ledger helpers |
@@ -187,7 +187,7 @@ frontend/
 | `oauth_verify.py` / `password_utils.py` | Google/Apple JWKS + id-token verification; bcrypt + policy (extracted from the auth router) |
 | `auth_account_service.py` | Password-account persistence, verification/reset tokens and login/password writes; the auth router keeps HTTP gates, password hashing, mail and audit events |
 | `oauth_account_service.py` | OAuth state, account creation/linking, refresh-token persistence and provider connections; the auth router owns provider exchange, cookies and responses |
-| `user_account_service.py` | Profile updates and the database commit/rollback for account deletion; the users router owns third-party erasure and audit events |
+| `user_account_service.py` | Profile updates and the database commit/rollback for account deletion, its mandatory `user_deleted` audit row in the same transaction; the users router owns third-party erasure and the other audit events |
 | `user_data_export_service.py` | Read-only assembly of the account's personal-data export; the users router records the export and returns the download |
 | `admin_account_service.py` | Refuse direct provisioning of a Free account: the admin route answers 409 and points to an invitation, so only the recipient accepts the account requirements; nothing is created, and the service takes no session |
 | `invite_service.py` | Closed-beta invites: mint, validate and single-use redemption; the admin revoke and re-issue read the invite under its row lock from their check to their commit, so an invite a registration redeemed first is refused with a 409, not revoked or replaced, and a redemption that comes second finds the invite revoked and is refused; the admin router owns authorization, mail and audit events, and runs each route's session work and release in thread-pool units, the mint and re-send writing their audit row in a unit of their own after the invite mail |
@@ -196,7 +196,7 @@ frontend/
 | `admin_summary_service.py` | Select and delete reset candidates or regenerate stale summaries through the single headless generation path; a real reset-all selects under the admin maintenance lock; the router owns authorization, batch limits and responses, and runs the reset-all's selection, deletion, audit row and release as one unit in the thread pool; the stale summaries' refresh reads its candidates and releases in one such unit, and the service re-reads each stamp and writes the audit row in sessions of its own there, so no connection is held while a generation runs |
 | `watchlist_service.py` | Watchlist membership reads/writes and latest-filing, count, summary and generation-progress rows for insights; the watchlist router runs each route's session work, payload and release as one unit in the thread pool, and owns authentication, generation-status presentation and HTTP responses |
 | `saved_summary_service.py` | Saved-summary bookmarks, notes, status and library row shaping, each write holding the account's lock from its check to its commit; the saved-summaries router runs each route's session work, payload and release as one unit in the thread pool, and owns authentication, request validation and HTTP error mapping |
-| `contact_submission_service.py` | Contact row construction and commit/refresh/rollback with the router's logger; the router owns request policy, HTTP error mapping and post-commit notifications |
+| `contact_submission_service.py` | Contact row construction and commit/refresh/rollback with the router's logger, and the plan of the account that uses the sender's address (`sender_plan`, through `entitlements.get_plan`), which the team's notice names; the router owns request policy, HTTP error mapping and post-commit notifications |
 | `user_notification_feed_service.py` | Sent-alert feed reads, unread counts and the seen-at write for the in-app bell, a stamp that only moves forward; the users router owns authentication, request limits and response models, and runs the session work, payload and release of the profile edit, the preference and bell routes and the data export as one unit each in the thread pool; the account deletion releases its session before its Stripe and PostHog calls and writes its audit row and deletes the account in one unit after them |
 | `company_lookup_service.py` | Company lookups, search upserts/CIK-conflict recovery and response snapshots with session release; the companies router owns SEC/quote I/O and HTTP error mapping |
 | `filing_list_service.py` | Company filing-list freshness, cached reads, persistence, background refresh and on-visit history backfill, each request unit releasing its session; the filings router runs those units in the thread pool and keeps request-path SEC awaits, task scheduling/handoff, response models and error mapping |

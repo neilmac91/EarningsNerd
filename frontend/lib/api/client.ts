@@ -16,6 +16,10 @@ export class ApiError extends Error {
   // Undefined when `detail` is this client's status fallback or axios's message ("Request failed
   // with status code N"), so a surface that shows backend text verbatim reads this, never `detail`.
   backendDetail?: string
+  // The body's machine-readable `code` (E31), set only when it is a code this client knows, sent with its
+  // registered status (parseErrorCode). Undefined for an older server, a newer code or a mismatched status, so a
+  // caller then falls back to status and words as before.
+  code?: KnownErrorCode
 
   constructor(status: number, detail: string) {
     super(detail)
@@ -43,6 +47,36 @@ export function detailMessage(detail: unknown): string | undefined {
     if (typeof msg === 'string' && msg) return msg.replace(/^(?:Value error|Assertion failed), /, '') || msg
   }
   return undefined
+}
+
+/**
+ * The error codes this client knows (E31; `backend/app/error_codes.py` ErrorCode, docs/audit/contracts/error-codes.md
+ * §3), each with the HTTP status it is honoured on and whether a stream's error event may carry it.
+ * `backend/tests/unit/test_api_error_codes.py` holds this table equal to the backend's.
+ */
+export const ERROR_CODES = {
+  auth_required: { status: 401, stream: false },
+  email_verification_required: { status: 403, stream: false },
+  plan_required: { status: 403, stream: false },
+  free_allowance_exhausted: { status: 403, stream: true },
+  pro_fair_use_limit: { status: 429, stream: true },
+  generation_paused: { status: 503, stream: true },
+  earnings_alert_limit: { status: 403, stream: false },
+} as const satisfies Record<string, { status: number; stream: boolean }>
+
+export type KnownErrorCode = keyof typeof ERROR_CODES
+
+/**
+ * A response's `code` as a code this client acts on, or undefined. `on` is where it arrived: the HTTP status of an
+ * error response, or 'stream' for a stream's error event. A code is honoured only where it is registered, so an
+ * unknown code, a known one on another status (a 500 that says `plan_required` is a 500) and a non-stream code on a
+ * stream all read as no code, and the caller's status and word fallbacks decide as they did before codes existed.
+ */
+export function parseErrorCode(value: unknown, on: number | 'stream'): KnownErrorCode | undefined {
+  if (typeof value !== 'string' || !Object.prototype.hasOwnProperty.call(ERROR_CODES, value)) return undefined
+  const code = value as KnownErrorCode
+  const registered = ERROR_CODES[code]
+  return (on === 'stream' ? registered.stream : registered.status === on) ? code : undefined
 }
 
 // Determine API URL: prefer env var, fallback based on environment
@@ -142,12 +176,12 @@ let loginInFlight: Promise<void> | null = null
 // browser, not the tab: a silent refresh's answer sets them, a login's sets the new session's and a logout's clears
 // them, so a refresh another tab sent before a login answers after it and sets the previous session's cookies over the
 // login's, or one answering after a logout signs the browser in again; and two refreshes sent at once carry the one
-// refresh cookie, so the second presents the token the first rotated away and meets the replay sweep, which signs the
-// account out on every device (E96). Requests for it are granted in the order made. A silent refresh holds it exclusive
-// (withSessionCookiesForRefresh): it waits for every refresh and post queued before it, in any tab, and every one
-// queued after it waits for it, so refreshes go out one at a time, each with the cookies the one before it set. A
-// password login, a logout, a logout of every session and a password change, whose answer mints the session a new
-// refresh token, hold it shared around their post (withSessionCookiesForPost): each waits for the refreshes queued
+// refresh cookie, so the second presents the token the first rotated away and meets the replay sweep, which ends that
+// token's chain, signing this browser out (E96). Requests for it are granted in the order made. A silent refresh holds
+// it exclusive (withSessionCookiesForRefresh): it waits for every refresh and post queued before it, in any tab, and
+// every one queued after it waits for it, so refreshes go out one at a time, each with the cookies the one before it
+// set. A password login, a logout, a logout of every session and a password change, whose answer mints the session a
+// new refresh token, hold it shared around their post (withSessionCookiesForPost): each waits for the refreshes queued
 // before it and holds back those queued after it, but posts in two tabs do not wait for each other, as on main, where
 // they race as the reader's own actions, unless a refresh is queued between them (requests are granted in order). An
 // OAuth sign-in's answer sets the cookies too, but it is a navigation, which cannot hold the lock: the identity read
@@ -254,9 +288,9 @@ export function ensureRefreshed(): Promise<void> {
  * logout either; one still waiting for the session cookies' lock is aborted too, and sends nothing. A login waits on it
  * too, and so does a password change, which leaves the refresh be at the limit (`atLimit` 'leave'): a refresh cancelled
  * after the API rotated its token leaves the browser holding the token rotated away, which the change's own renewal
- * would then present, and the replay sweep would end every session of the account (E96). It settles 'limit' when the
- * limit came first, else 'settled'. All of them then wait for the refreshes queued for the lock before their own
- * request (withSessionCookiesForPost).
+ * would then present, and the replay sweep would end that token's chain, signing this browser out (E96). It settles
+ * 'limit' when the limit came first, else 'settled'. All of them then wait for the refreshes queued for the lock before
+ * their own request (withSessionCookiesForPost).
  */
 export function refreshSettled(limitMs: number, atLimit: 'cancel' | 'leave' = 'cancel'): Promise<'settled' | 'limit'> {
   const inFlight = refreshPromise
@@ -417,7 +451,7 @@ export function cancelRefresh(): void {
 // Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<{ detail?: unknown }>) => {
+  async (error: AxiosError<{ detail?: unknown; code?: unknown }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
     const original = error.config as SessionRequestConfig | undefined
@@ -460,14 +494,15 @@ api.interceptors.response.use(
     }
 
     const backendDetail = detailMessage(error.response?.data?.detail)
+    const code = parseErrorCode(error.response?.data?.code, status)
 
-    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
-    if (
-      status === 403 &&
-      backendDetail &&
-      /verify your email/i.test(backendDetail) &&
-      typeof window !== 'undefined'
-    ) {
+    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout). A known code decides; with
+    // none (an older server, or a code this client does not know) the 403's words still do.
+    const verificationRequired =
+      code !== undefined
+        ? code === 'email_verification_required'
+        : status === 403 && !!backendDetail && /verify your email/i.test(backendDetail)
+    if (verificationRequired && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT, { detail: backendDetail }))
     }
 
@@ -497,6 +532,7 @@ api.interceptors.response.use(
     const apiError = new ApiError(status, errorMessage)
     apiError.sessionLossConfirmed = sessionLossConfirmed
     if (typeof backendDetail === 'string' && backendDetail) apiError.backendDetail = backendDetail
+    if (code !== undefined) apiError.code = code
     throw apiError
   }
 )
