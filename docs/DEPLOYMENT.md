@@ -164,10 +164,10 @@ API service's own describe included, prints only its closed class (`permission_d
 `error (gcloud not executable)`), never gcloud's error text, which can name the acting principal, a
 host or a URL; `describe-jobs`' shell loop discards gcloud's stderr and prints its own closed line.
 
-The Cloud SQL proxy step used by `capacity-readout`, `detection-sql`, the repair-ticker, the
-fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair (`repair-quarterly-*`) and the
-lineage backfill (`repair-lineage-*`) operations captures the `DATABASE_URL` secret read's stderr,
-including success-path warnings.
+The Cloud SQL proxy step used by `capacity-readout`, `figure-impact`, `detection-sql`, the
+repair-ticker, the fiscal-year relabel (`relabel-fy-*`), the quarterly fact repair
+(`repair-quarterly-*`) and the lineage backfill (`repair-lineage-*`) operations captures the
+`DATABASE_URL` secret read's stderr, including success-path warnings.
 A failed read stops setup with its exit status and only `permission_denied`, `not_found`,
 `unavailable` or `error (gcloud exit N)`, using the same classifier order as `logs-probe`.
 The five existing jobs-channel steps and the rollback step retain gcloud's progress output as
@@ -251,6 +251,45 @@ address after a `label:` prefix are kept, and a host name in a script written wi
 (Indic) is not covered.
 The response body itself is never kept.
 The receipt is retained as the `capacity-readout-<run id>` Actions artifact for 14 days.
+
+`figure-impact` (E184) counts what the strict figure check changes on stored summaries' financial
+highlights rows (`backend/scripts/figure_check_impact.py`): each row's label under the retired
+substring check and under the strict one, the figures it replaced, the takeaways withheld beside
+them, and the summaries it could not count, by reason; aggregate counts only, no filing text,
+summary body, identifier or setting. The dispatch names its cohort as a range of summary ids
+(`summary_from_id`, `summary_to_id`; one that names none is refused), which a step refuses before
+the sign-in unless both are positive ids of at most nine digits, in order, spanning at most 5,000,
+the script's own cap, so a wider range never reaches the script. The script runs after the proxy and
+the dependency install, in a session that is read-only and held to 10 s a lock and 120 s a
+statement, read back before it runs (the log shows `session read_only=on lock_timeout=10s
+statement_timeout=2min`); it also refuses any statement but a `SELECT`, reads nothing from SEC, and
+rolls back at its end, holding its read locks on `summaries` and `filings` until then, so dispatch
+it when no backend merge is imminent: a migration that alters either table waits on them, and the
+deploy fails if the count outlasts its retries. The `figure-impact-<run id>-<attempt>` Actions
+artifact keeps, for 14 days, `cohort.json` (the range dispatched), `population.txt` (the summaries'
+lowest id, highest id and count, so the next ranges can be planned), `impact.json` (the report:
+`cohort` with `requested`, `found`, `missing` and `range`; `summaries_counted`, `rows_counted`,
+`transitions`, `swapped_fields`, `withheld_takeaways`, `unavailable` by reason and `unreadable`) and
+`stderr.txt` (the session read-back's, the range read's and the script's error output); the log
+says only the session's settings and how the count ended. The artifact is not private: on this
+public repository any signed-in GitHub user can download it while it is kept. The report holds
+counts only; `stderr.txt` holds error output, kept beside the counts and never in the log: a count
+that raises leaves its traceback there, and a failed query's can carry the query's SQL text and
+parameters, the cohort's summary ids among them (a failed connection carries neither).
+The script exits 1, failing the run, when a summary could not be read, so a partial count never
+reads as a whole one; ids the range names but no summary holds are its ordinary gaps, counted as
+`missing`. A run stopped before the count step (a refused cohort, the pre-flight, the sign-in, the
+proxy) keeps no artifact, and its upload step warns; one stopped at the session's read-back keeps
+that read's error output. A first dispatch, ids 1 to 5,000:
+
+```sh
+gh workflow run ops.yml -R neilmac91/EarningsNerd --ref main -f operation=figure-impact \
+  -f summary_from_id=1 -f summary_to_id=5000
+```
+
+Its `population.txt` gives the summaries' lowest and highest ids: the next dispatches take ranges of
+5,000 ids from the lowest id the first range did not cover until a range reaches the highest, one at
+a time (the operation runs in the `ops` concurrency group).
 
 `logs-probe` reports whether the Ops identity can read the API service's logs:
 `logs-probe: logging.read PERMITTED (N recent entries visible)`, or

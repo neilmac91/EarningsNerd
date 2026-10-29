@@ -13,7 +13,9 @@ name: Ops
 #   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
 #     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
 #   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
-#     detection SQL never touches user/auth/billing tables.
+#     detection SQL never touches user/auth/billing tables. figure-impact (E184) reads summaries and
+#     their filings over a cohort of at most 5,000 summary ids, and the summaries' id range and count,
+#     read-only; its receipt holds counts, the cohort, the range and any error output.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
 #   - Every -apply operation (relabel-fy-apply, repair-ticker-apply, reset-filing-summary-apply,
@@ -53,7 +55,8 @@ name: Ops
 #     behind a held lock; the capacity ledger uses 2s). statement_timeout is per step: the write
 #     paths (the ticker repair, relabel, quarterly repair and lineage backfill scripts) match the
 #     deploy migration step (120s); the read-only detection snapshots full-scan financial_fact and get
-#     600s. The proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
+#     600s; figure-impact's read-only count takes the write paths' 120s. The proxy binary is
+#     checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -74,6 +77,7 @@ on:
           - detection-sql
           - logs-probe
           - capacity-readout
+          - figure-impact
           - jobs-channel-noop-probe
           - repair-ticker-dry-run
           - repair-ticker-apply
@@ -95,6 +99,14 @@ on:
         default: ""
       capacity_end:
         description: "Capacity window end (UTC YYYY-MM-DDTHH:MM:SSZ; must be in the past)"
+        required: false
+        default: ""
+      summary_from_id:
+        description: "figure-impact: the cohort's first summary id (the cohort spans at most 5,000 ids)"
+        required: false
+        default: ""
+      summary_to_id:
+        description: "figure-impact: the cohort's last summary id"
         required: false
         default: ""
       tickers:
@@ -172,7 +184,7 @@ jobs:
           [[ "$REVISION" =~ ^[a-z0-9-]*$ ]] \
             || { echo "::error::revision may contain only lowercase letters, digits and '-'"; exit 1; }
           case "$OP" in
-            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            feedback-media-inspect|feedback-media-provision-apply|feedback-media-enable-apply|feedback-media-disable-apply|feedback-media-verify-inspect|feedback-media-verify-apply|describe-service|describe-jobs|detection-sql|logs-probe|capacity-readout|figure-impact|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|relabel-fy-dry-run|relabel-fy-apply|repair-quarterly-dry-run|repair-quarterly-apply|repair-lineage-dry-run|repair-lineage-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -261,6 +273,23 @@ jobs:
           CAPACITY_START: ${{ inputs.capacity_start }}
           CAPACITY_END: ${{ inputs.capacity_end }}
         run: python3 ops/capacity/readout.py --start "$CAPACITY_START" --end "$CAPACITY_END" --validate-only
+
+      - name: Validate the bounded figure-impact cohort
+        # Before the sign-in and before figure_check_impact.py builds its id list, so a cohort over the script's
+        # MAX_COHORT never reaches it: the ids are positive integers of at most nine digits, in order, spanning at
+        # most 5,000.
+        if: steps.request.outputs.operation == 'figure-impact'
+        env:
+          FROM_ID: ${{ inputs.summary_from_id }}
+          TO_ID: ${{ inputs.summary_to_id }}
+        run: |
+          set -euo pipefail
+          [[ "$FROM_ID" =~ ^[1-9][0-9]{0,8}$ && "$TO_ID" =~ ^[1-9][0-9]{0,8}$ ]] \
+            || { echo "::error::summary_from_id and summary_to_id must be positive summary ids of at most nine digits"; exit 1; }
+          SPAN=$(( TO_ID - FROM_ID + 1 ))
+          [ "$SPAN" -ge 1 ] && [ "$SPAN" -le 5000 ] \
+            || { echo "::error::the cohort must span 1 to 5,000 summary ids, summary_from_id to summary_to_id"; exit 1; }
+          echo "figure-impact cohort: $SPAN summary ids"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -427,7 +456,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout', steps.request.outputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply capacity-readout figure-impact', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -506,9 +535,76 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply', steps.request.outputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply relabel-fy-dry-run relabel-fy-apply repair-quarterly-dry-run repair-quarterly-apply repair-lineage-dry-run repair-lineage-apply figure-impact', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
+
+      - name: Count the strict figure check's impact (E184)
+        # backend/scripts/figure_check_impact.py: over the dispatch's bounded cohort of stored summaries, what the
+        # strict figure check changes on each financial highlights row, in aggregate counts only (no filing text,
+        # summary body, identifier or setting). The session is read-only, read back below before the script runs,
+        # and the script itself refuses every statement but a SELECT and rolls back; it holds its read locks on
+        # summaries and filings until it ends, so dispatch it when no backend merge is imminent. The receipt names
+        # its cohort and the summaries' id range and count, so the next ranges can be planned. Everything the range
+        # read and the script print, and every read's errors, go to the receipt: this public log carries only the
+        # read-back's line and how the step ended. It exits 1 when a summary could not be read, so a partial count
+        # never reads whole.
+        if: steps.request.outputs.operation == 'figure-impact'
+        working-directory: backend
+        timeout-minutes: 30
+        env:
+          # The relabel step's hermetic env and guards, read-only; DATABASE_URL points at the proxy above.
+          PGOPTIONS: -c lock_timeout=10s -c statement_timeout=120s -c default_transaction_read_only=on
+          # It reads nothing from SEC; the SEC budgets are pinned as on every script step (docs/OPERATIONS.md, D3).
+          SEC_RATE_LIMIT_PER_SECOND: '1'
+          EDGAR_RATE_LIMIT_PER_SEC: '1'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          FROM_ID: ${{ inputs.summary_from_id }}
+          TO_ID: ${{ inputs.summary_to_id }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ../figure-impact
+          # The settings a session gets through the proxy, read back so this log proves them, and compared with
+          # this step's, so a lost or weakened guard stops the run before the script. A session that cannot start
+          # (a refused login names the database user) leaves its error in the receipt, not in this log.
+          if ! SESSION=$(psql -X -t -A -c "SELECT 'session read_only=' || current_setting('default_transaction_read_only') || ' lock_timeout=' || current_setting('lock_timeout') || ' statement_timeout=' || current_setting('statement_timeout')" 2> ../figure-impact/stderr.txt); then
+            echo "::error::The session's settings could not be read; see figure-impact/stderr.txt in the run's artifact."
+            exit 1
+          fi
+          echo "$SESSION"
+          EXPECTED="session read_only=on lock_timeout=10s statement_timeout=2min"
+          [ "$SESSION" = "$EXPECTED" ] || { echo "::error::the session's settings are not this step's ($EXPECTED)"; exit 1; }
+          printf '{"from_id": %s, "to_id": %s}\n' "$FROM_ID" "$TO_ID" > ../figure-impact/cohort.json
+          if ! psql -X -t -A -F ' ' -c "SELECT min(id), max(id), count(*) FROM summaries" \
+              > ../figure-impact/population.txt 2>> ../figure-impact/stderr.txt; then
+            echo "::error::The summaries' range could not be read; see figure-impact/stderr.txt in the run's artifact."
+            exit 1
+          fi
+          if python scripts/figure_check_impact.py --from-id "$FROM_ID" --to-id "$TO_ID" \
+              > ../figure-impact/impact.json 2>> ../figure-impact/stderr.txt; then
+            echo "Figure-check impact counts saved to figure-impact/impact.json (the run's artifact)."
+          else
+            rc=$?
+            echo "::error::The count failed (exit $rc); its report and stderr are in the run's artifact, figure-impact/."
+            exit "$rc"
+          fi
+
+      - name: Retain the figure-impact receipt
+        # Whatever the count step wrote, its errors included. A run stopped before that step (a refused cohort, the
+        # pre-flight, the sign-in, the proxy) has nothing to keep, and this step then warns rather than adding a
+        # second error.
+        if: always() && steps.request.outputs.operation == 'figure-impact'
+        uses: actions/upload-artifact@v7
+        with:
+          name: figure-impact-${{ github.run_id }}-${{ github.run_attempt }}
+          path: figure-impact/
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Run ticker repair script
         if: contains('repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)

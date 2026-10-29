@@ -27,9 +27,10 @@ refuses as a whole, or a run stopped before its report, writes no file; its log 
 error, or the script's start line, which names the run. Those guards and the read-only transactions
 reach the database only through libpq's `PGOPTIONS`. An `options` setting in the app engine's
 `connect_args`, a query on the URL the proxy step exports or on the URL the app builds from it, a
-connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any of those
-scripts or in the modules that run the quarterly repair's or the lineage backfill's SQL would replace
-them, so none may exist.
+connection-level SQLAlchemy event that could `SET` them again, or a `SET` of a guard in any script a
+Cloud SQL step runs (read from this workflow) or in the modules that run the quarterly repair's or the
+lineage backfill's SQL would replace them, so none may exist; a `SET TRANSACTION READ ONLY`, which only
+tightens them, is allowed.
 The one connection-level event allowed is database.py's `connect` listener that runs each session
 at UTC (E151), held by running it on a recording connection: it sets the time zone and touches
 nothing else, no other statement, attribute or method.
@@ -294,8 +295,9 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     """libpq applies PGOPTIONS unless the connection names its own options, and a connection-level
     event could set the guards again after it. So the engine's connect_args carry no `options`, the
     URL the proxy step exports carries no query, the app uses that URL as it parses it, and nothing
-    in the app or the Ops repair scripts listens for a connection event but database.py's UTC pin on
-    `connect` (E151), which, run, sets the session's time zone and nothing else."""
+    in the app or the Python scripts the Cloud SQL steps run listens for a connection event but database.py's
+    UTC pin on `connect` (E151), which, run, sets the session's time zone and nothing else; nor does any
+    script those steps run set a guard that could weaken or replace them."""
     from sqlalchemy.engine import make_url
 
     from app import database
@@ -322,10 +324,15 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     monkeypatch.setattr(settings, "DATABASE_URL", proxy_url)
     assert database._database_url() == make_url(proxy_url), "the app must use the URL it is given, unchanged"
 
-    scripts = [ROOT / "backend/scripts/relabel_filing_fy_facts.py", ROOT / "backend/scripts/repair_quarterly_facts.py",
-               ROOT / "backend/scripts/repair_filing_lineage.py"]
+    # Every script a Cloud SQL step runs, read from ops.yml rather than listed by hand.
+    scripts = sorted({ROOT / step.get("working-directory", ".") / script for _, step in cloud_sql_reach()
+                      for script in RUNNER_SCRIPT.findall(step.get("run") or "")})
+    assert len(scripts) >= 5, scripts
+    # A shell script is read by the SET scan below; only a Python one can register a listener.
+    python_scripts = [path for path in scripts if path.suffix == ".py"]
+    assert len(python_scripts) >= 5, python_scripts
     listeners = [
-        listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *scripts]
+        listener for path in [*sorted((ROOT / "backend/app").rglob("*.py")), *python_scripts]
         for listener in _connection_listeners(path)
     ]
     others = [f"{path}:{line} ({event_name}: {handler})" for path, line, event_name, handler in listeners
@@ -341,7 +348,7 @@ def test_pgoptions_is_the_only_source_of_the_database_session_settings(monkeypat
     sql_modules = [ROOT / "backend/app/services/quarterly_fact_repair.py", ROOT / "backend/app/services/facts/upsert.py",
                    ROOT / "backend/app/services/filing_lineage_repair.py"]
     for path in [*scripts, *sql_modules]:
-        assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?(?:lock_timeout|statement_timeout|default_transaction_read_only"
+        assert not re.search(r"set_config|\bSET\s+(?:LOCAL\s+|SESSION\s+)?\\?\"?(?:lock_timeout|statement_timeout|default_transaction_read_only"
                              r"|transaction_read_only)|READ\s+WRITE|postgresql_readonly", path.read_text(encoding="utf-8"), re.I), (
             f"{path.name} sets its own guards")
 
