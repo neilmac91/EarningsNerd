@@ -733,11 +733,12 @@ describe("AskCopilotRail in the filing workspace's pane", () => {
     expect(askPanel).toHaveTextContent(sentence)
     if (button) expect(within(askPanel).getByRole('button', { name: button })).toBeInTheDocument()
 
-    // Later tab switches say nothing more: back on the Ask tab the card is in view.
+    // Later tab switches say nothing more, then or a frame later: back on the Ask tab the card is in view.
     await user.click(screen.getByRole('tab', { name: 'Ask' }))
     await user.click(screen.getByRole('tab', { name: /filing/i }))
-    await waitFor(() => expect(said).toEqual(['Reading the filing…', sentence]))
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
     observer.disconnect()
+    expect(said).toEqual(['Reading the filing…', sentence])
   })
 
   it("leaves the pane's line empty for an error that lands on the Ask tab: the tab showing when it lands decides", async () => {

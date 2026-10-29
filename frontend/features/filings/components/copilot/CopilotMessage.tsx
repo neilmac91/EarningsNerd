@@ -390,7 +390,7 @@ export default function CopilotMessage({
     const fairUse = isCopilotFairUseLimit(message.error || '')
     return (
       <div role="status" className={ANSWER_CARD}>
-        <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.error}</p>
+        <p className="text-text-secondary-light dark:text-text-secondary-dark">{errorSentence(message.error)}</p>
         {!fairUse && onUpgrade && (
           <div className="mt-2.5">
             <Button size="sm" onClick={onUpgrade} leftIcon={<LightningIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
