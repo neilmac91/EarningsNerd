@@ -2285,18 +2285,25 @@ const clauseByClause = (sentence: string): string[] => {
     const group = verbGroupAt(tokens, predicateOf(clauses[head]))
     return group.negated && formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
   }
-  // A span read alone without a condition before its verb (E162 stage 4d): the first condition the reader reads past
-  // the span's subject with no verb group between them, where its clause's verb group stands past it (clauseVerbPast);
-  // null where none does.
+  // A span read alone without the conditions before its verb (E162 stage 4d): the conditions the reader reads past the
+  // span's subject, in order, each with no verb group between the subject and it but in the conditions before it, up
+  // to the first past which the clause's verb group stands (clauseVerbPast); the span is read without everything from
+  // the first of them to that verb group ("Logging out when it is idle because it is not needed | ends every session":
+  // the routine lens on fb7cf414). null where none does.
   const withoutCondition = (from: number, to: number): string | null => {
     const subject = subjectAt(tokens, from)
     const head = nounPhraseAt(tokens, from)?.head
     if (!subject || !head) return null
-    const verbBefore = (at: number) => tokens.slice(subject.end, at).some((_, j) => startsVerbGroup(tokens, subject.end + j))
-    const condition = clauses.flatMap((c) => c.conditions).find((c) => c.start >= subject.end && c.start < to && !verbBefore(c.start))
     // A gerund heads a singular subject; a head in -s, not -ss, a plural one.
-    const verb = condition ? clauseVerbPast(tokens, condition, !/ing$/.test(head.lower) && /[^s]s$/.test(head.lower)) : -1
-    return condition && verb > 0 ? readAlone(reading, from, to, [[condition.start, verb]]) : null
+    const plural = !/ing$/.test(head.lower) && /[^s]s$/.test(head.lower)
+    const conditions = clauses.flatMap((c) => c.conditions).filter((c) => c.start >= subject.end && c.start < to).sort((a, b) => a.start - b.start)
+    const inACondition = (k: number) => conditions.some((c) => k >= c.start && k < c.end)
+    for (const condition of conditions) {
+      if (tokens.slice(subject.end, condition.start).some((_, j) => !inACondition(subject.end + j) && startsVerbGroup(tokens, subject.end + j))) return null
+      const verb = clauseVerbPast(tokens, condition, plural)
+      if (verb > 0) return readAlone(reading, from, to, [[conditions[0].start, verb]])
+    }
+    return null
   }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
@@ -2447,7 +2454,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (395 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (403 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4522,11 +4529,23 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Reusing a refresh token because it is not valid does not sign everyone out.</li>', false],
       ['<li>Logging out when it is not needed does not end every session.</li>', false],
       ['<li>Logging out when it is not needed never ends every session.</li>', false],
-      // A verb the condition's clause takes is not the clause's: an infinitive after "to", or a base form after a
-      // singular subject (Codex on fb7cf414).
+      // A verb the condition's clause takes is not the clause's: an infinitive after "to", after a plural subject too,
+      // an -ing form, or a base form after a singular subject (Codex on fb7cf414).
       ['<li>Logging out when it is not supposed to end every session clears cookies.</li>', false],
       ['<li>Reusing a refresh token when it is not possible to sign everyone out renews the session.</li>', false],
+      ['<li>Sessions when it is not supposed to end every session stay open after logging out.</li>', false],
+      ['<li>Logging out when it is not worth ending every session clears cookies.</li>', false],
       ['<li>Logging out when it does not let anyone end every session clears cookies.</li>', false],
+      // Conditions in a run before the verb, in commas or not, are read past together (the routine lens on fb7cf414).
+      ['<li>Logging out when it is idle because it is not needed ends every session.</li>', true],
+      ['<li>Reusing a refresh token, if you like, because it is not valid signs everyone out.</li>', true],
+      ['<li>Logging out only with your consent when it is not needed ends every session.</li>', true],
+      // Out of reach: an aside that opens no condition before one, and "after" or "before" before a pronoun or a
+      // determiner, which the reader takes for a preposition inside the subject, so it reads no condition there (the
+      // routine lens on fb7cf414).
+      ['<li>Reusing a refresh token, as you know, because it is not valid signs everyone out.</li>', 'gap'],
+      ['<li>Logging out after it is not needed ends every session.</li>', 'gap'],
+      ['<li>Reusing a refresh token after the token is not valid signs everyone out.</li>', 'gap'],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
