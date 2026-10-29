@@ -53,8 +53,8 @@ def lock_user_tokens(db: Session, user_id: int) -> None:
     the second writer wait for the first's commit, and the reads it then makes see that commit (READ
     COMMITTED). The account's deletion takes it as well (``user_account_service.delete_user``), as its
     cascade deletes the tokens, and so do a password login and a password change before they check the
-    hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``), and
-    a password reset before it reads the account it writes (``complete_password_reset_by_id``), and an unlink
+    hash they verified (``auth_account_service.record_password_login`` and ``stage_password_change``), a
+    password reset before it reads the account it writes (``complete_password_reset_by_id``), and an unlink
     before it counts the account's sign-in methods (``oauth_account_service.unlink_oauth_provider``).
     FOR NO KEY UPDATE: it serializes these writers but not the foreign-key checks of inserts that name
     the user, a sign-in's new token among them. Unbounded, as the holders are short transactions, except a
