@@ -94,7 +94,8 @@
  * itself sign you out of every device." reads "a second time does not by itself" as one, which legalTruth.spec.tsx's
  * clause-by-clause reading reads as a participle: participleAt); a clause a subordinator opens between a clause's
  * subject and its verb runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out."
- * reads "because it is not valid signs everyone out" as one); and a noun the lexicon also lists as a verb ends a
+ * reads "because it is not valid signs everyone out" as one, which legalTruth.spec.tsx's clause-by-clause reading
+ * reads without the condition too since stage 4d: clauseVerbPast); and a noun the lexicon also lists as a verb ends a
  * phrase after another noun unless its own verb group follows ("the access logs record every call" reads as "the
  * access" and a verb); a gerund's object with a determiner or a pronoun reads as a
  * relative clause on the gerund where a verb group follows it ("Changing your password ends every session." reads "your

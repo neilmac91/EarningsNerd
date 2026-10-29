@@ -376,8 +376,11 @@ import {
  *    its subject denies nothing there ("Logging out does not take long before it ends every session.", "Logging out of
  *    a device you do not own ends every session within 30 minutes." and "Nobody doubts that logging out ends every
  *    session." fail), while "until", "if", "as long as", "or", "nor" and a verb that asserts the clause after "that"
- *    still govern it ("Nothing guarantees that logging out ends every session." passes). The page is read on every
- *    run, whatever
+ *    still govern it ("Nothing guarantees that logging out ends every session." passes). Since stage 4d a clause is
+ *    read without a condition a subordinator opens between its subject and its verb as well (clauseVerbPast), so a
+ *    negation in the condition denies nothing of the clause's verb ("Logging out when it is not needed ends every
+ *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail). The page is read on
+ *    every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -2176,16 +2179,33 @@ const subjectAt = (tokens: Token[], at: number): { end: number; nests: Array<[nu
   const read = (phrase && gerundAt(tokens, at, phrase)) ?? phrase
   return read && readOf(tokens, read)
 }
-/** A clause's words read alone, from a token to the token before another, without the spans its subject nests. */
-const readAlone = (reading: Reading, from: number, to: number) => {
+/** A clause's words read alone, from a token to the token before another, without the spans its subject nests, nor
+    the spans given (a condition before its verb: clauseVerbPast). */
+const readAlone = (reading: Reading, from: number, to: number, drops: Array<[number, number]> = []) => {
   const kept: string[] = []
   let at = from
-  for (const [start, end] of subjectAt(reading.tokens, from)?.nests ?? []) {
+  for (const [start, end] of [...(subjectAt(reading.tokens, from)?.nests ?? []), ...drops].sort((a, b) => a[0] - b[0])) {
     if (start < at || end > to) continue
     kept.push(spanText(reading, at, start))
     at = end
   }
   return [...kept, spanText(reading, at, to)].join(' ').replace(/\s+/g, ' ').trim()
+}
+/** Where a clause's own verb group starts past a condition a subordinator opens between its subject and its verb
+    (E162 stage 4d): the reader runs such a condition on to the clause's verb ("Reusing a refresh token because it is
+    not valid signs everyone out." reads "because it is not valid signs everyone out" as one condition), so a negation
+    in the condition's own clause read as the clause's and denied its verb, in either family. The condition holds a
+    clause of its own, a noun phrase and a verb group (conditionClauseAt); past that group's verb, the clause's verb
+    group starts at the next word where a verb group does ("because it is not valid | signs everyone out", "when it is
+    not needed | will end every session"). The words are read one by one, not as noun phrases, since the reader reads a
+    verb after an adjective as a noun ("valid signs"). A noun in the condition's clause that the lexicon also lists as a
+    verb ends the condition early ("because users do not request | access signs everyone out"), past its negation,
+    which stands in its verb group, so the clause's verb still reads as said. -1 where none starts in the condition. */
+const clauseVerbPast = (tokens: Token[], condition: Condition): number => {
+  const own = conditionClauseAt(tokens, condition)
+  if (!own) return -1
+  for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) if (startsVerbGroup(tokens, k)) return k
+  return -1
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
     verb group or before a gerund ("before ending every session"): the reader's subordinating words, and "before",
@@ -2227,7 +2247,10 @@ const AUXILIARY = /^(?:am|is|are|was|were|be|been|being|has|have|had|do|does|did
     session." fail, as main refuses them, while a denial on a clause's own verb, subject or object reads as before. The
     readings only gain texts, so nothing main refuses passes, but for a phrase of time the reader reads as a relative
     clause, which holds its clause's own denial (participleAt: "A refresh token presented a second time does not by
-    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). */
+    itself sign you out of every device." fails on stage 4b's reading and passes since stage 4c). Since stage 4d a
+    clause read alone, and one of time, cause or contrast or after "that", is read without a condition a subordinator
+    opens between its subject and its verb as well, where the clause's verb group stands past the condition's own
+    clause (clauseVerbPast: "Logging out when it is not needed ends every session." fails). */
 const clauseByClause = (sentence: string): string[] => {
   const reading = readSentence(sentence)
   const { tokens, clauses } = reading
@@ -2253,11 +2276,24 @@ const clauseByClause = (sentence: string): string[] => {
     const group = verbGroupAt(tokens, predicateOf(clauses[head]))
     return group.negated && formOf(tokens[group.verb]) === formOf(tokens[own.verb]) && tokens.slice(group.start, group.verb).some((t) => AUXILIARY.test(t.text))
   }
+  // A span read alone without a condition before its verb (E162 stage 4d): the first condition the reader reads past
+  // the span's subject with no verb group between them, where its clause's verb group stands past it (clauseVerbPast);
+  // null where none does.
+  const withoutCondition = (from: number, to: number): string | null => {
+    const subject = subjectAt(tokens, from)
+    if (!subject) return null
+    const verbBefore = (at: number) => tokens.slice(subject.end, at).some((_, j) => startsVerbGroup(tokens, subject.end + j))
+    const condition = clauses.flatMap((c) => c.conditions).find((c) => c.start >= subject.end && c.start < to && !verbBefore(c.start))
+    const verb = condition ? clauseVerbPast(tokens, condition) : -1
+    return condition && verb > 0 && verb < to ? readAlone(reading, from, to, [[condition.start, verb]]) : null
+  }
   const texts = new Set([sentence])
   clauses.forEach((clause, i) => {
     const ownSubject = !clause.carried || (/ing$/.test(tokens[clause.start]?.lower ?? '') && holdsAClause(clause.start, clause.end))
     const opened = i === 0 || /^[;:]$/.test(tokens[clause.start - 1]?.text ?? '') || (/^(?:and|but|so|yet|,)$/.test(clause.joinedBy ?? '') && (ownSubject || clause.joinedBy !== ',') && !shares(i))
-    if (opened) texts.add(readAlone(reading, clause.carried ? clause.start : (clause.subject?.start ?? clause.start), clause.end))
+    const from = clause.carried ? clause.start : (clause.subject?.start ?? clause.start)
+    if (opened) texts.add(readAlone(reading, from, clause.end))
+    if (opened && ownSubject) texts.add(withoutCondition(from, clause.end) ?? '')
   })
   const inASubject = (k: number) => clauses.some((c) => !!c.subject && k >= c.subject.start && k < (subjectAt(tokens, c.subject.start)?.end ?? c.subject.end))
   tokens.forEach((token, k) => {
@@ -2266,6 +2302,7 @@ const clauseByClause = (sentence: string): string[] => {
     const gerund = /^[a-z]+ing$/.test(tokens[k + 1]?.lower ?? '') && knowsVerb(tokens[k + 1])
     const inside = inASubject(k) && !(that && TAKES_A_CLAUSE.test(tokens[k - 1]?.text ?? ''))
     if ((opens || that) && !inside && (gerund || holdsAClause(k + 1, endOf(k + 1)))) texts.add(readAlone(reading, k + 1, endOf(k + 1)))
+    if ((opens || that) && !inside) texts.add(withoutCondition(k + 1, endOf(k + 1)) ?? '')
   })
   return [...texts].filter(Boolean)
 }
@@ -2275,10 +2312,10 @@ const clauseByClause = (sentence: string): string[] => {
     sweep, the one consequence the shared denial step reads, is read in the sentence whole and, since E162's stage 4c,
     in each clause alone as well (clauseByClause), so a negation outside a clause or nested in its subject denies no
     sweep there ("Nobody doubts that reusing a refresh token signs everyone out." and "Reusing a refresh token you do
-    not own signs everyone out." fail), but for one in a clause a subordinator opens before the clause's verb, which
-    the reader runs on to that verb ("Reusing a refresh token because it is not valid signs everyone out." passes, as
-    on main: the routine lens on bca1801a), while the reuse may stand in another clause of the sentence ("If a refresh
-    token is reused, every session ends."). */
+    not own signs everyone out." fail), nor, since stage 4d, one in a condition a subordinator opens before the
+    clause's verb, which the reader runs on to that verb ("Reusing a refresh token because it is not valid signs
+    everyone out." fails: clauseVerbPast; it passed on main, the routine lens on bca1801a), while the reuse may stand in
+    another clause of the sentence ("If a refresh token is reused, every session ends."). */
 const reuseOfTheToken = (sentence: string) =>
   A_REUSE.test(sentence) && (REVOKED_OR_LOCKED.test(sentence) || clauseByClause(sentence).some((text) => SWEPT.test(text)))
 
@@ -2399,7 +2436,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (385 rows since E162 stage 4c, #1688) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (392 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4460,11 +4497,20 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
       ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
       ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
-      // And a negation in a clause a subordinator opens before the clause's verb, which the reader runs on to that
-      // verb, denies that verb in either family, as on main (the routine lens on bca1801a).
-      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', 'gap'],
-      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', 'gap'],
-      ['<li>Logging out when it is not needed ends every session.</li>', 'gap'],
+      // A negation in a condition a subordinator opens between a clause's subject and its verb, which the reader runs on
+      // to that verb, denies nothing there since stage 4d: the clause is read without the condition too, in either
+      // family (clauseVerbPast; the routine lens on bca1801a).
+      ['<li>Reusing a refresh token because it is not valid signs everyone out.</li>', true],
+      ['<li>Nobody doubts that a refresh token presented a second time when it was not expected signs everyone out.</li>', true],
+      ['<li>Logging out when it is not needed ends every session.</li>', true],
+      ['<li>Logging out when it is not needed will end every session.</li>', true],
+      ['<li>Reusing a refresh token because it was not valid signed everyone out.</li>', true],
+      ['<li>Reusing a refresh token because users do not request access signs everyone out.</li>', true],
+      ['<li>Sessions when it is not needed end within 30 minutes of logging out.</li>', true],
+      // A denial on the clause's own verb past the condition still denies it.
+      ['<li>Reusing a refresh token because it is not valid does not sign everyone out.</li>', false],
+      ['<li>Logging out when it is not needed does not end every session.</li>', false],
+      ['<li>Logging out when it is not needed never ends every session.</li>', false],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
