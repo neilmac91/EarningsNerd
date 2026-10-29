@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { openAnalysis, type AnalysisTheme } from './fixtures/analysisLayoutApi'
 
@@ -32,7 +35,45 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
     await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)
     await expect(page.locator('.recharts-surface')).toHaveCount(0)
   })
+
+  // The route's built scripts, as the browser loads them, hold no Recharts code (E195 G): the build's truth beside the
+  // source gate's, which reaches no bundler alias and no computed specifier. A minifier keeps strings, so a script that
+  // holds Recharts' charts holds the class names every one of them draws with. CI's e2e build leaves
+  // NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS unset, so code behind that flag is not in what this reads, and nor is a chunk
+  // the route loads only on a later action; the source gate reads both.
+  test('it loads no Recharts code: no script it loads to draw its charts holds a Recharts class name', async ({ page, baseURL }) => {
+    const scripts: { url: string; body: Promise<string> }[] = []
+    page.on('response', (response) => {
+      if (response.request().resourceType() === 'script') scripts.push({ url: response.url(), body: response.text() })
+    })
+    await openAnalysis(page, baseURL!, 'captured', 'light')
+    await expect(page.locator('[data-analysis-chart] > svg')).toHaveCount(4)
+    const loaded = await Promise.all(scripts.map(async ({ url, body }) => ({ url, body: await body })))
+    // What was read includes the renderer's own chunk, which the route loads lazily: a Recharts import beside it lands
+    // in what this reads.
+    expect(loaded.filter(({ body }) => body.includes('data-axis-domain')).length, 'the renderer’s chunk was read').toBeGreaterThan(0)
+    expect(loaded.filter(({ body }) => RECHARTS_CLASSES.some((name) => body.includes(name))).map(({ url }) => url)).toEqual([])
+  })
+
+  test('the class names it looks for are Recharts’ own, in the package the build bundles', () => {
+    const root = path.dirname(createRequire(__filename).resolve('recharts/package.json'))
+    const code = sourcesUnder(path.join(root, 'es6')).map((file) => readFileSync(file, 'utf8'))
+    for (const name of RECHARTS_CLASSES) expect(code.some((source) => source.includes(name)), name).toBe(true)
+  })
 })
+
+/** The class names Recharts' surface and chart wrapper put on every chart it draws (recharts/es6/container/Surface.js
+ *  and the chart's wrapper). */
+const RECHARTS_CLASSES = ['recharts-surface', 'recharts-wrapper']
+
+/** Every script under a folder of the installed package. */
+function sourcesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(dir, entry.name)
+    if (entry.isDirectory()) return sourcesUnder(file)
+    return entry.name.endsWith('.js') ? [file] : []
+  })
+}
 
 test.describe('trend charts v2 when the renderer’s chunk fails to load', () => {
   test.use({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' })
