@@ -111,8 +111,8 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          // A dialog's close: the quieter ink, the primary on hover, no ground of its own on the strip's tint.
-          className="ml-auto shrink-0 rounded p-1 text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+          // A dialog's close: the tertiary ink, the primary on hover, no ground of its own on the strip's tint.
+          className="ml-auto shrink-0 rounded p-1 text-text-tertiary-light transition-colors hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         >
           <XIcon aria-hidden="true" className="h-4 w-4" />
         </button>
