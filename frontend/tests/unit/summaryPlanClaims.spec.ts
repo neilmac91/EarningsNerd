@@ -42,9 +42,9 @@ import { ANALYSIS_LINES, ANALYSIS_MONTHLY_CAP, PRO_SUMMARY_MONTHLY_CAP } from '@
  *    analysis_limit, so the pages' numbers reach copy only through the sentence (a typed count, "300 summary
  *    generations", "300 new summaries" or "1,000 analysis generations", is planLimitsLockstep.spec.ts's to fail). One
  *    route is the backend's: the analysis route's 429 at the ceiling, which the narrative card shows as written
- *    (analysis-api.ts), names the number in its own words, and backend/tests/unit/test_analysis_stream.py holds the
- *    number to the sentence's form ("1,000"). PricingPage.spec.tsx and StreamingSummaryDisplay.spec.tsx see the
- *    sentence rendered, PricingPage.spec.tsx in both forms.
+ *    (analysis-api.ts), states the number as the sentence does ("1,000 analysis generations, regenerations
+ *    included"), and backend/tests/unit/test_analysis_stream.py holds its words. PricingPage.spec.tsx and
+ *    StreamingSummaryDisplay.spec.tsx see the sentence rendered, PricingPage.spec.tsx in both forms.
  * 3. The ceiling counts what the meter counts (Codex on #1395, review comment 4314197512). Every run the usage gate
  *    admits takes a unit of PRO_SUMMARY_MONTHLY_CAP once its provider request is issued, a Pro regeneration (`force`)
  *    among them, so a count in "new summaries" overstates the allowance. The fair-use sentence and the line the filing

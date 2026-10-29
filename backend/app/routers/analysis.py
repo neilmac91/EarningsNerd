@@ -399,7 +399,7 @@ async def stream_analysis(
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                         detail=(
-                            f"You've reached this month's fair-use limit of {cap:,} analyses. "
+                            f"You've reached this month's fair-use limit of {cap:,} analysis generations, regenerations included. "
                             "It resets at the start of next month."
                         ),
                     )

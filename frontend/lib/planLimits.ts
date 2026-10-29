@@ -46,8 +46,10 @@ export const FREE_COPILOT_QUESTIONS = 3
  * regeneration the system starts after new facts or a prompt change once its result is stored
  * (tests/unit/summaryPlanClaims.spec.ts holds the copy to both). Both are stated once, in proFairUseLine() below,
  * which the /pricing FAQ and the filing page's monthly-limit card place (E58, D-046), while the plan cards, the
- * dashboard strip, BillingPanel, the upgrade dialog and the signup gate keep "Unlimited" (D-040). The filing page's
- * card at the summary ceiling (features/summaries/lib/streamErrorCopy.ts) names the same unit.
+ * dashboard strip, BillingPanel, the upgrade dialog and the signup gate keep "Unlimited" (D-040). At each ceiling the
+ * reader is told the same unit: the filing page's card at the summary ceiling
+ * (features/summaries/lib/streamErrorCopy.ts) and the analysis route's 429 (backend/app/routers/analysis.py), which
+ * also states the number.
  */
 export const PRO_SUMMARY_MONTHLY_CAP = 300
 export const ANALYSIS_MONTHLY_CAP = 1000

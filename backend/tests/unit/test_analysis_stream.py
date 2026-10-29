@@ -703,9 +703,10 @@ class TestStreamRouteMetering:
         assert metered == []
         assert released == []
 
-    def test_over_cap_429_prints_a_four_digit_ceiling_as_pricing_does(self, monkeypatch):
-        # The narrative card shows this detail as written (analysis-api.ts), so a ceiling of 1,000
-        # reads as /pricing's fair-use sentence prints it (fmtCount), never "1000".
+    def test_over_cap_429_states_the_ceiling_as_pricing_does(self, monkeypatch):
+        # The narrative card shows this detail as written (analysis-api.ts), so it states the ceiling as
+        # /pricing's fair-use sentence does: the number as fmtCount prints it ("1,000", never "1000"),
+        # counted in what the meter counts, a reader's forced refresh among them (E122, D-050).
         from app.routers import analysis as analysis_router
 
         client, _metered, _released = self._client(monkeypatch, [], allowed=False)
@@ -713,7 +714,7 @@ class TestStreamRouteMetering:
         response = client.post("/api/analysis/TST/stream", json=self.BODY)
         assert response.status_code == 429
         assert response.json()["detail"] == (
-            "You've reached this month's fair-use limit of 1,000 analyses. "
+            "You've reached this month's fair-use limit of 1,000 analysis generations, regenerations included. "
             "It resets at the start of next month."
         )
 
