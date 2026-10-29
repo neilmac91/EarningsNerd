@@ -247,10 +247,11 @@ report under the winning tag, so a quarter, a ratio, an amendment's figure and a
 comparative still take it. Those history rows (`facts/own_reports.py`) come from the collector's
 candidates, so none a sync with the per-filing pick writes is a foreign filing's convenience
 translation (those a sync stored for a switcher from #1682's deploy until #1583 stay, non-current), and
-a proven switch writes none. The currency step treats one as any stored row: current where the batch's
-own winner has its identity, and, protected like any row of a newer filing, the newest protected row
-at a held key in the vote's second window, showing the year's own-report figure until the sync that
-names the later filing.
+a proven switch writes none. The currency step treats one as any stored row: current only where it
+would make the batch's own row at that identity current (no protected row holds the key, and no row of
+a later-filed filing is current there), or, protected like any row of a newer filing, as the newest
+protected row at a held key in the vote's second window, showing the year's own-report figure until the
+sync that names the later filing.
 
 **Evidence**: `backend/app/services/facts/currency.py`;
 `backend/app/services/facts/companyfacts.py::_collect_companyfacts_concepts`;

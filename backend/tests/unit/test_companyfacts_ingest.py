@@ -2220,6 +2220,31 @@ class TestNativeReportingCurrencySync:
         assert year_end_2023() == [("K23", 5000.0, False), ("Q1-24", 5100.0, True)]
         db.close()
 
+    def test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_for_a_cny_filer(self):
+        # E198 (3)'s target, for a filer in CNY: the USD-only corpus's lagging-quarter shape (Q1 2024 revenue 250 in
+        # its own 10-Q, Q1-24, restated at 260 by the next year's Q1 10-Q, Q1-25). In USD alone a payload lagging
+        # Q1-25 makes Q1-24's 250 current again (main's, E198); here 260 stays current, held twice: Q1-25's row, not
+        # named and filed after the payload's newest (by its provenance), is protected and holds its key, and as a
+        # current row of a filing filed after Q1-24's it also keeps the key by the newer-filing rule (``Guard.later``
+        # and the convergence). Either alone keeps 260; with both taken out, 250 is current.
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company = _new_company(db)
+        tag = f"-{uuid.uuid4().hex[:8]}"
+
+        def q1_2024():
+            return [(r.accession.removesuffix(tag), float(r.value)) for r in db.query(FinancialFact).filter_by(
+                company_id=company.id, concept="revenue", period_end=date(2024, 3, 31), is_latest=True)]
+
+        _checked_sync(db, company, _suffixed(_in_currency(_quarter_restated_payload(q1_25=True), "CNY"), tag),
+                      final=True, usd_only=False)
+        assert q1_2024() == [("Q1-25", 260.0)]
+        _checked_sync(db, company, _suffixed(_in_currency(_quarter_restated_payload(q1_25=False), "CNY"), tag))
+        assert q1_2024() == [("Q1-25", 260.0)]
+        db.close()
+
     @pytest.mark.parametrize("order", ["fresh-only", "lagging-then-fresh", "lagging-naming-an-earlier-amendment-then-fresh",
                                        "lagging-behind-both-amendments-then-fresh"])
     def test_a_non_usd_filers_newest_amendment_is_current_where_the_per_filing_writer_stored_it_behind(self, order):
@@ -3358,7 +3383,8 @@ class TestNativeReportingCurrencySync:
         # sync stored the year's own report as a history row (``own_reports``): its winner is that row's identity,
         # so main's upsert skips it (K24's 1050 stays; K24A's 1300 stays). A quarter, a ratio, an amendment's figure
         # or an intermediate filing's comparative has no history row, so there it still does (E198 (3)): a lagging
-        # payload's Q1-24 250 replaces Q1-25's restated 260.
+        # payload's Q1-24 250 replaces Q1-25's restated 260 (its CNY twin keeps 260:
+        # test_a_lagging_payload_never_replaces_a_newer_10qs_restated_quarter_for_a_cny_filer).
         # The tag migration, the unlabelled twins, the quarantined winner and the legacy ratio run in USD through
         # their own parameter; the hand-built two-current state of the ratio test is no state a writer leaves.
         from app.database import SessionLocal
@@ -3446,13 +3472,7 @@ class TestNativeReportingCurrencySync:
                 from app.models import FinancialFact
 
                 def payload(*, q1_25):
-                    usd = _lagging_usd_payload(fresh=True)
-                    usd["facts"]["us-gaap"][REV_TAG]["units"]["USD"] += [_item(
-                        250.0, "2024-03-31", start="2024-01-01", accn="Q1-24", fy=2024, fp="Q1", form="10-Q",
-                        filed="2024-05-05")] + ([_item(value, end, start=start, accn="Q1-25", fy=2025, fp="Q1", form="10-Q",
-                                                       filed="2025-05-05") for value, start, end in (
-                        (260.0, "2024-01-01", "2024-03-31"), (300.0, "2025-01-01", "2025-03-31"))] if q1_25 else [])
-                    return _suffixed(usd, tag)
+                    return _suffixed(_quarter_restated_payload(q1_25=q1_25), tag)
 
                 def q1_2024():
                     return [(r.accession.removesuffix(tag), float(r.value)) for r in db.query(FinancialFact).filter_by(
@@ -3470,6 +3490,19 @@ class TestNativeReportingCurrencySync:
                 assert [row for row in end if row[0] == "revenue"] == [
                     ("revenue", "K24A", 1300.0) if held == "dated-by-provenance" else ("revenue", "K24", 1200.0)]
         db.close()
+
+
+def _quarter_restated_payload(*, q1_25):
+    """``_lagging_usd_payload(fresh=True)`` with Q1 2024 revenue from its 10-Q (Q1-24, filed 2024-05-05, 250);
+    when ``q1_25``, also the next year's Q1 10-Q (Q1-25, filed 2025-05-05), restating Q1 2024 at 260 beside
+    Q1 2025 at 300. Without it, the payload lags Q1-25."""
+    payload = _lagging_usd_payload(fresh=True)
+    payload["facts"]["us-gaap"][REV_TAG]["units"]["USD"] += [_item(
+        250.0, "2024-03-31", start="2024-01-01", accn="Q1-24", fy=2024, fp="Q1", form="10-Q", filed="2024-05-05")] + (
+        [_item(value, end, start=start, accn="Q1-25", fy=2025, fp="Q1", form="10-Q", filed="2025-05-05")
+         for value, start, end in ((260.0, "2024-01-01", "2024-03-31"), (300.0, "2025-01-01", "2025-03-31"))]
+        if q1_25 else [])
+    return payload
 
 
 def _suffixed(payload, tag):

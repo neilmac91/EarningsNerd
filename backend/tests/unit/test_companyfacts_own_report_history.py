@@ -271,7 +271,7 @@ class TestTheCensusTakesIngestsOwnReport:
     def test_the_census_reads_each_filing_in_its_own_currency_as_ingest_does(self, switched):
         # The census mirrors the collector's currency pick and foreign skip (``companyfacts_currencies``). Each CNY
         # 20-F also tags its own year in USD, a convenience translation. After a switch to USD (a USD 20-F for
-        # FY2024 restating FY2023), those items are never an own report under any tag: without the skip, FY2023's
+        # FY2024 presenting FY2023 in USD), those items are never an own report under any tag: without the skip, FY2023's
         # across-tag own report would be 20F-2023's translation (127m against the USD report's 128.6m). A filer in
         # CNY alone is read in CNY, never its USD list.
         from scripts import restatement_census
