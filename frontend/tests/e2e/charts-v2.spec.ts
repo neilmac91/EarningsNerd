@@ -41,8 +41,8 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
   // surface and wrapper, and the parts that draw outside a chart carry classes of their own, all named `recharts-…`; a
   // minifier keeps strings, so a script that holds any of them holds the prefix. Out of reach: Recharts' helpers that
   // draw nothing (its scales and ticks) and name no class; code behind NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS, which CI's
-  // e2e build leaves unset; and a chunk the route loads only on a later action or in another state (the guest teaser,
-  // an annual run, an error). The source gate reads the last two.
+  // e2e build leaves unset; and a chunk the route loads only after its charts draw, on a later action, or in another
+  // state (the free teaser, an annual run, an empty or failed one). The source gate reads the last two.
   test('it loads no Recharts component: no script it loads to draw its charts holds a Recharts class name', async ({ page, baseURL }) => {
     const scripts: { url: string; body: Promise<string> }[] = []
     const unread: string[] = []
@@ -61,7 +61,7 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
     expect(loaded.filter(({ body }) => RECHARTS_CLASS.test(body)).map(({ url }) => url)).toEqual([])
   })
 
-  test('the class prefix it looks for is Recharts’ own, on every chart and every part that draws alone', () => {
+  test('the class prefix it looks for is Recharts’ own: each chart’s surface and wrapper set it, as do the parts listed that draw alone', () => {
     const es6 = path.join(path.dirname(createRequire(__filename).resolve('recharts/package.json')), 'es6')
     for (const file of RECHARTS_DRAWING) expect(readFileSync(path.join(es6, file), 'utf8'), file).toMatch(RECHARTS_CLASS)
   })
@@ -70,7 +70,8 @@ test.describe('the analysis route draws the spec renderer (E195)', () => {
 /** Recharts' class-name prefix: `recharts-surface`, `recharts-wrapper`, `recharts-text`… */
 const RECHARTS_CLASS = /recharts-[a-z]/
 /** Where Recharts draws, in the package the build bundles (its `module` build): every chart's surface and wrapper,
- *  which a chart reaches through CategoricalChart or imports itself, and the parts that draw outside a chart. */
+ *  which a chart reaches through CategoricalChart or imports itself, and the parts that draw outside a chart (the
+ *  responsive container, text and three shapes). */
 const RECHARTS_DRAWING = [
   'container/Surface.js',
   'chart/RechartsWrapper.js',

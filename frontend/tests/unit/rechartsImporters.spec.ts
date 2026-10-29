@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
  *  bare; and, on the route, an import of a local module the repository does not hold. Out of reach, planted below as
  *  gaps: a name no script holds (a bundler alias), and a computed specifier handed to any other loader. The build
  *  reaches both where the route draws its charts: tests/e2e/charts-v2.spec.ts reads every script the built route loads
- *  to draw them and fails on a Recharts class name in any, in CI's e2e job (E195 G). */
+ *  to draw them and fails on a Recharts class name in any script, in CI's e2e job (E195 G). */
 const IMPORTERS = [
   'features/fundamentals/components/FundamentalsTrendChart.tsx',
   'features/peers/components/PeerComparisonPanel.tsx',
