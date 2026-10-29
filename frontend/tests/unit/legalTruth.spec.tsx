@@ -2196,15 +2196,24 @@ const readAlone = (reading: Reading, from: number, to: number, drops: Array<[num
     not valid signs everyone out." reads "because it is not valid signs everyone out" as one condition), so a negation
     in the condition's own clause read as the clause's and denied its verb, in either family. The condition holds a
     clause of its own, a noun phrase and a verb group (conditionClauseAt); past that group's verb, the clause's verb
-    group starts at the next word where a verb group does ("because it is not valid | signs everyone out", "when it is
-    not needed | will end every session"). The words are read one by one, not as noun phrases, since the reader reads a
-    verb after an adjective as a noun ("valid signs"). A noun in the condition's clause that the lexicon also lists as a
-    verb ends the condition early ("because users do not request | access signs everyone out"), past its negation,
-    which stands in its verb group, so the clause's verb still reads as said. -1 where none starts in the condition. */
-const clauseVerbPast = (tokens: Token[], condition: Condition): number => {
+    group starts at the next word where a finite verb group does, in the form its subject takes: one with an
+    auxiliary, a modal, a negation or an adverb before its verb, or a verb alone in a past form or in a present form
+    that agrees, a third person's -s or, after a plural head in -s, the base ("because it is not valid | signs everyone
+    out", "when it is not needed | will end every session"). A verb after "to" is an infinitive the condition's clause
+    takes, an -ing form alone is no finite verb, and a base form after a singular subject is a bare infinitive or a
+    noun of that clause ("when it is not supposed to end every session | clears cookies", "when it does not let anyone
+    end every session | clears cookies", "because users do not request access | signs": Codex on fb7cf414). The
+    words are read one by one, not as noun phrases, since the reader reads a verb after an adjective as a noun ("valid
+    signs"). -1 where none starts in the condition. */
+const clauseVerbPast = (tokens: Token[], condition: Condition, plural: boolean): number => {
   const own = conditionClauseAt(tokens, condition)
   if (!own) return -1
-  for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) if (startsVerbGroup(tokens, k)) return k
+  for (let k = verbGroupAt(tokens, own.predicate).verb + 1; k < condition.end; k++) {
+    if (!startsVerbGroup(tokens, k) || tokens[k - 1]?.lower === 'to') continue
+    const verb = verbGroupAt(tokens, k).verb
+    const form = formOf(tokens[verb])
+    if (verb > k || form === 'past' || form === (plural ? 'base' : 'third')) return k
+  }
   return -1
 }
 /** A word that opens a clause of time, cause or contrast, which says its clause happens, before a noun phrase and a
@@ -2281,10 +2290,12 @@ const clauseByClause = (sentence: string): string[] => {
   // null where none does.
   const withoutCondition = (from: number, to: number): string | null => {
     const subject = subjectAt(tokens, from)
-    if (!subject) return null
+    const head = nounPhraseAt(tokens, from)?.head
+    if (!subject || !head) return null
     const verbBefore = (at: number) => tokens.slice(subject.end, at).some((_, j) => startsVerbGroup(tokens, subject.end + j))
     const condition = clauses.flatMap((c) => c.conditions).find((c) => c.start >= subject.end && c.start < to && !verbBefore(c.start))
-    const verb = condition ? clauseVerbPast(tokens, condition) : -1
+    // A gerund heads a singular subject; a head in -s, not -ss, a plural one.
+    const verb = condition ? clauseVerbPast(tokens, condition, !/ing$/.test(head.lower) && /[^s]s$/.test(head.lower)) : -1
     return condition && verb > 0 ? readAlone(reading, from, to, [[condition.start, verb]]) : null
   }
   const texts = new Set([sentence])
@@ -2436,7 +2447,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (392 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (395 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4511,6 +4522,11 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Reusing a refresh token because it is not valid does not sign everyone out.</li>', false],
       ['<li>Logging out when it is not needed does not end every session.</li>', false],
       ['<li>Logging out when it is not needed never ends every session.</li>', false],
+      // A verb the condition's clause takes is not the clause's: an infinitive after "to", or a base form after a
+      // singular subject (Codex on fb7cf414).
+      ['<li>Logging out when it is not supposed to end every session clears cookies.</li>', false],
+      ['<li>Reusing a refresh token when it is not possible to sign everyone out renews the session.</li>', false],
+      ['<li>Logging out when it does not let anyone end every session clears cookies.</li>', false],
     ]
     const flagged = planted.map(([html]) => {
       const { container, unmount } = render(<div dangerouslySetInnerHTML={{ __html: html }} />)
