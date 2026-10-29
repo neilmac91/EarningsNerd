@@ -1493,19 +1493,27 @@ async def list_connections(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List the user's sign-in methods: whether a password is set + any linked OAuth providers."""
-    rows = oauth_account_service.list_oauth_accounts(db, current_user.id)
-    return {
-        "has_password": bool(current_user.hashed_password),
-        "providers": [
-            {
-                "provider": r.provider,
-                "provider_email": r.provider_email,
-                "linked_at": r.created_at.isoformat() if r.created_at else None,
-            }
-            for r in rows
-        ],
-    }
+    """List the user's sign-in methods: whether a password is set + any linked OAuth providers.
+
+    One unit in the thread pool, the links' read, released before the route returns, so no statement or
+    release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md)."""
+    user_id, has_password = current_user.id, bool(current_user.hashed_password)
+
+    def read_links() -> list[dict[str, Optional[str]]]:
+        try:
+            return [
+                {
+                    "provider": r.provider,
+                    "provider_email": r.provider_email,
+                    "linked_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in oauth_account_service.list_oauth_accounts(db, user_id)
+            ]
+        finally:
+            filing_list_service.release_request_session(db)
+
+    providers = await run_in_threadpool(read_links)
+    return {"has_password": has_password, "providers": providers}
 
 
 @router.delete("/connections/{provider}")
@@ -1515,14 +1523,40 @@ async def unlink_connection(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Unlink an OAuth provider — but never remove the user's only remaining sign-in method."""
+    """Unlink an OAuth provider — but never remove the user's only remaining sign-in method.
+
+    One unit in the thread pool, the unlink and its audit row, released before the route returns, so no
+    statement or release runs on the event loop (E121, lessons/ops-release-cached-filing-reads-before-yield.md).
+    In the thread pool two unlinks of one account can interleave, so the unlink takes the account's users row
+    lock before its guard reads. A provider the route does not know is refused before any unit; the dependency's
+    finalizer then ends the auth lookup's read, in the thread pool."""
     provider = provider.lower().strip()
     if provider not in {"google", "apple"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
+    # Read before the unlink commits: the commit expires the user, and a read after it refreshes the row.
+    user_id, user_email = current_user.id, current_user.email
+    hashed_ip = _hashed_client_ip(request)
+
+    def unlink() -> None:
+        # The link's delete commits on its own, then its oauth_unlinked audit row, which is best effort.
+        try:
+            # Lockout guard inside, under the account's users row lock: the user must keep a password or
+            # another linked provider, and a concurrent unlink waits for this one's commit.
+            oauth_account_service.unlink_oauth_provider(db, user_id, provider)
+            audit_service.create_audit_log(
+                db,
+                action="oauth_unlinked",
+                user_id=user_id,
+                user_email=user_email,
+                entity_type="user",
+                ip_address=hashed_ip,
+                details={"provider": provider},
+            )
+        finally:
+            filing_list_service.release_request_session(db)
 
     try:
-        # Lockout guard inside: the user must keep a password or another linked provider.
-        oauth_account_service.unlink_oauth_provider(db, current_user, provider)
+        await run_in_threadpool(unlink)
     except oauth_account_service.ProviderNotLinkedError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="That provider is not linked to your account."
@@ -1532,13 +1566,4 @@ async def unlink_connection(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You can't remove your only sign-in method. Set a password first, then unlink.",
         ) from None
-    audit_service.create_audit_log(
-        db,
-        action="oauth_unlinked",
-        user_id=current_user.id,
-        user_email=current_user.email,
-        entity_type="user",
-        ip_address=_hashed_client_ip(request),
-        details={"provider": provider},
-    )
     return {"status": "success", "unlinked": provider}
