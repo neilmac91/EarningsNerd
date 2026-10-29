@@ -2843,7 +2843,10 @@ the secondary ink. The tooltip's series names follow secondary, `#D1D5DB` in dar
 `chartTheme` carries them as `nameInk` (`text.secondary`) and `valueInk` (`text.primary`), and
 `tests/unit/chartThemeTokens.spec.ts` holds every `chartTheme` ink to the tailwind token it copies, per theme. The
 chart export's secondary ink (`EXPORT_TEXT`, mirrored from `text.secondary`) follows secondary too, held by
-`tests/unit/chart-export.spec.ts`.
+`tests/unit/chart-export.spec.ts`. A tooltip row's swatch is its mark's paint: `ChartTooltip` takes the row's `color`,
+else the series colour of its position. Recharts gives a row its series' own `fill`, so the peers chart, whose bars
+take their paint from their Cells, passes `swatchOf`, which paints each row's swatch as its bar: a peer's grey at 45%,
+the subject's `chart.1` (`tests/unit/peer-comparison-panel.spec.tsx`).
 Tooltip cursor: `barCursorProps(dark)` on the bar charts (filing fundamentals and peers, the Recharts charts
 left) — a category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
