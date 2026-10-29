@@ -81,8 +81,10 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
     }
   }
 
+  // The buttons' and the panel's insets take E120's cap (E240): in the resend dialog at 320px under 200% text the
+  // body's column is about 216px, and "WhatsApp" alone is 200px at its narrowest inside uncapped insets.
   const externalLinkClasses =
-    'inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:hover:bg-white/5'
+    'inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-cap-2.5 py-1.5 text-xs font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:hover:bg-white/5'
 
   return (
     <div className="inline-flex flex-col items-end gap-2">
@@ -112,7 +114,9 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
       </div>
 
       {open && (
-        <div className="w-full min-w-[16rem] max-w-sm space-y-3 rounded-lg border border-border-light bg-panel-light p-3 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+        // Its minimum stops at its container, so under 200% text it no longer holds the resend dialog wider than a
+        // phone (E240).
+        <div className="w-full min-w-[min(16rem,100%)] max-w-sm space-y-3 rounded-lg border border-border-light bg-panel-light p-cap-3 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <div>
             <label
               htmlFor={`share-message-${link}`}
@@ -176,7 +180,8 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <LinkedinLogoIcon className="h-3.5 w-3.5" />
-              Copy for DM/LinkedIn
+              {/* A break after the slash: unbroken, "DM/LinkedIn" held the button at 224px under 200% text (E240). */}
+              Copy for DM/<wbr />LinkedIn
             </button>
             <button
               type="button"
