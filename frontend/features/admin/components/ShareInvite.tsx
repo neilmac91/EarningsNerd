@@ -38,9 +38,11 @@ interface ShareInviteProps {
   /**
    * The status line of the dialog this sits in (the resend dialog's), which says a share sheet that could not open. The
    * page's toast region lies outside an aria-modal dialog, which hides it from VoiceOver, so from inside one a toast is
-   * never heard (chief design on #1793). Without it, the failure is said in the toast region.
+   * never heard (chief design on #1793). A share empties the line as the sheet opens (''), so a second failure is said
+   * again, and the line keeps its room while the sheet is open; a share that ends with nothing to say, shared or
+   * dismissed, empties it for good (null). Without it, the failure is said in the toast region.
    */
-  onStatus?: (message: string) => void
+  onStatus?: (message: string | null) => void
 }
 
 /**
@@ -76,6 +78,7 @@ export default function ShareInvite({ link, email, defaultMessage, optionsIn = '
   const handleNativeShare = async () => {
     // Emptied first, so a second failure is said again.
     onStatus?.('')
+    let failed = false
     try {
       await navigator.share({
         title: 'Your EarningsNerd beta invite',
@@ -85,10 +88,11 @@ export default function ShareInvite({ link, email, defaultMessage, optionsIn = '
       })
     } catch (err) {
       // The user dismissing the share sheet throws AbortError — that's not a failure.
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      if (onStatus) onStatus('Could not open the share sheet.')
-      else toast.error('Could not open the share sheet.')
+      failed = !(err instanceof DOMException && err.name === 'AbortError')
     }
+    if (!failed) onStatus?.(null)
+    else if (onStatus) onStatus('Could not open the share sheet.')
+    else toast.error('Could not open the share sheet.')
   }
 
   const options = (
@@ -183,10 +187,16 @@ const externalLinkClasses =
  * The share options: the message, the warning a link anyone can redeem carries, and the channels. Copy for DM/LinkedIn
  * and Copy message say a press in the options' own status line, under their buttons: the options open only inside a
  * dialog (the resend dialog's body, or their own), and the page's toast region lies outside it, which aria-modal hides
- * from VoiceOver (chief design on #1793). The line goes with the options when they close.
+ * from VoiceOver (chief design on #1793). The line goes with the options when they close. While a repeat press empties
+ * it, it keeps the words it last said, invisible and hidden from the accessibility tree, so it holds its room and the
+ * dialog around it holds still, as the resend dialog's line does.
  */
 function ShareOptions({ link, message, onMessage, unbound, optionsIn }: ShareOptionsProps) {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  // What the line last said, kept in the render that empties it (see ResendShareModal).
+  const [held, setHeld] = useState<'copied' | 'failed' | null>(null)
+  if (copyState !== 'idle' && copyState !== held) setHeld(copyState)
+  const words = (state: 'copied' | 'failed') => (state === 'copied' ? 'Invite message copied.' : 'Could not copy the message.')
   const deepLinks = buildShareDeepLinks(message)
 
   const handleCopyMessage = async () => {
@@ -281,13 +291,13 @@ function ShareOptions({ link, message, onMessage, unbound, optionsIn }: ShareOpt
             Copy message
           </button>
         </div>
-        {/* Always in place while the options are open, so the line is a live region before a press fills it; empty, it
-            takes no room. */}
+        {/* Always in place while the options are open, so the line is a live region before a press fills it; empty before a
+            first press, it takes no room. */}
         <p
           role="status"
-          className={cx('text-xs text-text-secondary-light dark:text-text-secondary-dark', copyState !== 'idle' && 'mt-2')}
+          className={cx('text-xs text-text-secondary-light dark:text-text-secondary-dark', held && 'mt-2')}
         >
-          {copyState === 'copied' ? 'Invite message copied.' : copyState === 'failed' ? 'Could not copy the message.' : ''}
+          {copyState !== 'idle' ? words(copyState) : held && <span aria-hidden="true" className="invisible">{words(held)}</span>}
         </p>
       </div>
     </div>

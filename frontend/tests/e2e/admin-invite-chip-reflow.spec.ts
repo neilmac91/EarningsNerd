@@ -54,6 +54,15 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
  * share sheet, where a created row's "Share invite" button stands beside "More", which opens the dialog: the pair
  * wraps inside the row, where side by side under 200% text "More" ran 59 to 112px past it (chief design on #1791).
  *
+ * A repeat press in the resend dialog moves nothing (chief design on #1793): at 1440px and at 390px under 200% text, in
+ * both themes, Copy link pressed twice and then the share options' Copy message pressed twice hold the dialog's box,
+ * the pressed button's and Done's still in every frame, from the second press until its line says it again. Each press
+ * empties its status line so the same words are said again, and the emptied line took its words and its margin with it:
+ * the centred dialog shrank and grew back for a frame or two, 12 to 32px, the button under the pointer with it, and
+ * where the dialog was at full height Done moved 80px. The clipboard here answers after 100ms, so the emptied line is
+ * painted for several frames. With the browser's share sheet, a share that ends with nothing to say leaves the dialog's
+ * box as it was before any press: the line gives up its room.
+ *
  * CI runs e2e with no backend (lessons/test-e2e-runs-without-backend.md): the API origin is answered inside the
  * browser with page.route fixtures (an admin with two pending invites, and three feedback reports), and the
  * middleware's session gate is satisfied by its non-credential presence cookie.
@@ -333,6 +342,81 @@ async function offerShareSheet(page: Page) {
   })
 }
 
+/** A clipboard that answers a write after 100ms, as a real one can take a moment: a status line emptied for the write is
+ *  then painted for several frames, where an instant one may paint it for none (chief design measured one or two). */
+async function slowClipboard(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => new Promise<void>((resolve) => setTimeout(resolve, 100)) },
+      configurable: true,
+    })
+  })
+}
+
+type Frame = { dialog: number[]; control: number[]; done: number[]; said: string }
+
+/**
+ * Presses `control` once, then again, reading in every animation frame from just before the second press until its
+ * status line says `words` again, and five frames more: the top and bottom of the dialog, of the pressed control and of
+ * Done, and what the line says (its text outside aria-hidden parts).
+ */
+async function framesOfRepeatPress(dialog: Locator, control: Locator, line: Locator, words: string): Promise<Frame[]> {
+  await control.click()
+  await expect(line).toHaveText(words)
+  const elements = {
+    dialog: await dialog.elementHandle(),
+    control: await control.elementHandle(),
+    line: await line.elementHandle(),
+    done: await dialog.getByRole('button', { name: 'Done' }).elementHandle(),
+  }
+  return dialog.page().evaluate(({ dialog, control, line, done, words }) => {
+    const box = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return [r.top, r.bottom]
+    }
+    const said = (node: Node): string =>
+      node instanceof Element && node.getAttribute('aria-hidden') === 'true'
+        ? ''
+        : node.nodeType === Node.TEXT_NODE
+          ? (node.textContent ?? '')
+          : [...node.childNodes].map(said).join('')
+    const frames: Frame[] = []
+    return new Promise<Frame[]>((resolve) => {
+      let emptied = false
+      let after = -1
+      const tick = () => {
+        const frame = { dialog: box(dialog!), control: box(control!), done: box(done!), said: said(line!) }
+        frames.push(frame)
+        if (frame.said === '') emptied = true
+        if (emptied && frame.said === words && after < 0) after = 0
+        if (after >= 0) after += 1
+        // Two seconds at most, so a line that never says the words again ends the read and fails below.
+        if (after > 5 || frames.length > 120) resolve(frames)
+        else requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(() => {
+        tick()
+        ;(control as HTMLElement).click()
+        requestAnimationFrame(tick)
+      })
+    })
+  }, { ...elements, words })
+}
+
+/** Every frame holds the first frame's boxes, and the line went empty and said `words` again. */
+function expectStill(frames: Frame[], words: string, label: string) {
+  const said = frames.map((frame) => frame.said)
+  expect(said, `${label}: the line was not emptied, so a repeat press is not said again`).toContain('')
+  expect(said.at(-1), `${label}: the line did not say it again`).toBe(words)
+  const [first] = frames
+  for (const [i, frame] of frames.entries()) {
+    for (const part of ['dialog', 'control', 'done'] as const) {
+      const moved = frame[part].map((edge, j) => Math.abs(edge - first[part][j]))
+      expect(Math.max(...moved), `${label}: ${part === 'control' ? 'the pressed button' : part === 'done' ? 'Done' : 'the dialog'} moved in frame ${i} ("${frame.said}")`).toBeLessThanOrEqual(0.5)
+    }
+  }
+}
+
 /** The document's width and the viewport's once the root font is set (figure-receipt-reflow's 200% method). */
 async function pageWidth(page: Page, rootFont: string) {
   return page.evaluate((size) => {
@@ -512,6 +596,51 @@ for (const theme of ['light', 'dark'] as const) {
         })
       }
     }
+  })
+
+  test.describe(`the resend dialog's status lines, ${theme} theme`, () => {
+    for (const [width, doubled] of [[1440, false], [390, true]] as const) {
+      const text = doubled ? '200% text' : 'the default text size'
+      test(`at ${width}px under ${text} a repeat press of Copy link or Copy message moves nothing in the dialog (chief design on #1793)`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 })
+        if (doubled) {
+          const cdp = await page.context().newCDPSession(page)
+          await cdp.send('Page.setFontSizes', { fontSizes: { standard: 32, fixed: 26 } })
+        }
+        await slowClipboard(page)
+        await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+        await page.getByRole('button', { name: /Resend/ }).first().click()
+        const dialog = page.getByRole('dialog')
+        await page.evaluate(() => document.fonts.ready)
+        const label = `${width}px, ${text}, ${theme}`
+        const [line] = await dialog.getByRole('status').all()
+        expectStill(await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy link' }), line, 'Invite link copied.'), 'Invite link copied.', `${label}, Copy link`)
+
+        await dialog.getByRole('button', { name: 'Share invite', expanded: false }).click()
+        const optionsLine = dialog.getByRole('status').filter({ hasNot: page.getByText('Invite link copied.') })
+        await expect(optionsLine).toHaveCount(1)
+        expectStill(await framesOfRepeatPress(dialog, dialog.getByRole('button', { name: 'Copy message' }), optionsLine, 'Invite message copied.'), 'Invite message copied.', `${label}, Copy message`)
+      })
+    }
+
+    test("with the browser's share sheet, a share that ends with nothing to say gives up the line's room", async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await slowClipboard(page)
+      await offerShareSheet(page)
+      await openAdmin(page, baseURL!, theme, '/admin/invites', LINK_ONLY_ANSWERS)
+      await page.getByRole('button', { name: /Resend/ }).first().click()
+      const dialog = page.getByRole('dialog')
+      await page.evaluate(() => document.fonts.ready)
+      const rest = await dialog.boundingBox()
+      const line = dialog.getByRole('status').first()
+      await dialog.getByRole('button', { name: 'Copy link' }).click()
+      await expect(line).toHaveText('Invite link copied.')
+      expect((await dialog.boundingBox())!.height, 'the line takes room once it says something').toBeGreaterThan(rest!.height)
+
+      await dialog.getByRole('button', { name: 'Share invite' }).click()
+      await expect(line).toHaveText('')
+      await expect(async () => expect(await dialog.boundingBox(), `${theme}: the dialog keeps the emptied line's room`).toEqual(rest)).toPass()
+    })
   })
 
   test.describe(`the bulk summary, ${theme} theme`, () => {

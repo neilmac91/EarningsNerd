@@ -16,6 +16,10 @@ import ResendShareModal from '@/features/admin/components/ResendShareModal'
  *   which hides it from VoiceOver, so a toast from in there is never heard. The resend dialog says Copy link's press,
  *   and a share sheet that could not open, in its own line under the row; the share options, in the resend dialog or
  *   in their own (a summary row's), say Copy message and Copy for DM/LinkedIn in theirs.
+ * A repeat press empties a line, so the same words are said again, and until the press says its words the line keeps
+ * the words it last said, aria-hidden and invisible, so it holds its room and the dialog holds still (chief design on
+ * #1793; tests/e2e/admin-invite-chip-reflow.spec.ts measures the dialog's box across a repeat press). A share that
+ * ends with nothing to say empties the resend dialog's line for good.
  * tests/unit/copyConfirmations.spec.ts holds every clipboard write to the rule, and names this spec as these writers'.
  */
 
@@ -36,12 +40,33 @@ function offerShareSheet(share: () => Promise<void>) {
   Object.defineProperty(navigator, 'canShare', { configurable: true, value: () => true })
 }
 
-/** Every text a status line holds as it changes, so a second press that says the same is seen emptied in between. */
-function textsOf(line: HTMLElement): string[] {
-  const texts: string[] = []
-  new MutationObserver(() => texts.push(line.textContent ?? '')).observe(line, { childList: true, characterData: true, subtree: true })
-  return texts
+/** What a status line says: its text outside any aria-hidden part, which a screen reader does not hear. */
+function saidBy(line: HTMLElement): string {
+  const walk = (node: Node): string =>
+    node instanceof Element && node.getAttribute('aria-hidden') === 'true'
+      ? ''
+      : node.nodeType === Node.TEXT_NODE
+        ? (node.textContent ?? '')
+        : [...node.childNodes].map(walk).join('')
+  return walk(line)
 }
+
+type Change = { said: string; held: string; stray?: string }
+/** Each change to a status line: what it says, and the words its box holds unsaid, in aria-hidden parts that are
+    invisible too, so they keep their room and show nothing. Words in the box that are neither (an aria-hidden part that
+    shows) are recorded as stray. A second press that says the same is seen emptied in between, its last words held. */
+function changesOf(line: HTMLElement): Change[] {
+  const changes: Change[] = []
+  new MutationObserver(() => {
+    const said = saidBy(line)
+    const held = [...line.querySelectorAll('[aria-hidden="true"].invisible')].map((part) => part.textContent ?? '').join('')
+    const whole = line.textContent ?? ''
+    changes.push(whole === said + held ? { said, held } : { said, held, stray: whole })
+  }).observe(line, { childList: true, characterData: true, subtree: true })
+  return changes
+}
+/** A press's words said, then emptied while their room is held, then said again. */
+const saidTwice = (words: string): Change[] => [{ said: words, held: '' }, { said: '', held: words }, { said: words, held: '' }]
 
 const expectNoToast = () => {
   expect(toast.success, 'a toast from inside a dialog, which VoiceOver never hears').not.toHaveBeenCalled()
@@ -114,18 +139,19 @@ describe('inside a dialog, a press is said in a status line inside it, never in 
     return screen.getByRole('dialog')
   }
 
-  it("says Copy link's press in the resend dialog's status line, and a second press again", async () => {
+  it("says Copy link's press in the resend dialog's status line, and a second press again, the line holding its room", async () => {
     installClipboard()
     const dialog = resend()
     const button = within(dialog).getByRole('button', { name: 'Copy link' })
     const [line] = within(dialog).getAllByRole('status')
     expect(line, 'the line is in place, empty, before a press').toHaveTextContent(/^$/)
-    const texts = textsOf(line)
+    const changes = changesOf(line)
 
     fireEvent.click(button)
     await waitFor(() => expect(line).toHaveTextContent(/^Invite link copied\.$/))
     fireEvent.click(button)
-    await waitFor(() => expect(texts, 'emptied before the second press says it again').toEqual(['Invite link copied.', '', 'Invite link copied.']))
+    // Emptied before the second press says it again, its last words held so the line keeps its room.
+    await waitFor(() => expect(changes).toEqual(saidTwice('Invite link copied.')))
     expect(dialog.contains(line), 'the line lies inside the dialog').toBe(true)
     expect(button).toHaveAccessibleName('Copy link')
     expectNoToast()
@@ -139,17 +165,41 @@ describe('inside a dialog, a press is said in a status line inside it, never in 
     expectNoToast()
   })
 
-  it("says a share sheet that could not open in the resend dialog's status line, and a dismissed one not at all", async () => {
+  it("says a share sheet that could not open in the resend dialog's status line, a second failure again, and a dismissed one not at all", async () => {
     offerShareSheet(() => Promise.reject(new DOMException('Denied', 'NotAllowedError')))
     const dialog = resend()
+    const [line] = within(dialog).getAllByRole('status')
+    const changes = changesOf(line)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Share invite' }))
     await waitFor(() => expect(within(dialog).getByText('Could not open the share sheet.')).toHaveAttribute('role', 'status'))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Share invite' }))
+    // The emptied line keeps its last words while the sheet is open.
+    await waitFor(() => expect(changes).toEqual(saidTwice('Could not open the share sheet.')))
     expectNoToast()
 
+    // A dismissal says nothing, and the line gives up its room: no words left in it, said or held.
     offerShareSheet(() => Promise.reject(new DOMException('Dismissed', 'AbortError')))
     fireEvent.click(within(dialog).getByRole('button', { name: 'Share invite' }))
     await waitFor(() => expect(navigator.share).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(within(dialog).queryByText('Could not open the share sheet.')).toBeNull())
+    await waitFor(() => expect(line, 'the line keeps a dismissed share\'s room').toHaveTextContent(/^$/))
+    expect(changes.at(-1)).toEqual({ said: '', held: '' })
+    expectNoToast()
+  })
+
+  it("empties the resend dialog's line for good when a share ends with nothing to say", async () => {
+    installClipboard()
+    offerShareSheet(() => Promise.resolve())
+    const dialog = resend()
+    const [line] = within(dialog).getAllByRole('status')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy link' }))
+    await waitFor(() => expect(line).toHaveTextContent(/^Invite link copied\.$/))
+    const changes = changesOf(line)
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Share invite' }))
+    await waitFor(() => expect(navigator.share).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(line, 'the line keeps a finished share\'s room').toHaveTextContent(/^$/))
+    // Held while the sheet was open, then gone.
+    expect(changes).toEqual([{ said: '', held: 'Invite link copied.' }, { said: '', held: '' }])
     expectNoToast()
   })
 
@@ -161,6 +211,20 @@ describe('inside a dialog, a press is said in a status line inside it, never in 
     await waitFor(() => expect(within(dialog).getByText('Invite message copied.')).toHaveAttribute('role', 'status'))
     expect(writeText).toHaveBeenCalledOnce()
     expect(writeText.mock.calls[0][0], 'the message carries the link').toContain(LINK)
+    expectNoToast()
+  })
+
+  it("says a second Copy message again in the share options' line, the line holding its room", async () => {
+    installClipboard()
+    const dialog = resend()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Share invite', expanded: false }))
+    const line = within(dialog).getAllByRole('status').find((status) => status !== within(dialog).getAllByRole('status')[0])!
+    const changes = changesOf(line)
+    const button = within(dialog).getByRole('button', { name: 'Copy message' })
+    fireEvent.click(button)
+    await waitFor(() => expect(line).toHaveTextContent(/^Invite message copied\.$/))
+    fireEvent.click(button)
+    await waitFor(() => expect(changes).toEqual(saidTwice('Invite message copied.')))
     expectNoToast()
   })
 
