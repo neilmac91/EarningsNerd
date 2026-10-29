@@ -381,8 +381,9 @@ import {
  *    still govern it ("Nothing guarantees that logging out ends every session." passes). Since stage 4d a clause is
  *    read without a condition a subordinator opens between its subject and its verb as well (clauseVerbPast), so a
  *    negation in the condition denies nothing of the clause's verb ("Logging out when it is not needed ends every
- *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail). The page is read on
- *    every run, whatever
+ *    session." and "Reusing a refresh token because it is not valid signs everyone out." fail), and since stage 4e so
+ *    is a clause that "after" or "before" opens inside its subject, which the reader takes for a preposition ("Logging
+ *    out after it is not needed ends every session." fails). The page is read on every run, whatever
  *    tasks/todo.md records: E127's race is fixed (#1422), and so are a login that straddled a password reset (#1431)
  *    and a logout that did not wait for an in-flight renewal (#1465), but a session token already issued runs to its
  *    expiry, and E96 (how a reused token's sweep reads) is open; the stronger wording returns only in a pull request
@@ -2346,13 +2347,22 @@ const clauseByClause = (sentence: string): string[] => {
   // span's subject, in order, each with no verb group between the subject and it but in the conditions before it, up
   // to the first past which the clause's verb group stands (clauseVerbPast); the span is read without everything from
   // the first of them to that verb group ("Logging out when it is idle because it is not needed | ends every session":
-  // the routine lens on fb7cf414). null where none does.
+  // the routine lens on fb7cf414). Since stage 4e "before" or "after" inside the subject, which the reader takes for a
+  // preposition, opens such a condition too where a clause follows it and the clause's verb group stands past that
+  // clause's own ("Logging out after it is not needed | ends every session"); one whose object takes the clause's verb
+  // stays a preposition ("No session after a logout ends ..."). null where none does.
   const withoutCondition = (from: number, to: number): string | null => {
     const subject = subjectAt(tokens, from)
     const head = nounPhraseAt(tokens, from)?.head
     if (!subject || !head) return null
     // A gerund heads a singular subject; a head in -s, not -ss, a plural one.
     const plural = !/ing$/.test(head.lower) && /[^s]s$/.test(head.lower)
+    for (let k = from + 1; k < subject.end; k++) {
+      if (!/^(?:before|after)$/.test(tokens[k].lower)) continue
+      const opened: Condition = { start: k, words: k + 1, end: to, subordinator: tokens[k].lower, adverb: null, comma: false }
+      const verb = clauseVerbPast(tokens, opened, plural)
+      if (verb > 0) return readAlone(reading, from, to, [[k, verb]])
+    }
     const conditions = clauses.flatMap((c) => c.conditions).filter((c) => c.start >= subject.end && c.start < to).sort((a, b) => a.start - b.start)
     const inACondition = (k: number) => conditions.some((c) => k >= c.start && k < c.end)
     for (const condition of conditions) {
@@ -2511,7 +2521,7 @@ function literals(rel: string): string[] {
 const SCANS_EVERY_MODULE = { timeout: 30_000 }
 
 /** A case that reads every planted form of its families through their readers. The reuse and session-end families'
-    self-check (445 rows since E162 stage 4d) takes 3.5s alone, and the default 5s timed out in a full local
+    self-check (450 rows since E162 stage 4e) takes 3.5s alone, and the default 5s timed out in a full local
     run on a loaded machine. The removed claims' self-check (573 rows, through the page's render and splitter) takes
     0.8s alone, and the default 5s timed out in this spec under twenty-four busy loops on four cores. */
 const READS_EVERY_PLANTED_FORM = { timeout: 30_000 }
@@ -4566,12 +4576,15 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       // ("Nothing guarantees that logging out after a week ends every session." fails on main too).
       ['<li>No one is sure that reusing a refresh token signs everyone out.</li>', true],
       ['<li>Nothing guarantees that reusing a refresh token after a week signs everyone out.</li>', true],
+      // Since stage 4e the reader's lexicon knows "reuse", so "and reusing ..." opens a clause of its own and "that
+      // reuses ..." is a relative clause's verb, each read alone, its relative clause nested in its subject.
+      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', true],
+      ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', true],
+      ['<li>Passwords are hashed, and reusing a refresh token does not end every session.</li>', false],
+      ['<li>A client that reuses a refresh token does not sign everyone out.</li>', false],
       // Out of reach: a noun the lexicon also lists as a verb ends a phrase after an adjective ("a used refresh token"),
-      // so the gerund's object and its relative clause are not read; and a verb the lexicon lacks opens no clause after
-      // "and" and reads as a noun in a relative clause, so the phrase runs on over it ("reusing", "reuses").
+      // so the gerund's object and its relative clause are not read.
       ['<li>Presenting a used refresh token you do not own signs everyone out.</li>', 'gap'],
-      ['<li>Passwords are hashed, and reusing a refresh token you do not own ends every session.</li>', 'gap'],
-      ['<li>A client that reuses a refresh token you do not own signs everyone out.</li>', 'gap'],
       // A negation in a condition a subordinator opens between a clause's subject and its verb, which the reader runs on
       // to that verb, denies nothing there since stage 4d: the clause is read without the condition too, in either
       // family (clauseVerbPast; the routine lens on bca1801a).
@@ -4653,12 +4666,16 @@ describe("/security says what the code and the hosting do (D-046)", () => {
       ['<li>Logging out when it is idle because it is not needed ends every session.</li>', true],
       ['<li>Reusing a refresh token, if you like, because it is not valid signs everyone out.</li>', true],
       ['<li>Logging out only with your consent when it is not needed ends every session.</li>', true],
-      // Out of reach: an aside that opens no condition before one, and "after" or "before" before a pronoun or a
-      // determiner, which the reader takes for a preposition inside the subject, so it reads no condition there (the
-      // routine lens on fb7cf414).
+      // Since stage 4e "after" or "before" inside the subject, which the reader takes for a preposition, opens a
+      // condition where a clause follows it and the clause's verb stands past that clause's own (the routine lens on
+      // fb7cf414); one whose object takes the clause's verb stays a preposition.
+      ['<li>Logging out after it is not needed ends every session.</li>', true],
+      ['<li>Reusing a refresh token after the token is not valid signs everyone out.</li>', true],
+      ['<li>Logging out before it is not needed ends every session.</li>', true],
+      ['<li>Logging out after it is not needed does not end every session.</li>', false],
+      ['<li>No session after a logout ends every session.</li>', false],
+      // Out of reach: an aside that opens no condition before one (the routine lens on fb7cf414).
       ['<li>Reusing a refresh token, as you know, because it is not valid signs everyone out.</li>', 'gap'],
-      ['<li>Logging out after it is not needed ends every session.</li>', 'gap'],
-      ['<li>Reusing a refresh token after the token is not valid signs everyone out.</li>', 'gap'],
       // Out of reach too: a second predicate a condition's clause carries on after "and", "or" or "but", which the reader
       // reads as the clause's own, carried on past the condition, so the condition's "not" still denies the clause's
       // verb (the routine lens on 0757abf7).

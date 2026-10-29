@@ -7,7 +7,9 @@
  * 4c, so a shape one family reads the others read too
  * (lessons/test-gates-must-be-as-wide-as-their-rule.md). A family keeps its own lexicon (what counts as a
  * login, an endpoint or the whole API, another operation than the analytics' own, another credential than the token)
- * and matches it at the places this reading names (matchAt), not anywhere in the sentence.
+ * and matches it at the places this reading names (matchAt), not anywhere in the sentence. Since stage 4e the
+ * reader's own lexicon knows "reuse", the reuse family's verb, so "and reusing ..." opens a clause of its own and
+ * "that reuses ..." is a relative clause's verb; no other family's verdict moves with it.
  * Under its readings the endpoint family keeps main's blanket for "all" and "every" (#1594's fourth round): a clause
  * where "all" or "every" stands before "endpoints" as main read it fails, login word or not, unless this reading finds
  * the phrase narrowed (a phrase after it that picks some out, in brackets or not, the quantifier taken back) or the
@@ -228,7 +230,7 @@ leave let lie limit link list live load lock log look lose make manage mandate m
 monitor move need notify occur offer open outline own pass pay perform permit pick place plan poll prevent process produce
 promise protect prove provide proxy publish pull purchase push put query raise reach read receive recognise recognize
 recommend record redirect reduce refer refresh refuse register reject rely remain remember remove renew repeat replace reply
-report represent request require reset resolve respond restore restrict retain return reveal review revoke rotate route run
+report represent request require reset resolve respond restore restrict retain return reuse reveal review revoke rotate route run
 save say scan search secure see seem select sell send serve set share ship show sign sit sort specify start stay stand stop
 store stream submit suggest summarise summarize supply support suspend switch take talk tell test throttle track treat
 trigger try turn understand unlock update upload use validate vary verify view wait want warn watch work wrap write`
