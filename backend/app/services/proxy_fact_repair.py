@@ -12,7 +12,10 @@ four passes, in order, follow ``ops/detection/proxy_form_winners.sql``'s sets:
    10-K contradicts, refuses the company. A row whose figure another report row holds is left, and listed;
    left so, a row that is the company's current figure and more than 1% off today's 10-K figure refuses the
    company (sets 4 and 5 alike). A scale-up (1,000 or 1,000,000 times the original) is the old check's own
-   unit fix and left first, unless today's 10-K agrees with the original, when it is restored.
+   unit fix and left first, unless today's 10-K figure sits on the original's scale, not the value's: then
+   the proxy was tagged at the wrong scale over a right parse, and the row takes set 4's ordinary path
+   (restored where the original is within 1% of the 10-K's figure, refused beyond; left and listed, or
+   refused when current, where a report row holds its value).
 2. Set 5. A filing row the old cross-check confirmed against a proxy's figure keeps its value, and its
    check is recorded again against today's authority; where the 10-K contradicts it, the company is
    refused, and where the figure it was confirmed against is the 10-K's, it is kept.
@@ -138,6 +141,16 @@ def _scale_up(value: Any, original: Any) -> bool:
     The file's ``abs(value - k * original) <= 0.01 * abs(k * original)``, exactly."""
     pair = _same_sign(value, original)
     return pair is not None and any(abs(pair[0] - k * pair[1]) <= BAND * abs(k * pair[1]) for k in SCALES)
+
+
+def _on_the_originals_scale(value: Any, original: Any, authority: float | None) -> bool:
+    """Today's 10-K figure ``authority`` is nearer the recorded ``original`` than the stored ``value``, by magnitude on
+    a log scale: ``|log(|authority / original|)| < |log(|authority / value|)|``. Magnitudes, because ``_scale_up``
+    already holds the value and the original to one sign, and a 10-K figure of the other sign is still read for its
+    scale. With no 10-K figure, or one of zero, it sits on neither scale."""
+    if not authority:
+        return False
+    return abs(math.log(abs(authority / original))) < abs(math.log(abs(authority / float(value))))
 
 
 def _scale_down(value: Any, original: Any) -> bool:
@@ -500,10 +513,12 @@ class _Planner:
             original = _number(check.get("original_value"))
             authority = self._authority(state)
             # The authority scaled up a parse in units: the check's job, backed or not, and no verdict, since
-            # detection never lists it (scaled up is never scaled down). Unless today's 10-K sides with the
-            # original: then the proxy was tagged at the wrong scale over a right parse (FedEx's error mirrored),
-            # and the row is restored below, an error detection's set 4 cannot see without the payload.
-            if _scale_up(value, original) and not (authority is not None and _agrees(original, authority)):
+            # detection never lists it (scaled up is never scaled down). Unless today's 10-K figure sits on the
+            # original's scale: then the proxy was tagged at the wrong scale over a right parse (FedEx's error
+            # mirrored), which detection's set 4 cannot see without the payload, and the row takes the ordinary
+            # path below, where the original against today's 10-K figure decides, restored or refused, the 10-K
+            # having restated the year or not.
+            if _scale_up(value, original) and not _on_the_originals_scale(value, original, authority):
                 continue
             if self._left(row_id, state, value, 4):
                 continue
