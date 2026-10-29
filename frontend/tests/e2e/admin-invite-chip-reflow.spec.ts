@@ -299,8 +299,10 @@ async function measureSummary(summary: Locator) {
  *  widths. */
 async function measureShareOptions(dialog: Locator) {
   return dialog.evaluate((d) => {
+    // A hidden name tail (sr-only, as "More" carries beside the browser's share sheet) clips its words to a 1px box by
+    // design, so it scrolls nowhere a reader sees.
     const scrolling = [d, ...d.querySelectorAll('*')]
-      .filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
+      .filter((el) => !el.classList.contains('sr-only') && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible')
       .map((el) => `${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 3).join('.')}: ${el.scrollWidth}px in ${el.clientWidth}px`)
     // The share panel holds the message field; the dialog's body is ModalBody's recipe (px-cap-6 py-4).
     const sharePanel = d.querySelector('textarea')!.closest('.shadow-e2')!
