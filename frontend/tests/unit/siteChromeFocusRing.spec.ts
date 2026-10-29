@@ -641,6 +641,10 @@ function resolverOf(sf: ts.SourceFile): (ref: ts.Identifier) => Binding | undefi
 /** The keys a plain object spread may not hold: each decides whether, or how, the element takes focus or a field is
     styled, which the scan reads off attributes only. */
 const FOCUS_KEYS = new Set(['tabIndex', 'tabindex', 'disabled', 'hidden', 'contentEditable', 'contenteditable', 'type', 'controls', 'style', 'as'])
+/** A plain object's key as React reads it: an identifier's text or a string literal's, its quotes dropped (`'className'`
+    is `className`; Codex on #1795). undefined for any other key. */
+const keyOf = (prop: ts.ObjectLiteralElementLike): string | undefined =>
+  prop.name && (ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) ? prop.name.text : undefined
 /**
  * A props spread the scan reads key by key: a `const` the file declares whose initializer is an object literal of
  * named entries (no spread of its own, no computed key), none of them a key that decides focus (FOCUS_KEYS), and
@@ -657,7 +661,8 @@ function plainSpread(spread: ts.JsxSpreadAttribute, sf: ts.SourceFile, resolve: 
   if (!ts.isObjectLiteralExpression(init)) return undefined
   for (const prop of init.properties) {
     if (!ts.isPropertyAssignment(prop) && !ts.isShorthandPropertyAssignment(prop) && !ts.isMethodDeclaration(prop)) return undefined
-    if (!(ts.isIdentifier(prop.name) || ts.isStringLiteral(prop.name)) || FOCUS_KEYS.has(prop.name.text)) return undefined
+    const key = keyOf(prop)
+    if (key === undefined || FOCUS_KEYS.has(key)) return undefined
   }
   return containerEscape(init, sf, resolve) ? undefined : init
 }
@@ -669,8 +674,11 @@ function classSource(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement, sf: 
   for (const p of node.attributes.properties) {
     if (ts.isJsxAttribute(p) && p.name.getText(sf) === 'className') source = p.initializer ?? null
     else if (ts.isJsxSpreadAttribute(p)) {
-      const entry = plainSpread(p, sf, resolve)?.properties.find((prop) => prop.name?.getText(sf) === 'className')
-      if (entry) source = ts.isPropertyAssignment(entry) ? entry.initializer : ts.isShorthandPropertyAssignment(entry) ? entry.name : null
+      // Its className entry by the key React reads, quoted or not; the last of several, as the object keeps.
+      for (const entry of plainSpread(p, sf, resolve)?.properties ?? []) {
+        if (keyOf(entry) !== 'className') continue
+        source = ts.isPropertyAssignment(entry) ? entry.initializer : ts.isShorthandPropertyAssignment(entry) ? entry.name : null
+      }
     }
   }
   return source
@@ -1504,6 +1512,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
       const LOWER = { className: '${ring}', tabindex: '0' }
       const LATER = { className: '${ring}' }
       LATER.className = 'p-1'
+      const QUOTED = { 'className': 'p-1' }
+      const QUOTED_RING = { 'className': '${ring}' }
       export function A({ selected, on, c }: { selected: boolean; on: boolean; c: string }) {
         return (
           <nav>
@@ -1527,6 +1537,8 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
             <div {...FOCUSING}>a key that decides focus</div>
             <div {...LOWER}>the same key as the DOM spells it</div>
             <button {...LATER}>written after it is made</button>
+            <button className="${ring}" {...QUOTED}>a quoted key, written last</button>
+            <button {...QUOTED_RING}>a quoted key holding the ring</button>
           </nav>
         )
       }
@@ -1535,26 +1547,28 @@ describe('every Tab stop in the site chrome carries the brand focus ring (EN-05c
         return <button className={sourceTraceChipClass()}>a local function of the recipe's name</button>
       }`
     const { stops, findings } = missingRings(src)
-    expect(stops).toBe(21)
+    expect(stops).toBe(23)
     expect(findings.map((f) => `${f.line} <${f.tag}> ${f.problem}`)).toEqual([
       // An exported const is read in its module, so one with no ring fails; a const the module keeps to itself is no
       // import the scan can read.
-      '21 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-      '22 <NextLink> a className the scan cannot read',
+      '23 <NextLink> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '24 <NextLink> a className the scan cannot read',
       // A class glued to the next part, written or one the scan cannot read, is a class no stylesheet has.
-      '24 <a> missing focus-visible:outline-none',
       '26 <a> missing focus-visible:outline-none',
+      '28 <a> missing focus-visible:outline-none',
       // A condition holds what both its branches carry, and one branch the scan cannot read leaves it unread.
-      '28 <a> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
-      '29 <a> a className the scan cannot read',
+      '30 <a> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '31 <a> a className the scan cannot read',
       // The className written last wins.
-      '31 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
+      '33 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       // A spread with a key that decides focus (a tabIndex, in either spelling), or one written after it is made, stays unread.
-      '33 <div> a props spread the scan cannot read',
-      '34 <div> a props spread the scan cannot read',
-      '35 <button> a props spread the scan cannot read',
+      '35 <div> a props spread the scan cannot read',
+      '36 <div> a props spread the scan cannot read',
+      '37 <button> a props spread the scan cannot read',
+      // A quoted key is the key React reads: written last, its classes are the element's, ring or not (Codex on #1795).
+      '38 <button> missing focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark',
       // A local function of the recipe's name is not the recipe.
-      '41 <button> a className the scan cannot read',
+      '45 <button> a className the scan cannot read',
     ])
   })
 
