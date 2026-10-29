@@ -43,11 +43,14 @@ vi.mock('@/features/calendar/api/calendar-api', async (importOriginal) => {
   }
 })
 
-// jsdom has no showModal(); the real one also puts the dialog in the top layer, which jsdom cannot model.
-const dialogProto = HTMLElement.prototype as HTMLElement & { showModal?: () => void }
+// jsdom has no native dialog lifecycle; browser coverage checks its top layer and focus restoration.
+const dialogProto = HTMLElement.prototype as HTMLElement & { showModal?: () => void; close?: () => void }
 beforeAll(() => {
   dialogProto.showModal = function (this: HTMLElement) {
     this.setAttribute('open', '')
+  }
+  dialogProto.close = function (this: HTMLElement) {
+    this.removeAttribute('open')
   }
   // The page takes its week from the clock; a holiday Monday renders "Market closed" in place of the
   // reports this spec opens, so the week is pinned to one with no market holiday.
@@ -56,6 +59,7 @@ beforeAll(() => {
 })
 afterAll(() => {
   delete dialogProto.showModal
+  delete dialogProto.close
   vi.useRealTimers()
 })
 
