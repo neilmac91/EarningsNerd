@@ -7,17 +7,24 @@ import { CheckIcon, CopyIcon } from '@/lib/icons'
 interface CopyLinkButtonProps {
   /** The invite link written to the clipboard. */
   link: string
+  /**
+   * The status line of the dialog the button sits in, which says a press there (the resend dialog's). The page's toast
+   * region lies outside an aria-modal dialog, which hides it from VoiceOver, so from inside one a toast is never heard
+   * (chief design on #1793). Without it, a press is said in the toast region.
+   */
+  onStatus?: (message: string) => void
 }
 
 /**
  * Small copy-to-clipboard button, shared across the admin invite surfaces (the bulk results, the resend dialog). It
- * keeps its words, so its name is what it shows (WCAG 2.5.3), and confirms through the toast region, "Invite link
- * copied", as the share panel's Copy message does (4.1.3), its icon turning to a check for a moment beside it. Words
- * that flashed to say it was copied renamed the button, and inside a live region (the bulk summary's) were heard on
- * top of any confirmation: one confirmation is heard in each place (chief design on #1789 and #1791). The flash timer
+ * keeps its words, so its name is what it shows (WCAG 2.5.3), and says a press where a screen reader hears it (4.1.3):
+ * in the bulk summary through the toast region, "Invite link copied", as the summary's own send does, and in the resend
+ * dialog in the dialog's status line (`onStatus`), its icon turning to a check for a moment beside it. Words that
+ * flashed to say it was copied renamed the button, and inside a live region (the bulk summary's) were heard on top of
+ * any confirmation: one confirmation is heard in each place (chief design on #1789, #1791 and #1793). The flash timer
  * is cleared on unmount so we never setState on an unmounted node.
  */
-export default function CopyLinkButton({ link }: CopyLinkButtonProps) {
+export default function CopyLinkButton({ link, onStatus }: CopyLinkButtonProps) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -26,15 +33,19 @@ export default function CopyLinkButton({ link }: CopyLinkButtonProps) {
   }, [])
 
   const handleCopy = async () => {
+    // Emptied first, so a second press that says the same is said again.
+    onStatus?.('')
     try {
       await navigator.clipboard.writeText(link)
-      toast.success('Invite link copied')
+      if (onStatus) onStatus('Invite link copied.')
+      else toast.success('Invite link copied')
       setCopied(true)
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => setCopied(false), 1500)
     } catch {
       setCopied(false)
-      toast.error('Could not copy the link.')
+      if (onStatus) onStatus('Could not copy the link.')
+      else toast.error('Could not copy the link.')
     }
   }
 
