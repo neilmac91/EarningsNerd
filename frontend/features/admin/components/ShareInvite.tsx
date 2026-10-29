@@ -95,7 +95,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             variant="secondary"
             size="sm"
             onClick={handleNativeShare}
-            aria-label="Share invite"
           >
             <ShareNetworkIcon className="h-3.5 w-3.5" />
             Share invite
@@ -107,9 +106,18 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
           size="sm"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-label={open ? 'Hide share options' : 'Show share options'}
         >
-          {canNativeShare ? 'More' : 'Share invite'}
+          {/* Each control here is named by the words it shows, which a voice command can say, and the toggle's state is
+              aria-expanded's: a label that replaced them ("Show share options" on "Share invite") failed WCAG 2.5.3
+              (E243). "More" takes a hidden tail, its own space first (lessons/frontend-hidden-name-tails-bring-their-
+              own-space.md). */}
+          {canNativeShare ? (
+            <>
+              More{' '}<span className="sr-only">share options</span>
+            </>
+          ) : (
+            'Share invite'
+          )}
         </Button>
       </div>
 
@@ -151,7 +159,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               href={deepLinks.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Share invite via WhatsApp"
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <WhatsappLogoIcon className="h-3.5 w-3.5" />
@@ -159,7 +166,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             </a>
             <a
               href={deepLinks.sms}
-              aria-label="Share invite via Messages"
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <ChatTextIcon className="h-3.5 w-3.5" />
@@ -167,7 +173,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             </a>
             <a
               href={deepLinks.mailto}
-              aria-label="Share invite via email"
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <EnvelopeSimpleIcon className="h-3.5 w-3.5" />
@@ -176,7 +181,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             <button
               type="button"
               onClick={handleCopyMessage}
-              aria-label="Copy invite message and link for a DM or LinkedIn"
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <LinkedinLogoIcon className="h-3.5 w-3.5" />
@@ -186,7 +190,6 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             <button
               type="button"
               onClick={handleCopyMessage}
-              aria-label="Copy invite message and link"
               className={`focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${externalLinkClasses}`}
             >
               <CopyIcon className="h-3.5 w-3.5" />
