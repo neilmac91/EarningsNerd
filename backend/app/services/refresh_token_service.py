@@ -316,8 +316,12 @@ def rotate_and_commit(
     *,
     user_agent: Optional[str] = None,
     ip: Optional[str] = None,
-) -> Tuple[User, str]:
-    """Rotate ``raw_token`` and commit; return ``(user, new_raw_token)``.
+) -> Tuple[User, str, str]:
+    """Rotate ``raw_token`` and commit; return ``(user, new_raw_token, email)``.
+
+    ``email`` is the account's address, read before the commit expires ``user``: the caller builds the
+    access token from it, so no read after the commit can fail a rotation that committed, whose new token
+    the client would then never get and whose next refresh would replay the one rotated away (E121).
 
     A replayed rotated-away token's chain revocation is committed before the same
     :class:`RefreshTokenReuseError` propagates. Any other :class:`RefreshTokenError` made no writes
@@ -325,11 +329,12 @@ def rotate_and_commit(
     """
     try:
         user, new_raw_token = rotate_refresh_token(db, raw_token, user_agent=user_agent, ip=ip)
+        email = user.email
         db.commit()
     except RefreshTokenReuseError:
         db.commit()
         raise
-    return user, new_raw_token
+    return user, new_raw_token, email
 
 
 def revoke_and_commit(db: Session, raw_token: Optional[str]) -> Optional[Tuple[int, Optional[str]]]:

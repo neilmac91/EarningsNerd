@@ -397,8 +397,8 @@ async def delete_user_account(
     user_id = current_user.id
     user_email = current_user.email
     stripe_customer_id = current_user.stripe_customer_id
-    # Each provider's outcome, logged with a failure too: a failed deletion commits no audit row, and the
-    # provider actions already taken are not undone (F19).
+    # Each provider's outcome, logged with a failure too: a failed deletion commits no audit row (unless its
+    # commit was applied and only the reply was lost), and the provider actions already taken are not undone (F19).
     deletion_results = {
         "stripe": "skipped",
         "posthog": "skipped",

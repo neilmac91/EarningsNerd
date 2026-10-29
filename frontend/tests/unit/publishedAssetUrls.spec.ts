@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPathMatch } from 'next/dist/shared/lib/router/utils/path-match'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 /**
  * A published asset URL stays where it was published (CLAUDE.md rule 12;
@@ -398,6 +398,13 @@ describe('the register', () => {
 })
 
 describe('published asset URLs', () => {
+  // routing() runs `next build`'s config reader in a child process for each production host, a few
+  // seconds that the first test to read the routes would spend against its own 5 s limit, which a busy
+  // machine runs past; read them once here, under a limit of their own.
+  beforeAll(() => {
+    routes ??= routing()
+  }, 60_000)
+
   for (const { url, sha256 } of PUBLISHED) {
     it(`${url} is still its published file in frontend/public`, () => {
       const file = path.join(PUBLIC, url)
