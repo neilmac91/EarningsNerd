@@ -110,14 +110,16 @@ arrives.
    - neither: look for the initiated WARNING `USER DELETION: … account deletion initiated`, the route's first line:
      - absent: the request never reached the deletion (its sign-in was refused, or it never arrived), and the
        account is untouched;
-     - present, with no COMPLETED or ERROR line after it (provider lines such as `Cancelled Stripe subscription …`
-       or `Sentry user context cleared …` may follow): the route is still running, or it was stopped part-way (the
+     - present, with no `USER DELETION COMPLETED …` or `Error deleting user account …` line after it (provider
+       lines, INFO or ERROR, such as `Cancelled Stripe subscription …`, `Failed to cancel Stripe subscription …` or
+       `Sentry user context cleared …`, may follow): the route is still running, or it was stopped part-way (the
        matrix's last row). A Stripe brownout can hold it for many minutes: the cancellation can queue for one of the
        eight Stripe threads, and each call waits up to 80 s to connect and 80 s between reads, retried twice
        (`lessons/ops-stripe-calls-wait-on-threads-of-their-own.md`). Search again an hour later; if nothing has
        followed, the route has most likely stopped. Firmer evidence is the end of the instance that wrote the
-       initiated line: its shutdown in Cloud Logging, under that line's `labels.instanceId`. Then check whether the
-       account still exists; it does unless its unit committed.
+       initiated line: uvicorn's `Shutting down` line, then `Waiting for connections to close …`, in Cloud Logging
+       under that line's `labels.instanceId`. A kill without SIGTERM can leave neither, so their absence proves
+       nothing. Then check whether the account still exists; it does unless its unit committed.
 2. Provider effects already taken stand:
    - The subscriptions named by `Cancelled Stripe subscription …` lines are cancelled, and the customer record kept.
    - PostHog was sent its deletion event.

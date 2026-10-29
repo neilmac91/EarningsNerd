@@ -14,9 +14,10 @@ and the client services (`client.subscriptions.cancel`, `client.v1.refunds.creat
 `client.v1.subscriptions.retrieve(x).delete()`, awaited or not; a service's fetch is read as its resource class's
 instance), and called or passed uncalled, as the app hands Stripe calls to `run_on_stripe_threads`. `void_invoice`,
 `mark_uncollectible`, `void_credit_note` and `void_grant`, which only Stripe's objects have, count on any receiver.
-What it cannot see, left to review: an instance's other method on a name (`subscription.cancel()`,
-`subscription.pause()`), which reads like any other object's `delete` (a session's, for one), or on the result of a
-call it does not read as a fetch (one handed to `run_on_stripe_threads`); a resource class or a service bound to a name
+What it cannot see, left to review: an instance's other method on a name, an attribute or an item
+(`subscription.cancel()`, `event.data.object.cancel()`, `page.data[0].delete()`), which reads like any other
+object's `delete` (a session's, for one), or on the result of a call it does not read as a fetch (one handed to
+`run_on_stripe_threads`); a resource class or a service bound to a name
 (`Sub = stripe.Subscription`, `subs = client.v1.subscriptions`); a fetched object changed and saved
 (`s.cancel_at_period_end = True; s.save()`); a call made through `getattr` or a name computed at run time; and a
 request sent through `raw_request` or raw HTTP. Each is planted in the self-check's `stated_gaps`.
@@ -150,12 +151,13 @@ async def async_forms(client):
     await stripe.Invoice.void_invoice_async("in_1")
     await (await stripe.Subscription.retrieve_async("sub_1")).cancel_async()
     await (await client.v1.subscriptions.retrieve_async("sub_1")).delete_async()
-def fetched_then_moved(client, invoice, grant):
+def fetched_then_moved(client, invoice, grant, note):
     stripe.Subscription.retrieve("sub_1").delete()
     client.v1.subscriptions.retrieve("sub_1").delete()
     invoice.void_invoice()
     invoice.mark_uncollectible_async()
     grant.void_grant()
+    note.void_credit_note()
 def constructed(client):
     stripe.Subscription("sub_1").delete()
     Sub("sub_1").cancel()
@@ -186,6 +188,8 @@ async def stated_gaps(client, subscription):
     subscription.cancel()
     subscription.delete()
     subscription.pause()
+    event.data.object.cancel()
+    page.data[0].delete()
     (await run_on_stripe_threads(stripe.Subscription.retrieve, "sub_1")).delete()
     Bound = stripe.Subscription
     Bound.delete("sub_1")
@@ -209,7 +213,7 @@ async def stated_gaps(client, subscription):
         ("async_forms", "Subscription.delete"),
         ("fetched_then_moved", "Subscription.delete"), ("fetched_then_moved", "Subscription.delete"),
         ("fetched_then_moved", "invoice.void_invoice"), ("fetched_then_moved", "invoice.mark_uncollectible"),
-        ("fetched_then_moved", "grant.void_grant"),
+        ("fetched_then_moved", "grant.void_grant"), ("fetched_then_moved", "note.void_credit_note"),
         ("constructed", "Subscription.delete"), ("constructed", "Subscription.cancel"),
         ("handed_over", "Subscription.delete"), ("handed_over", "Refund.create"),
         ("handed_over", "subscription_schedules.cancel"),
