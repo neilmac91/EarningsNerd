@@ -5,10 +5,8 @@ import { toast } from 'sonner'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 
 interface CopyLinkButtonProps {
-  /** The text written to the clipboard. */
+  /** The invite link written to the clipboard. */
   link: string
-  /** The button's words (default "Copy link"). */
-  label?: string
 }
 
 /**
@@ -19,7 +17,7 @@ interface CopyLinkButtonProps {
  * top of any confirmation: one confirmation is heard in each place (chief design on #1789 and #1791). The flash timer
  * is cleared on unmount so we never setState on an unmounted node.
  */
-export default function CopyLinkButton({ link, label = 'Copy link' }: CopyLinkButtonProps) {
+export default function CopyLinkButton({ link }: CopyLinkButtonProps) {
   const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -47,7 +45,7 @@ export default function CopyLinkButton({ link, label = 'Copy link' }: CopyLinkBu
       className="focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark inline-flex items-center gap-1 rounded-lg border border-border-light bg-panel-light px-2 py-1 text-xs font-medium text-text-secondary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
     >
       {copied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
-      {label}
+      Copy link
     </button>
   )
 }
